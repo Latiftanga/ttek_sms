@@ -135,6 +135,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.ttek_env/
+# virtualenv
 
 # Spyder project settings
 .spyderproject
