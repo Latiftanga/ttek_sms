@@ -1,0 +1,349 @@
+<!-- templates/core/developer_portal.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .stat-animation {
+            animation: countUp 2s ease-out;
+        }
+        @keyframes countUp {
+            from { opacity: 0; transform: scale(0.5); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .pulse-ring {
+            animation: pulse-ring 1.5s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(.8); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(.8); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="gradient-bg shadow-lg">
+        <div class="container mx-auto px-6">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <div class="bg-white bg-opacity-20 rounded-lg p-2">
+                        <i class="fas fa-tachometer-alt text-white text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">TTEK SMS</h1>
+                        <p class="text-blue-100 text-sm">Developer Dashboard</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <a href="{% url 'core:system_overview' %}" 
+                       class="text-white hover:text-blue-200 transition duration-200 flex items-center space-x-2">
+                        <i class="fas fa-chart-line"></i>
+                        <span>System Overview</span>
+                    </a>
+                    <a href="/admin/" 
+                       class="text-white hover:text-blue-200 transition duration-200 flex items-center space-x-2">
+                        <i class="fas fa-cogs"></i>
+                        <span>Admin Portal</span>
+                    </a>
+                    <div class="text-white text-sm">
+                        <i class="fas fa-user-shield mr-2"></i>
+                        {{ user.get_full_name|default:user.username }}
+                    </div>
+                    <a href="{% url 'core:logout' %}" 
+                       class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition duration-200"
+                       onclick="return confirm('Are you sure you want to logout?');">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6 py-8">
+        <!-- Welcome Section -->
+        <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">
+                        Welcome back, {{ user.get_full_name|default:user.username }}! 👋
+                    </h2>
+                    <p class="text-gray-600 text-lg">
+                        Manage your multi-tenant school management system from this centralized dashboard.
+                    </p>
+                </div>
+                <div class="hidden md:block">
+                    <div class="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-rocket text-white text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white card-hover">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-blue-100 text-sm font-medium">Total Schools</p>
+                        <p class="text-3xl font-bold stat-animation">{{ total_schools|default:0 }}</p>
+                        {% if new_schools_last_month %}
+                            <p class="text-blue-200 text-xs mt-1">+{{ new_schools_last_month }} this month</p>
+                        {% else %}
+                            <p class="text-blue-200 text-xs mt-1">Educational institutions</p>
+                        {% endif %}
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <i class="fas fa-school text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white card-hover">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-green-100 text-sm font-medium">Total Students</p>
+                        <p class="text-3xl font-bold stat-animation">{{ total_students|default:0|floatformat:0 }}</p>
+                        {% if new_students_last_month %}
+                            <p class="text-green-200 text-xs mt-1">+{{ new_students_last_month }} this month</p>
+                        {% else %}
+                            <p class="text-green-200 text-xs mt-1">Active learners</p>
+                        {% endif %}
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <i class="fas fa-user-graduate text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white card-hover">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-purple-100 text-sm font-medium">Total Teachers</p>
+                        <p class="text-3xl font-bold stat-animation">{{ total_teachers|default:0|floatformat:0 }}</p>
+                        {% if new_teachers_last_month %}
+                            <p class="text-purple-200 text-xs mt-1">+{{ new_teachers_last_month }} this month</p>
+                        {% else %}
+                            <p class="text-purple-200 text-xs mt-1">Dedicated educators</p>
+                        {% endif %}
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <i class="fas fa-chalkboard-teacher text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white card-hover">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-orange-100 text-sm font-medium">System Users</p>
+                        <p class="text-3xl font-bold stat-animation">{{ total_users|default:0 }}</p>
+                        <p class="text-orange-200 text-xs mt-1">Total platform users</p>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-full p-3">
+                        <i class="fas fa-users text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Recent Schools -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-clock mr-3 text-blue-600"></i>
+                        Recent Activity
+                    </h3>
+                    <p class="text-gray-600 text-sm mt-1">Latest schools added to the system</p>
+                </div>
+                <div class="p-6">
+                    {% if recent_schools %}
+                        <div class="space-y-4">
+                            {% for school in recent_schools %}
+                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition duration-200">
+                                <div class="flex items-center space-x-4">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center">
+                                        <span class="text-white font-bold">{{ school.name|first|upper }}</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-gray-900">{{ school.name }}</h4>
+                                        <p class="text-sm text-gray-500">
+                                            {{ school.created_at|timesince }} ago
+                                            {% if school.domain %}
+                                                • {{ school.domain }}
+                                            {% elif school.subdomain %}
+                                                • {{ school.subdomain }}.ttek.com
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    {% if school.get_full_url %}
+                                        <a href="{{ school.get_full_url }}" target="_blank" 
+                                           class="text-blue-600 hover:text-blue-800 text-sm">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    {% endif %}
+                                    <a href="/admin/core/school/{{ school.id }}/change/" target="_blank" 
+                                       class="text-gray-600 hover:text-gray-800 text-sm">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-8">
+                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-school text-2xl text-gray-400"></i>
+                            </div>
+                            <h4 class="text-lg font-medium text-gray-900 mb-2">No Schools Yet</h4>
+                            <p class="text-gray-500 mb-4">Start by adding your first educational institution</p>
+                            <a href="/admin/core/school/add/" 
+                               class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition duration-200 inline-flex items-center space-x-2">
+                                <i class="fas fa-plus"></i>
+                                <span>Add First School</span>
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Actions & System Status -->
+            <div class="space-y-6">
+                <!-- Quick Actions -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden card-hover">
+                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
+                        <h3 class="text-lg font-semibold text-white flex items-center">
+                            <i class="fas fa-bolt mr-3"></i>Quick Actions
+                        </h3>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <a href="/admin/core/school/add/" 
+                           class="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-50 transition duration-200 group">
+                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200">
+                                <i class="fas fa-plus text-blue-600"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900">Add New School</div>
+                                <div class="text-sm text-gray-500">Register institution</div>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'core:system_overview' %}" 
+                           class="flex items-center space-x-3 p-3 rounded-lg hover:bg-green-50 transition duration-200 group">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200">
+                                <i class="fas fa-chart-line text-green-600"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900">System Overview</div>
+                                <div class="text-sm text-gray-500">Detailed analytics</div>
+                            </div>
+                        </a>
+
+                        <a href="/admin/auth/user/" 
+                           class="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition duration-200 group">
+                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200">
+                                <i class="fas fa-users text-purple-600"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900">Manage Users</div>
+                                <div class="text-sm text-gray-500">User administration</div>
+                            </div>
+                        </a>
+
+                        <a href="/admin/" 
+                           class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition duration-200 group">
+                            <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-gray-200">
+                                <i class="fas fa-cogs text-gray-600"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900">Admin Portal</div>
+                                <div class="text-sm text-gray-500">Full system access</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- System Status -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden card-hover">
+                    <div class="bg-gradient-to-r from-green-500 to-green-600 px-6 py-4">
+                        <h3 class="text-lg font-semibold text-white flex items-center">
+                            <i class="fas fa-heartbeat mr-3"></i>System Status
+                        </h3>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-700">Platform Status</span>
+                            <span class="flex items-center text-green-600">
+                                <div class="w-2 h-2 bg-green-500 rounded-full mr-2 pulse-ring"></div>
+                                Online
+                            </span>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-700">Schools Configured</span>
+                            {% if unconfigured_schools == 0 %}
+                                <span class="flex items-center text-green-600">
+                                    <i class="fas fa-check-circle mr-2"></i>Complete
+                                </span>
+                            {% else %}
+                                <span class="flex items-center text-yellow-600">
+                                    <i class="fas fa-exclamation-triangle mr-2"></i>{{ unconfigured_schools }} Pending
+                                </span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-700">Database</span>
+                            <span class="flex items-center text-green-600">
+                                <i class="fas fa-database mr-2"></i>Connected
+                            </span>
+                        </div>
+                        
+                        <div class="border-t pt-4">
+                            <div class="text-xs text-gray-500">
+                                <p>Version: 1.0.0</p>
+                                <p>Last updated: {{ "now"|date:"M d, Y H:i" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12">
+        <div class="container mx-auto px-6 py-8">
+            <div class="flex justify-between items-center">
+                <div class="text-gray-600">
+                    <p>&copy; {{ current_year }} TTEK School Management System. All rights reserved.</p>
+                </div>
+                <div class="flex items-center space-x-6 text-sm text-gray-500">
+                    <a href="mailto:support@ttek.com" class="hover:text-gray-700">Support</a>
+                    <span>•</span>
+                    <span>Made with ❤️ for Education</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

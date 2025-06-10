@@ -1,0 +1,99 @@
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Teacher Dashboard</h1>
+        <p class="page-subtitle">Welcome back, {{ teacher_profile.get_full_name|default:user.username }}!</p>
+    </div>
+</div>
+
+<!-- Teacher Info Card -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">My Information</h5>
+            </div>
+            <div class="card-body">
+                {% if teacher_profile %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Employee ID:</strong> {{ teacher_profile.employee_id }}</p>
+                        <p><strong>Name:</strong> {{ teacher_profile.get_full_name }}</p>
+                        <p><strong>Qualification:</strong> {{ teacher_profile.qualification|default:"Not specified" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Experience:</strong> {{ teacher_profile.experience_years }} years</p>
+                        <p><strong>Hire Date:</strong> {{ teacher_profile.hire_date|date:"M d, Y" }}</p>
+                        <p><strong>Subjects:</strong> 
+                            {% for subject in subjects %}
+                                <span class="badge bg-primary me-1">{{ subject|title }}</span>
+                            {% empty %}
+                                <span class="text-muted">No subjects assigned</span>
+                            {% endfor %}
+                        </p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-user-circle text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">Profile Setup Required</h5>
+                    <p class="text-muted">Your teacher profile needs to be created.</p>
+                    <a href="/admin/" class="btn btn-primary">Contact Administrator</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Quick Stats -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Quick Stats</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary">0</h4>
+                        <small class="text-muted">Classes</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">0</h4>
+                        <small class="text-muted">Students</small>
+                    </div>
+                </div>
+                <hr>
+                <p class="text-center text-muted small mb-0">Class management coming in Phase 3</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Coming Soon Sections -->
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">My Classes</h5>
+            </div>
+            <div class="card-body text-center py-5">
+                <i class="fas fa-door-open text-muted" style="font-size: 3rem;"></i>
+                <h5 class="mt-3">Coming Soon</h5>
+                <p class="text-muted">Class management will be available in Phase 3.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Activities</h5>
+            </div>
+            <div class="card-body text-center py-5">
+                <i class="fas fa-clock text-muted" style="font-size: 3rem;"></i>
+                <h5 class="mt-3">No Activities Yet</h5>
+                <p class="text-muted">Your recent activities will appear here.</p>
+            </div>
+        </div>
+    </div>
+</div>

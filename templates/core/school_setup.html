@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Setup Required - School Management System{% endblock %}
+
+{% block content %}
+<div style="background: linear-gradient(135deg, #1B5E20, #2E7D32); min-height: 100vh;">
+    <div class="container">
+        <div class="row justify-content-center align-items-center min-vh-100">
+            <div class="col-lg-6">
+                <div class="card shadow-lg border-0" style="border-radius: 20px;">
+                    <div class="card-body text-center p-5">
+                        <!-- Icon -->
+                        <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #f76707, #fd7e14); border-radius: 50%; margin: 0 auto 30px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-tools text-white" style="font-size: 40px;"></i>
+                        </div>
+                        
+                        <!-- Content -->
+                        <h2 class="mb-4">System Setup Required</h2>
+                        <p class="text-muted mb-4">
+                            Welcome to the School Management System! No schools have been configured yet.
+                        </p>
+                        
+                        <!-- Setup Steps -->
+                        <div class="text-start mb-4">
+                            <h5>Setup Steps:</h5>
+                            <ol class="text-muted">
+                                <li>Create a superuser account</li>
+                                <li>Access the admin panel</li>
+                                <li>Create your first school</li>
+                                <li>Set up admin users for the school</li>
+                            </ol>
+                        </div>
+                        
+                        <!-- Commands -->
+                        <div class="bg-light p-3 rounded mb-4">
+                            <small class="text-muted">Run these commands:</small>
+                            <div class="text-start">
+                                <code class="small">
+                                    python manage.py createsuperuser<br>
+                                    python manage.py setup_school --name "Your School"
+                                </code>
+                            </div>
+                        </div>
+                        
+                        <!-- Admin Link -->
+                        <a href="/admin/" class="btn btn-primary btn-lg">
+                            <i class="fas fa-cog me-2"></i>
+                            Go to Admin Panel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,102 @@
+<!-- ==========================================
+3. CREATE: templates/core/partials/student_dashboard.html
+========================================== -->
+
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Student Dashboard</h1>
+        <p class="page-subtitle">Welcome back, {{ student_profile.get_full_name|default:user.username }}!</p>
+    </div>
+</div>
+
+<!-- Student Info Card -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">My Information</h5>
+            </div>
+            <div class="card-body">
+                {% if student_profile %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Student ID:</strong> {{ student_profile.student_id }}</p>
+                        <p><strong>Name:</strong> {{ student_profile.get_full_name }}</p>
+                        <p><strong>Class:</strong> {{ student_profile.class_level|default:"Not assigned" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Year Admitted:</strong> {{ student_profile.year_admitted }}</p>
+                        <p><strong>Status:</strong> 
+                            {% if student_profile.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-user-circle text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">Profile Setup Required</h5>
+                    <p class="text-muted">Your student profile needs to be created.</p>
+                    <a href="/admin/" class="btn btn-primary">Contact Administrator</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Quick Stats -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Quick Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary">0</h4>
+                        <small class="text-muted">Subjects</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">0%</h4>
+                        <small class="text-muted">Attendance</small>
+                    </div>
+                </div>
+                <hr>
+                <p class="text-center text-muted small mb-0">Academic data coming in Phase 3</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Coming Soon Sections -->
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">My Grades</h5>
+            </div>
+            <div class="card-body text-center py-5">
+                <i class="fas fa-chart-line text-muted" style="font-size: 3rem;"></i>
+                <h5 class="mt-3">Coming Soon</h5>
+                <p class="text-muted">Your grades and academic progress will appear here.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Upcoming Events</h5>
+            </div>
+            <div class="card-body text-center py-5">
+                <i class="fas fa-calendar text-muted" style="font-size: 3rem;"></i>
+                <h5 class="mt-3">No Events</h5>
+                <p class="text-muted">School events and announcements will appear here.</p>
+            </div>
+        </div>
+    </div>
+</div>

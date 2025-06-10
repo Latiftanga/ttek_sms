@@ -1,0 +1,185 @@
+<!-- templates/dashboard/admin_dashboard.html -->
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Admin Dashboard - {% if selected_school %}{{ selected_school.name }}{% else %}Ghana SMS{% endif %}{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+    <div>
+        <h1 class="h3 mb-1">
+            {% if user.is_superuser %}Super Admin{% else %}Admin{% endif %} Dashboard
+        </h1>
+        <p class="text-muted mb-0">
+            {% if selected_school %}
+                Managing {{ selected_school.name }}
+            {% elif current_school %}
+                Welcome to {{ current_school.name }}
+            {% else %}
+                System Overview
+            {% endif %}
+        </p>
+    </div>
+    
+    {% if user.is_superuser and available_schools %}
+    <div class="dropdown">
+        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="fas fa-school me-2"></i>
+            {% if selected_school %}{{ selected_school.name }}{% else %}Select School{% endif %}
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            {% for school in available_schools %}
+            <li>
+                <a class="dropdown-item" href="?school={{ school.id }}">
+                    {{ school.name }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+{% if selected_school or current_school %}
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="h2 mb-1 fw-bold">{{ stats.total_students|default:"0" }}</h3>
+                    <p class="text-muted small text-uppercase fw-semibold mb-0">Total Students</p>
+                </div>
+                <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--tblr-success), #20a138); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="h2 mb-1 fw-bold">{{ stats.total_teachers|default:"0" }}</h3>
+                    <p class="text-muted small text-uppercase fw-semibold mb-0">Teachers</p>
+                </div>
+                <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--tblr-info), #3182ce); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="h2 mb-1 fw-bold">{{ stats.total_classes|default:"0" }}</h3>
+                    <p class="text-muted small text-uppercase fw-semibold mb-0">Classes</p>
+                </div>
+                <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--tblr-warning), #e55a00); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="fas fa-door-open"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="h2 mb-1 fw-bold">{{ stats.total_subjects|default:"0" }}</h3>
+                    <p class="text-muted small text-uppercase fw-semibold mb-0">Subjects</p>
+                </div>
+                <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--tblr-danger), #b02a5b); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="fas fa-book"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Row -->
+<div class="row">
+    <!-- Quick Actions -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary">
+                        <i class="fas fa-user-plus me-2"></i>
+                        Register Student
+                    </button>
+                    <button class="btn btn-outline-primary">
+                        <i class="fas fa-chalkboard-teacher me-2"></i>
+                        Add Teacher
+                    </button>
+                    <button class="btn btn-outline-primary">
+                        <i class="fas fa-door-open me-2"></i>
+                        Create Class
+                    </button>
+                    <button class="btn btn-outline-primary">
+                        <i class="fas fa-calendar-check me-2"></i>
+                        Take Attendance
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activities -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Recent Activities
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_activities %}
+                    <div class="timeline">
+                        {% for activity in recent_activities %}
+                        <div class="timeline-item">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3" style="width: 32px; height: 32px; background-color: {% if activity.type == 'success' %}var(--tblr-success){% elif activity.type == 'warning' %}var(--tblr-warning){% else %}var(--tblr-info){% endif %}; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem;">
+                                    <i class="{{ activity.icon }}"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold">{{ activity.action }}</div>
+                                    <div class="text-muted small">{{ activity.description }}</div>
+                                    <div class="text-muted small">{{ activity.time }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-clock fa-2x mb-3 d-block"></i>
+                        <p>No recent activities to display</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- No School Selected -->
+<div class="text-center py-5">
+    <div class="mb-4">
+        <i class="fas fa-school fa-5x text-muted"></i>
+    </div>
+    <h3>Select a School to Manage</h3>
+    <p class="text-muted">Please select a school from the dropdown above to view the dashboard.</p>
+</div>
+{% endif %}
+{% endblock %}
