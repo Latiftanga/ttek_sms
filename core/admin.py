@@ -1,35 +1,90 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.contrib.auth import get_user_model
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import School, Teacher, Student
-
-User = get_user_model()
+from .models import Tenant, User, Student, Teacher
 
 
-@admin.register(School)
-class SchoolAdmin(admin.ModelAdmin):
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    """Admin for custom User model"""
+    list_display = ['username', 'school', 'email',
+                    'get_role_display', 'is_active', 'date_joined']
+    list_filter = ['school', 'is_active', 'is_staff',
+                   'is_teacher', 'is_student', 'is_admin', 'date_joined']
+    search_fields = ['username', 'email', 'school__name']
+    ordering = ['school', 'username']
+
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Personal info', {'fields': ('email',)}),
+        ('School Assignment', {'fields': ('school',)}),
+        ('Permissions', {
+            'fields': ('is_active', 'is_staff', 'is_superuser', 'is_teacher', 'is_student', 'is_admin'),
+        }),
+        ('Important dates', {'fields': ('last_login', 'date_joined')}),
+    )
+
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('username', 'password1', 'password2', 'email', 'school', 'is_teacher', 'is_student', 'is_admin'),
+        }),
+    )
+
+    def get_queryset(self, request):
+        """Filter users based on permissions"""
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        # Non-superusers can only see users from their school
+        elif hasattr(request.user, 'school') and request.user.school:
+            return qs.filter(school=request.user.school)
+        return qs.none()
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Customize foreign key fields"""
+        if db_field.name == "school":
+            if request.user.is_superuser:
+                kwargs["queryset"] = Tenant.objects.filter(
+                    is_active=True).order_by('name')
+            elif hasattr(request.user, 'school') and request.user.school:
+                kwargs["queryset"] = Tenant.objects.filter(
+                    id=request.user.school.id)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        """Override save to handle school assignment"""
+        # If user is not superuser, set school to current user's school
+        if not request.user.is_superuser and hasattr(request.user, 'school'):
+            obj.school = request.user.school
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(Tenant)
+class TenantAdmin(admin.ModelAdmin):
+    """Admin for School/Tenant model"""
     list_display = [
-        'name', 'code', 'school_type', 'region',
-        'get_domain_display', 'student_count', 'teacher_count', 'is_active'
+        'name', 'code', 'school_type', 'region', 'domain_info',
+        'is_active', 'student_count', 'teacher_count', 'view_logo'
     ]
-    list_filter = ['school_type', 'ownership', 'region', 'is_active']
-    search_fields = ['name', 'code', 'email', 'phone_primary']
-    readonly_fields = ['slug', 'created_at',
-                       'updated_at', 'get_login_url_display']
+    list_filter = ['school_type', 'ownership',
+                   'region', 'is_active', 'has_boarding']
+    search_fields = ['name', 'code', 'domain', 'subdomain', 'emis_code']
+    prepopulated_fields = {'slug': ('name',)}
 
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'slug', 'code', 'school_type', 'ownership')
+            'fields': ('name', 'slug', 'code', 'school_type', 'ownership', 'is_active')
         }),
-        ('Multi-Tenant Setup', {
-            'fields': ('domain', 'subdomain', 'get_login_url_display'),
-            'description': 'Configure how users will access this school. Provide either a custom domain OR subdomain.'
+        ('Domain Configuration', {
+            'fields': ('domain', 'subdomain'),
+            'description': 'Configure either custom domain OR subdomain (not both)'
         }),
         ('Registration Details', {
-            'fields': ('emis_code', 'ges_number', 'establishment_date')
+            'fields': ('emis_code', 'ges_number', 'establishment_date'),
+            'classes': ('collapse',)
         }),
         ('Location', {
             'fields': ('region', 'district', 'town', 'digital_address', 'physical_address')
@@ -37,323 +92,182 @@ class SchoolAdmin(admin.ModelAdmin):
         ('Contact Information', {
             'fields': ('headmaster_name', 'email', 'phone_primary', 'phone_secondary', 'website')
         }),
-        ('School Identity', {
-            'fields': ('logo', 'motto', 'has_boarding')
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Metadata', {
-            'fields': ('created_at', 'updated_at'),
+        ('School Details', {
+            'fields': ('logo', 'motto', 'has_boarding'),
             'classes': ('collapse',)
-        })
+        }),
     )
 
-    def get_domain_display(self, obj):
-        if obj.domain:
-            return format_html('<span style="color: green;">🌐 {}</span>', obj.domain)
-        elif obj.subdomain:
-            return format_html('<span style="color: blue;">📱 {}.ttek.com</span>', obj.subdomain)
-        return '-'
-    get_domain_display.short_description = 'Access Domain'
+    readonly_fields = ['registration_date']
 
-    def get_login_url_display(self, obj):
-        if obj.get_tenant_domain:
-            url = f"https://{obj.get_tenant_domain}/login/"
-            return format_html('<a href="{}" target="_blank">{}</a>', url, url)
-        return 'Not configured'
-    get_login_url_display.short_description = 'Login URL'
+    def domain_info(self, obj):
+        """Display domain information"""
+        if obj.domain:
+            return format_html('<strong>{}</strong>', obj.domain)
+        elif obj.subdomain:
+            return format_html('{}.ttek.com', obj.subdomain)
+        return 'No domain configured'
+    domain_info.short_description = 'Domain'
+
+    def view_logo(self, obj):
+        """Display logo thumbnail"""
+        if obj.logo:
+            return format_html(
+                '<img src="{}" width="40" height="40" style="border-radius: 4px;" />',
+                obj.logo.url
+            )
+        return "No Logo"
+    view_logo.short_description = "Logo"
 
     def student_count(self, obj):
-        count = obj.students.filter(is_active=True).count()
+        """Display student count with link"""
+        count = obj.get_student_count()
         url = reverse('admin:core_student_changelist') + \
             f'?school__id__exact={obj.id}'
         return format_html('<a href="{}">{} students</a>', url, count)
-    student_count.short_description = 'Students'
+    student_count.short_description = "Students"
 
     def teacher_count(self, obj):
-        count = obj.teachers.filter(is_active=True).count()
+        """Display teacher count with link"""
+        count = obj.get_teacher_count()
         url = reverse('admin:core_teacher_changelist') + \
             f'?school__id__exact={obj.id}'
         return format_html('<a href="{}">{} teachers</a>', url, count)
-    teacher_count.short_description = 'Teachers'
+    teacher_count.short_description = "Teachers"
 
+    def save_model(self, request, obj, form, change):
+        """Override save to handle domain/subdomain logic"""
+        super().save_model(request, obj, form, change)
 
-@admin.register(User)
-class UserAdmin(BaseUserAdmin):
-    list_display = [
-        'username', 'get_full_name_display', 'email', 'user_type_display',
-        'get_school_display', 'is_active', 'last_login', 'date_joined',
-    ]
-    list_filter = ['is_teacher', 'is_student',
-                   'is_admin', 'is_active', ]
-    search_fields = ['username', 'email']
-
-    fieldsets = (
-        (None, {'fields': ('username', 'password')}),
-        ('Personal info', {'fields': ('email',)}),
-        ('User Type', {
-            'fields': ('is_teacher', 'is_student', 'is_admin'),
-            'description': 'Select the user type. School association is managed through Teacher/Student profiles.'
-        }),
-        ('Permissions', {
-            'fields': ('is_active', 'is_staff', 'is_superuser', ),
-            'classes': ('collapse',)
-        }),
-    )
-
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('username', 'password1', 'password2', 'is_teacher', 'is_student', 'is_admin'),
-        }),
-    )
-
-    def user_type_display(self, obj):
-        types = []
-        if obj.is_superuser:
-            types.append('<span style="color: red;">🔴 Superuser</span>')
-        if obj.is_admin:
-            types.append('<span style="color: orange;">🟠 Admin</span>')
-        if obj.is_teacher:
-            types.append('<span style="color: blue;">🔵 Teacher</span>')
-        if obj.is_student:
-            types.append('<span style="color: green;">🟢 Student</span>')
-        return mark_safe(' | '.join(types)) if types else '-'
-    user_type_display.short_description = 'User Type'
-
-    def get_full_name_display(self, obj):
-        profile = obj.get_profile()
-        if profile:
-            return profile.get_full_name()
-        return obj.username
-    get_full_name_display.short_description = 'Full Name'
-
-    def get_school_display(self, obj):
-        school = obj.get_school()
-        if school:
-            url = reverse('admin:core_school_change', args=[school.id])
-            return format_html('<a href="{}">{}</a>', url, school.name)
-        return '-'
-    get_school_display.short_description = 'School'
-
-
-@admin.register(Teacher)
-class TeacherAdmin(admin.ModelAdmin):
-    list_display = [
-        'get_full_name', 'teacher_id', 'school', 'has_user_account', 'user_account_status', 'is_active'
-    ]
-    list_filter = ['school', 'is_active', ]
-    search_fields = ['first_name', 'last_name', 'teacher_id', 'qualification']
-    readonly_fields = ['created_at', 'updated_at']
-
-    fieldsets = (
-        ('Personal Information', {
-            'fields': ('first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth')
-        }),
-        ('School Detail', {
-            'fields': ('school',)
-        }),
-        ('Contact Information', {
-            'fields': ('phone', 'email', 'address', 'ghana_card_number')
-        }),
-        ('User Account', {
-            'fields': ('user',),
-            'description': 'Link to user account for system access'
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Metadata', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-
-    def get_subjects_display(self, obj):
-        if obj.subjects:
-            subjects = obj.subjects[:3]  # Show first 3 subjects
-            display = ', '.join([s.title() for s in subjects])
-            if len(obj.subjects) > 3:
-                display += f' (+{len(obj.subjects) - 3} more)'
-            return display
-        return '-'
-    get_subjects_display.short_description = 'Subjects'
-
-    # FIXED: Use boolean return for boolean field
-    def has_user_account(self, obj):
-        return obj.user is not None
-    has_user_account.short_description = 'Has Account'
-    has_user_account.boolean = True  # This works with boolean returns
-
-    # SEPARATE: Use HTML display for status details
-    def user_account_status(self, obj):
-        if obj.user:
-            return format_html(
-                '<span style="color: green; font-weight: bold;">✓ {}</span>',
-                obj.user.username
-            )
-        return format_html('<span style="color: red;">✗ No Account</span>')
-    user_account_status.short_description = 'Account Status'
-
-    # Admin actions
-    actions = ['create_user_accounts', 'link_existing_users']
-
-    def create_user_accounts(self, request, queryset):
-        created_count = 0
-        messages = []
-
-        for teacher in queryset.filter(user__isnull=True):
-            try:
-                user, password = teacher.create_user_account()
-                created_count += 1
-                messages.append(
-                    f'✓ {teacher.get_full_name()}: {user.username} / {password}')
-            except Exception as e:
-                messages.append(f'✗ {teacher.get_full_name()}: {str(e)}')
-
-        if created_count:
-            self.message_user(
-                request, f'Successfully created {created_count} user accounts:')
-            for msg in messages:
-                self.message_user(request, msg)
+        # Display success message with domain info
+        if obj.domain:
+            domain_msg = f"Custom domain: {obj.domain}"
         else:
-            self.message_user(
-                request, 'No user accounts were created. Check for errors above.', level='warning')
-    create_user_accounts.short_description = "Create user accounts for selected teachers"
+            domain_msg = f"Subdomain: {obj.subdomain}.ttek.com"
 
-    def link_existing_users(self, request, queryset):
-        linked_count = 0
-        for teacher in queryset.filter(user__isnull=True):
-            try:
-                # Try to find a user with matching teacher_id
-                user = User.objects.get(
-                    username=teacher.teacher_id, is_teacher=True)
-                if not hasattr(user, 'teacher_profile'):
-                    teacher.user = user
-                    teacher.save()
-                    linked_count += 1
-                    self.message_user(
-                        request, f'✓ Linked {teacher.get_full_name()} to user {user.username}')
-            except User.DoesNotExist:
-                pass
-            except User.MultipleObjectsReturned:
-                self.message_user(
-                    request, f'⚠ Multiple users found for {teacher.teacher_id}', level='warning')
+        self.message_user(request, f"School saved successfully. {domain_msg}")
 
-        if linked_count:
-            self.message_user(
-                request, f'Successfully linked {linked_count} teachers to existing users')
-        else:
-            self.message_user(
-                request, 'No teachers were linked. No matching users found.', level='warning')
-    link_existing_users.short_description = "Link to existing users"
+
+class SchoolFilterMixin:
+    """Mixin to add school filtering to admin"""
+
+    def get_queryset(self, request):
+        """Filter queryset based on school"""
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        # Add school-based filtering for non-superusers later
+        return qs
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Customize foreign key fields"""
+        if db_field.name == "school":
+            kwargs["queryset"] = Tenant.objects.filter(
+                is_active=True).order_by('name')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(Student)
-class StudentAdmin(admin.ModelAdmin):
+class StudentAdmin(SchoolFilterMixin, admin.ModelAdmin):
+    """Admin for Student model"""
     list_display = [
-        'get_full_name', 'student_id', 'school', 'class_level',
-        'year_admitted', 'has_user_account', 'user_account_status', 'is_active'
+        'student_id', 'first_name', 'last_name', 'gender',
+        'year_admitted', 'school', 'is_active', 'has_account'
     ]
-    list_filter = ['school', 'class_level', 'year_admitted', 'is_active']
-    search_fields = ['first_name', 'last_name', 'student_id']
-    readonly_fields = ['created_at', 'updated_at']
+    list_filter = ['school', 'gender', 'year_admitted', 'is_active']
+    search_fields = [
+        'student_id', 'first_name', 'last_name', 'email',
+        'ghana_card_number', 'school__name'
+    ]
+    readonly_fields = ['student_id', 'created_at', 'updated_at']
 
     fieldsets = (
-        ('Personal Information', {
-            'fields': ('first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth')
+        ('Student Information', {
+            'fields': ('school', 'student_id', 'year_admitted', 'is_active')
         }),
-        ('Academic Information', {
-            'fields': ('school', 'student_id', 'class_level', 'year_admitted')
+        ('Personal Details', {
+            'fields': (
+                'first_name', 'middle_name', 'last_name', 'gender',
+                'date_of_birth', 'ghana_card_number'
+            )
         }),
         ('Contact Information', {
-            'fields': ('phone', 'email', 'address', 'ghana_card_number')
+            'fields': ('email', 'phone', 'address')
         }),
-        ('User Account', {
-            'fields': ('user',),
-            'description': 'Link to user account for system access'
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Metadata', {
-            'fields': ('created_at', 'updated_at'),
+        ('System Information', {
+            'fields': ('user', 'created_at', 'updated_at'),
             'classes': ('collapse',)
-        })
+        }),
     )
 
-    # FIXED: Use boolean return for boolean field
-    def has_user_account(self, obj):
-        return obj.user is not None
-    has_user_account.short_description = 'Has Account'
-    has_user_account.boolean = True
-
-    # SEPARATE: Use HTML display for status details
-    def user_account_status(self, obj):
+    def has_account(self, obj):
+        """Check if student has user account"""
         if obj.user:
-            return format_html(
-                '<span style="color: green; font-weight: bold;">✓ {}</span>',
-                obj.user.username
+            return format_html('<span style="color: green;">✓ Yes</span>')
+        return format_html('<span style="color: red;">✗ No</span>')
+    has_account.short_description = "Has Account"
+
+    def save_model(self, request, obj, form, change):
+        """Override save to display student ID"""
+        super().save_model(request, obj, form, change)
+        if not change:  # New student
+            self.message_user(
+                request,
+                f"Student created successfully with ID: {obj.student_id}"
             )
-        return format_html('<span style="color: red;">✗ No Account</span>')
-    user_account_status.short_description = 'Account Status'
 
-    # Admin actions
-    actions = ['create_user_accounts', 'link_existing_users']
 
-    def create_user_accounts(self, request, queryset):
-        created_count = 0
-        messages = []
+@admin.register(Teacher)
+class TeacherAdmin(SchoolFilterMixin, admin.ModelAdmin):
+    """Admin for Teacher model"""
+    list_display = [
+        'teacher_id', 'first_name', 'last_name', 'gender',
+        'school', 'is_active', 'has_account'
+    ]
+    list_filter = ['school', 'gender', 'is_active']
+    search_fields = [
+        'teacher_id', 'first_name', 'last_name', 'email',
+        'ghana_card_number', 'school__name'
+    ]
+    readonly_fields = ['teacher_id', 'created_at', 'updated_at']
 
-        for student in queryset.filter(user__isnull=True):
-            try:
-                user, password = student.create_user_account()
-                created_count += 1
-                messages.append(
-                    f'✓ {student.get_full_name()}: {user.username} / {password}')
-            except Exception as e:
-                messages.append(f'✗ {student.get_full_name()}: {str(e)}')
+    fieldsets = (
+        ('Teacher Information', {
+            'fields': ('school', 'teacher_id', 'is_active')
+        }),
+        ('Personal Details', {
+            'fields': (
+                'first_name', 'middle_name', 'last_name', 'gender',
+                'date_of_birth', 'ghana_card_number'
+            )
+        }),
+        ('Contact Information', {
+            'fields': ('email', 'phone', 'address')
+        }),
+        ('System Information', {
+            'fields': ('user', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
-        if created_count:
+    def has_account(self, obj):
+        """Check if teacher has user account"""
+        if obj.user:
+            return format_html('<span style="color: green;">✓ Yes</span>')
+        return format_html('<span style="color: red;">✗ No</span>')
+    has_account.short_description = "Has Account"
+
+    def save_model(self, request, obj, form, change):
+        """Override save to display teacher ID"""
+        super().save_model(request, obj, form, change)
+        if not change:  # New teacher
             self.message_user(
-                request, f'Successfully created {created_count} user accounts:')
-            for msg in messages:
-                self.message_user(request, msg)
-        else:
-            self.message_user(
-                request, 'No user accounts were created. Check for errors above.', level='warning')
-    create_user_accounts.short_description = "Create user accounts for selected students"
-
-    def link_existing_users(self, request, queryset):
-        linked_count = 0
-        for student in queryset.filter(user__isnull=True):
-            try:
-                # Try to find a user with matching student_id
-                user = User.objects.get(
-                    username=student.student_id, is_student=True)
-                if not hasattr(user, 'student_profile'):
-                    student.user = user
-                    student.save()
-                    linked_count += 1
-                    self.message_user(
-                        request, f'✓ Linked {student.get_full_name()} to user {user.username}')
-            except User.DoesNotExist:
-                pass
-            except User.MultipleObjectsReturned:
-                self.message_user(
-                    request, f'⚠ Multiple users found for {student.student_id}', level='warning')
-
-        if linked_count:
-            self.message_user(
-                request, f'Successfully linked {linked_count} students to existing users')
-        else:
-            self.message_user(
-                request, 'No students were linked. No matching users found.', level='warning')
-    link_existing_users.short_description = "Link to existing users"
+                request,
+                f"Teacher created successfully with ID: {obj.teacher_id}"
+            )
 
 
-# Customize admin site
-admin.site.site_header = "TTEK School Management System"
-admin.site.site_title = "TTEK SMS Admin"
-admin.site.index_title = "Welcome to TTEK School Management System"
+# Customize admin site header
+admin.site.site_header = "School Management System"
+admin.site.site_title = "School Admin"
+admin.site.index_title = "Welcome to School Management System"

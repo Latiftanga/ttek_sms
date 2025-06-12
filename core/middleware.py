@@ -1,66 +1,59 @@
-from django.http import Http404
-from django.shortcuts import get_object_or_404, redirect
-from django.conf import settings
-from django.urls import reverse
-from .models import School
+from django.http import HttpResponseNotFound, HttpResponse
+from django.shortcuts import render
+from django.utils.deprecation import MiddlewareMixin
+from .models import Tenant
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class TenantMiddleware:
+class TenantMiddleware(MiddlewareMixin):
     """
-    Enhanced multi-tenant middleware with better domain handling
+    Middleware to resolve tenant based on domain/subdomain
     """
 
-    def __init__(self, get_response):
-        self.get_response = get_response
-        # Define your main domain (where developer portal lives)
-        self.main_domain = getattr(settings, 'MAIN_DOMAIN', 'ttek.com')
-
-    def __call__(self, request):
+    def process_request(self, request):
         # Get the host from request
         host = request.get_host().lower()
 
-        # Remove port if present (for development)
+        # Remove port number if present (for development)
         if ':' in host:
             host = host.split(':')[0]
 
-        # Initialize tenant and domain type
-        school = None
-        request.is_localhost = False
-        request.is_main_domain = False
-        request.is_school_domain = False
-
-        # Handle localhost/127.0.0.1 specially
-        if host in ['localhost', '127.0.0.1']:
+        # Skip tenant resolution for admin, static files, and media during development
+        if (request.path.startswith('/admin/') or
+            request.path.startswith('/static/') or
+                request.path.startswith('/media/')):
             request.tenant = None
-            request.is_localhost = True
-            
-        elif host == self.main_domain:
-            # This is the main domain - for developer portal and landing
+            return None
+
+        try:
+            # Try to find tenant by domain or subdomain
+            tenant = Tenant.objects.get_by_domain(host)
+            request.tenant = tenant
+
+            # Add tenant info to request for easy access
+            request.school = tenant
+
+        except Tenant.DoesNotExist:
+            # Handle case where no tenant is found
             request.tenant = None
-            request.is_main_domain = True
-            
-        else:
-            # Try to find school by domain or subdomain
-            request.is_school_domain = True
-            
-            try:
-                # First try exact domain match (custom domain)
-                school = School.objects.get(domain=host, is_active=True)
-            except School.DoesNotExist:
-                # Try subdomain match
-                if f'.{self.main_domain}' in host:
-                    subdomain = host.replace(f'.{self.main_domain}', '')
-                    try:
-                        school = School.objects.get(
-                            subdomain=subdomain, is_active=True)
-                    except School.DoesNotExist:
-                        pass
+            request.school = None
 
-            # If no school found for this domain, raise 404
-            if not school:
-                raise Http404("School not found for this domain")
+            # For development, allow localhost without tenant
+            if host in ['localhost', '127.0.0.1']:
+                return None
 
-            request.tenant = school
+            # Return 404 for unknown domains
+            logger.warning(f"No tenant found for domain: {host}")
+            return HttpResponse(
+                f"<h1>School Not Found</h1><p>No school is configured for domain: {host}</p>",
+                status=404
+            )
 
-        response = self.get_response(request)
-        return response
+        except Exception as e:
+            logger.error(f"Error in TenantMiddleware: {e}")
+            request.tenant = None
+            request.school = None
+
+        return None

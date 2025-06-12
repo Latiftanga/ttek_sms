@@ -1,0 +1,129 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+    <div class="content-section">
+        <h2>About {{ school.name }}</h2>
+        
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; margin-bottom: 2rem;">
+            {% if school.logo %}
+                <div style="text-align: center;">
+                    <img src="{{ school.logo.url }}" alt="{{ school.name }} Logo" 
+                         style="max-width: 200px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                </div>
+            {% endif %}
+            
+            <div>
+                <h3>School Details</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem; font-weight: bold;">School Type:</td>
+                        <td style="padding: 0.5rem;">{{ school.get_school_type_display }}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem; font-weight: bold;">Ownership:</td>
+                        <td style="padding: 0.5rem;">{{ school.get_ownership_display }}</td>
+                    </tr>
+                    {% if school.establishment_date %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem; font-weight: bold;">Established:</td>
+                        <td style="padding: 0.5rem;">{{ school.establishment_date|date:"F Y" }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if school.motto %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem; font-weight: bold;">Motto:</td>
+                        <td style="padding: 0.5rem;"><em>"{{ school.motto }}"</em></td>
+                    </tr>
+                    {% endif %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem; font-weight: bold;">Boarding:</td>
+                        <td style="padding: 0.5rem;">
+                            {% if school.has_boarding %}
+                                <span style="color: green;">✓ Available</span>
+                            {% else %}
+                                <span style="color: #999;">✗ Not Available</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-section">
+        <h2>Location</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div>
+                <strong>Region:</strong> {{ school.get_region_display }}
+            </div>
+            <div>
+                <strong>District:</strong> {{ school.district }}
+            </div>
+            <div>
+                <strong>Town:</strong> {{ school.town }}
+            </div>
+            {% if school.digital_address %}
+            <div>
+                <strong>Digital Address:</strong> {{ school.digital_address }}
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if school.physical_address %}
+        <div style="margin-top: 1rem;">
+            <strong>Physical Address:</strong><br>
+            {{ school.physical_address }}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="content-section">
+        <h2>Contact Information</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div>
+                <strong>Headmaster/Principal:</strong> {{ school.headmaster_name }}
+            </div>
+            <div>
+                <strong>Email:</strong> 
+                <a href="mailto:{{ school.email }}">{{ school.email }}</a>
+            </div>
+            <div>
+                <strong>Primary Phone:</strong> 
+                <a href="tel:{{ school.phone_primary }}">{{ school.phone_primary }}</a>
+            </div>
+            {% if school.phone_secondary %}
+            <div>
+                <strong>Secondary Phone:</strong> 
+                <a href="tel:{{ school.phone_secondary }}">{{ school.phone_secondary }}</a>
+            </div>
+            {% endif %}
+            {% if school.website %}
+            <div>
+                <strong>Website:</strong> 
+                <a href="{{ school.website }}" target="_blank">{{ school.website }}</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if school.emis_code or school.ges_number %}
+    <div class="content-section">
+        <h2>Registration Details</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            {% if school.emis_code %}
+            <div>
+                <strong>EMIS Code:</strong> {{ school.emis_code }}
+            </div>
+            {% endif %}
+            {% if school.ges_number %}
+            <div>
+                <strong>GES Number:</strong> {{ school.ges_number }}
+            </div>
+            {% endif %}
+            <div>
+                <strong>Registration Date:</strong> {{ school.registration_date|date:"F j, Y" }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}
