@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% load core_tags %}
+
+{% block title %}Dashboard | {{ school.display_name|default:"School" }}{% endblock %}
+
+{% block content %}
+{% include "core/partials/index_content.html" %}
+{% endblock %}

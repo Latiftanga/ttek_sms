@@ -1,0 +1,73 @@
+{% load core_tags %}
+<aside class="desktop-sidebar bg-base-100 border-r border-base-200 hidden lg:flex flex-col h-full shrink-0 z-20 transition-colors">
+    <!-- Logo -->
+    <div class="h-16 flex items-center px-6 border-b border-base-200 whitespace-nowrap overflow-hidden justify-start">
+        <div class="flex items-center gap-3 w-full">
+            {% if school.logo %}
+                <img src="{{ school.logo.url }}" alt="{{ school.display_name }}" class="w-8 h-8 rounded shrink-0 object-contain" />
+            {% else %}
+                <div class="w-8 h-8 rounded bg-primary text-primary-content grid place-content-center font-bold text-lg shrink-0">
+                    {{ school.display_name|slice:":1"|default:"S" }}
+                </div>
+            {% endif %}
+            <span class="sidebar-text font-bold text-xl tracking-tight">{{ school.display_name|default:"School" }}</span>
+        </div>
+    </div>
+
+    <!-- Navigation menu -->
+    <ul class="menu flex-1 py-4 gap-2 text-base font-medium text-base-content/80 overflow-y-auto" id="desktop-nav">
+        {% get_navigation_items as nav_items %}
+        {% for item in nav_items %}
+            {% if item.children %}
+                <li>
+                    <details {% if item.is_active %}open{% endif %}>
+                        <summary class="h-12 hover:bg-base-200">
+                            <i class="{{ item.icon }} w-6 text-center text-lg"></i>
+                            <span class="sidebar-text ml-3">{{ item.label }}</span>
+                        </summary>
+                        <ul>
+                            {% for child in item.children %}
+                                <li>
+                                    <a href="{{ child.url }}"
+                                       hx-get="{{ child.url }}"
+                                       hx-target="#main-content"
+                                       hx-push-url="true"
+                                       hx-swap="innerHTML show:window:top"
+                                       class="h-10 {% if child.is_active %}active bg-primary/10 text-primary{% else %}hover:bg-base-200{% endif %}">
+                                        <i class="{{ child.icon }} w-5 text-center"></i>
+                                        <span class="sidebar-text ml-2">{{ child.label }}</span>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                </li>
+            {% else %}
+                <li>
+                    <a href="{{ item.url }}"
+                       hx-get="{{ item.url }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       hx-swap="innerHTML show:window:top"
+                       class="h-12 {% if item.is_active %}active bg-primary/10 text-primary border-r-2 border-primary rounded-none{% else %}hover:bg-base-200{% endif %}">
+                        <i class="{{ item.icon }} w-6 text-center text-lg"></i>
+                        <span class="sidebar-text ml-3">{{ item.label }}</span>
+                    </a>
+                </li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+
+    <!-- Settings at bottom -->
+    <div class="p-3 border-t border-base-200 mt-auto">
+        <a href="{% url 'core:settings' %}"
+           hx-get="{% url 'core:settings' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           hx-swap="innerHTML show:window:top"
+           class="btn btn-ghost btn-sm w-full justify-start px-0 h-10 pl-6">
+            <i class="fa-solid fa-gear w-6 text-center text-lg"></i>
+            <span class="sidebar-text ml-3">Settings</span>
+        </a>
+    </div>
+</aside>

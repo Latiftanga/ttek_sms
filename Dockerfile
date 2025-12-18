@@ -1,0 +1,81 @@
+# ---- Build stage ----
+FROM python:3.12-slim AS builder
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system deps needed for compiling Python packages (e.g., Pillow, psycopg2)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        gcc \
+        libjpeg-dev \
+        zlib1g-dev \
+        libpq-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy only requirements first (to leverage Docker layer caching)
+COPY requirements.txt requirements.dev.txt ./
+
+# Install dependencies conditionally
+ARG DEV=false
+RUN pip install --no-cache-dir -r requirements.txt && \
+    if [ "$DEV" = "true" ]; then \
+        pip install --no-cache-dir -r requirements.dev.txt; \
+    fi
+
+# ---- Runtime stage ----
+FROM python:3.12-slim
+
+LABEL maintainer="ttek.com"
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    NODE_VERSION=20.x
+
+WORKDIR /app
+EXPOSE 8000
+
+# Install Node.js and runtime system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        gnupg \
+        libjpeg62-turbo \
+        zlib1g \
+        libpq5 \
+        postgresql-client \
+        libgcc-s1 \
+        libatomic1 \
+        libstdc++6 \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_VERSION nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Verify Node.js and npm installation
+RUN node --version && npm --version
+
+# Add non-root user
+RUN adduser --disabled-password --no-create-home app_user
+
+# Create dirs and set ownership
+RUN mkdir -p /vol/web/{media,static} /home/app_user/.cookiecutter_replay && \
+    chown -R app_user:app_user /vol /home/app_user
+
+# Copy virtual environment from builder
+COPY --from=builder --chown=app_user:app_user /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy app code (after dependencies, to maximize cache reuse)
+COPY --chown=app_user:app_user . /app
+
+USER app_user

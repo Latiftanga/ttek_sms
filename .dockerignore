@@ -1,0 +1,48 @@
+# Python / Django
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv
+pip-log.txt
+.tox/
+.coverage
+.cache
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+
+# Databases
+*.db
+*.sqlite3
+db.sqlite3
+
+# Media & Secrets
+media/
+.env
+.env.local
+.env.production
+
+# Documentation & Config
+*.md
+docker-compose*.yml
+Dockerfile*
+README.md
+.gitignore
+
+# ----------------------------------------
+# NEW: Node & Tailwind Exclusions
+# ----------------------------------------
+# Crucial: prevents copying local binaries that crash in Alpine Linux
+node_modules/
+**/node_modules/
+package-lock.json
+npm-debug.log
+
+# If you use the standard django-tailwind folder structure:
+theme/static_src/node_modules/

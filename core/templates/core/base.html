@@ -1,0 +1,118 @@
+{% load static tailwind_tags django_htmx core_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<script>
+    // Apply saved theme immediately to prevent flash
+    document.documentElement.setAttribute('data-theme',
+        localStorage.getItem('theme') || 'light'
+    );
+</script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ school.motto|default:'School Management System' }}">
+    <title>{% block title %}{{ school.display_name|default:"School" }}{% endblock %}</title>
+
+    {% if school.favicon %}
+    <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
+    {% endif %}
+
+    {% tailwind_css %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <style>
+        /* Tenant theme colors - dynamically injected from SchoolSettings */
+        :root,
+        [data-theme="light"],
+        [data-theme="dark"] {
+            /* DaisyUI color overrides using OKLCH */
+            --p: {{ school.primary_color_oklch|default:"49% 0.248 262" }};
+            --s: {{ school.secondary_color_oklch|default:"53% 0.253 293" }};
+            --a: {{ school.accent_color_oklch|default:"75% 0.183 55" }};
+
+            /* Sidebar width */
+            --desktop-width: 17rem;
+        }
+
+        #desktop-toggle:checked ~ .drawer-content .desktop-sidebar {
+            --desktop-width: 5.5rem;
+        }
+
+        .desktop-sidebar {
+            width: var(--desktop-width);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-text {
+            transition: opacity 0.2s;
+            opacity: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        #desktop-toggle:checked ~ .drawer-content .desktop-sidebar .sidebar-text {
+            opacity: 0;
+            width: 0;
+            display: none;
+        }
+
+        .menu li a {
+            padding-left: 1.5rem !important;
+            padding-right: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        /* HTMX loading indicator */
+        .htmx-request #main-content {
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+
+        .htmx-request #loading-indicator {
+            display: flex;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body class="bg-base-200 min-h-screen text-base-content" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    {% django_htmx_script %}
+
+    <div class="drawer">
+        <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
+        <input id="desktop-toggle" type="checkbox" class="hidden" />
+
+        <div class="drawer-content flex flex-col h-screen overflow-hidden">
+            <div class="flex flex-1 h-full overflow-hidden">
+                {% include "core/partials/sidebar_desktop.html" %}
+
+                <main class="flex-1 flex flex-col min-w-0 h-full overflow-y-auto relative transition-all">
+                    {% include "core/partials/header.html" %}
+
+                    <!-- Loading indicator -->
+                    <div id="loading-indicator" class="hidden absolute inset-0 bg-base-200/50 z-40 items-center justify-center">
+                        <span class="loading loading-spinner loading-lg text-primary"></span>
+                    </div>
+
+                    <!-- Main content area - HTMX swap target -->
+                    <div id="main-content" class="p-6">
+                        {% block content %}{% endblock %}
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        {% include "core/partials/sidebar_mobile.html" %}
+    </div>
+
+    <script>
+        // Sync theme toggle checkbox with saved preference
+        const themeCtrl = document.querySelector('.theme-controller');
+        if (themeCtrl) themeCtrl.checked = localStorage.getItem('theme') === 'dark';
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
