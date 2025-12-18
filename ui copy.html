@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduChain | Multi-Tenancy SMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.7.2/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transition for sidebar width */
+        .sidebar-transition {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Logical toggle based on the checkbox #my-drawer-4 */
+        #my-drawer-4:checked ~ .drawer-side .sidebar-container {
+            width: 4rem; /* Slim width */
+        }
+        
+        #my-drawer-4:not(:checked) ~ .drawer-side .sidebar-container {
+            width: 16rem; /* Expanded width */
+        }
+
+        /* Hide text labels when checkbox is checked (slim mode) */
+        #my-drawer-4:checked ~ .drawer-side .link-text,
+        #my-drawer-4:checked ~ .drawer-side .sidebar-footer {
+            display: none;
+        }
+
+        /* Center icons perfectly when sidebar is slim */
+        #my-drawer-4:checked ~ .drawer-side .menu li button {
+            justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        /* Ensure tooltips only show when collapsed */
+        .sidebar-tooltip { position: relative; }
+    </style>
+</head>
+<body class="bg-base-200/50">
+
+<div class="drawer lg:drawer-open">
+  <input id="my-drawer-4" type="checkbox" class="drawer-toggle" />
+  
+  <div class="drawer-content flex flex-col">
+    <nav class="navbar w-full bg-base-100 border-b border-base-300 px-4">
+      <div class="flex-none">
+        <label for="my-drawer-4" class="btn btn-square btn-ghost">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linejoin="round" stroke-linecap="round" stroke-width="2" fill="none" stroke="currentColor" class="size-5"><path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"></path><path d="M9 4v16"></path><path d="M14 10l2 2l-2 2"></path></svg>
+        </label>
+      </div>
+      <div class="flex-1 px-2 font-bold uppercase tracking-tight opacity-70">School Management Portal</div>
+      <div class="flex-none hidden md:block">
+        <div class="badge badge-outline border-base-300 py-4 px-6 gap-2">
+            <span class="w-2 h-2 rounded-full bg-success"></span>
+            Tenant: Northside High
+        </div>
+      </div>
+    </nav>
+
+    <div class="p-8">
+        <div class="grid grid-cols-1 gap-6">
+            <div class="card bg-base-100 shadow-sm border border-base-300 p-10 text-center">
+                <h1 class="text-3xl font-black">Welcome Admin</h1>
+                <p class="opacity-50 mt-2">Use the sidebar toggle to switch between compact and full views.</p>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <div class="drawer-side z-20">
+    <label for="my-drawer-4" class="drawer-overlay"></label>
+    <div class="sidebar-container sidebar-transition flex min-h-full flex-col bg-base-100 border-r border-base-300 overflow-hidden">
+      
+      <div class="h-16 flex items-center px-5 w-full border-b border-base-200 shrink-0">
+        <div class="flex items-center justify-center w-6 h-6 bg-primary text-primary-content rounded font-bold text-xs">E</div>
+        <span class="ml-3 font-bold link-text whitespace-nowrap">EduChain</span>
+      </div>
+
+      <ul class="menu w-full grow p-2 gap-1 overflow-y-auto">
+        <li>
+          <button class="tooltip tooltip-right flex items-center" data-tip="Homepage">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linejoin="round" stroke-linecap="round" stroke-width="2" fill="none" stroke="currentColor" class="size-5 shrink-0"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+            <span class="link-text ml-3 whitespace-nowrap">Homepage</span>
+          </button>
+        </li>
+
+        <li>
+          <button class="tooltip tooltip-right flex items-center" data-tip="Students">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" class="size-5 shrink-0"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+            <span class="link-text ml-3 whitespace-nowrap">Students</span>
+          </button>
+        </li>
+
+        <li>
+          <button class="tooltip tooltip-right flex items-center" data-tip="School Tenants">
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2" fill="none" stroke="currentColor" class="size-5 shrink-0"><path d="M3 21h18"></path><path d="M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"></path><path d="M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4"></path></svg>
+            <span class="link-text ml-3 whitespace-nowrap">Manage Schools</span>
+          </button>
+        </li>
+
+        <li>
+          <button class="tooltip tooltip-right flex items-center" data-tip="Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linejoin="round" stroke-linecap="round" stroke-width="2" fill="none" stroke="currentColor" class="size-5 shrink-0"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
+            <span class="link-text ml-3 whitespace-nowrap">Settings</span>
+          </button>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer p-4 border-t border-base-200 bg-base-200/30">
+        <div class="flex items-center">
+            <div class="avatar placeholder">
+                <div class="bg-neutral text-neutral-content rounded-full w-8">
+                    <span>A</span>
+                </div>
+            </div>
+            <div class="ml-3 overflow-hidden">
+                <p class="text-xs font-bold truncate">Super Admin</p>
+                <p class="text-[10px] opacity-50 truncate">admin@edu.com</p>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
