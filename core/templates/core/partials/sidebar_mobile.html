@@ -1,0 +1,58 @@
+{% load core_tags %}
+<div class="drawer-side z-50 lg:hidden">
+    <label for="mobile-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+    <aside class="bg-base-100 min-h-full w-80 p-4 border-r border-base-200">
+        <!-- Logo -->
+        <div class="flex items-center gap-3 mb-6 px-2">
+            {% if school.logo %}
+                <img src="{{ school.logo.url }}" alt="{{ school.display_name }}" class="w-8 h-8 rounded object-contain" />
+            {% else %}
+                <div class="w-8 h-8 rounded bg-primary text-primary-content grid place-content-center font-bold">
+                    {{ school.display_name|slice:":1"|default:"S" }}
+                </div>
+            {% endif %}
+            <span class="font-bold text-xl">{{ school.display_name|default:"School" }}</span>
+        </div>
+
+        <!-- Navigation menu -->
+        <ul class="menu text-base-content text-base" id="mobile-nav">
+            {% get_navigation_items as nav_items %}
+            {% for item in nav_items %}
+                {% if item.children %}
+                    <li>
+                        <details {% if item.is_active %}open{% endif %}>
+                            <summary>
+                                <i class="{{ item.icon }} w-6"></i> {{ item.label }}
+                            </summary>
+                            <ul>
+                                {% for child in item.children %}
+                                    <li>
+                                        <a href="{{ child.url }}"
+                                           hx-get="{{ child.url }}"
+                                           hx-target="#main-content"
+                                           hx-push-url="true"
+                                           hx-swap="innerHTML show:window:top"
+                                           {% if child.is_active %}class="active"{% endif %}>
+                                            <i class="{{ child.icon }} w-5"></i> {{ child.label }}
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </details>
+                    </li>
+                {% else %}
+                    <li>
+                        <a href="{{ item.url }}"
+                           hx-get="{{ item.url }}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           hx-swap="innerHTML show:window:top"
+                           {% if item.is_active %}class="active"{% endif %}>
+                            <i class="{{ item.icon }} w-6"></i> {{ item.label }}
+                        </a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </aside>
+</div>

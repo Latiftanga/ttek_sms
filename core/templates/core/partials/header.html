@@ -1,0 +1,77 @@
+{% load core_tags %}
+<header class="navbar bg-base-100 shadow-sm sticky top-0 z-30 px-4 h-16 border-b border-base-200 shrink-0 transition-colors">
+    <!-- Mobile menu toggle -->
+    <div class="flex-none lg:hidden">
+        <label for="mobile-drawer" class="btn btn-square btn-ghost">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </label>
+    </div>
+
+    <!-- Desktop sidebar toggle -->
+    <div class="hidden lg:block lg:flex-none">
+        <label for="desktop-toggle" class="btn btn-square btn-ghost text-base-content/70 hover:text-primary cursor-pointer">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </label>
+    </div>
+
+    <!-- Page title -->
+    <div class="flex-1 px-4">
+        <h1 class="text-xl font-bold text-base-content/80">{% block page_title %}{% endblock %}</h1>
+    </div>
+
+    <!-- Right side actions -->
+    <div class="flex-none gap-2">
+        <!-- Theme toggle (persists to localStorage) -->
+        <label class="btn btn-ghost btn-circle swap swap-rotate">
+            <input type="checkbox" class="theme-controller" value="dark"
+                   onchange="localStorage.setItem('theme', this.checked ? 'dark' : 'light')" />
+            <i class="fa-solid fa-sun swap-off text-xl fill-current"></i>
+            <i class="fa-solid fa-moon swap-on text-xl fill-current"></i>
+        </label>
+
+        <!-- Notifications -->
+        <button class="btn btn-ghost btn-circle">
+            <div class="indicator">
+                <i class="fa-regular fa-bell text-xl"></i>
+                <span class="badge badge-xs badge-primary indicator-item"></span>
+            </div>
+        </button>
+
+        <!-- User dropdown -->
+        <div class="dropdown dropdown-end">
+            <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
+                <div class="w-9 rounded-full ring ring-base-200">
+                    {% if user.profile_image %}
+                        <img src="{{ user.profile_image.url }}" alt="{{ user.get_full_name }}" />
+                    {% else %}
+                        <div class="bg-primary text-primary-content w-full h-full flex items-center justify-center text-lg font-bold">
+                            {{ user.first_name|slice:":1"|default:user.email|slice:":1"|upper }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow-lg bg-base-100 rounded-box w-60 border border-base-200">
+                <li class="menu-title px-4 py-2">
+                    <span class="text-base font-bold text-base-content">{{ user.get_full_name|default:user.email }}</span>
+                    <span class="text-xs font-normal opacity-60">{{ user.role_label }}</span>
+                </li>
+                <li><a href="#" class="py-2 text-sm"><i class="fa-regular fa-user mr-2"></i> My Profile</a></li>
+                <li>
+                    <a href="{% url 'core:settings' %}"
+                       hx-get="{% url 'core:settings' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="py-2 text-sm">
+                        <i class="fa-solid fa-sliders mr-2"></i> Settings
+                    </a>
+                </li>
+                <div class="divider my-1"></div>
+                <li>
+                    <a href="{% url 'accounts:logout' %}" class="py-2 text-sm text-error">
+                        <i class="fa-solid fa-right-from-bracket mr-2"></i> Logout
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</header>

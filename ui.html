@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Admin | Dark Mode Fixed</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Map Tenant Variables to Tailwind colors if needed
+                        tenant: 'oklch(var(--tenant-primary) / <alpha-value>)',
+                    }
+                }
+            },
+            daisyui: {
+                themes: ["light", "dark"], // ✅ Explicitly load these themes
+            },
+        }
+    </script>
+
+    <style>
+        /* 3. TENANT VARIABLES & CSS LOGIC */
+        :root {
+            /* Branding: Purple/Pink (Visible in both Light/Dark) */
+            --tenant-primary: 54% 0.2 260; 
+            
+            /* Sidebar Config */
+            --desktop-width: 17rem; 
+        }
+
+        /* Map System Primary to Tenant Color */
+        :root[data-theme="light"], :root[data-theme="dark"] {
+            --p: var(--tenant-primary); /* DaisyUI Primary Variable */
+        }
+
+        /* --- SIDEBAR COLLAPSE LOGIC --- */
+        #desktop-toggle:checked ~ .drawer-content .desktop-sidebar {
+            --desktop-width: 5.5rem; 
+        }
+
+        .desktop-sidebar {
+            width: var(--desktop-width);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-text {
+            transition: opacity 0.2s;
+            opacity: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            display: inline-block; 
+        }
+
+        #desktop-toggle:checked ~ .drawer-content .desktop-sidebar .sidebar-text {
+            opacity: 0;
+            width: 0;
+            display: none; 
+        }
+
+        /* Keep Icons Left Aligned */
+        .menu li a {
+            padding-left: 1.5rem !important; 
+            padding-right: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen text-base-content">
+
+    <div class="drawer">
+        <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
+        <input id="desktop-toggle" type="checkbox" class="hidden" />
+        
+        <div class="drawer-content flex flex-col h-screen overflow-hidden">
+            <div class="flex flex-1 h-full overflow-hidden">
+
+                <aside class="desktop-sidebar bg-base-100 border-r border-base-200 hidden lg:flex flex-col h-full shrink-0 z-20 transition-colors">
+                    
+                    <div class="h-16 flex items-center px-6 border-b border-base-200 whitespace-nowrap overflow-hidden justify-start">
+                        <div class="flex items-center gap-3 w-full">
+                            <div class="w-8 h-8 rounded bg-primary text-primary-content grid place-content-center font-bold text-lg shrink-0">E</div>
+                            <span class="sidebar-text font-bold text-xl tracking-tight">EduManager</span>
+                        </div>
+                    </div>
+                    
+                    <ul class="menu flex-1 py-4 gap-2 text-base font-medium text-base-content/80 overflow-y-auto">
+                        <li>
+                            <a href="#" class="active h-12 bg-primary/10 text-primary border-r-2 border-primary rounded-none">
+                                <i class="fa-solid fa-gauge w-6 text-center text-lg"></i>
+                                <span class="sidebar-text ml-3">Dashboard</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="h-12 hover:bg-base-200">
+                                <i class="fa-solid fa-user-graduate w-6 text-center text-lg"></i>
+                                <span class="sidebar-text ml-3">Students</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="h-12 hover:bg-base-200">
+                                <i class="fa-solid fa-chalkboard-user w-6 text-center text-lg"></i>
+                                <span class="sidebar-text ml-3">Teachers</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="h-12 hover:bg-base-200">
+                                <i class="fa-solid fa-money-bill w-6 text-center text-lg"></i>
+                                <span class="sidebar-text ml-3">Finance</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                    <div class="p-3 border-t border-base-200 mt-auto">
+                         <button class="btn btn-ghost btn-sm w-full justify-start px-0 h-10 pl-6">
+                             <i class="fa-solid fa-gear w-6 text-center text-lg"></i>
+                             <span class="sidebar-text ml-3">Settings</span>
+                         </button>
+                    </div>
+                </aside>
+
+
+                <main class="flex-1 flex flex-col min-w-0 h-full overflow-y-auto relative transition-all">
+                    
+                    <header class="navbar bg-base-100 shadow-sm sticky top-0 z-30 px-4 h-16 border-b border-base-200 shrink-0 transition-colors">
+                        
+                        <div class="flex-none lg:hidden">
+                            <label for="mobile-drawer" class="btn btn-square btn-ghost">
+                                <i class="fa-solid fa-bars text-xl"></i>
+                            </label>
+                        </div>
+                        <div class="hidden lg:block lg:flex-none">
+                            <label for="desktop-toggle" class="btn btn-square btn-ghost text-base-content/70 hover:text-primary cursor-pointer">
+                                <i class="fa-solid fa-bars text-xl"></i>
+                            </label>
+                        </div>
+
+                        <div class="flex-1 px-4">
+                            <h1 class="text-xl font-bold text-base-content/80">Overview</h1>
+                        </div>
+                        
+                        <div class="flex-none gap-2">
+                            
+                            <label class="btn btn-ghost btn-circle swap swap-rotate">
+                                <input type="checkbox" class="theme-controller" value="dark" />
+                                
+                                <i class="fa-solid fa-sun swap-off text-xl fill-current"></i>
+                                
+                                <i class="fa-solid fa-moon swap-on text-xl fill-current"></i>
+                            </label>
+
+                            <button class="btn btn-ghost btn-circle">
+                                <div class="indicator">
+                                    <i class="fa-regular fa-bell text-xl"></i>
+                                    <span class="badge badge-xs badge-primary indicator-item"></span>
+                                </div>
+                            </button>
+                            
+                            <div class="dropdown dropdown-end">
+                                <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
+                                    <div class="w-9 rounded-full ring ring-base-200">
+                                        <img src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp" />
+                                    </div>
+                                </div>
+                                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow-lg bg-base-100 rounded-box w-60 border border-base-200">
+                                    <li class="menu-title px-4 py-2">
+                                        <span class="text-base font-bold text-base-content">Administrator</span>
+                                        <span class="text-xs font-normal opacity-60">admin@school.edu</span>
+                                    </li>
+                                    <li><a class="py-2 text-sm"><i class="fa-regular fa-user mr-2"></i> My Profile</a></li>
+                                    <li><a class="py-2 text-sm"><i class="fa-solid fa-sliders mr-2"></i> Settings</a></li>
+                                    <div class="divider my-1"></div>
+                                    <li><a class="py-2 text-sm text-error"><i class="fa-solid fa-right-from-bracket mr-2"></i> Logout</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <div class="stats shadow-sm border border-base-200 w-full bg-base-100 transition-colors">
+                                <div class="stat">
+                                    <div class="stat-figure text-primary/20"><i class="fa-solid fa-users text-3xl"></i></div>
+                                    <div class="stat-title">Students</div>
+                                    <div class="stat-value text-primary">1,200</div>
+                                </div>
+                            </div>
+                            <div class="stats shadow-sm border border-base-200 w-full bg-base-100 transition-colors">
+                                <div class="stat">
+                                    <div class="stat-figure text-secondary/20"><i class="fa-solid fa-chalkboard-user text-3xl"></i></div>
+                                    <div class="stat-title">Teachers</div>
+                                    <div class="stat-value text-secondary">48</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card bg-base-100 shadow-sm border border-base-200 h-96 transition-colors">
+                            <div class="card-body flex items-center justify-center text-base-content/30">
+                                <div class="text-center">
+                                    <i class="fa-solid fa-layer-group text-6xl mb-4"></i>
+                                    <p class="font-medium">Main Content Area</p>
+                                    <p class="text-xs mt-2 opacity-60">Try the Dark Mode toggle!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div> 
+        </div> 
+
+        <div class="drawer-side z-50 lg:hidden">
+            <label for="mobile-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+            <aside class="bg-base-100 min-h-full w-80 p-4 border-r border-base-200">
+                <div class="flex items-center gap-3 mb-6 px-2">
+                    <div class="w-8 h-8 rounded bg-primary text-primary-content grid place-content-center font-bold">E</div>
+                    <span class="font-bold text-xl">EduManager</span>
+                </div>
+                <ul class="menu text-base-content text-base">
+                    <li><a><i class="fa-solid fa-gauge w-6"></i> Dashboard</a></li>
+                    <li><a><i class="fa-solid fa-user-graduate w-6"></i> Students</a></li>
+                    <li><a><i class="fa-solid fa-chalkboard-user w-6"></i> Teachers</a></li>
+                    <li><a><i class="fa-solid fa-money-bill w-6"></i> Finance</a></li>
+                </ul>
+            </aside>
+        </div>
+    </div>
+</body>
+</html>

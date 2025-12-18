@@ -1,0 +1,70 @@
+{% load core_tags %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-base-content">Dashboard</h1>
+    <p class="text-base-content/60">Welcome back, {{ user.first_name|default:user.email }}</p>
+</div>
+
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    {% stat_card "Students" student_count|default:"0" "fa-solid fa-users" "primary" %}
+    {% stat_card "Teachers" teacher_count|default:"0" "fa-solid fa-chalkboard-user" "secondary" %}
+    {% stat_card "Classes" class_count|default:"0" "fa-solid fa-door-open" "accent" %}
+    {% stat_card "Parents" parent_count|default:"0" "fa-solid fa-people-roof" "info" %}
+</div>
+
+<!-- Main Content Area -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Recent Activity -->
+    <div class="lg:col-span-2">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h2 class="card-title text-base-content">Recent Activity</h2>
+                <div class="divider my-0"></div>
+                {% if recent_activities %}
+                    <ul class="space-y-3">
+                        {% for activity in recent_activities %}
+                            <li class="flex items-center gap-3 p-2 rounded hover:bg-base-200">
+                                <div class="w-10 h-10 rounded-full bg-{{ activity.color|default:'primary' }}/10 flex items-center justify-center">
+                                    <i class="{{ activity.icon|default:'fa-solid fa-circle' }} text-{{ activity.color|default:'primary' }}"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium">{{ activity.title }}</p>
+                                    <p class="text-xs text-base-content/60">{{ activity.timestamp }}</p>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="text-center py-8 text-base-content/40">
+                        <i class="fa-solid fa-clock-rotate-left text-4xl mb-2"></i>
+                        <p>No recent activity</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="lg:col-span-1">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h2 class="card-title text-base-content">Quick Actions</h2>
+                <div class="divider my-0"></div>
+                <div class="space-y-2">
+                    <a href="#" class="btn btn-ghost btn-block justify-start">
+                        <i class="fa-solid fa-user-plus w-6"></i> Add Student
+                    </a>
+                    <a href="#" class="btn btn-ghost btn-block justify-start">
+                        <i class="fa-solid fa-paper-plane w-6"></i> Send Message
+                    </a>
+                    <a href="#" class="btn btn-ghost btn-block justify-start">
+                        <i class="fa-solid fa-file-invoice w-6"></i> Create Invoice
+                    </a>
+                    <a href="#" class="btn btn-ghost btn-block justify-start">
+                        <i class="fa-solid fa-calendar-plus w-6"></i> Schedule Event
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
