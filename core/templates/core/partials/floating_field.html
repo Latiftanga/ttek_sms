@@ -4,6 +4,30 @@
     <input type="checkbox" name="{{ field.html_name }}" {% if field.value %}checked{% endif %} class="{{ input_class }}" />
     <span class="label-text">{{ label }}</span>
 </label>
+{% elif is_date %}
+{# Date/time inputs use wrapper class pattern in DaisyUI v5 #}
+<label class="input w-full">
+    <span class="label">{{ label }}</span>
+    <input type="{{ input_type }}"
+           name="{{ field.html_name }}"
+           value="{% if field.value %}{{ field.value|date:'Y-m-d' }}{% endif %}"
+           {% if field.field.required %}required{% endif %} />
+</label>
+{% elif is_select %}
+{# Select in DaisyUI v5 #}
+<fieldset class="fieldset w-full">
+    <legend class="fieldset-legend">{{ label }}</legend>
+    <select name="{{ field.html_name }}" class="select w-full" {% if field.field.required %}required{% endif %}>
+        {% for choice in field.field.choices %}
+        {% if forloop.first and choice.0 == "" %}
+        <option value="" disabled {% if not field.value %}selected{% endif %}>{{ choice.1|default:"Select an option" }}</option>
+        {% else %}
+        <option value="{{ choice.0 }}" {% if field.value|stringformat:"s" == choice.0|stringformat:"s" %}selected{% endif %}>{{ choice.1 }}</option>
+        {% endif %}
+        {% endfor %}
+    </select>
+</fieldset>
+
 {% else %}
 <label class="floating-label w-full">
     <span>{{ label }}</span>
@@ -14,21 +38,13 @@
               {% if field.field.required %}required{% endif %}
               {% if field.field.widget.attrs.rows %}rows="{{ field.field.widget.attrs.rows }}"{% endif %}
               {% if field.field.widget.attrs.maxlength %}maxlength="{{ field.field.widget.attrs.maxlength }}"{% endif %}>{{ field.value|default:'' }}</textarea>
-    {% elif is_select %}
-    <select name="{{ field.html_name }}"
-            class="{{ input_class }}"
-            {% if field.field.required %}required{% endif %}>
-        {% for choice in field.field.choices %}
-        <option value="{{ choice.0 }}" {% if field.value|stringformat:"s" == choice.0|stringformat:"s" %}selected{% endif %}>{{ choice.1 }}</option>
-        {% endfor %}
-    </select>
     {% elif is_file %}
     <input type="file"
            name="{{ field.html_name }}"
            class="{{ input_class }}"
            {% if field.field.widget.attrs.accept %}accept="{{ field.field.widget.attrs.accept }}"{% endif %} />
     {% else %}
-    <input type="{{ field.field.widget.attrs.type|default:'text' }}"
+    <input type="{{ input_type }}"
            name="{{ field.html_name }}"
            value="{{ field.value|default:'' }}"
            placeholder="{{ field.field.widget.attrs.placeholder|default:label }}"

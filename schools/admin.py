@@ -143,4 +143,5 @@ class SchoolAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         with schema_context(get_public_schema_name()):
-            return super().get_queryset(request)
+            # Prefetch domains to avoid N+1 queries in list view
+            return super().get_queryset(request).prefetch_related('domains')

@@ -2,6 +2,29 @@ from django.db import models
 from django_tenants.models import TenantMixin, DomainMixin
 
 
+class Region(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=10, unique=True, help_text="Short code e.g. UW, GA")
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
+
+class District(models.Model):
+    name = models.CharField(max_length=100)
+    region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name='districts')
+
+    def __str__(self):
+        return f"{self.name} ({self.region.code})"
+
+    class Meta:
+        unique_together = ('name', 'region') # Prevent duplicate districts in same region
+        ordering = ['name']
+
+
 class School(TenantMixin):
     # Basic Info
     name = models.CharField(max_length=100)

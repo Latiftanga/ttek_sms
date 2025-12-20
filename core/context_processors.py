@@ -1,4 +1,7 @@
-from django.db import connection
+import logging
+from django.db import connection, ProgrammingError, OperationalError
+
+logger = logging.getLogger(__name__)
 
 
 def school_branding(request):
@@ -15,8 +18,12 @@ def school_branding(request):
     try:
         from .models import SchoolSettings
         school = SchoolSettings.load()
-    except Exception:
-        # Table doesn't exist yet or other error
+    except (ProgrammingError, OperationalError):
+        # Table doesn't exist yet (migrations not run)
+        school = None
+    except Exception as e:
+        # Unexpected error - log it
+        logger.warning(f"Failed to load SchoolSettings: {e}")
         school = None
 
     return {'school': school}
@@ -25,15 +32,33 @@ def school_branding(request):
 def academic_session(request):
     """
     Add current academic session to template context.
-    Makes 'current_session' and 'current_term' available in all templates.
+    Makes 'current_academic_year' and 'current_term' available in all templates.
     """
     # Check if we're on a tenant schema
     schema_name = getattr(connection, 'schema_name', 'public')
     if schema_name == 'public':
-        return {'current_session': None, 'current_term': None}
+        return {'current_academic_year': None, 'current_term': None}
 
-    # TODO: Implement when AcademicSession model exists
+    current_academic_year = None
+    current_term = None
+
+    try:
+        from .models import AcademicYear
+        current_academic_year = AcademicYear.get_current()
+    except (ProgrammingError, OperationalError):
+        pass
+    except Exception as e:
+        logger.warning(f"Failed to load academic year: {e}")
+
+    try:
+        from .models import Term
+        current_term = Term.get_current()
+    except (ProgrammingError, OperationalError):
+        pass
+    except Exception as e:
+        logger.warning(f"Failed to load term: {e}")
+
     return {
-        'current_session': None,
-        'current_term': None,
+        'current_academic_year': current_academic_year,
+        'current_term': current_term,
     }

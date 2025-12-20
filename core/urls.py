@@ -21,6 +21,7 @@ urlpatterns = [
     path('settings/update/branding/', views.settings_update_branding, name='settings_update_branding'),
     path('settings/update/contact/', views.settings_update_contact, name='settings_update_contact'),
     path('settings/update/admin/', views.settings_update_admin, name='settings_update_admin'),
+    path('settings/update/academic/', views.settings_update_academic, name='settings_update_academic'),
 
     # Academic Year routes
     path('settings/academic-year/create/', views.academic_year_create, name='academic_year_create'),

@@ -1,21 +1,233 @@
-<div class="max-w-4xl mx-auto space-y-6">
-    <!-- Page Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h2 class="text-2xl font-bold text-base-content">School Settings</h2>
-            <p class="text-base-content/60">Manage your school's information and branding</p>
-        </div>
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Row 1: Basic Info + Branding -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {% include "core/settings/partials/card_basic.html" %}
+        {% include "core/settings/partials/card_branding.html" %}
     </div>
 
-    <!-- Basic Info Card -->
-    {% include "core/settings/partials/card_basic.html" %}
+    <!-- Row 2: Contact + Administration -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {% include "core/settings/partials/card_contact.html" %}
+        {% include "core/settings/partials/card_admin.html" %}
+    </div>
 
-    <!-- Branding Card -->
-    {% include "core/settings/partials/card_branding.html" %}
-
-    <!-- Contact Card -->
-    {% include "core/settings/partials/card_contact.html" %}
-
-    <!-- Administration Card -->
-    {% include "core/settings/partials/card_admin.html" %}
+    <!-- Row 3: Academic Years -->
+    {% include "core/settings/partials/card_academic.html" %}
 </div>
+
+<!-- Basic Info Modal -->
+<dialog id="modal_basic" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Edit Basic Information</h3>
+        <form method="post"
+              action="{% url 'core:settings_update_basic' %}"
+              hx-post="{% url 'core:settings_update_basic' %}"
+              hx-target="#card-basic"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) modal_basic.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                {% floating_field basic_form.name %}
+                {% floating_field basic_form.short_name help_text="Displayed in sidebar" %}
+                {% floating_field basic_form.display_name %}
+                {% floating_field basic_form.motto %}
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_basic.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Branding Modal -->
+<dialog id="modal_branding" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Edit Branding</h3>
+        <form method="post"
+              action="{% url 'core:settings_update_branding' %}"
+              enctype="multipart/form-data"
+              hx-post="{% url 'core:settings_update_branding' %}"
+              hx-target="#card-branding"
+              hx-swap="outerHTML"
+              hx-encoding="multipart/form-data"
+              hx-on::after-request="if(event.detail.successful) modal_branding.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                <div>
+                    {% floating_field branding_form.logo %}
+                    {% if school_settings.logo %}
+                    <p class="text-xs text-base-content/60 mt-1 ml-1">Current: {{ school_settings.logo.name }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    {% floating_field branding_form.favicon %}
+                    {% if school_settings.favicon %}
+                    <p class="text-xs text-base-content/60 mt-1 ml-1">Current: {{ school_settings.favicon.name }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <p class="text-sm font-medium mb-3">Theme Colors</p>
+                    <div class="grid grid-cols-3 gap-4">
+                        {% floating_field branding_form.primary_color "Primary" %}
+                        {% floating_field branding_form.secondary_color "Secondary" %}
+                        {% floating_field branding_form.accent_color "Accent" %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_branding.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Contact Modal -->
+<dialog id="modal_contact" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Edit Contact Information</h3>
+        <form method="post"
+              action="{% url 'core:settings_update_contact' %}"
+              hx-post="{% url 'core:settings_update_contact' %}"
+              hx-target="#card-contact"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) modal_contact.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                <div class="grid grid-cols-2 gap-4">
+                    {% floating_field contact_form.email %}
+                    {% floating_field contact_form.phone %}
+                </div>
+                {% floating_field contact_form.address %}
+                <div class="grid grid-cols-3 gap-4">
+                    {% floating_field contact_form.digital_address %}
+                    {% floating_field contact_form.city %}
+                    {% floating_field contact_form.region %}
+                </div>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_contact.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Administration Modal -->
+<dialog id="modal_admin" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Edit Administration Details</h3>
+        <form method="post"
+              action="{% url 'core:settings_update_admin' %}"
+              hx-post="{% url 'core:settings_update_admin' %}"
+              hx-target="#card-admin"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) modal_admin.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                {% floating_field admin_form.headmaster_name %}
+                {% floating_field admin_form.headmaster_title %}
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_admin.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Academic Year Create Modal -->
+<dialog id="modal_academic_year" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Add Academic Year</h3>
+        <form method="post"
+              action="{% url 'core:academic_year_create' %}"
+              hx-post="{% url 'core:academic_year_create' %}"
+              hx-target="#card-academic"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) modal_academic_year.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                {% floating_field academic_year_form.name %}
+                <div class="grid grid-cols-2 gap-4">
+                    {% floating_field academic_year_form.start_date %}
+                    {% floating_field academic_year_form.end_date %}
+                </div>
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="is_current" class="checkbox checkbox-primary">
+                    <span class="label-text">Set as Current Academic Year</span>
+                </label>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_academic_year.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Year</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Term Create Modal -->
+<dialog id="modal_term" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Add {{ period_label|default:"Term" }}</h3>
+        <form method="post"
+              action="{% url 'core:term_create' %}"
+              hx-post="{% url 'core:term_create' %}"
+              hx-target="#card-academic"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) modal_term.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                {% floating_field term_form.academic_year %}
+                {% floating_field term_form.name %}
+                {% floating_field term_form.term_number %}
+                <div class="grid grid-cols-2 gap-4">
+                    {% floating_field term_form.start_date %}
+                    {% floating_field term_form.end_date %}
+                </div>
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="is_current" class="checkbox checkbox-primary">
+                    <span class="label-text">Set as Current {{ period_label|default:"Term" }}</span>
+                </label>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_term.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create {{ period_label|default:"Term" }}</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Generic Edit Modal (content loaded via HTMX) -->
+<dialog id="modal_edit" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <div id="modal-edit-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+</dialog>

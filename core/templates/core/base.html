@@ -20,16 +20,17 @@
     {% tailwind_css %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
         /* Tenant theme colors - dynamically injected from SchoolSettings */
         :root,
         [data-theme="light"],
         [data-theme="dark"] {
-            /* DaisyUI color overrides using OKLCH */
-            --p: {{ school.primary_color_oklch|default:"49% 0.248 262" }};
-            --s: {{ school.secondary_color_oklch|default:"53% 0.253 293" }};
-            --a: {{ school.accent_color_oklch|default:"75% 0.183 55" }};
+            /* DaisyUI v5 color overrides using OKLCH */
+            --color-primary: oklch({{ school.primary_color_oklch|default:"49% 0.248 262" }});
+            --color-secondary: oklch({{ school.secondary_color_oklch|default:"53% 0.253 293" }});
+            --color-accent: oklch({{ school.accent_color_oklch|default:"75% 0.183 55" }});
 
             /* Sidebar width */
             --desktop-width: 17rem;
@@ -101,7 +102,7 @@
                     </div>
 
                     <!-- Main content area - HTMX swap target -->
-                    <div id="main-content" class="p-6">
+                    <div id="main-content" class="flex-1 p-6">
                         {% block content %}{% endblock %}
                     </div>
                 </main>
@@ -118,6 +119,13 @@
         // Sync theme toggle checkbox with saved preference
         const themeCtrl = document.querySelector('.theme-controller');
         if (themeCtrl) themeCtrl.checked = localStorage.getItem('theme') === 'dark';
+
+        // Initialize Alpine.js on HTMX swapped content
+        document.body.addEventListener('htmx:afterSwap', (event) => {
+            if (window.Alpine) {
+                Alpine.initTree(event.detail.target);
+            }
+        });
     </script>
     {% block extra_js %}{% endblock %}
 </body>

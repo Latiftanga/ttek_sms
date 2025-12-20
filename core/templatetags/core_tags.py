@@ -264,28 +264,45 @@ def floating_field(field, label=None, help_text=None):
     # Determine field type for appropriate input class
     widget_type = field.field.widget.__class__.__name__.lower()
 
-    # Map widget types to DaisyUI classes
+    # Map widget types to DaisyUI v5 classes (no -bordered suffix)
     input_class_map = {
-        'textarea': 'textarea textarea-bordered w-full',
-        'select': 'select select-bordered w-full',
-        'fileinput': 'file-input file-input-bordered w-full',
-        'clearablefileinput': 'file-input file-input-bordered w-full',
+        'textarea': 'textarea w-full',
+        'select': 'select w-full',
+        'fileinput': 'file-input w-full',
+        'clearablefileinput': 'file-input w-full',
         'checkboxinput': 'checkbox',
-        'numberinput': 'input input-bordered w-full',
-        'emailinput': 'input input-bordered w-full',
-        'passwordinput': 'input input-bordered w-full',
-        'urlinput': 'input input-bordered w-full',
-        'dateinput': 'input input-bordered w-full',
-        'datetimeinput': 'input input-bordered w-full',
-        'timeinput': 'input input-bordered w-full',
+        'numberinput': 'input w-full',
+        'emailinput': 'input w-full',
+        'passwordinput': 'input w-full',
+        'urlinput': 'input w-full',
+        'dateinput': 'input w-full',
+        'datetimeinput': 'input w-full',
+        'timeinput': 'input w-full',
     }
 
-    input_class = input_class_map.get(widget_type, 'input input-bordered w-full')
+    input_class = input_class_map.get(widget_type, 'input w-full')
 
-    # Check if it's a color input
+    # Check special input types
     widget_attrs = field.field.widget.attrs
-    if widget_attrs.get('type') == 'color':
-        input_class = 'input input-bordered p-1 h-12 w-full cursor-pointer'
+    input_type = widget_attrs.get('type', 'text')
+
+    if input_type == 'color':
+        input_class = 'input p-1 h-12 w-full cursor-pointer'
+
+    # Date/time inputs use wrapper class pattern in DaisyUI v5
+    # Check both widget type and input type attr for robustness
+    is_date_type = (
+        widget_type in ('dateinput', 'datetimeinput', 'timeinput') or
+        input_type in ('date', 'datetime-local', 'time')
+    )
+
+    # Ensure input_type is correct for date widgets
+    if widget_type == 'dateinput':
+        input_type = 'date'
+    elif widget_type == 'datetimeinput':
+        input_type = 'datetime-local'
+    elif widget_type == 'timeinput':
+        input_type = 'time'
 
     # Use custom label or field label
     field_label = label if label else field.label
@@ -298,9 +315,11 @@ def floating_field(field, label=None, help_text=None):
         'label': field_label,
         'help_text': field_help,
         'input_class': input_class,
+        'input_type': input_type,
         'widget_type': widget_type,
         'is_checkbox': widget_type == 'checkboxinput',
         'is_textarea': widget_type == 'textarea',
         'is_select': 'select' in widget_type,
         'is_file': 'file' in widget_type,
+        'is_date': is_date_type,
     }

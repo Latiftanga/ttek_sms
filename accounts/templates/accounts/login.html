@@ -1,14 +1,13 @@
-{% load static %}
+{% load static tailwind_tags %}
 <!DOCTYPE html>
-<html lang="en" data-theme="winter">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - {{ school_name }}</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    {% tailwind_css %}
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body class="min-h-screen bg-base-200">
 
@@ -104,39 +103,35 @@
 
                             <!-- Email Field -->
                             <div class="form-control w-full mb-3">
-                                <label class="floating-label">
+                                <label class="floating-label w-full">
+                                    <span>Email Address</span>
                                     <input type="email"
                                            name="username"
                                            id="id_username"
-                                           class="input input-bordered input-sm w-full {% if form.username.errors %}input-error{% endif %}"
+                                           class="input w-full {% if form.username.errors %}input-error{% endif %}"
                                            placeholder="Email Address"
                                            value="{{ form.username.value|default:'' }}"
                                            required
                                            autofocus>
-                                    <span>Email Address</span>
                                 </label>
                                 {% if form.username.errors %}
-                                <label class="label py-1">
-                                    <span class="label-text-alt text-error text-xs">{{ form.username.errors.0 }}</span>
-                                </label>
+                                <p class="text-xs text-error mt-1">{{ form.username.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
                             <!-- Password Field -->
                             <div class="form-control w-full mb-4">
-                                <label class="floating-label">
+                                <label class="floating-label w-full">
+                                    <span>Password</span>
                                     <input type="password"
                                            name="password"
                                            id="id_password"
-                                           class="input input-bordered input-sm w-full {% if form.password.errors %}input-error{% endif %}"
+                                           class="input w-full {% if form.password.errors %}input-error{% endif %}"
                                            placeholder="Password"
                                            required>
-                                    <span>Password</span>
                                 </label>
                                 {% if form.password.errors %}
-                                <label class="label py-1">
-                                    <span class="label-text-alt text-error text-xs">{{ form.password.errors.0 }}</span>
-                                </label>
+                                <p class="text-xs text-error mt-1">{{ form.password.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
