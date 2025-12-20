@@ -6,6 +6,7 @@ from django.urls import path, include
 urlpatterns = [
     path('', include('core.urls')),
     path('', include('accounts.urls')),
+    path('academics/', include('academics.urls')),
     # path('students/', include('students.urls')),  # TODO: Uncomment when students app is created
 ]
 

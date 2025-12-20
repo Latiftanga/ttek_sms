@@ -1,0 +1,59 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-6">Edit Subject</h3>
+<form method="post"
+      action="{% url 'academics:subject_edit' subject.pk %}"
+      hx-post="{% url 'academics:subject_edit' subject.pk %}"
+      hx-on::after-request="if(event.detail.successful) modal_edit.close()">
+    {% csrf_token %}
+    <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+            {% floating_field form.name %}
+            {% floating_field form.short_name %}
+        </div>
+        {% floating_field form.code %}
+
+        <div class="flex items-center gap-4">
+            <label class="label cursor-pointer gap-2">
+                <input type="checkbox" name="is_core" class="checkbox checkbox-primary checkbox-sm" {% if form.is_core.value %}checked{% endif %}>
+                <span class="label-text">Core Subject</span>
+            </label>
+        </div>
+
+        <div>
+            <p class="text-sm font-medium mb-2">Applicable Levels</p>
+            <div class="flex flex-wrap gap-4">
+                <label class="label cursor-pointer gap-2">
+                    <input type="checkbox" name="for_kg" class="checkbox checkbox-sm" {% if form.for_kg.value %}checked{% endif %}>
+                    <span class="label-text">KG</span>
+                </label>
+                <label class="label cursor-pointer gap-2">
+                    <input type="checkbox" name="for_primary" class="checkbox checkbox-sm" {% if form.for_primary.value %}checked{% endif %}>
+                    <span class="label-text">Primary</span>
+                </label>
+                <label class="label cursor-pointer gap-2">
+                    <input type="checkbox" name="for_jhs" class="checkbox checkbox-sm" {% if form.for_jhs.value %}checked{% endif %}>
+                    <span class="label-text">JHS</span>
+                </label>
+                <label class="label cursor-pointer gap-2">
+                    <input type="checkbox" name="for_shs" class="checkbox checkbox-sm" {% if form.for_shs.value %}checked{% endif %}>
+                    <span class="label-text">SHS</span>
+                </label>
+            </div>
+        </div>
+
+        <label class="label cursor-pointer justify-start gap-3">
+            <input type="checkbox" name="is_active" class="checkbox checkbox-primary" {% if form.is_active.value %}checked{% endif %}>
+            <span class="label-text">Active</span>
+        </label>
+    </div>
+    {% if form.errors %}
+    <div class="alert alert-error mt-4 py-2 text-sm">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>Please fix the errors below.</span>
+    </div>
+    {% endif %}
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+    </div>
+</form>

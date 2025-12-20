@@ -15,9 +15,9 @@
 </label>
 {% elif is_select %}
 {# Select in DaisyUI v5 #}
-<fieldset class="fieldset w-full">
-    <legend class="fieldset-legend">{{ label }}</legend>
-    <select name="{{ field.html_name }}" class="select w-full" {% if field.field.required %}required{% endif %}>
+<label class="select w-full">
+    <span class="label">{{ label }}</span>
+    <select name="{{ field.html_name }}" {% if field.field.required %}required{% endif %}>
         {% for choice in field.field.choices %}
         {% if forloop.first and choice.0 == "" %}
         <option value="" disabled {% if not field.value %}selected{% endif %}>{{ choice.1|default:"Select an option" }}</option>
@@ -26,7 +26,7 @@
         {% endif %}
         {% endfor %}
     </select>
-</fieldset>
+</label>
 
 {% else %}
 <label class="floating-label w-full">

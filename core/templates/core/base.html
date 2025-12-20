@@ -115,6 +115,29 @@
     <!-- Modals container (outside drawer for proper z-index) -->
     {% block modals %}{% endblock %}
 
+    <!-- Global confirm dialog -->
+    <dialog id="confirm-dialog" class="modal">
+        <div class="modal-box max-w-sm text-center">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </form>
+            <div class="text-warning text-5xl mb-4">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="font-bold text-lg" id="confirm-title">Confirm</h3>
+            <p class="py-4 text-base-content/70" id="confirm-message">Are you sure?</p>
+            <div class="modal-action justify-center">
+                <button type="button" class="btn" id="confirm-cancel">Cancel</button>
+                <button type="button" class="btn btn-error" id="confirm-ok">Delete</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
     <script>
         // Sync theme toggle checkbox with saved preference
         const themeCtrl = document.querySelector('.theme-controller');
@@ -125,6 +148,73 @@
             if (window.Alpine) {
                 Alpine.initTree(event.detail.target);
             }
+        });
+
+        // Update sidebar active state on HTMX navigation
+        function updateSidebarActive() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('#desktop-nav a, #mobile-nav a');
+
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                const isDesktop = link.closest('#desktop-nav') !== null;
+
+                // Remove all active classes
+                link.classList.remove('active', 'bg-primary/10', 'text-primary', 'border-r-2', 'border-primary', 'rounded-none');
+                if (!link.classList.contains('hover:bg-base-200')) {
+                    link.classList.add('hover:bg-base-200');
+                }
+
+                // Check if this link should be active
+                let isActive = false;
+                if (href === '/' || currentPath === '/') {
+                    isActive = currentPath === href;
+                } else {
+                    isActive = currentPath === href || currentPath.startsWith(href.replace(/\/$/, '') + '/');
+                }
+
+                if (isActive) {
+                    link.classList.add('active', 'bg-primary/10', 'text-primary');
+                    link.classList.remove('hover:bg-base-200');
+                    if (isDesktop) {
+                        link.classList.add('border-r-2', 'border-primary', 'rounded-none');
+                    }
+                }
+            });
+        }
+
+        // Update on HTMX navigation
+        document.body.addEventListener('htmx:pushedIntoHistory', updateSidebarActive);
+
+        // Custom confirm dialog
+        const confirmDialog = document.getElementById('confirm-dialog');
+        const confirmTitle = document.getElementById('confirm-title');
+        const confirmMessage = document.getElementById('confirm-message');
+        const confirmOk = document.getElementById('confirm-ok');
+        const confirmCancel = document.getElementById('confirm-cancel');
+
+        document.body.addEventListener('htmx:confirm', function(e) {
+            e.preventDefault();
+
+            const message = e.detail.question || 'Are you sure?';
+            confirmMessage.textContent = message;
+            confirmDialog.showModal();
+
+            // Clean up previous listeners
+            const newConfirmOk = confirmOk.cloneNode(true);
+            const newConfirmCancel = confirmCancel.cloneNode(true);
+            confirmOk.parentNode.replaceChild(newConfirmOk, confirmOk);
+            confirmCancel.parentNode.replaceChild(newConfirmCancel, confirmCancel);
+
+            // Update references
+            document.getElementById('confirm-ok').addEventListener('click', function() {
+                confirmDialog.close();
+                e.detail.issueRequest(true);
+            });
+
+            document.getElementById('confirm-cancel').addEventListener('click', function() {
+                confirmDialog.close();
+            });
         });
     </script>
     {% block extra_js %}{% endblock %}

@@ -1,0 +1,146 @@
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold">Academic Structure</h1>
+            <p class="text-sm text-base-content/60">Manage programmes, classes, and subjects</p>
+        </div>
+    </div>
+
+    <!-- Row 1: Programmes (SHS) + Classes -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {% include "academics/partials/card_programmes.html" %}
+        {% include "academics/partials/card_classes.html" %}
+    </div>
+
+    <!-- Row 2: Subjects -->
+    {% include "academics/partials/card_subjects.html" %}
+</div>
+
+<!-- Programme Create Modal -->
+<dialog id="modal_programme" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Add Programme</h3>
+        <form method="post"
+              action="{% url 'academics:programme_create' %}"
+              hx-post="{% url 'academics:programme_create' %}"
+              hx-on::after-request="if(event.detail.successful) modal_programme.close()">
+            {% csrf_token %}
+            <div class="space-y-4">
+                {% floating_field programme_form.name %}
+                {% floating_field programme_form.code %}
+                {% floating_field programme_form.description %}
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_programme.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Class Create Modal -->
+<dialog id="modal_class" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Add Class</h3>
+        <form method="post"
+              action="{% url 'academics:class_create' %}"
+              hx-post="{% url 'academics:class_create' %}"
+              hx-on::after-request="if(event.detail.successful) modal_class.close()">
+            {% csrf_token %}
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    {% floating_field class_form.level_type %}
+                    {% floating_field class_form.level_number %}
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    {% floating_field class_form.section %}
+                    {% floating_field class_form.capacity %}
+                </div>
+                {% floating_field class_form.programme %}
+                <p class="text-xs text-base-content/60">Programme is only required for SHS classes</p>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_class.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Subject Create Modal -->
+<dialog id="modal_subject" class="modal">
+    <div class="modal-box max-w-xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Add Subject</h3>
+        <form method="post"
+              action="{% url 'academics:subject_create' %}"
+              hx-post="{% url 'academics:subject_create' %}"
+              hx-on::after-request="if(event.detail.successful) modal_subject.close()">
+            {% csrf_token %}
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    {% floating_field subject_form.name %}
+                    {% floating_field subject_form.short_name %}
+                </div>
+                {% floating_field subject_form.code %}
+
+                <div class="flex items-center gap-4">
+                    <label class="label cursor-pointer gap-2">
+                        <input type="checkbox" name="is_core" class="checkbox checkbox-primary checkbox-sm" checked>
+                        <span class="label-text">Core Subject</span>
+                    </label>
+                </div>
+
+                <div>
+                    <p class="text-sm font-medium mb-2">Applicable Levels</p>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="label cursor-pointer gap-2">
+                            <input type="checkbox" name="for_kg" class="checkbox checkbox-sm">
+                            <span class="label-text">KG</span>
+                        </label>
+                        <label class="label cursor-pointer gap-2">
+                            <input type="checkbox" name="for_primary" class="checkbox checkbox-sm" checked>
+                            <span class="label-text">Primary</span>
+                        </label>
+                        <label class="label cursor-pointer gap-2">
+                            <input type="checkbox" name="for_jhs" class="checkbox checkbox-sm" checked>
+                            <span class="label-text">JHS</span>
+                        </label>
+                        <label class="label cursor-pointer gap-2">
+                            <input type="checkbox" name="for_shs" class="checkbox checkbox-sm">
+                            <span class="label-text">SHS</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_subject.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Generic Edit Modal -->
+<dialog id="modal_edit" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <div id="modal-edit-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+</dialog>
