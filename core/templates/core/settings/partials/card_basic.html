@@ -1,0 +1,39 @@
+<div id="card-basic" class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="card-title text-lg">
+                <i class="fa-solid fa-school text-primary"></i>
+                Basic Information
+            </h3>
+            <button class="btn btn-ghost btn-sm" onclick="modal_basic.showModal()">
+                <i class="fa-solid fa-pen"></i> Edit
+            </button>
+        </div>
+
+        {% if success %}
+        <div class="alert alert-success mb-4">
+            <i class="fa-solid fa-check-circle"></i>
+            <span>Basic information updated successfully.</span>
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm text-base-content/60">School Name</p>
+                <p class="font-medium">{{ tenant.name|default:"-" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-base-content/60">Short Name</p>
+                <p class="font-medium">{{ tenant.short_name|default:"-" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-base-content/60">Display Name</p>
+                <p class="font-medium">{{ school_settings.display_name|default:"-" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-base-content/60">Motto</p>
+                <p class="font-medium">{{ school_settings.motto|default:"-" }}</p>
+            </div>
+        </div>
+    </div>
+</div>

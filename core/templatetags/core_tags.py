@@ -249,3 +249,58 @@ def user_is_role(context, role):
         'parent': getattr(user, 'is_parent', False),
     }
     return role_map.get(role, False)
+
+
+@register.inclusion_tag('core/partials/floating_field.html')
+def floating_field(field, label=None, help_text=None):
+    """
+    Render a form field with DaisyUI floating label.
+
+    Usage:
+        {% floating_field form.name %}
+        {% floating_field form.name "Custom Label" %}
+        {% floating_field form.name label="Custom Label" help_text="Some help" %}
+    """
+    # Determine field type for appropriate input class
+    widget_type = field.field.widget.__class__.__name__.lower()
+
+    # Map widget types to DaisyUI classes
+    input_class_map = {
+        'textarea': 'textarea textarea-bordered w-full',
+        'select': 'select select-bordered w-full',
+        'fileinput': 'file-input file-input-bordered w-full',
+        'clearablefileinput': 'file-input file-input-bordered w-full',
+        'checkboxinput': 'checkbox',
+        'numberinput': 'input input-bordered w-full',
+        'emailinput': 'input input-bordered w-full',
+        'passwordinput': 'input input-bordered w-full',
+        'urlinput': 'input input-bordered w-full',
+        'dateinput': 'input input-bordered w-full',
+        'datetimeinput': 'input input-bordered w-full',
+        'timeinput': 'input input-bordered w-full',
+    }
+
+    input_class = input_class_map.get(widget_type, 'input input-bordered w-full')
+
+    # Check if it's a color input
+    widget_attrs = field.field.widget.attrs
+    if widget_attrs.get('type') == 'color':
+        input_class = 'input input-bordered p-1 h-12 w-full cursor-pointer'
+
+    # Use custom label or field label
+    field_label = label if label else field.label
+
+    # Use custom help text or field help text
+    field_help = help_text if help_text else field.help_text
+
+    return {
+        'field': field,
+        'label': field_label,
+        'help_text': field_help,
+        'input_class': input_class,
+        'widget_type': widget_type,
+        'is_checkbox': widget_type == 'checkboxinput',
+        'is_textarea': widget_type == 'textarea',
+        'is_select': 'select' in widget_type,
+        'is_file': 'file' in widget_type,
+    }

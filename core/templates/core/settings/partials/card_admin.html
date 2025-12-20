@@ -1,0 +1,31 @@
+<div id="card-admin" class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="card-title text-lg">
+                <i class="fa-solid fa-user-tie text-primary"></i>
+                Administration
+            </h3>
+            <button class="btn btn-ghost btn-sm" onclick="modal_admin.showModal()">
+                <i class="fa-solid fa-pen"></i> Edit
+            </button>
+        </div>
+
+        {% if success %}
+        <div class="alert alert-success mb-4">
+            <i class="fa-solid fa-check-circle"></i>
+            <span>Administration details updated successfully.</span>
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm text-base-content/60">Head's Name</p>
+                <p class="font-medium">{{ tenant.headmaster_name|default:"-" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-base-content/60">Head's Title</p>
+                <p class="font-medium">{{ tenant.headmaster_title|default:"-" }}</p>
+            </div>
+        </div>
+    </div>
+</div>

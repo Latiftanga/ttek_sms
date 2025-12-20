@@ -1,5 +1,5 @@
 {% load core_tags %}
-<header class="navbar bg-base-100 shadow-sm sticky top-0 z-30 px-4 h-16 border-b border-base-200 shrink-0 transition-colors">
+<header class="navbar bg-base-200 shadow-sm sticky top-0 z-30 px-4 h-16 border-b border-base-200 shrink-0 transition-colors">
     <!-- Mobile menu toggle -->
     <div class="flex-none lg:hidden">
         <label for="mobile-drawer" class="btn btn-square btn-ghost">
@@ -24,7 +24,7 @@
         <!-- Theme toggle (persists to localStorage) -->
         <label class="btn btn-ghost btn-circle swap swap-rotate">
             <input type="checkbox" class="theme-controller" value="dark"
-                   onchange="localStorage.setItem('theme', this.checked ? 'dark' : 'light')" />
+                   onchange="const theme = this.checked ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', theme); localStorage.setItem('theme', theme);" />
             <i class="fa-solid fa-sun swap-off text-xl fill-current"></i>
             <i class="fa-solid fa-moon swap-on text-xl fill-current"></i>
         </label>

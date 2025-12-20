@@ -1,6 +1,14 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
+
+from .models import SchoolSettings
+from .forms import (
+    SchoolBasicInfoForm,
+    SchoolBrandingForm,
+    SchoolContactForm,
+    SchoolAdminForm,
+)
 
 
 def htmx_render(request, full_template, partial_template, context=None):
@@ -65,34 +73,151 @@ def communications(request):
 
 @login_required
 def settings(request):
-    context = {}
+    """School settings page with all configuration options."""
+    tenant = request.tenant
+    school_settings = SchoolSettings.load()
+
+    # Initialize forms with current data
+    basic_form = SchoolBasicInfoForm(initial={
+        'name': tenant.name,
+        'short_name': tenant.short_name,
+        'display_name': school_settings.display_name,
+        'motto': school_settings.motto,
+    })
+
+    branding_form = SchoolBrandingForm(instance=school_settings)
+
+    contact_form = SchoolContactForm(initial={
+        'email': tenant.email,
+        'phone': tenant.phone,
+        'address': tenant.address,
+        'digital_address': tenant.digital_address,
+        'city': tenant.city,
+        'region': tenant.region,
+    })
+
+    admin_form = SchoolAdminForm(initial={
+        'headmaster_name': tenant.headmaster_name,
+        'headmaster_title': tenant.headmaster_title,
+    })
+
+    context = {
+        'tenant': tenant,
+        'school_settings': school_settings,
+        'basic_form': basic_form,
+        'branding_form': branding_form,
+        'contact_form': contact_form,
+        'admin_form': admin_form,
+    }
     return htmx_render(request, 'core/settings/index.html', 'core/settings/partials/index_content.html', context)
-
-
-# Settings HTMX views
-@login_required
-def settings_tab(request, tab_name):
-    return render(request, f'core/settings/partials/tab_{tab_name}.html')
 
 
 @login_required
 def settings_update_basic(request):
-    return HttpResponse('')
+    """Update basic school information."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    tenant = request.tenant
+    school_settings = SchoolSettings.load()
+    form = SchoolBasicInfoForm(request.POST)
+
+    if form.is_valid():
+        tenant.name = form.cleaned_data['name']
+        tenant.short_name = form.cleaned_data['short_name']
+        tenant.save()
+
+        school_settings.display_name = form.cleaned_data['display_name']
+        school_settings.motto = form.cleaned_data['motto']
+        school_settings.save()
+
+        # For non-HTMX requests, redirect back to settings
+        if not request.htmx:
+            return redirect('core:settings')
+
+        context = {'tenant': tenant, 'school_settings': school_settings, 'success': True}
+    else:
+        context = {'tenant': tenant, 'school_settings': school_settings, 'errors': form.errors}
+
+    return render(request, 'core/settings/partials/card_basic.html', context)
 
 
 @login_required
 def settings_update_branding(request):
-    return HttpResponse('')
+    """Update branding settings (logo, favicon, colors)."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    school_settings = SchoolSettings.load()
+    form = SchoolBrandingForm(request.POST, request.FILES, instance=school_settings)
+
+    if form.is_valid():
+        form.save()
+
+        # Always redirect/refresh for branding changes since colors affect entire UI
+        if request.htmx:
+            # Trigger full page refresh so new colors apply globally
+            response = HttpResponse(status=200)
+            response['HX-Refresh'] = 'true'
+            return response
+
+        return redirect('core:settings')
+
+    # On error, return the form with errors
+    context = {'school_settings': school_settings, 'errors': form.errors}
+    return render(request, 'core/settings/partials/card_branding.html', context)
 
 
 @login_required
 def settings_update_contact(request):
-    return HttpResponse('')
+    """Update contact information."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    tenant = request.tenant
+    form = SchoolContactForm(request.POST)
+
+    if form.is_valid():
+        tenant.email = form.cleaned_data['email']
+        tenant.phone = form.cleaned_data['phone']
+        tenant.address = form.cleaned_data['address']
+        tenant.digital_address = form.cleaned_data['digital_address']
+        tenant.city = form.cleaned_data['city']
+        tenant.region = form.cleaned_data['region']
+        tenant.save()
+
+        if not request.htmx:
+            return redirect('core:settings')
+
+        context = {'tenant': tenant, 'success': True}
+    else:
+        context = {'tenant': tenant, 'errors': form.errors}
+
+    return render(request, 'core/settings/partials/card_contact.html', context)
 
 
 @login_required
 def settings_update_admin(request):
-    return HttpResponse('')
+    """Update administration details."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    tenant = request.tenant
+    form = SchoolAdminForm(request.POST)
+
+    if form.is_valid():
+        tenant.headmaster_name = form.cleaned_data['headmaster_name']
+        tenant.headmaster_title = form.cleaned_data['headmaster_title']
+        tenant.save()
+
+        if not request.htmx:
+            return redirect('core:settings')
+
+        context = {'tenant': tenant, 'success': True}
+    else:
+        context = {'tenant': tenant, 'errors': form.errors}
+
+    return render(request, 'core/settings/partials/card_admin.html', context)
 
 
 # Academic Year views

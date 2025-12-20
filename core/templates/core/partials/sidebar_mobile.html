@@ -1,21 +1,21 @@
 {% load core_tags %}
 <div class="drawer-side z-50 lg:hidden">
     <label for="mobile-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-    <aside class="bg-base-100 min-h-full w-80 p-4 border-r border-base-200">
+    <aside class="bg-base-100 min-h-full w-80 flex flex-col border-r border-base-200">
         <!-- Logo -->
-        <div class="flex items-center gap-3 mb-6 px-2">
-            {% if school.logo %}
-                <img src="{{ school.logo.url }}" alt="{{ school.display_name }}" class="w-8 h-8 rounded object-contain" />
+        <div class="flex items-center gap-3 p-4 border-b border-base-200">
+            {% if request.tenant.logo %}
+                <img src="{{ request.tenant.logo.url }}" alt="{{ request.tenant.short_name }}" class="w-8 h-8 rounded object-contain" />
             {% else %}
                 <div class="w-8 h-8 rounded bg-primary text-primary-content grid place-content-center font-bold">
-                    {{ school.display_name|slice:":1"|default:"S" }}
+                    {{ request.tenant.short_name|slice:":1"|default:"S" }}
                 </div>
             {% endif %}
-            <span class="font-bold text-xl">{{ school.display_name|default:"School" }}</span>
+            <span class="font-bold text-xl">{{ request.tenant.short_name|default:"School" }}</span>
         </div>
 
         <!-- Navigation menu -->
-        <ul class="menu text-base-content text-base" id="mobile-nav">
+        <ul class="menu text-base-content text-base flex-1 p-4 overflow-y-auto" id="mobile-nav">
             {% get_navigation_items as nav_items %}
             {% for item in nav_items %}
                 {% if item.children %}
@@ -32,6 +32,7 @@
                                            hx-target="#main-content"
                                            hx-push-url="true"
                                            hx-swap="innerHTML show:window:top"
+                                           hx-on::after-request="document.getElementById('mobile-drawer').checked = false"
                                            {% if child.is_active %}class="active"{% endif %}>
                                             <i class="{{ child.icon }} w-5"></i> {{ child.label }}
                                         </a>
@@ -47,6 +48,7 @@
                            hx-target="#main-content"
                            hx-push-url="true"
                            hx-swap="innerHTML show:window:top"
+                           hx-on::after-request="document.getElementById('mobile-drawer').checked = false"
                            {% if item.is_active %}class="active"{% endif %}>
                             <i class="{{ item.icon }} w-6"></i> {{ item.label }}
                         </a>
@@ -54,5 +56,19 @@
                 {% endif %}
             {% endfor %}
         </ul>
+
+        <!-- Settings at bottom -->
+        <div class="p-3 border-t border-base-200 mt-auto">
+            <a href="{% url 'core:settings' %}"
+               hx-get="{% url 'core:settings' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               hx-swap="innerHTML show:window:top"
+               hx-on::after-request="document.getElementById('mobile-drawer').checked = false"
+               class="btn btn-ghost btn-sm w-full justify-start h-10">
+                <i class="fa-solid fa-gear w-6 text-center text-lg"></i>
+                <span class="ml-3">Settings</span>
+            </a>
+        </div>
     </aside>
 </div>
