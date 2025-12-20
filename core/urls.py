@@ -16,8 +16,7 @@ urlpatterns = [
     path('communications/', views.communications, name='communications'),
     path('settings/', views.settings, name='settings'),
 
-    # Settings HTMX routes
-    path('settings/tab/<str:tab_name>/', views.settings_tab, name='settings_tab'),
+    # Settings update routes (modal POST handlers)
     path('settings/update/basic/', views.settings_update_basic, name='settings_update_basic'),
     path('settings/update/branding/', views.settings_update_branding, name='settings_update_branding'),
     path('settings/update/contact/', views.settings_update_contact, name='settings_update_contact'),

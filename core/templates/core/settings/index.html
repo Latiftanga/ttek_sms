@@ -1,0 +1,146 @@
+{% extends "core/base.html" %}
+{% load core_tags %}
+
+{% block title %}Settings - {{ request.tenant.short_name|default:"School" }}{% endblock %}
+
+{% block page_title %}School Settings{% endblock %}
+
+{% block content %}
+{% include "core/settings/partials/index_content.html" %}
+{% endblock %}
+
+{% block modals %}
+<!-- Basic Info Modal -->
+<dialog id="modal_basic" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Edit Basic Information</h3>
+        <form method="post"
+              action="{% url 'core:settings_update_basic' %}"
+              hx-post="{% url 'core:settings_update_basic' %}"
+              hx-target="#card-basic"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) modal_basic.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                {% floating_field basic_form.name %}
+                {% floating_field basic_form.short_name help_text="Displayed in sidebar" %}
+                {% floating_field basic_form.display_name %}
+                {% floating_field basic_form.motto %}
+            </div><br>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_basic.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Branding Modal -->
+<dialog id="modal_branding" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Edit Branding</h3>
+        <form method="post"
+              action="{% url 'core:settings_update_branding' %}"
+              enctype="multipart/form-data"
+              hx-post="{% url 'core:settings_update_branding' %}"
+              hx-target="#card-branding"
+              hx-swap="outerHTML"
+              hx-encoding="multipart/form-data"
+              hx-on::after-request="if(event.detail.successful) modal_branding.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                <div>
+                    {% floating_field branding_form.logo %}
+                    {% if school_settings.logo %}
+                    <p class="text-xs text-base-content/60 mt-1 ml-1">Current: {{ school_settings.logo.name }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    {% floating_field branding_form.favicon %}
+                    {% if school_settings.favicon %}
+                    <p class="text-xs text-base-content/60 mt-1 ml-1">Current: {{ school_settings.favicon.name }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <p class="text-sm font-medium mb-3">Theme Colors</p>
+                    <div class="grid grid-cols-3 gap-4">
+                        {% floating_field branding_form.primary_color "Primary" %}
+                        {% floating_field branding_form.secondary_color "Secondary" %}
+                        {% floating_field branding_form.accent_color "Accent" %}
+                    </div>
+                </div>
+            </div> <br>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_branding.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Contact Modal -->
+<dialog id="modal_contact" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Edit Contact Information</h3>
+        <form method="post"
+              action="{% url 'core:settings_update_contact' %}"
+              hx-post="{% url 'core:settings_update_contact' %}"
+              hx-target="#card-contact"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) modal_contact.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                <div class="grid grid-cols-2 gap-4">
+                    {% floating_field contact_form.email %}
+                    {% floating_field contact_form.phone %}
+                </div>
+                {% floating_field contact_form.address %}
+                <div class="grid grid-cols-3 gap-4">
+                    {% floating_field contact_form.digital_address %}
+                    {% floating_field contact_form.city %}
+                    {% floating_field contact_form.region %}
+                </div>
+            </div><br>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_contact.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<!-- Administration Modal -->
+<dialog id="modal_admin" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6">Edit Administration Details</h3>
+        <form method="post"
+              action="{% url 'core:settings_update_admin' %}"
+              hx-post="{% url 'core:settings_update_admin' %}"
+              hx-target="#card-admin"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) modal_admin.close()">
+            {% csrf_token %}
+            <div class="space-y-6 pt-2">
+                {% floating_field admin_form.headmaster_name %}
+                {% floating_field admin_form.headmaster_title %}
+            </div> <br>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="modal_admin.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+{% endblock %}

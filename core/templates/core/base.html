@@ -19,6 +19,7 @@
 
     {% tailwind_css %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 
     <style>
         /* Tenant theme colors - dynamically injected from SchoolSettings */
@@ -75,6 +76,7 @@
         .htmx-request #loading-indicator {
             display: flex;
         }
+
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -108,6 +110,9 @@
 
         {% include "core/partials/sidebar_mobile.html" %}
     </div>
+
+    <!-- Modals container (outside drawer for proper z-index) -->
+    {% block modals %}{% endblock %}
 
     <script>
         // Sync theme toggle checkbox with saved preference

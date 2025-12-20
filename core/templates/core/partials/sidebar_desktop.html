@@ -1,16 +1,16 @@
 {% load core_tags %}
-<aside class="desktop-sidebar bg-base-100 border-r border-base-200 hidden lg:flex flex-col h-full shrink-0 z-20 transition-colors">
+<aside class="desktop-sidebar bg-base-300 border-r border-base-200 hidden lg:flex flex-col h-full shrink-0 z-20 transition-colors">
     <!-- Logo -->
     <div class="h-16 flex items-center px-6 border-b border-base-200 whitespace-nowrap overflow-hidden justify-start">
         <div class="flex items-center gap-3 w-full">
-            {% if school.logo %}
-                <img src="{{ school.logo.url }}" alt="{{ school.display_name }}" class="w-8 h-8 rounded shrink-0 object-contain" />
+            {% if request.tenant.logo %}
+                <img src="{{ request.tenant.logo.url }}" alt="{{ request.tenant.short_name }}" class="w-8 h-8 rounded shrink-0 object-contain" />
             {% else %}
                 <div class="w-8 h-8 rounded bg-primary text-primary-content grid place-content-center font-bold text-lg shrink-0">
-                    {{ school.display_name|slice:":1"|default:"S" }}
+                    {{ request.tenant.short_name|slice:":1"|default:"S" }}
                 </div>
             {% endif %}
-            <span class="sidebar-text font-bold text-xl tracking-tight">{{ school.display_name|default:"School" }}</span>
+            <span class="sidebar-text font-bold text-xl tracking-tight">{{ request.tenant.short_name|default:"School" }}</span>
         </div>
     </div>
 

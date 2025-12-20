@@ -1,0 +1,49 @@
+<div id="card-contact" class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="card-title text-lg">
+                <i class="fa-solid fa-address-book text-primary"></i>
+                Contact Information
+            </h3>
+            <button class="btn btn-ghost btn-sm" onclick="modal_contact.showModal()">
+                <i class="fa-solid fa-pen"></i> Edit
+            </button>
+        </div>
+
+        {% if success %}
+        <div class="alert alert-success mb-4">
+            <i class="fa-solid fa-check-circle"></i>
+            <span>Contact information updated successfully.</span>
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm text-base-content/60">Email</p>
+                <p class="font-medium">{{ tenant.email|default:"-" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-base-content/60">Phone</p>
+                <p class="font-medium">{{ tenant.phone|default:"-" }}</p>
+            </div>
+            <div class="md:col-span-2">
+                <p class="text-sm text-base-content/60">Address</p>
+                <p class="font-medium">{{ tenant.address|default:"-"|linebreaksbr }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-base-content/60">Digital Address</p>
+                <p class="font-medium">{{ tenant.digital_address|default:"-" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-base-content/60">City / Region</p>
+                <p class="font-medium">
+                    {% if tenant.city or tenant.region %}
+                        {{ tenant.city }}{% if tenant.city and tenant.region %}, {% endif %}{{ tenant.region }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
