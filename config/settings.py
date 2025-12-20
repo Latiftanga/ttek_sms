@@ -30,7 +30,7 @@ SHARED_APPS = (
     'theme',
 )
 
-TENANT_APPS = ( 
+TENANT_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -39,6 +39,7 @@ TENANT_APPS = (
 
     #Local Apps
     'core',
+    'academics',
     'communications',
     'accounts',
 

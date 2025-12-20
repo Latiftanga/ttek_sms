@@ -27,6 +27,12 @@ NAVIGATION_CONFIG = [
         'roles': ['school_admin', 'superuser'],
     },
     {
+        'label': 'Academics',
+        'icon': 'fa-solid fa-graduation-cap',
+        'url_name': 'academics:index',
+        'roles': ['school_admin', 'superuser'],
+    },
+    {
         'label': 'Finance',
         'icon': 'fa-solid fa-money-bill',
         'url_name': 'core:finance',
@@ -144,6 +150,9 @@ def is_url_active(request, url, url_name):
     if url == '#':
         return False
     current_path = request.path
+    # Exact match when either URL or current path is root
+    if url == '/' or current_path == '/':
+        return current_path == url
     return current_path == url or current_path.startswith(url.rstrip('/') + '/')
 
 

@@ -1,0 +1,67 @@
+<div id="card-programmes" class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-graduation-cap text-primary text-sm"></i>
+                SHS Programmes
+            </h3>
+            <button class="btn btn-ghost btn-xs" onclick="modal_programme.showModal()">
+                <i class="fa-solid fa-plus text-xs"></i> Add
+            </button>
+        </div>
+
+        {% if programmes %}
+        <div class="overflow-x-auto">
+            <table class="table table-sm table-zebra">
+                <thead>
+                    <tr class="text-xs">
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Status</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prog in programmes %}
+                    <tr>
+                        <td class="font-medium">{{ prog.name }}</td>
+                        <td><span class="badge badge-ghost badge-sm">{{ prog.code }}</span></td>
+                        <td>
+                            {% if prog.is_active %}
+                            <span class="badge badge-success badge-sm">Active</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-sm">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <div class="flex justify-end gap-1">
+                                <button class="btn btn-ghost btn-xs"
+                                        hx-get="{% url 'academics:programme_edit' prog.pk %}"
+                                        hx-target="#modal-edit-content"
+                                        hx-swap="innerHTML"
+                                        onclick="modal_edit.showModal()">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </button>
+                                <form hx-post="{% url 'academics:programme_delete' prog.pk %}"
+                                      hx-confirm="Delete {{ prog.name }}? This will affect all related classes.">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-ghost btn-xs text-error">
+                                        <i class="fa-solid fa-trash text-xs"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-6 text-base-content/40">
+            <i class="fa-solid fa-graduation-cap text-2xl mb-2"></i>
+            <p class="text-sm">No programmes defined</p>
+            <p class="text-xs">Add programmes for SHS classes</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
