@@ -1,61 +1,46 @@
-<div id="card-branding" class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="card-title text-lg">
-                <i class="fa-solid fa-palette text-primary"></i>
+<div id="card-branding" class="card bg-base-100 shadow-sm border border-base-200 h-full">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-palette text-primary text-sm"></i>
                 Branding
             </h3>
-            <button class="btn btn-ghost btn-sm" onclick="modal_branding.showModal()">
-                <i class="fa-solid fa-pen"></i> Edit
+            <button class="btn btn-ghost btn-xs" onclick="modal_branding.showModal()">
+                <i class="fa-solid fa-pen text-xs"></i>
             </button>
         </div>
 
         {% if success %}
-        <div class="alert alert-success mb-4">
-            <i class="fa-solid fa-check-circle"></i>
-            <span>Branding updated successfully.</span>
-        </div>
+        {% include "core/partials/alert.html" with type="success" message="Updated successfully" %}
         {% endif %}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="flex items-center gap-6">
-                <div class="text-center">
-                    <p class="text-sm text-base-content/60 mb-2">Logo</p>
-                    {% if school_settings.logo %}
-                    <img src="{{ school_settings.logo.url }}" alt="Logo" class="w-16 h-16 object-contain rounded border border-base-200 bg-base-200">
-                    {% else %}
-                    <div class="w-16 h-16 rounded border border-base-200 bg-base-200 flex items-center justify-center text-base-content/40">
-                        <i class="fa-solid fa-image text-2xl"></i>
-                    </div>
-                    {% endif %}
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                {% if school_settings.logo %}
+                <img src="{{ school_settings.logo.url }}" alt="Logo" class="w-12 h-12 object-contain rounded border border-base-200 bg-base-200">
+                {% else %}
+                <div class="w-12 h-12 rounded border border-base-200 bg-base-200 flex items-center justify-center text-base-content/40">
+                    <i class="fa-solid fa-image"></i>
                 </div>
-                <div class="text-center">
-                    <p class="text-sm text-base-content/60 mb-2">Favicon</p>
-                    {% if school_settings.favicon %}
-                    <img src="{{ school_settings.favicon.url }}" alt="Favicon" class="w-16 h-16 object-contain rounded border border-base-200 bg-base-200">
-                    {% else %}
-                    <div class="w-16 h-16 rounded border border-base-200 bg-base-200 flex items-center justify-center text-base-content/40">
-                        <i class="fa-solid fa-image text-2xl"></i>
-                    </div>
-                    {% endif %}
+                {% endif %}
+                {% if school_settings.favicon %}
+                <img src="{{ school_settings.favicon.url }}" alt="Favicon" class="w-8 h-8 object-contain rounded border border-base-200 bg-base-200">
+                {% else %}
+                <div class="w-8 h-8 rounded border border-base-200 bg-base-200 flex items-center justify-center text-base-content/40">
+                    <i class="fa-solid fa-image text-xs"></i>
                 </div>
+                {% endif %}
             </div>
 
-            <div>
-                <p class="text-sm text-base-content/60 mb-2">Theme Colors</p>
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full border-2 border-base-300" style="background-color: {{ school_settings.primary_color }}"></div>
-                        <span class="text-sm">Primary</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full border-2 border-base-300" style="background-color: {{ school_settings.secondary_color }}"></div>
-                        <span class="text-sm">Secondary</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full border-2 border-base-300" style="background-color: {{ school_settings.accent_color }}"></div>
-                        <span class="text-sm">Accent</span>
-                    </div>
+            <div class="flex items-center gap-1">
+                <div class="tooltip" data-tip="Primary">
+                    <div class="w-7 h-7 rounded-full border-2 border-base-300 shadow-sm" style="background-color: {{ school_settings.primary_color }}"></div>
+                </div>
+                <div class="tooltip" data-tip="Secondary">
+                    <div class="w-7 h-7 rounded-full border-2 border-base-300 shadow-sm" style="background-color: {{ school_settings.secondary_color }}"></div>
+                </div>
+                <div class="tooltip" data-tip="Accent">
+                    <div class="w-7 h-7 rounded-full border-2 border-base-300 shadow-sm" style="background-color: {{ school_settings.accent_color }}"></div>
                 </div>
             </div>
         </div>

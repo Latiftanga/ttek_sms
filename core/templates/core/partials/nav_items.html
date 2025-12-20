@@ -1,0 +1,50 @@
+{% comment %}
+Reusable navigation items component.
+Usage: {% include "core/partials/nav_items.html" with nav_items=nav_items is_mobile=True %}
+
+Parameters:
+- nav_items: List of navigation items from {% get_navigation_items %}
+- is_mobile: Boolean to adjust styles and close drawer on mobile
+{% endcomment %}
+
+{% for item in nav_items %}
+    {% if item.children %}
+        <li>
+            <details {% if item.is_active %}open{% endif %}>
+                <summary class="{% if is_mobile %}{% else %}h-12 hover:bg-base-200{% endif %}">
+                    <i class="{{ item.icon }} w-6 text-center {% if not is_mobile %}text-lg{% endif %}"></i>
+                    <span class="{% if not is_mobile %}sidebar-text ml-3{% endif %}">{{ item.label }}</span>
+                </summary>
+                <ul>
+                    {% for child in item.children %}
+                        <li>
+                            <a href="{{ child.url }}"
+                               hx-get="{{ child.url }}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               hx-swap="innerHTML show:window:top"
+                               {% if is_mobile %}hx-on::after-request="if(event.detail.successful) document.getElementById('mobile-drawer').checked = false"{% endif %}
+                               class="{% if not is_mobile %}h-10 {% endif %}{% if child.is_active %}active bg-primary/10 text-primary{% else %}hover:bg-base-200{% endif %}">
+                                <i class="{{ child.icon }} w-5 text-center"></i>
+                                <span class="{% if not is_mobile %}sidebar-text ml-2{% endif %}">{{ child.label }}</span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </li>
+    {% else %}
+        <li>
+            <a href="{{ item.url }}"
+               hx-get="{{ item.url }}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               hx-swap="innerHTML show:window:top"
+               {% if is_mobile %}hx-on::after-request="if(event.detail.successful) document.getElementById('mobile-drawer').checked = false"{% endif %}
+               class="{% if not is_mobile %}h-12 {% endif %}{% if item.is_active %}active bg-primary/10 text-primary{% if not is_mobile %} border-r-2 border-primary rounded-none{% endif %}{% else %}hover:bg-base-200{% endif %}">
+                <i class="{{ item.icon }} w-6 text-center {% if not is_mobile %}text-lg{% endif %}"></i>
+                <span class="{% if not is_mobile %}sidebar-text ml-3{% endif %}">{{ item.label }}</span>
+            </a>
+        </li>
+    {% endif %}
+{% endfor %}

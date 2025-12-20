@@ -1,0 +1,124 @@
+{% load core_tags %}
+<div id="card-academic" class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+                <h3 class="font-semibold flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-alt text-primary text-sm"></i>
+                    Academic Years & {{ period_label_plural|default:"Terms" }}
+                </h3>
+                <form hx-post="{% url 'core:settings_update_academic' %}"
+                      hx-target="#card-academic"
+                      hx-swap="outerHTML"
+                      hx-trigger="change">
+                    {% csrf_token %}
+                    <select name="academic_period_type" class="select select-xs select-bordered">
+                        <option value="term" {% if period_type == "term" %}selected{% endif %}>Terms</option>
+                        <option value="semester" {% if period_type == "semester" %}selected{% endif %}>Semesters</option>
+                    </select>
+                </form>
+            </div>
+            <div class="flex gap-1">
+                <button class="btn btn-ghost btn-xs" onclick="modal_academic_year.showModal()">
+                    <i class="fa-solid fa-plus text-xs"></i> Year
+                </button>
+                <button class="btn btn-ghost btn-xs" onclick="modal_term.showModal()" {% if not academic_years %}disabled{% endif %}>
+                    <i class="fa-solid fa-plus text-xs"></i> {{ period_label|default:"Term" }}
+                </button>
+            </div>
+        </div>
+
+        {% if success %}
+        {% include "core/partials/alert.html" with type="success" message=success %}
+        {% endif %}
+
+        {% if academic_years %}
+        <div class="overflow-x-auto">
+            <table class="table table-sm table-zebra">
+                <thead>
+                    <tr class="text-xs">
+                        <th>Academic Year</th>
+                        <th>Period</th>
+                        <th>{{ period_label_plural|default:"Terms" }}</th>
+                        <th>Status</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for year in academic_years %}
+                    <tr>
+                        <td class="font-medium">{{ year.name }}</td>
+                        <td class="text-xs text-base-content/70">
+                            {{ year.start_date|date:"M Y" }} - {{ year.end_date|date:"M Y" }}
+                        </td>
+                        <td>
+                            {% if year.terms.all %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for term in year.terms.all %}
+                                <span class="badge badge-sm {% if term.is_current %}badge-primary{% else %}badge-ghost{% endif %}">
+                                    {{ term.name|truncatechars:15 }}
+                                    <button class="ml-1 hover:text-error"
+                                            hx-get="{% url 'core:term_edit' term.pk %}"
+                                            hx-target="#modal-edit-content"
+                                            hx-swap="innerHTML"
+                                            onclick="modal_edit.showModal()">
+                                        <i class="fa-solid fa-pen text-[10px]"></i>
+                                    </button>
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="text-xs text-base-content/50">No {{ period_label_plural|default:"terms"|lower }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if year.is_current %}
+                            <span class="badge badge-success badge-sm">Current</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-sm">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <div class="flex justify-end gap-1">
+                                {% if not year.is_current %}
+                                <form hx-post="{% url 'core:academic_year_set_current' year.pk %}"
+                                      hx-target="#card-academic"
+                                      hx-swap="outerHTML">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-ghost btn-xs" title="Set as current">
+                                        <i class="fa-solid fa-star text-xs"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <button class="btn btn-ghost btn-xs"
+                                        hx-get="{% url 'core:academic_year_edit' year.pk %}"
+                                        hx-target="#modal-edit-content"
+                                        hx-swap="innerHTML"
+                                        onclick="modal_edit.showModal()"
+                                        title="Edit">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </button>
+                                <form hx-post="{% url 'core:academic_year_delete' year.pk %}"
+                                      hx-target="#card-academic"
+                                      hx-swap="outerHTML"
+                                      hx-confirm="Delete this academic year and all its terms?">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-ghost btn-xs text-error" title="Delete">
+                                        <i class="fa-solid fa-trash text-xs"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-6 text-base-content/40">
+            <i class="fa-solid fa-calendar-plus text-3xl mb-2"></i>
+            <p class="text-sm">No academic years defined</p>
+        </div>
+        {% endif %}
+    </div>
+</div>

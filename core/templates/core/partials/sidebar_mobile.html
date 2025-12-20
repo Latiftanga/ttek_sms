@@ -17,44 +17,7 @@
         <!-- Navigation menu -->
         <ul class="menu text-base-content text-base flex-1 p-4 overflow-y-auto" id="mobile-nav">
             {% get_navigation_items as nav_items %}
-            {% for item in nav_items %}
-                {% if item.children %}
-                    <li>
-                        <details {% if item.is_active %}open{% endif %}>
-                            <summary>
-                                <i class="{{ item.icon }} w-6"></i> {{ item.label }}
-                            </summary>
-                            <ul>
-                                {% for child in item.children %}
-                                    <li>
-                                        <a href="{{ child.url }}"
-                                           hx-get="{{ child.url }}"
-                                           hx-target="#main-content"
-                                           hx-push-url="true"
-                                           hx-swap="innerHTML show:window:top"
-                                           hx-on::after-request="document.getElementById('mobile-drawer').checked = false"
-                                           {% if child.is_active %}class="active"{% endif %}>
-                                            <i class="{{ child.icon }} w-5"></i> {{ child.label }}
-                                        </a>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        </details>
-                    </li>
-                {% else %}
-                    <li>
-                        <a href="{{ item.url }}"
-                           hx-get="{{ item.url }}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           hx-swap="innerHTML show:window:top"
-                           hx-on::after-request="document.getElementById('mobile-drawer').checked = false"
-                           {% if item.is_active %}class="active"{% endif %}>
-                            <i class="{{ item.icon }} w-6"></i> {{ item.label }}
-                        </a>
-                    </li>
-                {% endif %}
-            {% endfor %}
+            {% include "core/partials/nav_items.html" with nav_items=nav_items is_mobile=True %}
         </ul>
 
         <!-- Settings at bottom -->

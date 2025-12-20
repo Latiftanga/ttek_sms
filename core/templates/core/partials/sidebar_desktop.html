@@ -17,45 +17,7 @@
     <!-- Navigation menu -->
     <ul class="menu flex-1 py-4 gap-2 text-base font-medium text-base-content/80 overflow-y-auto" id="desktop-nav">
         {% get_navigation_items as nav_items %}
-        {% for item in nav_items %}
-            {% if item.children %}
-                <li>
-                    <details {% if item.is_active %}open{% endif %}>
-                        <summary class="h-12 hover:bg-base-200">
-                            <i class="{{ item.icon }} w-6 text-center text-lg"></i>
-                            <span class="sidebar-text ml-3">{{ item.label }}</span>
-                        </summary>
-                        <ul>
-                            {% for child in item.children %}
-                                <li>
-                                    <a href="{{ child.url }}"
-                                       hx-get="{{ child.url }}"
-                                       hx-target="#main-content"
-                                       hx-push-url="true"
-                                       hx-swap="innerHTML show:window:top"
-                                       class="h-10 {% if child.is_active %}active bg-primary/10 text-primary{% else %}hover:bg-base-200{% endif %}">
-                                        <i class="{{ child.icon }} w-5 text-center"></i>
-                                        <span class="sidebar-text ml-2">{{ child.label }}</span>
-                                    </a>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </details>
-                </li>
-            {% else %}
-                <li>
-                    <a href="{{ item.url }}"
-                       hx-get="{{ item.url }}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       hx-swap="innerHTML show:window:top"
-                       class="h-12 {% if item.is_active %}active bg-primary/10 text-primary border-r-2 border-primary rounded-none{% else %}hover:bg-base-200{% endif %}">
-                        <i class="{{ item.icon }} w-6 text-center text-lg"></i>
-                        <span class="sidebar-text ml-3">{{ item.label }}</span>
-                    </a>
-                </li>
-            {% endif %}
-        {% endfor %}
+        {% include "core/partials/nav_items.html" with nav_items=nav_items is_mobile=False %}
     </ul>
 
     <!-- Settings at bottom -->

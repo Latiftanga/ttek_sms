@@ -1,13 +1,16 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 
-from .models import SchoolSettings
+from .models import SchoolSettings, AcademicYear, Term
 from .forms import (
     SchoolBasicInfoForm,
     SchoolBrandingForm,
     SchoolContactForm,
     SchoolAdminForm,
+    AcademicSettingsForm,
+    AcademicYearForm,
+    TermForm,
 )
 
 
@@ -76,6 +79,7 @@ def settings(request):
     """School settings page with all configuration options."""
     tenant = request.tenant
     school_settings = SchoolSettings.load()
+    period_type = school_settings.academic_period_type
 
     # Initialize forms with current data
     basic_form = SchoolBasicInfoForm(initial={
@@ -101,6 +105,12 @@ def settings(request):
         'headmaster_title': tenant.headmaster_title,
     })
 
+    # Academic settings and data
+    academic_settings_form = AcademicSettingsForm(instance=school_settings)
+    academic_years = AcademicYear.objects.prefetch_related('terms').all()
+    academic_year_form = AcademicYearForm()
+    term_form = TermForm(period_type=period_type)
+
     context = {
         'tenant': tenant,
         'school_settings': school_settings,
@@ -108,6 +118,13 @@ def settings(request):
         'branding_form': branding_form,
         'contact_form': contact_form,
         'admin_form': admin_form,
+        'academic_settings_form': academic_settings_form,
+        'academic_years': academic_years,
+        'academic_year_form': academic_year_form,
+        'term_form': term_form,
+        'period_type': period_type,
+        'period_label': school_settings.period_label,
+        'period_label_plural': school_settings.period_label_plural,
     }
     return htmx_render(request, 'core/settings/index.html', 'core/settings/partials/index_content.html', context)
 
@@ -220,46 +237,220 @@ def settings_update_admin(request):
     return render(request, 'core/settings/partials/card_admin.html', context)
 
 
+def get_academic_card_context(success=None, errors=None):
+    """Helper to get common context for academic card."""
+    school_settings = SchoolSettings.load()
+    period_type = school_settings.academic_period_type
+    return {
+        'academic_years': AcademicYear.objects.prefetch_related('terms').all(),
+        'academic_year_form': AcademicYearForm(),
+        'term_form': TermForm(period_type=period_type),
+        'period_type': period_type,
+        'period_label': school_settings.period_label,
+        'period_label_plural': school_settings.period_label_plural,
+        'school_settings': school_settings,
+        'success': success,
+        'errors': errors,
+    }
+
+
+@login_required
+def settings_update_academic(request):
+    """Update academic period settings."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    school_settings = SchoolSettings.load()
+    form = AcademicSettingsForm(request.POST, instance=school_settings)
+
+    if form.is_valid():
+        form.save()
+        if not request.htmx:
+            return redirect('core:settings')
+        return render(request, 'core/settings/partials/card_academic.html',
+                      get_academic_card_context(success='Academic settings updated.'))
+
+    return render(request, 'core/settings/partials/card_academic.html',
+                  get_academic_card_context(errors=form.errors))
+
+
 # Academic Year views
 @login_required
 def academic_year_create(request):
-    return HttpResponse('')
+    """Create a new academic year."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    form = AcademicYearForm(request.POST)
+    if form.is_valid():
+        form.save()
+        # Trigger full page refresh so navbar updates
+        if request.htmx:
+            response = HttpResponse(status=200)
+            response['HX-Refresh'] = 'true'
+            return response
+        return redirect('core:settings')
+
+    context = get_academic_card_context(errors=form.errors)
+    context['academic_year_form'] = form  # Show form with errors
+    return render(request, 'core/settings/partials/card_academic.html', context)
 
 
 @login_required
 def academic_year_edit(request, pk):
-    return HttpResponse('')
+    """Edit an academic year."""
+    academic_year = get_object_or_404(AcademicYear, pk=pk)
+
+    if request.method == 'GET':
+        form = AcademicYearForm(instance=academic_year)
+        return render(request, 'core/settings/partials/modal_academic_year_edit.html', {
+            'form': form,
+            'academic_year': academic_year,
+        })
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    form = AcademicYearForm(request.POST, instance=academic_year)
+    if form.is_valid():
+        form.save()
+        if not request.htmx:
+            return redirect('core:settings')
+        return render(request, 'core/settings/partials/card_academic.html',
+                      get_academic_card_context(success='Academic year updated successfully.'))
+
+    return render(request, 'core/settings/partials/modal_academic_year_edit.html', {
+        'form': form,
+        'academic_year': academic_year,
+    })
 
 
 @login_required
 def academic_year_delete(request, pk):
-    return HttpResponse('')
+    """Delete an academic year."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    academic_year = get_object_or_404(AcademicYear, pk=pk)
+    academic_year.delete()
+
+    if not request.htmx:
+        return redirect('core:settings')
+
+    return render(request, 'core/settings/partials/card_academic.html',
+                  get_academic_card_context(success='Academic year deleted successfully.'))
 
 
 @login_required
 def academic_year_set_current(request, pk):
-    return HttpResponse('')
+    """Set an academic year as current."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    academic_year = get_object_or_404(AcademicYear, pk=pk)
+    academic_year.is_current = True
+    academic_year.save()
+
+    # Trigger full page refresh so navbar updates
+    if request.htmx:
+        response = HttpResponse(status=200)
+        response['HX-Refresh'] = 'true'
+        return response
+    return redirect('core:settings')
 
 
 # Term views
 @login_required
 def term_create(request):
-    return HttpResponse('')
+    """Create a new term/semester."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    school_settings = SchoolSettings.load()
+    period_type = school_settings.academic_period_type
+
+    form = TermForm(request.POST, period_type=period_type)
+    if form.is_valid():
+        form.save()
+        # Trigger full page refresh so navbar updates
+        if request.htmx:
+            response = HttpResponse(status=200)
+            response['HX-Refresh'] = 'true'
+            return response
+        return redirect('core:settings')
+
+    context = get_academic_card_context(errors=form.errors)
+    context['term_form'] = form  # Show form with errors
+    return render(request, 'core/settings/partials/card_academic.html', context)
 
 
 @login_required
 def term_edit(request, pk):
-    return HttpResponse('')
+    """Edit a term/semester."""
+    term = get_object_or_404(Term, pk=pk)
+    school_settings = SchoolSettings.load()
+    period_type = school_settings.academic_period_type
+    period_label = school_settings.period_label
+
+    if request.method == 'GET':
+        form = TermForm(instance=term, period_type=period_type)
+        return render(request, 'core/settings/partials/modal_term_edit.html', {
+            'form': form,
+            'term': term,
+            'period_label': period_label,
+        })
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    form = TermForm(request.POST, instance=term, period_type=period_type)
+    if form.is_valid():
+        form.save()
+        if not request.htmx:
+            return redirect('core:settings')
+        return render(request, 'core/settings/partials/card_academic.html',
+                      get_academic_card_context(success=f'{period_label} updated successfully.'))
+
+    return render(request, 'core/settings/partials/modal_term_edit.html', {
+        'form': form,
+        'term': term,
+        'period_label': period_label,
+    })
 
 
 @login_required
 def term_delete(request, pk):
-    return HttpResponse('')
+    """Delete a term/semester."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    term = get_object_or_404(Term, pk=pk)
+    term.delete()
+
+    if not request.htmx:
+        return redirect('core:settings')
+
+    school_settings = SchoolSettings.load()
+    return render(request, 'core/settings/partials/card_academic.html',
+                  get_academic_card_context(success=f'{school_settings.period_label} deleted successfully.'))
 
 
 @login_required
 def term_set_current(request, pk):
-    return HttpResponse('')
+    """Set a term/semester as current."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    term = get_object_or_404(Term, pk=pk)
+    term.is_current = True
+    term.save()
+
+    # Trigger full page refresh so navbar updates
+    if request.htmx:
+        response = HttpResponse(status=200)
+        response['HX-Refresh'] = 'true'
+        return response
+    return redirect('core:settings')
 
 
 # Teacher views

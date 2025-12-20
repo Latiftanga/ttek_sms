@@ -1,6 +1,43 @@
 from django.db import models
 from django.core.cache import cache
+from django.utils.translation import gettext_lazy as _
 import math
+
+
+class Person(models.Model):
+    """
+    Abstract Person model. 
+    Removes 'title' so it doesn't force it upon Students.
+    """
+    class Gender(models.TextChoices):
+        MALE = 'M', _('Male')
+        FEMALE = 'F', _('Female')
+
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    middle_name = models.CharField(max_length=50, blank=True, default='')
+    
+    gender = models.CharField(
+        max_length=1, 
+        choices=Gender.choices,
+        default=Gender.MALE
+    )
+    date_of_birth = models.DateField()
+    photo = models.ImageField(upload_to='photos/', blank=True, null=True)
+
+    # Contact & IDs
+    phone_number = models.CharField(max_length=17, blank=True)
+    address = models.TextField(blank=True, default='')
+    email = models.EmailField(blank=True, null=True)
+    
+    nationality = models.CharField(max_length=50, default='Ghanaian')
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        parts = [self.first_name, self.middle_name, self.last_name]
+        return " ".join(filter(None, parts))
 
 
 def hex_to_oklch_values(hex_color):
@@ -56,15 +93,122 @@ def hex_to_oklch_values(hex_color):
     return f"{L_percent}% {C_rounded} {H_rounded}"
 
 
+class AcademicYear(models.Model):
+    """
+    Represents an academic year (e.g., 2024/2025).
+    Each tenant has their own academic years.
+    """
+    name = models.CharField(
+        max_length=50,
+        help_text="e.g., 2024/2025 Academic Year"
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_current = models.BooleanField(
+        default=False,
+        help_text="Only one academic year can be current at a time"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-start_date']
+        verbose_name = "Academic Year"
+        verbose_name_plural = "Academic Years"
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        # Ensure only one academic year is current
+        if self.is_current:
+            AcademicYear.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_current(cls):
+        """Get the current academic year."""
+        return cls.objects.filter(is_current=True).first()
+
+
+class Term(models.Model):
+    """
+    Represents a term/semester within an academic year.
+    Generic model that works for both Terms (Primary) and Semesters (SHS).
+    """
+    PERIOD_NUMBER_CHOICES = [
+        (1, 'First'),
+        (2, 'Second'),
+        (3, 'Third'),
+        (4, 'Fourth'),
+    ]
+
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.CASCADE,
+        related_name='terms'
+    )
+    name = models.CharField(
+        max_length=50,
+        help_text="e.g., First Term, Semester One"
+    )
+    term_number = models.PositiveSmallIntegerField(
+        choices=PERIOD_NUMBER_CHOICES,
+        default=1,
+        verbose_name="Period Number"
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_current = models.BooleanField(
+        default=False,
+        help_text="Only one term can be current at a time"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['academic_year', 'term_number']
+        verbose_name = "Term"
+        verbose_name_plural = "Terms"
+        unique_together = ['academic_year', 'term_number']
+
+    def __str__(self):
+        return f"{self.name} - {self.academic_year.name}"
+
+    def save(self, *args, **kwargs):
+        # Ensure only one term is current
+        if self.is_current:
+            Term.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_current(cls):
+        """Get the current term."""
+        return cls.objects.filter(is_current=True).select_related('academic_year').first()
+
+
 class SchoolSettings(models.Model):
     """
     Stores configuration specific to this School (Tenant).
     """
+    PERIOD_TYPE_CHOICES = [
+        ('term', 'Terms (Primary/JHS)'),
+        ('semester', 'Semesters (SHS)'),
+    ]
+
     # Branding
     logo = models.ImageField(upload_to='school_logos/', blank=True, null=True)
     favicon = models.ImageField(upload_to='school_favicons/', blank=True, null=True)
     display_name = models.CharField(max_length=50, blank=True)
     motto = models.CharField(max_length=200, blank=True)
+
+    # Academic Settings
+    academic_period_type = models.CharField(
+        max_length=10,
+        choices=PERIOD_TYPE_CHOICES,
+        default='term',
+        help_text="Terms for Primary/JHS, Semesters for SHS"
+    )
 
     # Visual Identity - Colors (stored as HEX)
     primary_color = models.CharField(max_length=7, default="#4F46E5", help_text="Main brand color")
@@ -75,6 +219,16 @@ class SchoolSettings(models.Model):
     primary_color_oklch = models.CharField(max_length=50, blank=True, editable=False)
     secondary_color_oklch = models.CharField(max_length=50, blank=True, editable=False)
     accent_color_oklch = models.CharField(max_length=50, blank=True, editable=False)
+
+    @property
+    def period_label(self):
+        """Return 'Term' or 'Semester' based on setting."""
+        return 'Semester' if self.academic_period_type == 'semester' else 'Term'
+
+    @property
+    def period_label_plural(self):
+        """Return 'Terms' or 'Semesters' based on setting."""
+        return 'Semesters' if self.academic_period_type == 'semester' else 'Terms'
 
     def save(self, *args, **kwargs):
         self.pk = 1

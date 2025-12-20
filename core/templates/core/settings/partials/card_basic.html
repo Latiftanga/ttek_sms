@@ -1,38 +1,35 @@
-<div id="card-basic" class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="card-title text-lg">
-                <i class="fa-solid fa-school text-primary"></i>
+<div id="card-basic" class="card bg-base-100 shadow-sm border border-base-200 h-full">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-school text-primary text-sm"></i>
                 Basic Information
             </h3>
-            <button class="btn btn-ghost btn-sm" onclick="modal_basic.showModal()">
-                <i class="fa-solid fa-pen"></i> Edit
+            <button class="btn btn-ghost btn-xs" onclick="modal_basic.showModal()">
+                <i class="fa-solid fa-pen text-xs"></i>
             </button>
         </div>
 
         {% if success %}
-        <div class="alert alert-success mb-4">
-            <i class="fa-solid fa-check-circle"></i>
-            <span>Basic information updated successfully.</span>
-        </div>
+        {% include "core/partials/alert.html" with type="success" message="Updated successfully" %}
         {% endif %}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <p class="text-sm text-base-content/60">School Name</p>
-                <p class="font-medium">{{ tenant.name|default:"-" }}</p>
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+                <span class="text-base-content/60">School Name</span>
+                <span class="font-medium text-right">{{ tenant.name|default:"-" }}</span>
             </div>
-            <div>
-                <p class="text-sm text-base-content/60">Short Name</p>
-                <p class="font-medium">{{ tenant.short_name|default:"-" }}</p>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Short Name</span>
+                <span class="font-medium">{{ tenant.short_name|default:"-" }}</span>
             </div>
-            <div>
-                <p class="text-sm text-base-content/60">Display Name</p>
-                <p class="font-medium">{{ school_settings.display_name|default:"-" }}</p>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Display Name</span>
+                <span class="font-medium">{{ school_settings.display_name|default:"-" }}</span>
             </div>
-            <div>
-                <p class="text-sm text-base-content/60">Motto</p>
-                <p class="font-medium">{{ school_settings.motto|default:"-" }}</p>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Motto</span>
+                <span class="font-medium text-right truncate max-w-[60%]" title="{{ school_settings.motto }}">{{ school_settings.motto|default:"-"|truncatechars:30 }}</span>
             </div>
         </div>
     </div>

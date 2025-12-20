@@ -1,48 +1,41 @@
-<div id="card-contact" class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="card-title text-lg">
-                <i class="fa-solid fa-address-book text-primary"></i>
+<div id="card-contact" class="card bg-base-100 shadow-sm border border-base-200 h-full">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-address-book text-primary text-sm"></i>
                 Contact Information
             </h3>
-            <button class="btn btn-ghost btn-sm" onclick="modal_contact.showModal()">
-                <i class="fa-solid fa-pen"></i> Edit
+            <button class="btn btn-ghost btn-xs" onclick="modal_contact.showModal()">
+                <i class="fa-solid fa-pen text-xs"></i>
             </button>
         </div>
 
         {% if success %}
-        <div class="alert alert-success mb-4">
-            <i class="fa-solid fa-check-circle"></i>
-            <span>Contact information updated successfully.</span>
-        </div>
+        {% include "core/partials/alert.html" with type="success" message="Updated successfully" %}
         {% endif %}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <p class="text-sm text-base-content/60">Email</p>
-                <p class="font-medium">{{ tenant.email|default:"-" }}</p>
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Email</span>
+                <span class="font-medium">{{ tenant.email|default:"-" }}</span>
             </div>
-            <div>
-                <p class="text-sm text-base-content/60">Phone</p>
-                <p class="font-medium">{{ tenant.phone|default:"-" }}</p>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Phone</span>
+                <span class="font-medium">{{ tenant.phone|default:"-" }}</span>
             </div>
-            <div class="md:col-span-2">
-                <p class="text-sm text-base-content/60">Address</p>
-                <p class="font-medium">{{ tenant.address|default:"-"|linebreaksbr }}</p>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Digital Address</span>
+                <span class="font-medium">{{ tenant.digital_address|default:"-" }}</span>
             </div>
-            <div>
-                <p class="text-sm text-base-content/60">Digital Address</p>
-                <p class="font-medium">{{ tenant.digital_address|default:"-" }}</p>
-            </div>
-            <div>
-                <p class="text-sm text-base-content/60">City / Region</p>
-                <p class="font-medium">
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Location</span>
+                <span class="font-medium">
                     {% if tenant.city or tenant.region %}
                         {{ tenant.city }}{% if tenant.city and tenant.region %}, {% endif %}{{ tenant.region }}
                     {% else %}
                         -
                     {% endif %}
-                </p>
+                </span>
             </div>
         </div>
     </div>
