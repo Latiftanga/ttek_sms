@@ -17,7 +17,7 @@ NAVIGATION_CONFIG = [
     {
         'label': 'Students',
         'icon': 'fa-solid fa-user-graduate',
-        'url_name': 'core:students',
+        'url_name': 'students:index',
         'roles': ['school_admin', 'superuser'],
     },
     {

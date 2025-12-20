@@ -7,7 +7,7 @@ urlpatterns = [
     path('', include('core.urls')),
     path('', include('accounts.urls')),
     path('academics/', include('academics.urls')),
-    # path('students/', include('students.urls')),  # TODO: Uncomment when students app is created
+    path('students/', include('students.urls')),
 ]
 
 # Serve media files in development

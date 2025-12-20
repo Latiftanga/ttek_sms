@@ -1,0 +1,99 @@
+<h3 class="text-lg font-bold mb-4">Import Preview</h3>
+
+<!-- Summary -->
+<div class="flex gap-4 mb-4">
+    <div class="stat bg-base-200 rounded-lg p-3 flex-1">
+        <div class="stat-title text-xs">Total Rows</div>
+        <div class="stat-value text-lg">{{ total_rows }}</div>
+    </div>
+    <div class="stat bg-success/10 rounded-lg p-3 flex-1">
+        <div class="stat-title text-xs">Valid</div>
+        <div class="stat-value text-lg text-success">{{ valid_count }}</div>
+    </div>
+    {% if error_count %}
+    <div class="stat bg-error/10 rounded-lg p-3 flex-1">
+        <div class="stat-title text-xs">Errors</div>
+        <div class="stat-value text-lg text-error">{{ error_count }}</div>
+    </div>
+    {% endif %}
+</div>
+
+{% if all_errors %}
+<!-- Errors -->
+<div class="mb-4">
+    <div class="collapse collapse-arrow bg-error/10 border border-error/20">
+        <input type="checkbox" checked />
+        <div class="collapse-title text-sm font-medium text-error">
+            <i class="fa-solid fa-exclamation-triangle mr-2"></i>
+            {{ error_count }} Row{{ error_count|pluralize }} with Errors
+        </div>
+        <div class="collapse-content">
+            <ul class="text-xs space-y-2 max-h-40 overflow-y-auto">
+                {% for err in all_errors %}
+                <li class="text-error">
+                    <strong>Row {{ err.row }}:</strong>
+                    {% for e in err.errors %}
+                    {{ e }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if valid_rows %}
+<!-- Preview Table -->
+<div class="overflow-x-auto max-h-64 border border-base-200 rounded-lg mb-4">
+    <table class="table table-xs table-zebra">
+        <thead class="sticky top-0 bg-base-200">
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>DOB</th>
+                <th>Gender</th>
+                <th>Guardian</th>
+                <th>Admission #</th>
+                <th>Class</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in valid_rows %}
+            <tr>
+                <td>{{ row.row_num }}</td>
+                <td>{{ row.first_name }} {{ row.last_name }}</td>
+                <td>{{ row.date_of_birth }}</td>
+                <td>{{ row.gender }}</td>
+                <td>{{ row.guardian_name }}</td>
+                <td class="font-mono">{{ row.admission_number }}</td>
+                <td>{{ row.class_name|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Confirm Form -->
+<form method="post"
+      action="{% url 'students:bulk_import_confirm' %}"
+      hx-post="{% url 'students:bulk_import_confirm' %}"
+      hx-on::after-request="if(event.detail.successful) modal_bulk.close()">
+    {% csrf_token %}
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="modal_bulk.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-check"></i>
+            Import {{ valid_count }} Student{{ valid_count|pluralize }}
+        </button>
+    </div>
+</form>
+{% else %}
+<div class="alert alert-warning py-3">
+    <i class="fa-solid fa-exclamation-triangle"></i>
+    <span>No valid rows to import. Please fix the errors and try again.</span>
+</div>
+<div class="modal-action">
+    <button type="button" class="btn" onclick="modal_bulk.close()">Close</button>
+</div>
+{% endif %}

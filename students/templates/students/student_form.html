@@ -1,0 +1,7 @@
+{% extends "core/base.html" %}
+
+{% block title %}{% if student %}Edit Student{% else %}Add Student{% endif %} - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "students/partials/student_form_content.html" %}
+{% endblock %}

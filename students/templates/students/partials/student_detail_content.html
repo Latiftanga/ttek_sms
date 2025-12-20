@@ -1,0 +1,328 @@
+{% load core_tags %}
+<div class="max-w-4xl mx-auto print:max-w-none">
+    <!-- Page Header (hidden when printing) -->
+    <div class="flex items-center justify-between mb-4 print:!hidden">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'students:index' %}"
+               hx-get="{% url 'students:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold">Student Details</h1>
+                <p class="text-sm text-base-content/60">{{ student.admission_number }}</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="window.print()" class="btn btn-ghost btn-sm print-btn">
+                <i class="fa-solid fa-print"></i>
+                Print
+            </button>
+            <a href="{% url 'students:student_edit' student.pk %}"
+               hx-get="{% url 'students:student_edit' student.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-pen"></i>
+                Edit
+            </a>
+        </div>
+    </div>
+
+    <!-- Print Header (only visible when printing) -->
+    <div class="hidden print:!block print:mb-4 print:border-b print:border-black print:pb-2">
+        <div class="flex items-center justify-center gap-4">
+            {% if school.logo %}
+            <img src="{{ school.logo.url }}" alt="Logo" class="h-16 w-16 object-contain" />
+            {% endif %}
+            <div class="text-center">
+                <h1 class="text-lg font-bold uppercase">{{ tenant.name|default:"School Name" }}</h1>
+                {% if tenant.address %}<p class="text-xs">{{ tenant.address }}</p>{% endif %}
+                {% if tenant.phone or tenant.email %}
+                <p class="text-xs">
+                    {% if tenant.phone %}Tel: {{ tenant.phone }}{% endif %}
+                    {% if tenant.phone and tenant.email %} | {% endif %}
+                    {% if tenant.email %}Email: {{ tenant.email }}{% endif %}
+                </p>
+                {% endif %}
+            </div>
+            {% if school.logo %}
+            <div class="h-16 w-16"></div>
+            {% endif %}
+        </div>
+        <h2 class="text-base font-bold text-center mt-2 uppercase">Student Record</h2>
+    </div>
+
+    <!-- Student Profile Card -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
+        <div class="card-body p-4">
+            <div class="flex flex-col sm:flex-row gap-4 items-start">
+                <!-- Photo -->
+                <div class="avatar placeholder flex-shrink-0 print:!hidden">
+                    <div class="w-20 h-20 rounded-xl bg-base-300 text-base-content">
+                        {% if student.photo %}
+                        <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="object-cover" />
+                        {% else %}
+                        <span class="text-2xl">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Basic Info -->
+                <div class="flex-1">
+                    <h2 class="text-xl font-bold">{{ student.full_name }}</h2>
+                    <p class="text-sm text-base-content/60 font-mono">{{ student.admission_number }}</p>
+                    <!-- Screen badges -->
+                    <div class="flex flex-wrap gap-2 mt-2 print:!hidden">
+                        {% if student.current_class %}
+                        <span class="badge">{{ student.current_class.name }}</span>
+                        {% endif %}
+                        {% if student.gender == 'M' %}
+                        <span class="badge badge-info">Male</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Female</span>
+                        {% endif %}
+                        {% if student.status == 'active' %}
+                        <span class="badge badge-success">Active</span>
+                        {% elif student.status == 'graduated' %}
+                        <span class="badge badge-info">Graduated</span>
+                        {% elif student.status == 'withdrawn' %}
+                        <span class="badge badge-warning">Withdrawn</span>
+                        {% elif student.status == 'suspended' %}
+                        <span class="badge badge-error">Suspended</span>
+                        {% elif student.status == 'transferred' %}
+                        <span class="badge badge-ghost">Transferred</span>
+                        {% endif %}
+                    </div>
+                    <!-- Print info line -->
+                    <p class="hidden print:!block text-sm mt-1">
+                        {{ student.current_class.name|default:"No Class" }} | {{ student.get_gender_display }} | {{ student.get_status_display }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        <!-- Personal Information -->
+        <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
+            <div class="card-body p-4">
+                <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
+                    <i class="fa-solid fa-user print:!hidden"></i>
+                    Personal Information
+                </h3>
+                <dl class="space-y-2 text-sm mt-2">
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Full Name</dt>
+                        <dd class="font-medium">{{ student.full_name }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Date of Birth</dt>
+                        <dd>{{ student.date_of_birth|date:"F j, Y" }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Age</dt>
+                        <dd>{{ student.age }} years</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Gender</dt>
+                        <dd>{{ student.get_gender_display }}</dd>
+                    </div>
+                    {% if student.phone %}
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Phone</dt>
+                        <dd>{{ student.phone }}</dd>
+                    </div>
+                    {% endif %}
+                    {% if student.address %}
+                    <div class="pt-1 border-t border-base-200">
+                        <dt class="text-base-content/60 text-xs">Address</dt>
+                        <dd class="mt-1">{{ student.address }}</dd>
+                    </div>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+
+        <!-- Guardian Information -->
+        <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
+            <div class="card-body p-4">
+                <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
+                    <i class="fa-solid fa-users print:!hidden"></i>
+                    Guardian Information
+                </h3>
+                <dl class="space-y-2 text-sm mt-2">
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Name</dt>
+                        <dd class="font-medium">{{ student.guardian_name }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Relationship</dt>
+                        <dd>{{ student.get_guardian_relationship_display }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Phone</dt>
+                        <dd>{{ student.guardian_phone }}</dd>
+                    </div>
+                    {% if student.guardian_email %}
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Email</dt>
+                        <dd>{{ student.guardian_email }}</dd>
+                    </div>
+                    {% endif %}
+                    {% if student.guardian_address %}
+                    <div class="pt-1 border-t border-base-200">
+                        <dt class="text-base-content/60 text-xs">Address</dt>
+                        <dd class="mt-1">{{ student.guardian_address }}</dd>
+                    </div>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+
+        <!-- Admission Details -->
+        <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
+            <div class="card-body p-4">
+                <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
+                    <i class="fa-solid fa-school print:!hidden"></i>
+                    Admission Details
+                </h3>
+                <dl class="space-y-2 text-sm mt-2">
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Admission Number</dt>
+                        <dd class="font-mono font-medium">{{ student.admission_number }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Admission Date</dt>
+                        <dd>{{ student.admission_date|date:"F j, Y" }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Current Class</dt>
+                        <dd>{{ student.current_class.name|default:"-" }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Status</dt>
+                        <dd>{{ student.get_status_display }}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Account & System -->
+        <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
+            <div class="card-body p-4">
+                <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
+                    <i class="fa-solid fa-cog print:!hidden"></i>
+                    System Information
+                </h3>
+                <dl class="space-y-2 text-sm mt-2">
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">User Account</dt>
+                        <dd>
+                            {% if student.user %}
+                            <span class="badge badge-success badge-sm">Linked</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-sm">None</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Active</dt>
+                        <dd>
+                            {% if student.is_active %}
+                            <span class="badge badge-success badge-sm">Yes</span>
+                            {% else %}
+                            <span class="badge badge-error badge-sm">No</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Created</dt>
+                        <dd>{{ student.created_at|date:"M j, Y" }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-base-content/60">Last Updated</dt>
+                        <dd>{{ student.updated_at|date:"M j, Y" }}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enrollment History -->
+    {% if enrollments %}
+    <div class="card bg-base-100 shadow-sm border border-base-200 mt-4 print:shadow-none print:border print:border-gray-300">
+        <div class="card-body p-4">
+            <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
+                <i class="fa-solid fa-timeline print:!hidden"></i>
+                Enrollment History
+            </h3>
+            <div class="overflow-x-auto mt-2">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="text-xs">
+                            <th>Academic Year</th>
+                            <th>Class</th>
+                            <th>Status</th>
+                            <th>Enrolled On</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for enrollment in enrollments %}
+                        <tr>
+                            <td class="font-medium">{{ enrollment.academic_year }}</td>
+                            <td>
+                                <span class="badge badge-sm">{{ enrollment.class_assigned.name }}</span>
+                            </td>
+                            <td>
+                                {% if enrollment.status == 'active' %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% elif enrollment.status == 'promoted' %}
+                                <span class="badge badge-info badge-sm">Promoted</span>
+                                {% elif enrollment.status == 'repeated' %}
+                                <span class="badge badge-warning badge-sm">Repeated</span>
+                                {% elif enrollment.status == 'graduated' %}
+                                <span class="badge badge-primary badge-sm">Graduated</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">{{ enrollment.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-xs text-base-content/60">{{ enrollment.enrolled_on|date:"M j, Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions (hidden when printing) -->
+    <div class="flex justify-between mt-4 print:!hidden">
+        <form hx-post="{% url 'students:student_delete' student.pk %}"
+              hx-confirm="Delete {{ student.full_name }}? This action cannot be undone.">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-error btn-sm btn-outline">
+                <i class="fa-solid fa-trash"></i>
+                Delete
+            </button>
+        </form>
+        <div class="flex gap-2">
+            <a href="{% url 'students:index' %}"
+               hx-get="{% url 'students:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-sm">
+                Back to List
+            </a>
+        </div>
+    </div>
+
+    <!-- Print Footer -->
+    <div class="hidden print:!block print:mt-4 print:pt-2 print:border-t print:text-center print:text-xs">
+        Printed on {% now "M j, Y g:i A" %}
+    </div>
+</div>
