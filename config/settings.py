@@ -40,6 +40,7 @@ TENANT_APPS = (
     #Local Apps
     'core',
     'academics',
+    'students',
     'communications',
     'accounts',
 

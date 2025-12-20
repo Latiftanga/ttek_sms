@@ -1,0 +1,73 @@
+<h3 class="text-lg font-bold mb-4">Bulk Import Students</h3>
+
+<form method="post"
+      action="{% url 'students:bulk_import' %}"
+      hx-post="{% url 'students:bulk_import' %}"
+      hx-target="#modal-bulk-content"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+        <!-- Download Template -->
+        <div class="alert alert-info py-3">
+            <i class="fa-solid fa-circle-info"></i>
+            <div>
+                <p class="text-sm">Download the template and fill in student data.</p>
+                <a href="{% url 'students:bulk_import_template' %}"
+                   class="link link-primary text-sm font-medium">
+                    <i class="fa-solid fa-download"></i> Download Template (.xlsx)
+                </a>
+            </div>
+        </div>
+
+        <!-- File Upload -->
+        <div>
+            <label class="text-sm font-medium mb-2 block">Upload File</label>
+            <input type="file"
+                   name="file"
+                   accept=".xlsx,.csv"
+                   class="file-input file-input-bordered w-full"
+                   required />
+            <p class="text-xs text-base-content/60 mt-1">Accepts .xlsx or .csv files</p>
+        </div>
+
+        <!-- Expected Columns -->
+        <div class="collapse collapse-arrow bg-base-200">
+            <input type="checkbox" />
+            <div class="collapse-title text-sm font-medium">
+                <i class="fa-solid fa-table-columns mr-2"></i>
+                Expected Columns
+            </div>
+            <div class="collapse-content">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    {% for col in expected_columns %}
+                    <div class="flex items-center gap-1">
+                        <i class="fa-solid fa-check text-success"></i>
+                        <span>{{ col }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="text-xs text-base-content/60 mt-2">
+                    <strong>Required:</strong> first_name, last_name, date_of_birth, gender, guardian_name, guardian_phone, admission_number, admission_date
+                </p>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-error py-2 text-sm">
+            <i class="fa-solid fa-exclamation-circle"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="modal_bulk.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-upload"></i>
+            Upload & Preview
+        </button>
+    </div>
+</form>

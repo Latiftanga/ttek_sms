@@ -13,20 +13,28 @@ def school_branding(request):
     # Check if we're on a tenant schema (not public)
     schema_name = getattr(connection, 'schema_name', 'public')
     if schema_name == 'public':
-        return {'school': None}
+        return {'school': None, 'tenant': None}
 
+    school = None
+    tenant = None
+
+    # Get the tenant (School model from public schema)
+    try:
+        tenant = getattr(connection, 'tenant', None)
+    except Exception as e:
+        logger.warning(f"Failed to get tenant: {e}")
+
+    # Get SchoolSettings (from tenant schema)
     try:
         from .models import SchoolSettings
         school = SchoolSettings.load()
     except (ProgrammingError, OperationalError):
         # Table doesn't exist yet (migrations not run)
-        school = None
+        pass
     except Exception as e:
-        # Unexpected error - log it
         logger.warning(f"Failed to load SchoolSettings: {e}")
-        school = None
 
-    return {'school': school}
+    return {'school': school, 'tenant': tenant}
 
 
 def academic_session(request):

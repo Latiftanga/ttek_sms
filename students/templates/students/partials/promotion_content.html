@@ -1,0 +1,185 @@
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold">Student Promotion</h1>
+            <p class="text-sm text-base-content/60">
+                Promote students to next academic year
+            </p>
+        </div>
+        <a href="{% url 'students:index' %}"
+           hx-get="{% url 'students:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back to Students
+        </a>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-error">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>{{ error }}</span>
+    </div>
+    {% else %}
+
+    <!-- Academic Year Info -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex flex-wrap gap-6">
+                <div>
+                    <span class="text-sm text-base-content/60">Current Academic Year</span>
+                    <p class="font-bold text-lg">{{ current_year }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-base-content/60">Promote To</span>
+                    {% if next_year %}
+                    <p class="font-bold text-lg text-primary">{{ next_year }}</p>
+                    {% else %}
+                    <p class="text-warning font-medium">No next academic year configured</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if not next_year %}
+    <div class="alert alert-warning">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        <span>Please create the next academic year before processing promotions.</span>
+    </div>
+    {% elif not class_students %}
+    <div class="alert alert-info">
+        <i class="fa-solid fa-info-circle"></i>
+        <span>No students with active enrollments found for the current academic year.</span>
+    </div>
+    {% else %}
+
+    <form method="post" action="{% url 'students:promotion_process' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next_year" value="{{ next_year.pk }}" />
+
+        <!-- Class Groups -->
+        <div class="space-y-4">
+            {% for group in class_students %}
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="font-bold flex items-center gap-2">
+                            <span class="badge badge-primary">{{ group.class.name }}</span>
+                            <span class="text-sm font-normal text-base-content/60">
+                                {{ group.count }} student{{ group.count|pluralize }}
+                            </span>
+                        </h2>
+                        <div class="flex gap-2">
+                            <button type="button"
+                                    onclick="selectAllInClass('{{ group.class.pk }}', 'promote')"
+                                    class="btn btn-xs btn-ghost">
+                                Select All Promote
+                            </button>
+                            <button type="button"
+                                    onclick="selectAllInClass('{{ group.class.pk }}', 'skip')"
+                                    class="btn btn-xs btn-ghost">
+                                Skip All
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs">
+                                    <th>Student</th>
+                                    <th>Admission #</th>
+                                    <th>Action</th>
+                                    <th>Target Class</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in group.students %}
+                                <tr data-class="{{ group.class.pk }}">
+                                    <td>
+                                        <div class="font-medium">{{ student.full_name }}</div>
+                                    </td>
+                                    <td class="font-mono text-xs">{{ student.admission_number }}</td>
+                                    <td>
+                                        <select name="action_{{ student.pk }}"
+                                                class="select select-sm select-bordered action-select"
+                                                data-student="{{ student.pk }}"
+                                                onchange="toggleTargetClass(this)">
+                                            <option value="promote" selected>Promote</option>
+                                            <option value="repeat">Repeat</option>
+                                            <option value="skip">Skip</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <select name="target_class_{{ student.pk }}"
+                                                class="select select-sm select-bordered target-class-select"
+                                                data-student="{{ student.pk }}">
+                                            {% for cls in all_classes %}
+                                            <option value="{{ cls.pk }}"
+                                                    {% if cls.level_number == group.class.level_number|add:1 and cls.programme == group.class.programme %}selected{% endif %}>
+                                                {{ cls.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Submit -->
+        <div class="flex justify-end gap-3 mt-4">
+            <a href="{% url 'students:index' %}"
+               hx-get="{% url 'students:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn">
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-check"></i>
+                Process Promotions
+            </button>
+        </div>
+    </form>
+
+    <script>
+        function toggleTargetClass(select) {
+            const studentId = select.dataset.student;
+            const targetSelect = document.querySelector(`select[name="target_class_${studentId}"]`);
+            if (select.value === 'promote') {
+                targetSelect.disabled = false;
+                targetSelect.classList.remove('opacity-50');
+            } else {
+                targetSelect.disabled = true;
+                targetSelect.classList.add('opacity-50');
+            }
+        }
+
+        function selectAllInClass(classId, action) {
+            const rows = document.querySelectorAll(`tr[data-class="${classId}"]`);
+            rows.forEach(row => {
+                const actionSelect = row.querySelector('.action-select');
+                if (actionSelect) {
+                    actionSelect.value = action;
+                    toggleTargetClass(actionSelect);
+                }
+            });
+        }
+
+        // Initialize target class states on page load
+        document.querySelectorAll('.action-select').forEach(toggleTargetClass);
+    </script>
+
+    {% endif %}
+    {% endif %}
+</div>

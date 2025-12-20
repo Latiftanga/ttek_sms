@@ -11,7 +11,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{ school.motto|default:'School Management System' }}">
-    <title>{% block title %}{{ school.display_name|default:"School" }}{% endblock %}</title>
+    <title>{% block title %}{{ school.display_name|default:tenant.short_name|default:tenant.name|default:"School" }}{% endblock %}</title>
 
     {% if school.favicon %}
     <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
@@ -76,6 +76,187 @@
 
         .htmx-request #loading-indicator {
             display: flex;
+        }
+
+        /* Print styles */
+        @media print {
+            /* Force light mode colors */
+            *, *::before, *::after {
+                color-scheme: light !important;
+            }
+
+            html, body {
+                background: white !important;
+                color: black !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* Force light theme colors on all elements */
+            .bg-base-100, .bg-base-200, .bg-base-300,
+            .card, .card-body, div, main, section {
+                background-color: white !important;
+                color: black !important;
+            }
+
+            .text-base-content,
+            .text-base-content\/60,
+            .text-base-content\/70,
+            h1, h2, h3, h4, h5, h6, p, span, dd, dt, td, th {
+                color: black !important;
+            }
+
+            .text-base-content\/60,
+            .text-base-content\/70 {
+                color: #666 !important;
+            }
+
+            /* Hide everything except main content */
+            .drawer-toggle,
+            .desktop-sidebar,
+            .drawer-side,
+            header,
+            #loading-indicator,
+            dialog,
+            .modal,
+            .modal-backdrop {
+                display: none !important;
+            }
+
+            /* Reset drawer layout */
+            .drawer,
+            .drawer-content {
+                display: block !important;
+                overflow: visible !important;
+                height: auto !important;
+                background: white !important;
+            }
+
+            /* Main content full width */
+            main {
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+            }
+
+            #main-content {
+                padding: 0 !important;
+                margin: 0 !important;
+                background: white !important;
+            }
+
+            /* Cards print nicely */
+            .card {
+                break-inside: avoid;
+                box-shadow: none !important;
+                border: 1px solid #ccc !important;
+                background: white !important;
+            }
+
+            /* Badges print with visible borders */
+            .badge {
+                border: 1px solid #999 !important;
+                background: transparent !important;
+                color: black !important;
+            }
+
+            /* Hide buttons and interactive elements */
+            .btn,
+            button,
+            form[hx-post] {
+                display: none !important;
+            }
+
+            /* But show print-specific elements */
+            .print\:block,
+            .print\:\!block {
+                display: block !important;
+            }
+
+            .print\:hidden,
+            .print\:\!hidden {
+                display: none !important;
+            }
+
+            /* Hide all FontAwesome icons when printing */
+            .fa-solid, .fa-regular, .fa-brands, .fas, .far, .fab, [class^="fa-"] {
+                display: none !important;
+            }
+
+            /* Grid prints as two columns */
+            .grid.lg\:grid-cols-2 {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 0.5rem !important;
+            }
+
+            /* Avatar placeholder background */
+            .avatar .bg-base-300 {
+                background: #eee !important;
+                border: 1px solid #ccc !important;
+            }
+
+            /* Ensure images print */
+            img {
+                max-width: 100% !important;
+                display: inline-block !important;
+            }
+
+            /* Compact spacing for A4 */
+            .card-body {
+                padding: 0.5rem !important;
+            }
+
+            .space-y-2 > * + * {
+                margin-top: 0.25rem !important;
+            }
+
+            .mt-4, .mt-2 {
+                margin-top: 0.5rem !important;
+            }
+
+            .gap-4 {
+                gap: 0.5rem !important;
+            }
+
+            .p-4 {
+                padding: 0.5rem !important;
+            }
+
+            .mb-6 {
+                margin-bottom: 0.75rem !important;
+            }
+
+            /* Smaller text for print */
+            .text-xl {
+                font-size: 1rem !important;
+            }
+
+            .text-lg {
+                font-size: 0.875rem !important;
+            }
+
+            .text-sm, .text-xs {
+                font-size: 0.75rem !important;
+            }
+
+            dl, dt, dd, p {
+                font-size: 0.75rem !important;
+                line-height: 1.3 !important;
+            }
+
+            /* Page settings for A4 */
+            @page {
+                size: A4 portrait;
+                margin: 1cm;
+            }
+
+            /* Ensure content fits */
+            .max-w-4xl {
+                max-width: 100% !important;
+            }
         }
 
     </style>
@@ -194,9 +375,12 @@
         const confirmCancel = document.getElementById('confirm-cancel');
 
         document.body.addEventListener('htmx:confirm', function(e) {
+            // Only intercept if there's an hx-confirm attribute
+            if (!e.detail.question) return;
+
             e.preventDefault();
 
-            const message = e.detail.question || 'Are you sure?';
+            const message = e.detail.question;
             confirmMessage.textContent = message;
             confirmDialog.showModal();
 

@@ -1,0 +1,204 @@
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold">Students</h1>
+            <p class="text-sm text-base-content/60">
+                {% if students %}{{ students|length }} student{{ students|length|pluralize }}{% else %}No students{% endif %}
+                {% if search or class_filter or status_filter %}<span class="text-primary"> (filtered)</span>{% endif %}
+            </p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'students:promotion' %}"
+               hx-get="{% url 'students:promotion' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm">
+                <i class="fa-solid fa-arrow-up-right-dots"></i>
+                Promotion
+            </a>
+            <button class="btn btn-ghost btn-sm"
+                    hx-get="{% url 'students:bulk_import' %}"
+                    hx-target="#modal-bulk-content"
+                    hx-swap="innerHTML"
+                    onclick="modal_bulk.showModal()">
+                <i class="fa-solid fa-file-import"></i>
+                Import
+            </button>
+            <a href="{% url 'students:student_create' %}"
+               hx-get="{% url 'students:student_create' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i>
+                Add Student
+            </a>
+        </div>
+    </div>
+
+    <!-- Search & Filters -->
+    <form method="get" class="flex gap-2">
+        <input type="text"
+               name="search"
+               value="{{ search }}"
+               placeholder="Search name or admission number..."
+               class="input flex-1 min-w-0" />
+        <select name="class" class="select select-sm w-auto">
+            <option value="">All Classes</option>
+            {% for cls in classes %}
+            <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"s" %}selected{% endif %}>
+                {{ cls.name }}
+            </option>
+            {% endfor %}
+        </select>
+        <select name="status" class="select select-sm w-auto">
+            <option value="">All Status</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                {{ label }}
+            </option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-search"></i>
+        </button>
+        {% if search or class_filter or status_filter %}
+        <a href="{% url 'students:index' %}" class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-times"></i>
+        </a>
+        {% endif %}
+    </form>
+
+    <!-- Students Table -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            {% if students %}
+            <div class="overflow-x-auto">
+                <table class="table table-sm table-zebra">
+                    <thead>
+                        <tr class="text-xs">
+                            <th>Student</th>
+                            <th>Admission #</th>
+                            <th>Class</th>
+                            <th>Gender</th>
+                            <th>Guardian</th>
+                            <th>Status</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td>
+                                <div class="flex items-center gap-3">
+                                    <div class="avatar placeholder">
+                                        <div class="w-8 h-8 rounded-full bg-base-300 text-base-content">
+                                            {% if student.photo %}
+                                            <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" />
+                                            {% else %}
+                                            <span class="text-xs">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium">{{ student.full_name }}</div>
+                                        <div class="text-xs text-base-content/60">{{ student.date_of_birth|date:"M d, Y" }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="font-mono text-xs">{{ student.admission_number }}</td>
+                            <td>
+                                {% if student.current_class %}
+                                <span class="badge badge-sm">{{ student.current_class.name }}</span>
+                                {% else %}
+                                <span class="text-base-content/40">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if student.gender == 'M' %}
+                                <span class="badge badge-info badge-sm">Male</span>
+                                {% else %}
+                                <span class="badge badge-secondary badge-sm">Female</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="text-sm">{{ student.guardian_name }}</div>
+                                <div class="text-xs text-base-content/60">{{ student.guardian_phone }}</div>
+                            </td>
+                            <td>
+                                {% if student.status == 'active' %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% elif student.status == 'graduated' %}
+                                <span class="badge badge-info badge-sm">Graduated</span>
+                                {% elif student.status == 'withdrawn' %}
+                                <span class="badge badge-warning badge-sm">Withdrawn</span>
+                                {% elif student.status == 'suspended' %}
+                                <span class="badge badge-error badge-sm">Suspended</span>
+                                {% elif student.status == 'transferred' %}
+                                <span class="badge badge-ghost badge-sm">Transferred</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <div class="flex justify-end gap-1">
+                                    <a href="{% url 'students:student_detail' student.pk %}"
+                                       hx-get="{% url 'students:student_detail' student.pk %}"
+                                       hx-target="#main-content"
+                                       hx-push-url="true"
+                                       class="btn btn-ghost btn-xs">
+                                        <i class="fa-solid fa-eye text-xs"></i>
+                                    </a>
+                                    <a href="{% url 'students:student_edit' student.pk %}"
+                                       hx-get="{% url 'students:student_edit' student.pk %}"
+                                       hx-target="#main-content"
+                                       hx-push-url="true"
+                                       class="btn btn-ghost btn-xs">
+                                        <i class="fa-solid fa-pen text-xs"></i>
+                                    </a>
+                                    <form hx-post="{% url 'students:student_delete' student.pk %}"
+                                          hx-confirm="Delete {{ student.full_name }}?">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-ghost btn-xs text-error">
+                                            <i class="fa-solid fa-trash text-xs"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-base-content/40">
+                <i class="fa-solid fa-user-graduate text-4xl mb-3"></i>
+                <p class="text-sm">No students found</p>
+                {% if search or class_filter or status_filter %}
+                <p class="text-xs">Try adjusting your search or filters</p>
+                {% else %}
+                <p class="text-xs">Add your first student to get started</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Import Modal -->
+<dialog id="modal_bulk" class="modal">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-bulk-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
