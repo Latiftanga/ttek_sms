@@ -1,77 +1,196 @@
 {% load core_tags %}
-<div class="mb-6">
-    <h1 class="text-2xl font-bold text-base-content">Dashboard</h1>
-    <p class="text-base-content/60">Welcome back, {{ user.first_name|default:user.email }}</p>
-</div>
-
-<!-- Stats Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    {% stat_card "Students" student_count|default:"0" "fa-solid fa-users" "primary" %}
-    {% stat_card "Teachers" teacher_count|default:"0" "fa-solid fa-chalkboard-user" "secondary" %}
-    {% stat_card "Classes" class_count|default:"0" "fa-solid fa-door-open" "accent" %}
-    {% stat_card "Parents" parent_count|default:"0" "fa-solid fa-people-roof" "info" %}
-</div>
-
-<!-- Main Content Area -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Recent Activity -->
-    <div class="lg:col-span-2">
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body">
-                <h2 class="card-title text-base-content">Recent Activity</h2>
-                <div class="divider my-0"></div>
-                {% if recent_activities %}
-                    <ul class="space-y-3">
-                        {% for activity in recent_activities %}
-                            <li class="flex items-center gap-3 p-2 rounded hover:bg-base-200">
-                                <div class="w-10 h-10 rounded-full bg-{{ activity.color|default:'primary' }}/10 flex items-center justify-center">
-                                    <i class="{{ activity.icon|default:'fa-solid fa-circle' }} text-{{ activity.color|default:'primary' }}"></i>
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium">{{ activity.title }}</p>
-                                    <p class="text-xs text-base-content/60">{{ activity.timestamp }}</p>
-                                </div>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <div class="text-center py-8 text-base-content/40">
-                        <i class="fa-solid fa-clock-rotate-left text-4xl mb-2"></i>
-                        <p>No recent activity</p>
-                    </div>
-                {% endif %}
-            </div>
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold">Dashboard</h1>
+            <p class="text-base-content/60">Welcome back, {{ user.first_name|default:user.username }}</p>
         </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="lg:col-span-1">
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body">
-                <h2 class="card-title text-base-content">Quick Actions</h2>
-                <div class="divider my-0"></div>
-                <div class="space-y-2">
-                    <a href="#" class="btn btn-ghost btn-block justify-start">
-                        <i class="fa-solid fa-user-plus w-6"></i> Add Student
-                    </a>
-                    <a href="#" class="btn btn-ghost btn-block justify-start">
-                        <i class="fa-solid fa-paper-plane w-6"></i> Send Message
-                    </a>
-                    <a href="#" class="btn btn-ghost btn-block justify-start">
-                        <i class="fa-solid fa-file-invoice w-6"></i> Create Invoice
-                    </a>
-                    <a href="#" class="btn btn-ghost btn-block justify-start">
-                        <i class="fa-solid fa-calendar-plus w-6"></i> Schedule Event
-                    </a>
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {% stat_card "Students" student_count|default:"0" "fa-solid fa-user-graduate" "primary" %}
+        {% stat_card "Classes" class_count|default:"0" "fa-solid fa-chalkboard" "secondary" %}
+        {% stat_card "Enrollments" active_enrollments|default:"0" "fa-solid fa-clipboard-list" "accent" %}
+        {% stat_card "Teachers" teacher_count|default:"0" "fa-solid fa-chalkboard-user" "info" %}
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Recent Students -->
+        <div class="lg:col-span-2">
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="font-semibold">Recent Students</h2>
+                        <a href="{% url 'students:index' %}"
+                           hx-get="{% url 'students:index' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-xs">
+                            View All
+                        </a>
+                    </div>
+                    {% if recent_students %}
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs">
+                                    <th>Student</th>
+                                    <th>Admission #</th>
+                                    <th>Class</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in recent_students %}
+                                <tr>
+                                    <td>
+                                        <div class="flex items-center gap-2">
+                                            <div class="avatar placeholder">
+                                                <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center">
+                                                    {% if student.photo %}
+                                                    <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover" />
+                                                    {% else %}
+                                                    <span class="text-xs">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <a href="{% url 'students:student_detail' student.pk %}"
+                                                   hx-get="{% url 'students:student_detail' student.pk %}"
+                                                   hx-target="#main-content"
+                                                   hx-push-url="true"
+                                                   class="font-medium hover:text-primary">
+                                                    {{ student.full_name }}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="font-mono text-xs">{{ student.admission_number }}</td>
+                                    <td>
+                                        {% if student.current_class %}
+                                        <span class="badge badge-sm">{{ student.current_class.name }}</span>
+                                        {% else %}
+                                        <span class="text-base-content/40">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if student.status == 'active' %}
+                                        <span class="badge badge-success badge-sm">Active</span>
+                                        {% elif student.status == 'graduated' %}
+                                        <span class="badge badge-info badge-sm">Graduated</span>
+                                        {% else %}
+                                        <span class="badge badge-ghost badge-sm">{{ student.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-base-content/40">
+                        <i class="fa-solid fa-user-graduate text-4xl mb-2"></i>
+                        <p class="text-sm">No students yet</p>
+                        <a href="{% url 'students:student_create' %}"
+                           hx-get="{% url 'students:student_create' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-primary btn-sm mt-3">
+                            <i class="fa-solid fa-plus"></i>
+                            Add First Student
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
-    </div>
 
-    <select class="select">
-        <option disabled selected>Pick a color</option>
-        <option>Crimson</option>
-        <option>Amber</option>
-        <option>Velvet</option>
-    </select>
+        <!-- Quick Actions -->
+        <div class="lg:col-span-1">
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h2 class="font-semibold mb-2">Quick Actions</h2>
+                    <div class="space-y-2">
+                        <a href="{% url 'students:student_create' %}"
+                           hx-get="{% url 'students:student_create' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-sm w-full justify-start">
+                            <i class="fa-solid fa-user-plus w-5"></i>
+                            Add Student
+                        </a>
+                        <a href="{% url 'students:bulk_import' %}"
+                           hx-get="{% url 'students:bulk_import' %}"
+                           hx-target="#modal-bulk-content"
+                           hx-swap="innerHTML"
+                           onclick="modal_bulk.showModal()"
+                           class="btn btn-ghost btn-sm w-full justify-start">
+                            <i class="fa-solid fa-file-import w-5"></i>
+                            Import Students
+                        </a>
+                        <a href="{% url 'academics:index' %}"
+                           hx-get="{% url 'academics:index' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-sm w-full justify-start">
+                            <i class="fa-solid fa-graduation-cap w-5"></i>
+                            Manage Classes
+                        </a>
+                        <a href="{% url 'core:settings' %}"
+                           hx-get="{% url 'core:settings' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-sm w-full justify-start">
+                            <i class="fa-solid fa-gear w-5"></i>
+                            School Settings
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Academic Info Card -->
+            {% if not current_year %}
+            <div class="card bg-warning/10 border border-warning/30 mt-4">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-warning flex items-center gap-2">
+                        <i class="fa-solid fa-exclamation-triangle"></i>
+                        Setup Required
+                    </h3>
+                    <p class="text-sm text-base-content/70 mt-1">
+                        No academic year is set as current. Please configure your academic year in settings.
+                    </p>
+                    <a href="{% url 'core:settings' %}"
+                       hx-get="{% url 'core:settings' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-warning btn-sm mt-3">
+                        Go to Settings
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
+
+<!-- Bulk Import Modal (reused from students) -->
+<dialog id="modal_bulk" class="modal">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-bulk-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>

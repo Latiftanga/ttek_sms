@@ -1,0 +1,46 @@
+{% load core_tags %}
+<div id="modal-term-form">
+    <h3 class="text-lg font-bold mb-6">
+        {% if is_create %}Add {{ period_label|default:"Term" }}{% else %}Edit {{ period_label|default:"Term" }}{% endif %}
+    </h3>
+    <form method="post"
+          action="{% if is_create %}{% url 'core:term_create' %}{% else %}{% url 'core:term_edit' form.instance.pk %}{% endif %}"
+          hx-post="{% if is_create %}{% url 'core:term_create' %}{% else %}{% url 'core:term_edit' form.instance.pk %}{% endif %}"
+          hx-target="#card-academic"
+          hx-swap="outerHTML">
+        {% csrf_token %}
+        <div class="space-y-6 pt-2">
+            {% floating_field form.academic_year %}
+            {% floating_field form.name %}
+            {% floating_field form.term_number %}
+            <div class="grid grid-cols-2 gap-4">
+                {% floating_field form.start_date %}
+                {% floating_field form.end_date %}
+            </div>
+            <label class="label cursor-pointer justify-start gap-3">
+                <input type="checkbox" name="is_current" class="checkbox checkbox-primary" {% if form.is_current.value %}checked{% endif %}>
+                <span class="label-text">Set as Current {{ period_label|default:"Term" }}</span>
+            </label>
+        </div>
+        {% if form.errors %}
+        <div class="alert alert-error mt-4">
+            <i class="fa-solid fa-exclamation-circle"></i>
+            <div>
+                {% if form.non_field_errors %}
+                    {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                    {% endfor %}
+                {% else %}
+                <p>Please fix the errors above.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        <div class="modal-action">
+            <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+                {% if is_create %}Create {{ period_label|default:"Term" }}{% else %}Save Changes{% endif %}
+            </button>
+        </div>
+    </form>
+</div>

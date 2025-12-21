@@ -61,9 +61,9 @@
             <div class="flex flex-col sm:flex-row gap-4 items-start">
                 <!-- Photo -->
                 <div class="avatar placeholder flex-shrink-0 print:!hidden">
-                    <div class="w-20 h-20 rounded-xl bg-base-300 text-base-content">
+                    <div class="w-20 h-20 rounded-xl bg-base-300 text-base-content flex items-center justify-center">
                         {% if student.photo %}
-                        <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="object-cover" />
+                        <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover rounded-xl" />
                         {% else %}
                         <span class="text-2xl">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                         {% endif %}

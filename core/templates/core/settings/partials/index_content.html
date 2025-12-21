@@ -156,30 +156,7 @@
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
         </form>
-        <h3 class="text-lg font-bold mb-6">Add Academic Year</h3>
-        <form method="post"
-              action="{% url 'core:academic_year_create' %}"
-              hx-post="{% url 'core:academic_year_create' %}"
-              hx-target="#card-academic"
-              hx-swap="outerHTML"
-              hx-on::after-request="if(event.detail.successful) modal_academic_year.close()">
-            {% csrf_token %}
-            <div class="space-y-6 pt-2">
-                {% floating_field academic_year_form.name %}
-                <div class="grid grid-cols-2 gap-4">
-                    {% floating_field academic_year_form.start_date %}
-                    {% floating_field academic_year_form.end_date %}
-                </div>
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="is_current" class="checkbox checkbox-primary">
-                    <span class="label-text">Set as Current Academic Year</span>
-                </label>
-            </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_academic_year.close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create Year</button>
-            </div>
-        </form>
+        {% include "core/settings/partials/modal_academic_year_form.html" with form=academic_year_form is_create=True %}
     </div>
 </dialog>
 
@@ -189,32 +166,7 @@
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
         </form>
-        <h3 class="text-lg font-bold mb-6">Add {{ period_label|default:"Term" }}</h3>
-        <form method="post"
-              action="{% url 'core:term_create' %}"
-              hx-post="{% url 'core:term_create' %}"
-              hx-target="#card-academic"
-              hx-swap="outerHTML"
-              hx-on::after-request="if(event.detail.successful) modal_term.close()">
-            {% csrf_token %}
-            <div class="space-y-6 pt-2">
-                {% floating_field term_form.academic_year %}
-                {% floating_field term_form.name %}
-                {% floating_field term_form.term_number %}
-                <div class="grid grid-cols-2 gap-4">
-                    {% floating_field term_form.start_date %}
-                    {% floating_field term_form.end_date %}
-                </div>
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="is_current" class="checkbox checkbox-primary">
-                    <span class="label-text">Set as Current {{ period_label|default:"Term" }}</span>
-                </label>
-            </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_term.close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create {{ period_label|default:"Term" }}</button>
-            </div>
-        </form>
+        {% include "core/settings/partials/modal_term_form.html" with form=term_form is_create=True %}
     </div>
 </dialog>
 
