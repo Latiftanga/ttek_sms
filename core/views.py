@@ -27,12 +27,37 @@ def htmx_render(request, full_template, partial_template, context=None):
 @login_required
 def index(request):
     """Dashboard/index view."""
+    from students.models import Student, Enrollment
+    from academics.models import Class
+
+    # Get current academic year and term
+    current_year = AcademicYear.get_current()
+    current_term = Term.get_current()
+
+    # Get counts
+    student_count = Student.objects.filter(status='active').count()
+    class_count = Class.objects.count()
+
+    # Get recent students (last 5 added)
+    recent_students = Student.objects.order_by('-created_at')[:5]
+
+    # Get active enrollments for current year
+    active_enrollments = 0
+    if current_year:
+        active_enrollments = Enrollment.objects.filter(
+            academic_year=current_year,
+            status='active'
+        ).count()
+
     context = {
-        'student_count': 0,
-        'teacher_count': 0,
-        'class_count': 0,
-        'parent_count': 0,
-        'recent_activities': [],
+        'student_count': student_count,
+        'teacher_count': 0,  # TODO: Add when teachers app is ready
+        'class_count': class_count,
+        'parent_count': 0,  # TODO: Add when parents are tracked
+        'current_year': current_year,
+        'current_term': current_term,
+        'active_enrollments': active_enrollments,
+        'recent_students': recent_students,
     }
     return htmx_render(request, 'core/index.html', 'core/partials/index_content.html', context)
 
@@ -291,9 +316,16 @@ def academic_year_create(request):
             return response
         return redirect('core:settings')
 
-    context = get_academic_card_context(errors=form.errors)
-    context['academic_year_form'] = form  # Show form with errors
-    return render(request, 'core/settings/partials/card_academic.html', context)
+    # Return form with errors - use 422 so modal doesn't close
+    context = {
+        'form': form,
+        'is_create': True,
+    }
+    response = render(request, 'core/settings/partials/modal_academic_year_form.html', context)
+    response.status_code = 422
+    response['HX-Retarget'] = '#modal-academic-year-form'
+    response['HX-Reswap'] = 'outerHTML'
+    return response
 
 
 @login_required
@@ -303,9 +335,9 @@ def academic_year_edit(request, pk):
 
     if request.method == 'GET':
         form = AcademicYearForm(instance=academic_year)
-        return render(request, 'core/settings/partials/modal_academic_year_edit.html', {
+        return render(request, 'core/settings/partials/modal_academic_year_form.html', {
             'form': form,
-            'academic_year': academic_year,
+            'is_create': False,
         })
 
     if request.method != 'POST':
@@ -316,13 +348,21 @@ def academic_year_edit(request, pk):
         form.save()
         if not request.htmx:
             return redirect('core:settings')
-        return render(request, 'core/settings/partials/card_academic.html',
-                      get_academic_card_context(success='Academic year updated successfully.'))
+        # Trigger full page refresh so navbar updates
+        response = HttpResponse(status=200)
+        response['HX-Refresh'] = 'true'
+        return response
 
-    return render(request, 'core/settings/partials/modal_academic_year_edit.html', {
+    # Return form with errors - use 422 so modal doesn't close
+    context = {
         'form': form,
-        'academic_year': academic_year,
-    })
+        'is_create': False,
+    }
+    response = render(request, 'core/settings/partials/modal_academic_year_form.html', context)
+    response.status_code = 422
+    response['HX-Retarget'] = '#modal-academic-year-form'
+    response['HX-Reswap'] = 'outerHTML'
+    return response
 
 
 @login_required
@@ -379,9 +419,17 @@ def term_create(request):
             return response
         return redirect('core:settings')
 
-    context = get_academic_card_context(errors=form.errors)
-    context['term_form'] = form  # Show form with errors
-    return render(request, 'core/settings/partials/card_academic.html', context)
+    # Return form with errors - use 422 so modal doesn't close
+    context = {
+        'form': form,
+        'is_create': True,
+        'period_label': school_settings.period_label,
+    }
+    response = render(request, 'core/settings/partials/modal_term_form.html', context)
+    response.status_code = 422
+    response['HX-Retarget'] = '#modal-term-form'
+    response['HX-Reswap'] = 'outerHTML'
+    return response
 
 
 @login_required
@@ -394,9 +442,9 @@ def term_edit(request, pk):
 
     if request.method == 'GET':
         form = TermForm(instance=term, period_type=period_type)
-        return render(request, 'core/settings/partials/modal_term_edit.html', {
+        return render(request, 'core/settings/partials/modal_term_form.html', {
             'form': form,
-            'term': term,
+            'is_create': False,
             'period_label': period_label,
         })
 
@@ -408,14 +456,22 @@ def term_edit(request, pk):
         form.save()
         if not request.htmx:
             return redirect('core:settings')
-        return render(request, 'core/settings/partials/card_academic.html',
-                      get_academic_card_context(success=f'{period_label} updated successfully.'))
+        # Trigger full page refresh so navbar updates
+        response = HttpResponse(status=200)
+        response['HX-Refresh'] = 'true'
+        return response
 
-    return render(request, 'core/settings/partials/modal_term_edit.html', {
+    # Return form with errors - use 422 so modal doesn't close
+    context = {
         'form': form,
-        'term': term,
+        'is_create': False,
         'period_label': period_label,
-    })
+    }
+    response = render(request, 'core/settings/partials/modal_term_form.html', context)
+    response.status_code = 422
+    response['HX-Retarget'] = '#modal-term-form'
+    response['HX-Reswap'] = 'outerHTML'
+    return response
 
 
 @login_required
