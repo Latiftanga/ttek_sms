@@ -29,6 +29,10 @@ urlpatterns = [
     path('classes/<int:pk>/promote/', views.class_promote, name='class_promote'),
     path('classes/<int:pk>/export/', views.class_export, name='class_export'),
 
+    # Attendance reports
+    path('attendance/', views.attendance_reports, name='attendance_reports'),
+    path('attendance/export/', views.attendance_export, name='attendance_export'),
+
     # Subject routes
     path('subjects/create/', views.subject_create, name='subject_create'),
     path('subjects/<int:pk>/edit/', views.subject_edit, name='subject_edit'),

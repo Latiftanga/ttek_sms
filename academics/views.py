@@ -970,3 +970,279 @@ def class_export(request, pk):
 
     wb.save(response)
     return response
+
+
+# ============ ATTENDANCE REPORTS ============
+
+@login_required
+def attendance_reports(request):
+    """Attendance reports with filters."""
+    from django.db.models import Count, Q, F
+    from datetime import timedelta
+
+    # Get filter parameters
+    class_filter = request.GET.get('class', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    view_mode = request.GET.get('view', 'summary')  # summary, daily, students
+
+    # Default date range: last 30 days
+    today = timezone.now().date()
+    if not date_from:
+        date_from = (today - timedelta(days=30)).isoformat()
+    if not date_to:
+        date_to = today.isoformat()
+
+    # Base querysets
+    sessions = AttendanceSession.objects.select_related('class_assigned')
+    records = AttendanceRecord.objects.select_related('session', 'student', 'session__class_assigned')
+
+    # Apply date filter
+    if date_from:
+        sessions = sessions.filter(date__gte=date_from)
+        records = records.filter(session__date__gte=date_from)
+    if date_to:
+        sessions = sessions.filter(date__lte=date_to)
+        records = records.filter(session__date__lte=date_to)
+
+    # Apply class filter
+    if class_filter:
+        sessions = sessions.filter(class_assigned_id=class_filter)
+        records = records.filter(session__class_assigned_id=class_filter)
+
+    # Calculate summary stats
+    total_sessions = sessions.count()
+    total_records = records.count()
+    present_count = records.filter(status__in=['P', 'L']).count()
+    absent_count = records.filter(status='A').count()
+    late_count = records.filter(status='L').count()
+
+    attendance_rate = 0
+    if total_records > 0:
+        attendance_rate = round((present_count / total_records) * 100, 1)
+
+    # Summary by class
+    class_summary = []
+    classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
+    for cls in classes:
+        cls_records = records.filter(session__class_assigned=cls)
+        cls_total = cls_records.count()
+        if cls_total > 0:
+            cls_present = cls_records.filter(status__in=['P', 'L']).count()
+            cls_absent = cls_records.filter(status='A').count()
+            cls_rate = round((cls_present / cls_total) * 100, 1)
+            class_summary.append({
+                'class': cls,
+                'total': cls_total,
+                'present': cls_present,
+                'absent': cls_absent,
+                'rate': cls_rate,
+            })
+
+    # Daily breakdown (for daily view)
+    daily_data = []
+    if view_mode == 'daily':
+        daily_sessions = sessions.order_by('-date')[:30]
+        for session in daily_sessions:
+            session_records = session.records.all()
+            s_total = session_records.count()
+            s_present = session_records.filter(status__in=['P', 'L']).count()
+            s_absent = session_records.filter(status='A').count()
+            daily_data.append({
+                'session': session,
+                'total': s_total,
+                'present': s_present,
+                'absent': s_absent,
+                'rate': round((s_present / s_total) * 100, 1) if s_total > 0 else 0,
+            })
+
+    # Students with low attendance (for students view)
+    low_attendance_students = []
+    if view_mode == 'students':
+        # Get students with attendance below 80%
+        student_stats = {}
+        for record in records:
+            sid = record.student_id
+            if sid not in student_stats:
+                student_stats[sid] = {'student': record.student, 'total': 0, 'present': 0}
+            student_stats[sid]['total'] += 1
+            if record.status in ['P', 'L']:
+                student_stats[sid]['present'] += 1
+
+        for sid, stats in student_stats.items():
+            if stats['total'] > 0:
+                rate = round((stats['present'] / stats['total']) * 100, 1)
+                if rate < 80:  # Low attendance threshold
+                    low_attendance_students.append({
+                        'student': stats['student'],
+                        'total': stats['total'],
+                        'present': stats['present'],
+                        'absent': stats['total'] - stats['present'],
+                        'rate': rate,
+                    })
+
+        # Sort by attendance rate (lowest first)
+        low_attendance_students.sort(key=lambda x: x['rate'])
+
+    context = {
+        'classes': classes,
+        'class_filter': class_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+        'view_mode': view_mode,
+        'stats': {
+            'total_sessions': total_sessions,
+            'total_records': total_records,
+            'present': present_count,
+            'absent': absent_count,
+            'late': late_count,
+            'rate': attendance_rate,
+        },
+        'class_summary': class_summary,
+        'daily_data': daily_data,
+        'low_attendance_students': low_attendance_students,
+    }
+
+    return htmx_render(
+        request,
+        'academics/attendance_reports.html',
+        'academics/partials/attendance_reports_content.html',
+        context
+    )
+
+
+@login_required
+def attendance_export(request):
+    """Export attendance data to Excel."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+    from openpyxl.utils import get_column_letter
+    from django.http import HttpResponse as DjangoHttpResponse
+    from core.models import SchoolSettings
+    from datetime import timedelta
+
+    # Get filter parameters
+    class_filter = request.GET.get('class', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+
+    # Default date range
+    today = timezone.now().date()
+    if not date_from:
+        date_from = (today - timedelta(days=30)).isoformat()
+    if not date_to:
+        date_to = today.isoformat()
+
+    school = SchoolSettings.load()
+
+    # Get records
+    records = AttendanceRecord.objects.select_related(
+        'session', 'student', 'session__class_assigned'
+    ).filter(
+        session__date__gte=date_from,
+        session__date__lte=date_to
+    ).order_by('session__date', 'session__class_assigned__name', 'student__last_name')
+
+    if class_filter:
+        records = records.filter(session__class_assigned_id=class_filter)
+
+    # Create workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Attendance Report"
+
+    # Styles
+    header_font = Font(bold=True, size=14)
+    subheader_font = Font(bold=True, size=11)
+    table_header_font = Font(bold=True, size=10, color="FFFFFF")
+    table_header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    present_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+    absent_fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+    late_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+
+    # Header
+    ws.merge_cells('A1:F1')
+    ws['A1'] = school.display_name or request.tenant.name
+    ws['A1'].font = header_font
+    ws['A1'].alignment = Alignment(horizontal='center')
+
+    ws.merge_cells('A2:F2')
+    ws['A2'] = f"Attendance Report: {date_from} to {date_to}"
+    ws['A2'].font = subheader_font
+    ws['A2'].alignment = Alignment(horizontal='center')
+
+    ws.merge_cells('A3:F3')
+    ws['A3'] = f"Generated: {timezone.now().strftime('%B %d, %Y %I:%M %p')}"
+    ws['A3'].alignment = Alignment(horizontal='center')
+
+    ws.append([])
+
+    # Table headers
+    headers = ['Date', 'Class', 'Student Name', 'Admission No.', 'Status', 'Remarks']
+    ws.append(headers)
+    header_row = 5
+
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.font = table_header_font
+        cell.fill = table_header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+
+    # Data rows
+    status_map = {'P': 'Present', 'A': 'Absent', 'L': 'Late', 'E': 'Excused'}
+    for idx, record in enumerate(records, 1):
+        row_data = [
+            record.session.date.strftime('%Y-%m-%d'),
+            record.session.class_assigned.name,
+            record.student.full_name,
+            record.student.admission_number,
+            status_map.get(record.status, record.status),
+            record.remarks or '',
+        ]
+        ws.append(row_data)
+
+        row_num = header_row + idx
+        for col_num in range(1, len(row_data) + 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.border = border
+
+        # Color-code status
+        status_cell = ws.cell(row=row_num, column=5)
+        if record.status == 'P':
+            status_cell.fill = present_fill
+        elif record.status == 'A':
+            status_cell.fill = absent_fill
+        elif record.status == 'L':
+            status_cell.fill = late_fill
+
+    # Column widths
+    column_widths = [12, 15, 30, 15, 12, 25]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+
+    # Summary
+    summary_row = header_row + records.count() + 2
+    ws.cell(row=summary_row, column=1, value=f"Total Records: {records.count()}")
+    ws.cell(row=summary_row, column=1).font = Font(bold=True)
+
+    present = records.filter(status__in=['P', 'L']).count()
+    absent = records.filter(status='A').count()
+    rate = round((present / records.count()) * 100, 1) if records.count() > 0 else 0
+    ws.cell(row=summary_row + 1, column=1, value=f"Present: {present} | Absent: {absent} | Rate: {rate}%")
+
+    # Response
+    response = DjangoHttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"Attendance_Report_{date_from}_to_{date_to}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    wb.save(response)
+    return response
