@@ -1,0 +1,98 @@
+{% load core_tags %}
+
+<table class="table table-sm w-full">
+    <thead>
+        <tr class="text-xs uppercase text-base-content/60">
+            <th>Class</th>
+            <th>Level</th>
+            <th>Form Tutor</th>
+            <th>Students</th>
+            <th class="text-right">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cls in class_list %}
+        <tr class="hover">
+            <td>
+                <a href="{% url 'academics:class_detail' cls.pk %}"
+                   hx-get="{% url 'academics:class_detail' cls.pk %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="font-bold text-base hover:text-primary transition-colors">
+                    {{ cls.name }}
+                </a>
+                {% if cls.programme %}
+                <div class="text-xs text-base-content/50">{{ cls.programme.name }}</div>
+                {% endif %}
+            </td>
+            <td>
+                <span class="badge badge-sm
+                    {% if cls.level_type == 'kg' %}badge-info
+                    {% elif cls.level_type == 'primary' %}badge-success
+                    {% elif cls.level_type == 'jhs' %}badge-warning
+                    {% else %}badge-primary{% endif %}">
+                    {{ cls.get_level_type_display }}
+                </span>
+            </td>
+            <td>
+                {% if cls.class_teacher %}
+                <div class="flex items-center gap-2">
+                    <div class="avatar placeholder">
+                        <div class="w-7 h-7 rounded-full bg-base-200 flex items-center justify-center">
+                            {% if cls.class_teacher.photo %}
+                            <img src="{{ cls.class_teacher.photo.url }}" alt="" class="rounded-full" />
+                            {% else %}
+                            <span class="text-xs">{{ cls.class_teacher.first_name|slice:":1" }}{{ cls.class_teacher.last_name|slice:":1" }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="text-sm">{{ cls.class_teacher.get_title_display }} {{ cls.class_teacher.last_name }}</span>
+                </div>
+                {% else %}
+                <span class="text-xs text-base-content/40 italic">Not assigned</span>
+                {% endif %}
+            </td>
+            <td>
+                <div class="flex items-center gap-2">
+                    <div class="w-20">
+                        <progress class="progress progress-primary h-1.5"
+                                  value="{{ cls.student_count }}"
+                                  max="{{ cls.capacity }}"></progress>
+                    </div>
+                    <span class="text-xs font-medium">{{ cls.student_count }}/{{ cls.capacity }}</span>
+                </div>
+            </td>
+            <td class="text-right">
+                <div class="join">
+                    <a href="{% url 'academics:class_detail' cls.pk %}"
+                       hx-get="{% url 'academics:class_detail' cls.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-xs join-item tooltip"
+                       data-tip="View">
+                        <i class="fa-solid fa-eye"></i>
+                    </a>
+                    <button class="btn btn-ghost btn-xs join-item tooltip"
+                            data-tip="Edit"
+                            hx-get="{% url 'academics:class_edit' cls.pk %}"
+                            hx-target="#modal-class-edit-content"
+                            hx-swap="innerHTML"
+                            onclick="document.getElementById('modal_class_edit').showModal()">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <form hx-post="{% url 'academics:class_delete' cls.pk %}"
+                          hx-target="#classes-container"
+                          hx-swap="outerHTML"
+                          hx-confirm="Delete class {{ cls.name }}?"
+                          class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-ghost btn-xs text-error join-item tooltip" data-tip="Delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

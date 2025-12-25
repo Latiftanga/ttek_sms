@@ -1,72 +1,112 @@
-<div id="card-classes" class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-4">
-        <div class="flex items-center justify-between mb-3">
-            <h3 class="font-semibold flex items-center gap-2">
-                <i class="fa-solid fa-chalkboard text-primary text-sm"></i>
-                Classes
-            </h3>
-            <button class="btn btn-ghost btn-xs" onclick="modal_class.showModal()">
-                <i class="fa-solid fa-plus text-xs"></i> Add
-            </button>
-        </div>
-
-        {% if classes %}
-        <div class="overflow-x-auto">
-            <table class="table table-sm table-zebra">
-                <thead>
-                    <tr class="text-xs">
-                        <th>Class</th>
-                        <th>Level</th>
-                        <th>Capacity</th>
-                        <th class="text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for cls in classes %}
-                    <tr>
-                        <td class="font-medium">{{ cls.name }}</td>
-                        <td>
-                            <span class="badge badge-sm
-                                {% if cls.level_type == 'kg' %}badge-info
-                                {% elif cls.level_type == 'primary' %}badge-success
-                                {% elif cls.level_type == 'jhs' %}badge-warning
-                                {% else %}badge-primary{% endif %}">
+<div id="list-classes">
+    {% if classes %}
+    <div class="overflow-x-auto bg-base-100">
+        <table class="table table-zebra">
+            <thead>
+                <tr class="bg-base-200/50 text-xs uppercase text-base-content/70">
+                    <th>Class Name</th>
+                    <th>Level & Programme</th>
+                    <th>Form Tutor</th>
+                    <th>Capacity</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cls in classes %}
+                <tr class="hover">
+                    <td>
+                        <div class="font-bold text-lg">{{ cls.name }}</div>
+                        <div class="text-xs text-base-content/50">Section {{ cls.section|default:"-" }}</div>
+                    </td>
+                    <td>
+                        <div class="flex flex-wrap gap-1">
+                            <span class="badge badge-sm border-0
+                                {% if cls.level_type == 'kg' %}bg-info/10 text-info
+                                {% elif cls.level_type == 'primary' %}bg-success/10 text-success
+                                {% elif cls.level_type == 'jhs' %}bg-warning/10 text-warning
+                                {% else %}bg-primary/10 text-primary{% endif %}">
                                 {{ cls.level_display }}
                             </span>
                             {% if cls.programme %}
-                            <span class="badge badge-ghost badge-sm ml-1">{{ cls.programme.code }}</span>
+                            <span class="badge badge-ghost badge-sm">{{ cls.programme.code }}</span>
                             {% endif %}
-                        </td>
-                        <td class="text-xs">{{ cls.capacity }} students</td>
-                        <td class="text-right">
-                            <div class="flex justify-end gap-1">
-                                <button class="btn btn-ghost btn-xs"
-                                        hx-get="{% url 'academics:class_edit' cls.pk %}"
-                                        hx-target="#modal-edit-content"
-                                        hx-swap="innerHTML"
-                                        onclick="modal_edit.showModal()">
-                                    <i class="fa-solid fa-pen text-xs"></i>
-                                </button>
+                        </div>
+                    </td>
+                    
+                    <td>
+                        {% if cls.class_teacher %}
+                        <div class="flex items-center gap-3">
+                            <div class="avatar placeholder">
+                                <div class="w-8 h-8 rounded-full bg-base-300 text-base-content/70 text-xs">
+                                    {% if cls.class_teacher.photo %}
+                                    <img src="{{ cls.class_teacher.photo.url }}" />
+                                    {% else %}
+                                    <span>{{ cls.class_teacher.first_name|slice:":1" }}{{ cls.class_teacher.last_name|slice:":1" }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-sm font-medium">
+                                    {{ cls.class_teacher.get_title_display }} {{ cls.class_teacher.last_name }}
+                                </span>
+                            </div>
+                        </div>
+                        {% else %}
+                        <span class="badge badge-xs badge-ghost">Unassigned</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-sm">{{ cls.capacity }}</span>
+                            <span class="text-xs text-base-content/40">max</span>
+                        </div>
+                    </td>
+
+                    <td class="text-right">
+                        <div class="join">
+                            <a href="{% url 'academics:class_detail' cls.pk %}"
+                               hx-get="{% url 'academics:class_detail' cls.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-ghost btn-xs join-item tooltip"
+                               data-tip="View Details">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+
+                            <button class="btn btn-ghost btn-xs join-item tooltip"
+                                    data-tip="Edit"
+                                    hx-get="{% url 'academics:class_edit' cls.pk %}"
+                                    hx-target="#modal-edit-content"
+                                    hx-on::after-swap="document.getElementById('modal_edit').showModal()">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+
+                            <div class="tooltip" data-tip="Delete">
                                 <form hx-post="{% url 'academics:class_delete' cls.pk %}"
-                                      hx-confirm="Delete class {{ cls.name }}?">
+                                      hx-confirm="Delete class {{ cls.name }}?"
+                                      hx-swap="none"
+                                      class="inline">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-ghost btn-xs text-error">
-                                        <i class="fa-solid fa-trash text-xs"></i>
+                                    <button type="submit" class="btn btn-ghost btn-xs text-error join-item">
+                                        <i class="fa-solid fa-trash"></i>
                                     </button>
                                 </form>
                             </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center py-6 text-base-content/40">
-            <i class="fa-solid fa-chalkboard text-2xl mb-2"></i>
-            <p class="text-sm">No classes defined</p>
-            <p class="text-xs">Create classes for each level</p>
-        </div>
-        {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% else %}
+    <div class="flex flex-col items-center justify-center py-12 text-base-content/40 border-2 border-dashed border-base-200 rounded-box">
+        <div class="bg-base-200 p-4 rounded-full mb-3">
+            <i class="fa-solid fa-chalkboard text-3xl"></i>
+        </div>
+        <p class="font-bold">No classes defined</p>
+        <p class="text-sm">Create classes (e.g., Class 1A, JHS 2) for your students</p>
+    </div>
+    {% endif %}
 </div>

@@ -369,10 +369,7 @@
 
         // Custom confirm dialog
         const confirmDialog = document.getElementById('confirm-dialog');
-        const confirmTitle = document.getElementById('confirm-title');
         const confirmMessage = document.getElementById('confirm-message');
-        const confirmOk = document.getElementById('confirm-ok');
-        const confirmCancel = document.getElementById('confirm-cancel');
 
         document.body.addEventListener('htmx:confirm', function(e) {
             // Only intercept if there's an hx-confirm attribute
@@ -380,23 +377,26 @@
 
             e.preventDefault();
 
-            const message = e.detail.question;
-            confirmMessage.textContent = message;
+            confirmMessage.textContent = e.detail.question;
             confirmDialog.showModal();
 
-            // Clean up previous listeners
-            const newConfirmOk = confirmOk.cloneNode(true);
-            const newConfirmCancel = confirmCancel.cloneNode(true);
-            confirmOk.parentNode.replaceChild(newConfirmOk, confirmOk);
-            confirmCancel.parentNode.replaceChild(newConfirmCancel, confirmCancel);
+            // Get fresh references each time
+            const confirmOk = document.getElementById('confirm-ok');
+            const confirmCancel = document.getElementById('confirm-cancel');
 
-            // Update references
-            document.getElementById('confirm-ok').addEventListener('click', function() {
+            // Clone to remove old listeners, then replace
+            const newOk = confirmOk.cloneNode(true);
+            const newCancel = confirmCancel.cloneNode(true);
+            confirmOk.replaceWith(newOk);
+            confirmCancel.replaceWith(newCancel);
+
+            // Add fresh listeners
+            newOk.addEventListener('click', function() {
                 confirmDialog.close();
                 e.detail.issueRequest(true);
             });
 
-            document.getElementById('confirm-cancel').addEventListener('click', function() {
+            newCancel.addEventListener('click', function() {
                 confirmDialog.close();
             });
         });

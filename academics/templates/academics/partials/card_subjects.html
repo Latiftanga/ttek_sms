@@ -1,87 +1,68 @@
-<div id="card-subjects" class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-4">
-        <div class="flex items-center justify-between mb-3">
-            <h3 class="font-semibold flex items-center gap-2">
-                <i class="fa-solid fa-book text-primary text-sm"></i>
-                Subjects
-            </h3>
-            <button class="btn btn-ghost btn-xs" onclick="modal_subject.showModal()">
-                <i class="fa-solid fa-plus text-xs"></i> Add
-            </button>
-        </div>
-
-        {% if subjects %}
-        <div class="overflow-x-auto">
-            <table class="table table-sm table-zebra">
-                <thead>
-                    <tr class="text-xs">
-                        <th>Subject</th>
-                        <th>Code</th>
-                        <th>Type</th>
-                        <th>Levels</th>
-                        <th class="text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for subject in subjects %}
-                    <tr>
-                        <td>
-                            <span class="font-medium">{{ subject.name }}</span>
-                            <span class="text-xs text-base-content/60 ml-1">({{ subject.short_name }})</span>
-                        </td>
-                        <td class="text-xs">{{ subject.code|default:"-" }}</td>
-                        <td>
-                            {% if subject.is_core %}
-                            <span class="badge badge-primary badge-sm">Core</span>
-                            {% else %}
-                            <span class="badge badge-ghost badge-sm">Elective</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="flex flex-wrap gap-1">
-                                {% if subject.for_kg %}
-                                <span class="badge badge-info badge-xs">KG</span>
-                                {% endif %}
-                                {% if subject.for_primary %}
-                                <span class="badge badge-success badge-xs">Primary</span>
-                                {% endif %}
-                                {% if subject.for_jhs %}
-                                <span class="badge badge-warning badge-xs">JHS</span>
-                                {% endif %}
-                                {% if subject.for_shs %}
-                                <span class="badge badge-primary badge-xs">SHS</span>
-                                {% endif %}
+<div id="list-subjects">
+    {% if subjects %}
+    <div class="overflow-x-auto bg-base-100">
+        <table class="table table-zebra">
+            <thead>
+                <tr class="bg-base-200/50 text-xs uppercase text-base-content/70">
+                    <th>Subject</th>
+                    <th>Type</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for subject in subjects %}
+                <tr class="hover">
+                    <td>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                {{ subject.short_name|default:subject.name|slice:":2"|upper }}
                             </div>
-                        </td>
-                        <td class="text-right">
-                            <div class="flex justify-end gap-1">
-                                <button class="btn btn-ghost btn-xs"
-                                        hx-get="{% url 'academics:subject_edit' subject.pk %}"
-                                        hx-target="#modal-edit-content"
-                                        hx-swap="innerHTML"
-                                        onclick="modal_edit.showModal()">
-                                    <i class="fa-solid fa-pen text-xs"></i>
-                                </button>
+                            <div>
+                                <div class="font-bold">{{ subject.name }}</div>
+                                <div class="text-xs text-base-content/50">{{ subject.code|default:"No Code" }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if subject.is_core %}
+                        <span class="badge badge-primary badge-sm badge-soft">Core</span>
+                        {% else %}
+                        <span class="badge badge-ghost badge-sm">Elective</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">
+                        <div class="join">
+                            <button class="btn btn-ghost btn-xs join-item tooltip"
+                                    data-tip="Edit"
+                                    hx-get="{% url 'academics:subject_edit' subject.pk %}"
+                                    hx-target="#modal-edit-content"
+                                    hx-on::after-swap="document.getElementById('modal_edit').showModal()">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <div class="tooltip" data-tip="Delete">
                                 <form hx-post="{% url 'academics:subject_delete' subject.pk %}"
-                                      hx-confirm="Delete {{ subject.name }}?">
+                                      hx-confirm="Delete {{ subject.name }}?"
+                                      hx-swap="none">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-ghost btn-xs text-error">
-                                        <i class="fa-solid fa-trash text-xs"></i>
+                                    <button type="submit" class="btn btn-ghost btn-xs text-error join-item">
+                                        <i class="fa-solid fa-trash"></i>
                                     </button>
                                 </form>
                             </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center py-6 text-base-content/40">
-            <i class="fa-solid fa-book text-2xl mb-2"></i>
-            <p class="text-sm">No subjects defined</p>
-            <p class="text-xs">Add subjects taught at your school</p>
-        </div>
-        {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% else %}
+    <div class="flex flex-col items-center justify-center py-12 text-base-content/40 border-2 border-dashed border-base-200 rounded-box">
+        <div class="bg-base-200 p-4 rounded-full mb-3">
+            <i class="fa-solid fa-book text-3xl"></i>
+        </div>
+        <p class="font-bold">No subjects defined</p>
+        <p class="text-sm">Add subjects (e.g., Math, Science) for your curriculum</p>
+    </div>
+    {% endif %}
 </div>

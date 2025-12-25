@@ -69,16 +69,31 @@
                     <div class="flex items-center justify-between mb-3">
                         <h2 class="font-bold flex items-center gap-2">
                             <span class="badge badge-primary">{{ group.class.name }}</span>
+                            {% if group.is_final_year %}
+                            <span class="badge badge-success badge-sm gap-1">
+                                <i class="fa-solid fa-graduation-cap text-xs"></i>
+                                Final Year
+                            </span>
+                            {% endif %}
                             <span class="text-sm font-normal text-base-content/60">
                                 {{ group.count }} student{{ group.count|pluralize }}
                             </span>
                         </h2>
                         <div class="flex gap-2">
+                            {% if group.is_final_year %}
+                            <button type="button"
+                                    onclick="selectAllInClass('{{ group.class.pk }}', 'graduate')"
+                                    class="btn btn-xs btn-ghost text-success">
+                                <i class="fa-solid fa-graduation-cap mr-1"></i>
+                                Graduate All
+                            </button>
+                            {% else %}
                             <button type="button"
                                     onclick="selectAllInClass('{{ group.class.pk }}', 'promote')"
                                     class="btn btn-xs btn-ghost">
-                                Select All Promote
+                                Promote All
                             </button>
+                            {% endif %}
                             <button type="button"
                                     onclick="selectAllInClass('{{ group.class.pk }}', 'skip')"
                                     class="btn btn-xs btn-ghost">
@@ -108,16 +123,29 @@
                                         <select name="action_{{ student.pk }}"
                                                 class="select select-sm select-bordered action-select"
                                                 data-student="{{ student.pk }}"
+                                                data-final-year="{{ group.is_final_year|yesno:'true,false' }}"
                                                 onchange="toggleTargetClass(this)">
+                                            {% if group.is_final_year %}
+                                            <option value="graduate" selected>Graduate</option>
+                                            <option value="repeat">Repeat</option>
+                                            <option value="skip">Skip</option>
+                                            {% else %}
                                             <option value="promote" selected>Promote</option>
                                             <option value="repeat">Repeat</option>
                                             <option value="skip">Skip</option>
+                                            {% endif %}
                                         </select>
                                     </td>
                                     <td>
+                                        {% if group.is_final_year %}
+                                        <span class="text-sm text-base-content/50 target-class-label" data-student="{{ student.pk }}">
+                                            N/A
+                                        </span>
+                                        {% endif %}
                                         <select name="target_class_{{ student.pk }}"
-                                                class="select select-sm select-bordered target-class-select"
-                                                data-student="{{ student.pk }}">
+                                                class="select select-sm select-bordered target-class-select {% if group.is_final_year %}hidden{% endif %}"
+                                                data-student="{{ student.pk }}"
+                                                {% if group.is_final_year %}disabled{% endif %}>
                                             {% for cls in all_classes %}
                                             <option value="{{ cls.pk }}"
                                                     {% if cls.level_number == group.class.level_number|add:1 and cls.programme == group.class.programme %}selected{% endif %}>
@@ -155,13 +183,36 @@
     <script>
         function toggleTargetClass(select) {
             const studentId = select.dataset.student;
+            const isFinalYear = select.dataset.finalYear === 'true';
             const targetSelect = document.querySelector(`select[name="target_class_${studentId}"]`);
+            const targetLabel = document.querySelector(`.target-class-label[data-student="${studentId}"]`);
+
             if (select.value === 'promote') {
+                // Show target class selector for promote
                 targetSelect.disabled = false;
-                targetSelect.classList.remove('opacity-50');
-            } else {
+                targetSelect.classList.remove('opacity-50', 'hidden');
+                if (targetLabel) targetLabel.classList.add('hidden');
+            } else if (select.value === 'graduate') {
+                // Hide target class selector for graduate
                 targetSelect.disabled = true;
-                targetSelect.classList.add('opacity-50');
+                targetSelect.classList.add('hidden');
+                if (targetLabel) {
+                    targetLabel.classList.remove('hidden');
+                    targetLabel.textContent = 'Graduating';
+                }
+            } else {
+                // For repeat/skip, disable but show if not final year
+                targetSelect.disabled = true;
+                if (isFinalYear) {
+                    targetSelect.classList.add('hidden');
+                    if (targetLabel) {
+                        targetLabel.classList.remove('hidden');
+                        targetLabel.textContent = select.value === 'repeat' ? 'Same class' : 'N/A';
+                    }
+                } else {
+                    targetSelect.classList.add('opacity-50');
+                    targetSelect.classList.remove('hidden');
+                }
             }
         }
 
@@ -170,8 +221,12 @@
             rows.forEach(row => {
                 const actionSelect = row.querySelector('.action-select');
                 if (actionSelect) {
-                    actionSelect.value = action;
-                    toggleTargetClass(actionSelect);
+                    // Check if the action is valid for this select
+                    const options = Array.from(actionSelect.options).map(o => o.value);
+                    if (options.includes(action)) {
+                        actionSelect.value = action;
+                        toggleTargetClass(actionSelect);
+                    }
                 }
             });
         }

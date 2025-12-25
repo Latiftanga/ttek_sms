@@ -1,146 +1,317 @@
 {% load core_tags %}
-<div class="space-y-4">
-    <!-- Page Header -->
-    <div class="flex items-center justify-between">
+
+<div id="academics-content" class="space-y-6">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <h1 class="text-xl font-bold">Academic Structure</h1>
-            <p class="text-sm text-base-content/60">Manage programmes, classes, and subjects</p>
+            <h1 class="text-2xl font-bold">Academics</h1>
+            <p class="text-sm text-base-content/60">Manage your school's academic structure</p>
+        </div>
+        <div class="flex gap-2">
+            <button class="btn btn-primary btn-sm"
+                    onclick="document.getElementById('modal_class').showModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add Class
+            </button>
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </div>
+                <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-lg border border-base-200">
+                    <li>
+                        <button onclick="document.getElementById('modal_subject').showModal()">
+                            <i class="fa-solid fa-book w-4"></i> Add Subject
+                        </button>
+                    </li>
+                    <li>
+                        <button onclick="document.getElementById('modal_programme').showModal()">
+                            <i class="fa-solid fa-graduation-cap w-4"></i> Add Programme
+                        </button>
+                    </li>
+                    <li class="border-t border-base-200 mt-1 pt-1">
+                        <a hx-get="{% url 'students:promotion' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true">
+                            <i class="fa-solid fa-arrow-up-right-dots w-4"></i> Student Promotion
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 
-    <!-- Row 1: Programmes (SHS) + Classes -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {% include "academics/partials/card_programmes.html" %}
-        {% include "academics/partials/card_classes.html" %}
-    </div>
-
-    <!-- Row 2: Subjects -->
-    {% include "academics/partials/card_subjects.html" %}
-</div>
-
-<!-- Programme Create Modal -->
-<dialog id="modal_programme" class="modal">
-    <div class="modal-box">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <h3 class="text-lg font-bold mb-6">Add Programme</h3>
-        <form method="post"
-              action="{% url 'academics:programme_create' %}"
-              hx-post="{% url 'academics:programme_create' %}"
-              hx-on::after-request="if(event.detail.successful) modal_programme.close()">
-            {% csrf_token %}
-            <div class="space-y-4">
-                {% floating_field programme_form.name %}
-                {% floating_field programme_form.code %}
-                {% floating_field programme_form.description %}
-            </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_programme.close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create</button>
-            </div>
-        </form>
-    </div>
-</dialog>
-
-<!-- Class Create Modal -->
-<dialog id="modal_class" class="modal">
-    <div class="modal-box">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <h3 class="text-lg font-bold mb-6">Add Class</h3>
-        <form method="post"
-              action="{% url 'academics:class_create' %}"
-              hx-post="{% url 'academics:class_create' %}"
-              hx-on::after-request="if(event.detail.successful) modal_class.close()">
-            {% csrf_token %}
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    {% floating_field class_form.level_type %}
-                    {% floating_field class_form.level_number %}
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    {% floating_field class_form.section %}
-                    {% floating_field class_form.capacity %}
-                </div>
-                {% floating_field class_form.programme %}
-                <p class="text-xs text-base-content/60">Programme is only required for SHS classes</p>
-            </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_class.close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create</button>
-            </div>
-        </form>
-    </div>
-</dialog>
-
-<!-- Subject Create Modal -->
-<dialog id="modal_subject" class="modal">
-    <div class="modal-box max-w-xl">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <h3 class="text-lg font-bold mb-6">Add Subject</h3>
-        <form method="post"
-              action="{% url 'academics:subject_create' %}"
-              hx-post="{% url 'academics:subject_create' %}"
-              hx-on::after-request="if(event.detail.successful) modal_subject.close()">
-            {% csrf_token %}
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    {% floating_field subject_form.name %}
-                    {% floating_field subject_form.short_name %}
-                </div>
-                {% floating_field subject_form.code %}
-
-                <div class="flex items-center gap-4">
-                    <label class="label cursor-pointer gap-2">
-                        <input type="checkbox" name="is_core" class="checkbox checkbox-primary checkbox-sm" checked>
-                        <span class="label-text">Core Subject</span>
-                    </label>
-                </div>
-
-                <div>
-                    <p class="text-sm font-medium mb-2">Applicable Levels</p>
-                    <div class="flex flex-wrap gap-4">
-                        <label class="label cursor-pointer gap-2">
-                            <input type="checkbox" name="for_kg" class="checkbox checkbox-sm">
-                            <span class="label-text">KG</span>
-                        </label>
-                        <label class="label cursor-pointer gap-2">
-                            <input type="checkbox" name="for_primary" class="checkbox checkbox-sm" checked>
-                            <span class="label-text">Primary</span>
-                        </label>
-                        <label class="label cursor-pointer gap-2">
-                            <input type="checkbox" name="for_jhs" class="checkbox checkbox-sm" checked>
-                            <span class="label-text">JHS</span>
-                        </label>
-                        <label class="label cursor-pointer gap-2">
-                            <input type="checkbox" name="for_shs" class="checkbox checkbox-sm">
-                            <span class="label-text">SHS</span>
-                        </label>
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <i class="fa-solid fa-chalkboard text-primary text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold">{{ stats.total_classes }}</div>
+                        <div class="text-xs text-base-content/60">Classes</div>
                     </div>
                 </div>
             </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_subject.close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                        <i class="fa-solid fa-users text-success text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold">{{ stats.total_students }}</div>
+                        <div class="text-xs text-base-content/60">Students</div>
+                    </div>
+                </div>
             </div>
-        </form>
-    </div>
-</dialog>
-
-<!-- Generic Edit Modal -->
-<dialog id="modal_edit" class="modal">
-    <div class="modal-box">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <div id="modal-edit-content">
-            <div class="flex justify-center py-8">
-                <span class="loading loading-spinner loading-lg"></span>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                        <i class="fa-solid fa-book text-info text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold">{{ stats.total_subjects }}</div>
+                        <div class="text-xs text-base-content/60">Subjects</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                        <i class="fa-solid fa-graduation-cap text-warning text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold">{{ stats.total_programmes }}</div>
+                        <div class="text-xs text-base-content/60">Programmes</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</dialog>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+
+        <!-- Classes Section (3 columns) -->
+        <div class="xl:col-span-3 space-y-3">
+            {% include "academics/partials/classes_list.html" %}
+        </div>
+
+        <!-- Sidebar (1 column) -->
+        <div class="space-y-3">
+
+            <!-- Subjects Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                                <i class="fa-solid fa-book text-info text-sm"></i>
+                            </div>
+                            <h2 class="font-bold text-sm">Subjects</h2>
+                        </div>
+                        <button class="btn btn-xs btn-ghost"
+                                onclick="document.getElementById('modal_subject').showModal()">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                    {% include "academics/partials/subjects_list.html" %}
+                </div>
+            </div>
+
+            <!-- Programmes Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                                <i class="fa-solid fa-graduation-cap text-warning text-sm"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-bold text-sm">SHS Programmes</h2>
+                            </div>
+                        </div>
+                        <button class="btn btn-xs btn-ghost"
+                                onclick="document.getElementById('modal_programme').showModal()">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                    {% include "academics/partials/programmes_list.html" %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ============ MODALS ============ -->
+
+    <!-- Add Programme Modal -->
+    <dialog id="modal_programme" class="modal">
+        <div class="modal-box">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </form>
+            <h3 class="text-lg font-bold mb-6">Add Programme</h3>
+            <form method="post"
+                  action="{% url 'academics:programme_create' %}"
+                  hx-post="{% url 'academics:programme_create' %}"
+                  hx-target="#programmes-container"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                <div class="space-y-4">
+                    {% floating_field programme_form.name %}
+                    {% floating_field programme_form.code %}
+                    {% floating_field programme_form.description %}
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="document.getElementById('modal_programme').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Edit Programme Modal -->
+    <dialog id="modal_programme_edit" class="modal">
+        <div class="modal-box">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </form>
+            <div id="modal-programme-edit-content">
+                <div class="flex justify-center py-8">
+                    <span class="loading loading-spinner loading-lg"></span>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Add Class Modal -->
+    <dialog id="modal_class" class="modal">
+        <div class="modal-box">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </form>
+            <h3 class="text-lg font-bold mb-6">Add Class</h3>
+            <form method="post"
+                  action="{% url 'academics:class_create' %}"
+                  hx-post="{% url 'academics:class_create' %}"
+                  hx-target="#classes-container"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        {% floating_field class_form.level_type %}
+                        {% floating_field class_form.level_number %}
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        {% floating_field class_form.section %}
+                        {% floating_field class_form.capacity %}
+                    </div>
+                    {% floating_field class_form.class_teacher "Class Teacher" %}
+                    {% floating_field class_form.programme %}
+                    <p class="text-xs text-base-content/60">Programme is only required for SHS classes</p>
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="document.getElementById('modal_class').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Edit Class Modal -->
+    <dialog id="modal_class_edit" class="modal">
+        <div class="modal-box">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </form>
+            <div id="modal-class-edit-content">
+                <div class="flex justify-center py-8">
+                    <span class="loading loading-spinner loading-lg"></span>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Add Subject Modal -->
+    <dialog id="modal_subject" class="modal">
+        <div class="modal-box max-w-xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </form>
+            <h3 class="text-lg font-bold mb-6">Add Subject</h3>
+            <form method="post"
+                  action="{% url 'academics:subject_create' %}"
+                  hx-post="{% url 'academics:subject_create' %}"
+                  hx-target="#subjects-container"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        {% floating_field subject_form.name %}
+                        {% floating_field subject_form.short_name %}
+                    </div>
+                    {% floating_field subject_form.code %}
+                    <div class="flex items-center gap-4">
+                        <label class="label cursor-pointer gap-2">
+                            <input type="checkbox" name="is_core" class="checkbox checkbox-primary checkbox-sm" checked>
+                            <span class="label-text">Core Subject</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="document.getElementById('modal_subject').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Edit Subject Modal -->
+    <dialog id="modal_subject_edit" class="modal">
+        <div class="modal-box max-w-xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </form>
+            <div id="modal-subject-edit-content">
+                <div class="flex justify-center py-8">
+                    <span class="loading loading-spinner loading-lg"></span>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+</div>
+
+<script>
+    // Close all modals when closeModal event is triggered via HX-Trigger
+    document.body.addEventListener('closeModal', function() {
+        document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
+    });
+</script>

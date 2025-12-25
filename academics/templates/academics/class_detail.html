@@ -1,0 +1,7 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ class.name }} - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "academics/partials/class_detail_content.html" %}
+{% endblock %}

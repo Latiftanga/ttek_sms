@@ -1,0 +1,142 @@
+{% load core_tags %}
+<div>
+    <!-- Page Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'teachers:index' %}"
+               hx-get="{% url 'teachers:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold">{% if teacher %}Edit Teacher{% else %}Add New Teacher{% endif %}</h1>
+                <p class="text-sm text-base-content/60">
+                    {% if teacher %}Update teacher information{% else %}Enter teacher details{% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'teachers:index' %}"
+               hx-get="{% url 'teachers:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm">
+                Cancel
+            </a>
+            <button type="submit" form="teacher-form" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-save"></i>
+                {% if teacher %}Save Changes{% else %}Create Teacher{% endif %}
+            </button>
+        </div>
+    </div>
+
+    <form id="teacher-form"
+          method="post"
+          action="{% if teacher %}{% url 'teachers:teacher_edit' teacher.pk %}{% else %}{% url 'teachers:teacher_create' %}{% endif %}"
+          enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left Column: Photo & Status -->
+            <div class="lg:col-span-1 space-y-4">
+                <!-- Photo Card -->
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-4 items-center text-center">
+                        <div class="avatar mb-3">
+                            <div class="w-32 h-32 rounded-full bg-base-200 flex items-center justify-center ring ring-primary ring-offset-base-100 ring-offset-2">
+                                {% if teacher.photo %}
+                                <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="rounded-full" />
+                                {% else %}
+                                <i class="fa-solid fa-user text-4xl text-base-content/30"></i>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <input type="file" name="photo" accept="image/*"
+                               class="file-input file-input-bordered file-input-sm w-full max-w-xs" />
+                        <p class="text-xs text-base-content/50 mt-1">JPG, PNG (max 2MB)</p>
+                    </div>
+                </div>
+
+                <!-- Status Card -->
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-4">
+                        <h3 class="font-semibold text-sm mb-3">Employment Status</h3>
+                        {% floating_field form.status %}
+                        {% floating_field form.employment_date %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Main Form -->
+            <div class="lg:col-span-2 space-y-4">
+
+                <!-- Personal Information -->
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-5">
+                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                            <i class="fa-solid fa-user text-primary"></i>
+                            Personal Information
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="grid grid-cols-3 gap-3 md:col-span-2">
+                                <div class="col-span-1">
+                                    {% floating_field form.title %}
+                                </div>
+                                <div class="col-span-2">
+                                    {% floating_field form.first_name %}
+                                </div>
+                            </div>
+                            {% floating_field form.middle_name %}
+                            {% floating_field form.last_name %}
+                            {% floating_field form.date_of_birth %}
+                            {% floating_field form.gender %}
+                            {% floating_field form.nationality %}
+                            {% floating_field form.phone_number %}
+                        </div>
+                        <div class="mt-4">
+                            {% floating_field form.address %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Employment Details -->
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-5">
+                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                            <i class="fa-solid fa-briefcase text-primary"></i>
+                            Employment Details
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {% floating_field form.staff_id %}
+                            {% floating_field form.subject_specialization %}
+                            {% floating_field form.email %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {% if form.errors %}
+        <div class="alert alert-error py-3 mt-6">
+            <i class="fa-solid fa-exclamation-circle"></i>
+            <div>
+                <p class="font-medium text-sm">Please fix the following errors:</p>
+                <ul class="text-xs mt-1 list-disc list-inside">
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                        <li>{{ field.label }}: {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </form>
+</div>

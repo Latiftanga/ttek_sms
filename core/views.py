@@ -29,6 +29,8 @@ def index(request):
     """Dashboard/index view."""
     from students.models import Student, Enrollment
     from academics.models import Class
+    # Import Teacher model
+    from teachers.models import Teacher
 
     # Get current academic year and term
     current_year = AcademicYear.get_current()
@@ -36,6 +38,8 @@ def index(request):
 
     # Get counts
     student_count = Student.objects.filter(status='active').count()
+    # Get active teacher count
+    teacher_count = Teacher.objects.filter(status='active').count()
     class_count = Class.objects.count()
 
     # Get recent students (last 5 added)
@@ -51,7 +55,7 @@ def index(request):
 
     context = {
         'student_count': student_count,
-        'teacher_count': 0,  # TODO: Add when teachers app is ready
+        'teacher_count': teacher_count,  # Updated with real count
         'class_count': class_count,
         'parent_count': 0,  # TODO: Add when parents are tracked
         'current_year': current_year,

@@ -1,0 +1,100 @@
+{% load core_tags %}
+
+{% if students %}
+<div class="overflow-x-auto">
+    <table class="table">
+        <thead>
+            <tr class="text-xs uppercase text-base-content/60">
+                <th class="w-12">#</th>
+                <th>Student</th>
+                <th class="hidden md:table-cell">Gender</th>
+                <th class="hidden lg:table-cell">Guardian</th>
+                <th class="w-16"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr class="hover:bg-base-200/50 group">
+                <td class="font-mono text-xs text-base-content/40">{{ forloop.counter }}</td>
+                <td>
+                    <a href="{% url 'students:student_detail' student.pk %}"
+                       hx-get="{% url 'students:student_detail' student.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="flex items-center gap-3">
+                        <div class="avatar placeholder">
+                            <div class="w-9 h-9 rounded-full bg-base-300 text-base-content/70 flex items-center justify-center">
+                                <span class="text-xs font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="font-medium group-hover:text-primary transition-colors">
+                                {{ student.full_name }}
+                            </div>
+                            <div class="text-xs text-base-content/50 font-mono">
+                                {{ student.admission_number }}
+                            </div>
+                        </div>
+                    </a>
+                </td>
+                <td class="hidden md:table-cell">
+                    <span class="badge badge-sm badge-ghost">{{ student.get_gender_display }}</span>
+                </td>
+                <td class="hidden lg:table-cell">
+                    <div class="text-sm">{{ student.guardian_name|default:"-" }}</div>
+                    <div class="text-xs text-base-content/50">{{ student.guardian_phone|default:"" }}</div>
+                </td>
+                <td>
+                    <div class="dropdown dropdown-end dropdown-left">
+                        <div tabindex="0" role="button" class="btn btn-ghost btn-xs btn-square">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </div>
+                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-44 border border-base-200">
+                            <li>
+                                <a hx-get="{% url 'students:student_detail' student.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true">
+                                    <i class="fa-solid fa-user w-4"></i> View Profile
+                                </a>
+                            </li>
+                            <li>
+                                <button class="text-error w-full text-left flex items-center gap-2"
+                                        hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
+                                        hx-target="#tab-register"
+                                        hx-swap="innerHTML"
+                                        hx-confirm="Remove {{ student.first_name }} from this class?">
+                                    <i class="fa-solid fa-user-minus w-4"></i> Remove
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if students.count >= 10 %}
+<div class="text-center text-xs text-base-content/50 pt-4 border-t border-base-200 mt-4">
+    Showing {{ students.count }} students
+</div>
+{% endif %}
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-16 text-center">
+    <div class="w-20 h-20 bg-base-200 rounded-full flex items-center justify-center mb-4">
+        <i class="fa-solid fa-user-graduate text-4xl text-base-content/20"></i>
+    </div>
+    <h3 class="text-lg font-semibold mb-1">No Students Yet</h3>
+    <p class="text-base-content/60 text-sm max-w-xs mb-6">
+        Start building your class by enrolling students from the student database.
+    </p>
+    <button class="btn btn-primary btn-sm"
+            hx-get="{% url 'academics:class_student_enroll' class.pk %}"
+            hx-target="#modal-edit-content"
+            onclick="modal_edit.showModal()">
+        <i class="fa-solid fa-user-plus"></i> Enroll Students
+    </button>
+</div>
+{% endif %}

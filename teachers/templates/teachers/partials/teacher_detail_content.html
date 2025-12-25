@@ -1,0 +1,262 @@
+{% load core_tags %}
+<div class="print:max-w-none">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between mb-6 print:!hidden">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'teachers:index' %}"
+               hx-get="{% url 'teachers:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
+                <p class="text-sm text-base-content/60 font-mono">{{ teacher.staff_id }}</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="window.print()" class="btn btn-ghost btn-sm">
+                <i class="fa-solid fa-print"></i>
+                Print
+            </button>
+            <a href="{% url 'teachers:teacher_edit' teacher.pk %}"
+               hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-pen"></i>
+                Edit
+            </a>
+        </div>
+    </div>
+
+    <!-- Print Header -->
+    <div class="hidden print:!block print:mb-6 print:border-b print:border-black print:pb-3">
+        <div class="flex items-center justify-center gap-4">
+            {% if school.logo %}
+            <img src="{{ school.logo.url }}" alt="Logo" class="h-16 w-16 object-contain" />
+            {% endif %}
+            <div class="text-center">
+                <h1 class="text-lg font-bold uppercase">{{ tenant.name|default:"School Name" }}</h1>
+                {% if tenant.address %}<p class="text-xs">{{ tenant.address }}</p>{% endif %}
+                {% if tenant.phone or tenant.email %}
+                <p class="text-xs">
+                    {% if tenant.phone %}Tel: {{ tenant.phone }}{% endif %}
+                    {% if tenant.phone and tenant.email %} | {% endif %}
+                    {% if tenant.email %}Email: {{ tenant.email }}{% endif %}
+                </p>
+                {% endif %}
+            </div>
+            {% if school.logo %}<div class="h-16 w-16"></div>{% endif %}
+        </div>
+        <h2 class="text-base font-bold text-center mt-3 uppercase">Staff Record</h2>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left Column: Photo & Quick Info -->
+        <div class="lg:col-span-1 space-y-4">
+            <!-- Photo & Status Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5 items-center text-center">
+                    <div class="avatar mb-4">
+                        <div class="w-36 h-36 rounded-full bg-base-200 flex items-center justify-center ring ring-primary ring-offset-base-100 ring-offset-2">
+                            {% if teacher.photo %}
+                            <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="rounded-full object-cover" />
+                            {% else %}
+                            <span class="text-4xl font-bold text-base-content/30">{{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <h2 class="text-lg font-bold">{{ teacher.get_title_display }} {{ teacher.full_name }}</h2>
+                    <p class="text-sm text-base-content/60 font-mono">{{ teacher.staff_id }}</p>
+
+                    <!-- Status Badges -->
+                    <div class="flex flex-wrap justify-center gap-2 mt-3 print:!hidden">
+                        <span class="badge badge-primary">{{ teacher.subject_specialization }}</span>
+                        {% if teacher.gender == 'M' %}
+                        <span class="badge badge-info">Male</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Female</span>
+                        {% endif %}
+                        {% if teacher.status == 'active' %}
+                        <span class="badge badge-success">Active</span>
+                        {% elif teacher.status == 'inactive' %}
+                        <span class="badge badge-error">Inactive</span>
+                        {% elif teacher.status == 'pending' %}
+                        <span class="badge badge-warning">Pending</span>
+                        {% endif %}
+                    </div>
+                    <!-- Print status line -->
+                    <p class="hidden print:!block text-sm mt-2">
+                        {{ teacher.subject_specialization }} | {{ teacher.get_gender_display }} | {{ teacher.get_status_display }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Quick Stats Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm mb-3">Quick Info</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <i class="fa-solid fa-calendar-check text-primary text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="text-base-content/60 text-xs">Employed</p>
+                                <p class="font-medium">{{ teacher.employment_date|date:"M j, Y" }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                                <i class="fa-solid fa-clock text-success text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="text-base-content/60 text-xs">Service</p>
+                                <p class="font-medium">{{ teacher.employment_date|timesince }}</p>
+                            </div>
+                        </div>
+                        {% if teacher.phone_number %}
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                                <i class="fa-solid fa-phone text-info text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="text-base-content/60 text-xs">Phone</p>
+                                <p class="font-medium">{{ teacher.phone_number }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Info Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm mb-3">System</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between text-xs text-base-content/50">
+                            <span>Created</span>
+                            <span>{{ teacher.created_at|date:"M j, Y" }}</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-base-content/50">
+                            <span>Updated</span>
+                            <span>{{ teacher.updated_at|date:"M j, Y" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="card bg-error/5 border border-error/20 print:!hidden">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm text-error mb-2">Danger Zone</h3>
+                    <p class="text-xs text-base-content/60 mb-3">Permanently delete this teacher record.</p>
+                    <form hx-post="{% url 'teachers:teacher_delete' teacher.pk %}"
+                          hx-confirm="Delete {{ teacher.full_name }}? This action cannot be undone.">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-error btn-sm btn-outline w-full">
+                            <i class="fa-solid fa-trash"></i>
+                            Delete Teacher
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Details -->
+        <div class="lg:col-span-2 space-y-4">
+
+            <!-- Personal Information -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-user text-primary print:!hidden"></i>
+                        Personal Information
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Full Name</p>
+                            <p class="font-medium">{{ teacher.get_title_display }} {{ teacher.full_name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Date of Birth</p>
+                            <p>{{ teacher.date_of_birth|date:"F j, Y" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Gender</p>
+                            <p>{{ teacher.get_gender_display }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Nationality</p>
+                            <p>{{ teacher.nationality|default:"Not specified" }}</p>
+                        </div>
+                    </div>
+                    {% if teacher.address %}
+                    <div class="mt-4 pt-4 border-t border-base-200">
+                        <p class="text-xs text-base-content/60 mb-1">Address</p>
+                        <p>{{ teacher.address }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Contact Information -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-address-book text-primary print:!hidden"></i>
+                        Contact Information
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Phone Number</p>
+                            <p>{{ teacher.phone_number|default:"Not provided" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Email Address</p>
+                            <p>{{ teacher.email|default:"Not provided" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employment Details -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-briefcase text-primary print:!hidden"></i>
+                        Employment Details
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Staff ID</p>
+                            <p class="font-mono font-medium">{{ teacher.staff_id }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Employment Date</p>
+                            <p>{{ teacher.employment_date|date:"F j, Y" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Subject Specialization</p>
+                            <p>{{ teacher.subject_specialization }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Status</p>
+                            <p>{{ teacher.get_status_display }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Print Footer -->
+    <div class="hidden print:!block print:mt-6 print:pt-3 print:border-t print:text-center print:text-xs">
+        Printed on {% now "M j, Y g:i A" %}
+    </div>
+</div>

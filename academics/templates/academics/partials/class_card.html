@@ -1,0 +1,58 @@
+{% load core_tags %}
+
+<a href="{% url 'academics:class_detail' class.pk %}"
+   hx-get="{% url 'academics:class_detail' class.pk %}"
+   hx-target="#main-content"
+   hx-push-url="true"
+   class="block p-4 rounded-lg border border-base-200 hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer">
+
+    <div class="flex items-start justify-between mb-3">
+        <div>
+            <h3 class="font-bold text-lg group-hover:text-primary transition-colors">
+                {{ class.name }}
+            </h3>
+            {% if class.programme %}
+            <span class="text-xs text-base-content/50">{{ class.programme.name }}</span>
+            {% endif %}
+        </div>
+        <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+            <i class="fa-solid fa-arrow-right text-primary"></i>
+        </div>
+    </div>
+
+    <!-- Student Count & Progress -->
+    <div class="mb-3">
+        <div class="flex justify-between text-xs mb-1">
+            <span class="text-base-content/60">Students</span>
+            <span class="font-medium">{{ class.student_count }}/{{ class.capacity }}</span>
+        </div>
+        <progress class="progress progress-primary w-full h-1.5"
+                  value="{{ class.student_count }}"
+                  max="{{ class.capacity }}"></progress>
+    </div>
+
+    <!-- Form Tutor -->
+    <div class="flex items-center gap-2 pt-2 border-t border-base-200">
+        {% if class.class_teacher %}
+        <div class="avatar placeholder">
+            <div class="w-6 h-6 rounded-full bg-base-200 text-xs">
+                {% if class.class_teacher.photo %}
+                <img src="{{ class.class_teacher.photo.url }}" alt="" />
+                {% else %}
+                <span>{{ class.class_teacher.first_name|slice:":1" }}{{ class.class_teacher.last_name|slice:":1" }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <span class="text-xs text-base-content/70 truncate">
+            {{ class.class_teacher.get_title_display }} {{ class.class_teacher.last_name }}
+        </span>
+        {% else %}
+        <div class="avatar placeholder">
+            <div class="w-6 h-6 rounded-full bg-base-200 text-xs text-base-content/30">
+                <i class="fa-solid fa-user text-[8px]"></i>
+            </div>
+        </div>
+        <span class="text-xs text-base-content/40 italic">No form tutor</span>
+        {% endif %}
+    </div>
+</a>

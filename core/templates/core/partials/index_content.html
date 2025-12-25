@@ -1,6 +1,5 @@
 {% load core_tags %}
 <div class="space-y-6">
-    <!-- Page Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <h1 class="text-2xl font-bold">Dashboard</h1>
@@ -8,7 +7,6 @@
         </div>
     </div>
 
-    <!-- Stats Grid -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {% stat_card "Students" student_count|default:"0" "fa-solid fa-user-graduate" "primary" %}
         {% stat_card "Classes" class_count|default:"0" "fa-solid fa-chalkboard" "secondary" %}
@@ -16,19 +14,14 @@
         {% stat_card "Teachers" teacher_count|default:"0" "fa-solid fa-chalkboard-user" "info" %}
     </div>
 
-    <!-- Main Content Area -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Recent Students -->
         <div class="lg:col-span-2">
             <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-4">
                     <div class="flex items-center justify-between mb-2">
                         <h2 class="font-semibold">Recent Students</h2>
-                        <a href="{% url 'students:index' %}"
-                           hx-get="{% url 'students:index' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-ghost btn-xs">
+                        <a href="{% url 'students:index' %}" hx-get="{% url 'students:index' %}"
+                            hx-target="#main-content" hx-push-url="true" class="btn btn-ghost btn-xs">
                             View All
                         </a>
                     </div>
@@ -49,20 +42,22 @@
                                     <td>
                                         <div class="flex items-center gap-2">
                                             <div class="avatar placeholder">
-                                                <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center">
+                                                <div
+                                                    class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center">
                                                     {% if student.photo %}
-                                                    <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover" />
+                                                    <img src="{{ student.photo.url }}" alt="{{ student.full_name }}"
+                                                        class="w-full h-full object-cover" />
                                                     {% else %}
-                                                    <span class="text-xs">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                                                    <span class="text-xs">{{ student.first_name|slice:":1" }}{{
+                                                        student.last_name|slice:":1" }}</span>
                                                     {% endif %}
                                                 </div>
                                             </div>
                                             <div>
                                                 <a href="{% url 'students:student_detail' student.pk %}"
-                                                   hx-get="{% url 'students:student_detail' student.pk %}"
-                                                   hx-target="#main-content"
-                                                   hx-push-url="true"
-                                                   class="font-medium hover:text-primary">
+                                                    hx-get="{% url 'students:student_detail' student.pk %}"
+                                                    hx-target="#main-content" hx-push-url="true"
+                                                    class="font-medium hover:text-primary">
                                                     {{ student.full_name }}
                                                 </a>
                                             </div>
@@ -94,11 +89,8 @@
                     <div class="text-center py-8 text-base-content/40">
                         <i class="fa-solid fa-user-graduate text-4xl mb-2"></i>
                         <p class="text-sm">No students yet</p>
-                        <a href="{% url 'students:student_create' %}"
-                           hx-get="{% url 'students:student_create' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-primary btn-sm mt-3">
+                        <a href="{% url 'students:student_create' %}" hx-get="{% url 'students:student_create' %}"
+                            hx-target="#main-content" hx-push-url="true" class="btn btn-primary btn-sm mt-3">
                             <i class="fa-solid fa-plus"></i>
                             Add First Student
                         </a>
@@ -108,42 +100,39 @@
             </div>
         </div>
 
-        <!-- Quick Actions -->
         <div class="lg:col-span-1">
             <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-4">
                     <h2 class="font-semibold mb-2">Quick Actions</h2>
                     <div class="space-y-2">
-                        <a href="{% url 'students:student_create' %}"
-                           hx-get="{% url 'students:student_create' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-ghost btn-sm w-full justify-start">
+                        <a href="{% url 'students:student_create' %}" hx-get="{% url 'students:student_create' %}"
+                            hx-target="#main-content" hx-push-url="true"
+                            class="btn btn-ghost btn-sm w-full justify-start">
                             <i class="fa-solid fa-user-plus w-5"></i>
                             Add Student
                         </a>
-                        <a href="{% url 'students:bulk_import' %}"
-                           hx-get="{% url 'students:bulk_import' %}"
-                           hx-target="#modal-bulk-content"
-                           hx-swap="innerHTML"
-                           onclick="modal_bulk.showModal()"
-                           class="btn btn-ghost btn-sm w-full justify-start">
+
+                        <a href="{% url 'teachers:teacher_create' %}" hx-get="{% url 'teachers:teacher_create' %}"
+                            hx-target="#main-content" hx-push-url="true"
+                            class="btn btn-ghost btn-sm w-full justify-start">
+                            <i class="fa-solid fa-chalkboard-user w-5"></i>
+                            Add Teacher
+                        </a>
+
+                        <a href="{% url 'students:bulk_import' %}" hx-get="{% url 'students:bulk_import' %}"
+                            hx-target="#modal-bulk-content" hx-swap="innerHTML" onclick="modal_bulk.showModal()"
+                            class="btn btn-ghost btn-sm w-full justify-start">
                             <i class="fa-solid fa-file-import w-5"></i>
                             Import Students
                         </a>
-                        <a href="{% url 'academics:index' %}"
-                           hx-get="{% url 'academics:index' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-ghost btn-sm w-full justify-start">
+                        <a href="{% url 'academics:index' %}" hx-get="{% url 'academics:index' %}"
+                            hx-target="#main-content" hx-push-url="true"
+                            class="btn btn-ghost btn-sm w-full justify-start">
                             <i class="fa-solid fa-graduation-cap w-5"></i>
                             Manage Classes
                         </a>
-                        <a href="{% url 'core:settings' %}"
-                           hx-get="{% url 'core:settings' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-ghost btn-sm w-full justify-start">
+                        <a href="{% url 'core:settings' %}" hx-get="{% url 'core:settings' %}" hx-target="#main-content"
+                            hx-push-url="true" class="btn btn-ghost btn-sm w-full justify-start">
                             <i class="fa-solid fa-gear w-5"></i>
                             School Settings
                         </a>
@@ -151,7 +140,6 @@
                 </div>
             </div>
 
-            <!-- Academic Info Card -->
             {% if not current_year %}
             <div class="card bg-warning/10 border border-warning/30 mt-4">
                 <div class="card-body p-4">
@@ -162,11 +150,8 @@
                     <p class="text-sm text-base-content/70 mt-1">
                         No academic year is set as current. Please configure your academic year in settings.
                     </p>
-                    <a href="{% url 'core:settings' %}"
-                       hx-get="{% url 'core:settings' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-warning btn-sm mt-3">
+                    <a href="{% url 'core:settings' %}" hx-get="{% url 'core:settings' %}" hx-target="#main-content"
+                        hx-push-url="true" class="btn btn-warning btn-sm mt-3">
                         Go to Settings
                     </a>
                 </div>
@@ -176,7 +161,6 @@
     </div>
 </div>
 
-<!-- Bulk Import Modal (reused from students) -->
 <dialog id="modal_bulk" class="modal">
     <div class="modal-box max-w-2xl">
         <form method="dialog">
@@ -190,7 +174,10 @@
             </div>
         </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
+    <!-- <form method="dialog" class="modal-backdrop">
         <button>close</button>
     </form>
+ -->
+
+    
 </dialog>

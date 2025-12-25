@@ -1,0 +1,201 @@
+{% load core_tags %}
+
+<div class="flex flex-col sm:flex-row justify-between items-center mb-4 pt-3 gap-4 sticky top-0 bg-base-100 z-10 pb-2 border-b border-base-200">
+    <div>
+        <h3 class="text-xl font-bold flex items-center gap-2">
+            {% if is_final_year %}
+            <i class="fa-solid fa-graduation-cap text-success"></i>
+            Graduate Students
+            {% else %}
+            <i class="fa-solid fa-arrow-up-right-dots text-primary"></i>
+            Promote Students
+            {% endif %}
+        </h3>
+        <p class="text-xs text-base-content/60">{{ class.name }} &rarr; {{ next_year }}</p>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-error">
+    <i class="fa-solid fa-exclamation-circle"></i>
+    <span>{{ error }}</span>
+</div>
+<div class="modal-action">
+    <button type="button" class="btn" onclick="modal_edit.close()">Close</button>
+</div>
+{% elif not students %}
+<div class="alert alert-info">
+    <i class="fa-solid fa-info-circle"></i>
+    <div>
+        <p class="font-medium">No students to promote</p>
+        <p class="text-xs mt-1">There are no active students enrolled in this class for {{ current_year }}.</p>
+    </div>
+</div>
+<div class="modal-action">
+    <button type="button" class="btn" onclick="modal_edit.close()">Close</button>
+</div>
+{% else %}
+
+<form method="post"
+      action="{% url 'academics:class_promote' class.pk %}"
+      hx-post="{% url 'academics:class_promote' class.pk %}"
+      hx-target="#modal-edit-content"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <!-- Quick Actions -->
+    <div class="flex gap-2 mb-4">
+        {% if is_final_year %}
+        <button type="button"
+                onclick="selectAllAction('graduate')"
+                class="btn btn-xs btn-success btn-outline">
+            <i class="fa-solid fa-graduation-cap"></i>
+            Graduate All
+        </button>
+        {% else %}
+        <button type="button"
+                onclick="selectAllAction('promote')"
+                class="btn btn-xs btn-primary btn-outline">
+            <i class="fa-solid fa-arrow-up"></i>
+            Promote All
+        </button>
+        {% endif %}
+        <button type="button"
+                onclick="selectAllAction('skip')"
+                class="btn btn-xs btn-ghost">
+            Skip All
+        </button>
+    </div>
+
+    <!-- Student Table -->
+    <div class="h-[50vh] overflow-y-auto border border-base-200 rounded-lg">
+        <table class="table table-sm table-pin-rows">
+            <thead>
+                <tr class="text-xs">
+                    <th>Student</th>
+                    <th class="w-32">Action</th>
+                    <th class="w-40">Target Class</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <div class="avatar placeholder">
+                                <div class="w-8 h-8 rounded-full bg-base-200 flex items-center justify-center">
+                                    <span class="text-xs">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="font-medium">{{ student.full_name }}</div>
+                                <div class="text-xs text-base-content/50 font-mono">{{ student.admission_number }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <select name="action_{{ student.pk }}"
+                                class="select select-sm select-bordered w-full action-select"
+                                data-student="{{ student.pk }}"
+                                data-final-year="{{ is_final_year|yesno:'true,false' }}"
+                                onchange="toggleTargetClass(this)">
+                            {% if is_final_year %}
+                            <option value="graduate" selected>Graduate</option>
+                            <option value="repeat">Repeat</option>
+                            <option value="skip">Skip</option>
+                            {% else %}
+                            <option value="promote" selected>Promote</option>
+                            <option value="repeat">Repeat</option>
+                            <option value="skip">Skip</option>
+                            {% endif %}
+                        </select>
+                    </td>
+                    <td>
+                        {% if is_final_year %}
+                        <span class="text-sm text-base-content/50 target-label" data-student="{{ student.pk }}">
+                            Graduating
+                        </span>
+                        {% endif %}
+                        <select name="target_class_{{ student.pk }}"
+                                class="select select-sm select-bordered w-full target-select {% if is_final_year %}hidden{% endif %}"
+                                data-student="{{ student.pk }}"
+                                {% if is_final_year %}disabled{% endif %}>
+                            {% for cls in all_classes %}
+                            <option value="{{ cls.pk }}"
+                                    {% if cls.level_number == class.level_number|add:1 and cls.programme == class.programme and cls.level_type == class.level_type %}selected{% endif %}>
+                                {{ cls.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="text-xs text-base-content/60 mt-2 px-1">
+        {{ students.count }} student{{ students.count|pluralize }} in {{ class.name }}
+    </div>
+
+    <div class="modal-action border-t border-base-200 pt-4 mt-4">
+        <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+        <button type="submit" class="btn {% if is_final_year %}btn-success{% else %}btn-primary{% endif %}">
+            {% if is_final_year %}
+            <i class="fa-solid fa-graduation-cap"></i>
+            Process Graduation
+            {% else %}
+            <i class="fa-solid fa-arrow-up-right-dots"></i>
+            Process Promotion
+            {% endif %}
+        </button>
+    </div>
+</form>
+
+<script>
+    function toggleTargetClass(select) {
+        const studentId = select.dataset.student;
+        const isFinalYear = select.dataset.finalYear === 'true';
+        const targetSelect = document.querySelector(`.target-select[data-student="${studentId}"]`);
+        const targetLabel = document.querySelector(`.target-label[data-student="${studentId}"]`);
+
+        if (select.value === 'promote') {
+            targetSelect.disabled = false;
+            targetSelect.classList.remove('hidden');
+            if (targetLabel) targetLabel.classList.add('hidden');
+        } else if (select.value === 'graduate') {
+            targetSelect.disabled = true;
+            targetSelect.classList.add('hidden');
+            if (targetLabel) {
+                targetLabel.classList.remove('hidden');
+                targetLabel.textContent = 'Graduating';
+            }
+        } else {
+            targetSelect.disabled = true;
+            if (isFinalYear) {
+                targetSelect.classList.add('hidden');
+                if (targetLabel) {
+                    targetLabel.classList.remove('hidden');
+                    targetLabel.textContent = select.value === 'repeat' ? 'Same class' : 'N/A';
+                }
+            } else {
+                targetSelect.classList.add('opacity-50');
+            }
+        }
+    }
+
+    function selectAllAction(action) {
+        document.querySelectorAll('.action-select').forEach(select => {
+            const options = Array.from(select.options).map(o => o.value);
+            if (options.includes(action)) {
+                select.value = action;
+                toggleTargetClass(select);
+            }
+        });
+    }
+
+    // Initialize on load
+    document.querySelectorAll('.action-select').forEach(toggleTargetClass);
+</script>
+
+{% endif %}

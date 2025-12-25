@@ -1,0 +1,157 @@
+{% load core_tags %}
+
+<div class="flex flex-col sm:flex-row justify-between items-center mb-4 pt-3 gap-4 sticky top-2 bg-base-100 z-10 pb-2 border-b border-base-200">
+    <div>
+        <h3 class="text-xl font-bold">Enroll Students</h3>
+        <p class="text-xs text-base-content/60">Select students to add to {{ class.name }}</p>
+    </div>
+    
+    <label class="input input-bordered input-sm flex items-center gap-2 w-full sm:w-64">
+        <input type="text" 
+               class="grow" 
+               placeholder="Search name or ID..." 
+               onkeyup="filterTable(this.value)" />
+        <i class="fa-solid fa-search opacity-70"></i>
+    </label>
+</div>
+
+<form method="post"
+      action="{% url 'academics:class_student_enroll' class.pk %}"
+      hx-post="{% url 'academics:class_student_enroll' class.pk %}"
+      hx-target="#modal-edit-content"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+    
+    <div class="space-y-4">
+        {% if form.students.field.queryset.count == 0 %}
+            <div class="alert alert-info">
+                <i class="fa-solid fa-info-circle"></i>
+                <div>
+                    <p class="font-medium">No unassigned students found.</p>
+                    <p class="text-xs mt-1">All active students are already enrolled in a class. To transfer a student, first remove them from their current class.</p>
+                </div>
+            </div>
+        {% else %}
+            
+            <div class="h-[60vh] overflow-y-auto border border-base-200 rounded-lg">
+                <table class="table table-sm table-pin-rows" id="enroll-table">
+                    <thead>
+                        <tr>
+                            <th class="w-12">
+                                <label>
+                                    <input type="checkbox" class="checkbox checkbox-sm" onclick="toggleAll(this)" />
+                                </label>
+                            </th>
+                            <th>Student Name</th>
+                            <th>Admission No.</th>
+                            <th>Gender</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in form.students.field.queryset %}
+                        <tr class="hover cursor-pointer" onclick="toggleRow(this)">
+                            <td>
+                                <label>
+                                    <input type="checkbox" 
+                                           name="students" 
+                                           value="{{ student.pk }}" 
+                                           class="checkbox checkbox-sm student-check" 
+                                           onclick="event.stopPropagation(); updateCount()" />
+                                </label>
+                            </td>
+                            <td>
+                                <div class="flex items-center gap-3">
+                                    <div class="avatar placeholder">
+                                        <div class="w-8 h-8 rounded-full bg-base-200 flex items-center justify-center">
+                                            <span class="text-xs">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                                        </div>
+                                    </div>
+                                    <span class="font-bold student-name">{{ student.full_name }}</span>
+                                </div>
+                            </td>
+                            <td class="font-mono text-xs student-id">{{ student.admission_number }}</td>
+                            <td>{{ student.get_gender_display }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <div id="no-results" class="hidden text-center py-12 text-base-content/50">
+                    No matching students found.
+                </div>
+            </div>
+            
+            <div class="text-xs text-base-content/60 mt-2 flex justify-between items-center px-1">
+                <span>Total Available: {{ form.students.field.queryset.count }}</span>
+                <span class="font-bold text-primary" id="selected-count">0 selected</span>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if form.errors %}
+    <div class="alert alert-error mt-4 py-2 text-sm">
+        <span>{{ form.non_field_errors.0|default:"Please fix the errors." }}</span>
+    </div>
+    {% endif %}
+
+    <div class="modal-action border-t border-base-200 pt-4 mt-4">
+        <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+        {% if form.students.field.queryset.count > 0 %}
+        <button type="submit" class="btn btn-primary px-8">
+            Enroll Selected
+        </button>
+        {% endif %}
+    </div>
+</form>
+
+<script>
+    function filterTable(query) {
+        const table = document.getElementById('enroll-table');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        const noResults = document.getElementById('no-results');
+        const lowerQuery = query.toLowerCase();
+        let visibleCount = 0;
+
+        for (let row of rows) {
+            const name = row.querySelector('.student-name').textContent.toLowerCase();
+            const id = row.querySelector('.student-id').textContent.toLowerCase();
+            
+            if (name.includes(lowerQuery) || id.includes(lowerQuery)) {
+                row.style.display = "";
+                visibleCount++;
+            } else {
+                row.style.display = "none";
+            }
+        }
+
+        if (visibleCount === 0) {
+            table.classList.add('hidden');
+            noResults.classList.remove('hidden');
+        } else {
+            table.classList.remove('hidden');
+            noResults.classList.add('hidden');
+        }
+    }
+
+    function toggleRow(row) {
+        const checkbox = row.querySelector('.student-check');
+        checkbox.checked = !checkbox.checked;
+        updateCount();
+    }
+
+    function toggleAll(source) {
+        const checkboxes = document.querySelectorAll('.student-check');
+        // Only toggle visible rows to allow "Search -> Select All" workflow
+        checkboxes.forEach(cb => {
+            if (cb.closest('tr').style.display !== 'none') {
+                cb.checked = source.checked;
+            }
+        });
+        updateCount();
+    }
+
+    function updateCount() {
+        const count = document.querySelectorAll('.student-check:checked').length;
+        document.getElementById('selected-count').textContent = count + " selected";
+    }
+</script>

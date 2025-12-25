@@ -1,0 +1,54 @@
+{% load core_tags %}
+
+<!-- Attendance Sidebar Card -->
+<div id="card-attendance" class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm uppercase tracking-wider text-base-content/60">
+                Attendance
+            </h3>
+            <button class="btn btn-xs btn-primary"
+                    hx-get="{% url 'academics:class_attendance_take' class.pk %}"
+                    hx-target="#modal-edit-content"
+                    onclick="modal_edit.showModal()">
+                <i class="fa-solid fa-clipboard-check"></i> Mark Today
+            </button>
+        </div>
+
+        {% if attendance_sessions %}
+        <div class="space-y-2">
+            {% for session in attendance_sessions|slice:":5" %}
+            <div class="flex items-center justify-between py-2 {% if not forloop.last %}border-b border-base-200{% endif %}">
+                <div>
+                    <p class="text-sm font-medium">{{ session.date|date:"D, d M" }}</p>
+                </div>
+                <div class="flex items-center gap-3 text-xs">
+                    <span class="text-success font-medium">
+                        <i class="fa-solid fa-check"></i> {{ session.present_count }}
+                    </span>
+                    <span class="text-error font-medium">
+                        <i class="fa-solid fa-xmark"></i> {{ session.absent_count }}
+                    </span>
+                    <button class="btn btn-ghost btn-xs btn-square"
+                            hx-get="{% url 'academics:class_attendance_edit' class.pk session.pk %}"
+                            hx-target="#modal-edit-content"
+                            onclick="modal_edit.showModal()">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if attendance_sessions.count > 5 %}
+        <button class="btn btn-ghost btn-sm btn-block mt-2">
+            View All {{ attendance_sessions.count }} Records
+        </button>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-6 text-base-content/50">
+            <i class="fa-solid fa-calendar-xmark text-2xl mb-2"></i>
+            <p class="text-sm">No attendance records</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
