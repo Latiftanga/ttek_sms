@@ -27,6 +27,7 @@ urlpatterns = [
     path('classes/<int:pk>/attendance/take/', views.class_attendance_take, name='class_attendance_take'),
     path('classes/<int:pk>/attendance/<int:session_pk>/edit/', views.class_attendance_edit, name='class_attendance_edit'),
     path('classes/<int:pk>/promote/', views.class_promote, name='class_promote'),
+    path('classes/<int:pk>/export/', views.class_export, name='class_export'),
 
     # Subject routes
     path('subjects/create/', views.subject_create, name='subject_create'),

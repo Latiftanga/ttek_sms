@@ -1,43 +1,67 @@
 {% load core_tags %}
 <div id="subjects-container">
     {% if subjects %}
-    <div class="space-y-1">
-        {% for subject in subjects %}
-        <div class="flex items-center justify-between py-1.5 px-2 rounded hover:bg-base-200">
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-base-content/50 w-6">
-                    {{ subject.short_name|slice:":2"|upper }}
-                </span>
-                <span class="text-sm">{{ subject.name }}</span>
-                {% if subject.is_core %}
-                <span class="badge badge-primary badge-xs">Core</span>
-                {% endif %}
-            </div>
-            <div class="flex gap-1">
-                <button class="btn btn-ghost btn-xs"
-                        hx-get="{% url 'academics:subject_edit' subject.pk %}"
-                        hx-target="#modal-subject-edit-content"
-                        hx-swap="innerHTML"
-                        onclick="document.getElementById('modal_subject_edit').showModal()">
-                    <i class="fa-solid fa-pen text-xs"></i>
-                </button>
-                <form hx-post="{% url 'academics:subject_delete' subject.pk %}"
-                      hx-target="#subjects-container"
-                      hx-swap="outerHTML"
-                      hx-confirm="Delete {{ subject.name }}?"
-                      class="inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-ghost btn-xs text-error">
-                        <i class="fa-solid fa-trash text-xs"></i>
-                    </button>
-                </form>
-            </div>
-        </div>
-        {% endfor %}
+    <div class="overflow-x-auto">
+        <table class="table table-sm w-full">
+            <thead>
+                <tr class="text-xs uppercase text-base-content/60">
+                    <th>Subject</th>
+                    <th class="text-center">Classes</th>
+                    <th class="text-center">Students</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for subject in subjects %}
+                <tr class="hover">
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium">{{ subject.name }}</span>
+                            {% if subject.is_core %}
+                            <span class="badge badge-primary badge-sm">Core</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-xs text-base-content/50">{{ subject.short_name }}</div>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge badge-ghost badge-sm">{{ subject.class_count }}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="font-medium">{{ subject.student_count }}</span>
+                    </td>
+                    <td class="text-right">
+                        <div class="flex justify-end gap-1">
+                            <button class="btn btn-ghost btn-xs"
+                                    hx-get="{% url 'academics:subject_edit' subject.pk %}"
+                                    hx-target="#modal-subject-edit-content"
+                                    hx-swap="innerHTML"
+                                    onclick="document.getElementById('modal_subject_edit').showModal()">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                            <form hx-post="{% url 'academics:subject_delete' subject.pk %}"
+                                  hx-target="#subjects-container"
+                                  hx-swap="outerHTML"
+                                  hx-confirm="Delete {{ subject.name }}?"
+                                  class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost btn-xs text-error">
+                                    <i class="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% else %}
-    <div class="text-center py-4 text-base-content/50">
-        <p class="text-sm">No subjects yet</p>
+    <div class="text-center py-6 text-base-content/50">
+        <div class="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-3">
+            <i class="fa-solid fa-book text-lg text-base-content/30"></i>
+        </div>
+        <p class="text-sm font-medium">No subjects yet</p>
+        <p class="text-xs mt-1">Add subjects to assign them to classes</p>
     </div>
     {% endif %}
 </div>

@@ -4,11 +4,9 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.db import models
 
-from .models import Programme, Class, Subject
-from .forms import ProgrammeForm, ClassForm, SubjectForm, StudentEnrollmentForm
+from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, AttendanceRecord
+from .forms import ProgrammeForm, ClassForm, SubjectForm, StudentEnrollmentForm, ClassSubjectForm
 from students.models import Student
-from .models import ClassSubject, AttendanceSession, AttendanceRecord
-from .forms import ClassSubjectForm
 
 
 def htmx_render(request, full_template, partial_template, context=None):
@@ -22,7 +20,7 @@ def htmx_render(request, full_template, partial_template, context=None):
 
 def get_academics_context():
     """Get common context for academics page."""
-    from django.db.models import Count
+    from django.db.models import Count, Q
 
     # Get classes with student counts, grouped by level
     classes = Class.objects.select_related('programme', 'class_teacher').annotate(
@@ -41,9 +39,30 @@ def get_academics_context():
             classes_by_level[cls.level_type]['classes'].append(cls)
             classes_by_level[cls.level_type]['student_count'] += cls.student_count
 
-    # Stats
-    programmes = Programme.objects.all()
-    subjects = Subject.objects.prefetch_related('programmes').all()
+    # Programmes with stats
+    programmes = Programme.objects.annotate(
+        class_count=Count('classes', filter=Q(classes__is_active=True)),
+        student_count=Count(
+            'classes__students',
+            filter=Q(classes__is_active=True, classes__students__status='active')
+        )
+    ).order_by('name')
+
+    # Subjects with stats
+    subjects = Subject.objects.prefetch_related('programmes').annotate(
+        class_count=Count(
+            'class_allocations',
+            filter=Q(class_allocations__class_assigned__is_active=True)
+        ),
+        student_count=Count(
+            'class_allocations__class_assigned__students',
+            filter=Q(
+                class_allocations__class_assigned__is_active=True,
+                class_allocations__class_assigned__students__status='active'
+            )
+        )
+    ).order_by('-is_core', 'name')
+
     total_students = Student.objects.filter(status='active').count()
 
     return {
@@ -79,8 +98,18 @@ def index(request):
 # ============ PROGRAMME VIEWS ============
 
 def get_programmes_list_context():
-    """Get context for programmes list."""
-    return {'programmes': Programme.objects.all()}
+    """Get context for programmes list with stats."""
+    from django.db.models import Count, Q
+
+    programmes = Programme.objects.annotate(
+        class_count=Count('classes', filter=Q(classes__is_active=True)),
+        student_count=Count(
+            'classes__students',
+            filter=Q(classes__is_active=True, classes__students__status='active')
+        )
+    ).order_by('name')
+
+    return {'programmes': programmes}
 
 
 @login_required
@@ -260,8 +289,24 @@ def class_delete(request, pk):
 # ============ SUBJECT VIEWS ============
 
 def get_subjects_list_context():
-    """Get context for subjects list."""
-    return {'subjects': Subject.objects.prefetch_related('programmes').all()}
+    """Get context for subjects list with stats."""
+    from django.db.models import Count, Q
+
+    subjects = Subject.objects.prefetch_related('programmes').annotate(
+        class_count=Count(
+            'class_allocations',
+            filter=Q(class_allocations__class_assigned__is_active=True)
+        ),
+        student_count=Count(
+            'class_allocations__class_assigned__students',
+            filter=Q(
+                class_allocations__class_assigned__is_active=True,
+                class_allocations__class_assigned__students__status='active'
+            )
+        )
+    ).order_by('-is_core', 'name')
+
+    return {'subjects': subjects}
 
 
 @login_required
@@ -343,12 +388,21 @@ def subject_delete(request, pk):
 def get_register_tab_context(class_obj):
     """Context for the Students/Register tab."""
     students = Student.objects.filter(
-        current_class=class_obj, 
+        current_class=class_obj,
         status='active'
     ).order_by('first_name')
+
+    # Gender breakdown
+    male_count = students.filter(gender='M').count()
+    female_count = students.filter(gender='F').count()
+
     return {
         'class': class_obj,
-        'students': students
+        'students': students,
+        'gender_stats': {
+            'male': male_count,
+            'female': female_count,
+        }
     }
 
 def get_teachers_tab_context(class_obj):
@@ -478,38 +532,27 @@ def class_detail(request, pk):
 @login_required
 def class_subject_create(request, pk):
     class_obj = get_object_or_404(Class, pk=pk)
-    
+
     if request.method == 'POST':
         form = ClassSubjectForm(request.POST, class_instance=class_obj)
         if form.is_valid():
             allocation = form.save(commit=False)
             allocation.class_assigned = class_obj
             allocation.save()
-            
-            # HTMX Success: Update sidebar card + modal content
+
             if request.htmx:
-                context = {'class': class_obj}
-                context.update(get_teachers_tab_context(class_obj))
+                response = HttpResponse(status=204)
+                response['HX-Refresh'] = 'true'
+                return response
 
-                # 1. Sidebar Card (OOB)
-                sidebar_html = render(request, 'academics/partials/card_subjects_sidebar.html', context).content.decode('utf-8')
-                sidebar_html = sidebar_html.replace('id="card-subjects"', 'id="card-subjects" hx-swap-oob="true"')
-
-                # 2. Modal Content (OOB) - for "View All" modal
-                modal_html = render(request, 'academics/includes/tab_teachers_content.html', context).content.decode('utf-8')
-                modal_oob = f'<div id="tab-teachers" hx-swap-oob="true">{modal_html}</div>'
-
-                script = '<script>modal_edit.close()</script>'
-
-                return HttpResponse(sidebar_html + modal_oob + script)
-                
             return redirect('academics:class_detail', pk=pk)
     else:
         form = ClassSubjectForm(class_instance=class_obj)
-        
+
     return render(request, 'academics/partials/modal_subject_allocation.html', {
         'form': form, 'class': class_obj
     })
+
 
 @login_required
 def class_subject_delete(request, class_pk, pk):
@@ -517,19 +560,10 @@ def class_subject_delete(request, class_pk, pk):
     allocation.delete()
 
     if request.htmx:
-        class_obj = get_object_or_404(Class, pk=class_pk)
-        context = {'class': class_obj}
-        context.update(get_teachers_tab_context(class_obj))
+        response = HttpResponse(status=204)
+        response['HX-Refresh'] = 'true'
+        return response
 
-        # 1. Sidebar Card (OOB)
-        sidebar_html = render(request, 'academics/partials/card_subjects_sidebar.html', context).content.decode('utf-8')
-        sidebar_html = sidebar_html.replace('id="card-subjects"', 'id="card-subjects" hx-swap-oob="true"')
-
-        # 2. Modal Content (direct response to #tab-teachers)
-        modal_html = render(request, 'academics/includes/tab_teachers_content.html', context).content.decode('utf-8')
-
-        return HttpResponse(modal_html + sidebar_html)
-        
     return redirect('academics:class_detail', pk=class_pk)
 
 
@@ -537,39 +571,24 @@ def class_subject_delete(request, class_pk, pk):
 def class_student_enroll(request, pk):
     """Enroll existing students into a class."""
     class_obj = get_object_or_404(Class, pk=pk)
-    
+
     if request.method == 'POST':
         form = StudentEnrollmentForm(request.POST, class_instance=class_obj)
         if form.is_valid():
             students_to_add = form.cleaned_data['students']
-            # Bulk enrollment
             for student in students_to_add:
                 student.current_class = class_obj
                 student.save()
-            
-            # HTMX Success Response
+
             if request.htmx:
-                # 1. Get fresh context (merge register + attendance for stats card)
-                context = get_register_tab_context(class_obj)
-                context.update(get_attendance_tab_context(class_obj))
+                response = HttpResponse(status=204)
+                response['HX-Refresh'] = 'true'
+                return response
 
-                # 2. Render the Student List (OOB swap)
-                tab_html = render(request, 'academics/includes/tab_register_content.html', context).content.decode('utf-8')
-                tab_oob = f'<div id="tab-register" class="p-4" hx-swap-oob="true">{tab_html}</div>'
-
-                # 3. Render the Stats Card (OOB Swap)
-                stats_html = render(request, 'academics/partials/card_class_stats.html', context).content.decode('utf-8')
-                stats_html = stats_html.replace('id="class-stats"', 'id="class-stats" hx-swap-oob="true"')
-
-                # 4. Close Modal Script
-                script = "<script>modal_edit.close()</script>"
-
-                return HttpResponse(tab_oob + stats_html + script)
-                
             return redirect('academics:class_detail', pk=pk)
     else:
         form = StudentEnrollmentForm(class_instance=class_obj)
-        
+
     return render(request, 'academics/partials/modal_student_enroll.html', {
         'form': form, 'class': class_obj
     })
@@ -580,24 +599,15 @@ def class_student_remove(request, class_pk, student_pk):
     """Remove a student from a class."""
     if request.method != 'POST':
         return HttpResponse(status=405)
-        
+
     student = get_object_or_404(Student, pk=student_pk, current_class_id=class_pk)
     student.current_class = None
     student.save()
-    
+
     if request.htmx:
-        class_obj = get_object_or_404(Class, pk=class_pk)
-        context = get_register_tab_context(class_obj)
-        context.update(get_attendance_tab_context(class_obj))
-
-        # 1. Render Updated List (direct to target)
-        tab_html = render(request, 'academics/includes/tab_register_content.html', context).content.decode('utf-8')
-
-        # 2. Render Updated Stats (OOB Swap)
-        stats_html = render(request, 'academics/partials/card_class_stats.html', context).content.decode('utf-8')
-        stats_html = stats_html.replace('id="class-stats"', 'id="class-stats" hx-swap-oob="true"')
-
-        return HttpResponse(tab_html + stats_html)
+        response = HttpResponse(status=204)
+        response['HX-Refresh'] = 'true'
+        return response
 
     return redirect('academics:class_detail', pk=class_pk)
 
@@ -634,22 +644,12 @@ def class_attendance_take(request, pk):
                 defaults={'status': new_status}
             )
             
-        # HTMX Success: Update Sidebar + Stats
+        # HTMX Success: Refresh page to show updated data
         if request.htmx:
-            context = get_register_tab_context(class_obj)
-            context.update(get_attendance_tab_context(class_obj))
+            response = HttpResponse(status=204)
+            response['HX-Refresh'] = 'true'
+            return response
 
-            # 1. Attendance Sidebar Card (OOB)
-            attendance_html = render(request, 'academics/partials/card_attendance_sidebar.html', context).content.decode('utf-8')
-            attendance_html = attendance_html.replace('id="card-attendance"', 'id="card-attendance" hx-swap-oob="true"')
-
-            # 2. Stats Card (OOB)
-            stats_html = render(request, 'academics/partials/card_class_stats.html', context).content.decode('utf-8')
-            stats_html = stats_html.replace('id="class-stats"', 'id="class-stats" hx-swap-oob="true"')
-
-            script = "<script>modal_edit.close()</script>"
-            return HttpResponse(attendance_html + stats_html + script)
-            
         return redirect('academics:class_detail', pk=pk)
 
     # GET Request: Prepare data for the form
@@ -793,46 +793,11 @@ def class_promote(request, pk):
                 except Exception as e:
                     errors.append(f'Error: {str(e)}')
 
-        # HTMX Response with OOB updates
+        # HTMX Response: Refresh page to show updated data
         if request.htmx:
-            context = get_register_tab_context(class_obj)
-            context.update(get_attendance_tab_context(class_obj))
-            context.update(get_promotion_history_context(class_obj))
-
-            # 1. Student Register (OOB)
-            tab_html = render(request, 'academics/includes/tab_register_content.html', context).content.decode('utf-8')
-            tab_oob = f'<div id="tab-register" class="p-4" hx-swap-oob="true">{tab_html}</div>'
-
-            # 2. Stats Card (OOB)
-            stats_html = render(request, 'academics/partials/card_class_stats.html', context).content.decode('utf-8')
-            stats_html = stats_html.replace('id="class-stats"', 'id="class-stats" hx-swap-oob="true"')
-
-            # 3. Promotion History Card (OOB)
-            promo_html = render(request, 'academics/partials/card_promotion_history.html', context).content.decode('utf-8')
-            promo_html = promo_html.replace('id="card-promotion"', 'id="card-promotion" hx-swap-oob="true"')
-
-            # Build result message
-            results = []
-            if promoted_count:
-                results.append(f'{promoted_count} promoted')
-            if repeated_count:
-                results.append(f'{repeated_count} repeating')
-            if graduated_count:
-                results.append(f'{graduated_count} graduated')
-
-            result_msg = ', '.join(results) if results else 'No changes made'
-
-            # Success modal content
-            success_html = f'''
-            <div class="text-center py-6">
-                <div class="text-5xl text-success mb-4"><i class="fa-solid fa-check-circle"></i></div>
-                <h3 class="text-lg font-bold mb-2">Promotion Complete</h3>
-                <p class="text-base-content/70">{result_msg}</p>
-                <button type="button" class="btn btn-primary mt-4" onclick="modal_edit.close()">Close</button>
-            </div>
-            '''
-
-            return HttpResponse(success_html + tab_oob + stats_html + promo_html)
+            response = HttpResponse(status=204)
+            response['HX-Refresh'] = 'true'
+            return response
 
         return redirect('academics:class_detail', pk=pk)
 
@@ -871,19 +836,9 @@ def class_attendance_edit(request, pk, session_pk):
             )
 
         if request.htmx:
-            context = get_register_tab_context(class_obj)
-            context.update(get_attendance_tab_context(class_obj))
-
-            # 1. Attendance Sidebar Card (OOB)
-            attendance_html = render(request, 'academics/partials/card_attendance_sidebar.html', context).content.decode('utf-8')
-            attendance_html = attendance_html.replace('id="card-attendance"', 'id="card-attendance" hx-swap-oob="true"')
-
-            # 2. Stats Card (OOB)
-            stats_html = render(request, 'academics/partials/card_class_stats.html', context).content.decode('utf-8')
-            stats_html = stats_html.replace('id="class-stats"', 'id="class-stats" hx-swap-oob="true"')
-
-            script = "<script>modal_edit.close()</script>"
-            return HttpResponse(attendance_html + stats_html + script)
+            response = HttpResponse(status=204)
+            response['HX-Refresh'] = 'true'
+            return response
 
         return redirect('academics:class_detail', pk=pk)
 
@@ -905,3 +860,113 @@ def class_attendance_edit(request, pk, session_pk):
         'date': session.date,
         'is_edit': True
     })
+
+
+@login_required
+def class_export(request, pk):
+    """Export class register to Excel."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+    from openpyxl.utils import get_column_letter
+    from django.http import HttpResponse as DjangoHttpResponse
+    from core.models import SchoolSettings
+
+    class_obj = get_object_or_404(Class, pk=pk)
+    students = Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('last_name', 'first_name')
+
+    school = SchoolSettings.load()
+
+    # Create workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"{class_obj.name} Register"
+
+    # Styles
+    header_font = Font(bold=True, size=14)
+    subheader_font = Font(bold=True, size=11)
+    table_header_font = Font(bold=True, size=10, color="FFFFFF")
+    table_header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+
+    # School Header
+    ws.merge_cells('A1:F1')
+    ws['A1'] = school.display_name or request.tenant.name
+    ws['A1'].font = header_font
+    ws['A1'].alignment = Alignment(horizontal='center')
+
+    # Class Info
+    ws.merge_cells('A2:F2')
+    ws['A2'] = f"{class_obj.name} - {class_obj.level_display}"
+    ws['A2'].font = subheader_font
+    ws['A2'].alignment = Alignment(horizontal='center')
+
+    # Date
+    ws.merge_cells('A3:F3')
+    ws['A3'] = f"Generated: {timezone.now().strftime('%B %d, %Y')}"
+    ws['A3'].alignment = Alignment(horizontal='center')
+
+    # Empty row
+    ws.append([])
+
+    # Table Headers
+    headers = ['#', 'Admission No.', 'Full Name', 'Gender', 'Guardian', 'Phone']
+    ws.append(headers)
+    header_row = 5
+
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.font = table_header_font
+        cell.fill = table_header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+
+    # Student Data
+    for idx, student in enumerate(students, 1):
+        row_data = [
+            idx,
+            student.admission_number,
+            student.full_name,
+            student.get_gender_display(),
+            student.guardian_name or '-',
+            student.guardian_phone or '-',
+        ]
+        ws.append(row_data)
+
+        # Apply borders
+        for col_num in range(1, len(row_data) + 1):
+            cell = ws.cell(row=header_row + idx, column=col_num)
+            cell.border = border
+            if col_num == 1:
+                cell.alignment = Alignment(horizontal='center')
+
+    # Set column widths
+    column_widths = [5, 15, 30, 10, 25, 15]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+
+    # Summary row
+    summary_row = header_row + len(students) + 2
+    ws.cell(row=summary_row, column=1, value=f"Total Students: {students.count()}")
+    ws.cell(row=summary_row, column=1).font = Font(bold=True)
+
+    male_count = students.filter(gender='M').count()
+    female_count = students.filter(gender='F').count()
+    ws.cell(row=summary_row + 1, column=1, value=f"Male: {male_count} | Female: {female_count}")
+
+    # Create response
+    response = DjangoHttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"{class_obj.name.replace(' ', '_')}_Register.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    wb.save(response)
+    return response
