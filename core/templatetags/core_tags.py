@@ -31,6 +31,18 @@ NAVIGATION_CONFIG = [
         'icon': 'fa-solid fa-graduation-cap',
         'url_name': 'academics:index',
         'roles': ['school_admin', 'superuser'],
+        'children': [
+            {
+                'label': 'Classes',
+                'icon': 'fa-solid fa-chalkboard',
+                'url_name': 'academics:index',
+            },
+            {
+                'label': 'Attendance',
+                'icon': 'fa-solid fa-clipboard-check',
+                'url_name': 'academics:attendance_reports',
+            },
+        ]
     },
     {
         'label': 'Finance',
@@ -145,7 +157,7 @@ def resolve_url(url_name):
         return '#'
 
 
-def is_url_active(request, url, url_name):
+def is_url_active(request, url, url_name, exact=False):
     """Check if the current request path matches the nav item."""
     if url == '#':
         return False
@@ -153,6 +165,9 @@ def is_url_active(request, url, url_name):
     # Exact match when either URL or current path is root
     if url == '/' or current_path == '/':
         return current_path == url
+    # For exact matching (used by child items)
+    if exact:
+        return current_path == url or current_path.rstrip('/') == url.rstrip('/')
     return current_path == url or current_path.startswith(url.rstrip('/') + '/')
 
 
@@ -170,9 +185,27 @@ def process_nav_item(item, request):
 
     if 'children' in item:
         children = []
+        current_path = request.path
+
+        # First pass: check for startswith matches and find best match
+        child_matches = []
         for child in item['children']:
             child_url = resolve_url(child['url_name'])
-            child_is_active = is_url_active(request, child_url, child['url_name'])
+            if child_url != '#':
+                url_base = child_url.rstrip('/')
+                if current_path == child_url or current_path.rstrip('/') == url_base or current_path.startswith(url_base + '/'):
+                    child_matches.append((child, child_url, len(child_url)))
+
+        # Find the longest matching URL (most specific match)
+        best_match_url = None
+        if child_matches:
+            best_match = max(child_matches, key=lambda x: x[2])
+            best_match_url = best_match[1]
+
+        # Second pass: build children list with correct active state
+        for child in item['children']:
+            child_url = resolve_url(child['url_name'])
+            child_is_active = (child_url == best_match_url) if best_match_url else False
             children.append({
                 'label': child['label'],
                 'icon': child['icon'],

@@ -336,8 +336,44 @@
             const currentPath = window.location.pathname;
             const navLinks = document.querySelectorAll('#desktop-nav a, #mobile-nav a');
 
+            // First pass: find all matching links and group by parent menu
+            const menuGroups = new Map();
             navLinks.forEach(link => {
                 const href = link.getAttribute('href');
+                if (!href) return;
+
+                const hrefBase = href.replace(/\/$/, '');
+                let isMatch = false;
+
+                if (href === '/' || currentPath === '/') {
+                    isMatch = currentPath === href;
+                } else {
+                    isMatch = currentPath === href || currentPath.replace(/\/$/, '') === hrefBase || currentPath.startsWith(hrefBase + '/');
+                }
+
+                if (isMatch) {
+                    // Group by parent ul (for submenu items)
+                    const parentUl = link.closest('ul');
+                    const key = parentUl ? parentUl : 'root';
+                    if (!menuGroups.has(key)) {
+                        menuGroups.set(key, []);
+                    }
+                    menuGroups.get(key).push({ link, href, length: href.length });
+                }
+            });
+
+            // Second pass: for each group, only activate the longest match
+            const activeLinks = new Set();
+            menuGroups.forEach(matches => {
+                if (matches.length > 0) {
+                    // Find the longest matching href (most specific)
+                    const best = matches.reduce((a, b) => a.length > b.length ? a : b);
+                    activeLinks.add(best.link);
+                }
+            });
+
+            // Third pass: apply classes
+            navLinks.forEach(link => {
                 const isDesktop = link.closest('#desktop-nav') !== null;
 
                 // Remove all active classes
@@ -346,15 +382,7 @@
                     link.classList.add('hover:bg-base-200');
                 }
 
-                // Check if this link should be active
-                let isActive = false;
-                if (href === '/' || currentPath === '/') {
-                    isActive = currentPath === href;
-                } else {
-                    isActive = currentPath === href || currentPath.startsWith(href.replace(/\/$/, '') + '/');
-                }
-
-                if (isActive) {
+                if (activeLinks.has(link)) {
                     link.classList.add('active', 'bg-primary/10', 'text-primary');
                     link.classList.remove('hover:bg-base-200');
                     if (isDesktop) {
