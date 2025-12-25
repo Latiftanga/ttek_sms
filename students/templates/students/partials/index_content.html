@@ -38,37 +38,54 @@
     </div>
 
     <!-- Search & Filters -->
-    <form method="get" class="flex gap-2">
-        <input type="text"
-               name="search"
-               value="{{ search }}"
-               placeholder="Search name or admission number..."
-               class="input flex-1 min-w-0" />
-        <select name="class" class="select select-sm w-auto">
-            <option value="">All Classes</option>
-            {% for cls in classes %}
-            <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"s" %}selected{% endif %}>
-                {{ cls.name }}
-            </option>
-            {% endfor %}
-        </select>
-        <select name="status" class="select select-sm w-auto">
-            <option value="">All Status</option>
-            {% for value, label in status_choices %}
-            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
-                {{ label }}
-            </option>
-            {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-sm btn-primary">
-            <i class="fa-solid fa-search"></i>
-        </button>
-        {% if search or class_filter or status_filter %}
-        <a href="{% url 'students:index' %}" class="btn btn-sm btn-ghost">
-            <i class="fa-solid fa-times"></i>
-        </a>
-        {% endif %}
-    </form>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <form method="get"
+                  hx-get="{% url 'students:index' %}"
+                  hx-target="#main-content"
+                  hx-push-url="true"
+                  hx-trigger="submit, change from:select"
+                  class="flex flex-wrap gap-2">
+                <div class="flex-1 min-w-[200px] relative">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-sm"></i>
+                    <input type="text"
+                           name="search"
+                           value="{{ search }}"
+                           placeholder="Search name or admission number..."
+                           class="input input-sm w-full pl-9"
+                           hx-get="{% url 'students:index' %}"
+                           hx-target="#main-content"
+                           hx-trigger="keyup changed delay:300ms"
+                           hx-include="[name='class'], [name='status']" />
+                </div>
+                <select name="class" class="select select-sm w-auto">
+                    <option value="">All Classes</option>
+                    {% for cls in classes %}
+                    <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ cls.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <select name="status" class="select select-sm w-auto">
+                    <option value="">All Status</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if search or class_filter or status_filter %}
+                <a href="{% url 'students:index' %}"
+                   hx-get="{% url 'students:index' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-sm btn-ghost text-error">
+                    <i class="fa-solid fa-times"></i> Clear
+                </a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
 
     <!-- Students Table -->
     <div class="card bg-base-100 shadow-sm border border-base-200">

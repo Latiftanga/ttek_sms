@@ -1,34 +1,46 @@
 {% load core_tags %}
 
-<div class="max-w-7xl mx-auto">
-    <!-- Compact Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-            <div class="breadcrumbs text-sm mb-1">
-                <ul>
+<div class="print:max-w-none">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between mb-6 print:!hidden">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'academics:index' %}"
+               hx-get="{% url 'academics:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-2xl font-bold">{{ class.name }}</h1>
+                <p class="text-sm text-base-content/60">
+                    {{ class.level_display }}{% if class.programme %} &bull; {{ class.programme.name }}{% endif %}
+                </p>
+            </div>
+            <span class="badge {{ class.is_active|yesno:'badge-success,badge-ghost' }}">
+                {{ class.is_active|yesno:'Active,Inactive' }}
+            </span>
+        </div>
+        <div class="flex gap-2">
+            <!-- Export Dropdown -->
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
+                    <i class="fa-solid fa-download"></i>
+                    <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
+                </div>
+                <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-44 border border-base-200">
                     <li>
-                        <a hx-get="{% url 'academics:index' %}?tab=classes" hx-target="#main-content" hx-push-url="true" class="hover:text-primary">
-                            <i class="fa-solid fa-graduation-cap mr-1"></i> Academics
+                        <a href="{% url 'academics:class_export' class.pk %}">
+                            <i class="fa-solid fa-file-excel text-success w-4"></i> Export Excel
                         </a>
                     </li>
-                    <li class="font-medium">{{ class.name }}</li>
+                    <li>
+                        <button onclick="window.print()">
+                            <i class="fa-solid fa-file-pdf text-error w-4"></i> Print / PDF
+                        </button>
+                    </li>
                 </ul>
             </div>
-            <div class="flex items-center gap-3">
-                <h1 class="text-2xl font-bold">{{ class.name }}</h1>
-                <span class="badge badge-sm {{ class.is_active|yesno:'badge-success,badge-ghost' }}">
-                    {{ class.is_active|yesno:'Active,Inactive' }}
-                </span>
-            </div>
-            <p class="text-sm text-base-content/60 mt-0.5">
-                {{ class.level_display }}{% if class.programme %} &bull; {{ class.programme.name }}{% endif %}
-            </p>
-        </div>
-
-        <div class="flex gap-2">
-            <button class="btn btn-sm btn-ghost" onclick="window.print()">
-                <i class="fa-solid fa-print"></i>
-            </button>
             <button class="btn btn-sm btn-outline btn-success"
                     hx-get="{% url 'academics:class_promote' class.pk %}"
                     hx-target="#modal-edit-content"
@@ -36,7 +48,7 @@
                 <i class="fa-solid fa-arrow-up-right-dots"></i>
                 Promote
             </button>
-            <button class="btn btn-sm btn-outline"
+            <button class="btn btn-sm btn-primary"
                     hx-get="{% url 'academics:class_edit' class.pk %}"
                     hx-target="#modal-edit-content"
                     onclick="modal_edit.showModal()">
@@ -46,19 +58,213 @@
         </div>
     </div>
 
-    <!-- Main Dashboard Grid -->
+    <!-- Print Header -->
+    <div class="hidden print:!block print:mb-6 print:border-b print:border-black print:pb-3">
+        <div class="text-center">
+            <h1 class="text-lg font-bold uppercase">Class Register</h1>
+            <h2 class="text-xl font-bold mt-2">{{ class.name }}</h2>
+            <p class="text-sm">{{ class.level_display }}{% if class.programme %} - {{ class.programme.name }}{% endif %}</p>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- LEFT: Primary Content (Student Register) - Takes 2 columns -->
-        <div class="lg:col-span-2 space-y-6">
+        <!-- Left Column: Class Info & Stats -->
+        <div class="lg:col-span-1 space-y-4">
+
+            <!-- Class Info Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5 items-center text-center">
+                    <!-- Class Icon -->
+                    <div class="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
+                        <span class="text-2xl font-bold text-primary">{{ class.name }}</span>
+                    </div>
+
+                    <h2 class="text-lg font-bold">{{ class.level_display }}</h2>
+                    {% if class.programme %}
+                    <p class="text-sm text-base-content/60">{{ class.programme.name }}</p>
+                    {% endif %}
+
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-3 gap-2 w-full mt-4 print:!hidden">
+                        <div class="text-center p-2 rounded-lg bg-primary/10">
+                            <div class="text-xl font-bold text-primary">{{ students.count }}</div>
+                            <div class="text-xs text-base-content/60">Students</div>
+                        </div>
+                        <div class="text-center p-2 rounded-lg bg-info/10">
+                            <div class="text-xl font-bold text-info">{{ gender_stats.male }}</div>
+                            <div class="text-xs text-base-content/60">Male</div>
+                        </div>
+                        <div class="text-center p-2 rounded-lg bg-secondary/10">
+                            <div class="text-xl font-bold text-secondary">{{ gender_stats.female }}</div>
+                            <div class="text-xs text-base-content/60">Female</div>
+                        </div>
+                    </div>
+
+                    <!-- Print Stats -->
+                    <p class="hidden print:!block text-sm mt-2">
+                        {{ students.count }} Students ({{ gender_stats.male }} Male, {{ gender_stats.female }} Female)
+                    </p>
+
+                    <!-- Capacity Bar -->
+                    <div class="w-full mt-3">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-base-content/60">Capacity</span>
+                            <span class="font-medium">{{ students.count }}/{{ class.capacity }}</span>
+                        </div>
+                        <progress class="progress progress-primary w-full h-2" value="{{ students.count }}" max="{{ class.capacity }}"></progress>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Tutor Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm mb-3">Form Tutor</h3>
+                    {% if class.class_teacher %}
+                    <div class="flex items-center gap-3">
+                        <div class="avatar placeholder">
+                            <div class="w-12 h-12 rounded-full bg-primary/10 text-primary ring-2 ring-primary/20 flex items-center justify-center">
+                                {% if class.class_teacher.photo %}
+                                <img src="{{ class.class_teacher.photo.url }}" alt="" class="rounded-full" />
+                                {% else %}
+                                <span class="text-sm font-bold">
+                                    {{ class.class_teacher.first_name|slice:":1" }}{{ class.class_teacher.last_name|slice:":1" }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium">{{ class.class_teacher.get_title_display }} {{ class.class_teacher.full_name }}</p>
+                            <p class="text-xs text-base-content/60">{{ class.class_teacher.phone_number|default:"No phone" }}</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="flex items-center gap-3 text-base-content/50">
+                        <div class="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-user-slash"></i>
+                        </div>
+                        <div>
+                            <p class="font-medium">Not Assigned</p>
+                            <p class="text-xs">Assign a teacher in settings</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Attendance Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-sm">Attendance</h3>
+                        <button class="btn btn-xs btn-primary"
+                                hx-get="{% url 'academics:class_attendance_take' class.pk %}"
+                                hx-target="#modal-edit-content"
+                                onclick="modal_edit.showModal()">
+                            <i class="fa-solid fa-clipboard-check"></i> Take
+                        </button>
+                    </div>
+
+                    <!-- Attendance Rate -->
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="radial-progress text-success text-sm" style="--value:{{ attendance_percentage|default:0 }}; --size:3.5rem; --thickness:4px;" role="progressbar">
+                            {{ attendance_percentage }}%
+                        </div>
+                        <div>
+                            <p class="font-medium">Overall Rate</p>
+                            <p class="text-xs text-base-content/60">This term</p>
+                        </div>
+                    </div>
+
+                    {% if attendance_sessions %}
+                    <div class="divider my-2 text-xs">Recent</div>
+                    <div class="space-y-2">
+                        {% for session in attendance_sessions|slice:":3" %}
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-base-content/70">{{ session.date|date:"D, M d" }}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-success text-xs"><i class="fa-solid fa-check"></i> {{ session.present_count }}</span>
+                                <span class="text-error text-xs"><i class="fa-solid fa-xmark"></i> {{ session.absent_count }}</span>
+                                <button class="btn btn-ghost btn-xs btn-square"
+                                        hx-get="{% url 'academics:class_attendance_edit' class.pk session.pk %}"
+                                        hx-target="#modal-edit-content"
+                                        onclick="modal_edit.showModal()">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-base-content/50 text-center py-2">No records yet</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Subjects Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-sm">Subjects</h3>
+                        <button class="btn btn-xs btn-ghost"
+                                hx-get="{% url 'academics:class_subject_create' class.pk %}"
+                                hx-target="#modal-edit-content"
+                                onclick="modal_edit.showModal()">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+
+                    {% if subject_allocations %}
+                    <div class="space-y-2">
+                        {% for alloc in subject_allocations|slice:":5" %}
+                        <div class="flex items-center justify-between py-1">
+                            <div class="flex items-center gap-2 min-w-0">
+                                {% if alloc.subject.is_core %}
+                                <span class="badge badge-xs badge-primary">C</span>
+                                {% else %}
+                                <span class="badge badge-xs badge-ghost">E</span>
+                                {% endif %}
+                                <span class="text-sm truncate">{{ alloc.subject.name }}</span>
+                            </div>
+                            <span class="text-xs text-base-content/60 truncate max-w-20">
+                                {% if alloc.teacher %}{{ alloc.teacher.last_name }}{% else %}<span class="text-warning">TBA</span>{% endif %}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if subject_allocations.count > 5 %}
+                    <button class="btn btn-ghost btn-sm btn-block mt-2"
+                            onclick="document.getElementById('modal_subjects').showModal()">
+                        View All {{ subject_allocations.count }} Subjects
+                    </button>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4 text-base-content/50">
+                        <p class="text-sm">No subjects assigned</p>
+                        <button class="btn btn-ghost btn-xs mt-2"
+                                hx-get="{% url 'academics:class_subject_create' class.pk %}"
+                                hx-target="#modal-edit-content"
+                                onclick="modal_edit.showModal()">
+                            Add Subject
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Student Register -->
+        <div class="lg:col-span-2 space-y-4">
 
             <!-- Student Register Card -->
-            <div id="card-register" class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
                 <div class="card-body p-0">
                     <!-- Card Header -->
-                    <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-base-200 print:border-gray-300">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center print:!hidden">
                                 <i class="fa-solid fa-users text-primary"></i>
                             </div>
                             <div>
@@ -66,11 +272,16 @@
                                 <p class="text-xs text-base-content/60">{{ students.count }} of {{ class.capacity }} enrolled</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <label class="input input-sm input-bordered w-48 hidden sm:flex">
-                                <i class="fa-solid fa-search text-base-content/40"></i>
-                                <input type="search" placeholder="Search..." class="grow" />
-                            </label>
+                        <div class="flex items-center gap-2 print:!hidden">
+                            <!-- Search Input -->
+                            <div class="relative">
+                                <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40 text-xs"></i>
+                                <input type="text"
+                                       id="register-search"
+                                       placeholder="Search..."
+                                       class="input input-sm pl-8 w-32 sm:w-40"
+                                       onkeyup="filterRegister(this.value)" />
+                            </div>
                             <button class="btn btn-sm btn-primary"
                                     hx-get="{% url 'academics:class_student_enroll' class.pk %}"
                                     hx-target="#modal-edit-content"
@@ -82,76 +293,82 @@
                     </div>
 
                     <!-- Student List -->
-                    <div id="tab-register" class="p-4">
+                    <div id="tab-register" class="p-4 print:p-0">
                         {% include "academics/includes/tab_register_content.html" %}
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- RIGHT: Sidebar (Stats, Attendance, Teachers) -->
-        <div class="space-y-4">
-
-            <!-- Quick Stats Card -->
-            <div id="class-stats" class="card bg-base-100 shadow-sm border border-base-200">
+            <!-- Enrollment History Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
                 <div class="card-body p-4">
-                    <h3 class="font-bold text-sm uppercase tracking-wider text-base-content/60 mb-3">
-                        Overview
-                    </h3>
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="font-semibold text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-primary"></i>
+                            Enrollment History
+                        </h2>
+                        <a href="{% url 'students:promotion' %}"
+                           hx-get="{% url 'students:promotion' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-xs btn-ghost text-success">
+                            <i class="fa-solid fa-arrow-up-right-dots"></i> Promote
+                        </a>
+                    </div>
 
-                    <!-- Form Tutor -->
-                    <div class="flex items-center gap-3 pb-3 border-b border-base-200">
-                        <div class="avatar placeholder">
-                            <div class="w-10 h-10 rounded-full bg-primary/10 text-primary ring-2 ring-primary/20 flex items-center justify-center">
-                                {% if class.class_teacher.photo %}
-                                <img src="{{ class.class_teacher.photo.url }}" alt="" class="rounded-full" />
+                    {% if promotion_stats %}
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div class="text-center p-3 rounded-lg bg-base-200/50">
+                            <div class="text-lg font-bold text-primary">{{ promotion_stats.active }}</div>
+                            <div class="text-xs text-base-content/60">Active</div>
+                        </div>
+                        <div class="text-center p-3 rounded-lg bg-base-200/50">
+                            <div class="text-lg font-bold text-info">{{ promotion_stats.promoted }}</div>
+                            <div class="text-xs text-base-content/60">Promoted</div>
+                        </div>
+                        <div class="text-center p-3 rounded-lg bg-base-200/50">
+                            <div class="text-lg font-bold text-success">{{ promotion_stats.graduated }}</div>
+                            <div class="text-xs text-base-content/60">Graduated</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if incoming_enrollments or outgoing_enrollments %}
+                    <div class="space-y-2 max-h-40 overflow-y-auto">
+                        {% for enroll in outgoing_enrollments %}
+                        <div class="flex items-center gap-2 py-1 text-sm border-b border-base-200 last:border-0">
+                            <span class="badge badge-xs {% if enroll.status == 'graduated' %}badge-success{% else %}badge-info{% endif %}">
+                                {% if enroll.status == 'graduated' %}
+                                <i class="fa-solid fa-graduation-cap"></i>
                                 {% else %}
-                                <span class="text-sm font-bold">
-                                    {{ class.class_teacher.first_name|slice:":1"|default:"?" }}{{ class.class_teacher.last_name|slice:":1" }}
-                                </span>
+                                <i class="fa-solid fa-arrow-up"></i>
                                 {% endif %}
-                            </div>
+                            </span>
+                            <span class="font-medium truncate flex-1">{{ enroll.student.full_name }}</span>
+                            <span class="text-xs text-base-content/50">
+                                {% if enroll.status == 'graduated' %}Graduated{% else %}&rarr; {{ enroll.class_assigned.name }}{% endif %}
+                            </span>
                         </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-xs text-base-content/60">Form Tutor</p>
-                            {% if class.class_teacher %}
-                            <p class="font-medium truncate">{{ class.class_teacher.get_title_display }} {{ class.class_teacher.last_name }}</p>
-                            {% else %}
-                            <p class="text-sm text-base-content/40 italic">Not assigned</p>
-                            {% endif %}
-                        </div>
+                        {% endfor %}
                     </div>
+                    {% else %}
+                    <p class="text-sm text-base-content/50 text-center py-2">No promotion history yet</p>
+                    {% endif %}
 
-                    <!-- Stats Grid -->
-                    <div class="grid grid-cols-2 gap-3 pt-3">
-                        <div class="text-center p-3 rounded-lg bg-base-200/50">
-                            <div class="text-2xl font-bold text-primary">{{ students.count }}</div>
-                            <div class="text-xs text-base-content/60">Students</div>
-                        </div>
-                        <div class="text-center p-3 rounded-lg bg-base-200/50">
-                            <div class="text-2xl font-bold text-success">{{ attendance_percentage }}%</div>
-                            <div class="text-xs text-base-content/60">Attendance</div>
-                        </div>
+                    {% if current_year %}
+                    <div class="text-xs text-base-content/40 mt-3 pt-2 border-t border-base-200 text-center">
+                        Academic Year: {{ current_year }}
                     </div>
-
-                    <!-- Capacity Bar -->
-                    <div class="pt-3">
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-base-content/60">Capacity</span>
-                            <span class="font-medium">{{ students.count }}/{{ class.capacity }}</span>
-                        </div>
-                        <progress class="progress progress-primary w-full h-2" value="{{ students.count }}" max="{{ class.capacity }}"></progress>
-                    </div>
+                    {% endif %}
                 </div>
             </div>
 
-            {% include "academics/partials/card_attendance_sidebar.html" %}
-
-            {% include "academics/partials/card_subjects_sidebar.html" %}
-
-            {% include "academics/partials/card_promotion_history.html" %}
-
         </div>
+    </div>
+
+    <!-- Print Footer -->
+    <div class="hidden print:!block print:mt-6 print:pt-3 print:border-t print:text-center print:text-xs">
+        Printed on {% now "M j, Y g:i A" %}
     </div>
 </div>
 
@@ -191,3 +408,28 @@
         <button>close</button>
     </form>
 </dialog>
+
+<script>
+    // Close all modals when closeModal event is triggered via HX-Trigger
+    document.body.addEventListener('closeModal', function() {
+        document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
+    });
+
+    // Filter student register table
+    function filterRegister(query) {
+        const rows = document.querySelectorAll('#tab-register tbody tr');
+        const q = query.toLowerCase().trim();
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(q) ? '' : 'none';
+        });
+
+        // Update count display
+        const visible = document.querySelectorAll('#tab-register tbody tr:not([style*="display: none"])').length;
+        const countEl = document.querySelector('#tab-register + .text-center');
+        if (countEl && q) {
+            countEl.textContent = `Showing ${visible} of {{ students.count }} students`;
+        }
+    }
+</script>

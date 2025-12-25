@@ -27,23 +27,28 @@ def htmx_render(request, full_template, partial_template, context=None):
 @login_required
 def index(request):
     """Dashboard/index view."""
+    from django.db.models import Count, Q
+    from django.utils import timezone
     from students.models import Student, Enrollment
-    from academics.models import Class
-    # Import Teacher model
+    from academics.models import Class, AttendanceSession, AttendanceRecord
     from teachers.models import Teacher
 
     # Get current academic year and term
     current_year = AcademicYear.get_current()
     current_term = Term.get_current()
+    today = timezone.now().date()
 
     # Get counts
-    student_count = Student.objects.filter(status='active').count()
-    # Get active teacher count
+    active_students = Student.objects.filter(status='active')
+    student_count = active_students.count()
+    male_count = active_students.filter(gender='M').count()
+    female_count = active_students.filter(gender='F').count()
+
     teacher_count = Teacher.objects.filter(status='active').count()
-    class_count = Class.objects.count()
+    class_count = Class.objects.filter(is_active=True).count()
 
     # Get recent students (last 5 added)
-    recent_students = Student.objects.order_by('-created_at')[:5]
+    recent_students = Student.objects.select_related('current_class').order_by('-created_at')[:5]
 
     # Get active enrollments for current year
     active_enrollments = 0
@@ -53,15 +58,59 @@ def index(request):
             status='active'
         ).count()
 
+    # Students by level
+    students_by_level = {
+        'kg': active_students.filter(current_class__level_type='kg').count(),
+        'primary': active_students.filter(current_class__level_type='primary').count(),
+        'jhs': active_students.filter(current_class__level_type='jhs').count(),
+        'shs': active_students.filter(current_class__level_type='shs').count(),
+        'unassigned': active_students.filter(current_class__isnull=True).count(),
+    }
+
+    # Today's attendance summary
+    today_sessions = AttendanceSession.objects.filter(date=today)
+    today_attendance = {
+        'sessions_taken': today_sessions.count(),
+        'total_classes': class_count,
+        'present': AttendanceRecord.objects.filter(
+            session__date=today, status__in=['P', 'L']
+        ).count(),
+        'absent': AttendanceRecord.objects.filter(
+            session__date=today, status='A'
+        ).count(),
+    }
+
+    # Classes needing attention (no attendance today)
+    classes_without_attendance = Class.objects.filter(
+        is_active=True
+    ).exclude(
+        attendance_sessions__date=today
+    ).select_related('class_teacher')[:5]
+
+    # Recent activity (enrollments, new students)
+    recent_enrollments = []
+    if current_year:
+        recent_enrollments = Enrollment.objects.filter(
+            academic_year=current_year
+        ).select_related(
+            'student', 'class_assigned'
+        ).order_by('-created_at')[:5]
+
     context = {
         'student_count': student_count,
-        'teacher_count': teacher_count,  # Updated with real count
+        'male_count': male_count,
+        'female_count': female_count,
+        'teacher_count': teacher_count,
         'class_count': class_count,
-        'parent_count': 0,  # TODO: Add when parents are tracked
         'current_year': current_year,
         'current_term': current_term,
         'active_enrollments': active_enrollments,
         'recent_students': recent_students,
+        'students_by_level': students_by_level,
+        'today_attendance': today_attendance,
+        'classes_without_attendance': classes_without_attendance,
+        'recent_enrollments': recent_enrollments,
+        'today': today,
     }
     return htmx_render(request, 'core/index.html', 'core/partials/index_content.html', context)
 
