@@ -1,0 +1,38 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-6">{% if is_create %}Add{% else %}Edit{% endif %} Subject</h3>
+<form method="post"
+      action="{% if subject %}{% url 'academics:subject_edit' subject.pk %}{% else %}{% url 'academics:subject_create' %}{% endif %}"
+      hx-post="{% if subject %}{% url 'academics:subject_edit' subject.pk %}{% else %}{% url 'academics:subject_create' %}{% endif %}"
+      hx-target="#subjects-container"
+      hx-swap="outerHTML">
+    {% csrf_token %}
+    <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+            {% floating_field form.name %}
+            {% floating_field form.short_name %}
+        </div>
+        {% floating_field form.code %}
+
+        <div class="flex items-center gap-4">
+            <label class="label cursor-pointer gap-2">
+                <input type="checkbox" name="is_core" class="checkbox checkbox-primary checkbox-sm" {% if form.is_core.value %}checked{% endif %}>
+                <span class="label-text">Core Subject</span>
+            </label>
+        </div>
+
+        <label class="label cursor-pointer justify-start gap-3">
+            <input type="checkbox" name="is_active" class="checkbox checkbox-primary" {% if form.is_active.value %}checked{% endif %}>
+            <span class="label-text">Active</span>
+        </label>
+    </div>
+    {% if form.errors %}
+    <div class="alert alert-error mt-4 py-2 text-sm">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>{{ form.non_field_errors.0|default:"Please fix the errors below." }}</span>
+    </div>
+    {% endif %}
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">{% if is_create %}Create{% else %}Save Changes{% endif %}</button>
+    </div>
+</form>

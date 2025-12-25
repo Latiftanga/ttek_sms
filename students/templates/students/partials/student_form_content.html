@@ -1,118 +1,147 @@
 {% load core_tags %}
-<div class="max-w-4xl mx-auto">
+<div>
     <!-- Page Header -->
-    <div class="flex items-center gap-4 mb-4">
-        <a href="{% url 'students:index' %}"
-           hx-get="{% url 'students:index' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-ghost btn-sm btn-circle">
-            <i class="fa-solid fa-arrow-left"></i>
-        </a>
-        <div>
-            <h1 class="text-xl font-bold">{% if student %}Edit Student{% else %}Add New Student{% endif %}</h1>
-            <p class="text-sm text-base-content/60">
-                {% if student %}Update student information{% else %}Enter student details{% endif %}
-            </p>
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'students:index' %}"
+               hx-get="{% url 'students:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold">{% if student %}Edit Student{% else %}Add New Student{% endif %}</h1>
+                <p class="text-sm text-base-content/60">
+                    {% if student %}Update student information{% else %}Enter student details{% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'students:index' %}"
+               hx-get="{% url 'students:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm">
+                Cancel
+            </a>
+            <button type="submit" form="student-form" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-save"></i>
+                {% if student %}Save Changes{% else %}Create Student{% endif %}
+            </button>
         </div>
     </div>
 
-    <form method="post"
+    <form id="student-form"
+          method="post"
           action="{% if student %}{% url 'students:student_edit' student.pk %}{% else %}{% url 'students:student_create' %}{% endif %}"
           enctype="multipart/form-data">
         {% csrf_token %}
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <!-- Left Column -->
-            <div class="space-y-4">
-                <!-- Personal Information -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left Column: Photo & Status -->
+            <div class="lg:col-span-1 space-y-4">
+                <!-- Photo Card -->
                 <div class="card bg-base-100 shadow-sm border border-base-200">
-                    <div class="card-body p-4">
-                        <h2 class="card-title text-sm">
-                            <i class="fa-solid fa-user text-primary"></i>
-                            Personal Information
-                        </h2>
-                        <div class="grid grid-cols-2 gap-3 mt-2">
-                            {% floating_field form.first_name %}
-                            {% floating_field form.last_name %}
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            {% floating_field form.other_names %}
-                            {% floating_field form.date_of_birth %}
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            {% floating_field form.gender %}
-                            {% floating_field form.phone %}
-                        </div>
-                        {% floating_field form.address %}
-                        <div>
-                            <label class="text-sm font-medium mb-1 block">Photo</label>
-                            <input type="file" name="photo" accept="image/*"
-                                   class="file-input file-input-bordered file-input-sm w-full" />
-                            {% if student.photo %}
-                            <div class="flex items-center gap-2 mt-1">
-                                <img src="{{ student.photo.url }}" alt="Current photo" class="w-8 h-8 rounded object-cover" />
-                                <span class="text-xs text-base-content/60">Current</span>
+                    <div class="card-body p-4 items-center text-center">
+                        <div class="avatar mb-3">
+                            <div class="w-32 h-32 rounded-full bg-base-200 flex items-center justify-center ring ring-primary ring-offset-base-100 ring-offset-2">
+                                {% if student.photo %}
+                                <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="rounded-full" />
+                                {% else %}
+                                <i class="fa-solid fa-user text-4xl text-base-content/30"></i>
+                                {% endif %}
                             </div>
-                            {% endif %}
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right Column -->
-            <div class="space-y-4">
-                <!-- Guardian Information -->
-                <div class="card bg-base-100 shadow-sm border border-base-200">
-                    <div class="card-body p-4">
-                        <h2 class="card-title text-sm">
-                            <i class="fa-solid fa-users text-primary"></i>
-                            Guardian Information
-                        </h2>
-                        <div class="grid grid-cols-2 gap-3 mt-2">
-                            {% floating_field form.guardian_name %}
-                            {% floating_field form.guardian_relationship %}
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            {% floating_field form.guardian_phone %}
-                            {% floating_field form.guardian_email %}
-                        </div>
-                        {% floating_field form.guardian_address %}
+                        <input type="file" name="photo" accept="image/*"
+                               class="file-input file-input-bordered file-input-sm w-full max-w-xs" />
+                        <p class="text-xs text-base-content/50 mt-1">JPG, PNG (max 2MB)</p>
                     </div>
                 </div>
 
-                <!-- Admission & Enrollment -->
+                <!-- Status Card -->
                 <div class="card bg-base-100 shadow-sm border border-base-200">
                     <div class="card-body p-4">
-                        <h2 class="card-title text-sm">
-                            <i class="fa-solid fa-school text-primary"></i>
-                            Admission & Enrollment
-                        </h2>
-                        <div class="grid grid-cols-2 gap-3 mt-2">
-                            {% floating_field form.admission_number %}
-                            {% floating_field form.admission_date %}
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            {% floating_field form.current_class %}
-                            {% floating_field form.status %}
-                        </div>
-                        <label class="label cursor-pointer justify-start gap-2 py-1">
+                        <h3 class="font-semibold text-sm mb-3">Status</h3>
+                        {% floating_field form.status %}
+                        <label class="label cursor-pointer justify-start gap-3 mt-2">
                             <input type="checkbox" name="is_active"
-                                   class="checkbox checkbox-primary checkbox-sm"
+                                   class="checkbox checkbox-primary"
                                    {% if form.is_active.value %}checked{% endif %} />
-                            <span class="label-text text-sm">Active</span>
+                            <span class="label-text">Active Student</span>
                         </label>
                     </div>
                 </div>
             </div>
+
+            <!-- Right Column: Main Form -->
+            <div class="lg:col-span-2 space-y-4">
+
+                <!-- Personal Information -->
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-5">
+                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                            <i class="fa-solid fa-user text-primary"></i>
+                            Personal Information
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {% floating_field form.first_name %}
+                            {% floating_field form.last_name %}
+                            {% floating_field form.other_names %}
+                            {% floating_field form.gender %}
+                            {% floating_field form.date_of_birth %}
+                            {% floating_field form.phone %}
+                        </div>
+                        <div class="mt-4">
+                            {% floating_field form.address %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Guardian Information -->
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-5">
+                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                            <i class="fa-solid fa-user-shield text-primary"></i>
+                            Guardian Information
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {% floating_field form.guardian_name %}
+                            {% floating_field form.guardian_relationship %}
+                            {% floating_field form.guardian_phone %}
+                            {% floating_field form.guardian_email %}
+                        </div>
+                        <div class="mt-4">
+                            {% floating_field form.guardian_address %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admission Details -->
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-5">
+                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                            <i class="fa-solid fa-id-card text-primary"></i>
+                            Admission Details
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {% floating_field form.admission_number %}
+                            {% floating_field form.admission_date %}
+                            {% floating_field form.current_class %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
 
         {% if form.errors %}
-        <div class="alert alert-error py-2 mt-4">
+        <div class="alert alert-error py-3 mt-6">
             <i class="fa-solid fa-exclamation-circle"></i>
             <div>
                 <p class="font-medium text-sm">Please fix the following errors:</p>
-                <ul class="text-xs mt-1">
+                <ul class="text-xs mt-1 list-disc list-inside">
                     {% for field in form %}
                         {% for error in field.errors %}
                         <li>{{ field.label }}: {{ error }}</li>
@@ -125,20 +154,5 @@
             </div>
         </div>
         {% endif %}
-
-        <!-- Actions -->
-        <div class="flex justify-end gap-3 mt-4">
-            <a href="{% url 'students:index' %}"
-               hx-get="{% url 'students:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-sm">
-                Cancel
-            </a>
-            <button type="submit" class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-save"></i>
-                {% if student %}Save Changes{% else %}Create Student{% endif %}
-            </button>
-        </div>
     </form>
 </div>

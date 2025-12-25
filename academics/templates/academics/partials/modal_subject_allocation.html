@@ -1,0 +1,45 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-6">Assign Subject to {{ class.name }}</h3>
+
+<form method="post"
+      action="{% url 'academics:class_subject_create' class.pk %}"
+      hx-post="{% url 'academics:class_subject_create' class.pk %}"
+      hx-target="#modal-edit-content"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+    
+    <div class="space-y-4">
+        {% if form.subject.field.queryset.count == 0 %}
+            <div class="alert alert-warning text-sm">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div>
+                    <p class="font-medium">No available subjects found.</p>
+                    <p class="text-xs mt-1">
+                        All subjects are already assigned to this class, or no active subjects exist.
+                    </p>
+                </div>
+            </div>
+        {% else %}
+            {% floating_field form.subject %}
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {% floating_field form.teacher %}
+                {% floating_field form.periods_per_week %}
+            </div>
+        {% endif %}
+    </div>
+
+    {% if form.errors %}
+    <div class="alert alert-error mt-4 py-2 text-sm">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>{{ form.non_field_errors.0|default:"Please correct the errors above." }}</span>
+    </div>
+    {% endif %}
+
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+        {% if form.subject.field.queryset.count > 0 %}
+        <button type="submit" class="btn btn-primary">Assign Subject</button>
+        {% endif %}
+    </div>
+</form>

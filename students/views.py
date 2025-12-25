@@ -501,10 +501,15 @@ def promotion(request):
         ).select_related('current_class').order_by('last_name', 'first_name')
 
         if students.exists():
+            # Determine if this is a final-year class (graduation eligible)
+            is_final_year = (
+                cls.level_type == Class.LevelType.SHS and cls.level_number == 3
+            )
             class_students.append({
                 'class': cls,
                 'students': students,
                 'count': students.count(),
+                'is_final_year': is_final_year,
             })
 
     # Get all classes for the target dropdown
@@ -546,6 +551,7 @@ def promotion_process(request):
 
     promoted_count = 0
     repeated_count = 0
+    graduated_count = 0
     errors = []
 
     # Get all student actions from the form
@@ -616,6 +622,18 @@ def promotion_process(request):
 
                     repeated_count += 1
 
+                elif action == 'graduate':
+                    # Mark current enrollment as graduated
+                    current_enrollment.status = Enrollment.Status.GRADUATED
+                    current_enrollment.save()
+
+                    # Update student status to graduated and clear current class
+                    student.status = Student.Status.GRADUATED
+                    student.current_class = None
+                    student.save()
+
+                    graduated_count += 1
+
             except Student.DoesNotExist:
                 errors.append(f'Student ID {student_id}: Not found')
             except Exception as e:
@@ -626,6 +644,8 @@ def promotion_process(request):
         messages.success(request, f'{promoted_count} student(s) promoted successfully.')
     if repeated_count:
         messages.info(request, f'{repeated_count} student(s) set to repeat.')
+    if graduated_count:
+        messages.success(request, f'{graduated_count} student(s) graduated successfully.')
     if errors:
         messages.warning(request, f'{len(errors)} error(s) occurred during promotion.')
 

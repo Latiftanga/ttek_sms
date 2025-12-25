@@ -1,0 +1,54 @@
+{% load core_tags %}
+
+<!-- Quick Stats Card - Used for OOB swaps -->
+<div id="class-stats" class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <h3 class="font-bold text-sm uppercase tracking-wider text-base-content/60 mb-3">
+            Overview
+        </h3>
+
+        <!-- Form Tutor -->
+        <div class="flex items-center gap-3 pb-3 border-b border-base-200">
+            <div class="avatar placeholder">
+                <div class="w-10 h-10 rounded-full bg-primary/10 text-primary ring-2 ring-primary/20 flex items-center justify-center">
+                    {% if class.class_teacher.photo %}
+                    <img src="{{ class.class_teacher.photo.url }}" alt="" class="rounded-full" />
+                    {% else %}
+                    <span class="text-sm font-bold">
+                        {{ class.class_teacher.first_name|slice:":1"|default:"?" }}{{ class.class_teacher.last_name|slice:":1" }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-xs text-base-content/60">Form Tutor</p>
+                {% if class.class_teacher %}
+                <p class="font-medium truncate">{{ class.class_teacher.get_title_display }} {{ class.class_teacher.last_name }}</p>
+                {% else %}
+                <p class="text-sm text-base-content/40 italic">Not assigned</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 gap-3 pt-3">
+            <div class="text-center p-3 rounded-lg bg-base-200/50">
+                <div class="text-2xl font-bold text-primary">{{ students.count }}</div>
+                <div class="text-xs text-base-content/60">Students</div>
+            </div>
+            <div class="text-center p-3 rounded-lg bg-base-200/50">
+                <div class="text-2xl font-bold text-success">{{ attendance_percentage }}%</div>
+                <div class="text-xs text-base-content/60">Attendance</div>
+            </div>
+        </div>
+
+        <!-- Capacity Bar -->
+        <div class="pt-3">
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-base-content/60">Capacity</span>
+                <span class="font-medium">{{ students.count }}/{{ class.capacity }}</span>
+            </div>
+            <progress class="progress progress-primary w-full h-2" value="{{ students.count }}" max="{{ class.capacity }}"></progress>
+        </div>
+    </div>
+</div>

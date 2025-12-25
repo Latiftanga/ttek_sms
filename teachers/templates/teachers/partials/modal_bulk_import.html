@@ -1,0 +1,68 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-4">Bulk Import Teachers</h3>
+
+<form method="post" 
+      action="{% url 'teachers:bulk_import' %}" 
+      hx-post="{% url 'teachers:bulk_import' %}" 
+      hx-target="#modal-bulk-content" 
+      hx-swap="innerHTML" 
+      enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+        <div class="alert alert-info py-3 shadow-sm">
+            <i class="fa-solid fa-circle-info"></i>
+            <div>
+                <p class="text-sm font-semibold">Step 1: Download Template</p>
+                <p class="text-xs opacity-80 mb-1">Use this Excel file to format your data correctly.</p>
+                <a href="{% url 'teachers:bulk_import_template' %}" 
+                   class="btn btn-xs btn-ghost border-info-content/20">
+                    <i class="fa-solid fa-download"></i> Download Template (.xlsx)
+                </a>
+            </div>
+        </div>
+
+        <div>
+            <label class="text-sm font-medium mb-2 block">Step 2: Upload File</label>
+            <input type="file" 
+                   name="file" 
+                   accept=".xlsx,.csv" 
+                   class="file-input file-input-bordered w-full" 
+                   required />
+            <p class="text-xs text-base-content/60 mt-1">Accepts .xlsx or .csv files</p>
+        </div>
+
+        <div class="collapse collapse-arrow bg-base-100 border border-base-200">
+            <input type="checkbox" /> 
+            <div class="collapse-title text-sm font-medium">
+                <i class="fa-solid fa-table-columns mr-2 text-primary"></i>
+                View Expected Columns
+            </div>
+            <div class="collapse-content"> 
+                <div class="flex flex-wrap gap-2 text-xs">
+                    {% for col in expected_columns %}
+                    <span class="badge badge-ghost badge-sm">{{ col }}</span>
+                    {% endfor %}
+                </div>
+                <p class="text-xs text-base-content/60 mt-2">
+                    <strong>Mandatory:</strong> first_name, last_name, staff_id, gender
+                </p>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-error py-2 text-sm">
+            <i class="fa-solid fa-exclamation-circle"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="modal_bulk.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-upload"></i>
+            Upload & Preview
+        </button>
+    </div>
+</form>

@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from teachers.models import Teacher
+from django.utils import timezone
 
 
 class Programme(models.Model):
@@ -87,6 +89,15 @@ class Class(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class_teacher = models.ForeignKey(
+        'teachers.Teacher',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_classes',
+        help_text="The form tutor or class teacher responsible for this class."
+    )
+
     class Meta:
         ordering = ['level_type', 'level_number', 'programme', 'section']
         verbose_name = "Class"
@@ -158,12 +169,6 @@ class Subject(models.Model):
         default=True,
         help_text="Core subjects are mandatory"
     )
-    # Which level types this subject applies to
-    for_kg = models.BooleanField(default=False, verbose_name="KG")
-    for_primary = models.BooleanField(default=True, verbose_name="Primary")
-    for_jhs = models.BooleanField(default=True, verbose_name="JHS")
-    for_shs = models.BooleanField(default=False, verbose_name="SHS")
-
     # SHS subjects can be programme-specific
     programmes = models.ManyToManyField(
         Programme,
@@ -184,16 +189,69 @@ class Subject(models.Model):
     def __str__(self):
         return self.name
 
-    @property
-    def applicable_levels(self):
-        """Return list of level types this subject applies to."""
-        levels = []
-        if self.for_kg:
-            levels.append('KG')
-        if self.for_primary:
-            levels.append('Primary')
-        if self.for_jhs:
-            levels.append('JHS')
-        if self.for_shs:
-            levels.append('SHS')
-        return levels
+
+class ClassSubject(models.Model):
+    """
+    Links a Class to a Subject and assigns a specific Teacher.
+    Example: 'Mr. Smith' teaches 'Mathematics' to 'JHS 2 B'.
+    """
+    class_assigned = models.ForeignKey(
+        Class, 
+        on_delete=models.CASCADE, 
+        related_name='subjects'
+    )
+    subject = models.ForeignKey(
+        Subject, 
+        on_delete=models.CASCADE,
+        related_name='class_allocations'
+    )
+    teacher = models.ForeignKey(
+        Teacher, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='subject_assignments'
+    )
+    
+    # Optional: Periods per week for timetable generation later
+    periods_per_week = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ['class_assigned', 'subject']
+        verbose_name = "Subject Allocation"
+        verbose_name_plural = "Subject Allocations"
+
+    def __str__(self):
+        return f"{self.subject.name} - {self.class_assigned.name}"
+
+
+class AttendanceSession(models.Model):
+    class_assigned = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='attendance_sessions')
+    date = models.DateField(default=timezone.now)
+    # Optional: 'Morning', 'Afternoon', or specific Subject
+    session_type = models.CharField(max_length=20, default='Daily', choices=[('Daily', 'Daily Register')]) 
+    created_by = models.ForeignKey('teachers.Teacher', on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['class_assigned', 'date', 'session_type']
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.class_assigned} - {self.date}"
+
+
+class AttendanceRecord(models.Model):
+    class Status(models.TextChoices):
+        PRESENT = 'P', 'Present'
+        ABSENT = 'A', 'Absent'
+        LATE = 'L', 'Late'
+        EXCUSED = 'E', 'Excused'
+
+    session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name='records')
+    student = models.ForeignKey('students.Student', on_delete=models.CASCADE, related_name='attendance_records')
+    status = models.CharField(max_length=1, choices=Status.choices, default=Status.PRESENT)
+    remarks = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        unique_together = ['session', 'student']

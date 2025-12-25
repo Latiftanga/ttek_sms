@@ -1,9 +1,10 @@
 {% load core_tags %}
-<h3 class="text-lg font-bold mb-6">Edit Class</h3>
+<h3 class="text-lg font-bold mb-6">{% if is_create %}Add{% else %}Edit{% endif %} Class</h3>
 <form method="post"
-      action="{% url 'academics:class_edit' class.pk %}"
-      hx-post="{% url 'academics:class_edit' class.pk %}"
-      hx-on::after-request="if(event.detail.successful) modal_edit.close()">
+      action="{% if class %}{% url 'academics:class_edit' class.pk %}{% else %}{% url 'academics:class_create' %}{% endif %}"
+      hx-post="{% if class %}{% url 'academics:class_edit' class.pk %}{% else %}{% url 'academics:class_create' %}{% endif %}"
+      hx-target="#classes-container"
+      hx-swap="outerHTML">
     {% csrf_token %}
     <div class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
@@ -14,6 +15,9 @@
             {% floating_field form.section %}
             {% floating_field form.capacity %}
         </div>
+
+        {% floating_field form.class_teacher "Class Teacher" %}
+
         {% floating_field form.programme %}
         <p class="text-xs text-base-content/60">Programme is only required for SHS classes</p>
         <label class="label cursor-pointer justify-start gap-3">
@@ -28,7 +32,7 @@
     </div>
     {% endif %}
     <div class="modal-action">
-        <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">{% if is_create %}Create{% else %}Save Changes{% endif %}</button>
     </div>
 </form>

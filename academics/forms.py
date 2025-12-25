@@ -1,5 +1,7 @@
 from django import forms
-from .models import Programme, Class, Subject
+from django.db.models import Q  # Import Q directly here
+from .models import Programme, Class, Subject, ClassSubject, AttendanceSession
+from students.models import Student
 
 
 class ProgrammeForm(forms.ModelForm):
@@ -23,7 +25,10 @@ class ClassForm(forms.ModelForm):
 
     class Meta:
         model = Class
-        fields = ['level_type', 'level_number', 'section', 'programme', 'capacity', 'is_active']
+        fields = [
+            'level_type', 'level_number', 'section', 
+            'programme', 'capacity', 'class_teacher', 'is_active'
+        ]
         widgets = {
             'section': forms.TextInput(attrs={'placeholder': 'A, B, C...'}),
             'capacity': forms.NumberInput(attrs={'min': 1, 'max': 100}),
@@ -31,11 +36,18 @@ class ClassForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
         self.fields['programme'].queryset = Programme.objects.filter(is_active=True)
         self.fields['programme'].required = False
+        
+        try:
+            from teachers.models import Teacher
+            self.fields['class_teacher'].queryset = Teacher.objects.filter(status='active').order_by('first_name')
+            self.fields['class_teacher'].label = "Form Tutor / Class Teacher"
+        except ImportError:
+            pass
 
     def clean_level_number(self):
-        """Convert level_number to integer."""
         value = self.cleaned_data.get('level_number')
         if value:
             return int(value)
@@ -47,15 +59,12 @@ class ClassForm(forms.ModelForm):
         programme = cleaned_data.get('programme')
         level_number = cleaned_data.get('level_number')
 
-        # SHS requires a programme
         if level_type == Class.LevelType.SHS and not programme:
             self.add_error('programme', 'Programme is required for SHS classes.')
 
-        # Basic levels don't need programme
         if level_type != Class.LevelType.SHS and programme:
             cleaned_data['programme'] = None
 
-        # Validate level numbers
         if level_type == Class.LevelType.KG and level_number and level_number > 2:
             self.add_error('level_number', 'KG only has levels 1-2.')
         elif level_type == Class.LevelType.PRIMARY and level_number and level_number > 6:
@@ -72,7 +81,7 @@ class SubjectForm(forms.ModelForm):
     """Form for creating/editing subjects."""
     class Meta:
         model = Subject
-        fields = ['name', 'short_name', 'code', 'is_core', 'for_kg', 'for_primary', 'for_jhs', 'for_shs', 'programmes', 'is_active']
+        fields = ['name', 'short_name', 'code', 'is_core', 'programmes', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'e.g., Mathematics'}),
             'short_name': forms.TextInput(attrs={'placeholder': 'e.g., MATH'}),
@@ -81,10 +90,6 @@ class SubjectForm(forms.ModelForm):
         }
         labels = {
             'is_core': 'Core Subject',
-            'for_kg': 'KG',
-            'for_primary': 'Primary',
-            'for_jhs': 'JHS',
-            'for_shs': 'SHS',
             'programmes': 'SHS Programmes (for electives)',
         }
 
@@ -92,3 +97,77 @@ class SubjectForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['programmes'].queryset = Programme.objects.filter(is_active=True)
         self.fields['programmes'].required = False
+
+
+class ClassSubjectForm(forms.ModelForm):
+    """
+    Form to assign a subject and teacher to a class.
+    Filters out already assigned subjects.
+    """
+    class Meta:
+        model = ClassSubject
+        fields = ['subject', 'teacher', 'periods_per_week']
+        widgets = {
+            'periods_per_week': forms.NumberInput(attrs={'min': 1, 'max': 10}),
+        }
+
+    def __init__(self, *args, class_instance=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # 1. Teacher Filter
+        try:
+            from teachers.models import Teacher
+            self.fields['teacher'].queryset = Teacher.objects.filter(status='active').order_by('first_name')
+            self.fields['teacher'].label = "Subject Teacher"
+        except ImportError:
+            pass
+
+        # 2. Subject Filter
+        if class_instance:
+            query = Q(is_active=True)
+
+            # For SHS classes, filter by programme if applicable
+            if class_instance.level_type == Class.LevelType.SHS and class_instance.programme:
+                query &= (Q(is_core=True) | Q(programmes=class_instance.programme))
+
+            # Exclude Already Assigned
+            existing_subjects = ClassSubject.objects.filter(
+                class_assigned=class_instance
+            ).values_list('subject_id', flat=True)
+
+            query &= ~Q(id__in=existing_subjects)
+
+            self.fields['subject'].queryset = Subject.objects.filter(query).distinct()
+            self.fields['subject'].label = f"Select Subject for {class_instance.name}"
+
+
+class StudentEnrollmentForm(forms.Form):
+    """
+    Form to enroll existing students into a class.
+    Uses a MultipleChoiceField so you can add multiple students at once.
+    """
+    students = forms.ModelMultipleChoiceField(
+        queryset=Student.objects.none(), # Populated in __init__
+        widget=forms.CheckboxSelectMultiple, # Or SelectMultiple
+        label="Select Students to Enroll"
+    )
+
+    def __init__(self, *args, class_instance=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if class_instance:
+            # Filter: Active students NOT in ANY class (unassigned students only)
+            self.fields['students'].queryset = Student.objects.filter(
+                status='active',
+                current_class__isnull=True
+            ).order_by('first_name', 'last_name')
+
+            self.fields['students'].label = f"Enroll Students into {class_instance.name}"
+
+
+class AttendanceSessionForm(forms.ModelForm):
+    class Meta:
+        model = AttendanceSession
+        fields = ['date']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'input input-bordered'})
+        }

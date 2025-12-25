@@ -1,0 +1,59 @@
+{% load core_tags %}
+
+<!-- Subject Teachers Sidebar Card -->
+<div id="card-subjects" class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm uppercase tracking-wider text-base-content/60">
+                Subject Teachers
+            </h3>
+            <button class="btn btn-xs btn-ghost"
+                    hx-get="{% url 'academics:class_subject_create' class.pk %}"
+                    hx-target="#modal-edit-content"
+                    onclick="modal_edit.showModal()">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </div>
+
+        {% if subject_allocations %}
+        <div class="space-y-2">
+            {% for alloc in subject_allocations|slice:":6" %}
+            <div class="flex items-center justify-between py-2 {% if not forloop.last %}border-b border-base-200{% endif %}">
+                <div class="flex items-center gap-2 min-w-0">
+                    {% if alloc.subject.is_core %}
+                    <span class="badge badge-xs badge-primary">C</span>
+                    {% else %}
+                    <span class="badge badge-xs badge-ghost">E</span>
+                    {% endif %}
+                    <span class="text-sm font-medium truncate">{{ alloc.subject.name }}</span>
+                </div>
+                <div class="text-xs text-base-content/60 truncate max-w-24">
+                    {% if alloc.teacher %}
+                    {{ alloc.teacher.last_name }}
+                    {% else %}
+                    <span class="text-warning">TBA</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if subject_allocations.count > 6 %}
+        <button class="btn btn-ghost btn-sm btn-block mt-2"
+                onclick="document.getElementById('modal_subjects').showModal()">
+            View All {{ subject_allocations.count }} Subjects
+        </button>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-6 text-base-content/50">
+            <i class="fa-solid fa-book text-2xl mb-2"></i>
+            <p class="text-sm">No subjects assigned</p>
+            <button class="btn btn-ghost btn-xs mt-2"
+                    hx-get="{% url 'academics:class_subject_create' class.pk %}"
+                    hx-target="#modal-edit-content"
+                    onclick="modal_edit.showModal()">
+                Add Subject
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>

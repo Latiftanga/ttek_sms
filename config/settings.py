@@ -28,6 +28,7 @@ SHARED_APPS = (
     'django_htmx',
     'tailwind',
     'theme',
+    'storages',  # django-storages for handling file storage
 )
 
 TENANT_APPS = (
@@ -41,6 +42,7 @@ TENANT_APPS = (
     'core',
     'academics',
     'students',
+    'teachers',
     'communications',
     'accounts',
 
@@ -152,6 +154,17 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
+
+MULTITENANT_RELATIVE_MEDIA_ROOT = 'schools/%s'
+
+STORAGES = {
+    "default": {
+        "BACKEND": 'core.storage.CustomSchemaStorage',
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 # 5. AUTH
 LOGIN_URL = 'accounts:login'

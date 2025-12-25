@@ -1,0 +1,45 @@
+{% load core_tags %}
+<div id="classes-container">
+    {% if classes %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <i class="fa-solid fa-chalkboard text-primary"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold">Classes</h2>
+                        <p class="text-xs text-base-content/60">
+                            {{ classes|length }} class{{ classes|length|pluralize:"es" }}
+                        </p>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-sm"
+                        onclick="document.getElementById('modal_class').showModal()">
+                    <i class="fa-solid fa-plus"></i>
+                    Add Class
+                </button>
+            </div>
+            {% include "academics/partials/class_table.html" with class_list=classes %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body items-center text-center py-16">
+            <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-chalkboard text-2xl text-base-content/40"></i>
+            </div>
+            <h3 class="font-bold text-lg">No Classes Yet</h3>
+            <p class="text-sm text-base-content/60 max-w-sm">
+                Start by creating your first class.
+            </p>
+            <button class="btn btn-primary btn-sm mt-4"
+                    onclick="document.getElementById('modal_class').showModal()">
+                <i class="fa-solid fa-plus"></i>
+                Create First Class
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>

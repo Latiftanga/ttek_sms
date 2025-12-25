@@ -23,7 +23,7 @@ NAVIGATION_CONFIG = [
     {
         'label': 'Teachers',
         'icon': 'fa-solid fa-chalkboard-user',
-        'url_name': 'core:teachers',
+        'url_name': 'teachers:index',
         'roles': ['school_admin', 'superuser'],
     },
     {
@@ -332,3 +332,9 @@ def floating_field(field, label=None, help_text=None):
         'is_file': 'file' in widget_type,
         'is_date': is_date_type,
     }
+
+
+@register.filter
+def split(value, arg):
+    """Split a string into a list."""
+    return value.split(arg)

@@ -1,0 +1,39 @@
+{% load core_tags %}
+<div id="programmes-container">
+    {% if programmes %}
+    <div class="space-y-1">
+        {% for prog in programmes %}
+        <div class="flex items-center justify-between py-1.5 px-2 rounded hover:bg-base-200">
+            <div class="flex items-center gap-2">
+                <span class="badge badge-sm font-mono">{{ prog.code }}</span>
+                <span class="text-sm">{{ prog.name }}</span>
+            </div>
+            <div class="flex gap-1">
+                <button class="btn btn-ghost btn-xs"
+                        hx-get="{% url 'academics:programme_edit' prog.pk %}"
+                        hx-target="#modal-programme-edit-content"
+                        hx-swap="innerHTML"
+                        onclick="document.getElementById('modal_programme_edit').showModal()">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                </button>
+                <form hx-post="{% url 'academics:programme_delete' prog.pk %}"
+                      hx-target="#programmes-container"
+                      hx-swap="outerHTML"
+                      hx-confirm="Delete {{ prog.name }}?"
+                      class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-xs text-error">
+                        <i class="fa-solid fa-trash text-xs"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-4 text-base-content/50">
+        <p class="text-sm">No programmes yet</p>
+        <p class="text-xs mt-1">Required for SHS classes</p>
+    </div>
+    {% endif %}
+</div>

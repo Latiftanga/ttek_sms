@@ -8,7 +8,6 @@ urlpatterns = [
     path('', views.index, name='index'),
 
     # School Admin routes
-    path('teachers/', views.teachers_list, name='teachers'),
     path('finance/', views.finance_overview, name='finance'),
     path('finance/invoices/', views.invoices, name='invoices'),
     path('finance/payments/', views.payments, name='payments'),

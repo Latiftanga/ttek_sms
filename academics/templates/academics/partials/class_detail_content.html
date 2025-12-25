@@ -1,0 +1,193 @@
+{% load core_tags %}
+
+<div class="max-w-7xl mx-auto">
+    <!-- Compact Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+            <div class="breadcrumbs text-sm mb-1">
+                <ul>
+                    <li>
+                        <a hx-get="{% url 'academics:index' %}?tab=classes" hx-target="#main-content" hx-push-url="true" class="hover:text-primary">
+                            <i class="fa-solid fa-graduation-cap mr-1"></i> Academics
+                        </a>
+                    </li>
+                    <li class="font-medium">{{ class.name }}</li>
+                </ul>
+            </div>
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-bold">{{ class.name }}</h1>
+                <span class="badge badge-sm {{ class.is_active|yesno:'badge-success,badge-ghost' }}">
+                    {{ class.is_active|yesno:'Active,Inactive' }}
+                </span>
+            </div>
+            <p class="text-sm text-base-content/60 mt-0.5">
+                {{ class.level_display }}{% if class.programme %} &bull; {{ class.programme.name }}{% endif %}
+            </p>
+        </div>
+
+        <div class="flex gap-2">
+            <button class="btn btn-sm btn-ghost" onclick="window.print()">
+                <i class="fa-solid fa-print"></i>
+            </button>
+            <button class="btn btn-sm btn-outline btn-success"
+                    hx-get="{% url 'academics:class_promote' class.pk %}"
+                    hx-target="#modal-edit-content"
+                    onclick="modal_edit.showModal()">
+                <i class="fa-solid fa-arrow-up-right-dots"></i>
+                Promote
+            </button>
+            <button class="btn btn-sm btn-outline"
+                    hx-get="{% url 'academics:class_edit' class.pk %}"
+                    hx-target="#modal-edit-content"
+                    onclick="modal_edit.showModal()">
+                <i class="fa-solid fa-gear"></i>
+                Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- LEFT: Primary Content (Student Register) - Takes 2 columns -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Student Register Card -->
+            <div id="card-register" class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-0">
+                    <!-- Card Header -->
+                    <div class="flex items-center justify-between p-4 border-b border-base-200">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <i class="fa-solid fa-users text-primary"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-bold">Student Register</h2>
+                                <p class="text-xs text-base-content/60">{{ students.count }} of {{ class.capacity }} enrolled</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="input input-sm input-bordered w-48 hidden sm:flex">
+                                <i class="fa-solid fa-search text-base-content/40"></i>
+                                <input type="search" placeholder="Search..." class="grow" />
+                            </label>
+                            <button class="btn btn-sm btn-primary"
+                                    hx-get="{% url 'academics:class_student_enroll' class.pk %}"
+                                    hx-target="#modal-edit-content"
+                                    onclick="modal_edit.showModal()">
+                                <i class="fa-solid fa-user-plus"></i>
+                                <span class="hidden sm:inline">Enroll</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Student List -->
+                    <div id="tab-register" class="p-4">
+                        {% include "academics/includes/tab_register_content.html" %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Sidebar (Stats, Attendance, Teachers) -->
+        <div class="space-y-4">
+
+            <!-- Quick Stats Card -->
+            <div id="class-stats" class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h3 class="font-bold text-sm uppercase tracking-wider text-base-content/60 mb-3">
+                        Overview
+                    </h3>
+
+                    <!-- Form Tutor -->
+                    <div class="flex items-center gap-3 pb-3 border-b border-base-200">
+                        <div class="avatar placeholder">
+                            <div class="w-10 h-10 rounded-full bg-primary/10 text-primary ring-2 ring-primary/20 flex items-center justify-center">
+                                {% if class.class_teacher.photo %}
+                                <img src="{{ class.class_teacher.photo.url }}" alt="" class="rounded-full" />
+                                {% else %}
+                                <span class="text-sm font-bold">
+                                    {{ class.class_teacher.first_name|slice:":1"|default:"?" }}{{ class.class_teacher.last_name|slice:":1" }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs text-base-content/60">Form Tutor</p>
+                            {% if class.class_teacher %}
+                            <p class="font-medium truncate">{{ class.class_teacher.get_title_display }} {{ class.class_teacher.last_name }}</p>
+                            {% else %}
+                            <p class="text-sm text-base-content/40 italic">Not assigned</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-2 gap-3 pt-3">
+                        <div class="text-center p-3 rounded-lg bg-base-200/50">
+                            <div class="text-2xl font-bold text-primary">{{ students.count }}</div>
+                            <div class="text-xs text-base-content/60">Students</div>
+                        </div>
+                        <div class="text-center p-3 rounded-lg bg-base-200/50">
+                            <div class="text-2xl font-bold text-success">{{ attendance_percentage }}%</div>
+                            <div class="text-xs text-base-content/60">Attendance</div>
+                        </div>
+                    </div>
+
+                    <!-- Capacity Bar -->
+                    <div class="pt-3">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-base-content/60">Capacity</span>
+                            <span class="font-medium">{{ students.count }}/{{ class.capacity }}</span>
+                        </div>
+                        <progress class="progress progress-primary w-full h-2" value="{{ students.count }}" max="{{ class.capacity }}"></progress>
+                    </div>
+                </div>
+            </div>
+
+            {% include "academics/partials/card_attendance_sidebar.html" %}
+
+            {% include "academics/partials/card_subjects_sidebar.html" %}
+
+            {% include "academics/partials/card_promotion_history.html" %}
+
+        </div>
+    </div>
+</div>
+
+<!-- General Edit Modal -->
+<dialog id="modal_edit" class="modal">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-edit-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Full Subjects Modal -->
+<dialog id="modal_subjects" class="modal">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <h3 class="font-bold text-lg mb-4">Subject Allocations</h3>
+        <div id="tab-teachers">
+            {% include "academics/includes/tab_teachers_content.html" %}
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>

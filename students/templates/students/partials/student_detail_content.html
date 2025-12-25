@@ -1,7 +1,7 @@
 {% load core_tags %}
-<div class="max-w-4xl mx-auto print:max-w-none">
-    <!-- Page Header (hidden when printing) -->
-    <div class="flex items-center justify-between mb-4 print:!hidden">
+<div class="print:max-w-none">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between mb-6 print:!hidden">
         <div class="flex items-center gap-4">
             <a href="{% url 'students:index' %}"
                hx-get="{% url 'students:index' %}"
@@ -11,12 +11,12 @@
                 <i class="fa-solid fa-arrow-left"></i>
             </a>
             <div>
-                <h1 class="text-xl font-bold">Student Details</h1>
-                <p class="text-sm text-base-content/60">{{ student.admission_number }}</p>
+                <h1 class="text-xl font-bold">{{ student.full_name }}</h1>
+                <p class="text-sm text-base-content/60 font-mono">{{ student.admission_number }}</p>
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="window.print()" class="btn btn-ghost btn-sm print-btn">
+            <button onclick="window.print()" class="btn btn-ghost btn-sm">
                 <i class="fa-solid fa-print"></i>
                 Print
             </button>
@@ -31,8 +31,8 @@
         </div>
     </div>
 
-    <!-- Print Header (only visible when printing) -->
-    <div class="hidden print:!block print:mb-4 print:border-b print:border-black print:pb-2">
+    <!-- Print Header -->
+    <div class="hidden print:!block print:mb-6 print:border-b print:border-black print:pb-3">
         <div class="flex items-center justify-center gap-4">
             {% if school.logo %}
             <img src="{{ school.logo.url }}" alt="Logo" class="h-16 w-16 object-contain" />
@@ -48,36 +48,34 @@
                 </p>
                 {% endif %}
             </div>
-            {% if school.logo %}
-            <div class="h-16 w-16"></div>
-            {% endif %}
+            {% if school.logo %}<div class="h-16 w-16"></div>{% endif %}
         </div>
-        <h2 class="text-base font-bold text-center mt-2 uppercase">Student Record</h2>
+        <h2 class="text-base font-bold text-center mt-3 uppercase">Student Record</h2>
     </div>
 
-    <!-- Student Profile Card -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
-        <div class="card-body p-4">
-            <div class="flex flex-col sm:flex-row gap-4 items-start">
-                <!-- Photo -->
-                <div class="avatar placeholder flex-shrink-0 print:!hidden">
-                    <div class="w-20 h-20 rounded-xl bg-base-300 text-base-content flex items-center justify-center">
-                        {% if student.photo %}
-                        <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover rounded-xl" />
-                        {% else %}
-                        <span class="text-2xl">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
-                        {% endif %}
-                    </div>
-                </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                <!-- Basic Info -->
-                <div class="flex-1">
-                    <h2 class="text-xl font-bold">{{ student.full_name }}</h2>
+        <!-- Left Column: Photo & Quick Info -->
+        <div class="lg:col-span-1 space-y-4">
+            <!-- Photo & Status Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5 items-center text-center">
+                    <div class="avatar mb-4">
+                        <div class="w-36 h-36 rounded-full bg-base-200 flex items-center justify-center ring ring-primary ring-offset-base-100 ring-offset-2">
+                            {% if student.photo %}
+                            <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="rounded-full object-cover" />
+                            {% else %}
+                            <span class="text-4xl font-bold text-base-content/30">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <h2 class="text-lg font-bold">{{ student.full_name }}</h2>
                     <p class="text-sm text-base-content/60 font-mono">{{ student.admission_number }}</p>
-                    <!-- Screen badges -->
-                    <div class="flex flex-wrap gap-2 mt-2 print:!hidden">
+
+                    <!-- Status Badges -->
+                    <div class="flex flex-wrap justify-center gap-2 mt-3 print:!hidden">
                         {% if student.current_class %}
-                        <span class="badge">{{ student.current_class.name }}</span>
+                        <span class="badge badge-primary">{{ student.current_class.name }}</span>
                         {% endif %}
                         {% if student.gender == 'M' %}
                         <span class="badge badge-info">Male</span>
@@ -96,233 +94,261 @@
                         <span class="badge badge-ghost">Transferred</span>
                         {% endif %}
                     </div>
-                    <!-- Print info line -->
-                    <p class="hidden print:!block text-sm mt-1">
+                    <!-- Print status line -->
+                    <p class="hidden print:!block text-sm mt-2">
                         {{ student.current_class.name|default:"No Class" }} | {{ student.get_gender_display }} | {{ student.get_status_display }}
                     </p>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Details Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-        <!-- Personal Information -->
-        <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
-            <div class="card-body p-4">
-                <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
-                    <i class="fa-solid fa-user print:!hidden"></i>
-                    Personal Information
-                </h3>
-                <dl class="space-y-2 text-sm mt-2">
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Full Name</dt>
-                        <dd class="font-medium">{{ student.full_name }}</dd>
+            <!-- Quick Stats Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm mb-3">Quick Info</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <i class="fa-solid fa-cake-candles text-primary text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="text-base-content/60 text-xs">Age</p>
+                                <p class="font-medium">{{ student.age }} years old</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                                <i class="fa-solid fa-calendar-check text-success text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="text-base-content/60 text-xs">Admitted</p>
+                                <p class="font-medium">{{ student.admission_date|date:"M j, Y" }}</p>
+                            </div>
+                        </div>
+                        {% if student.phone %}
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                                <i class="fa-solid fa-phone text-info text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="text-base-content/60 text-xs">Phone</p>
+                                <p class="font-medium">{{ student.phone }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Date of Birth</dt>
-                        <dd>{{ student.date_of_birth|date:"F j, Y" }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Age</dt>
-                        <dd>{{ student.age }} years</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Gender</dt>
-                        <dd>{{ student.get_gender_display }}</dd>
-                    </div>
-                    {% if student.phone %}
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Phone</dt>
-                        <dd>{{ student.phone }}</dd>
-                    </div>
-                    {% endif %}
-                    {% if student.address %}
-                    <div class="pt-1 border-t border-base-200">
-                        <dt class="text-base-content/60 text-xs">Address</dt>
-                        <dd class="mt-1">{{ student.address }}</dd>
-                    </div>
-                    {% endif %}
-                </dl>
+                </div>
             </div>
-        </div>
 
-        <!-- Guardian Information -->
-        <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
-            <div class="card-body p-4">
-                <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
-                    <i class="fa-solid fa-users print:!hidden"></i>
-                    Guardian Information
-                </h3>
-                <dl class="space-y-2 text-sm mt-2">
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Name</dt>
-                        <dd class="font-medium">{{ student.guardian_name }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Relationship</dt>
-                        <dd>{{ student.get_guardian_relationship_display }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Phone</dt>
-                        <dd>{{ student.guardian_phone }}</dd>
-                    </div>
-                    {% if student.guardian_email %}
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Email</dt>
-                        <dd>{{ student.guardian_email }}</dd>
-                    </div>
-                    {% endif %}
-                    {% if student.guardian_address %}
-                    <div class="pt-1 border-t border-base-200">
-                        <dt class="text-base-content/60 text-xs">Address</dt>
-                        <dd class="mt-1">{{ student.guardian_address }}</dd>
-                    </div>
-                    {% endif %}
-                </dl>
-            </div>
-        </div>
-
-        <!-- Admission Details -->
-        <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
-            <div class="card-body p-4">
-                <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
-                    <i class="fa-solid fa-school print:!hidden"></i>
-                    Admission Details
-                </h3>
-                <dl class="space-y-2 text-sm mt-2">
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Admission Number</dt>
-                        <dd class="font-mono font-medium">{{ student.admission_number }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Admission Date</dt>
-                        <dd>{{ student.admission_date|date:"F j, Y" }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Current Class</dt>
-                        <dd>{{ student.current_class.name|default:"-" }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Status</dt>
-                        <dd>{{ student.get_status_display }}</dd>
-                    </div>
-                </dl>
-            </div>
-        </div>
-
-        <!-- Account & System -->
-        <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border print:border-gray-300">
-            <div class="card-body p-4">
-                <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
-                    <i class="fa-solid fa-cog print:!hidden"></i>
-                    System Information
-                </h3>
-                <dl class="space-y-2 text-sm mt-2">
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">User Account</dt>
-                        <dd>
+            <!-- System Info Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm mb-3">System</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Account</span>
                             {% if student.user %}
                             <span class="badge badge-success badge-sm">Linked</span>
                             {% else %}
                             <span class="badge badge-ghost badge-sm">None</span>
                             {% endif %}
-                        </dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Active</dt>
-                        <dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Active</span>
                             {% if student.is_active %}
                             <span class="badge badge-success badge-sm">Yes</span>
                             {% else %}
                             <span class="badge badge-error badge-sm">No</span>
                             {% endif %}
-                        </dd>
+                        </div>
+                        <div class="flex justify-between text-xs text-base-content/50">
+                            <span>Created</span>
+                            <span>{{ student.created_at|date:"M j, Y" }}</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-base-content/50">
+                            <span>Updated</span>
+                            <span>{{ student.updated_at|date:"M j, Y" }}</span>
+                        </div>
                     </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Created</dt>
-                        <dd>{{ student.created_at|date:"M j, Y" }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-base-content/60">Last Updated</dt>
-                        <dd>{{ student.updated_at|date:"M j, Y" }}</dd>
-                    </div>
-                </dl>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="card bg-error/5 border border-error/20 print:!hidden">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm text-error mb-2">Danger Zone</h3>
+                    <p class="text-xs text-base-content/60 mb-3">Permanently delete this student record.</p>
+                    <form hx-post="{% url 'students:student_delete' student.pk %}"
+                          hx-confirm="Delete {{ student.full_name }}? This action cannot be undone.">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-error btn-sm btn-outline w-full">
+                            <i class="fa-solid fa-trash"></i>
+                            Delete Student
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Enrollment History -->
-    {% if enrollments %}
-    <div class="card bg-base-100 shadow-sm border border-base-200 mt-4 print:shadow-none print:border print:border-gray-300">
-        <div class="card-body p-4">
-            <h3 class="font-medium text-sm text-primary print:text-black flex items-center gap-2">
-                <i class="fa-solid fa-timeline print:!hidden"></i>
-                Enrollment History
-            </h3>
-            <div class="overflow-x-auto mt-2">
-                <table class="table table-sm">
-                    <thead>
-                        <tr class="text-xs">
-                            <th>Academic Year</th>
-                            <th>Class</th>
-                            <th>Status</th>
-                            <th>Enrolled On</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for enrollment in enrollments %}
-                        <tr>
-                            <td class="font-medium">{{ enrollment.academic_year }}</td>
-                            <td>
-                                <span class="badge badge-sm">{{ enrollment.class_assigned.name }}</span>
-                            </td>
-                            <td>
-                                {% if enrollment.status == 'active' %}
-                                <span class="badge badge-success badge-sm">Active</span>
-                                {% elif enrollment.status == 'promoted' %}
-                                <span class="badge badge-info badge-sm">Promoted</span>
-                                {% elif enrollment.status == 'repeated' %}
-                                <span class="badge badge-warning badge-sm">Repeated</span>
-                                {% elif enrollment.status == 'graduated' %}
-                                <span class="badge badge-primary badge-sm">Graduated</span>
-                                {% else %}
-                                <span class="badge badge-ghost badge-sm">{{ enrollment.get_status_display }}</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-xs text-base-content/60">{{ enrollment.enrolled_on|date:"M j, Y" }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <!-- Right Column: Details -->
+        <div class="lg:col-span-2 space-y-4">
+
+            <!-- Personal Information -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-user text-primary print:!hidden"></i>
+                        Personal Information
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Full Name</p>
+                            <p class="font-medium">{{ student.full_name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Date of Birth</p>
+                            <p>{{ student.date_of_birth|date:"F j, Y" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Gender</p>
+                            <p>{{ student.get_gender_display }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Age</p>
+                            <p>{{ student.age }} years</p>
+                        </div>
+                        {% if student.phone %}
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Phone</p>
+                            <p>{{ student.phone }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if student.address %}
+                    <div class="mt-4 pt-4 border-t border-base-200">
+                        <p class="text-xs text-base-content/60 mb-1">Address</p>
+                        <p>{{ student.address }}</p>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
-        </div>
-    </div>
-    {% endif %}
 
-    <!-- Actions (hidden when printing) -->
-    <div class="flex justify-between mt-4 print:!hidden">
-        <form hx-post="{% url 'students:student_delete' student.pk %}"
-              hx-confirm="Delete {{ student.full_name }}? This action cannot be undone.">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-error btn-sm btn-outline">
-                <i class="fa-solid fa-trash"></i>
-                Delete
-            </button>
-        </form>
-        <div class="flex gap-2">
-            <a href="{% url 'students:index' %}"
-               hx-get="{% url 'students:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-sm">
-                Back to List
-            </a>
+            <!-- Guardian Information -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-user-shield text-primary print:!hidden"></i>
+                        Guardian Information
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Guardian Name</p>
+                            <p class="font-medium">{{ student.guardian_name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Relationship</p>
+                            <p>{{ student.get_guardian_relationship_display }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Phone</p>
+                            <p>{{ student.guardian_phone }}</p>
+                        </div>
+                        {% if student.guardian_email %}
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Email</p>
+                            <p>{{ student.guardian_email }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if student.guardian_address %}
+                    <div class="mt-4 pt-4 border-t border-base-200">
+                        <p class="text-xs text-base-content/60 mb-1">Address</p>
+                        <p>{{ student.guardian_address }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Admission Details -->
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-id-card text-primary print:!hidden"></i>
+                        Admission Details
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Admission Number</p>
+                            <p class="font-mono font-medium">{{ student.admission_number }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Admission Date</p>
+                            <p>{{ student.admission_date|date:"F j, Y" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Current Class</p>
+                            <p>{{ student.current_class.name|default:"Not Assigned" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">Status</p>
+                            <p>{{ student.get_status_display }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enrollment History -->
+            {% if enrollments %}
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-timeline text-primary print:!hidden"></i>
+                        Enrollment History
+                    </h2>
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs">
+                                    <th>Academic Year</th>
+                                    <th>Class</th>
+                                    <th>Status</th>
+                                    <th>Enrolled On</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for enrollment in enrollments %}
+                                <tr>
+                                    <td class="font-medium">{{ enrollment.academic_year }}</td>
+                                    <td>
+                                        <span class="badge badge-sm">{{ enrollment.class_assigned.name }}</span>
+                                    </td>
+                                    <td>
+                                        {% if enrollment.status == 'active' %}
+                                        <span class="badge badge-success badge-sm">Active</span>
+                                        {% elif enrollment.status == 'promoted' %}
+                                        <span class="badge badge-info badge-sm">Promoted</span>
+                                        {% elif enrollment.status == 'repeated' %}
+                                        <span class="badge badge-warning badge-sm">Repeated</span>
+                                        {% elif enrollment.status == 'graduated' %}
+                                        <span class="badge badge-primary badge-sm">Graduated</span>
+                                        {% else %}
+                                        <span class="badge badge-ghost badge-sm">{{ enrollment.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-xs text-base-content/60">{{ enrollment.enrolled_on|date:"M j, Y" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
         </div>
     </div>
 
     <!-- Print Footer -->
-    <div class="hidden print:!block print:mt-4 print:pt-2 print:border-t print:text-center print:text-xs">
+    <div class="hidden print:!block print:mt-6 print:pt-3 print:border-t print:text-center print:text-xs">
         Printed on {% now "M j, Y g:i A" %}
     </div>
 </div>
