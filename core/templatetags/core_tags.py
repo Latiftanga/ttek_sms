@@ -64,9 +64,32 @@ NAVIGATION_CONFIG = [
     },
     {
         'label': 'Communications',
-        'icon': 'fa-solid fa-envelope',
-        'url_name': 'core:communications',
+        'icon': 'fa-solid fa-comment-sms',
+        'url_name': 'communications:index',
         'roles': ['school_admin', 'superuser'],
+    },
+    {
+        'label': 'Gradebook',
+        'icon': 'fa-solid fa-book-open',
+        'url_name': 'gradebook:index',
+        'roles': ['school_admin', 'superuser'],
+        'children': [
+            {
+                'label': 'Score Entry',
+                'icon': 'fa-solid fa-pen-to-square',
+                'url_name': 'gradebook:score_entry',
+            },
+            {
+                'label': 'Report Cards',
+                'icon': 'fa-solid fa-file-lines',
+                'url_name': 'gradebook:reports',
+            },
+            {
+                'label': 'Settings',
+                'icon': 'fa-solid fa-cog',
+                'url_name': 'gradebook:settings',
+            },
+        ]
     },
     # Teacher navigation
     {
@@ -84,7 +107,7 @@ NAVIGATION_CONFIG = [
     {
         'label': 'Grading',
         'icon': 'fa-solid fa-pen-to-square',
-        'url_name': 'core:grading',
+        'url_name': 'gradebook:score_entry',
         'roles': ['teacher'],
     },
     # Student navigation
@@ -371,3 +394,14 @@ def floating_field(field, label=None, help_text=None):
 def split(value, arg):
     """Split a string into a list."""
     return value.split(arg)
+
+
+@register.filter
+def get_item(dictionary, key):
+    """
+    Get an item from a dictionary by key.
+    Usage: {{ my_dict|get_item:key }}
+    """
+    if dictionary is None:
+        return None
+    return dictionary.get(key)

@@ -1,0 +1,123 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+            <a href="{% url 'communications:index' %}"
+               hx-get="{% url 'communications:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="hover:text-primary">Communications</a>
+            <i class="fa-solid fa-chevron-right text-xs"></i>
+            <span>Templates</span>
+        </div>
+        <h1 class="text-2xl font-bold">SMS Templates</h1>
+        <p class="text-sm text-base-content/60">Create reusable message templates</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'communications:index' %}"
+           hx-get="{% url 'communications:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back
+        </a>
+        <button class="btn btn-sm btn-primary"
+                hx-get="{% url 'communications:template_create' %}"
+                hx-target="#modal-template-content"
+                onclick="modal_template.showModal()">
+            <i class="fa-solid fa-plus"></i>
+            Add Template
+        </button>
+    </div>
+</div>
+
+<!-- Templates Grid -->
+{% if templates %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for template in templates %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <h3 class="font-bold">{{ template.name }}</h3>
+                    <span class="badge badge-ghost badge-sm">{{ template.get_message_type_display }}</span>
+                </div>
+                <div class="flex gap-1">
+                    {% if template.is_active %}
+                    <span class="badge badge-success badge-xs">Active</span>
+                    {% else %}
+                    <span class="badge badge-ghost badge-xs">Inactive</span>
+                    {% endif %}
+                </div>
+            </div>
+            <p class="text-sm text-base-content/70 mt-2 line-clamp-3">{{ template.content }}</p>
+            <div class="card-actions justify-end mt-4">
+                <form hx-post="{% url 'communications:template_delete' template.pk %}"
+                      hx-confirm="Delete '{{ template.name }}'? This cannot be undone."
+                      hx-swap="none"
+                      class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-xs text-error">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body text-center py-12">
+        <i class="fa-solid fa-file-lines text-4xl mb-3 text-base-content/30"></i>
+        <p class="text-base-content/50">No templates yet</p>
+        <p class="text-sm text-base-content/40">Create templates to speed up message sending</p>
+        <button class="btn btn-primary btn-sm mt-4"
+                hx-get="{% url 'communications:template_create' %}"
+                hx-target="#modal-template-content"
+                onclick="modal_template.showModal()">
+            <i class="fa-solid fa-plus"></i>
+            Create First Template
+        </button>
+    </div>
+</div>
+{% endif %}
+
+<!-- Placeholder Guide -->
+<div class="card bg-base-200/50 border border-base-200 mt-6">
+    <div class="card-body p-4">
+        <h3 class="font-bold text-sm mb-2">
+            <i class="fa-solid fa-info-circle text-info mr-1"></i>
+            Available Placeholders
+        </h3>
+        <p class="text-xs text-base-content/60 mb-3">Use these in your templates - they'll be replaced with actual values when sending:</p>
+        <div class="flex flex-wrap gap-2">
+            <code class="badge badge-ghost">{student_name}</code>
+            <code class="badge badge-ghost">{class_name}</code>
+            <code class="badge badge-ghost">{date}</code>
+            <code class="badge badge-ghost">{school_name}</code>
+        </div>
+    </div>
+</div>
+
+<!-- Template Modal -->
+<dialog id="modal_template" class="modal">
+    <div class="modal-box max-w-lg">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-template-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>

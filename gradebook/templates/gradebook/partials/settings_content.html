@@ -1,0 +1,226 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Gradebook Settings</h1>
+        <p class="text-sm text-base-content/60">Configure grading systems and assessment categories</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'gradebook:index' %}"
+           hx-get="{% url 'gradebook:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back
+        </a>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Assessment Categories -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-primary"></i>
+                    Assessment Categories
+                </h2>
+                <button class="btn btn-sm btn-primary"
+                        hx-get="{% url 'gradebook:category_create' %}"
+                        hx-target="#modal-content"
+                        onclick="modal_gradebook.showModal()">
+                    <i class="fa-solid fa-plus"></i>
+                    Add
+                </button>
+            </div>
+
+            <div class="mb-4 p-3 rounded-lg {% if total_percentage == 100 %}bg-success/10 border border-success/30{% elif total_percentage > 100 %}bg-error/10 border border-error/30{% else %}bg-warning/10 border border-warning/30{% endif %}">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium">Total Weight</span>
+                    <span class="font-bold {% if total_percentage == 100 %}text-success{% elif total_percentage > 100 %}text-error{% else %}text-warning{% endif %}">
+                        {{ total_percentage }}%
+                    </span>
+                </div>
+                {% if total_percentage != 100 %}
+                <p class="text-xs mt-1 {% if total_percentage > 100 %}text-error{% else %}text-warning{% endif %}">
+                    {% if total_percentage > 100 %}
+                    Exceeds 100% - please adjust categories
+                    {% else %}
+                    Should equal 100%
+                    {% endif %}
+                </p>
+                {% endif %}
+            </div>
+
+            {% if categories %}
+            <div class="space-y-2">
+                {% for cat in categories %}
+                <div class="flex items-center justify-between p-3 rounded-lg border border-base-200 {% if not cat.is_active %}opacity-50{% endif %}">
+                    <div class="flex items-center gap-3">
+                        <div class="badge badge-primary badge-lg font-mono">{{ cat.short_name }}</div>
+                        <div>
+                            <div class="font-medium">{{ cat.name }}</div>
+                            <div class="text-xs text-base-content/60">
+                                Weight: {{ cat.percentage }}%
+                                {% if not cat.is_active %}<span class="text-warning">(Inactive)</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-1">
+                        <button class="btn btn-ghost btn-sm btn-square"
+                                hx-get="{% url 'gradebook:category_edit' cat.pk %}"
+                                hx-target="#modal-content"
+                                onclick="modal_gradebook.showModal()">
+                            <i class="fa-solid fa-pen text-xs"></i>
+                        </button>
+                        <button class="btn btn-ghost btn-sm btn-square text-error"
+                                hx-post="{% url 'gradebook:category_delete' cat.pk %}"
+                                hx-confirm="Delete {{ cat.name }}? This will affect all assignments in this category.">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-base-content/40">
+                <i class="fa-solid fa-layer-group text-3xl mb-2"></i>
+                <p class="text-sm">No categories configured</p>
+                <p class="text-xs">Add categories like "Class Score" and "Examination"</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Grading Systems -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-star text-warning"></i>
+                    Grading Systems
+                </h2>
+                <button class="btn btn-sm btn-primary"
+                        hx-get="{% url 'gradebook:grading_system_create' %}"
+                        hx-target="#modal-content"
+                        onclick="modal_gradebook.showModal()">
+                    <i class="fa-solid fa-plus"></i>
+                    Add
+                </button>
+            </div>
+
+            {% if grading_systems %}
+            <div class="space-y-4">
+                {% for system in grading_systems %}
+                <div class="collapse collapse-arrow border border-base-200 rounded-lg {% if not system.is_active %}opacity-50{% endif %}">
+                    <input type="checkbox" />
+                    <div class="collapse-title font-medium">
+                        <div class="flex items-center gap-2">
+                            <span>{{ system.name }}</span>
+                            <span class="badge badge-ghost badge-sm">{{ system.get_level_display }}</span>
+                            {% if not system.is_active %}
+                            <span class="badge badge-warning badge-sm">Inactive</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="collapse-content">
+                        <div class="flex justify-end gap-2 mb-3">
+                            <button class="btn btn-ghost btn-xs"
+                                    hx-get="{% url 'gradebook:grading_system_edit' system.pk %}"
+                                    hx-target="#modal-content"
+                                    onclick="modal_gradebook.showModal()">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </button>
+                            <button class="btn btn-ghost btn-xs"
+                                    hx-get="{% url 'gradebook:grade_scale_create' system.pk %}"
+                                    hx-target="#modal-content"
+                                    onclick="modal_gradebook.showModal()">
+                                <i class="fa-solid fa-plus"></i> Add Grade
+                            </button>
+                        </div>
+
+                        {% if system.scales.all %}
+                        <div class="overflow-x-auto">
+                            <table class="table table-xs">
+                                <thead>
+                                    <tr class="text-xs uppercase">
+                                        <th>Grade</th>
+                                        <th>Range</th>
+                                        <th>Points</th>
+                                        <th>Remark</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for scale in system.scales.all %}
+                                    <tr>
+                                        <td class="font-bold">{{ scale.grade_label }}</td>
+                                        <td>{{ scale.min_percentage }}-{{ scale.max_percentage }}%</td>
+                                        <td>{{ scale.aggregate_points|default:"-" }}</td>
+                                        <td>{{ scale.interpretation }}</td>
+                                        <td class="text-right">
+                                            <button class="btn btn-ghost btn-xs btn-square"
+                                                    hx-get="{% url 'gradebook:grade_scale_edit' scale.pk %}"
+                                                    hx-target="#modal-content"
+                                                    onclick="modal_gradebook.showModal()">
+                                                <i class="fa-solid fa-pen text-xs"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <p class="text-sm text-base-content/50 text-center py-2">No grades defined</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-base-content/40">
+                <i class="fa-solid fa-star text-3xl mb-2"></i>
+                <p class="text-sm">No grading systems configured</p>
+                <p class="text-xs">Add a system like "WAEC" or "GES Primary"</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<dialog id="modal_gradebook" class="modal">
+    <div class="modal-box max-w-lg">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+    // Handle closeModal event - close the dialog
+    document.body.addEventListener('closeModal', function() {
+        const modal = document.getElementById('modal_gradebook');
+        if (modal) {
+            modal.close();
+        }
+    });
+
+    // Handle refreshSettings event - reload the settings content
+    document.body.addEventListener('refreshSettings', function() {
+        htmx.ajax('GET', '{% url "gradebook:settings" %}', {target: '#main-content', swap: 'innerHTML'});
+    });
+</script>

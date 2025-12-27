@@ -1,0 +1,32 @@
+<div class="text-center py-6">
+    <div class="text-success text-5xl mb-4">
+        <i class="fa-solid fa-circle-check"></i>
+    </div>
+    <h3 class="font-bold text-lg mb-2">Import Successful!</h3>
+    <p class="text-sm text-base-content/60 mb-4">
+        {{ class_obj.name }} - {{ subject.name }}
+    </p>
+
+    <div class="stats stats-horizontal shadow mb-6">
+        <div class="stat py-3 px-6">
+            <div class="stat-title text-xs">New Scores</div>
+            <div class="stat-value text-xl text-success">{{ created_count }}</div>
+        </div>
+        <div class="stat py-3 px-6">
+            <div class="stat-title text-xs">Updated</div>
+            <div class="stat-value text-xl text-warning">{{ updated_count }}</div>
+        </div>
+        <div class="stat py-3 px-6">
+            <div class="stat-title text-xs">Total</div>
+            <div class="stat-value text-xl text-primary">{{ total_count }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-action">
+    <button type="button" class="btn btn-primary"
+            onclick="modal_import.close(); document.body.dispatchEvent(new CustomEvent('scoresImported'));">
+        <i class="fa-solid fa-check"></i>
+        Done
+    </button>
+</div>

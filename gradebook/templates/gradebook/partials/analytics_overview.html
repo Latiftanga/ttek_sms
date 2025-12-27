@@ -1,0 +1,202 @@
+{% load core_tags %}
+
+{% if error %}
+<div class="alert alert-warning">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% else %}
+
+<!-- School-wide Stats -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-primary/10 border border-primary/20">
+        <div class="card-body p-4 text-center">
+            <div class="text-3xl font-bold text-primary">{{ school_stats.total_students }}</div>
+            <div class="text-xs text-base-content/60 uppercase">Total Students</div>
+        </div>
+    </div>
+    <div class="card bg-secondary/10 border border-secondary/20">
+        <div class="card-body p-4 text-center">
+            <div class="text-3xl font-bold text-secondary">{{ school_stats.average }}%</div>
+            <div class="text-xs text-base-content/60 uppercase">School Average</div>
+        </div>
+    </div>
+    <div class="card bg-success/10 border border-success/20">
+        <div class="card-body p-4 text-center">
+            <div class="text-3xl font-bold text-success">{{ school_stats.passed }}</div>
+            <div class="text-xs text-base-content/60 uppercase">All Subjects Passed</div>
+        </div>
+    </div>
+    <div class="card bg-info/10 border border-info/20">
+        <div class="card-body p-4 text-center">
+            <div class="text-3xl font-bold text-info">{{ school_stats.pass_rate }}%</div>
+            <div class="text-xs text-base-content/60 uppercase">Pass Rate</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Class Performance Ranking -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-ranking-star text-warning"></i>
+                Class Performance Ranking
+            </h2>
+
+            {% if class_stats %}
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="text-xs uppercase text-base-content/60">
+                            <th>Rank</th>
+                            <th>Class</th>
+                            <th class="text-center">Avg</th>
+                            <th class="text-center">Students</th>
+                            <th class="text-center">Pass Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in class_stats %}
+                        <tr class="hover">
+                            <td>
+                                {% if forloop.counter == 1 %}
+                                <span class="text-warning font-bold">{{ forloop.counter }}</span>
+                                {% elif forloop.counter == 2 %}
+                                <span class="text-base-content/70 font-bold">{{ forloop.counter }}</span>
+                                {% elif forloop.counter == 3 %}
+                                <span class="text-amber-600 font-bold">{{ forloop.counter }}</span>
+                                {% else %}
+                                {{ forloop.counter }}
+                                {% endif %}
+                            </td>
+                            <td class="font-medium">{{ stat.class.name }}</td>
+                            <td class="text-center">
+                                <span class="badge {% if stat.average >= 60 %}badge-success{% elif stat.average >= 50 %}badge-warning{% else %}badge-error{% endif %}">
+                                    {{ stat.average }}%
+                                </span>
+                            </td>
+                            <td class="text-center">{{ stat.total_students }}</td>
+                            <td class="text-center">{{ stat.pass_rate }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Class Performance Chart -->
+            <div class="mt-4">
+                <canvas id="classChart" height="200"></canvas>
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-base-content/40">
+                <i class="fa-solid fa-chart-bar text-3xl mb-2"></i>
+                <p class="text-sm">No grade data available yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Top Subjects -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-book text-primary"></i>
+                Subject Performance
+            </h2>
+
+            {% if subject_stats %}
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="text-xs uppercase text-base-content/60">
+                            <th>Subject</th>
+                            <th class="text-center">Avg Score</th>
+                            <th class="text-center">Students</th>
+                            <th class="text-center">Passed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subj in subject_stats %}
+                        <tr class="hover">
+                            <td class="font-medium">
+                                {{ subj.subject__short_name|default:subj.subject__name }}
+                            </td>
+                            <td class="text-center">
+                                <div class="flex items-center gap-2 justify-center">
+                                    <progress class="progress progress-primary w-16 h-2"
+                                              value="{{ subj.avg_score|floatformat:0 }}"
+                                              max="100"></progress>
+                                    <span class="text-xs">{{ subj.avg_score|floatformat:1 }}%</span>
+                                </div>
+                            </td>
+                            <td class="text-center text-sm">{{ subj.students }}</td>
+                            <td class="text-center">
+                                <span class="text-success text-sm">{{ subj.passed }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-base-content/40">
+                <i class="fa-solid fa-book text-3xl mb-2"></i>
+                <p class="text-sm">No subject data available yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if class_stats %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function() {
+    const classData = {{ class_stats_json|safe }};
+
+    if (classData.length > 0) {
+        const ctx = document.getElementById('classChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: classData.map(c => c.name),
+                datasets: [{
+                    label: 'Average Score (%)',
+                    data: classData.map(c => c.average),
+                    backgroundColor: classData.map(c =>
+                        c.average >= 60 ? 'rgba(34, 197, 94, 0.7)' :
+                        c.average >= 50 ? 'rgba(234, 179, 8, 0.7)' :
+                        'rgba(239, 68, 68, 0.7)'
+                    ),
+                    borderColor: classData.map(c =>
+                        c.average >= 60 ? 'rgb(34, 197, 94)' :
+                        c.average >= 50 ? 'rgb(234, 179, 8)' :
+                        'rgb(239, 68, 68)'
+                    ),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: value => value + '%'
+                        }
+                    }
+                }
+            }
+        });
+    }
+})();
+</script>
+{% endif %}
+
+{% endif %}

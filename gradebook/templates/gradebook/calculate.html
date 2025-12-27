@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% load core_tags %}
+
+{% block title %}Calculate Grades - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "gradebook/partials/calculate_content.html" %}
+{% endblock %}

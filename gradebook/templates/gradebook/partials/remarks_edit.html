@@ -1,0 +1,79 @@
+{% load core_tags %}
+
+<h3 class="font-bold text-lg mb-4">
+    <i class="fa-solid fa-comment-dots text-primary"></i>
+    Edit Remarks - {{ student.first_name }} {{ student.last_name }}
+</h3>
+
+<p class="text-sm text-base-content/60 mb-4">
+    {{ current_term.name }} - {{ student.current_class.name }}
+</p>
+
+<div class="space-y-4">
+    <!-- Class Teacher Remark -->
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text font-medium">Class Teacher's Remark</span>
+            {% if not can_edit_class_remark %}
+            <span class="label-text-alt text-warning">
+                <i class="fa-solid fa-lock text-xs"></i>
+                View only
+            </span>
+            {% endif %}
+        </label>
+        <form hx-post="{% url 'gradebook:report_remarks' student.pk %}"
+              hx-swap="none"
+              class="flex gap-2">
+            <input type="hidden" name="remark_type" value="class_teacher">
+            <textarea name="remark"
+                      class="textarea textarea-bordered flex-1 {% if not can_edit_class_remark %}textarea-disabled{% endif %}"
+                      rows="3"
+                      placeholder="Enter class teacher's remark..."
+                      {% if not can_edit_class_remark %}disabled{% endif %}>{{ term_report.class_teacher_remark }}</textarea>
+            {% if can_edit_class_remark %}
+            <button type="submit" class="btn btn-primary btn-sm self-end">
+                <i class="fa-solid fa-save"></i>
+            </button>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Head Teacher Remark -->
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text font-medium">Head Teacher's Remark</span>
+            {% if not can_edit_head_remark %}
+            <span class="label-text-alt text-warning">
+                <i class="fa-solid fa-lock text-xs"></i>
+                View only
+            </span>
+            {% endif %}
+        </label>
+        <form hx-post="{% url 'gradebook:report_remarks' student.pk %}"
+              hx-swap="none"
+              class="flex gap-2">
+            <input type="hidden" name="remark_type" value="head_teacher">
+            <textarea name="remark"
+                      class="textarea textarea-bordered flex-1 {% if not can_edit_head_remark %}textarea-disabled{% endif %}"
+                      rows="3"
+                      placeholder="Enter head teacher's remark..."
+                      {% if not can_edit_head_remark %}disabled{% endif %}>{{ term_report.head_teacher_remark }}</textarea>
+            {% if can_edit_head_remark %}
+            <button type="submit" class="btn btn-primary btn-sm self-end">
+                <i class="fa-solid fa-save"></i>
+            </button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+{% if not can_edit_class_remark and not can_edit_head_remark %}
+<div class="alert alert-info mt-4">
+    <i class="fa-solid fa-circle-info"></i>
+    <span>You don't have permission to edit remarks. Class teachers can edit their class teacher remarks. Administrators can edit all remarks.</span>
+</div>
+{% endif %}
+
+<div class="modal-action">
+    <button type="button" class="btn btn-ghost" onclick="modal_remarks.close()">Close</button>
+</div>

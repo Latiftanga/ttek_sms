@@ -1,0 +1,129 @@
+<h3 class="font-bold text-lg mb-4">
+    {% if scale %}Edit Grade{% else %}Add Grade to {{ system.name }}{% endif %}
+</h3>
+
+{% if error %}
+<div class="alert alert-error mb-4">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+<form method="post"
+      hx-post="{% if scale %}{% url 'gradebook:grade_scale_edit' scale.pk %}{% else %}{% url 'gradebook:grade_scale_create' system.pk %}{% endif %}"
+      hx-target="#modal-content">
+
+    <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+            <div class="form-control">
+                <label class="floating-label">
+                    <span>Grade Label</span>
+                    <input type="text"
+                           name="grade_label"
+                           class="input input-bordered w-full"
+                           placeholder="e.g., A1"
+                           maxlength="10"
+                           value="{{ scale.grade_label|default:'' }}"
+                           required>
+                </label>
+            </div>
+
+            <div class="form-control">
+                <label class="floating-label">
+                    <span>Aggregate Points</span>
+                    <input type="number"
+                           name="aggregate_points"
+                           class="input input-bordered w-full"
+                           placeholder="1-9"
+                           min="1"
+                           max="9"
+                           value="{{ scale.aggregate_points|default:'' }}">
+                </label>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div class="form-control">
+                <label class="floating-label">
+                    <span>Min Percentage</span>
+                    <input type="number"
+                           name="min_percentage"
+                           class="input input-bordered w-full"
+                           placeholder="e.g., 80"
+                           min="0"
+                           max="100"
+                           step="0.01"
+                           value="{{ scale.min_percentage|default:'' }}"
+                           required>
+                </label>
+            </div>
+
+            <div class="form-control">
+                <label class="floating-label">
+                    <span>Max Percentage</span>
+                    <input type="number"
+                           name="max_percentage"
+                           class="input input-bordered w-full"
+                           placeholder="e.g., 100"
+                           min="0"
+                           max="100"
+                           step="0.01"
+                           value="{{ scale.max_percentage|default:'' }}"
+                           required>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-control">
+            <label class="floating-label">
+                <span>Interpretation</span>
+                <input type="text"
+                       name="interpretation"
+                       class="input input-bordered w-full"
+                       placeholder="e.g., Excellent"
+                       value="{{ scale.interpretation|default:'' }}">
+            </label>
+        </div>
+
+        <div class="form-control">
+            <label class="floating-label">
+                <span>Display Order</span>
+                <input type="number"
+                       name="order"
+                       class="input input-bordered w-full"
+                       placeholder="0"
+                       min="0"
+                       value="{{ scale.order|default:'0' }}">
+            </label>
+        </div>
+
+        <div class="flex gap-4">
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox"
+                           name="is_pass"
+                           class="checkbox checkbox-success"
+                           {% if scale.is_pass or not scale %}checked{% endif %}>
+                    <span class="label-text">Pass Grade</span>
+                </label>
+            </div>
+
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox"
+                           name="is_credit"
+                           class="checkbox checkbox-primary"
+                           {% if scale.is_credit or not scale %}checked{% endif %}>
+                    <span class="label-text">Credit Pass</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="modal_gradebook.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            {% if scale %}Save Changes{% else %}Add Grade{% endif %}
+        </button>
+    </div>
+</form>

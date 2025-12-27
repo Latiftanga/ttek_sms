@@ -1,0 +1,76 @@
+{% if current_term %}
+<div id="grade-lock-status" class="flex items-center gap-3">
+    {% if current_term.grades_locked %}
+    <div class="badge badge-error gap-1">
+        <i class="fa-solid fa-lock text-xs"></i>
+        Grades Locked
+    </div>
+    <div class="text-xs text-base-content/60">
+        Locked {{ current_term.grades_locked_at|date:"M d, Y H:i" }}
+        {% if current_term.grades_locked_by %}
+        by {{ current_term.grades_locked_by.get_full_name|default:current_term.grades_locked_by.username }}
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="badge badge-success gap-1">
+        <i class="fa-solid fa-lock-open text-xs"></i>
+        Grades Open
+    </div>
+    {% endif %}
+
+    {% if is_admin %}
+    <button class="btn btn-xs {% if current_term.grades_locked %}btn-warning{% else %}btn-error{% endif %}"
+            onclick="modal_grade_lock.showModal()">
+        {% if current_term.grades_locked %}
+        <i class="fa-solid fa-lock-open"></i>
+        Unlock
+        {% else %}
+        <i class="fa-solid fa-lock"></i>
+        Lock Grades
+        {% endif %}
+    </button>
+
+    <!-- Grade Lock Confirmation Modal -->
+    <dialog id="modal_grade_lock" class="modal">
+        <div class="modal-box max-w-md">
+            <h3 class="font-bold text-lg flex items-center gap-2">
+                {% if current_term.grades_locked %}
+                <i class="fa-solid fa-lock-open text-warning"></i>
+                Unlock Grades?
+                {% else %}
+                <i class="fa-solid fa-lock text-error"></i>
+                Lock Grades?
+                {% endif %}
+            </h3>
+            <p class="py-4">
+                {% if current_term.grades_locked %}
+                This will allow teachers to modify scores for <strong>{{ current_term.name }}</strong>.
+                {% else %}
+                This will prevent anyone from modifying scores for <strong>{{ current_term.name }}</strong> until unlocked.
+                {% endif %}
+            </p>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-ghost">Cancel</button>
+                </form>
+                <button class="btn {% if current_term.grades_locked %}btn-warning{% else %}btn-error{% endif %}"
+                        hx-post="{% url 'gradebook:toggle_lock' current_term.pk %}"
+                        hx-swap="none"
+                        onclick="modal_grade_lock.close()">
+                    {% if current_term.grades_locked %}
+                    <i class="fa-solid fa-lock-open"></i>
+                    Unlock Grades
+                    {% else %}
+                    <i class="fa-solid fa-lock"></i>
+                    Lock Grades
+                    {% endif %}
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+    {% endif %}
+</div>
+{% endif %}

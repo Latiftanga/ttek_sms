@@ -1,18 +1,15 @@
+from django.conf import settings
 from django.db import models
 from django.core.cache import cache
 from django.utils.translation import gettext_lazy as _
 import math
-
+from .choices import Gender
 
 class Person(models.Model):
     """
     Abstract Person model. 
     Removes 'title' so it doesn't force it upon Students.
     """
-    class Gender(models.TextChoices):
-        MALE = 'M', _('Male')
-        FEMALE = 'F', _('Female')
-
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
     middle_name = models.CharField(max_length=50, blank=True, default='')
@@ -163,6 +160,26 @@ class Term(models.Model):
         default=False,
         help_text="Only one term can be current at a time"
     )
+
+    # Grade locking
+    grades_locked = models.BooleanField(
+        default=False,
+        help_text="When locked, scores cannot be modified"
+    )
+    grades_locked_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When grades were locked"
+    )
+    grades_locked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='locked_terms',
+        help_text="User who locked the grades"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -185,6 +202,21 @@ class Term(models.Model):
     def get_current(cls):
         """Get the current term."""
         return cls.objects.filter(is_current=True).select_related('academic_year').first()
+
+    def lock_grades(self, user):
+        """Lock grades for this term."""
+        from django.utils import timezone
+        self.grades_locked = True
+        self.grades_locked_at = timezone.now()
+        self.grades_locked_by = user
+        self.save(update_fields=['grades_locked', 'grades_locked_at', 'grades_locked_by'])
+
+    def unlock_grades(self):
+        """Unlock grades for this term."""
+        self.grades_locked = False
+        self.grades_locked_at = None
+        self.grades_locked_by = None
+        self.save(update_fields=['grades_locked', 'grades_locked_at', 'grades_locked_by'])
 
 
 class SchoolSettings(models.Model):

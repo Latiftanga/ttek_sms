@@ -37,4 +37,7 @@ urlpatterns = [
     path('subjects/create/', views.subject_create, name='subject_create'),
     path('subjects/<int:pk>/edit/', views.subject_edit, name='subject_edit'),
     path('subjects/<int:pk>/delete/', views.subject_delete, name='subject_delete'),
+
+    # API endpoints
+    path('api/class/<int:pk>/subjects/', views.api_class_subjects, name='api_class_subjects'),
 ]

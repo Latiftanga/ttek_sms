@@ -45,6 +45,7 @@ TENANT_APPS = (
     'teachers',
     'communications',
     'accounts',
+    'gradebook',
 
 )
 
@@ -133,8 +134,15 @@ if not DEBUG:
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@schoolos.com')
 
-# SMS
+# SMS - Supported backends: 'hubtel', 'africastalking', 'console'
 SMS_BACKEND = os.getenv('SMS_BACKEND', 'console')
+
+# Hubtel (recommended for Ghana)
+HUBTEL_CLIENT_ID = os.getenv('HUBTEL_CLIENT_ID', '')
+HUBTEL_CLIENT_SECRET = os.getenv('HUBTEL_CLIENT_SECRET', '')
+HUBTEL_SENDER_ID = os.getenv('HUBTEL_SENDER_ID', '')
+
+# Africa's Talking (alternative)
 AT_USERNAME = os.getenv('AT_USERNAME', 'sandbox')
 AT_API_KEY = os.getenv('AT_API_KEY', '')
 AT_SENDER_ID = os.getenv('AT_SENDER_ID') or None

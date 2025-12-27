@@ -1,0 +1,189 @@
+{% load core_tags %}
+
+<div class="flex items-center justify-between mb-4">
+    <h3 class="font-bold text-lg">
+        Report Card - {{ student.first_name }} {{ student.last_name }}
+    </h3>
+    <a href="{% url 'gradebook:report_card_print' student.pk %}"
+       target="_blank"
+       class="btn btn-sm btn-ghost">
+        <i class="fa-solid fa-print"></i>
+        Print
+    </a>
+</div>
+
+<!-- Student Info -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-base-200 rounded-lg">
+    <div>
+        <div class="text-xs text-base-content/60 uppercase">Student</div>
+        <div class="font-medium">{{ student.last_name }}, {{ student.first_name }}</div>
+    </div>
+    <div>
+        <div class="text-xs text-base-content/60 uppercase">ID</div>
+        <div class="font-medium">{{ student.admission_number }}</div>
+    </div>
+    <div>
+        <div class="text-xs text-base-content/60 uppercase">Class</div>
+        <div class="font-medium">{{ student.current_class.name }}</div>
+    </div>
+    <div>
+        <div class="text-xs text-base-content/60 uppercase">Term</div>
+        <div class="font-medium">{{ current_term.name }}</div>
+    </div>
+</div>
+
+<!-- Summary -->
+{% if term_report %}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-primary/10 border border-primary/20">
+        <div class="card-body p-3 text-center">
+            <div class="text-xs text-base-content/60">Position</div>
+            <div class="text-2xl font-bold text-primary">{{ term_report.position }}<span class="text-sm text-base-content/50">/{{ term_report.out_of }}</span></div>
+        </div>
+    </div>
+    <div class="card bg-secondary/10 border border-secondary/20">
+        <div class="card-body p-3 text-center">
+            <div class="text-xs text-base-content/60">Average</div>
+            <div class="text-2xl font-bold text-secondary">{{ term_report.average }}%</div>
+        </div>
+    </div>
+    <div class="card bg-success/10 border border-success/20">
+        <div class="card-body p-3 text-center">
+            <div class="text-xs text-base-content/60">Passed</div>
+            <div class="text-2xl font-bold text-success">{{ term_report.subjects_passed }}</div>
+        </div>
+    </div>
+    <div class="card bg-error/10 border border-error/20">
+        <div class="card-body p-3 text-center">
+            <div class="text-xs text-base-content/60">Failed</div>
+            <div class="text-2xl font-bold text-error">{{ term_report.subjects_failed }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Subject Grades -->
+<div class="overflow-x-auto">
+    <table class="table table-sm">
+        <thead>
+            <tr class="text-xs uppercase bg-base-200">
+                <th>Subject</th>
+                {% for cat in categories %}
+                <th class="text-center">{{ cat.short_name }}</th>
+                {% endfor %}
+                <th class="text-center">Total</th>
+                <th class="text-center">Grade</th>
+                <th class="text-center">Position</th>
+                <th>Remark</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for grade in subject_grades %}
+            <tr class="hover">
+                <td class="font-medium">{{ grade.subject.name }}</td>
+                {% for cat in categories %}
+                <td class="text-center">
+                    {% if cat.short_name == 'CA' %}
+                    {{ grade.class_score|default:'-' }}
+                    {% elif cat.short_name == 'EXAM' %}
+                    {{ grade.exam_score|default:'-' }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                {% endfor %}
+                <td class="text-center font-bold">{{ grade.total_score|default:'-' }}</td>
+                <td class="text-center">
+                    {% if grade.grade %}
+                    <span class="badge {% if grade.total_score >= 50 %}badge-success{% else %}badge-error{% endif %}">
+                        {{ grade.grade }}
+                    </span>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="text-center">{{ grade.position|default:'-' }}</td>
+                <td class="text-sm text-base-content/60">{{ grade.grade_remark }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="10" class="text-center py-8 text-base-content/40">
+                    No grades calculated yet. Please calculate grades first.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Remarks -->
+{% if term_report %}
+<div class="mt-6">
+    <div class="flex items-center justify-between mb-2">
+        <span class="font-medium">Remarks</span>
+        <button class="btn btn-ghost btn-xs"
+                hx-get="{% url 'gradebook:report_remarks' student.pk %}"
+                hx-target="#remarks-modal-content"
+                onclick="modal_remarks.showModal()">
+            <i class="fa-solid fa-pen-to-square"></i>
+            Edit
+        </button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="form-control">
+            <label class="label py-1">
+                <span class="label-text text-xs text-base-content/60">Class Teacher's Remark</span>
+            </label>
+            <div class="p-3 bg-base-200 rounded-lg min-h-16 text-sm">
+                {{ term_report.class_teacher_remark|default:'No remark yet' }}
+            </div>
+        </div>
+        <div class="form-control">
+            <label class="label py-1">
+                <span class="label-text text-xs text-base-content/60">Head Teacher's Remark</span>
+            </label>
+            <div class="p-3 bg-base-200 rounded-lg min-h-16 text-sm">
+                {{ term_report.head_teacher_remark|default:'No remark yet' }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="modal-action">
+    <button type="button" class="btn btn-ghost" onclick="modal_report.close()">Close</button>
+</div>
+
+<!-- Remarks Edit Modal -->
+<dialog id="modal_remarks" class="modal">
+    <div class="modal-box max-w-lg">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="remarks-modal-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+// Close remarks modal on success
+document.body.addEventListener('closeModal', function() {
+    const modal = document.getElementById('modal_remarks');
+    if (modal) modal.close();
+
+    // Refresh the report card content
+    const studentId = {{ student.pk }};
+    htmx.ajax('GET', '/gradebook/reports/' + studentId + '/', {
+        target: '#report-modal-content',
+        swap: 'innerHTML'
+    });
+});
+</script>

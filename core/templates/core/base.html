@@ -23,6 +23,21 @@
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
+        /* Prevent scrollbar shift when modals open */
+        html, body {
+            overflow: hidden;
+            height: 100%;
+        }
+
+        /* Prevent modal backdrop from causing reflow */
+        .modal::backdrop {
+            background: transparent;
+        }
+
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
         /* Tenant theme colors - dynamically injected from SchoolSettings */
         :root,
         [data-theme="light"],
@@ -45,27 +60,54 @@
             transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        /* Sidebar text - visible by default, hidden when collapsed */
         .sidebar-text {
-            transition: opacity 0.2s;
-            opacity: 1;
             white-space: nowrap;
             overflow: hidden;
-            display: inline-block;
         }
 
         #desktop-toggle:checked ~ .drawer-content .desktop-sidebar .sidebar-text {
-            opacity: 0;
-            width: 0;
             display: none;
         }
 
-        .menu li a,
-        .menu li details > summary {
-            padding-left: 1.5rem !important;
-            padding-right: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
+        /* Hide scrollbar until hover */
+        .scroll-on-hover {
+            overflow-y: scroll;
+            scrollbar-gutter: stable;
+        }
+
+        .scroll-on-hover::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scroll-on-hover::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scroll-on-hover::-webkit-scrollbar-thumb {
+            background-color: transparent;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .scroll-on-hover:hover::-webkit-scrollbar-thumb {
+            background-color: oklch(var(--bc) / 0.3);
+        }
+
+        .scroll-on-hover:hover::-webkit-scrollbar-thumb:hover {
+            background-color: oklch(var(--bc) / 0.5);
+        }
+
+        /* Firefox */
+        @supports (scrollbar-color: auto) {
+            .scroll-on-hover {
+                scrollbar-width: thin;
+                scrollbar-color: transparent transparent;
+            }
+
+            .scroll-on-hover:hover {
+                scrollbar-color: oklch(var(--bc) / 0.3) transparent;
+            }
         }
 
         /* HTMX loading indicator */
@@ -274,7 +316,7 @@
             <div class="flex flex-1 h-full overflow-hidden">
                 {% include "core/partials/sidebar_desktop.html" %}
 
-                <main class="flex-1 flex flex-col min-w-0 h-full overflow-y-auto relative transition-all">
+                <main class="flex-1 flex flex-col min-w-0 h-full overflow-y-auto scroll-on-hover relative transition-all">
                     {% include "core/partials/header.html" %}
 
                     <!-- Loading indicator -->
@@ -336,11 +378,13 @@
             const currentPath = window.location.pathname;
             const navLinks = document.querySelectorAll('#desktop-nav a, #mobile-nav a');
 
-            // First pass: find all matching links and group by parent menu
-            const menuGroups = new Map();
+            // Find the best matching link for current path
+            let bestMatch = null;
+            let bestMatchLength = 0;
+
             navLinks.forEach(link => {
                 const href = link.getAttribute('href');
-                if (!href) return;
+                if (!href || href === '#') return;
 
                 const hrefBase = href.replace(/\/$/, '');
                 let isMatch = false;
@@ -348,48 +392,32 @@
                 if (href === '/' || currentPath === '/') {
                     isMatch = currentPath === href;
                 } else {
-                    isMatch = currentPath === href || currentPath.replace(/\/$/, '') === hrefBase || currentPath.startsWith(hrefBase + '/');
+                    isMatch = currentPath === href ||
+                              currentPath.replace(/\/$/, '') === hrefBase ||
+                              currentPath.startsWith(hrefBase + '/');
                 }
 
-                if (isMatch) {
-                    // Group by parent ul (for submenu items)
-                    const parentUl = link.closest('ul');
-                    const key = parentUl ? parentUl : 'root';
-                    if (!menuGroups.has(key)) {
-                        menuGroups.set(key, []);
-                    }
-                    menuGroups.get(key).push({ link, href, length: href.length });
+                if (isMatch && href.length > bestMatchLength) {
+                    bestMatch = link;
+                    bestMatchLength = href.length;
                 }
             });
 
-            // Second pass: for each group, only activate the longest match
-            const activeLinks = new Set();
-            menuGroups.forEach(matches => {
-                if (matches.length > 0) {
-                    // Find the longest matching href (most specific)
-                    const best = matches.reduce((a, b) => a.length > b.length ? a : b);
-                    activeLinks.add(best.link);
-                }
-            });
-
-            // Third pass: apply classes
+            // Update all links - remove active class
             navLinks.forEach(link => {
-                const isDesktop = link.closest('#desktop-nav') !== null;
-
-                // Remove all active classes
-                link.classList.remove('active', 'bg-primary/10', 'text-primary', 'border-r-2', 'border-primary', 'rounded-none');
-                if (!link.classList.contains('hover:bg-base-200')) {
-                    link.classList.add('hover:bg-base-200');
-                }
-
-                if (activeLinks.has(link)) {
-                    link.classList.add('active', 'bg-primary/10', 'text-primary');
-                    link.classList.remove('hover:bg-base-200');
-                    if (isDesktop) {
-                        link.classList.add('border-r-2', 'border-primary', 'rounded-none');
-                    }
-                }
+                link.classList.remove('active');
             });
+
+            // Apply active class to best match and open parent details
+            if (bestMatch) {
+                bestMatch.classList.add('active');
+
+                // Open parent details element if link is inside one
+                const parentDetails = bestMatch.closest('details');
+                if (parentDetails) {
+                    parentDetails.setAttribute('open', '');
+                }
+            }
         }
 
         // Update on HTMX navigation

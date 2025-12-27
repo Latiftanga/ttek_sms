@@ -1,0 +1,173 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Calculate Grades</h1>
+        <p class="text-sm text-base-content/60">
+            {% if current_term %}
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% else %}
+            No current term set
+            {% endif %}
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'gradebook:index' %}"
+           hx-get="{% url 'gradebook:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back
+        </a>
+    </div>
+</div>
+
+{% if not current_term %}
+<div class="alert alert-warning">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>No current term is set. Please set a current term in Core settings.</span>
+</div>
+{% else %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Calculate by Class -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-calculator text-primary"></i>
+                Calculate Class Grades
+            </h2>
+
+            <p class="text-sm text-base-content/60 mb-4">
+                This will compute final grades and positions for all students in the selected class.
+            </p>
+
+            <form id="calculate-form">
+                <div class="space-y-4">
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Select Class</span>
+                        </label>
+                        <select name="class_id" class="select select-bordered w-full" required>
+                            <option value="">Choose a class...</option>
+                            {% for class in classes %}
+                            <option value="{{ class.pk }}">{{ class.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Grading System</span>
+                        </label>
+                        <select name="grading_system_id" class="select select-bordered w-full" required>
+                            <option value="">Choose a grading system...</option>
+                            {% for system in grading_systems %}
+                            <option value="{{ system.pk }}">{{ system.name }} ({{ system.get_level_display }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit"
+                            class="btn btn-primary btn-block"
+                            hx-post=""
+                            hx-include="#calculate-form"
+                            hx-indicator="#calc-spinner"
+                            onclick="
+                                const form = document.getElementById('calculate-form');
+                                const classId = form.querySelector('[name=class_id]').value;
+                                if (classId) {
+                                    this.setAttribute('hx-post', '/gradebook/calculate/' + classId + '/');
+                                    htmx.process(this);
+                                }
+                            ">
+                        <span id="calc-spinner" class="loading loading-spinner loading-sm htmx-indicator"></span>
+                        <i class="fa-solid fa-calculator"></i>
+                        Calculate Grades
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- What Gets Calculated -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <h2 class="font-bold mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-info"></i>
+                What Gets Calculated
+            </h2>
+
+            <div class="space-y-3">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="text-primary font-bold">1</span>
+                    </div>
+                    <div>
+                        <div class="font-medium">Subject Totals</div>
+                        <div class="text-sm text-base-content/60">
+                            Weighted scores from all assignments are summed up per category
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="text-primary font-bold">2</span>
+                    </div>
+                    <div>
+                        <div class="font-medium">Grade Assignment</div>
+                        <div class="text-sm text-base-content/60">
+                            Total percentage is matched to the grading scale (A1, B2, etc.)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="text-primary font-bold">3</span>
+                    </div>
+                    <div>
+                        <div class="font-medium">Subject Positions</div>
+                        <div class="text-sm text-base-content/60">
+                            Students are ranked per subject within the class
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="text-primary font-bold">4</span>
+                    </div>
+                    <div>
+                        <div class="font-medium">Overall Position</div>
+                        <div class="text-sm text-base-content/60">
+                            Average across all subjects determines class position
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not grading_systems %}
+<div class="alert alert-warning mt-6">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <div>
+        <h3 class="font-bold">No Grading Systems</h3>
+        <p class="text-sm">Please configure a grading system in Settings before calculating grades.</p>
+    </div>
+    <a href="{% url 'gradebook:settings' %}"
+       hx-get="{% url 'gradebook:settings' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-sm">
+        Go to Settings
+    </a>
+</div>
+{% endif %}
+
+{% endif %}
