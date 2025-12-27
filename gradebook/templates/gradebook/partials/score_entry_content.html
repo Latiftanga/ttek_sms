@@ -1,0 +1,315 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Score Entry</h1>
+        <p class="text-sm text-base-content/60">
+            {% if current_term %}
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% else %}
+            No current term set
+            {% endif %}
+        </p>
+    </div>
+    <div class="flex items-center gap-4">
+        {% include 'gradebook/partials/grade_lock_status.html' %}
+        <a href="{% url 'gradebook:index' %}"
+           hx-get="{% url 'gradebook:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back
+        </a>
+    </div>
+</div>
+
+{% if current_term.grades_locked %}
+<div class="alert alert-warning mb-6">
+    <i class="fa-solid fa-lock"></i>
+    <span>Grades are locked for this term. Score modifications are disabled.</span>
+</div>
+{% endif %}
+
+{% if not current_term %}
+<div class="alert alert-warning">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>No current term is set. Please set a current term in Core settings.</span>
+</div>
+{% else %}
+
+<!-- Class & Subject Selection -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+    <div class="card-body p-4">
+        <h2 class="font-bold mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-filter text-primary"></i>
+            Select Class & Subject
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Class</span>
+                </label>
+                <select id="class-select" class="select select-bordered w-full">
+                    <option value="">Select a class...</option>
+                    {% for class in classes %}
+                    <option value="{{ class.pk }}">{{ class.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Subject</span>
+                </label>
+                <select id="subject-select" class="select select-bordered w-full" disabled>
+                    <option value="">Select a class first...</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Score Form Container -->
+<div id="score-form-container">
+    <div class="text-center py-12 text-base-content/40">
+        <i class="fa-solid fa-pen-to-square text-4xl mb-3"></i>
+        <p class="text-sm">Select a class and subject to enter scores</p>
+    </div>
+</div>
+
+<!-- Assignments Modal (outside score-form-container so it persists during refresh) -->
+<dialog id="modal_assignments" class="modal">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="assignments-container">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Score Audit History Modal -->
+<dialog id="modal_audit" class="modal">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="audit-container">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Score Import Modal -->
+<dialog id="modal_import" class="modal">
+    <div class="modal-box max-w-4xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="import-container">
+            <h3 class="font-bold text-lg mb-4">
+                <i class="fa-solid fa-file-import text-primary"></i>
+                Import Scores
+            </h3>
+            <p class="text-sm text-base-content/60 mb-4">
+                Upload an Excel file (.xlsx) with scores. Use the "Download Template" option to get the correct format.
+            </p>
+            <form id="import-form" class="space-y-4"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#import-container"
+                  hx-swap="innerHTML">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Select Excel file</span>
+                    </label>
+                    <input type="file"
+                           name="file"
+                           accept=".xlsx"
+                           class="file-input file-input-bordered w-full"
+                           required />
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn btn-ghost" onclick="modal_import.close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-upload"></i>
+                        Upload & Preview
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+(function() {
+    const classSelect = document.getElementById('class-select');
+    const subjectSelect = document.getElementById('subject-select');
+    const scoreContainer = document.getElementById('score-form-container');
+
+    if (!classSelect || !subjectSelect) return;
+
+    // Load subjects when class is selected
+    classSelect.addEventListener('change', function() {
+        const classId = this.value;
+        if (!classId) {
+            subjectSelect.innerHTML = '<option value="">Select a class first...</option>';
+            subjectSelect.disabled = true;
+            scoreContainer.innerHTML = `
+                <div class="text-center py-12 text-base-content/40">
+                    <i class="fa-solid fa-pen-to-square text-4xl mb-3"></i>
+                    <p class="text-sm">Select a class and subject to enter scores</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Show loading state
+        subjectSelect.innerHTML = '<option value="">Loading subjects...</option>';
+        subjectSelect.disabled = true;
+
+        // Fetch subjects for this class
+        fetch(`/academics/api/class/${classId}/subjects/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.subjects && data.subjects.length > 0) {
+                    subjectSelect.innerHTML = '<option value="">Select a subject...</option>';
+                    data.subjects.forEach(subject => {
+                        subjectSelect.innerHTML += `<option value="${subject.id}">${subject.name}</option>`;
+                    });
+                    subjectSelect.disabled = false;
+                } else {
+                    subjectSelect.innerHTML = '<option value="">No subjects assigned to this class</option>';
+                    subjectSelect.disabled = true;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching subjects:', error);
+                subjectSelect.innerHTML = '<option value="">Error loading subjects</option>';
+                subjectSelect.disabled = true;
+            });
+    });
+
+    // Load score form when subject is selected
+    subjectSelect.addEventListener('change', function() {
+        const classId = classSelect.value;
+        const subjectId = this.value;
+
+        if (!classId || !subjectId) {
+            return;
+        }
+
+        // Load score entry form via HTMX
+        htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
+            target: '#score-form-container',
+            swap: 'innerHTML'
+        });
+    });
+
+    // Refresh score form when assignments change
+    document.body.addEventListener('assignmentsChanged', function(e) {
+        const classId = classSelect.value;
+        const subjectId = subjectSelect.value;
+
+        if (classId && subjectId) {
+            htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
+                target: '#score-form-container',
+                swap: 'innerHTML'
+            });
+        }
+    });
+
+    // Refresh page when lock status changes
+    document.body.addEventListener('refreshLockStatus', function(e) {
+        // Reload the entire page to reflect lock status changes
+        window.location.reload();
+    });
+
+    // Update import form action when subject changes
+    subjectSelect.addEventListener('change', function() {
+        const classId = classSelect.value;
+        const subjectId = this.value;
+        const importForm = document.getElementById('import-form');
+
+        if (importForm && classId && subjectId) {
+            importForm.setAttribute('hx-post', `/gradebook/scores/${classId}/${subjectId}/import/upload/`);
+            htmx.process(importForm);
+        }
+    });
+
+    // Refresh score form after successful import
+    document.body.addEventListener('scoresImported', function(e) {
+        const classId = classSelect.value;
+        const subjectId = subjectSelect.value;
+
+        if (classId && subjectId) {
+            htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
+                target: '#score-form-container',
+                swap: 'innerHTML'
+            });
+        }
+
+        // Reset import modal content
+        const importContainer = document.getElementById('import-container');
+        if (importContainer) {
+            importContainer.innerHTML = `
+                <h3 class="font-bold text-lg mb-4">
+                    <i class="fa-solid fa-file-import text-primary"></i>
+                    Import Scores
+                </h3>
+                <p class="text-sm text-base-content/60 mb-4">
+                    Upload an Excel file (.xlsx) with scores. Use the "Download Template" option to get the correct format.
+                </p>
+                <form id="import-form" class="space-y-4"
+                      hx-post="/gradebook/scores/${classId}/${subjectId}/import/upload/"
+                      hx-encoding="multipart/form-data"
+                      hx-target="#import-container"
+                      hx-swap="innerHTML">
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Select Excel file</span>
+                        </label>
+                        <input type="file"
+                               name="file"
+                               accept=".xlsx"
+                               class="file-input file-input-bordered w-full"
+                               required />
+                    </div>
+                    <div class="modal-action">
+                        <button type="button" class="btn btn-ghost" onclick="modal_import.close()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa-solid fa-upload"></i>
+                            Upload & Preview
+                        </button>
+                    </div>
+                </form>
+            `;
+            htmx.process(importContainer);
+        }
+    });
+})();
+</script>
+
+{% endif %}

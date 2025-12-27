@@ -1,5 +1,5 @@
 {% comment %}
-Reusable navigation items component.
+Reusable navigation items component using DaisyUI menu with details/summary.
 Usage: {% include "core/partials/nav_items.html" with nav_items=nav_items is_mobile=True %}
 
 Parameters:
@@ -9,11 +9,21 @@ Parameters:
 
 {% for item in nav_items %}
     {% if item.children %}
+        {# Menu item with submenu - parent is clickable link #}
         <li>
             <details {% if item.is_active %}open{% endif %}>
-                <summary class="{% if is_mobile %}{% else %}h-12 hover:bg-base-200{% endif %}">
-                    <i class="{{ item.icon }} w-6 text-center {% if not is_mobile %}text-lg{% endif %}"></i>
-                    <span class="{% if not is_mobile %}sidebar-text ml-3{% endif %}">{{ item.label }}</span>
+                <summary class="flex items-center justify-between pr-2">
+                    <a href="{{ item.url }}"
+                       hx-get="{{ item.url }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       hx-swap="innerHTML show:window:top"
+                       {% if is_mobile %}hx-on::after-request="if(event.detail.successful) document.getElementById('mobile-drawer').checked = false"{% endif %}
+                       class="flex items-center gap-2 flex-1"
+                       onclick="event.stopPropagation();">
+                        <i class="{{ item.icon }} w-5 text-center"></i>
+                        <span class="sidebar-text">{{ item.label }}</span>
+                    </a>
                 </summary>
                 <ul>
                     {% for child in item.children %}
@@ -24,9 +34,9 @@ Parameters:
                                hx-push-url="true"
                                hx-swap="innerHTML show:window:top"
                                {% if is_mobile %}hx-on::after-request="if(event.detail.successful) document.getElementById('mobile-drawer').checked = false"{% endif %}
-                               class="{% if not is_mobile %}h-10 {% endif %}{% if child.is_active %}active bg-primary/10 text-primary{% else %}hover:bg-base-200{% endif %}">
-                                <i class="{{ child.icon }} w-5 text-center"></i>
-                                <span class="{% if not is_mobile %}sidebar-text ml-2{% endif %}">{{ child.label }}</span>
+                               class="{% if child.is_active %}active{% endif %}">
+                                <i class="{{ child.icon }} w-4 text-center"></i>
+                                <span class="sidebar-text">{{ child.label }}</span>
                             </a>
                         </li>
                     {% endfor %}
@@ -34,6 +44,7 @@ Parameters:
             </details>
         </li>
     {% else %}
+        {# Simple menu item without submenu #}
         <li>
             <a href="{{ item.url }}"
                hx-get="{{ item.url }}"
@@ -41,9 +52,9 @@ Parameters:
                hx-push-url="true"
                hx-swap="innerHTML show:window:top"
                {% if is_mobile %}hx-on::after-request="if(event.detail.successful) document.getElementById('mobile-drawer').checked = false"{% endif %}
-               class="{% if not is_mobile %}h-12 {% endif %}{% if item.is_active %}active bg-primary/10 text-primary{% if not is_mobile %} border-r-2 border-primary rounded-none{% endif %}{% else %}hover:bg-base-200{% endif %}">
-                <i class="{{ item.icon }} w-6 text-center {% if not is_mobile %}text-lg{% endif %}"></i>
-                <span class="{% if not is_mobile %}sidebar-text ml-3{% endif %}">{{ item.label }}</span>
+               class="{% if item.is_active %}active{% endif %}">
+                <i class="{{ item.icon }} w-5 text-center"></i>
+                <span class="sidebar-text">{{ item.label }}</span>
             </a>
         </li>
     {% endif %}

@@ -15,7 +15,8 @@ openpyxl>=3.1.5,<3.2.0
 pandas>=2.1.4,<2.2.0
 
 # SMS Providers
-africastalking>=2.0.1  # Optional: Great alternative
+africastalking>=2.0.1
+pyhubtel-sms>=0.0.1
 
 django-tailwind[cookiecutter,honcho,reload]>=4.4.2,<4.5
 

@@ -1,0 +1,136 @@
+{% load core_tags %}
+
+{% if error %}
+<div class="alert alert-warning">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% else %}
+
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <h2 class="font-bold mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-primary"></i>
+            Term Performance Comparison
+            <span class="badge badge-ghost ml-2">{{ current_term.academic_year.name }}</span>
+        </h2>
+
+        {% if terms %}
+        <!-- Term Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {% for term_data in terms %}
+            <div class="card {% if term_data.term.pk == current_term.pk %}bg-primary/10 border-primary{% else %}bg-base-200{% endif %} border">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-bold">{{ term_data.term.name }}</h3>
+                        {% if term_data.term.pk == current_term.pk %}
+                        <span class="badge badge-primary badge-sm">Current</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold {% if term_data.average >= 60 %}text-success{% elif term_data.average >= 50 %}text-warning{% else %}text-error{% endif %}">
+                                {{ term_data.average }}%
+                            </div>
+                            <div class="text-xs text-base-content/60">Average</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-info">{{ term_data.pass_rate }}%</div>
+                            <div class="text-xs text-base-content/60">Pass Rate</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-base-300">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-base-content/60">Students</span>
+                            <span class="font-medium">{{ term_data.total_students }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-base-content/60">All Passed</span>
+                            <span class="font-medium text-success">{{ term_data.passed }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="mt-6">
+            <h3 class="font-medium mb-4">Performance Trend</h3>
+            <div style="height: 300px;">
+                <canvas id="termTrendChart"></canvas>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="text-center py-12 text-base-content/40">
+            <i class="fa-solid fa-calendar-xmark text-4xl mb-3"></i>
+            <p class="text-sm">No term data available for comparison</p>
+            <p class="text-xs mt-1">Calculate grades for at least one term to see trends</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if terms %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function() {
+    const termData = {{ terms_json|safe }};
+
+    if (termData.length > 0) {
+        const ctx = document.getElementById('termTrendChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: termData.map(t => t.name),
+                datasets: [
+                    {
+                        label: 'Average Score (%)',
+                        data: termData.map(t => t.average),
+                        borderColor: 'rgb(99, 102, 241)',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                    },
+                    {
+                        label: 'Pass Rate (%)',
+                        data: termData.map(t => t.pass_rate),
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: value => value + '%'
+                        }
+                    }
+                }
+            }
+        });
+    }
+})();
+</script>
+{% endif %}
+
+{% endif %}

@@ -1,0 +1,143 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Grade Analytics</h1>
+        <p class="text-sm text-base-content/60">
+            {% if current_term %}
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% else %}
+            No current term set
+            {% endif %}
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'gradebook:index' %}"
+           hx-get="{% url 'gradebook:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back
+        </a>
+    </div>
+</div>
+
+{% if not current_term %}
+<div class="alert alert-warning">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>No current term is set. Please set a current term in Core settings.</span>
+</div>
+{% else %}
+
+<!-- Tab Navigation -->
+<div class="tabs tabs-boxed mb-6 bg-base-200 p-1">
+    <button class="tab tab-active" id="tab-overview"
+            onclick="switchTab('overview')">
+        <i class="fa-solid fa-chart-pie mr-2"></i>
+        School Overview
+    </button>
+    <button class="tab" id="tab-class"
+            onclick="switchTab('class')">
+        <i class="fa-solid fa-users mr-2"></i>
+        Class Analysis
+    </button>
+    <button class="tab" id="tab-terms"
+            onclick="switchTab('terms')">
+        <i class="fa-solid fa-calendar-alt mr-2"></i>
+        Term Comparison
+    </button>
+</div>
+
+<!-- Tab Content -->
+<div id="tab-content">
+    <!-- Overview Tab (default) -->
+    <div id="content-overview"
+         hx-get="{% url 'gradebook:analytics_overview' %}"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <div class="flex justify-center py-12">
+            <span class="loading loading-spinner loading-lg"></span>
+        </div>
+    </div>
+
+    <!-- Class Analysis Tab -->
+    <div id="content-class" class="hidden">
+        <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+            <div class="card-body p-4">
+                <div class="form-control max-w-xs">
+                    <label class="label">
+                        <span class="label-text">Select Class</span>
+                    </label>
+                    <select id="class-select" class="select select-bordered"
+                            hx-get=""
+                            hx-target="#class-analytics-content"
+                            hx-trigger="change"
+                            onchange="loadClassAnalytics(this.value)">
+                        <option value="">Choose a class...</option>
+                        {% for class in classes %}
+                        <option value="{{ class.pk }}">{{ class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div id="class-analytics-content">
+            <div class="text-center py-12 text-base-content/40">
+                <i class="fa-solid fa-chart-bar text-4xl mb-3"></i>
+                <p class="text-sm">Select a class to view analytics</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Term Comparison Tab -->
+    <div id="content-terms" class="hidden"
+         hx-get="{% url 'gradebook:analytics_terms' %}"
+         hx-trigger="revealed"
+         hx-swap="innerHTML">
+        <div class="flex justify-center py-12">
+            <span class="loading loading-spinner loading-lg"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchTab(tab) {
+    // Update tab buttons
+    document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('tab-active'));
+    document.getElementById('tab-' + tab).classList.add('tab-active');
+
+    // Show/hide content
+    document.querySelectorAll('#tab-content > div').forEach(c => c.classList.add('hidden'));
+    document.getElementById('content-' + tab).classList.remove('hidden');
+
+    // Trigger load for terms tab if not loaded
+    if (tab === 'terms') {
+        const termsContent = document.getElementById('content-terms');
+        if (termsContent.getAttribute('hx-trigger') === 'revealed') {
+            htmx.trigger(termsContent, 'revealed');
+            termsContent.removeAttribute('hx-trigger');
+        }
+    }
+}
+
+function loadClassAnalytics(classId) {
+    if (!classId) {
+        document.getElementById('class-analytics-content').innerHTML = `
+            <div class="text-center py-12 text-base-content/40">
+                <i class="fa-solid fa-chart-bar text-4xl mb-3"></i>
+                <p class="text-sm">Select a class to view analytics</p>
+            </div>
+        `;
+        return;
+    }
+
+    htmx.ajax('GET', '/gradebook/analytics/class/' + classId + '/', {
+        target: '#class-analytics-content',
+        swap: 'innerHTML'
+    });
+}
+</script>
+
+{% endif %}

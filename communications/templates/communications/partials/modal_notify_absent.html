@@ -1,0 +1,98 @@
+{% load core_tags %}
+
+<h3 class="text-lg font-bold mb-4">Notify Absent Parents</h3>
+<p class="text-sm text-base-content/60 mb-4">Send SMS to parents of students marked absent today ({{ date|date:"M d, Y" }})</p>
+
+{% if error %}
+<div class="alert alert-error mb-4">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+{% if absent_students %}
+<form method="post"
+      action="{% url 'communications:notify_absent' %}"
+      hx-post="{% url 'communications:notify_absent' %}"
+      hx-target="#modal-sms-content">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Select Students to Notify</span>
+                <span class="label-text-alt">
+                    <button type="button" class="link link-primary text-xs" onclick="toggleAllAbsent(true)">Select All</button>
+                    /
+                    <button type="button" class="link text-xs" onclick="toggleAllAbsent(false)">Clear</button>
+                </span>
+            </label>
+            <div class="bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                {% for item in absent_students %}
+                <label class="flex items-center gap-3 cursor-pointer hover:bg-base-300 p-2 rounded">
+                    <input type="checkbox"
+                           name="student_ids"
+                           value="{{ item.student.pk }}"
+                           class="checkbox checkbox-sm checkbox-primary absent-checkbox"
+                           checked>
+                    <div class="flex-1">
+                        <span class="font-medium text-sm">{{ item.student.full_name }}</span>
+                        <span class="text-xs text-base-content/50 ml-2">{{ item.class.name }}</span>
+                    </div>
+                    <span class="text-xs font-mono text-base-content/50">{{ item.student.guardian_phone }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Message <span class="text-error">*</span></span>
+            </label>
+            <textarea name="message"
+                      class="textarea textarea-bordered h-32"
+                      required>{{ default_message }}</textarea>
+            <label class="label">
+                <span class="label-text-alt text-base-content/50">
+                    Placeholders will be replaced with actual values
+                </span>
+            </label>
+        </div>
+
+        <div class="bg-base-200 rounded-lg p-3 text-sm">
+            <p class="font-medium mb-1">Available placeholders:</p>
+            <div class="flex flex-wrap gap-2 text-xs">
+                <code class="badge badge-ghost">{student_name}</code>
+                <code class="badge badge-ghost">{class_name}</code>
+                <code class="badge badge-ghost">{date}</code>
+                <code class="badge badge-ghost">{school_name}</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="modal_sms.close()">Cancel</button>
+        <button type="submit" class="btn btn-error">
+            <i class="fa-solid fa-paper-plane"></i>
+            Notify Selected Parents
+        </button>
+    </div>
+</form>
+
+<script>
+function toggleAllAbsent(checked) {
+    document.querySelectorAll('.absent-checkbox').forEach(cb => cb.checked = checked);
+}
+</script>
+
+{% else %}
+<div class="text-center py-12 text-base-content/40">
+    <i class="fa-solid fa-check-circle text-4xl mb-3 text-success"></i>
+    <p class="text-sm font-medium">No absences recorded today!</p>
+    <p class="text-xs">All students are present or attendance hasn't been taken yet.</p>
+</div>
+
+<div class="modal-action">
+    <button type="button" class="btn" onclick="modal_sms.close()">Close</button>
+</div>
+{% endif %}

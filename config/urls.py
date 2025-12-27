@@ -9,6 +9,8 @@ urlpatterns = [
     path('academics/', include('academics.urls')),
     path('students/', include('students.urls')),
     path('teachers/', include('teachers.urls')),
+    path('communications/', include('communications.urls')),
+    path('gradebook/', include('gradebook.urls')),
 ]
 
 # Serve media files in development

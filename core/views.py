@@ -147,12 +147,6 @@ def payments(request):
 
 
 @login_required
-def communications(request):
-    context = {}
-    return htmx_render(request, 'core/communications/index.html', 'core/communications/partials/index_content.html', context)
-
-
-@login_required
 def settings(request):
     """School settings page with all configuration options."""
     tenant = request.tenant

@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% load core_tags %}
+
+{% block title %}SMS Templates - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "communications/partials/templates_content.html" %}
+{% endblock %}

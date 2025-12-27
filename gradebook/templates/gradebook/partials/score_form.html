@@ -1,0 +1,208 @@
+{% load core_tags %}
+
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div>
+                <h2 class="font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-table text-primary"></i>
+                    {{ class_obj.name }} - {{ subject.name }}
+                </h2>
+                <p class="text-sm text-base-content/60">{{ students|length }} students</p>
+            </div>
+            <div class="flex gap-2">
+                {% if editing_allowed %}
+                <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-sm btn-outline">
+                        <i class="fa-solid fa-file-import"></i>
+                        Import/Export
+                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-20 w-52 p-2 shadow-lg border border-base-200">
+                        <li>
+                            <a href="{% url 'gradebook:import_template' class_obj.pk subject.pk %}">
+                                <i class="fa-solid fa-download"></i>
+                                Download Template
+                            </a>
+                        </li>
+                        <li>
+                            <a onclick="modal_import.showModal()">
+                                <i class="fa-solid fa-upload"></i>
+                                Import Scores
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                {% endif %}
+                <button class="btn btn-sm btn-outline"
+                        hx-get="{% url 'gradebook:assignments' subject.pk %}"
+                        hx-target="#assignments-container"
+                        onclick="modal_assignments.showModal()">
+                    <i class="fa-solid fa-list-check"></i>
+                    Manage Assignments
+                </button>
+            </div>
+        </div>
+
+        {% if not can_edit %}
+        <div class="alert alert-warning mb-4">
+            <i class="fa-solid fa-user-lock"></i>
+            <span>You are not assigned to teach this subject for this class. Scores are read-only.</span>
+        </div>
+        {% endif %}
+
+        {% if not assignments %}
+        <div class="alert alert-info mb-4">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>No assignments created for this subject yet. Click "Manage Assignments" to add some.</span>
+        </div>
+        {% endif %}
+
+        {% if students %}
+        <div class="overflow-x-auto">
+            <table class="table table-sm table-pin-rows">
+                <thead>
+                    <tr class="bg-base-200">
+                        <th class="sticky left-0 bg-base-200 z-10">Student</th>
+                        {% for assign in assignments %}
+                        <th class="text-center min-w-20">
+                            <div class="text-xs">{{ assign.assessment_category.short_name }}</div>
+                            <div class="text-xs font-normal text-base-content/60">{{ assign.name }}</div>
+                            <div class="text-xs font-normal text-base-content/40">/ {{ assign.points_possible }}</div>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr class="hover">
+                        <td class="sticky left-0 bg-base-100 z-10">
+                            <div class="font-medium">{{ student.last_name }}, {{ student.first_name }}</div>
+                            <div class="text-xs text-base-content/60">{{ student.admission_number }}</div>
+                        </td>
+                        {% for assign in assignments %}
+                        <td class="text-center p-1">
+                            <input type="number"
+                                   class="input input-sm input-bordered w-16 text-center score-input {% if not editing_allowed %}input-disabled{% endif %}"
+                                   data-student="{{ student.pk }}"
+                                   data-assignment="{{ assign.pk }}"
+                                   data-max="{{ assign.points_possible }}"
+                                   min="0"
+                                   max="{{ assign.points_possible }}"
+                                   step="0.5"
+                                   value="{{ scores_dict|get_item:student.pk|get_item:assign.pk|default:'' }}"
+                                   {% if editing_allowed %}
+                                   hx-post="{% url 'gradebook:score_save' %}"
+                                   hx-trigger="change delayed:300ms, blur"
+                                   hx-vals='{"student_id": "{{ student.pk }}", "assignment_id": "{{ assign.pk }}"}'
+                                   hx-include="this"
+                                   hx-swap="none"
+                                   {% endif %}
+                                   {% if not editing_allowed %}disabled{% endif %}
+                                   name="points">
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-4 flex justify-between items-center">
+            <div class="text-sm text-base-content/60">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                Right-click any score to view change history
+            </div>
+            <div class="text-sm text-base-content/60">
+                <i class="fa-solid fa-circle-info"></i>
+                Scores are saved automatically when you move to the next field
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-base-content/40">
+            <i class="fa-solid fa-users text-3xl mb-2"></i>
+            <p class="text-sm">No students enrolled in this class</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Toast container -->
+<div id="score-toast" class="toast toast-top toast-end z-50 hidden">
+    <div class="alert">
+        <span id="score-toast-message"></span>
+    </div>
+</div>
+
+<style>
+.score-input:focus {
+    outline: 2px solid oklch(var(--p));
+    outline-offset: 0;
+}
+.score-input.htmx-request {
+    background-color: oklch(var(--wa) / 0.2);
+}
+.score-input.input-error {
+    border-color: oklch(var(--er));
+    animation: shake 0.3s ease-in-out;
+}
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+</style>
+
+<script>
+// Handle toast display
+document.body.addEventListener('showToast', function(e) {
+    const toast = document.getElementById('score-toast');
+    const message = document.getElementById('score-toast-message');
+    const alert = toast.querySelector('.alert');
+
+    message.textContent = e.detail.message;
+    alert.className = 'alert alert-' + (e.detail.type === 'error' ? 'error' : 'success');
+
+    toast.classList.remove('hidden');
+
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 3000);
+});
+
+// Handle score revert on validation error
+document.body.addEventListener('revertScore', function(e) {
+    const input = document.querySelector(
+        `input[data-student="${e.detail.student}"][data-assignment="${e.detail.assignment}"]`
+    );
+    if (input) {
+        input.value = e.detail.value;
+        input.classList.add('input-error');
+        setTimeout(() => {
+            input.classList.remove('input-error');
+        }, 1000);
+    }
+});
+
+// Right-click context menu for score audit history (using event delegation)
+document.addEventListener('contextmenu', function(e) {
+    const input = e.target.closest('.score-input');
+    if (!input) return;
+
+    e.preventDefault();
+    const studentId = input.dataset.student;
+    const assignmentId = input.dataset.assignment;
+
+    // Load audit history via HTMX
+    htmx.ajax('GET', `/gradebook/scores/audit/${studentId}/${assignmentId}/`, {
+        target: '#audit-container',
+        swap: 'innerHTML'
+    });
+
+    // Show the modal
+    const modal = document.getElementById('modal_audit');
+    if (modal) {
+        modal.showModal();
+    }
+});
+</script>

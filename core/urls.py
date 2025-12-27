@@ -11,7 +11,6 @@ urlpatterns = [
     path('finance/', views.finance_overview, name='finance'),
     path('finance/invoices/', views.invoices, name='invoices'),
     path('finance/payments/', views.payments, name='payments'),
-    path('communications/', views.communications, name='communications'),
     path('settings/', views.settings, name='settings'),
 
     # Settings update routes (modal POST handlers)

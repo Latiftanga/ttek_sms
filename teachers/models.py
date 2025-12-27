@@ -1,7 +1,10 @@
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from core.models import Person  # Importing your abstract model
+from core.choices import PersonTitle as Title
+
 
 class Teacher(Person):
     class Status(models.TextChoices):
@@ -9,17 +12,21 @@ class Teacher(Person):
         INACTIVE = 'inactive', _('Inactive')
         PENDING = 'pending', _('Pending')
 
-    class Title(models.TextChoices):
-        MR = 'Mr', 'Mr.'
-        MRS = 'Mrs', 'Mrs.'
-        MISS = 'Miss', 'Miss'
-        DR = 'Dr', 'Dr.'
-        PROF = 'Prof', 'Prof.'
+
+    # Link to User account
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='teacher_profile',
+        help_text="Associated user account for login"
+    )
 
     # Specific Teacher Fields
     title = models.CharField(
-        max_length=10, 
-        choices=Title.choices, 
+        max_length=10,
+        choices=Title.choices,
         default=Title.MR
     )
     staff_id = models.CharField(max_length=20, unique=True, help_text="Unique Employee ID")

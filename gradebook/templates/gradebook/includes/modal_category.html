@@ -1,0 +1,93 @@
+<h3 class="font-bold text-lg mb-4">
+    {% if category %}Edit Category{% else %}Add Category{% endif %}
+</h3>
+
+{% if error %}
+<div class="alert alert-error mb-4">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+<form method="post"
+      hx-post="{% if category %}{% url 'gradebook:category_edit' category.pk %}{% else %}{% url 'gradebook:category_create' %}{% endif %}"
+      hx-target="#modal-content">
+
+    <div class="space-y-4">
+        <div class="form-control">
+            <label class="floating-label">
+                <span>Category Name</span>
+                <input type="text"
+                       name="name"
+                       class="input input-bordered w-full"
+                       placeholder="e.g., Class Score"
+                       value="{{ category.name|default:'' }}"
+                       required>
+            </label>
+        </div>
+
+        <div class="form-control">
+            <label class="floating-label">
+                <span>Short Name</span>
+                <input type="text"
+                       name="short_name"
+                       class="input input-bordered w-full"
+                       placeholder="e.g., CA"
+                       maxlength="10"
+                       value="{{ category.short_name|default:'' }}"
+                       required>
+            </label>
+            <label class="label">
+                <span class="label-text-alt">Used in score tables (max 10 chars)</span>
+            </label>
+        </div>
+
+        <div class="form-control">
+            <label class="floating-label">
+                <span>Weight Percentage</span>
+                <input type="number"
+                       name="percentage"
+                       class="input input-bordered w-full"
+                       placeholder="e.g., 30"
+                       min="0"
+                       max="100"
+                       value="{{ category.percentage|default:'30' }}"
+                       required>
+            </label>
+            <label class="label">
+                <span class="label-text-alt">How much this category counts toward final grade</span>
+            </label>
+        </div>
+
+        <div class="form-control">
+            <label class="floating-label">
+                <span>Display Order</span>
+                <input type="number"
+                       name="order"
+                       class="input input-bordered w-full"
+                       placeholder="0"
+                       min="0"
+                       value="{{ category.order|default:'0' }}">
+            </label>
+        </div>
+
+        {% if category %}
+        <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-3">
+                <input type="checkbox"
+                       name="is_active"
+                       class="checkbox checkbox-primary"
+                       {% if category.is_active %}checked{% endif %}>
+                <span class="label-text">Active</span>
+            </label>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="modal_gradebook.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            {% if category %}Save Changes{% else %}Add Category{% endif %}
+        </button>
+    </div>
+</form>

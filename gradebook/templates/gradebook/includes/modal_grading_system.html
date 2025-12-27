@@ -1,0 +1,71 @@
+<h3 class="font-bold text-lg mb-4">
+    {% if system %}Edit Grading System{% else %}Add Grading System{% endif %}
+</h3>
+
+{% if error %}
+<div class="alert alert-error mb-4">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+<form method="post"
+      hx-post="{% if system %}{% url 'gradebook:grading_system_edit' system.pk %}{% else %}{% url 'gradebook:grading_system_create' %}{% endif %}"
+      hx-target="#modal-content">
+
+    <div class="space-y-4">
+        <div class="form-control">
+            <label class="floating-label">
+                <span>System Name</span>
+                <input type="text"
+                       name="name"
+                       class="input input-bordered w-full"
+                       placeholder="e.g., WAEC Standard"
+                       value="{{ system.name|default:'' }}"
+                       required>
+            </label>
+        </div>
+
+        <div class="form-control">
+            <label class="floating-label">
+                <span>School Level</span>
+                <select name="level" class="select select-bordered w-full" required>
+                    {% for value, label in levels %}
+                    <option value="{{ value }}" {% if system.level == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+
+        <div class="form-control">
+            <label class="floating-label">
+                <span>Description</span>
+                <textarea name="description"
+                          class="textarea textarea-bordered w-full"
+                          rows="2"
+                          placeholder="Optional description">{{ system.description|default:'' }}</textarea>
+            </label>
+        </div>
+
+        {% if system %}
+        <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-3">
+                <input type="checkbox"
+                       name="is_active"
+                       class="checkbox checkbox-primary"
+                       {% if system.is_active %}checked{% endif %}>
+                <span class="label-text">Active</span>
+            </label>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="modal_gradebook.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            {% if system %}Save Changes{% else %}Add System{% endif %}
+        </button>
+    </div>
+</form>

@@ -1,0 +1,335 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Attendance Reports</h1>
+        <p class="text-sm text-base-content/60">
+            View and analyze student attendance data
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'academics:attendance_export' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}"
+           class="btn btn-sm btn-outline gap-2">
+            <i class="fa-solid fa-file-excel text-success"></i>
+            Export Excel
+        </a>
+        <button onclick="window.print()" class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-print"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Filters Card -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6 print:!hidden">
+    <div class="card-body p-4">
+        <form method="get"
+              hx-get="{% url 'academics:attendance_reports' %}"
+              hx-target="#main-content"
+              hx-push-url="true"
+              hx-trigger="submit, change from:select"
+              class="flex flex-wrap gap-3 items-end">
+            <div class="form-control">
+                <label class="label py-0 pb-1">
+                    <span class="label-text text-xs">From Date</span>
+                </label>
+                <input type="date" name="date_from" value="{{ date_from }}"
+                       class="input input-sm input-bordered" />
+            </div>
+            <div class="form-control">
+                <label class="label py-0 pb-1">
+                    <span class="label-text text-xs">To Date</span>
+                </label>
+                <input type="date" name="date_to" value="{{ date_to }}"
+                       class="input input-sm input-bordered" />
+            </div>
+            <div class="form-control">
+                <label class="label py-0 pb-1">
+                    <span class="label-text text-xs">Class</span>
+                </label>
+                <select name="class" class="select select-sm select-bordered">
+                    <option value="">All Classes</option>
+                    {% for cls in classes %}
+                    <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ cls.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <input type="hidden" name="view" value="{{ view_mode }}" />
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-filter"></i> Apply
+            </button>
+            <a href="{% url 'academics:attendance_reports' %}"
+               hx-get="{% url 'academics:attendance_reports' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-sm btn-ghost">
+                <i class="fa-solid fa-times"></i> Reset
+            </a>
+        </form>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3 text-center">
+            <p class="text-xs text-base-content/50 uppercase">Sessions</p>
+            <p class="text-2xl font-bold text-primary">{{ stats.total_sessions }}</p>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3 text-center">
+            <p class="text-xs text-base-content/50 uppercase">Records</p>
+            <p class="text-2xl font-bold">{{ stats.total_records }}</p>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3 text-center">
+            <p class="text-xs text-base-content/50 uppercase">Present</p>
+            <p class="text-2xl font-bold text-success">{{ stats.present }}</p>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3 text-center">
+            <p class="text-xs text-base-content/50 uppercase">Absent</p>
+            <p class="text-2xl font-bold text-error">{{ stats.absent }}</p>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3 text-center">
+            <p class="text-xs text-base-content/50 uppercase">Late</p>
+            <p class="text-2xl font-bold text-warning">{{ stats.late }}</p>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3 text-center">
+            <p class="text-xs text-base-content/50 uppercase">Rate</p>
+            <p class="text-2xl font-bold {% if stats.rate >= 80 %}text-success{% elif stats.rate >= 60 %}text-warning{% else %}text-error{% endif %}">
+                {{ stats.rate }}%
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- View Tabs -->
+<div class="tabs tabs-boxed bg-base-200 p-1 mb-6 print:!hidden">
+    <a href="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=summary"
+       hx-get="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=summary"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="tab {% if view_mode == 'summary' %}tab-active{% endif %}">
+        <i class="fa-solid fa-chart-pie mr-2"></i> Summary
+    </a>
+    <a href="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=daily"
+       hx-get="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=daily"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="tab {% if view_mode == 'daily' %}tab-active{% endif %}">
+        <i class="fa-solid fa-calendar-days mr-2"></i> Daily
+    </a>
+    <a href="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=students"
+       hx-get="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=students"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="tab {% if view_mode == 'students' %}tab-active{% endif %}">
+        <i class="fa-solid fa-user-xmark mr-2"></i> Low Attendance
+    </a>
+</div>
+
+<!-- Content based on view mode -->
+{% if view_mode == 'summary' %}
+<!-- Summary by Class -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <h2 class="font-bold mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-chart-bar text-primary"></i>
+            Attendance by Class
+        </h2>
+
+        {% if class_summary %}
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="text-xs uppercase text-base-content/60">
+                        <th>Class</th>
+                        <th class="text-center">Total</th>
+                        <th class="text-center">Present</th>
+                        <th class="text-center">Absent</th>
+                        <th class="text-center">Rate</th>
+                        <th class="w-32">Progress</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in class_summary %}
+                    <tr class="hover">
+                        <td>
+                            <a href="{% url 'academics:class_detail' item.class.pk %}"
+                               hx-get="{% url 'academics:class_detail' item.class.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="font-medium hover:text-primary">
+                                {{ item.class.name }}
+                            </a>
+                        </td>
+                        <td class="text-center">{{ item.total }}</td>
+                        <td class="text-center text-success">{{ item.present }}</td>
+                        <td class="text-center text-error">{{ item.absent }}</td>
+                        <td class="text-center">
+                            <span class="badge badge-sm {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                                {{ item.rate }}%
+                            </span>
+                        </td>
+                        <td>
+                            <progress class="progress {% if item.rate >= 80 %}progress-success{% elif item.rate >= 60 %}progress-warning{% else %}progress-error{% endif %} w-full"
+                                      value="{{ item.rate }}" max="100"></progress>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-base-content/40">
+            <i class="fa-solid fa-clipboard-check text-4xl mb-3"></i>
+            <p class="text-sm">No attendance data for this period</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% elif view_mode == 'daily' %}
+<!-- Daily Breakdown -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <h2 class="font-bold mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-calendar-days text-primary"></i>
+            Daily Attendance Records
+        </h2>
+
+        {% if daily_data %}
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="text-xs uppercase text-base-content/60">
+                        <th>Date</th>
+                        <th>Class</th>
+                        <th class="text-center">Total</th>
+                        <th class="text-center">Present</th>
+                        <th class="text-center">Absent</th>
+                        <th class="text-center">Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in daily_data %}
+                    <tr class="hover">
+                        <td class="font-mono text-sm">{{ item.session.date|date:"D, M d" }}</td>
+                        <td>
+                            <a href="{% url 'academics:class_detail' item.session.class_assigned.pk %}"
+                               hx-get="{% url 'academics:class_detail' item.session.class_assigned.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="hover:text-primary">
+                                {{ item.session.class_assigned.name }}
+                            </a>
+                        </td>
+                        <td class="text-center">{{ item.total }}</td>
+                        <td class="text-center text-success">{{ item.present }}</td>
+                        <td class="text-center text-error">{{ item.absent }}</td>
+                        <td class="text-center">
+                            <span class="badge badge-sm {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                                {{ item.rate }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-base-content/40">
+            <i class="fa-solid fa-calendar-xmark text-4xl mb-3"></i>
+            <p class="text-sm">No daily records for this period</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% elif view_mode == 'students' %}
+<!-- Low Attendance Students -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold flex items-center gap-2">
+                <i class="fa-solid fa-user-xmark text-error"></i>
+                Students with Low Attendance (&lt;80%)
+            </h2>
+            <span class="badge badge-error">{{ low_attendance_students|length }} students</span>
+        </div>
+
+        {% if low_attendance_students %}
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="text-xs uppercase text-base-content/60">
+                        <th>Student</th>
+                        <th class="hidden sm:table-cell">Class</th>
+                        <th class="text-center">Total</th>
+                        <th class="text-center">Present</th>
+                        <th class="text-center">Absent</th>
+                        <th class="text-center">Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in low_attendance_students %}
+                    <tr class="hover">
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <div class="avatar placeholder">
+                                    <div class="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center">
+                                        <span class="text-xs font-bold">{{ item.student.first_name|slice:":1" }}{{ item.student.last_name|slice:":1" }}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <a href="{% url 'students:student_detail' item.student.pk %}"
+                                       hx-get="{% url 'students:student_detail' item.student.pk %}"
+                                       hx-target="#main-content"
+                                       hx-push-url="true"
+                                       class="font-medium hover:text-primary">
+                                        {{ item.student.full_name }}
+                                    </a>
+                                    <div class="text-xs text-base-content/50 font-mono">{{ item.student.admission_number }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="hidden sm:table-cell">
+                            {% if item.student.current_class %}
+                            <span class="badge badge-sm badge-ghost">{{ item.student.current_class.name }}</span>
+                            {% else %}
+                            <span class="text-base-content/40">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ item.total }}</td>
+                        <td class="text-center text-success">{{ item.present }}</td>
+                        <td class="text-center text-error font-medium">{{ item.absent }}</td>
+                        <td class="text-center">
+                            <span class="badge badge-sm {% if item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                                {{ item.rate }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-success">
+            <i class="fa-solid fa-check-circle text-4xl mb-3"></i>
+            <p class="text-sm font-medium">All students have good attendance!</p>
+            <p class="text-xs text-base-content/50">No students below 80% attendance rate</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

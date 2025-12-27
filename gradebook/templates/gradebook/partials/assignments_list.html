@@ -1,0 +1,81 @@
+<h3 class="font-bold text-lg mb-4">
+    <i class="fa-solid fa-list-check text-primary"></i>
+    Assignments - {{ subject.name }}
+</h3>
+<p class="text-sm text-base-content/60 mb-4">{{ current_term.name }}</p>
+
+<!-- Add Assignment Form -->
+<form hx-post="{% url 'gradebook:assignment_create' %}"
+      hx-target="#assignments-container"
+      class="flex gap-2 mb-4">
+    <input type="hidden" name="subject_id" value="{{ subject.pk }}">
+
+    <select name="category_id" class="select select-bordered select-sm flex-1" required>
+        <option value="">Category...</option>
+        {% for cat in categories %}
+        <option value="{{ cat.pk }}">{{ cat.name }} ({{ cat.short_name }})</option>
+        {% endfor %}
+    </select>
+
+    <input type="text"
+           name="name"
+           class="input input-bordered input-sm flex-1"
+           placeholder="Assignment name..."
+           required>
+
+    <input type="number"
+           name="points_possible"
+           class="input input-bordered input-sm w-20"
+           placeholder="Max"
+           value="100"
+           min="1"
+           required>
+
+    <button type="submit" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+</form>
+
+{% if assignments %}
+<div class="overflow-x-auto">
+    <table class="table table-sm">
+        <thead>
+            <tr class="text-xs uppercase">
+                <th>Category</th>
+                <th>Name</th>
+                <th>Max Points</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for assign in assignments %}
+            <tr class="hover">
+                <td>
+                    <span class="badge badge-ghost">{{ assign.assessment_category.short_name }}</span>
+                </td>
+                <td class="font-medium">{{ assign.name }}</td>
+                <td>{{ assign.points_possible }}</td>
+                <td class="text-right">
+                    <button class="btn btn-ghost btn-xs btn-square text-error"
+                            hx-post="{% url 'gradebook:assignment_delete' assign.pk %}"
+                            hx-target="#assignments-container"
+                            hx-confirm="Delete {{ assign.name }}? All scores for this assignment will be lost.">
+                        <i class="fa-solid fa-trash text-xs"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-8 text-base-content/40">
+    <i class="fa-solid fa-clipboard text-3xl mb-2"></i>
+    <p class="text-sm">No assignments yet</p>
+    <p class="text-xs">Add assignments using the form above</p>
+</div>
+{% endif %}
+
+<div class="modal-action">
+    <button type="button" class="btn btn-ghost" onclick="modal_assignments.close()">Close</button>
+</div>

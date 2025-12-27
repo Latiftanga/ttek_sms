@@ -1,0 +1,92 @@
+{% load core_tags %}
+
+<h3 class="text-lg font-bold mb-4">Send SMS to Individual</h3>
+
+{% if error %}
+<div class="alert alert-error mb-4">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+<form method="post"
+      action="{% url 'communications:send_single' %}"
+      hx-post="{% url 'communications:send_single' %}"
+      hx-target="#modal-sms-content">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Recipient Name (optional)</span>
+            </label>
+            <input type="text"
+                   name="recipient_name"
+                   class="input input-bordered w-full"
+                   placeholder="e.g., John's Parent">
+        </div>
+
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Phone Number <span class="text-error">*</span></span>
+            </label>
+            <input type="tel"
+                   name="phone"
+                   class="input input-bordered w-full"
+                   placeholder="0241234567 or +233241234567"
+                   required>
+            <label class="label">
+                <span class="label-text-alt text-base-content/50">Ghana numbers will be formatted automatically</span>
+            </label>
+        </div>
+
+        {% if templates %}
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Use Template (optional)</span>
+            </label>
+            <select class="select select-bordered w-full"
+                    onchange="if(this.value) document.getElementById('message-input').value = this.value;">
+                <option value="">-- Select a template --</option>
+                {% for template in templates %}
+                <option value="{{ template.content }}">{{ template.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Message <span class="text-error">*</span></span>
+            </label>
+            <textarea id="message-input"
+                      name="message"
+                      class="textarea textarea-bordered h-32"
+                      placeholder="Type your message here..."
+                      required
+                      oninput="updateCharCount(this)"></textarea>
+            <label class="label">
+                <span class="label-text-alt text-base-content/50">
+                    <span id="char-count">0</span>/160 characters
+                    (<span id="sms-count">1</span> SMS)
+                </span>
+            </label>
+        </div>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="modal_sms.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-paper-plane"></i>
+            Send SMS
+        </button>
+    </div>
+</form>
+
+<script>
+function updateCharCount(textarea) {
+    const count = textarea.value.length;
+    document.getElementById('char-count').textContent = count;
+    document.getElementById('sms-count').textContent = Math.ceil(count / 160) || 1;
+}
+</script>

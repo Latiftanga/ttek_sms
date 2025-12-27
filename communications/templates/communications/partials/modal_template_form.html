@@ -1,0 +1,69 @@
+{% load core_tags %}
+
+<h3 class="text-lg font-bold mb-4">Create Template</h3>
+
+{% if error %}
+<div class="alert alert-error mb-4">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+<form method="post"
+      action="{% url 'communications:template_create' %}"
+      hx-post="{% url 'communications:template_create' %}"
+      hx-target="#modal-template-content">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Template Name <span class="text-error">*</span></span>
+            </label>
+            <input type="text"
+                   name="name"
+                   class="input input-bordered w-full"
+                   placeholder="e.g., Absence Notification"
+                   required>
+        </div>
+
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Message Type</span>
+            </label>
+            <select name="message_type" class="select select-bordered w-full">
+                {% for value, label in type_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Message Content <span class="text-error">*</span></span>
+            </label>
+            <textarea name="content"
+                      class="textarea textarea-bordered h-32"
+                      placeholder="Dear Parent, {student_name} was marked absent today..."
+                      required></textarea>
+        </div>
+
+        <div class="bg-base-200 rounded-lg p-3 text-sm">
+            <p class="font-medium mb-1">Available placeholders:</p>
+            <div class="flex flex-wrap gap-2 text-xs">
+                <code class="badge badge-ghost">{student_name}</code>
+                <code class="badge badge-ghost">{class_name}</code>
+                <code class="badge badge-ghost">{date}</code>
+                <code class="badge badge-ghost">{school_name}</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="modal_template.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-save"></i>
+            Save Template
+        </button>
+    </div>
+</form>

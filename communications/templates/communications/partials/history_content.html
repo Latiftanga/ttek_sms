@@ -1,0 +1,159 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+            <a href="{% url 'communications:index' %}"
+               hx-get="{% url 'communications:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="hover:text-primary">Communications</a>
+            <i class="fa-solid fa-chevron-right text-xs"></i>
+            <span>History</span>
+        </div>
+        <h1 class="text-2xl font-bold">Message History</h1>
+    </div>
+    <a href="{% url 'communications:index' %}"
+       hx-get="{% url 'communications:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-sm btn-ghost">
+        <i class="fa-solid fa-arrow-left"></i>
+        Back
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+    <div class="card-body p-4">
+        <form hx-get="{% url 'communications:history' %}"
+              hx-target="#main-content"
+              hx-push-url="true"
+              class="flex flex-wrap gap-4 items-end">
+            <div class="form-control flex-1 min-w-48">
+                <label class="label py-1">
+                    <span class="label-text text-xs">Search</span>
+                </label>
+                <input type="text"
+                       name="search"
+                       value="{{ search }}"
+                       placeholder="Phone, name, or message..."
+                       class="input input-bordered input-sm">
+            </div>
+            <div class="form-control">
+                <label class="label py-1">
+                    <span class="label-text text-xs">Status</span>
+                </label>
+                <select name="status" class="select select-bordered select-sm">
+                    <option value="">All Status</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-control">
+                <label class="label py-1">
+                    <span class="label-text text-xs">Type</span>
+                </label>
+                <select name="type" class="select select-bordered select-sm">
+                    <option value="">All Types</option>
+                    {% for value, label in type_choices %}
+                    <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-search"></i>
+                Filter
+            </button>
+            {% if search or status_filter or type_filter %}
+            <a href="{% url 'communications:history' %}"
+               hx-get="{% url 'communications:history' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Messages Table -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-0">
+        {% if messages %}
+        <div class="overflow-x-auto">
+            <table class="table">
+                <thead>
+                    <tr class="text-xs uppercase text-base-content/60">
+                        <th>Recipient</th>
+                        <th>Message</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Sent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for msg in messages %}
+                    <tr class="hover">
+                        <td>
+                            <div>
+                                <div class="font-medium">{{ msg.recipient_name|default:"-" }}</div>
+                                <div class="text-xs text-base-content/50 font-mono">{{ msg.recipient_phone }}</div>
+                                {% if msg.student %}
+                                <div class="text-xs text-base-content/50">
+                                    Student: {{ msg.student.full_name }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="max-w-xs">
+                                <p class="text-sm truncate" title="{{ msg.message }}">{{ msg.message|truncatechars:80 }}</p>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-ghost badge-sm">{{ msg.get_message_type_display }}</span>
+                        </td>
+                        <td>
+                            {% if msg.status == 'sent' %}
+                            <span class="badge badge-success badge-sm">Sent</span>
+                            {% elif msg.status == 'delivered' %}
+                            <span class="badge badge-success badge-sm">Delivered</span>
+                            {% elif msg.status == 'failed' %}
+                            <div>
+                                <span class="badge badge-error badge-sm">Failed</span>
+                                {% if msg.error_message %}
+                                <p class="text-xs text-error mt-1">{{ msg.error_message|truncatechars:30 }}</p>
+                                {% endif %}
+                            </div>
+                            {% elif msg.status == 'pending' %}
+                            <span class="badge badge-warning badge-sm">Pending</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-sm">{{ msg.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-xs text-base-content/60">
+                            <div>{{ msg.created_at|date:"M d, Y" }}</div>
+                            <div>{{ msg.created_at|time:"H:i" }}</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-base-content/40">
+            <i class="fa-solid fa-inbox text-4xl mb-3"></i>
+            <p class="text-sm">No messages found</p>
+            {% if search or status_filter or type_filter %}
+            <p class="text-xs">Try adjusting your filters</p>
+            {% else %}
+            <p class="text-xs">Messages will appear here after you send them</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
