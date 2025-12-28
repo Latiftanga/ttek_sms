@@ -1,4 +1,5 @@
 import json
+from functools import wraps
 from datetime import datetime
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -12,6 +13,24 @@ from academics.models import Class
 from core.models import AcademicYear
 from .models import Student, Enrollment
 from .forms import StudentForm, BulkImportForm
+
+
+def is_school_admin(user):
+    """Check if user is a school admin or superuser."""
+    return user.is_superuser or getattr(user, 'is_school_admin', False)
+
+
+def admin_required(view_func):
+    """Decorator to require school admin or superuser access."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if not is_school_admin(request.user):
+            messages.error(request, "You don't have permission to access this page.")
+            return redirect('core:index')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
 
 
 def create_enrollment_for_student(student, class_assigned=None):
@@ -42,7 +61,7 @@ def htmx_render(request, full_template, partial_template, context=None):
     return render(request, template, context)
 
 
-@login_required
+@admin_required
 def index(request):
     """Student list page with search and filter."""
     students = Student.objects.select_related('current_class').all()
@@ -85,7 +104,7 @@ def index(request):
     )
 
 
-@login_required
+@admin_required
 def student_create(request):
     """Create a new student."""
     if request.method == 'GET':
@@ -115,7 +134,7 @@ def student_create(request):
     )
 
 
-@login_required
+@admin_required
 def student_edit(request, pk):
     """Edit a student."""
     student = get_object_or_404(Student, pk=pk)
@@ -145,7 +164,7 @@ def student_edit(request, pk):
     )
 
 
-@login_required
+@admin_required
 def student_delete(request, pk):
     """Delete a student."""
     if request.method != 'POST':
@@ -161,7 +180,7 @@ def student_delete(request, pk):
     return redirect('students:index')
 
 
-@login_required
+@admin_required
 def student_detail(request, pk):
     """View student details."""
     student = get_object_or_404(Student.objects.select_related('current_class', 'user'), pk=pk)
@@ -217,7 +236,7 @@ def clean_value(value):
     return str(value).strip()
 
 
-@login_required
+@admin_required
 def bulk_import(request):
     """Handle bulk import of students from Excel/CSV."""
     if request.method == 'GET':
@@ -364,7 +383,7 @@ def bulk_import(request):
         })
 
 
-@login_required
+@admin_required
 def bulk_import_confirm(request):
     """Confirm and process the bulk import."""
     if request.method != 'POST':
@@ -436,7 +455,7 @@ def bulk_import_confirm(request):
     return redirect('students:index')
 
 
-@login_required
+@admin_required
 def bulk_import_template(request):
     """Download a sample import template."""
     sample_data = {
@@ -471,7 +490,7 @@ def bulk_import_template(request):
 
 # ============ PROMOTION VIEWS ============
 
-@login_required
+@admin_required
 def promotion(request):
     """Show students grouped by class for promotion."""
     current_year = AcademicYear.get_current()
@@ -530,7 +549,7 @@ def promotion(request):
     )
 
 
-@login_required
+@admin_required
 def promotion_process(request):
     """Process student promotions."""
     if request.method != 'POST':

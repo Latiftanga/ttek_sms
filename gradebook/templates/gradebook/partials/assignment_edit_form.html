@@ -1,0 +1,72 @@
+<!-- Assignment Edit Form -->
+<div class="p-4 bg-base-200 rounded-lg border border-base-300">
+    <form hx-post="{% url 'gradebook:assignment_edit' assignment.pk %}"
+          hx-target="#assignments-list"
+          hx-swap="innerHTML"
+          class="space-y-3">
+        {% csrf_token %}
+
+        <div class="flex items-center justify-between mb-2">
+            <h4 class="font-medium text-sm">Edit Assignment</h4>
+            <button type="button"
+                    hx-get="{% url 'gradebook:assignments' assignment.subject.pk %}"
+                    hx-target="#assignments-list"
+                    hx-swap="innerHTML"
+                    class="btn btn-ghost btn-xs btn-circle">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+
+        <div class="form-control">
+            <label class="label py-1">
+                <span class="label-text text-xs">Category</span>
+            </label>
+            <select name="category_id" class="select select-bordered select-sm w-full">
+                {% for cat in categories %}
+                <option value="{{ cat.pk }}" {% if cat.pk == assignment.assessment_category.pk %}selected{% endif %}>
+                    {{ cat.name }} ({{ cat.percentage }}%)
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-control">
+            <label class="label py-1">
+                <span class="label-text text-xs">Name</span>
+            </label>
+            <input type="text"
+                   name="name"
+                   value="{{ assignment.name }}"
+                   class="input input-bordered input-sm w-full"
+                   placeholder="e.g., Quiz 1"
+                   required>
+        </div>
+
+        <div class="form-control">
+            <label class="label py-1">
+                <span class="label-text text-xs">Max Points</span>
+            </label>
+            <input type="number"
+                   name="points_possible"
+                   value="{{ assignment.points_possible }}"
+                   class="input input-bordered input-sm w-full"
+                   min="1"
+                   step="0.01"
+                   required>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+            <button type="submit" class="btn btn-primary btn-sm flex-1">
+                <i class="fa-solid fa-check"></i>
+                Save
+            </button>
+            <button type="button"
+                    hx-get="{% url 'gradebook:assignments' assignment.subject.pk %}"
+                    hx-target="#assignments-list"
+                    hx-swap="innerHTML"
+                    class="btn btn-ghost btn-sm">
+                Cancel
+            </button>
+        </div>
+    </form>
+</div>

@@ -1,12 +1,32 @@
+from functools import wraps
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db import models
+from django.contrib import messages
 
 from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, AttendanceRecord
 from .forms import ProgrammeForm, ClassForm, SubjectForm, StudentEnrollmentForm, ClassSubjectForm
 from students.models import Student
+
+
+def is_school_admin(user):
+    """Check if user is a school admin or superuser."""
+    return user.is_superuser or getattr(user, 'is_school_admin', False)
+
+
+def admin_required(view_func):
+    """Decorator to require school admin or superuser access."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if not is_school_admin(request.user):
+            messages.error(request, "You don't have permission to access this page.")
+            return redirect('core:index')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
 
 
 def htmx_render(request, full_template, partial_template, context=None):
@@ -82,9 +102,9 @@ def get_academics_context():
     }
 
 
-@login_required
+@admin_required
 def index(request):
-    """Academics dashboard page."""
+    """Academics dashboard page - Admin only."""
     context = get_academics_context()
 
     return htmx_render(
@@ -112,7 +132,7 @@ def get_programmes_list_context():
     return {'programmes': programmes}
 
 
-@login_required
+@admin_required
 def programme_create(request):
     """Create a new programme."""
     if request.method != 'POST':
@@ -138,7 +158,7 @@ def programme_create(request):
     return redirect('academics:index')
 
 
-@login_required
+@admin_required
 def programme_edit(request, pk):
     """Edit a programme."""
     programme = get_object_or_404(Programme, pk=pk)
@@ -979,6 +999,10 @@ def attendance_reports(request):
     """Attendance reports with filters."""
     from django.db.models import Count, Q, F
     from datetime import timedelta
+    from teachers.models import Teacher
+
+    user = request.user
+    is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
 
     # Get filter parameters
     class_filter = request.GET.get('class', '')
@@ -993,9 +1017,28 @@ def attendance_reports(request):
     if not date_to:
         date_to = today.isoformat()
 
-    # Base querysets
+    # Filter classes based on user role
+    if is_admin:
+        classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
+    elif getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+        teacher = user.teacher_profile
+        # Teachers see classes they're class teacher for OR assigned to teach
+        homeroom_ids = Class.objects.filter(class_teacher=teacher).values_list('id', flat=True)
+        assigned_ids = ClassSubject.objects.filter(teacher=teacher).values_list('class_assigned_id', flat=True)
+        all_class_ids = set(homeroom_ids) | set(assigned_ids)
+        classes = Class.objects.filter(id__in=all_class_ids, is_active=True).order_by('level_number', 'name')
+    else:
+        classes = Class.objects.none()
+
+    allowed_class_ids = list(classes.values_list('id', flat=True))
+
+    # Base querysets - filter by allowed classes for teachers
     sessions = AttendanceSession.objects.select_related('class_assigned')
     records = AttendanceRecord.objects.select_related('session', 'student', 'session__class_assigned')
+
+    if not is_admin:
+        sessions = sessions.filter(class_assigned_id__in=allowed_class_ids)
+        records = records.filter(session__class_assigned_id__in=allowed_class_ids)
 
     # Apply date filter
     if date_from:
@@ -1021,9 +1064,8 @@ def attendance_reports(request):
     if total_records > 0:
         attendance_rate = round((present_count / total_records) * 100, 1)
 
-    # Summary by class
+    # Summary by class (only for allowed classes)
     class_summary = []
-    classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
     for cls in classes:
         cls_records = records.filter(session__class_assigned=cls)
         cls_total = cls_records.count()

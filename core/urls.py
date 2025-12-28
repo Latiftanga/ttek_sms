@@ -6,6 +6,8 @@ app_name = 'core'
 urlpatterns = [
     # Dashboard
     path('', views.index, name='index'),
+    path('profile/', views.profile, name='profile'),
+    path('schedule/', views.schedule, name='schedule'),
 
     # School Admin routes
     path('finance/', views.finance_overview, name='finance'),
@@ -22,15 +24,15 @@ urlpatterns = [
 
     # Academic Year routes
     path('settings/academic-year/create/', views.academic_year_create, name='academic_year_create'),
-    path('settings/academic-year/<int:pk>/edit/', views.academic_year_edit, name='academic_year_edit'),
-    path('settings/academic-year/<int:pk>/delete/', views.academic_year_delete, name='academic_year_delete'),
-    path('settings/academic-year/<int:pk>/set-current/', views.academic_year_set_current, name='academic_year_set_current'),
+    path('settings/academic-year/<uuid:pk>/edit/', views.academic_year_edit, name='academic_year_edit'),
+    path('settings/academic-year/<uuid:pk>/delete/', views.academic_year_delete, name='academic_year_delete'),
+    path('settings/academic-year/<uuid:pk>/set-current/', views.academic_year_set_current, name='academic_year_set_current'),
 
     # Term routes
     path('settings/term/create/', views.term_create, name='term_create'),
-    path('settings/term/<int:pk>/edit/', views.term_edit, name='term_edit'),
-    path('settings/term/<int:pk>/delete/', views.term_delete, name='term_delete'),
-    path('settings/term/<int:pk>/set-current/', views.term_set_current, name='term_set_current'),
+    path('settings/term/<uuid:pk>/edit/', views.term_edit, name='term_edit'),
+    path('settings/term/<uuid:pk>/delete/', views.term_delete, name='term_delete'),
+    path('settings/term/<uuid:pk>/set-current/', views.term_set_current, name='term_set_current'),
 
     # Teacher routes
     path('my-classes/', views.my_classes, name='my_classes'),

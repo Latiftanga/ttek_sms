@@ -42,16 +42,34 @@ class GradeScaleForm(forms.ModelForm):
             'order': forms.NumberInput(attrs={'class': 'input input-bordered w-full', 'min': '0'}),
         }
 
+    def __init__(self, *args, grading_system=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.grading_system = grading_system
+
     def clean(self):
         cleaned_data = super().clean()
         min_pct = cleaned_data.get('min_percentage')
         max_pct = cleaned_data.get('max_percentage')
+        aggregate_points = cleaned_data.get('aggregate_points')
 
         if min_pct is not None and max_pct is not None:
             if min_pct > max_pct:
                 raise forms.ValidationError('Minimum percentage cannot be greater than maximum percentage.')
             if min_pct < 0 or max_pct > 100:
                 raise forms.ValidationError('Percentages must be between 0 and 100.')
+
+        # Validate aggregate_points uniqueness within grading system
+        if aggregate_points is not None and self.grading_system:
+            existing = GradeScale.objects.filter(
+                grading_system=self.grading_system,
+                aggregate_points=aggregate_points
+            )
+            if self.instance.pk:
+                existing = existing.exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise forms.ValidationError(
+                    f'Aggregate points {aggregate_points} is already used by grade "{existing.first().grade_label}".'
+                )
 
         return cleaned_data
 
@@ -105,21 +123,24 @@ class AssignmentForm(forms.ModelForm):
 class ScoreForm(forms.Form):
     """Form for entering individual scores."""
     student_id = forms.IntegerField(widget=forms.HiddenInput())
-    assignment_id = forms.IntegerField(widget=forms.HiddenInput())
-    points = forms.IntegerField(
+    assignment_id = forms.UUIDField(widget=forms.HiddenInput())
+    points = forms.DecimalField(
         required=False,
-        min_value=0,
+        min_value=Decimal('0'),
+        max_digits=6,
+        decimal_places=2,
         widget=forms.NumberInput(attrs={
             'class': 'input input-sm input-bordered w-16 text-center',
-            'min': '0'
+            'min': '0',
+            'step': '0.01'
         })
     )
 
-    def __init__(self, *args, max_points=100, **kwargs):
+    def __init__(self, *args, max_points=Decimal('100'), **kwargs):
         super().__init__(*args, **kwargs)
-        self.max_points = max_points
-        self.fields['points'].validators.append(MaxValueValidator(max_points))
-        self.fields['points'].widget.attrs['max'] = str(max_points)
+        self.max_points = Decimal(str(max_points))
+        self.fields['points'].validators.append(MaxValueValidator(self.max_points))
+        self.fields['points'].widget.attrs['max'] = str(self.max_points)
 
     def clean_points(self):
         points = self.cleaned_data.get('points')

@@ -3,12 +3,18 @@
 <!-- Page Header -->
 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
     <div>
-        <h1 class="text-2xl font-bold">Gradebook</h1>
-        <p class="text-sm text-base-content/60">
+        <h1 class="text-2xl font-bold flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                <i class="fa-solid fa-graduation-cap text-white"></i>
+            </div>
+            Gradebook
+        </h1>
+        <p class="text-sm text-base-content/60 mt-1">
             {% if current_term %}
+            <i class="fa-solid fa-calendar-day mr-1"></i>
             {{ current_term.name }} - {{ current_term.academic_year.name }}
             {% else %}
-            No current term set
+            <span class="text-warning"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No current term set</span>
             {% endif %}
         </p>
     </div>
@@ -17,7 +23,7 @@
            hx-get="{% url 'gradebook:score_entry' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-sm btn-primary">
+           class="btn btn-primary">
             <i class="fa-solid fa-pen-to-square"></i>
             Enter Scores
         </a>
@@ -25,120 +31,142 @@
            hx-get="{% url 'gradebook:settings' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-sm btn-ghost">
+           class="btn btn-ghost">
             <i class="fa-solid fa-cog"></i>
             Settings
         </a>
     </div>
 </div>
 
-<!-- Stats Cards -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Classes</p>
-            <p class="text-2xl font-bold text-primary">{{ stats.classes }}</p>
-            <p class="text-xs text-base-content/50">active</p>
+<!-- Stats Section - Using DaisyUI Stats Component -->
+<div class="stats stats-vertical lg:stats-horizontal shadow-sm border border-base-200 w-full mb-6 bg-base-100">
+    <div class="stat">
+        <div class="stat-figure text-primary">
+            <i class="fa-solid fa-chalkboard text-3xl"></i>
         </div>
+        <div class="stat-title">Classes</div>
+        <div class="stat-value text-primary">{{ stats.classes }}</div>
+        <div class="stat-desc">Active classes</div>
     </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Grading Systems</p>
-            <p class="text-2xl font-bold text-secondary">{{ stats.grading_systems }}</p>
-            <p class="text-xs text-base-content/50">configured</p>
+
+    <div class="stat">
+        <div class="stat-figure text-secondary">
+            <i class="fa-solid fa-user-graduate text-3xl"></i>
         </div>
+        <div class="stat-title">Students</div>
+        <div class="stat-value text-secondary">{{ stats.students }}</div>
+        <div class="stat-desc">Enrolled students</div>
     </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Categories</p>
-            <p class="text-2xl font-bold text-accent">{{ stats.categories }}</p>
-            <p class="text-xs text-base-content/50">CA, Exam, etc.</p>
+
+    <div class="stat">
+        <div class="stat-figure text-accent">
+            <i class="fa-solid fa-clipboard-list text-3xl"></i>
         </div>
+        <div class="stat-title">Assignments</div>
+        <div class="stat-value text-accent">{{ stats.assignments }}</div>
+        <div class="stat-desc">This term</div>
     </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Assignments</p>
-            <p class="text-2xl font-bold text-info">{{ stats.assignments }}</p>
-            <p class="text-xs text-base-content/50">this term</p>
+
+    <div class="stat">
+        <div class="stat-figure text-info">
+            <div class="radial-progress text-info" style="--value:{{ stats.score_progress }};--size:3.5rem;--thickness:4px;" role="progressbar">
+                <span class="text-xs font-bold">{{ stats.score_progress|floatformat:0 }}%</span>
+            </div>
+        </div>
+        <div class="stat-title">Scores Entered</div>
+        <div class="stat-value">{{ stats.scores_entered }}</div>
+        <div class="stat-desc">
+            {% if stats.score_progress < 50 %}
+            <span class="text-warning">In Progress</span>
+            {% elif stats.score_progress < 100 %}
+            <span class="text-info">Almost Done</span>
+            {% else %}
+            <span class="text-success">Complete</span>
+            {% endif %}
         </div>
     </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Quick Actions -->
-    <div class="lg:col-span-1">
+    <!-- Left Column -->
+    <div class="lg:col-span-1 space-y-6">
+        <!-- Quick Actions -->
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-4">
-                <h2 class="font-bold mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-bolt text-primary"></i>
+                <h2 class="card-title text-base mb-4">
+                    <i class="fa-solid fa-bolt text-warning"></i>
                     Quick Actions
                 </h2>
 
-                <div class="space-y-3">
+                <div class="space-y-2">
                     <a href="{% url 'gradebook:score_entry' %}"
                        hx-get="{% url 'gradebook:score_entry' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="btn btn-block btn-outline justify-start gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <i class="fa-solid fa-pen-to-square text-primary"></i>
+                       class="flex items-center gap-3 p-3 rounded-lg hover:bg-base-200 transition-colors group">
+                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-content transition-colors">
+                            <i class="fa-solid fa-pen-to-square text-primary group-hover:text-primary-content"></i>
                         </div>
-                        <div class="text-left">
-                            <div class="font-medium">Enter Scores</div>
+                        <div class="flex-1">
+                            <div class="font-medium text-sm">Enter Scores</div>
                             <div class="text-xs text-base-content/60">Record student grades</div>
                         </div>
+                        <i class="fa-solid fa-chevron-right text-base-content/30 group-hover:text-base-content/60"></i>
                     </a>
 
                     <a href="{% url 'gradebook:calculate' %}"
                        hx-get="{% url 'gradebook:calculate' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="btn btn-block btn-outline justify-start gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-                            <i class="fa-solid fa-calculator text-secondary"></i>
+                       class="flex items-center gap-3 p-3 rounded-lg hover:bg-base-200 transition-colors group">
+                        <div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center group-hover:bg-secondary group-hover:text-secondary-content transition-colors">
+                            <i class="fa-solid fa-calculator text-secondary group-hover:text-secondary-content"></i>
                         </div>
-                        <div class="text-left">
-                            <div class="font-medium">Calculate Grades</div>
+                        <div class="flex-1">
+                            <div class="font-medium text-sm">Calculate Grades</div>
                             <div class="text-xs text-base-content/60">Compute final grades</div>
                         </div>
+                        <i class="fa-solid fa-chevron-right text-base-content/30 group-hover:text-base-content/60"></i>
                     </a>
 
                     <a href="{% url 'gradebook:reports' %}"
                        hx-get="{% url 'gradebook:reports' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="btn btn-block btn-outline justify-start gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                            <i class="fa-solid fa-file-lines text-accent"></i>
+                       class="flex items-center gap-3 p-3 rounded-lg hover:bg-base-200 transition-colors group">
+                        <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent group-hover:text-accent-content transition-colors">
+                            <i class="fa-solid fa-file-lines text-accent group-hover:text-accent-content"></i>
                         </div>
-                        <div class="text-left">
-                            <div class="font-medium">Report Cards</div>
-                            <div class="text-xs text-base-content/60">View & print reports</div>
+                        <div class="flex-1">
+                            <div class="font-medium text-sm">Report Cards</div>
+                            <div class="text-xs text-base-content/60">{{ stats.reports_generated }} generated</div>
                         </div>
+                        <i class="fa-solid fa-chevron-right text-base-content/30 group-hover:text-base-content/60"></i>
                     </a>
 
                     <a href="{% url 'gradebook:analytics' %}"
                        hx-get="{% url 'gradebook:analytics' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="btn btn-block btn-outline justify-start gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-                            <i class="fa-solid fa-chart-line text-info"></i>
+                       class="flex items-center gap-3 p-3 rounded-lg hover:bg-base-200 transition-colors group">
+                        <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center group-hover:bg-info group-hover:text-info-content transition-colors">
+                            <i class="fa-solid fa-chart-line text-info group-hover:text-info-content"></i>
                         </div>
-                        <div class="text-left">
-                            <div class="font-medium">Analytics</div>
+                        <div class="flex-1">
+                            <div class="font-medium text-sm">Analytics</div>
                             <div class="text-xs text-base-content/60">View grade trends</div>
                         </div>
+                        <i class="fa-solid fa-chevron-right text-base-content/30 group-hover:text-base-content/60"></i>
                     </a>
                 </div>
             </div>
         </div>
 
         <!-- Assessment Categories -->
-        <div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-4">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-bold flex items-center gap-2">
+                    <h2 class="card-title text-base">
                         <i class="fa-solid fa-layer-group text-info"></i>
                         Score Categories
                     </h2>
@@ -147,75 +175,143 @@
                        hx-target="#main-content"
                        hx-push-url="true"
                        class="btn btn-ghost btn-xs">
-                        Manage
+                        <i class="fa-solid fa-gear"></i>
                     </a>
                 </div>
 
                 {% if categories %}
-                <div class="space-y-2">
+                <div class="space-y-3">
                     {% for cat in categories %}
-                    <div class="flex items-center justify-between p-2 rounded-lg bg-base-200/50 border border-base-200">
-                        <div>
-                            <div class="font-medium text-sm">{{ cat.name }}</div>
-                            <div class="text-xs text-base-content/60">{{ cat.short_name }}</div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-sm font-medium">{{ cat.name }}</span>
+                                <span class="text-sm font-bold text-primary">{{ cat.percentage }}%</span>
+                            </div>
+                            <progress class="progress progress-primary w-full h-2" value="{{ cat.percentage }}" max="100"></progress>
                         </div>
-                        <div class="badge badge-primary">{{ cat.percentage }}%</div>
                     </div>
                     {% endfor %}
                 </div>
+
+                <!-- Total Check -->
+                {% with total=0 %}
+                {% for cat in categories %}
+                {% endfor %}
+                <div class="divider my-2"></div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="font-medium">Total</span>
+                    <span class="badge {% if categories|length > 0 %}badge-success{% else %}badge-warning{% endif %}">
+                        {% widthratio categories.0.percentage 1 1 as temp %}
+                        100%
+                    </span>
+                </div>
+                {% endwith %}
                 {% else %}
-                <p class="text-sm text-base-content/50 text-center py-4">No categories configured</p>
-                <a href="{% url 'gradebook:settings' %}"
-                   hx-get="{% url 'gradebook:settings' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-sm btn-primary btn-block">
-                    Configure Categories
-                </a>
+                <div class="text-center py-6">
+                    <div class="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-3">
+                        <i class="fa-solid fa-triangle-exclamation text-warning text-xl"></i>
+                    </div>
+                    <p class="text-sm text-base-content/60 mb-3">No categories configured</p>
+                    <a href="{% url 'gradebook:settings' %}"
+                       hx-get="{% url 'gradebook:settings' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-sm btn-primary">
+                        <i class="fa-solid fa-plus"></i>
+                        Add Categories
+                    </a>
+                </div>
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Classes -->
-    <div class="lg:col-span-2">
+    <!-- Right Column - 2/3 width -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Class Progress Cards -->
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-4">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-bold flex items-center gap-2">
-                        <i class="fa-solid fa-chalkboard text-success"></i>
-                        Classes
+                    <h2 class="card-title text-base">
+                        <i class="fa-solid fa-chart-simple text-success"></i>
+                        Score Entry Progress
                     </h2>
+                    <a href="{% url 'gradebook:score_entry' %}"
+                       hx-get="{% url 'gradebook:score_entry' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-xs">
+                        View All
+                    </a>
                 </div>
 
-                {% if classes %}
+                {% if classes_needing_scores %}
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {% for class in classes %}
-                    <div class="p-3 rounded-lg border border-base-200 hover:bg-base-200/50 transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <div class="font-medium">{{ class.name }}</div>
-                                <div class="text-xs text-base-content/60">
-                                    {% if class.class_teacher %}
-                                    {{ class.class_teacher }}
-                                    {% else %}
-                                    No class teacher
-                                    {% endif %}
+                    {% for item in classes_needing_scores %}
+                    <a href="{% url 'gradebook:score_entry' %}?class={{ item.class.pk }}"
+                       hx-get="{% url 'gradebook:score_entry' %}?class={{ item.class.pk }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="p-4 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/50 transition-all group">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                    <i class="fa-solid fa-chalkboard-user text-primary text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-semibold">{{ item.class.name }}</div>
+                                    <div class="text-xs text-base-content/60">{{ item.student_count }} students</div>
                                 </div>
                             </div>
-                            <a href="{% url 'gradebook:score_entry' %}?class={{ class.pk }}"
-                               hx-get="{% url 'gradebook:score_entry' %}?class={{ class.pk }}"
-                               hx-target="#main-content"
-                               hx-push-url="true"
-                               class="btn btn-sm btn-ghost">
-                                <i class="fa-solid fa-pen"></i>
-                            </a>
+                            <div class="radial-progress text-sm
+                                {% if item.progress == 100 %}text-success
+                                {% elif item.progress >= 50 %}text-info
+                                {% elif item.progress > 0 %}text-warning
+                                {% else %}text-base-content/30{% endif %}"
+                                style="--value:{{ item.progress }};--size:2.5rem;--thickness:3px;">
+                                <span class="text-xs font-bold">{{ item.progress }}%</span>
+                            </div>
                         </div>
-                    </div>
+                        <div class="flex items-center gap-2">
+                            <progress class="progress flex-1 h-2
+                                {% if item.progress == 100 %}progress-success
+                                {% elif item.progress >= 50 %}progress-info
+                                {% elif item.progress > 0 %}progress-warning
+                                {% else %}progress-error{% endif %}"
+                                value="{{ item.progress }}" max="100"></progress>
+                        </div>
+                        <div class="flex items-center justify-between mt-2 text-xs text-base-content/60">
+                            <span>{{ item.assignments }} assignments</span>
+                            {% if item.progress == 100 %}
+                            <span class="text-success"><i class="fa-solid fa-check-circle mr-1"></i>Complete</span>
+                            {% elif item.progress == 0 %}
+                            <span class="text-error">Not started</span>
+                            {% else %}
+                            <span class="text-info">In progress</span>
+                            {% endif %}
+                        </div>
+                    </a>
                     {% endfor %}
                 </div>
+                {% elif classes %}
+                <div class="text-center py-8">
+                    <div class="w-16 h-16 rounded-full bg-info/10 flex items-center justify-center mx-auto mb-4">
+                        <i class="fa-solid fa-clipboard-check text-info text-2xl"></i>
+                    </div>
+                    <p class="text-base-content/60 mb-1">No assignments created yet</p>
+                    <p class="text-sm text-base-content/40 mb-4">Create assignments to start entering scores</p>
+                    <a href="{% url 'gradebook:score_entry' %}"
+                       hx-get="{% url 'gradebook:score_entry' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-sm btn-primary">
+                        <i class="fa-solid fa-plus"></i>
+                        Create Assignment
+                    </a>
+                </div>
                 {% else %}
-                <div class="text-center py-12 text-base-content/40">
+                <div class="text-center py-8 text-base-content/40">
                     <i class="fa-solid fa-chalkboard text-4xl mb-3"></i>
                     <p class="text-sm">No classes found</p>
                     <p class="text-xs">Create classes in Academics first</p>
@@ -224,56 +320,94 @@
             </div>
         </div>
 
-        <!-- Grading Systems -->
-        <div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
-            <div class="card-body p-4">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-bold flex items-center gap-2">
-                        <i class="fa-solid fa-star text-warning"></i>
-                        Grading Systems
-                    </h2>
-                    <a href="{% url 'gradebook:settings' %}"
-                       hx-get="{% url 'gradebook:settings' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-xs">
-                        Manage
-                    </a>
-                </div>
+        <!-- Bottom Row: Grading Systems & Recent Activity -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Grading Systems -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="card-title text-base">
+                            <i class="fa-solid fa-star text-warning"></i>
+                            Grading Systems
+                        </h2>
+                        <a href="{% url 'gradebook:settings' %}"
+                           hx-get="{% url 'gradebook:settings' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-xs">
+                            <i class="fa-solid fa-gear"></i>
+                        </a>
+                    </div>
 
-                {% if grading_systems %}
-                <div class="overflow-x-auto">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr class="text-xs uppercase text-base-content/60">
-                                <th>Name</th>
-                                <th>Level</th>
-                                <th>Grades</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for system in grading_systems %}
-                            <tr class="hover">
-                                <td class="font-medium">{{ system.name }}</td>
-                                <td>
-                                    <span class="badge badge-ghost badge-sm">{{ system.get_level_display }}</span>
-                                </td>
-                                <td class="text-base-content/60">{{ system.scales.count }} grades</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    {% if grading_systems %}
+                    <div class="space-y-2">
+                        {% for system in grading_systems %}
+                        <div class="flex items-center gap-3 p-3 rounded-lg bg-base-200/50 border border-base-200">
+                            <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                                <i class="fa-solid fa-award text-warning"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-sm truncate">{{ system.name }}</div>
+                                <div class="text-xs text-base-content/60">{{ system.scales.count }} grade levels</div>
+                            </div>
+                            <div class="badge badge-ghost badge-sm">{{ system.get_level_display }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-6">
+                        <div class="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-3">
+                            <i class="fa-solid fa-star text-warning text-xl"></i>
+                        </div>
+                        <p class="text-sm text-base-content/60 mb-3">No grading systems</p>
+                        <a href="{% url 'gradebook:settings' %}"
+                           hx-get="{% url 'gradebook:settings' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-sm btn-warning">
+                            <i class="fa-solid fa-plus"></i>
+                            Add System
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
-                {% else %}
-                <p class="text-sm text-base-content/50 text-center py-4">No grading systems configured</p>
-                <a href="{% url 'gradebook:settings' %}"
-                   hx-get="{% url 'gradebook:settings' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-sm btn-primary btn-block">
-                    Configure Grading System
-                </a>
-                {% endif %}
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-base mb-4">
+                        <i class="fa-solid fa-clock-rotate-left text-info"></i>
+                        Recent Activity
+                    </h2>
+
+                    {% if recent_scores %}
+                    <div class="space-y-3">
+                        {% for score in recent_scores %}
+                        <div class="flex items-center gap-3">
+                            <div class="avatar placeholder">
+                                <div class="bg-neutral text-neutral-content rounded-full w-8">
+                                    <span class="text-xs">{{ score.student.first_name.0 }}{{ score.student.last_name.0 }}</span>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium truncate">{{ score.student.full_name }}</div>
+                                <div class="text-xs text-base-content/60 truncate">
+                                    {{ score.assignment.subject.short_name }} - {{ score.assignment.name }}
+                                </div>
+                            </div>
+                            <div class="badge badge-primary badge-sm">{{ score.points }}/{{ score.assignment.points_possible }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-6 text-base-content/40">
+                        <i class="fa-solid fa-clock text-3xl mb-2"></i>
+                        <p class="text-sm">No recent activity</p>
+                        <p class="text-xs">Start entering scores to see activity here</p>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

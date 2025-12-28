@@ -1,0 +1,10 @@
+{% extends 'core/base.html' %}
+{% load core_tags %}
+
+{% block title %}My Profile - {{ teacher.full_name }}{% endblock %}
+
+{% block content %}
+<div id="main-content">
+    {% include 'teachers/partials/profile_content.html' %}
+</div>
+{% endblock %}

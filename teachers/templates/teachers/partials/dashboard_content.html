@@ -1,0 +1,442 @@
+{% load core_tags %}
+
+<!-- Welcome Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div class="flex items-center gap-4">
+        <div class="avatar">
+            <div class="w-14 h-14 rounded-full bg-primary text-primary-content ring ring-primary/20 ring-offset-base-100 ring-offset-2">
+                {% if teacher.photo %}
+                <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" />
+                {% else %}
+                <div class="flex items-center justify-center h-full text-xl font-bold">
+                    {{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div>
+            <h1 class="text-xl font-bold">
+                Good {% if today.hour < 12 %}morning{% elif today.hour < 17 %}afternoon{% else %}evening{% endif %}, {{ teacher.get_title_display }} {{ teacher.last_name }}
+            </h1>
+            <p class="text-sm text-base-content/60 flex items-center gap-2">
+                <i class="fa-regular fa-calendar"></i>
+                {{ today|date:"l, F j, Y" }}
+                {% if current_term %}
+                <span class="badge badge-sm badge-ghost">{{ current_term.name }}</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="stats stats-vertical lg:stats-horizontal shadow-sm border border-base-200 w-full mb-6">
+    <div class="stat">
+        <div class="stat-figure text-primary">
+            <i class="fa-solid fa-chalkboard text-2xl"></i>
+        </div>
+        <div class="stat-title">Classes</div>
+        <div class="stat-value text-primary">{{ stats.classes_count }}</div>
+        <div class="stat-desc">Assigned to you</div>
+    </div>
+
+    <div class="stat">
+        <div class="stat-figure text-secondary">
+            <i class="fa-solid fa-book text-2xl"></i>
+        </div>
+        <div class="stat-title">Subjects</div>
+        <div class="stat-value text-secondary">{{ stats.subjects_count }}</div>
+        <div class="stat-desc">Teaching this term</div>
+    </div>
+
+    <div class="stat">
+        <div class="stat-figure text-accent">
+            <i class="fa-solid fa-users text-2xl"></i>
+        </div>
+        <div class="stat-title">Students</div>
+        <div class="stat-value text-accent">{{ stats.total_students }}</div>
+        <div class="stat-desc">Across all classes</div>
+    </div>
+
+    <div class="stat">
+        <div class="stat-figure text-info">
+            <i class="fa-solid fa-clock text-2xl"></i>
+        </div>
+        <div class="stat-title">Today</div>
+        <div class="stat-value text-info">{{ stats.periods_today }}</div>
+        <div class="stat-desc">{% if is_weekend %}Weekend{% else %}Periods scheduled{% endif %}</div>
+    </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left Column - Today's Schedule & Classes -->
+    <div class="lg:col-span-2 space-y-6">
+
+        <!-- Today's Schedule -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-clock text-primary"></i>
+                        </div>
+                        Today's Schedule
+                    </h2>
+                    <a href="{% url 'core:schedule' %}"
+                       hx-get="{% url 'core:schedule' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm gap-1">
+                        View Full Schedule
+                        <i class="fa-solid fa-arrow-right text-xs"></i>
+                    </a>
+                </div>
+
+                <div class="p-4">
+                    {% if is_weekend %}
+                    <div class="text-center py-8">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-success/10 flex items-center justify-center">
+                            <i class="fa-solid fa-mug-hot text-success text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">It's the Weekend!</h3>
+                        <p class="text-sm text-base-content/50">Enjoy your time off. See you on Monday.</p>
+                    </div>
+                    {% elif todays_schedule %}
+                    <div class="space-y-2">
+                        {% for entry in todays_schedule %}
+                        <div class="flex items-center gap-4 p-3 rounded-xl transition-all
+                            {% if entry.is_current %}bg-primary/10 border-2 border-primary{% elif entry.is_past %}bg-base-200/50 opacity-60{% else %}bg-base-200/30 hover:bg-base-200/50{% endif %}">
+
+                            <div class="text-center min-w-[70px]">
+                                <div class="text-xs font-medium {% if entry.is_current %}text-primary{% else %}text-base-content/50{% endif %}">
+                                    {{ entry.period.start_time|time:"g:i A" }}
+                                </div>
+                                <div class="text-[10px] text-base-content/40">
+                                    {{ entry.period.end_time|time:"g:i A" }}
+                                </div>
+                            </div>
+
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-semibold {% if entry.is_current %}text-primary{% endif %}">
+                                        {{ entry.subject.name }}
+                                    </span>
+                                    {% if entry.is_current %}
+                                    <span class="badge badge-primary badge-xs animate-pulse">NOW</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-sm text-base-content/60">
+                                    {{ entry.class.name }}
+                                </div>
+                            </div>
+
+                            {% if entry.is_current %}
+                            <a href="{% url 'gradebook:score_entry' %}?class={{ entry.class.pk }}&subject={{ entry.subject.pk }}"
+                               hx-get="{% url 'gradebook:score_entry' %}?class={{ entry.class.pk }}&subject={{ entry.subject.pk }}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-primary btn-sm">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                                Enter Scores
+                            </a>
+                            {% elif not entry.is_past %}
+                            <div class="badge badge-ghost badge-sm">{{ entry.period.name }}</div>
+                            {% else %}
+                            <i class="fa-solid fa-check text-success/50"></i>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-info/10 flex items-center justify-center">
+                            <i class="fa-solid fa-calendar-check text-info text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Classes Today</h3>
+                        <p class="text-sm text-base-content/50">You have no scheduled classes for today.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- My Classes -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard-user text-secondary"></i>
+                        </div>
+                        My Classes
+                    </h2>
+                </div>
+
+                <div class="p-4">
+                    {% if assignments_by_class %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {% for class_name, data in assignments_by_class.items %}
+                        <div class="group relative bg-gradient-to-br from-base-200/50 to-base-200/30 hover:from-primary/5 hover:to-primary/10 border border-base-300 hover:border-primary/30 rounded-xl p-4 transition-all">
+                            <div class="flex items-start justify-between mb-3">
+                                <div>
+                                    <h3 class="font-bold text-base group-hover:text-primary transition-colors">{{ class_name }}</h3>
+                                    <p class="text-xs text-base-content/50">
+                                        <i class="fa-solid fa-users mr-1"></i>
+                                        {{ data.student_count }} students
+                                    </p>
+                                </div>
+                                <div class="dropdown dropdown-end">
+                                    <label tabindex="0" class="btn btn-ghost btn-xs btn-circle opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                                    </label>
+                                    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-44 border border-base-200">
+                                        <li>
+                                            <a href="{% url 'gradebook:score_entry' %}?class={{ data.class.pk }}"
+                                               hx-get="{% url 'gradebook:score_entry' %}?class={{ data.class.pk }}"
+                                               hx-target="#main-content"
+                                               hx-push-url="true">
+                                                <i class="fa-solid fa-pen-to-square text-primary"></i>
+                                                Enter Scores
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{% url 'academics:attendance_reports' %}?class={{ data.class.pk }}"
+                                               hx-get="{% url 'academics:attendance_reports' %}?class={{ data.class.pk }}"
+                                               hx-target="#main-content"
+                                               hx-push-url="true">
+                                                <i class="fa-solid fa-clipboard-check text-success"></i>
+                                                Attendance
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{% url 'gradebook:reports' %}?class={{ data.class.pk }}"
+                                               hx-get="{% url 'gradebook:reports' %}?class={{ data.class.pk }}"
+                                               hx-target="#main-content"
+                                               hx-push-url="true">
+                                                <i class="fa-solid fa-file-lines text-info"></i>
+                                                Reports
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap gap-1.5">
+                                {% for subject in data.subjects %}
+                                <span class="badge badge-sm bg-base-100 border-base-300">
+                                    {{ subject.short_name|default:subject.name }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard text-base-content/30 text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Classes Assigned</h3>
+                        <p class="text-sm text-base-content/50">Contact your administrator to get classes assigned.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Homeroom Classes -->
+        {% if homeroom_classes %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                            <i class="fa-solid fa-house-user text-info"></i>
+                        </div>
+                        Homeroom Classes
+                        <span class="badge badge-info badge-sm">{{ homeroom_classes|length }}</span>
+                    </h2>
+                </div>
+
+                <div class="divide-y divide-base-200">
+                    {% for class in homeroom_classes %}
+                    <div class="flex items-center justify-between p-4 hover:bg-base-200/30 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                                <i class="fa-solid fa-users text-info"></i>
+                            </div>
+                            <div>
+                                <div class="font-semibold">{{ class.name }}</div>
+                                <div class="text-xs text-base-content/50">
+                                    {{ class.students.count }} students enrolled
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a href="{% url 'academics:attendance_reports' %}?class={{ class.pk }}"
+                               hx-get="{% url 'academics:attendance_reports' %}?class={{ class.pk }}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-ghost btn-sm">
+                                <i class="fa-solid fa-clipboard-check"></i>
+                                Attendance
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column - Quick Actions -->
+    <div class="space-y-6">
+
+        <!-- Quick Actions -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                        <i class="fa-solid fa-bolt text-warning"></i>
+                    </div>
+                    Quick Actions
+                </h2>
+
+                <div class="space-y-2">
+                    <a href="{% url 'gradebook:score_entry' %}"
+                       hx-get="{% url 'gradebook:score_entry' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="flex items-center gap-3 p-3 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/10 hover:border-primary/20 transition-all group">
+                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-pen-to-square text-primary"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium">Enter Scores</div>
+                            <div class="text-xs text-base-content/50">Record student grades</div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
+                    </a>
+
+                    <a href="{% url 'academics:attendance_reports' %}"
+                       hx-get="{% url 'academics:attendance_reports' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="flex items-center gap-3 p-3 rounded-xl bg-success/5 hover:bg-success/10 border border-success/10 hover:border-success/20 transition-all group">
+                        <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-clipboard-check text-success"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium">Take Attendance</div>
+                            <div class="text-xs text-base-content/50">Mark student presence</div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
+                    </a>
+
+                    <a href="{% url 'gradebook:reports' %}"
+                       hx-get="{% url 'gradebook:reports' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="flex items-center gap-3 p-3 rounded-xl bg-info/5 hover:bg-info/10 border border-info/10 hover:border-info/20 transition-all group">
+                        <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-file-lines text-info"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium">View Reports</div>
+                            <div class="text-xs text-base-content/50">Student report cards</div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
+                    </a>
+
+                    <a href="{% url 'core:schedule' %}"
+                       hx-get="{% url 'core:schedule' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="flex items-center gap-3 p-3 rounded-xl bg-secondary/5 hover:bg-secondary/10 border border-secondary/10 hover:border-secondary/20 transition-all group">
+                        <div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-calendar-days text-secondary"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium">My Schedule</div>
+                            <div class="text-xs text-base-content/50">Weekly timetable</div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Profile Card -->
+        <div class="card bg-gradient-to-br from-primary/5 to-secondary/5 border border-primary/10">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="avatar">
+                        <div class="w-12 h-12 rounded-full bg-primary text-primary-content">
+                            {% if teacher.photo %}
+                            <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" />
+                            {% else %}
+                            <div class="flex items-center justify-center h-full font-bold">
+                                {{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-bold truncate">{{ teacher.full_name }}</div>
+                        <div class="text-xs text-base-content/50 truncate">{{ teacher.subject_specialization }}</div>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5 text-sm mb-3">
+                    <div class="flex items-center gap-2 text-base-content/60">
+                        <i class="fa-solid fa-id-badge w-4 text-center"></i>
+                        <span class="font-mono text-xs">{{ teacher.staff_id }}</span>
+                    </div>
+                    {% if teacher.email %}
+                    <div class="flex items-center gap-2 text-base-content/60">
+                        <i class="fa-solid fa-envelope w-4 text-center"></i>
+                        <span class="text-xs truncate">{{ teacher.email }}</span>
+                    </div>
+                    {% endif %}
+                    {% if teacher.phone_number %}
+                    <div class="flex items-center gap-2 text-base-content/60">
+                        <i class="fa-solid fa-phone w-4 text-center"></i>
+                        <span class="text-xs">{{ teacher.phone_number }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <a href="{% url 'core:profile' %}"
+                   hx-get="{% url 'core:profile' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-sm btn-ghost btn-block">
+                    <i class="fa-solid fa-user"></i>
+                    View Full Profile
+                </a>
+            </div>
+        </div>
+
+        <!-- Help Card -->
+        <div class="card bg-base-200/50 border border-base-300">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-2">
+                    <i class="fa-solid fa-circle-question text-base-content/50"></i>
+                    Need Help?
+                </h3>
+                <p class="text-xs text-base-content/60 mb-3">
+                    If you have any questions or issues, please contact your school administrator.
+                </p>
+                <div class="flex gap-2">
+                    <a href="{% url 'accounts:password_change' %}" class="btn btn-xs btn-ghost flex-1">
+                        <i class="fa-solid fa-key"></i>
+                        Change Password
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

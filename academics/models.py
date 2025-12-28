@@ -255,3 +255,88 @@ class AttendanceRecord(models.Model):
 
     class Meta:
         unique_together = ['session', 'student']
+
+
+class Period(models.Model):
+    """
+    Defines time slots for the school timetable.
+    Example: Period 1: 8:00 AM - 8:40 AM
+    """
+    name = models.CharField(
+        max_length=50,
+        help_text="e.g., Period 1, Morning Assembly, Break"
+    )
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    order = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Display order in timetable"
+    )
+    is_break = models.BooleanField(
+        default=False,
+        help_text="True if this is a break period (not for classes)"
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['order', 'start_time']
+        verbose_name = "Period"
+        verbose_name_plural = "Periods"
+
+    def __str__(self):
+        return f"{self.name} ({self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')})"
+
+    @property
+    def duration_minutes(self):
+        """Calculate duration in minutes."""
+        from datetime import datetime, timedelta
+        start = datetime.combine(datetime.today(), self.start_time)
+        end = datetime.combine(datetime.today(), self.end_time)
+        return int((end - start).total_seconds() / 60)
+
+
+class TimetableEntry(models.Model):
+    """
+    Assigns a ClassSubject to a specific day and period.
+    Example: JHS 2A has Mathematics during Period 1 on Monday.
+    """
+    class Weekday(models.IntegerChoices):
+        MONDAY = 1, 'Monday'
+        TUESDAY = 2, 'Tuesday'
+        WEDNESDAY = 3, 'Wednesday'
+        THURSDAY = 4, 'Thursday'
+        FRIDAY = 5, 'Friday'
+
+    class_subject = models.ForeignKey(
+        ClassSubject,
+        on_delete=models.CASCADE,
+        related_name='timetable_entries'
+    )
+    period = models.ForeignKey(
+        Period,
+        on_delete=models.CASCADE,
+        related_name='timetable_entries'
+    )
+    weekday = models.PositiveSmallIntegerField(
+        choices=Weekday.choices
+    )
+
+    class Meta:
+        ordering = ['weekday', 'period__order']
+        verbose_name = "Timetable Entry"
+        verbose_name_plural = "Timetable Entries"
+
+    def __str__(self):
+        return f"{self.class_subject} - {self.get_weekday_display()} {self.period.name}"
+
+    @property
+    def teacher(self):
+        return self.class_subject.teacher
+
+    @property
+    def subject(self):
+        return self.class_subject.subject
+
+    @property
+    def class_assigned(self):
+        return self.class_subject.class_assigned

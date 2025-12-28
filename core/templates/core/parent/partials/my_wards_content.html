@@ -1,0 +1,130 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                <i class="fa-solid fa-children text-white"></i>
+            </div>
+            My Wards
+        </h1>
+        <p class="text-sm text-base-content/60 mt-1">
+            {% if current_term %}
+            <i class="fa-solid fa-calendar-day mr-1"></i>
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+{% if not wards %}
+<!-- No Wards -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body py-16 text-center">
+        <div class="w-20 h-20 rounded-full bg-info/10 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-user-group text-info text-3xl"></i>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">No Wards Found</h3>
+        <p class="text-base-content/60 max-w-md mx-auto">
+            No students are linked to your account. Please contact the school administration
+            to link your children to your parent account.
+        </p>
+    </div>
+</div>
+
+{% else %}
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for ward_data in wards %}
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+        <div class="card-body p-5">
+            <!-- Student Info -->
+            <div class="flex items-center gap-4 mb-4">
+                <div class="avatar placeholder">
+                    <div class="w-16 h-16 rounded-full bg-primary/10 text-primary">
+                        {% if ward_data.student.photo %}
+                        <img src="{{ ward_data.student.photo.url }}" alt="{{ ward_data.student.full_name }}" class="rounded-full">
+                        {% else %}
+                        <span class="text-xl">{{ ward_data.student.first_name.0 }}{{ ward_data.student.last_name.0 }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-lg">{{ ward_data.student.full_name }}</h3>
+                    <p class="text-sm text-base-content/60">
+                        {% if ward_data.student.current_class %}
+                        {{ ward_data.student.current_class.name }}
+                        {% else %}
+                        No class assigned
+                        {% endif %}
+                    </p>
+                    <p class="text-xs text-base-content/40">{{ ward_data.student.admission_number }}</p>
+                </div>
+            </div>
+
+            <!-- Term Results Summary -->
+            {% if ward_data.term_report %}
+            <div class="divider my-2"></div>
+
+            <div class="grid grid-cols-3 gap-3 text-center mb-4">
+                <div class="bg-base-200/50 rounded-lg p-2">
+                    <div class="text-lg font-bold text-primary">{{ ward_data.term_report.average|floatformat:0 }}%</div>
+                    <div class="text-xs text-base-content/60">Average</div>
+                </div>
+                <div class="bg-base-200/50 rounded-lg p-2">
+                    <div class="text-lg font-bold text-secondary">
+                        {% if ward_data.term_report.position %}
+                        {{ ward_data.term_report.position }}<span class="text-xs font-normal">/{{ ward_data.term_report.out_of }}</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-base-content/60">Position</div>
+                </div>
+                <div class="bg-base-200/50 rounded-lg p-2">
+                    <div class="text-lg font-bold text-success">{{ ward_data.term_report.subjects_passed }}</div>
+                    <div class="text-xs text-base-content/60">Passed</div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mb-4">
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-base-content/60">Subjects Passed</span>
+                    <span class="font-medium">{{ ward_data.term_report.subjects_passed }}/{{ ward_data.term_report.subjects_taken }}</span>
+                </div>
+                <progress class="progress progress-success w-full h-2"
+                          value="{{ ward_data.term_report.subjects_passed }}"
+                          max="{{ ward_data.term_report.subjects_taken }}"></progress>
+            </div>
+
+            {% elif ward_data.subject_count > 0 %}
+            <div class="alert alert-info py-2 mb-4">
+                <i class="fa-solid fa-circle-info"></i>
+                <span class="text-sm">{{ ward_data.subject_count }} subjects graded. Report not yet generated.</span>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-base-content/40">
+                <i class="fa-solid fa-clock text-2xl mb-2"></i>
+                <p class="text-sm">No results available yet</p>
+            </div>
+            {% endif %}
+
+            <!-- View Details Button -->
+            <div class="card-actions justify-end mt-auto">
+                <a href="{% url 'gradebook:student_report' ward_data.student.pk %}"
+                   hx-get="{% url 'gradebook:student_report' ward_data.student.pk %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-primary btn-sm btn-block">
+                    <i class="fa-solid fa-file-lines"></i>
+                    View Full Report
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endif %}

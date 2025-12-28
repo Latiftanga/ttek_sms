@@ -66,6 +66,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'accounts.middleware.ForcePasswordChangeMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
@@ -94,8 +95,8 @@ TAILWIND_APP_NAME = 'theme'
 
 PUBLIC_SCHEMA_URLCONF = 'config.urls_public'
 ROOT_URLCONF = 'config.urls'
-# if DEBUG:
-#     SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
+if DEBUG:
+    SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
 
 # --- 4. TEMPLATES ---
 TEMPLATES = [

@@ -1,0 +1,271 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'core:index' %}"
+               hx-get="{% url 'core:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold">My Weekly Schedule</h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            {{ teacher.get_title_display }} {{ teacher.full_name }} &bull; {{ teacher.staff_id }}
+        </p>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="stats stats-vertical lg:stats-horizontal shadow-sm border border-base-200 w-full mb-6">
+    <div class="stat">
+        <div class="stat-figure text-primary">
+            <i class="fa-solid fa-clock text-2xl"></i>
+        </div>
+        <div class="stat-title">Periods</div>
+        <div class="stat-value text-primary">{{ stats.total_periods }}</div>
+        <div class="stat-desc">Per week</div>
+    </div>
+
+    <div class="stat">
+        <div class="stat-figure text-secondary">
+            <i class="fa-solid fa-chalkboard text-2xl"></i>
+        </div>
+        <div class="stat-title">Classes</div>
+        <div class="stat-value text-secondary">{{ stats.classes_taught|default:0 }}</div>
+        <div class="stat-desc">Teaching</div>
+    </div>
+
+    <div class="stat">
+        <div class="stat-figure text-accent">
+            <i class="fa-solid fa-calendar-day text-2xl"></i>
+        </div>
+        <div class="stat-title">Time Slots</div>
+        <div class="stat-value text-accent">{{ periods|length }}</div>
+        <div class="stat-desc">Available</div>
+    </div>
+
+    <div class="stat">
+        <div class="stat-figure text-info">
+            <i class="fa-solid fa-calendar-week text-2xl"></i>
+        </div>
+        <div class="stat-title">Days</div>
+        <div class="stat-value text-info">5</div>
+        <div class="stat-desc">Per week</div>
+    </div>
+</div>
+
+<!-- Timetable -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-0">
+        {% if periods %}
+
+        <!-- Desktop View -->
+        <div class="hidden lg:block overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="bg-base-200/70">
+                        <th class="w-28 text-center font-semibold">
+                            <i class="fa-regular fa-clock mr-1"></i>
+                            Time
+                        </th>
+                        {% for day_num, day_name in weekdays %}
+                        <th class="text-center font-semibold {% if day_num == weekday %}text-primary{% endif %}">
+                            {% if day_num == weekday %}
+                            <span class="badge badge-primary badge-sm">Today</span>
+                            {% endif %}
+                            {{ day_name }}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for period_id, row in schedule_grid.items %}
+                    <tr class="{% if row.period.is_break %}bg-base-200/30{% else %}hover:bg-base-200/20{% endif %}">
+                        <!-- Time Column -->
+                        <td class="text-center border-r border-base-200">
+                            <div class="font-medium text-sm">{{ row.period.name }}</div>
+                            <div class="text-xs text-base-content/50">
+                                {{ row.period.start_time|time:"g:i" }} - {{ row.period.end_time|time:"g:i" }}
+                            </div>
+                        </td>
+
+                        {% if row.period.is_break %}
+                        <!-- Break Period -->
+                        <td colspan="5" class="text-center py-4">
+                            <div class="flex items-center justify-center gap-2 text-base-content/40">
+                                <i class="fa-solid fa-mug-hot"></i>
+                                <span class="text-sm font-medium">{{ row.period.name }}</span>
+                            </div>
+                        </td>
+                        {% else %}
+                        <!-- Class Periods -->
+                        {% for day_num, day_name in weekdays %}
+                        <td class="p-1.5 {% if day_num == weekday %}bg-primary/5{% endif %}">
+                            {% with entry=row.days|get_item:day_num %}
+                            {% if entry %}
+                            <div class="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-2.5 min-h-[65px] flex flex-col justify-center text-center hover:shadow-md transition-shadow cursor-default">
+                                <div class="font-semibold text-sm text-primary mb-0.5">
+                                    {{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}
+                                </div>
+                                <div class="text-xs text-base-content/60 flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-users text-[10px]"></i>
+                                    {{ entry.class_subject.class_assigned.name }}
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="min-h-[65px] flex items-center justify-center">
+                                <span class="text-base-content/20 text-lg">-</span>
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                        {% endfor %}
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile View - Day-by-Day Tabs -->
+        <div class="lg:hidden">
+            <!-- Day Tabs -->
+            <div class="tabs tabs-boxed bg-base-200/50 p-1 m-3 rounded-xl" role="tablist">
+                {% for day_num, day_name in weekdays %}
+                <input type="radio"
+                       name="day_tabs"
+                       role="tab"
+                       class="tab flex-1 {% if day_num == weekday %}tab-active{% endif %}"
+                       aria-label="{{ day_name|slice:':3' }}"
+                       {% if day_num == weekday %}checked{% endif %}
+                       data-day="{{ day_num }}" />
+                {% endfor %}
+            </div>
+
+            <!-- Day Content -->
+            {% for day_num, day_name in weekdays %}
+            <div class="day-content p-4 {% if day_num != weekday %}hidden{% endif %}" data-day="{{ day_num }}">
+                <h3 class="font-semibold text-base mb-3 flex items-center gap-2">
+                    <i class="fa-regular fa-calendar-day text-primary"></i>
+                    {{ day_name }}
+                    {% if day_num == weekday %}
+                    <span class="badge badge-primary badge-sm">Today</span>
+                    {% endif %}
+                </h3>
+
+                <div class="space-y-2">
+                    {% for period_id, row in schedule_grid.items %}
+                    {% if not row.period.is_break %}
+                    {% with entry=row.days|get_item:day_num %}
+                    <div class="flex items-center gap-3 p-3 rounded-xl {% if entry %}bg-primary/5 border border-primary/10{% else %}bg-base-200/30{% endif %}">
+                        <div class="text-center min-w-[60px]">
+                            <div class="text-xs font-medium {% if entry %}text-primary{% else %}text-base-content/40{% endif %}">
+                                {{ row.period.start_time|time:"g:i A" }}
+                            </div>
+                            <div class="text-[10px] text-base-content/40">
+                                {{ row.period.name }}
+                            </div>
+                        </div>
+
+                        {% if entry %}
+                        <div class="flex-1">
+                            <div class="font-semibold text-primary">
+                                {{ entry.class_subject.subject.name }}
+                            </div>
+                            <div class="text-sm text-base-content/60">
+                                {{ entry.class_subject.class_assigned.name }}
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
+                        {% else %}
+                        <div class="flex-1 text-base-content/40 text-sm">
+                            Free period
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endwith %}
+                    {% else %}
+                    <!-- Break -->
+                    <div class="flex items-center justify-center gap-2 p-3 rounded-xl bg-base-200/30 text-base-content/40">
+                        <i class="fa-solid fa-mug-hot text-sm"></i>
+                        <span class="text-sm">{{ row.period.name }} ({{ row.period.start_time|time:"g:i" }} - {{ row.period.end_time|time:"g:i" }})</span>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <!-- No Timetable -->
+        <div class="text-center py-16 px-4">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-base-200 flex items-center justify-center">
+                <i class="fa-solid fa-calendar-xmark text-base-content/30 text-3xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-base-content/70 mb-2">No Timetable Configured</h3>
+            <p class="text-sm text-base-content/50 max-w-md mx-auto mb-6">
+                The school timetable has not been set up yet. Please contact your administrator to configure periods and class schedules.
+            </p>
+            <a href="{% url 'core:index' %}"
+               hx-get="{% url 'core:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-arrow-left"></i>
+                Back to Dashboard
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Legend -->
+{% if periods %}
+<div class="mt-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex flex-wrap gap-4 text-sm text-base-content/60">
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30"></div>
+            <span>Your Class</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded bg-base-200"></div>
+            <span>Break</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-base-content/30 font-bold">-</span>
+            <span>Free Period</span>
+        </div>
+    </div>
+
+    <button onclick="window.print()" class="btn btn-ghost btn-sm gap-2">
+        <i class="fa-solid fa-print"></i>
+        Print Schedule
+    </button>
+</div>
+{% endif %}
+
+<!-- Mobile Tab Switching Script -->
+<script>
+document.querySelectorAll('[name="day_tabs"]').forEach(tab => {
+    tab.addEventListener('change', function() {
+        const day = this.dataset.day;
+        document.querySelectorAll('.day-content').forEach(content => {
+            content.classList.toggle('hidden', content.dataset.day !== day);
+        });
+    });
+});
+</script>
+
+<!-- Print Styles -->
+<style>
+@media print {
+    .navbar, .drawer-side, .btn, .tabs { display: none !important; }
+    .card { box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+    table { font-size: 11px !important; }
+}
+</style>

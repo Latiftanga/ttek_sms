@@ -1,3 +1,4 @@
+import uuid
 from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -10,6 +11,7 @@ from core.models import Term
 
 class GradingSystem(models.Model):
     """Defines a grading system (e.g., WASSCE, BECE, or custom system)"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     SCHOOL_LEVELS = [
         ('BASIC', 'Basic School'),
         ('SHS', 'Senior High School'),
@@ -183,6 +185,7 @@ class GradingSystem(models.Model):
 
 class GradeScale(models.Model):
     """Defines a grade within a grading system (e.g., A1 = 80-100 for WASSCE)"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     grading_system = models.ForeignKey(
         GradingSystem,
         on_delete=models.CASCADE,
@@ -270,6 +273,7 @@ class AssessmentCategory(models.Model):
     School-wide assessment categories (applies to all subjects).
     e.g., Class Score (30%), Examination (70%)
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(
         max_length=100,
         help_text='Category name (e.g., Class Score, Examination)'
@@ -336,6 +340,7 @@ class Assignment(models.Model):
     Individual assignment within a category for a specific subject/term.
     e.g., Quiz 1, Mid-term Test, Final Exam
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     assessment_category = models.ForeignKey(
         AssessmentCategory,
         on_delete=models.CASCADE,
@@ -396,6 +401,7 @@ class Assignment(models.Model):
 
 class Score(models.Model):
     """Student score for an individual assignment"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student = models.ForeignKey(
         Student,
         on_delete=models.CASCADE,
@@ -452,6 +458,7 @@ class ScoreAuditLog(models.Model):
     """
     Audit log for score changes. Tracks who changed what and when.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     ACTION_CHOICES = [
         ('CREATE', 'Created'),
         ('UPDATE', 'Updated'),
@@ -531,6 +538,7 @@ class SubjectTermGrade(models.Model):
     Aggregated term grade for a student in a subject.
     Computed from individual Scores.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student = models.ForeignKey(
         Student,
         on_delete=models.CASCADE,
@@ -594,6 +602,12 @@ class SubjectTermGrade(models.Model):
 
     teacher_remark = models.CharField(max_length=200, blank=True)
 
+    # Pass/fail status (set from GradeScale.is_pass during grade calculation)
+    is_passing = models.BooleanField(
+        default=False,
+        help_text='Whether this grade is a pass based on grading system'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -644,6 +658,7 @@ class SubjectTermGrade(models.Model):
     def determine_grade(self, grading_system):
         """Look up grade from GradeScale based on total_score"""
         if self.total_score is None:
+            self.is_passing = False
             return
 
         grade_scale = GradeScale.objects.filter(
@@ -655,6 +670,9 @@ class SubjectTermGrade(models.Model):
         if grade_scale:
             self.grade = grade_scale.grade_label
             self.grade_remark = grade_scale.interpretation
+            self.is_passing = grade_scale.is_pass
+        else:
+            self.is_passing = False
 
     class Meta:
         db_table = 'subject_term_grade'
@@ -673,6 +691,7 @@ class TermReport(models.Model):
     Overall term report for a student (report card summary).
     Aggregated from SubjectTermGrades.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student = models.ForeignKey(
         Student,
         on_delete=models.CASCADE,
