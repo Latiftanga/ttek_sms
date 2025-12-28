@@ -252,7 +252,7 @@
                 </td>
                 {% endfor %}
                 <td><strong>{{ grade.total_score|default:'-' }}</strong></td>
-                <td class="{% if grade.total_score >= 50 %}grade-pass{% else %}grade-fail{% endif %}">
+                <td class="{% if grade.is_passing %}grade-pass{% else %}grade-fail{% endif %}">
                     {{ grade.grade|default:'-' }}
                 </td>
                 <td>{{ grade.position|default:'-' }}</td>

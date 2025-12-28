@@ -1,6 +1,7 @@
 import json
 import io
 import pandas as pd
+from functools import wraps
 from datetime import datetime
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -8,8 +9,32 @@ from django.http import HttpResponse, FileResponse
 from django.contrib import messages
 from django.db.models import Q
 
+from django.contrib.auth import get_user_model
+
 from .models import Teacher
 from .forms import TeacherForm
+from academics.models import Class, ClassSubject, Period, TimetableEntry
+from students.models import Student
+
+User = get_user_model()
+
+
+def is_school_admin(user):
+    """Check if user is a school admin or superuser."""
+    return user.is_superuser or getattr(user, 'is_school_admin', False)
+
+
+def admin_required(view_func):
+    """Decorator to require school admin or superuser access."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if not is_school_admin(request.user):
+            messages.error(request, "You don't have permission to access this page.")
+            return redirect('core:index')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
 
 
 def htmx_render(request, full_template, partial_template, context=None):
@@ -21,9 +46,9 @@ def htmx_render(request, full_template, partial_template, context=None):
     return render(request, template, context)
 
 
-@login_required
+@admin_required
 def index(request):
-    """Teacher list page with search and filter."""
+    """Teacher list page with search and filter - Admin only."""
     teachers = Teacher.objects.all().order_by('first_name')
 
     # Search
@@ -56,9 +81,9 @@ def index(request):
     )
 
 
-@login_required
+@admin_required
 def teacher_create(request):
-    """Create a new teacher."""
+    """Create a new teacher - Admin only."""
     if request.method == 'GET':
         form = TeacherForm()
         return htmx_render(
@@ -84,9 +109,9 @@ def teacher_create(request):
         )
 
 
-@login_required
+@admin_required
 def teacher_edit(request, pk):
-    """Edit an existing teacher."""
+    """Edit an existing teacher - Admin only."""
     teacher = get_object_or_404(Teacher, pk=pk)
 
     if request.method == 'GET':
@@ -113,29 +138,65 @@ def teacher_edit(request, pk):
         )
 
 
-@login_required
+@admin_required
 def teacher_detail(request, pk):
-    """View teacher details."""
+    """View teacher details with classes, subjects, and workload - Admin only."""
     teacher = get_object_or_404(Teacher, pk=pk)
-    
-    # Placeholder for future logic (e.g., classes assigned to this teacher)
-    assigned_classes = [] 
-    
-    # Note: 'school' and 'tenant' are injected globally by core.context_processors
+
+    # Classes where this teacher is the class teacher (form tutor)
+    homeroom_classes = Class.objects.filter(
+        class_teacher=teacher,
+        is_active=True
+    ).order_by('name')
+
+    # Subject assignments - classes and subjects this teacher teaches
+    subject_assignments = ClassSubject.objects.filter(
+        teacher=teacher
+    ).select_related('class_assigned', 'subject').order_by(
+        'class_assigned__level_number', 'class_assigned__name', 'subject__name'
+    )
+
+    # Calculate workload stats
+    classes_taught = subject_assignments.values('class_assigned').distinct().count()
+    subjects_taught = subject_assignments.values('subject').distinct().count()
+
+    # Total students taught (across all classes)
+    class_ids = subject_assignments.values_list('class_assigned_id', flat=True).distinct()
+    total_students = Student.objects.filter(
+        current_class_id__in=class_ids,
+        status='active'
+    ).count()
+
+    # Students in homeroom classes
+    homeroom_students = Student.objects.filter(
+        current_class__in=homeroom_classes,
+        status='active'
+    ).count()
+
+    workload = {
+        'classes_taught': classes_taught,
+        'subjects_taught': subjects_taught,
+        'total_students': total_students,
+        'homeroom_classes': homeroom_classes.count(),
+        'homeroom_students': homeroom_students,
+    }
+
     return htmx_render(
         request,
         'teachers/teacher_detail.html',
         'teachers/partials/teacher_detail_content.html',
         {
             'teacher': teacher,
-            'assigned_classes': assigned_classes
+            'homeroom_classes': homeroom_classes,
+            'subject_assignments': subject_assignments,
+            'workload': workload,
         }
     )
 
 
-@login_required
+@admin_required
 def teacher_delete(request, pk):
-    """Delete a teacher."""
+    """Delete a teacher - Admin only."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -147,6 +208,433 @@ def teacher_delete(request, pk):
         response['HX-Refresh'] = 'true'
         return response
     return redirect('teachers:index')
+
+
+# ============ TEACHER DASHBOARD ============
+
+@login_required
+def profile(request):
+    """View own teacher profile."""
+    teacher = getattr(request.user, 'teacher_profile', None)
+
+    if not teacher:
+        messages.warning(request, "No teacher profile linked to your account.")
+        return redirect('core:index')
+
+    # Get class assignments
+    homeroom_classes = Class.objects.filter(
+        class_teacher=teacher,
+        is_active=True
+    ).order_by('name')
+
+    subject_assignments = ClassSubject.objects.filter(
+        teacher=teacher
+    ).select_related('class_assigned', 'subject').order_by(
+        'class_assigned__level_number', 'class_assigned__name'
+    )
+
+    # Calculate workload
+    classes_taught = list({sa.class_assigned for sa in subject_assignments})
+    total_students = Student.objects.filter(
+        current_class_id__in=[c.id for c in classes_taught],
+        status='active'
+    ).count()
+
+    context = {
+        'teacher': teacher,
+        'homeroom_classes': homeroom_classes,
+        'subject_assignments': subject_assignments,
+        'workload': {
+            'classes_taught': len(classes_taught),
+            'subjects_taught': subject_assignments.count(),
+            'total_students': total_students,
+            'homeroom_classes': homeroom_classes.count(),
+        }
+    }
+
+    return htmx_render(
+        request,
+        'teachers/profile.html',
+        'teachers/partials/profile_content.html',
+        context
+    )
+
+
+@login_required
+def dashboard(request):
+    """Dashboard for logged-in teachers showing their classes and students."""
+    # Get the teacher profile for the logged-in user
+    teacher = getattr(request.user, 'teacher_profile', None)
+
+    if not teacher:
+        messages.warning(request, "No teacher profile linked to your account.")
+        return redirect('core:index')
+
+    # Get current term
+    from core.models import Term
+    current_term = Term.get_current()
+
+    # Homeroom classes (where teacher is class teacher)
+    homeroom_classes = Class.objects.filter(
+        class_teacher=teacher,
+        is_active=True
+    ).prefetch_related('students').order_by('name')
+
+    # Subject assignments
+    subject_assignments = ClassSubject.objects.filter(
+        teacher=teacher
+    ).select_related('class_assigned', 'subject').order_by(
+        'class_assigned__level_number', 'class_assigned__name'
+    )
+
+    # Get unique classes taught
+    classes_taught = list({sa.class_assigned for sa in subject_assignments})
+    classes_taught.sort(key=lambda c: (c.level_number or 0, c.name))
+
+    # Calculate stats
+    total_students = Student.objects.filter(
+        current_class_id__in=[c.id for c in classes_taught],
+        status='active'
+    ).count()
+
+    homeroom_students = Student.objects.filter(
+        current_class__in=homeroom_classes,
+        status='active'
+    ).count()
+
+    # Group assignments by class for easy display
+    assignments_by_class = {}
+    for assignment in subject_assignments:
+        class_name = assignment.class_assigned.name
+        if class_name not in assignments_by_class:
+            assignments_by_class[class_name] = {
+                'class': assignment.class_assigned,
+                'subjects': []
+            }
+        assignments_by_class[class_name]['subjects'].append(assignment.subject)
+
+    context = {
+        'teacher': teacher,
+        'current_term': current_term,
+        'homeroom_classes': homeroom_classes,
+        'classes_taught': classes_taught,
+        'assignments_by_class': assignments_by_class,
+        'stats': {
+            'classes_count': len(classes_taught),
+            'subjects_count': subject_assignments.count(),
+            'total_students': total_students,
+            'homeroom_students': homeroom_students,
+        }
+    }
+
+    return htmx_render(
+        request,
+        'teachers/dashboard.html',
+        'teachers/partials/dashboard_content.html',
+        context
+    )
+
+
+# ============ TEACHER SCHEDULE ============
+
+@login_required
+def schedule(request):
+    """Weekly schedule/timetable view for logged-in teachers."""
+    from django.utils import timezone
+
+    # Get the teacher profile for the logged-in user
+    teacher = getattr(request.user, 'teacher_profile', None)
+
+    if not teacher:
+        messages.warning(request, "No teacher profile linked to your account.")
+        return redirect('core:index')
+
+    today = timezone.now()
+    weekday = today.isoweekday()  # 1=Monday, 7=Sunday
+
+    # Get all periods (time slots)
+    periods = Period.objects.filter(is_active=True).order_by('order')
+
+    # Get all timetable entries for this teacher
+    entries = TimetableEntry.objects.filter(
+        class_subject__teacher=teacher
+    ).select_related(
+        'class_subject__class_assigned',
+        'class_subject__subject',
+        'period'
+    ).order_by('weekday', 'period__order')
+
+    # Organize entries into a grid: {period_id: {weekday: entry}}
+    schedule_grid = {}
+    for period in periods:
+        schedule_grid[period.id] = {
+            'period': period,
+            'days': {1: None, 2: None, 3: None, 4: None, 5: None}
+        }
+
+    for entry in entries:
+        if entry.period_id in schedule_grid:
+            schedule_grid[entry.period_id]['days'][entry.weekday] = entry
+
+    # Calculate stats
+    total_periods = entries.count()
+    classes_taught = entries.values('class_subject__class_assigned').distinct().count()
+
+    context = {
+        'teacher': teacher,
+        'periods': periods,
+        'schedule_grid': schedule_grid,
+        'weekdays': TimetableEntry.Weekday.choices,
+        'weekday': weekday,
+        'today': today,
+        'stats': {
+            'total_periods': total_periods,
+            'classes_taught': classes_taught,
+        }
+    }
+
+    return htmx_render(
+        request,
+        'teachers/schedule.html',
+        'teachers/partials/schedule_content.html',
+        context
+    )
+
+
+@admin_required
+def teacher_schedule(request, pk):
+    """View any teacher's schedule - Admin only."""
+    teacher = get_object_or_404(Teacher, pk=pk)
+
+    # Get all periods (time slots)
+    periods = Period.objects.filter(is_active=True).order_by('order')
+
+    # Get all timetable entries for this teacher
+    entries = TimetableEntry.objects.filter(
+        class_subject__teacher=teacher
+    ).select_related(
+        'class_subject__class_assigned',
+        'class_subject__subject',
+        'period'
+    ).order_by('weekday', 'period__order')
+
+    # Organize entries into a grid
+    schedule_grid = {}
+    for period in periods:
+        schedule_grid[period.id] = {
+            'period': period,
+            'days': {1: None, 2: None, 3: None, 4: None, 5: None}
+        }
+
+    for entry in entries:
+        if entry.period_id in schedule_grid:
+            schedule_grid[entry.period_id]['days'][entry.weekday] = entry
+
+    # Calculate stats
+    total_periods = entries.count()
+
+    context = {
+        'teacher': teacher,
+        'periods': periods,
+        'schedule_grid': schedule_grid,
+        'weekdays': TimetableEntry.Weekday.choices,
+        'stats': {
+            'total_periods': total_periods,
+        }
+    }
+
+    return htmx_render(
+        request,
+        'teachers/schedule.html',
+        'teachers/partials/schedule_content.html',
+        context
+    )
+
+
+# ============ USER ACCOUNT CREATION ============
+
+def generate_temp_password(length=10):
+    """Generate a random temporary password."""
+    import secrets
+    import string
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+def send_account_credentials(user, password, teacher):
+    """Send account credentials via email."""
+    from django.core.mail import send_mail
+    from django.conf import settings
+
+    subject = "Your Teacher Account Has Been Created"
+    message = f"""
+Dear {teacher.get_title_display()} {teacher.full_name},
+
+Your account for the school management system has been created.
+
+Login Details:
+Email: {user.email}
+Temporary Password: {password}
+
+Please log in and change your password immediately.
+
+Login URL: {settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'Contact your administrator'}
+
+This is an automated message. Please do not reply.
+"""
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL if hasattr(settings, 'DEFAULT_FROM_EMAIL') else None,
+            [user.email],
+            fail_silently=False,
+        )
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False
+
+
+@admin_required
+def create_account(request, pk):
+    """Create a user account for a teacher - Admin only."""
+    teacher = get_object_or_404(Teacher, pk=pk)
+
+    # If teacher already has an account, redirect
+    if teacher.user:
+        messages.warning(request, f"{teacher.full_name} already has an account.")
+        response = HttpResponse(status=204)
+        response['HX-Refresh'] = 'true'
+        return response
+
+    if request.method == 'GET':
+        return render(request, 'teachers/partials/modal_create_account.html', {
+            'teacher': teacher,
+        })
+
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+
+        # Use teacher's email if not provided
+        if not email:
+            email = teacher.email
+
+        if not email:
+            return render(request, 'teachers/partials/modal_create_account.html', {
+                'teacher': teacher,
+                'error': 'Email address is required. Please provide an email.',
+            })
+
+        # Check if email already exists
+        if User.objects.filter(email=email).exists():
+            return render(request, 'teachers/partials/modal_create_account.html', {
+                'teacher': teacher,
+                'error': f"An account with email '{email}' already exists.",
+            })
+
+        # Generate temporary password
+        temp_password = generate_temp_password()
+
+        # Create user account
+        user = User.objects.create_user(
+            email=email,
+            password=temp_password,
+            first_name=teacher.first_name,
+            last_name=teacher.last_name,
+            is_teacher=True,
+            must_change_password=True,
+        )
+
+        # Link to teacher
+        teacher.user = user
+        teacher.save(update_fields=['user'])
+
+        # Also update teacher email if it was empty
+        if not teacher.email:
+            teacher.email = email
+            teacher.save(update_fields=['email'])
+
+        # Send credentials via email
+        email_sent = send_account_credentials(user, temp_password, teacher)
+
+        if email_sent:
+            messages.success(
+                request,
+                f"Account created for {teacher.full_name}. Credentials sent to {email}."
+            )
+        else:
+            # Still show the password if email failed
+            messages.warning(
+                request,
+                f"Account created but email failed. Temporary password: {temp_password}"
+            )
+
+        response = HttpResponse(status=204)
+        response['HX-Refresh'] = 'true'
+        return response
+
+    return HttpResponse(status=405)
+
+
+@admin_required
+def deactivate_account(request, pk):
+    """Deactivate a teacher's user account - Admin only."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    teacher = get_object_or_404(Teacher, pk=pk)
+
+    if teacher.user:
+        user = teacher.user
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        messages.success(request, f"Account for {teacher.full_name} has been deactivated.")
+
+    response = HttpResponse(status=204)
+    response['HX-Refresh'] = 'true'
+    return response
+
+
+@admin_required
+def reset_password(request, pk):
+    """Reset a teacher's password and send new credentials - Admin only."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    teacher = get_object_or_404(Teacher, pk=pk)
+
+    if not teacher.user:
+        messages.error(request, f"{teacher.full_name} does not have an account.")
+        response = HttpResponse(status=204)
+        response['HX-Refresh'] = 'true'
+        return response
+
+    # Generate new temporary password
+    temp_password = generate_temp_password()
+
+    user = teacher.user
+    user.set_password(temp_password)
+    user.must_change_password = True
+    user.save(update_fields=['password', 'must_change_password'])
+
+    # Send new credentials
+    email_sent = send_account_credentials(user, temp_password, teacher)
+
+    if email_sent:
+        messages.success(
+            request,
+            f"Password reset for {teacher.full_name}. New credentials sent to {user.email}."
+        )
+    else:
+        messages.warning(
+            request,
+            f"Password reset but email failed. New temporary password: {temp_password}"
+        )
+
+    response = HttpResponse(status=204)
+    response['HX-Refresh'] = 'true'
+    return response
 
 
 # ============ BULK IMPORT LOGIC ============
@@ -188,9 +676,9 @@ def parse_date(value):
     return None
 
 
-@login_required
+@admin_required
 def bulk_import(request):
-    """Handle bulk import of teachers."""
+    """Handle bulk import of teachers - Admin only."""
     if request.method == 'GET':
         return render(request, 'teachers/partials/modal_bulk_import.html', {
             'expected_columns': EXPECTED_COLUMNS,
@@ -321,9 +809,9 @@ def bulk_import(request):
         })
 
 
-@login_required
+@admin_required
 def bulk_import_confirm(request):
-    """Commit the bulk import to database."""
+    """Commit the bulk import to database - Admin only."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -377,9 +865,9 @@ def bulk_import_confirm(request):
         return redirect('teachers:index')
 
 
-@login_required
+@admin_required
 def bulk_import_template(request):
-    """Download sample Excel file."""
+    """Download sample Excel file - Admin only."""
     data = {
         'Title': ['Mr', 'Mrs', 'Dr'],
         'First Name': ['John', 'Jane', 'Robert'],

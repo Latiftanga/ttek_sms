@@ -116,12 +116,64 @@ def index(request):
     grading_systems = GradingSystem.objects.filter(is_active=True)
     categories = AssessmentCategory.objects.filter(is_active=True)
 
-    # Stats
+    # Enhanced Stats
+    total_students = Student.objects.filter(status='active').count()
+    assignments_this_term = Assignment.objects.filter(term=current_term).count() if current_term else 0
+    scores_entered = Score.objects.filter(assignment__term=current_term).count() if current_term else 0
+    reports_generated = TermReport.objects.filter(term=current_term).count() if current_term else 0
+
+    # Calculate score entry progress
+    total_possible_scores = 0
+    if current_term:
+        for assignment in Assignment.objects.filter(term=current_term):
+            # Count students in classes that have this subject assigned
+            class_subjects = ClassSubject.objects.filter(subject=assignment.subject)
+            for cs in class_subjects:
+                total_possible_scores += cs.class_assigned.students.filter(status='active').count()
+
+    score_progress = round((scores_entered / total_possible_scores * 100) if total_possible_scores > 0 else 0, 1)
+
+    # Recent activity - get latest score entries
+    recent_scores = Score.objects.filter(
+        assignment__term=current_term
+    ).select_related(
+        'student', 'assignment__subject'
+    ).order_by('-updated_at')[:5] if current_term else []
+
+    # Classes with incomplete scores
+    classes_needing_scores = []
+    for cls in classes[:6]:  # Limit to 6 for display
+        subjects = Subject.objects.filter(class_allocations__class_assigned=cls)
+        student_count = cls.students.filter(status='active').count()
+        if student_count > 0 and current_term:
+            assignments = Assignment.objects.filter(
+                term=current_term,
+                subject__in=subjects
+            ).count()
+            if assignments > 0:
+                expected_scores = assignments * student_count
+                actual_scores = Score.objects.filter(
+                    assignment__term=current_term,
+                    assignment__subject__in=subjects,
+                    student__current_class=cls
+                ).count()
+                progress = round((actual_scores / expected_scores * 100) if expected_scores > 0 else 0)
+                classes_needing_scores.append({
+                    'class': cls,
+                    'student_count': student_count,
+                    'progress': progress,
+                    'assignments': assignments,
+                })
+
     stats = {
         'classes': classes.count(),
+        'students': total_students,
         'grading_systems': grading_systems.count(),
         'categories': categories.count(),
-        'assignments': Assignment.objects.filter(term=current_term).count() if current_term else 0,
+        'assignments': assignments_this_term,
+        'scores_entered': scores_entered,
+        'reports_generated': reports_generated,
+        'score_progress': score_progress,
     }
 
     context = {
@@ -130,6 +182,8 @@ def index(request):
         'grading_systems': grading_systems,
         'categories': categories,
         'stats': stats,
+        'recent_scores': recent_scores,
+        'classes_needing_scores': classes_needing_scores,
     }
 
     return htmx_render(
@@ -444,7 +498,24 @@ def category_delete(request, pk):
 def score_entry(request):
     """Score entry page - select class and subject."""
     current_term = Term.get_current()
-    classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
+    user = request.user
+
+    # Filter classes based on user role
+    if is_school_admin(user):
+        # Admins see all classes
+        classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
+    elif getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+        # Teachers see only classes they're assigned to
+        teacher = user.teacher_profile
+        assigned_class_ids = ClassSubject.objects.filter(
+            teacher=teacher
+        ).values_list('class_assigned_id', flat=True).distinct()
+        classes = Class.objects.filter(
+            id__in=assigned_class_ids,
+            is_active=True
+        ).order_by('level_number', 'name')
+    else:
+        classes = Class.objects.none()
 
     context = {
         'current_term': current_term,
@@ -565,19 +636,26 @@ def score_save(request):
     if points == '' or points is None:
         # Delete score if empty
         if existing_score:
-            # Log deletion
-            ScoreAuditLog.objects.create(
-                score=None,
-                student=student,
-                assignment=assignment,
-                user=request.user,
-                action='DELETE',
-                old_value=old_value,
-                new_value=None,
-                ip_address=client_ip,
-                user_agent=user_agent
-            )
-            existing_score.delete()
+            try:
+                with transaction.atomic():
+                    # Log deletion first
+                    ScoreAuditLog.objects.create(
+                        score=None,
+                        student=student,
+                        assignment=assignment,
+                        user=request.user,
+                        action='DELETE',
+                        old_value=old_value,
+                        new_value=None,
+                        ip_address=client_ip,
+                        user_agent=user_agent
+                    )
+                    existing_score.delete()
+            except Exception as e:
+                logger.error(f"Error deleting score: {e}")
+                response = HttpResponse(status=200)
+                response['HX-Trigger'] = '{"showToast": {"message": "Error deleting score", "type": "error"}}'
+                return response
         return HttpResponse(status=200)
 
     try:
@@ -608,25 +686,35 @@ def score_save(request):
         )
         return response
 
-    # Save score
-    score, created = Score.objects.update_or_create(
-        student=student,
-        assignment=assignment,
-        defaults={'points': points_decimal}
-    )
+    # Save score with transaction handling
+    try:
+        with transaction.atomic():
+            score, created = Score.objects.update_or_create(
+                student=student,
+                assignment=assignment,
+                defaults={'points': points_decimal}
+            )
 
-    # Log the change
-    ScoreAuditLog.objects.create(
-        score=score,
-        student=student,
-        assignment=assignment,
-        user=request.user,
-        action='CREATE' if created else 'UPDATE',
-        old_value=old_value,
-        new_value=points_decimal,
-        ip_address=client_ip,
-        user_agent=user_agent
-    )
+            # Log the change
+            ScoreAuditLog.objects.create(
+                score=score,
+                student=student,
+                assignment=assignment,
+                user=request.user,
+                action='CREATE' if created else 'UPDATE',
+                old_value=old_value,
+                new_value=points_decimal,
+                ip_address=client_ip,
+                user_agent=user_agent
+            )
+    except Exception as e:
+        logger.error(f"Error saving score: {e}")
+        response = HttpResponse(status=200)
+        response['HX-Trigger'] = (
+            f'{{"showToast": {{"message": "Error saving score", "type": "error"}}, '
+            f'"revertScore": {{"student": {student_id}, "assignment": "{assignment_id}", "value": "{old_value_str}"}}}}'
+        )
+        return response
 
     return HttpResponse(status=200)
 
@@ -721,6 +809,62 @@ def assignment_create(request):
     # Trigger score form refresh
     response['HX-Trigger'] = '{"assignmentsChanged": {"subject_id": %d}}' % subject.pk
     return response
+
+
+@login_required
+@teacher_or_admin_required
+def assignment_edit(request, pk):
+    """Edit an assignment."""
+    assignment = get_object_or_404(Assignment.objects.select_related('subject', 'term', 'assessment_category'), pk=pk)
+    subject = assignment.subject
+    current_term = assignment.term
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        points_possible = request.POST.get('points_possible', '100')
+        category_id = request.POST.get('category_id')
+
+        if not name:
+            return HttpResponse('Name is required', status=400)
+
+        try:
+            points = Decimal(points_possible)
+            if points < 1:
+                return HttpResponse('Points must be at least 1', status=400)
+        except Exception:
+            return HttpResponse('Invalid points value', status=400)
+
+        # Update assignment
+        assignment.name = name
+        assignment.points_possible = points
+        if category_id:
+            category = get_object_or_404(AssessmentCategory, pk=category_id)
+            assignment.assessment_category = category
+        assignment.save()
+
+        # Return updated assignments list
+        assigns = Assignment.objects.filter(
+            subject=subject,
+            term=current_term
+        ).select_related('assessment_category').order_by('assessment_category__order', 'name')
+
+        categories = AssessmentCategory.objects.filter(is_active=True)
+
+        response = render(request, 'gradebook/partials/assignments_list.html', {
+            'subject': subject,
+            'assignments': assigns,
+            'categories': categories,
+            'current_term': current_term,
+        })
+        response['HX-Trigger'] = '{"assignmentsChanged": {"subject_id": %d}}' % subject.pk
+        return response
+
+    # GET request - return edit form
+    categories = AssessmentCategory.objects.filter(is_active=True)
+    return render(request, 'gradebook/partials/assignment_edit_form.html', {
+        'assignment': assignment,
+        'categories': categories,
+    })
 
 
 @login_required
@@ -1298,11 +1442,13 @@ def calculate_class_grades(request, class_id):
                     grade.total_score = round(total, 2)
 
                     # Determine grade from scale (no DB query - uses prefetched scales)
+                    grade.is_passing = False  # Default to not passing
                     if grading_system and grade.total_score is not None:
                         for scale in grade_scales:
                             if scale.min_percentage <= grade.total_score <= scale.max_percentage:
                                 grade.grade = scale.grade_label
                                 grade.grade_remark = scale.interpretation
+                                grade.is_passing = scale.is_pass
                                 break
 
                     grades_to_update.append(grade)
@@ -1310,7 +1456,7 @@ def calculate_class_grades(request, class_id):
             # Bulk update all grades
             SubjectTermGrade.objects.bulk_update(
                 grades_to_update,
-                ['class_score', 'exam_score', 'total_score', 'grade', 'grade_remark'],
+                ['class_score', 'exam_score', 'total_score', 'grade', 'grade_remark', 'is_passing'],
                 batch_size=500
             )
 
@@ -1491,9 +1637,17 @@ def calculate_class_grades(request, class_id):
         logger.error(f'Error calculating grades for class {class_id}: {str(e)}')
         return HttpResponse(f'Error: {str(e)}', status=500)
 
-    response = HttpResponse(status=204)
-    response['HX-Refresh'] = 'true'
-    return response
+    # Return success HTML
+    return HttpResponse(f'''
+        <div class="alert alert-success mt-2">
+            <i class="fa-solid fa-check-circle"></i>
+            <div>
+                <div class="font-bold">Grades Calculated Successfully!</div>
+                <div class="text-sm">{len(students)} students in {class_obj.name} using {grading_system.name if grading_system else "default"} grading system</div>
+            </div>
+            <a href="/gradebook/reports/?class={class_id}" class="btn btn-sm btn-ghost">View Reports</a>
+        </div>
+    ''')
 
 
 # ============ Grade Locking ============
@@ -1801,6 +1955,17 @@ def analytics_class_data(request, class_id):
             'error': 'No current term set'
         })
 
+    # Get grading system based on class level
+    grading_level = 'SHS' if class_obj.level_type == 'shs' else 'BASIC'
+    grading_system = GradingSystem.objects.filter(
+        level=grading_level,
+        is_active=True
+    ).first()
+
+    # Use grading system thresholds or defaults
+    pass_mark = grading_system.pass_mark if grading_system else Decimal('50.00')
+    min_avg_for_promotion = grading_system.min_average_for_promotion if grading_system else Decimal('50.00')
+
     # Get all term reports for this class
     term_reports = list(TermReport.objects.filter(
         student__current_class=class_obj,
@@ -1817,8 +1982,8 @@ def analytics_class_data(request, class_id):
     # Calculate statistics
     stats = calculate_class_stats(term_reports, subject_grades)
 
-    # Get subject performance comparison
-    subject_performance = calculate_subject_performance(subject_grades)
+    # Get subject performance comparison (using configurable pass mark)
+    subject_performance = calculate_subject_performance(subject_grades, pass_mark=pass_mark)
 
     # Get grade distribution
     grade_distribution = calculate_grade_distribution(subject_grades)
@@ -1826,10 +1991,10 @@ def analytics_class_data(request, class_id):
     # Get top performers
     top_performers = term_reports[:5] if term_reports else []
 
-    # Get students needing attention (failed 2+ subjects or avg < 50)
+    # Get students needing attention (failed 2+ subjects or avg below promotion threshold)
     at_risk = [
         r for r in term_reports
-        if r.subjects_failed >= 2 or (r.average and r.average < 50)
+        if r.subjects_failed >= 2 or (r.average and r.average < min_avg_for_promotion)
     ][:5]
 
     context = {
@@ -1843,6 +2008,8 @@ def analytics_class_data(request, class_id):
         'top_performers': top_performers,
         'at_risk_students': at_risk,
         'total_students': len(term_reports),
+        'grading_system': grading_system,
+        'pass_mark': pass_mark,
     }
 
     return render(request, 'gradebook/partials/analytics_class.html', context)
@@ -1857,6 +2024,10 @@ def analytics_overview(request):
         return render(request, 'gradebook/partials/analytics_overview.html', {
             'error': 'No current term set'
         })
+
+    # Get default pass mark from any active grading system (school-wide stats)
+    default_grading_system = GradingSystem.objects.filter(is_active=True).first()
+    default_pass_mark = default_grading_system.pass_mark if default_grading_system else Decimal('50.00')
 
     # Get all classes with their stats
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
@@ -1892,14 +2063,14 @@ def analytics_overview(request):
         total_passed=Count('id', filter=Q(subjects_failed=0)),
     )
 
-    # Subject-wise school performance
+    # Subject-wise school performance (using configurable pass mark)
     subject_stats = SubjectTermGrade.objects.filter(
         term=current_term,
         total_score__isnull=False
     ).values('subject__name', 'subject__short_name').annotate(
         avg_score=Avg('total_score'),
         students=Count('id'),
-        passed=Count('id', filter=Q(total_score__gte=50)),
+        passed=Count('id', filter=Q(total_score__gte=default_pass_mark)),
     ).order_by('-avg_score')[:10]
 
     context = {
@@ -1916,6 +2087,7 @@ def analytics_overview(request):
             'pass_rate': round((school_stats['total_passed'] / school_stats['total_students']) * 100, 1) if school_stats['total_students'] else 0,
         },
         'subject_stats': list(subject_stats),
+        'pass_mark': default_pass_mark,
     }
 
     return render(request, 'gradebook/partials/analytics_overview.html', context)
@@ -1999,15 +2171,24 @@ def calculate_class_stats(term_reports, subject_grades):
     }
 
 
-def calculate_subject_performance(subject_grades):
-    """Calculate per-subject performance metrics."""
+def calculate_subject_performance(subject_grades, pass_mark=None):
+    """
+    Calculate per-subject performance metrics.
+
+    Args:
+        subject_grades: List of SubjectTermGrade objects
+        pass_mark: The pass mark threshold (defaults to grading system standard or 50)
+    """
+    if pass_mark is None:
+        pass_mark = Decimal('50.00')
+
     subject_data = defaultdict(lambda: {'scores': [], 'passed': 0, 'total': 0})
 
     for grade in subject_grades:
         subj = grade.subject.short_name or grade.subject.name[:10]
         subject_data[subj]['scores'].append(float(grade.total_score))
         subject_data[subj]['total'] += 1
-        if grade.total_score >= 50:
+        if grade.total_score >= pass_mark:
             subject_data[subj]['passed'] += 1
 
     result = []

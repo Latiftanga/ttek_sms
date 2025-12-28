@@ -1,3 +1,4 @@
+import uuid
 from django.conf import settings
 from django.db import models
 from django.core.cache import cache
@@ -10,6 +11,7 @@ class Person(models.Model):
     Abstract Person model. 
     Removes 'title' so it doesn't force it upon Students.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
     middle_name = models.CharField(max_length=50, blank=True, default='')
@@ -95,6 +97,7 @@ class AcademicYear(models.Model):
     Represents an academic year (e.g., 2024/2025).
     Each tenant has their own academic years.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(
         max_length=50,
         help_text="e.g., 2024/2025 Academic Year"
@@ -139,7 +142,7 @@ class Term(models.Model):
         (3, 'Third'),
         (4, 'Fourth'),
     ]
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     academic_year = models.ForeignKey(
         AcademicYear,
         on_delete=models.CASCADE,
@@ -220,6 +223,7 @@ class Term(models.Model):
 
 
 class SchoolSettings(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     """
     Stores configuration specific to this School (Tenant).
     """

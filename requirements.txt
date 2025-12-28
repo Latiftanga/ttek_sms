@@ -17,6 +17,7 @@ pandas>=2.1.4,<2.2.0
 # SMS Providers
 africastalking>=2.0.1
 pyhubtel-sms>=0.0.1
+arkesel-python>=0.1.0
 
 django-tailwind[cookiecutter,honcho,reload]>=4.4.2,<4.5
 

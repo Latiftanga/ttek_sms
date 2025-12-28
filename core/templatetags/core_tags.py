@@ -93,15 +93,15 @@ NAVIGATION_CONFIG = [
     },
     # Teacher navigation
     {
-        'label': 'My Classes',
-        'icon': 'fa-solid fa-chalkboard',
-        'url_name': 'core:my_classes',
+        'label': 'Schedule',
+        'icon': 'fa-solid fa-calendar-days',
+        'url_name': 'core:schedule',
         'roles': ['teacher'],
     },
     {
         'label': 'Attendance',
         'icon': 'fa-solid fa-clipboard-user',
-        'url_name': 'core:attendance',
+        'url_name': 'academics:attendance_reports',
         'roles': ['teacher'],
     },
     {

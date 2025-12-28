@@ -78,7 +78,16 @@
                     <span class="text-base font-bold text-base-content">{{ user.get_full_name|default:user.email }}</span>
                     <span class="text-xs font-normal opacity-60">{{ user.role_label }}</span>
                 </li>
-                <li><a href="#" class="py-2 text-sm"><i class="fa-regular fa-user mr-2"></i> My Profile</a></li>
+                <li>
+                    <a href="{% url 'core:profile' %}"
+                       hx-get="{% url 'core:profile' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="py-2 text-sm">
+                        <i class="fa-regular fa-user mr-2"></i> My Profile
+                    </a>
+                </li>
+                {% if user.is_superuser or user.is_school_admin %}
                 <li>
                     <a href="{% url 'core:settings' %}"
                        hx-get="{% url 'core:settings' %}"
@@ -88,6 +97,7 @@
                         <i class="fa-solid fa-sliders mr-2"></i> Settings
                     </a>
                 </li>
+                {% endif %}
                 <div class="divider my-1"></div>
                 <li>
                     <a href="{% url 'accounts:logout' %}" class="py-2 text-sm text-error">

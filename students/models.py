@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
@@ -138,6 +139,7 @@ class Enrollment(models.Model):
     Tracks a student's enrollment in a class for a specific academic year.
     This provides historical record of student progression through classes.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     class Status(models.TextChoices):
         ACTIVE = 'active', _('Active')
         PROMOTED = 'promoted', _('Promoted')

@@ -8,7 +8,6 @@
        target="_blank"
        class="btn btn-sm btn-ghost">
         <i class="fa-solid fa-print"></i>
-        Print
     </a>
 </div>
 
@@ -95,7 +94,7 @@
                 <td class="text-center font-bold">{{ grade.total_score|default:'-' }}</td>
                 <td class="text-center">
                     {% if grade.grade %}
-                    <span class="badge {% if grade.total_score >= 50 %}badge-success{% else %}badge-error{% endif %}">
+                    <span class="badge {% if grade.is_passing %}badge-success{% else %}badge-error{% endif %}">
                         {{ grade.grade }}
                     </span>
                     {% else %}

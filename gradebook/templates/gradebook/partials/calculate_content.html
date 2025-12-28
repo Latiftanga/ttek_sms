@@ -44,51 +44,106 @@
                 This will compute final grades and positions for all students in the selected class.
             </p>
 
-            <form id="calculate-form">
-                <div class="space-y-4">
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text">Select Class</span>
-                        </label>
-                        <select name="class_id" class="select select-bordered w-full" required>
-                            <option value="">Choose a class...</option>
-                            {% for class in classes %}
-                            <option value="{{ class.pk }}">{{ class.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text">Grading System</span>
-                        </label>
-                        <select name="grading_system_id" class="select select-bordered w-full" required>
-                            <option value="">Choose a grading system...</option>
-                            {% for system in grading_systems %}
-                            <option value="{{ system.pk }}">{{ system.name }} ({{ system.get_level_display }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <button type="submit"
-                            class="btn btn-primary btn-block"
-                            hx-post=""
-                            hx-include="#calculate-form"
-                            hx-indicator="#calc-spinner"
-                            onclick="
-                                const form = document.getElementById('calculate-form');
-                                const classId = form.querySelector('[name=class_id]').value;
-                                if (classId) {
-                                    this.setAttribute('hx-post', '/gradebook/calculate/' + classId + '/');
-                                    htmx.process(this);
-                                }
-                            ">
-                        <span id="calc-spinner" class="loading loading-spinner loading-sm htmx-indicator"></span>
-                        <i class="fa-solid fa-calculator"></i>
-                        Calculate Grades
-                    </button>
+            <div class="space-y-4">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Select Class</span>
+                    </label>
+                    <select id="calc-class-select" name="class_id" class="select select-bordered w-full">
+                        <option value="">Choose a class...</option>
+                        {% for class in classes %}
+                        <option value="{{ class.pk }}">{{ class.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-            </form>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Grading System</span>
+                    </label>
+                    <select id="calc-grading-select" name="grading_system_id" class="select select-bordered w-full">
+                        <option value="">Choose a grading system...</option>
+                        {% for system in grading_systems %}
+                        <option value="{{ system.pk }}">{{ system.name }} ({{ system.get_level_display }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="button"
+                        id="calc-submit-btn"
+                        class="btn btn-primary btn-block">
+                    <span id="calc-spinner" class="loading loading-spinner loading-sm hidden"></span>
+                    <i class="fa-solid fa-calculator" id="calc-icon"></i>
+                    Calculate Grades
+                </button>
+
+                <div id="calc-result"></div>
+            </div>
+
+            <script>
+            (function() {
+                const classSelect = document.getElementById('calc-class-select');
+                const gradingSelect = document.getElementById('calc-grading-select');
+                const submitBtn = document.getElementById('calc-submit-btn');
+                const spinner = document.getElementById('calc-spinner');
+                const icon = document.getElementById('calc-icon');
+                const resultDiv = document.getElementById('calc-result');
+
+                submitBtn.addEventListener('click', async function(e) {
+                    const classId = classSelect.value;
+                    const gradingId = gradingSelect.value;
+
+                    if (!classId) {
+                        classSelect.focus();
+                        resultDiv.innerHTML = '<div class="alert alert-warning mt-2"><i class="fa-solid fa-triangle-exclamation"></i> Please select a class</div>';
+                        return;
+                    }
+                    if (!gradingId) {
+                        gradingSelect.focus();
+                        resultDiv.innerHTML = '<div class="alert alert-warning mt-2"><i class="fa-solid fa-triangle-exclamation"></i> Please select a grading system</div>';
+                        return;
+                    }
+
+                    // Show loading state
+                    spinner.classList.remove('hidden');
+                    icon.classList.add('hidden');
+                    submitBtn.disabled = true;
+                    resultDiv.innerHTML = '';
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('grading_system_id', gradingId);
+
+                        const response = await fetch('/gradebook/calculate/' + classId + '/', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                                              document.querySelector('body').getAttribute('hx-headers')?.match(/"X-CSRFToken":\s*"([^"]+)"/)?.[1]
+                            },
+                            body: formData
+                        });
+
+                        if (response.ok) {
+                            const text = await response.text();
+                            if (text) {
+                                resultDiv.innerHTML = text;
+                            } else {
+                                resultDiv.innerHTML = '<div class="alert alert-success mt-2"><i class="fa-solid fa-check-circle"></i> Grades calculated successfully!</div>';
+                            }
+                        } else {
+                            const errorText = await response.text();
+                            resultDiv.innerHTML = '<div class="alert alert-error mt-2"><i class="fa-solid fa-circle-exclamation"></i> ' + (errorText || 'Error calculating grades') + '</div>';
+                        }
+                    } catch (error) {
+                        resultDiv.innerHTML = '<div class="alert alert-error mt-2"><i class="fa-solid fa-circle-exclamation"></i> Network error: ' + error.message + '</div>';
+                    } finally {
+                        spinner.classList.add('hidden');
+                        icon.classList.remove('hidden');
+                        submitBtn.disabled = false;
+                    }
+                });
+            })();
+            </script>
         </div>
     </div>
 
