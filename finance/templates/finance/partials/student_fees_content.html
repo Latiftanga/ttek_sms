@@ -1,0 +1,208 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:invoices' %}"
+               hx-get="{% url 'finance:invoices' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-user text-white"></i>
+                </div>
+                {{ student.full_name }}
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">{{ student.admission_number }} • {{ student.current_class.name|default:"No Class" }}</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'finance:student_statement' student_id=student.pk %}" class="btn btn-ghost btn-sm" target="_blank">
+            <i class="fa-solid fa-file-alt"></i>
+            Statement
+        </a>
+        <a href="{% url 'finance:invoice_generate' %}"
+           hx-get="{% url 'finance:invoice_generate' %}?student={{ student.pk }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-plus"></i>
+            New Invoice
+        </a>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-file-invoice text-info"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-base-content/60">Total Invoiced</div>
+                    <div class="text-xl font-bold">GHS {{ total_invoiced|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-check-circle text-success"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-base-content/60">Total Paid</div>
+                    <div class="text-xl font-bold text-success">GHS {{ total_paid|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-warning"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-base-content/60">Balance Due</div>
+                    <div class="text-xl font-bold text-warning">GHS {{ total_balance|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scholarships -->
+{% if scholarships %}
+<div class="card bg-gradient-to-r from-warning/10 to-secondary/10 border border-warning/20 mb-6">
+    <div class="card-body p-4">
+        <h3 class="font-bold text-sm mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-graduation-cap text-warning"></i>
+            Active Scholarships
+        </h3>
+        <div class="flex flex-wrap gap-2">
+            {% for ss in scholarships %}
+            <span class="badge badge-warning">{{ ss.scholarship.name }}</span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Invoices -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            <div class="p-4 border-b border-base-200 flex items-center justify-between">
+                <h3 class="font-bold">Invoices</h3>
+                <span class="badge badge-primary badge-sm">{{ invoices.count }}</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Invoice</th>
+                            <th>Period</th>
+                            <th class="text-right">Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in invoices %}
+                        <tr class="hover cursor-pointer"
+                            hx-get="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                            hx-target="#main-content"
+                            hx-push-url="true">
+                            <td>
+                                <div class="font-medium">{{ invoice.invoice_number }}</div>
+                                <div class="text-xs text-base-content/60">{{ invoice.issue_date|date:"M d, Y" }}</div>
+                            </td>
+                            <td class="text-sm">{{ invoice.term.name|default:"-" }}</td>
+                            <td class="text-right">
+                                <div class="font-medium">GHS {{ invoice.total_amount|floatformat:2 }}</div>
+                                {% if invoice.balance > 0 %}
+                                <div class="text-xs text-warning">Due: {{ invoice.balance|floatformat:2 }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if invoice.status == 'PAID' %}
+                                <span class="badge badge-success badge-sm">Paid</span>
+                                {% elif invoice.status == 'PARTIALLY_PAID' %}
+                                <span class="badge badge-warning badge-sm">Partial</span>
+                                {% elif invoice.status == 'OVERDUE' %}
+                                <span class="badge badge-error badge-sm">Overdue</span>
+                                {% elif invoice.status == 'ISSUED' %}
+                                <span class="badge badge-info badge-sm">Issued</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">{{ invoice.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-base-content/60">
+                                No invoices yet
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payments -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            <div class="p-4 border-b border-base-200 flex items-center justify-between">
+                <h3 class="font-bold">Payments</h3>
+                <span class="badge badge-success badge-sm">{{ payments.count }}</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Receipt</th>
+                            <th>Method</th>
+                            <th class="text-right">Amount</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr class="hover cursor-pointer"
+                            hx-get="{% url 'finance:payment_detail' pk=payment.pk %}"
+                            hx-target="#main-content"
+                            hx-push-url="true">
+                            <td>
+                                <div class="font-medium">{{ payment.receipt_number }}</div>
+                                <div class="text-xs text-base-content/60">{{ payment.invoice.invoice_number }}</div>
+                            </td>
+                            <td>
+                                <span class="badge badge-ghost badge-sm">{{ payment.get_method_display }}</span>
+                            </td>
+                            <td class="text-right font-medium text-success">
+                                GHS {{ payment.amount|floatformat:2 }}
+                            </td>
+                            <td class="text-sm">{{ payment.transaction_date|date:"M d, Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-base-content/60">
+                                No payments yet
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

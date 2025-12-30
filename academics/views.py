@@ -1211,34 +1211,40 @@ def attendance_reports(request):
     for cls in classes:
         cls_records = records.filter(session__class_assigned=cls)
         cls_total = cls_records.count()
-        if cls_total > 0:
-            cls_present = cls_records.filter(status__in=['P', 'L']).count()
-            cls_absent = cls_records.filter(status='A').count()
-            cls_rate = round((cls_present / cls_total) * 100, 1)
-            class_summary.append({
-                'class': cls,
-                'total': cls_total,
-                'present': cls_present,
-                'absent': cls_absent,
-                'rate': cls_rate,
-            })
+        cls_present = cls_records.filter(status__in=['P', 'L']).count() if cls_total > 0 else 0
+        cls_absent = cls_records.filter(status='A').count() if cls_total > 0 else 0
+        cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
 
-    # Daily breakdown (for daily view)
+        # Check if attendance was taken today for this class
+        has_today = sessions.filter(class_assigned=cls, date=today).exists()
+
+        # Get student count for this class
+        student_count = cls.students.filter(is_active=True).count()
+
+        class_summary.append({
+            'class': cls,
+            'total': student_count,
+            'present': cls_present,
+            'absent': cls_absent,
+            'rate': cls_rate,
+            'has_today': has_today,
+        })
+
+    # Daily breakdown (always calculated for recent sessions display)
     daily_data = []
-    if view_mode == 'daily':
-        daily_sessions = sessions.order_by('-date')[:30]
-        for session in daily_sessions:
-            session_records = session.records.all()
-            s_total = session_records.count()
-            s_present = session_records.filter(status__in=['P', 'L']).count()
-            s_absent = session_records.filter(status='A').count()
-            daily_data.append({
-                'session': session,
-                'total': s_total,
-                'present': s_present,
-                'absent': s_absent,
-                'rate': round((s_present / s_total) * 100, 1) if s_total > 0 else 0,
-            })
+    daily_sessions = sessions.order_by('-date')[:20]
+    for session in daily_sessions:
+        session_records = session.records.all()
+        s_total = session_records.count()
+        s_present = session_records.filter(status__in=['P', 'L']).count()
+        s_absent = session_records.filter(status='A').count()
+        daily_data.append({
+            'session': session,
+            'total': s_total,
+            'present': s_present,
+            'absent': s_absent,
+            'rate': round((s_present / s_total) * 100, 1) if s_total > 0 else 0,
+        })
 
     # Students with low attendance (for students view)
     low_attendance_students = []
@@ -1262,47 +1268,46 @@ def attendance_reports(request):
             'status': record.status
         })
 
-    if view_mode == 'students':
-        for sid, stats in student_stats_all.items():
-            if stats['total'] > 0:
-                rate = round((stats['present'] / stats['total']) * 100, 1)
-                if rate < 80:  # Low attendance threshold
-                    low_attendance_students.append({
-                        'student': stats['student'],
-                        'total': stats['total'],
-                        'present': stats['present'],
-                        'absent': stats['total'] - stats['present'],
-                        'rate': rate,
-                    })
+    # Always calculate low attendance students
+    for sid, stats in student_stats_all.items():
+        if stats['total'] > 0:
+            rate = round((stats['present'] / stats['total']) * 100, 1)
+            if rate < 80:  # Low attendance threshold
+                low_attendance_students.append({
+                    'student': stats['student'],
+                    'total': stats['total'],
+                    'present': stats['present'],
+                    'absent': stats['total'] - stats['present'],
+                    'rate': rate,
+                })
 
-        # Sort by attendance rate (lowest first)
-        low_attendance_students.sort(key=lambda x: x['rate'])
+    # Sort by attendance rate (lowest first)
+    low_attendance_students.sort(key=lambda x: x['rate'])
 
-    # Trends data for chart (attendance rate over time)
+    # Trends data for chart (always calculate for sidebar chart)
     trend_data = []
-    if view_mode == 'trends':
-        from collections import defaultdict
-        from datetime import datetime
+    from collections import defaultdict
+    from datetime import datetime
 
-        # Group records by date
-        daily_rates = defaultdict(lambda: {'present': 0, 'total': 0})
-        for record in records:
-            date_str = record.session.date.isoformat()
-            daily_rates[date_str]['total'] += 1
-            if record.status in ['P', 'L']:
-                daily_rates[date_str]['present'] += 1
+    # Group records by date
+    daily_rates = defaultdict(lambda: {'present': 0, 'total': 0})
+    for record in records:
+        date_str = record.session.date.isoformat()
+        daily_rates[date_str]['total'] += 1
+        if record.status in ['P', 'L']:
+            daily_rates[date_str]['present'] += 1
 
-        # Sort by date and calculate rates
-        for date_str in sorted(daily_rates.keys()):
-            data = daily_rates[date_str]
-            rate = round((data['present'] / data['total']) * 100, 1) if data['total'] > 0 else 0
-            trend_data.append({
-                'date': date_str,
-                'rate': rate,
-                'present': data['present'],
-                'absent': data['total'] - data['present'],
-                'total': data['total']
-            })
+    # Sort by date and calculate rates
+    for date_str in sorted(daily_rates.keys()):
+        data = daily_rates[date_str]
+        rate = round((data['present'] / data['total']) * 100, 1) if data['total'] > 0 else 0
+        trend_data.append({
+            'date': date_str,
+            'rate': rate,
+            'present': data['present'],
+            'absent': data['total'] - data['present'],
+            'total': data['total']
+        })
 
     # Calculate consecutive absences for alert
     students_with_consecutive_absences = []
@@ -1370,6 +1375,7 @@ def attendance_reports(request):
         'date_to': date_to,
         'view_mode': view_mode,
         'is_admin': is_admin,
+        'today': today,
         'stats': {
             'total_sessions': total_sessions,
             'total_records': total_records,

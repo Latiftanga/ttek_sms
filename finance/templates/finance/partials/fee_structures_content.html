@@ -1,0 +1,159 @@
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:index' %}"
+               hx-get="{% url 'finance:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Finance">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
+                    <i class="fa-solid fa-layer-group text-white"></i>
+                </div>
+                Fee Structures
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            Define fee amounts for classes, levels, and terms
+        </p>
+    </div>
+    <a href="{% url 'finance:fee_structure_create' %}"
+       hx-get="{% url 'finance:fee_structure_create' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-plus"></i>
+        Add Fee Structure
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+    <div class="card-body p-4">
+        <form class="flex flex-wrap gap-4" hx-get="{% url 'finance:fee_structures' %}" hx-target="#main-content" hx-push-url="true">
+            <div class="form-control">
+                <select name="year" class="select select-bordered select-sm">
+                    <option value="">Current Year</option>
+                    {% for year in academic_years %}
+                    <option value="{{ year.pk }}" {% if request.GET.year == year.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ year.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-control">
+                <select name="category" class="select select-bordered select-sm">
+                    <option value="">All Categories</option>
+                    {% for code, label in categories %}
+                    <option value="{{ code }}" {% if request.GET.category == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-filter"></i>
+                Filter
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Fee Structures Table -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-0">
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="bg-base-200/50">
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Fee Type</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Applies To</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Academic Year</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Term</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold text-right">Amount</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Status</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for structure in structures %}
+                    <tr class="hover">
+                        <td>
+                            <div class="font-medium">{{ structure.fee_type.name }}</div>
+                            <div class="text-xs text-base-content/60">{{ structure.fee_type.get_category_display }}</div>
+                        </td>
+                        <td>
+                            {% if structure.class_assigned %}
+                            <span class="badge badge-sm badge-primary">{{ structure.class_assigned.name }}</span>
+                            {% elif structure.level_type %}
+                            <span class="badge badge-sm badge-secondary">{{ structure.get_level_type_display }}</span>
+                            {% else %}
+                            <span class="badge badge-sm badge-ghost">All Classes</span>
+                            {% endif %}
+                            {% if structure.programme %}
+                            <span class="badge badge-sm badge-info ml-1">{{ structure.programme.name }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-sm">{{ structure.academic_year.name }}</td>
+                        <td class="text-sm">{{ structure.term.name|default:"Full Year" }}</td>
+                        <td class="text-sm text-right font-bold text-primary">GHS {{ structure.amount|floatformat:2 }}</td>
+                        <td>
+                            {% if structure.is_active %}
+                            <span class="badge badge-sm badge-success">Active</span>
+                            {% else %}
+                            <span class="badge badge-sm badge-ghost">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="dropdown dropdown-end">
+                                <label tabindex="0" class="btn btn-ghost btn-xs">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </label>
+                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-32">
+                                    <li>
+                                        <a href="{% url 'finance:fee_structure_edit' pk=structure.pk %}"
+                                           hx-get="{% url 'finance:fee_structure_edit' pk=structure.pk %}"
+                                           hx-target="#main-content"
+                                           hx-push-url="true">
+                                            <i class="fa-solid fa-edit"></i> Edit
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{% url 'finance:fee_structure_delete' pk=structure.pk %}"
+                                           hx-get="{% url 'finance:fee_structure_delete' pk=structure.pk %}"
+                                           hx-target="#main-content"
+                                           hx-push-url="true"
+                                           class="text-error">
+                                            <i class="fa-solid fa-trash"></i> Delete
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-12">
+                            <div class="text-base-content/40">
+                                <i class="fa-solid fa-layer-group text-4xl mb-3"></i>
+                                <p class="text-lg font-medium mb-1">No fee structures defined</p>
+                                <p class="text-sm mb-4">Create fee structures to assign amounts to classes and terms</p>
+                                <a href="{% url 'finance:fee_structure_create' %}"
+                                   hx-get="{% url 'finance:fee_structure_create' %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="fa-solid fa-plus"></i>
+                                    Add First Structure
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

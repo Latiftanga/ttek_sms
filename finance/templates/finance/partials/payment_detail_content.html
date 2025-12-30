@@ -1,0 +1,155 @@
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:payments' %}"
+               hx-get="{% url 'finance:payments' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
+                    <i class="fa-solid fa-receipt text-white"></i>
+                </div>
+                {{ payment.receipt_number }}
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            Payment for {{ payment.invoice.student.full_name }}
+        </p>
+    </div>
+    <a href="{% url 'finance:payment_receipt' pk=payment.pk %}" target="_blank" class="btn btn-ghost btn-sm">
+        <i class="fa-solid fa-print"></i>
+        Print Receipt
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Payment Details -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <h3 class="font-bold mb-4">Payment Details</h3>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center p-4 bg-success/10 rounded-lg">
+                    <span class="text-base-content/70">Amount</span>
+                    <span class="text-2xl font-bold text-success">GHS {{ payment.amount|floatformat:2 }}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <div class="text-base-content/60">Receipt Number</div>
+                        <div class="font-medium">{{ payment.receipt_number }}</div>
+                    </div>
+                    <div>
+                        <div class="text-base-content/60">Payment Method</div>
+                        <div class="font-medium">{{ payment.get_method_display }}</div>
+                    </div>
+                    <div>
+                        <div class="text-base-content/60">Status</div>
+                        <div>
+                            {% if payment.status == 'COMPLETED' %}
+                            <span class="badge badge-success">Completed</span>
+                            {% elif payment.status == 'PENDING' %}
+                            <span class="badge badge-warning">Pending</span>
+                            {% else %}
+                            <span class="badge badge-ghost">{{ payment.get_status_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-base-content/60">Transaction Date</div>
+                        <div class="font-medium">{{ payment.transaction_date|date:"M d, Y H:i" }}</div>
+                    </div>
+                    {% if payment.reference %}
+                    <div class="col-span-2">
+                        <div class="text-base-content/60">Reference</div>
+                        <div class="font-medium">{{ payment.reference }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payer & Invoice Info -->
+    <div class="space-y-6">
+        <!-- Invoice -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h3 class="font-bold mb-4">Invoice Information</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Invoice:</span>
+                        <a href="{% url 'finance:invoice_detail' pk=payment.invoice.pk %}" class="link link-primary">
+                            {{ payment.invoice.invoice_number }}
+                        </a>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Student:</span>
+                        <span class="font-medium">{{ payment.invoice.student.full_name }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Term:</span>
+                        <span class="font-medium">{{ payment.invoice.term.name }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payer -->
+        {% if payment.payer_name or payment.payer_phone %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h3 class="font-bold mb-4">Payer Information</h3>
+                <div class="space-y-3 text-sm">
+                    {% if payment.payer_name %}
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Name:</span>
+                        <span class="font-medium">{{ payment.payer_name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if payment.payer_phone %}
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Phone:</span>
+                        <span class="font-medium">{{ payment.payer_phone }}</span>
+                    </div>
+                    {% endif %}
+                    {% if payment.payer_email %}
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Email:</span>
+                        <span class="font-medium">{{ payment.payer_email }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Received By -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h3 class="font-bold mb-4">Recorded By</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Staff:</span>
+                        <span class="font-medium">{{ payment.received_by.get_full_name|default:payment.received_by.username }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Recorded:</span>
+                        <span class="font-medium">{{ payment.created_at|date:"M d, Y H:i" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if payment.notes %}
+<div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
+    <div class="card-body">
+        <h3 class="font-bold mb-2">Notes</h3>
+        <p class="text-sm text-base-content/70">{{ payment.notes }}</p>
+    </div>
+</div>
+{% endif %}

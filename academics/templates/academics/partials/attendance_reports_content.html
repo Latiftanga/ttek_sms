@@ -3,13 +3,23 @@
 <!-- Page Header -->
 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
     <div>
-        <h1 class="text-2xl font-bold flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <i class="fa-solid fa-clipboard-user text-white"></i>
-            </div>
-            {% if is_admin %}Attendance Reports{% else %}My Attendance{% endif %}
-        </h1>
-        <p class="text-sm text-base-content/60">
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'academics:index' %}"
+               hx-get="{% url 'academics:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Dashboard">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
+                    <i class="fa-solid fa-clipboard-user text-white"></i>
+                </div>
+                {% if is_admin %}Attendance Reports{% else %}My Attendance{% endif %}
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
             {% if is_admin %}
             View and analyze student attendance data across all classes
             {% else %}
@@ -31,57 +41,6 @@
     </div>
 </div>
 
-<!-- Filters Card -->
-<div class="card bg-base-100 shadow-sm border border-base-200 mb-6 print:!hidden">
-    <div class="card-body p-4">
-        <form method="get"
-              hx-get="{% url 'academics:attendance_reports' %}"
-              hx-target="#main-content"
-              hx-push-url="true"
-              hx-trigger="submit, change from:select"
-              class="flex flex-wrap gap-3 items-end">
-            <div class="form-control">
-                <label class="label py-0 pb-1">
-                    <span class="label-text text-xs">From Date</span>
-                </label>
-                <input type="date" name="date_from" value="{{ date_from }}"
-                       class="input input-sm input-bordered" />
-            </div>
-            <div class="form-control">
-                <label class="label py-0 pb-1">
-                    <span class="label-text text-xs">To Date</span>
-                </label>
-                <input type="date" name="date_to" value="{{ date_to }}"
-                       class="input input-sm input-bordered" />
-            </div>
-            <div class="form-control">
-                <label class="label py-0 pb-1">
-                    <span class="label-text text-xs">Class</span>
-                </label>
-                <select name="class" class="select select-sm select-bordered">
-                    <option value="">All Classes</option>
-                    {% for cls in classes %}
-                    <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ cls.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <input type="hidden" name="view" value="{{ view_mode }}" />
-            <button type="submit" class="btn btn-sm btn-primary">
-                <i class="fa-solid fa-filter"></i> Apply
-            </button>
-            <a href="{% url 'academics:attendance_reports' %}"
-               hx-get="{% url 'academics:attendance_reports' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-sm btn-ghost">
-                <i class="fa-solid fa-times"></i> Reset
-            </a>
-        </form>
-    </div>
-</div>
-
 <!-- Consecutive Absence Alert -->
 {% if students_with_consecutive_absences %}
 <div class="alert alert-warning shadow-sm mb-6 print:!hidden">
@@ -100,241 +59,426 @@
 {% endif %}
 
 <!-- Stats Cards -->
-<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Sessions</p>
-            <p class="text-2xl font-bold text-primary">{{ stats.total_sessions }}</p>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Records</p>
-            <p class="text-2xl font-bold">{{ stats.total_records }}</p>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Present</p>
-            <p class="text-2xl font-bold text-success">{{ stats.present }}</p>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Absent</p>
-            <p class="text-2xl font-bold text-error">{{ stats.absent }}</p>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Late</p>
-            <p class="text-2xl font-bold text-warning">{{ stats.late }}</p>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Rate</p>
-            <div class="flex items-center justify-center gap-1">
-                <p class="text-2xl font-bold {% if stats.rate >= 80 %}text-success{% elif stats.rate >= 60 %}text-warning{% else %}text-error{% endif %}">
-                    {{ stats.rate }}%
-                </p>
-                {% if rate_change is not None %}
-                <span class="text-xs {% if rate_change > 0 %}text-success{% elif rate_change < 0 %}text-error{% else %}text-base-content/50{% endif %}">
-                    {% if rate_change > 0 %}<i class="fa-solid fa-arrow-up"></i>{% elif rate_change < 0 %}<i class="fa-solid fa-arrow-down"></i>{% else %}<i class="fa-solid fa-minus"></i>{% endif %}
-                    {{ rate_change|floatformat:1 }}%
-                </span>
-                {% endif %}
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-calendar-check text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ stats.total_sessions }}</div>
+                    <div class="text-xs text-base-content/60">Sessions</div>
+                </div>
             </div>
-            {% if prev_period_rate is not None %}
-            <p class="text-xs text-base-content/40">vs {{ prev_period_rate }}% prev</p>
-            {% endif %}
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-user-check text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">{{ stats.present }}</div>
+                    <div class="text-xs text-base-content/60">Present</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center">
+                    <i class="fa-solid fa-user-xmark text-error text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-error">{{ stats.absent }}</div>
+                    <div class="text-xs text-base-content/60">Absent</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chart-pie text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-1">
+                        <span class="text-2xl font-bold {% if stats.rate >= 80 %}text-success{% elif stats.rate >= 60 %}text-warning{% else %}text-error{% endif %}">{{ stats.rate }}%</span>
+                        {% if rate_change is not None %}
+                        <span class="text-xs {% if rate_change > 0 %}text-success{% elif rate_change < 0 %}text-error{% else %}text-base-content/50{% endif %}">
+                            {% if rate_change > 0 %}<i class="fa-solid fa-arrow-up"></i>{% elif rate_change < 0 %}<i class="fa-solid fa-arrow-down"></i>{% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-base-content/60">Rate</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- View Tabs -->
-<div class="tabs tabs-boxed bg-base-200 p-1 mb-6 print:!hidden">
-    <a href="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=summary"
-       hx-get="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=summary"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="tab {% if view_mode == 'summary' %}tab-active{% endif %}">
-        <i class="fa-solid fa-chart-pie mr-2"></i> Summary
-    </a>
-    <a href="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=trends"
-       hx-get="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=trends"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="tab {% if view_mode == 'trends' %}tab-active{% endif %}">
-        <i class="fa-solid fa-chart-line mr-2"></i> Trends
-    </a>
-    <a href="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=daily"
-       hx-get="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=daily"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="tab {% if view_mode == 'daily' %}tab-active{% endif %}">
-        <i class="fa-solid fa-calendar-days mr-2"></i> Daily
-    </a>
-    <a href="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=students"
-       hx-get="{% url 'academics:attendance_reports' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&view=students"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="tab {% if view_mode == 'students' %}tab-active{% endif %}">
-        <i class="fa-solid fa-user-xmark mr-2"></i> Low Attendance
-    </a>
-</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column - Classes & Recent Sessions -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Classes Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard text-primary"></i>
+                        </div>
+                        Classes
+                    </h2>
+                    <span class="badge badge-ghost">{{ today|date:"D, M d" }}</span>
+                </div>
 
-<!-- Content based on view mode -->
-{% if view_mode == 'summary' %}
-<!-- Summary by Class -->
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-4">
-        <h2 class="font-bold mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-chart-bar text-primary"></i>
-            Attendance by Class
-        </h2>
+                <div class="p-4">
+                    {% if class_summary %}
+                    <div class="space-y-2">
+                        {% for item in class_summary %}
+                        <div class="flex items-center gap-3 p-3 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/30 transition-all">
+                            <!-- Class Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-bold truncate">
+                                        {% if is_admin %}
+                                        <a href="{% url 'academics:class_detail' item.class.pk %}"
+                                           hx-get="{% url 'academics:class_detail' item.class.pk %}"
+                                           hx-target="#main-content"
+                                           hx-push-url="true"
+                                           class="hover:text-primary">
+                                            {{ item.class.name }}
+                                        </a>
+                                        {% else %}
+                                        {{ item.class.name }}
+                                        {% endif %}
+                                    </h3>
+                                    {% if item.has_today %}
+                                    <span class="badge badge-success badge-xs gap-1">
+                                        <i class="fa-solid fa-check text-xs"></i>
+                                        Done
+                                    </span>
+                                    {% else %}
+                                    <span class="badge badge-warning badge-xs gap-1">
+                                        <i class="fa-solid fa-clock text-xs"></i>
+                                        Pending
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-xs text-base-content/60">
+                                    <i class="fa-solid fa-users mr-1"></i>
+                                    {{ item.total }} students
+                                </p>
+                            </div>
 
-        {% if class_summary %}
-        <div class="overflow-x-auto">
-            <table class="table table-sm">
-                <thead>
-                    <tr class="text-xs uppercase text-base-content/60">
-                        <th>Class</th>
-                        <th class="text-center">Total</th>
-                        <th class="text-center">Present</th>
-                        <th class="text-center">Absent</th>
-                        <th class="text-center">Rate</th>
-                        <th class="w-32">Progress</th>
-                        <th class="text-center print:hidden">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in class_summary %}
-                    <tr class="hover">
-                        <td>
-                            {% if is_admin %}
-                            <a href="{% url 'academics:class_detail' item.class.pk %}"
-                               hx-get="{% url 'academics:class_detail' item.class.pk %}"
-                               hx-target="#main-content"
-                               hx-push-url="true"
-                               class="font-medium hover:text-primary">
-                                {{ item.class.name }}
-                            </a>
-                            {% else %}
-                            <span class="font-medium">{{ item.class.name }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">{{ item.total }}</td>
-                        <td class="text-center text-success">{{ item.present }}</td>
-                        <td class="text-center text-error">{{ item.absent }}</td>
-                        <td class="text-center">
-                            <span class="badge badge-sm {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
-                                {{ item.rate }}%
-                            </span>
-                        </td>
-                        <td>
-                            <progress class="progress {% if item.rate >= 80 %}progress-success{% elif item.rate >= 60 %}progress-warning{% else %}progress-error{% endif %} w-full"
-                                      value="{{ item.rate }}" max="100"></progress>
-                        </td>
-                        <td class="text-center print:hidden">
+                            <!-- Progress -->
+                            <div class="flex items-center gap-2 w-24 md:w-32">
+                                <progress class="progress flex-1 h-2 {% if item.rate >= 80 %}progress-success{% elif item.rate >= 60 %}progress-warning{% else %}progress-error{% endif %}" value="{{ item.rate }}" max="100"></progress>
+                                <span class="text-xs font-medium">{{ item.rate }}%</span>
+                            </div>
+
+                            <!-- Action Button -->
                             <a href="{% url 'academics:class_attendance_take' item.class.pk %}"
                                hx-get="{% url 'academics:class_attendance_take' item.class.pk %}"
                                hx-target="#main-content"
                                hx-push-url="true"
-                               class="btn btn-xs btn-primary">
+                               class="btn btn-primary btn-sm">
+                                {% if item.has_today %}
+                                <i class="fa-solid fa-pen"></i>
+                                <span class="hidden sm:inline">Edit</span>
+                                {% else %}
                                 <i class="fa-solid fa-clipboard-check"></i>
-                                Take
+                                <span class="hidden sm:inline">Take</span>
+                                {% endif %}
                             </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center py-12 text-base-content/40">
-            <i class="fa-solid fa-clipboard-check text-4xl mb-3"></i>
-            <p class="text-sm">No attendance data for this period</p>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-{% elif view_mode == 'daily' %}
-<!-- Daily Breakdown -->
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-4">
-        <h2 class="font-bold mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-calendar-days text-primary"></i>
-            Daily Attendance Records
-        </h2>
-
-        {% if daily_data %}
-        <div class="overflow-x-auto">
-            <table class="table table-sm">
-                <thead>
-                    <tr class="text-xs uppercase text-base-content/60">
-                        <th>Date</th>
-                        <th>Class</th>
-                        <th class="text-center">Total</th>
-                        <th class="text-center">Present</th>
-                        <th class="text-center">Absent</th>
-                        <th class="text-center">Rate</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in daily_data %}
-                    <tr class="hover">
-                        <td class="font-mono text-sm">{{ item.session.date|date:"D, M d" }}</td>
-                        <td>
-                            {% if is_admin %}
-                            <a href="{% url 'academics:class_detail' item.session.class_assigned.pk %}"
-                               hx-get="{% url 'academics:class_detail' item.session.class_assigned.pk %}"
-                               hx-target="#main-content"
-                               hx-push-url="true"
-                               class="hover:text-primary">
-                                {{ item.session.class_assigned.name }}
-                            </a>
-                            {% else %}
-                            {{ item.session.class_assigned.name }}
-                            {% endif %}
-                        </td>
-                        <td class="text-center">{{ item.total }}</td>
-                        <td class="text-center text-success">{{ item.present }}</td>
-                        <td class="text-center text-error">{{ item.absent }}</td>
-                        <td class="text-center">
-                            <span class="badge badge-sm {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
-                                {{ item.rate }}%
-                            </span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center py-12 text-base-content/40">
-            <i class="fa-solid fa-calendar-xmark text-4xl mb-3"></i>
-            <p class="text-sm">No daily records for this period</p>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-{% elif view_mode == 'students' %}
-<!-- Low Attendance Students -->
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-4">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="font-bold flex items-center gap-2">
-                <i class="fa-solid fa-user-xmark text-error"></i>
-                Students with Low Attendance (&lt;80%)
-            </h2>
-            <span class="badge badge-error">{{ low_attendance_students|length }} students</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard text-base-content/30 text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Classes Found</h3>
+                        <p class="text-sm text-base-content/50">No classes available for the selected period.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
+        <!-- Recent Attendance -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                            <i class="fa-solid fa-clock-rotate-left text-info"></i>
+                        </div>
+                        Recent Sessions
+                    </h2>
+                </div>
+
+                <div class="p-4">
+                    {% if daily_data %}
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs uppercase text-base-content/60">
+                                    <th>Date</th>
+                                    <th>Class</th>
+                                    <th class="text-center">Present</th>
+                                    <th class="text-center">Absent</th>
+                                    <th class="text-center">Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in daily_data %}
+                                <tr class="hover">
+                                    <td class="font-mono text-sm">{{ item.session.date|date:"D, M d" }}</td>
+                                    <td class="font-medium">
+                                        {% if is_admin %}
+                                        <a href="{% url 'academics:class_detail' item.session.class_assigned.pk %}"
+                                           hx-get="{% url 'academics:class_detail' item.session.class_assigned.pk %}"
+                                           hx-target="#main-content"
+                                           hx-push-url="true"
+                                           class="hover:text-primary">
+                                            {{ item.session.class_assigned.name }}
+                                        </a>
+                                        {% else %}
+                                        {{ item.session.class_assigned.name }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center text-success">{{ item.present }}</td>
+                                    <td class="text-center text-error">{{ item.absent }}</td>
+                                    <td class="text-center">
+                                        <span class="badge badge-sm {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                                            {{ item.rate }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-base-content/40">
+                        <i class="fa-solid fa-calendar-xmark text-3xl mb-2"></i>
+                        <p class="text-sm">No recent attendance records</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Low Attendance Students Card -->
         {% if low_attendance_students %}
-        <div class="overflow-x-auto">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-error/10 flex items-center justify-center">
+                            <i class="fa-solid fa-user-xmark text-error"></i>
+                        </div>
+                        Low Attendance (&lt;80%)
+                    </h2>
+                    <span class="badge badge-error">{{ low_attendance_students|length }} students</span>
+                </div>
+
+                <div class="p-4">
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs uppercase text-base-content/60">
+                                    <th>Student</th>
+                                    <th class="hidden sm:table-cell">Class</th>
+                                    <th class="text-center">Present</th>
+                                    <th class="text-center">Absent</th>
+                                    <th class="text-center">Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in low_attendance_students|slice:":5" %}
+                                <tr class="hover">
+                                    <td>
+                                        <div class="flex items-center gap-2">
+                                            <div class="avatar placeholder">
+                                                <div class="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center">
+                                                    <span class="text-xs font-bold">{{ item.student.first_name|slice:":1" }}{{ item.student.last_name|slice:":1" }}</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <button onclick="showStudentAttendance('{{ item.student.pk }}')"
+                                                        class="font-medium hover:text-primary text-left">
+                                                    {{ item.student.full_name }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="hidden sm:table-cell">
+                                        {% if item.student.current_class %}
+                                        <span class="badge badge-sm badge-ghost">{{ item.student.current_class.name }}</span>
+                                        {% else %}
+                                        <span class="text-base-content/40">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center text-success">{{ item.present }}</td>
+                                    <td class="text-center text-error font-medium">{{ item.absent }}</td>
+                                    <td class="text-center">
+                                        <span class="badge badge-sm {% if item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                                            {{ item.rate }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if low_attendance_students|length > 5 %}
+                    <div class="text-center mt-4">
+                        <button onclick="document.getElementById('low_attendance_modal').showModal()" class="btn btn-sm btn-ghost">
+                            View All {{ low_attendance_students|length }} Students
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column - Filters & Info -->
+    <div class="space-y-6">
+        <!-- Filter Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-base-content/50"></i>
+                    Filter Data
+                </h2>
+
+                <form method="get"
+                      hx-get="{% url 'academics:attendance_reports' %}"
+                      hx-target="#main-content"
+                      hx-push-url="true"
+                      class="space-y-3">
+                    <label class="select select-sm w-full">
+                        <span class="label">Class</span>
+                        <select name="class">
+                            <option value="">All Classes</option>
+                            {% for cls in classes %}
+                            <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ cls.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label class="input input-sm w-full">
+                        <span class="label">From Date</span>
+                        <input type="date" name="date_from" value="{{ date_from }}" />
+                    </label>
+
+                    <label class="input input-sm w-full">
+                        <span class="label">To Date</span>
+                        <input type="date" name="date_to" value="{{ date_to }}" />
+                    </label>
+
+                    <div class="flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-1">
+                            <i class="fa-solid fa-filter"></i>
+                            Apply
+                        </button>
+                        <a href="{% url 'academics:attendance_reports' %}"
+                           hx-get="{% url 'academics:attendance_reports' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-sm">
+                            <i class="fa-solid fa-times"></i>
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Attendance Trends Mini Chart -->
+        {% if trend_data %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-primary"></i>
+                    Attendance Trend
+                </h2>
+                <div class="h-32">
+                    <canvas id="attendanceTrendChart"></canvas>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-base-200">
+                    <div class="text-center">
+                        <p class="text-xs text-base-content/50">Highest</p>
+                        <p class="text-sm font-bold text-success" id="trend-highest">-</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-xs text-base-content/50">Average</p>
+                        <p class="text-sm font-bold text-primary" id="trend-average">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Quick Tips -->
+        <div class="card bg-gradient-to-br from-info/5 to-info/10 border border-info/20">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-lightbulb text-info"></i>
+                    Quick Tips
+                </h3>
+                <ul class="text-xs text-base-content/70 space-y-2">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Click on a class card to take attendance</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Use filters to view attendance history</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Export to Excel for detailed reports</span>
+                    </li>
+                    {% if is_admin %}
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Notify parents of absent students via SMS</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Low Attendance Students Modal -->
+<dialog id="low_attendance_modal" class="modal">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </form>
+        <h3 class="font-bold text-lg flex items-center gap-2">
+            <i class="fa-solid fa-user-xmark text-error"></i>
+            Students with Low Attendance (&lt;80%)
+        </h3>
+        <p class="text-sm text-base-content/60 mt-1">{{ low_attendance_students|length }} students below 80% attendance rate</p>
+
+        <div class="overflow-x-auto mt-4">
             <table class="table table-sm">
                 <thead>
                     <tr class="text-xs uppercase text-base-content/60">
@@ -385,131 +529,17 @@
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <div class="text-center py-12 text-success">
-            <i class="fa-solid fa-check-circle text-4xl mb-3"></i>
-            <p class="text-sm font-medium">All students have good attendance!</p>
-            <p class="text-xs text-base-content/50">No students below 80% attendance rate</p>
+
+        <div class="modal-action">
+            <form method="dialog">
+                <button class="btn">Close</button>
+            </form>
         </div>
-        {% endif %}
     </div>
-</div>
-
-{% elif view_mode == 'trends' %}
-<!-- Attendance Trends Chart -->
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-4">
-        <h2 class="font-bold mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-chart-line text-primary"></i>
-            Attendance Trends Over Time
-        </h2>
-
-        {% if trend_data %}
-        <div class="h-80">
-            <canvas id="attendanceTrendChart"></canvas>
-        </div>
-
-        <!-- Trend Summary -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-base-200">
-            <div class="text-center">
-                <p class="text-xs text-base-content/50 uppercase">Highest Rate</p>
-                <p class="text-xl font-bold text-success" id="trend-highest">-</p>
-            </div>
-            <div class="text-center">
-                <p class="text-xs text-base-content/50 uppercase">Lowest Rate</p>
-                <p class="text-xl font-bold text-error" id="trend-lowest">-</p>
-            </div>
-            <div class="text-center">
-                <p class="text-xs text-base-content/50 uppercase">Average Rate</p>
-                <p class="text-xl font-bold text-primary" id="trend-average">-</p>
-            </div>
-            <div class="text-center">
-                <p class="text-xs text-base-content/50 uppercase">Data Points</p>
-                <p class="text-xl font-bold">{{ trend_data|length }}</p>
-            </div>
-        </div>
-
-        {{ trend_data|json_script:"trend-data" }}
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const ctx = document.getElementById('attendanceTrendChart').getContext('2d');
-                const trendData = JSON.parse(document.getElementById('trend-data').textContent);
-
-                const labels = trendData.map(d => {
-                    const date = new Date(d.date);
-                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                });
-                const rates = trendData.map(d => d.rate);
-                const presents = trendData.map(d => d.present);
-                const absents = trendData.map(d => d.absent);
-
-                // Calculate summary stats
-                const highest = Math.max(...rates);
-                const lowest = Math.min(...rates);
-                const average = (rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(1);
-
-                document.getElementById('trend-highest').textContent = highest + '%';
-                document.getElementById('trend-lowest').textContent = lowest + '%';
-                document.getElementById('trend-average').textContent = average + '%';
-
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Attendance Rate (%)',
-                            data: rates,
-                            borderColor: 'rgb(59, 130, 246)',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    afterLabel: function(context) {
-                                        const idx = context.dataIndex;
-                                        return `Present: ${presents[idx]}, Absent: ${absents[idx]}`;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                min: 0,
-                                max: 100,
-                                ticks: { callback: v => v + '%' },
-                                grid: { color: 'rgba(0,0,0,0.05)' }
-                            },
-                            x: {
-                                grid: { display: false }
-                            }
-                        },
-                        interaction: {
-                            intersect: false,
-                            mode: 'index'
-                        }
-                    }
-                });
-            });
-        </script>
-        {% else %}
-        <div class="text-center py-12 text-base-content/40">
-            <i class="fa-solid fa-chart-line text-4xl mb-3"></i>
-            <p class="text-sm">No trend data for this period</p>
-        </div>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
 
 <!-- Consecutive Absences Modal -->
 <dialog id="consecutive_absences_modal" class="modal">
@@ -719,6 +749,69 @@
     </form>
 </dialog>
 
+{% if trend_data %}
+{{ trend_data|json_script:"trend-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('attendanceTrendChart');
+        if (ctx) {
+            const trendData = JSON.parse(document.getElementById('trend-data').textContent);
+
+            const labels = trendData.map(d => {
+                const date = new Date(d.date);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
+            const rates = trendData.map(d => d.rate);
+
+            // Calculate summary stats
+            const highest = Math.max(...rates);
+            const average = (rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(1);
+
+            document.getElementById('trend-highest').textContent = highest + '%';
+            document.getElementById('trend-average').textContent = average + '%';
+
+            new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: rates,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2,
+                        pointHoverRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: {
+                                callback: v => v + '%',
+                                stepSize: 25
+                            },
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        x: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endif %}
+
 <script>
     function updatePreview(select) {
         const template = select.selectedOptions[0].dataset.template;
@@ -728,9 +821,14 @@
 
     function updateCharCount() {
         const textarea = document.getElementById('sms_message');
-        const count = textarea.value.length;
-        document.getElementById('char-count').textContent = count + '/160';
-        document.getElementById('char-count').className = count > 160 ? 'label-text-alt text-error' : 'label-text-alt';
+        if (textarea) {
+            const count = textarea.value.length;
+            const charCount = document.getElementById('char-count');
+            if (charCount) {
+                charCount.textContent = count + '/160';
+                charCount.className = count > 160 ? 'label-text-alt text-error' : 'label-text-alt';
+            }
+        }
     }
 
     function showStudentAttendance(studentId) {

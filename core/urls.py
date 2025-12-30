@@ -10,9 +10,6 @@ urlpatterns = [
     path('schedule/', views.schedule, name='schedule'),
 
     # School Admin routes
-    path('finance/', views.finance_overview, name='finance'),
-    path('finance/invoices/', views.invoices, name='invoices'),
-    path('finance/payments/', views.payments, name='payments'),
     path('settings/', views.settings, name='settings'),
 
     # Settings update routes (modal POST handlers)
@@ -22,6 +19,7 @@ urlpatterns = [
     path('settings/update/admin/', views.settings_update_admin, name='settings_update_admin'),
     path('settings/update/academic/', views.settings_update_academic, name='settings_update_academic'),
     path('settings/update/sms/', views.settings_update_sms, name='settings_update_sms'),
+    path('settings/update/payment/', views.settings_update_payment, name='settings_update_payment'),
 
     # Academic Year routes
     path('settings/academic-year/create/', views.academic_year_create, name='academic_year_create'),
@@ -48,6 +46,7 @@ urlpatterns = [
     path('my-grading/<int:class_id>/<int:subject_id>/export/', views.export_scores, name='export_scores'),
     path('my-grading/<int:class_id>/<int:subject_id>/import/', views.import_scores, name='import_scores'),
     path('my-grading/<int:class_id>/<int:subject_id>/import/confirm/', views.import_scores_confirm, name='import_scores_confirm'),
+    path('my-timetable/', views.my_timetable, name='my_timetable'),
 
     # Student routes
     path('my-results/', views.my_results, name='my_results'),

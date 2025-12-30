@@ -1,0 +1,205 @@
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:index' %}"
+               hx-get="{% url 'finance:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Finance">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-credit-card text-white"></i>
+                </div>
+                Payment Gateway Settings
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            Configure payment gateways for online fee collection
+        </p>
+    </div>
+</div>
+
+<!-- Security Notice -->
+<div class="alert alert-info mb-6">
+    <i class="fa-solid fa-shield-halved"></i>
+    <div>
+        <div class="font-bold">Security Notice</div>
+        <div class="text-sm">All API keys and secrets are encrypted at rest. Never share your credentials with anyone.</div>
+    </div>
+</div>
+
+<!-- Gateway Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for gateway in gateways %}
+    {% with config=configs|dictsort:"gateway_id"|first %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <!-- Gateway Header -->
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    {% if gateway.name == 'PAYSTACK' %}
+                    <div class="w-12 h-12 rounded-xl bg-[#00C3F7]/10 flex items-center justify-center">
+                        <span class="font-bold text-[#00C3F7]">PS</span>
+                    </div>
+                    {% elif gateway.name == 'FLUTTERWAVE' %}
+                    <div class="w-12 h-12 rounded-xl bg-[#F5A623]/10 flex items-center justify-center">
+                        <span class="font-bold text-[#F5A623]">FW</span>
+                    </div>
+                    {% elif gateway.name == 'HUBTEL' %}
+                    <div class="w-12 h-12 rounded-xl bg-[#FF6B00]/10 flex items-center justify-center">
+                        <span class="font-bold text-[#FF6B00]">HB</span>
+                    </div>
+                    {% else %}
+                    <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <i class="fa-solid fa-credit-card text-primary"></i>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <h2 class="font-bold">{{ gateway.display_name }}</h2>
+                        <p class="text-xs text-base-content/60">{{ gateway.name }}</p>
+                    </div>
+                </div>
+                {% if gateway.is_active %}
+                <span class="badge badge-success badge-sm">Available</span>
+                {% else %}
+                <span class="badge badge-ghost badge-sm">Unavailable</span>
+                {% endif %}
+            </div>
+
+            <!-- Features -->
+            <div class="flex gap-2 mb-4">
+                {% if gateway.supports_mobile_money %}
+                <span class="badge badge-outline badge-sm">Mobile Money</span>
+                {% endif %}
+                {% if gateway.supports_cards %}
+                <span class="badge badge-outline badge-sm">Cards</span>
+                {% endif %}
+                {% if gateway.supports_bank_transfer %}
+                <span class="badge badge-outline badge-sm">Bank</span>
+                {% endif %}
+            </div>
+
+            <!-- Status -->
+            {% for config in configs %}
+            {% if config.gateway == gateway %}
+            <div class="bg-base-200/50 rounded-lg p-3 mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium">Configuration Status</span>
+                    {% if config.verification_status == 'VERIFIED' %}
+                    <span class="badge badge-success badge-sm">
+                        <i class="fa-solid fa-check mr-1"></i> Verified
+                    </span>
+                    {% elif config.verification_status == 'PENDING' %}
+                    <span class="badge badge-warning badge-sm">
+                        <i class="fa-solid fa-clock mr-1"></i> Pending
+                    </span>
+                    {% else %}
+                    <span class="badge badge-error badge-sm">
+                        <i class="fa-solid fa-times mr-1"></i> Failed
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="text-xs text-base-content/60 space-y-1">
+                    <div class="flex justify-between">
+                        <span>Active:</span>
+                        <span>{% if config.is_active %}Yes{% else %}No{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Test Mode:</span>
+                        <span>{% if config.is_test_mode %}Yes{% else %}No{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Primary:</span>
+                        <span>{% if config.is_primary %}Yes{% else %}No{% endif %}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% empty %}
+            <div class="bg-base-200/50 rounded-lg p-3 mb-4 text-center">
+                <p class="text-sm text-base-content/60">Not configured</p>
+            </div>
+            {% endfor %}
+
+            <!-- Actions -->
+            <div class="card-actions justify-between">
+                <a href="{% url 'finance:gateway_configure' pk=gateway.pk %}"
+                   hx-get="{% url 'finance:gateway_configure' pk=gateway.pk %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-primary btn-sm flex-1">
+                    <i class="fa-solid fa-cog"></i>
+                    Configure
+                </a>
+                {% for config in configs %}
+                {% if config.gateway == gateway and config.is_active %}
+                <form action="{% url 'finance:gateway_verify' pk=config.pk %}" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-sm">
+                        <i class="fa-solid fa-check-circle"></i>
+                        Verify
+                    </button>
+                </form>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+    {% empty %}
+    <div class="col-span-full">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body text-center py-12">
+                <div class="text-base-content/40">
+                    <i class="fa-solid fa-credit-card text-4xl mb-3"></i>
+                    <p class="text-lg font-medium mb-1">No payment gateways available</p>
+                    <p class="text-sm">Contact support to enable payment gateways for your school</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Help Section -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
+    <div class="card-body">
+        <h3 class="font-bold flex items-center gap-2 mb-4">
+            <i class="fa-solid fa-question-circle text-info"></i>
+            Getting Started with Payment Gateways
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div>
+                <h4 class="font-medium mb-2">Paystack (Recommended)</h4>
+                <ol class="list-decimal list-inside space-y-1 text-base-content/70">
+                    <li>Create account at paystack.com</li>
+                    <li>Get your API keys from Settings</li>
+                    <li>Enter keys in the configuration</li>
+                    <li>Verify and activate</li>
+                </ol>
+            </div>
+            <div>
+                <h4 class="font-medium mb-2">Flutterwave</h4>
+                <ol class="list-decimal list-inside space-y-1 text-base-content/70">
+                    <li>Sign up at flutterwave.com</li>
+                    <li>Complete business verification</li>
+                    <li>Get API keys from dashboard</li>
+                    <li>Configure and test</li>
+                </ol>
+            </div>
+            <div>
+                <h4 class="font-medium mb-2">Hubtel (Ghana Only)</h4>
+                <ol class="list-decimal list-inside space-y-1 text-base-content/70">
+                    <li>Register at hubtel.com</li>
+                    <li>Set up merchant account</li>
+                    <li>Get client ID and secret</li>
+                    <li>Configure integration</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>

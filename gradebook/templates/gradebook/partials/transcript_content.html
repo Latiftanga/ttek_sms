@@ -1,0 +1,286 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'gradebook:reports' %}"
+               hx-get="{% url 'gradebook:reports' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-scroll text-white"></i>
+                </div>
+                Academic Transcript
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">{{ student.full_name }} - {{ student.admission_number }}</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'gradebook:transcript_print' student_id=student.pk %}" target="_blank" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-print"></i>
+            Print
+        </a>
+        <a href="{% url 'gradebook:download_transcript_pdf' student_id=student.pk %}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-download"></i>
+            Download PDF
+        </a>
+    </div>
+</div>
+
+<!-- Student Info & Cumulative Stats -->
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+    <!-- Student Info Card -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <h3 class="font-bold text-sm mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-user text-primary"></i>
+                Student Information
+            </h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-base-content/60">Name:</span>
+                    <span class="font-medium">{{ student.full_name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-base-content/60">Admission No:</span>
+                    <span class="font-medium">{{ student.admission_number }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-base-content/60">Current Class:</span>
+                    <span class="font-medium">{{ student.current_class.name|default:"-" }}</span>
+                </div>
+                {% if student.date_of_birth %}
+                <div class="flex justify-between">
+                    <span class="text-base-content/60">Date of Birth:</span>
+                    <span class="font-medium">{{ student.date_of_birth|date:"M d, Y" }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Cumulative Stats -->
+    <div class="card bg-primary/10 border border-primary/20">
+        <div class="card-body p-4 text-center">
+            <div class="text-3xl font-bold text-primary">{{ cumulative_stats.cumulative_average }}%</div>
+            <div class="text-sm text-base-content/60">Cumulative Average</div>
+        </div>
+    </div>
+
+    <div class="card bg-success/10 border border-success/20">
+        <div class="card-body p-4 text-center">
+            <div class="text-3xl font-bold text-success">{{ cumulative_stats.total_credits }}</div>
+            <div class="text-sm text-base-content/60">Total Credits</div>
+        </div>
+    </div>
+
+    <div class="card bg-info/10 border border-info/20">
+        <div class="card-body p-4 text-center">
+            <div class="text-3xl font-bold text-info">{{ cumulative_stats.total_terms }}</div>
+            <div class="text-sm text-base-content/60">Terms Completed</div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Stats Row -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="stat bg-base-100 shadow-sm border border-base-200 rounded-lg p-4">
+        <div class="stat-title text-xs">Subjects Taken</div>
+        <div class="stat-value text-lg">{{ cumulative_stats.unique_subjects }}</div>
+    </div>
+    <div class="stat bg-base-100 shadow-sm border border-base-200 rounded-lg p-4">
+        <div class="stat-title text-xs">Total Passed</div>
+        <div class="stat-value text-lg text-success">{{ cumulative_stats.total_subjects_passed }}</div>
+    </div>
+    <div class="stat bg-base-100 shadow-sm border border-base-200 rounded-lg p-4">
+        <div class="stat-title text-xs">Total Taken</div>
+        <div class="stat-value text-lg">{{ cumulative_stats.total_subjects_taken }}</div>
+    </div>
+    <div class="stat bg-base-100 shadow-sm border border-base-200 rounded-lg p-4">
+        <div class="stat-title text-xs">Pass Rate</div>
+        <div class="stat-value text-lg">
+            {% if cumulative_stats.total_subjects_taken > 0 %}
+            {% widthratio cumulative_stats.total_subjects_passed cumulative_stats.total_subjects_taken 100 %}%
+            {% else %}
+            -
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Academic History by Term -->
+{% if academic_history %}
+<div class="space-y-6">
+    {% for term_data in academic_history %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            <!-- Term Header -->
+            <div class="p-4 border-b border-base-200 bg-base-200/30">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <div>
+                        <h3 class="font-bold">
+                            {{ term_data.report.term.academic_year.name }} - {{ term_data.report.term.name }}
+                        </h3>
+                        <p class="text-sm text-base-content/60">
+                            Class: {{ term_data.report.student_class.name|default:"-" }}
+                        </p>
+                    </div>
+                    <div class="flex gap-4 text-sm">
+                        <div class="text-center">
+                            <div class="font-bold text-primary text-lg">{{ term_data.report.average|floatformat:1 }}%</div>
+                            <div class="text-xs text-base-content/60">Average</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-lg">{{ term_data.report.position }}/{{ term_data.report.out_of }}</div>
+                            <div class="text-xs text-base-content/60">Position</div>
+                        </div>
+                        {% if term_data.report.aggregate %}
+                        <div class="text-center">
+                            <div class="font-bold text-lg">{{ term_data.report.aggregate }}</div>
+                            <div class="text-xs text-base-content/60">Aggregate</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grades Table -->
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Subject</th>
+                            <th class="text-center">Type</th>
+                            <th class="text-center">Score</th>
+                            <th class="text-center">Grade</th>
+                            <th class="text-center">Remark</th>
+                            <th class="text-center">Position</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for grade in term_data.core_grades %}
+                        <tr class="hover">
+                            <td class="font-medium">{{ grade.subject.name }}</td>
+                            <td class="text-center"><span class="badge badge-primary badge-xs">Core</span></td>
+                            <td class="text-center">{{ grade.total_score|floatformat:1 }}</td>
+                            <td class="text-center">
+                                <span class="badge {% if grade.is_passing %}badge-success{% else %}badge-error{% endif %} badge-sm">
+                                    {{ grade.grade }}
+                                </span>
+                            </td>
+                            <td class="text-center text-xs">{{ grade.grade_remark|default:"-" }}</td>
+                            <td class="text-center">{{ grade.position|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for grade in term_data.elective_grades %}
+                        <tr class="hover">
+                            <td class="font-medium">{{ grade.subject.name }}</td>
+                            <td class="text-center"><span class="badge badge-ghost badge-xs">Elective</span></td>
+                            <td class="text-center">{{ grade.total_score|floatformat:1 }}</td>
+                            <td class="text-center">
+                                <span class="badge {% if grade.is_passing %}badge-success{% else %}badge-error{% endif %} badge-sm">
+                                    {{ grade.grade }}
+                                </span>
+                            </td>
+                            <td class="text-center text-xs">{{ grade.grade_remark|default:"-" }}</td>
+                            <td class="text-center">{{ grade.position|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-base-200/50 font-bold">
+                            <td>Total</td>
+                            <td class="text-center">{{ term_data.report.subjects_taken }} subjects</td>
+                            <td class="text-center">{{ term_data.report.average|floatformat:1 }}%</td>
+                            <td class="text-center" colspan="3">
+                                <span class="text-success">{{ term_data.report.subjects_passed }} passed</span>
+                                {% if term_data.report.subjects_failed > 0 %}
+                                / <span class="text-error">{{ term_data.report.subjects_failed }} failed</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Term Summary Footer -->
+            {% if term_data.report.promoted is not None %}
+            <div class="p-4 border-t border-base-200 bg-base-200/20">
+                <div class="flex items-center gap-2">
+                    {% if term_data.report.promoted %}
+                    <span class="badge badge-success gap-1">
+                        <i class="fa-solid fa-check"></i>
+                        Promoted to {{ term_data.report.promoted_to.name|default:"Next Class" }}
+                    </span>
+                    {% else %}
+                    <span class="badge badge-error gap-1">
+                        <i class="fa-solid fa-times"></i>
+                        Not Promoted
+                    </span>
+                    {% endif %}
+                    {% if term_data.report.promotion_remarks %}
+                    <span class="text-sm text-base-content/60">- {{ term_data.report.promotion_remarks }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body text-center py-12">
+        <i class="fa-solid fa-scroll text-4xl text-base-content/30 mb-4"></i>
+        <h3 class="font-bold text-lg mb-2">No Academic Records</h3>
+        <p class="text-base-content/60">No term reports found for this student.</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Promotion History -->
+{% if promotion_history %}
+<div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
+    <div class="card-body">
+        <h3 class="font-bold mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-stairs text-info"></i>
+            Promotion History
+        </h3>
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="bg-base-200/50">
+                        <th>Academic Year</th>
+                        <th>Term</th>
+                        <th>Status</th>
+                        <th>Promoted To</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for promo in promotion_history %}
+                    <tr>
+                        <td>{{ promo.term__academic_year__name }}</td>
+                        <td>{{ promo.term__name }}</td>
+                        <td>
+                            {% if promo.promoted %}
+                            <span class="badge badge-success badge-sm">Promoted</span>
+                            {% else %}
+                            <span class="badge badge-error badge-sm">Not Promoted</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ promo.promoted_to__name|default:"-" }}</td>
+                        <td class="text-sm">{{ promo.promotion_remarks|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}

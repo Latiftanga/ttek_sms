@@ -1,0 +1,365 @@
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
+                    <i class="fa-solid fa-coins text-white"></i>
+                </div>
+                Finance Dashboard
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            {% if current_year %}{{ current_year.name }}{% endif %}
+            {% if current_term %} - {{ current_term.name }}{% endif %}
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'finance:invoice_generate' %}"
+           hx-get="{% url 'finance:invoice_generate' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-file-invoice"></i>
+            Generate Invoices
+        </a>
+        <a href="{% url 'finance:payment_record' %}"
+           hx-get="{% url 'finance:payment_record' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-success btn-sm">
+            <i class="fa-solid fa-plus"></i>
+            Record Payment
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <!-- Total Invoiced -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-file-invoice text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">GHS {{ total_invoiced|floatformat:2|default:"0.00" }}</div>
+                    <div class="text-xs text-base-content/60">Total Invoiced</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Collected -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-money-bill-wave text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">GHS {{ total_collected|floatformat:2|default:"0.00" }}</div>
+                    <div class="text-xs text-base-content/60">Total Collected</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outstanding -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-warning text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-warning">GHS {{ total_outstanding|floatformat:2|default:"0.00" }}</div>
+                    <div class="text-xs text-base-content/60">Outstanding</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Collection Rate -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chart-line text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-info">{{ collection_rate|floatformat:1 }}%</div>
+                    <div class="text-xs text-base-content/60">Collection Rate</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column (2/3) -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Recent Payments -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                            <i class="fa-solid fa-receipt text-success"></i>
+                        </div>
+                        Recent Payments
+                    </h2>
+                    <a href="{% url 'finance:payments' %}"
+                       hx-get="{% url 'finance:payments' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-xs">
+                        View All
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr class="bg-base-200/50">
+                                <th class="text-xs uppercase text-base-content/60 font-semibold">Receipt</th>
+                                <th class="text-xs uppercase text-base-content/60 font-semibold">Student</th>
+                                <th class="text-xs uppercase text-base-content/60 font-semibold">Amount</th>
+                                <th class="text-xs uppercase text-base-content/60 font-semibold">Method</th>
+                                <th class="text-xs uppercase text-base-content/60 font-semibold">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in recent_payments %}
+                            <tr class="hover">
+                                <td>
+                                    <a href="{% url 'finance:payment_detail' pk=payment.pk %}"
+                                       hx-get="{% url 'finance:payment_detail' pk=payment.pk %}"
+                                       hx-target="#main-content"
+                                       hx-push-url="true"
+                                       class="link link-primary text-sm font-medium">
+                                        {{ payment.receipt_number }}
+                                    </a>
+                                </td>
+                                <td class="text-sm">{{ payment.invoice.student.full_name }}</td>
+                                <td class="text-sm font-medium text-success">GHS {{ payment.amount|floatformat:2 }}</td>
+                                <td>
+                                    <span class="badge badge-sm badge-ghost">{{ payment.get_method_display }}</span>
+                                </td>
+                                <td class="text-sm text-base-content/60">{{ payment.transaction_date|date:"M d, H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-8">
+                                    <div class="text-base-content/40">
+                                        <i class="fa-solid fa-receipt text-3xl mb-2"></i>
+                                        <p>No recent payments</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overdue Invoices -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-error/10 flex items-center justify-center">
+                            <i class="fa-solid fa-exclamation-triangle text-error"></i>
+                        </div>
+                        Overdue Invoices
+                    </h2>
+                    <a href="{% url 'finance:invoices' %}?status=OVERDUE"
+                       hx-get="{% url 'finance:invoices' %}?status=OVERDUE"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-xs">
+                        View All
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr class="bg-base-200/50">
+                                <th class="text-xs uppercase text-base-content/60 font-semibold">Invoice</th>
+                                <th class="text-xs uppercase text-base-content/60 font-semibold">Student</th>
+                                <th class="text-xs uppercase text-base-content/60 font-semibold">Balance</th>
+                                <th class="text-xs uppercase text-base-content/60 font-semibold">Due Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in overdue_invoices %}
+                            <tr class="hover">
+                                <td>
+                                    <a href="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                       hx-get="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                       hx-target="#main-content"
+                                       hx-push-url="true"
+                                       class="link link-primary text-sm font-medium">
+                                        {{ invoice.invoice_number }}
+                                    </a>
+                                </td>
+                                <td class="text-sm">{{ invoice.student.full_name }}</td>
+                                <td class="text-sm font-medium text-error">GHS {{ invoice.balance|floatformat:2 }}</td>
+                                <td class="text-sm text-error">{{ invoice.due_date|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-8">
+                                    <div class="text-base-content/40">
+                                        <i class="fa-solid fa-check-circle text-success text-3xl mb-2"></i>
+                                        <p>No overdue invoices</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column (1/3) -->
+    <div class="space-y-6">
+        <!-- Quick Links -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <i class="fa-solid fa-link text-primary"></i>
+                    </div>
+                    Quick Actions
+                </h2>
+                <div class="space-y-2">
+                    <a href="{% url 'finance:fee_types' %}"
+                       hx-get="{% url 'finance:fee_types' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm w-full justify-start">
+                        <i class="fa-solid fa-tags w-5"></i>
+                        Fee Types
+                    </a>
+                    <a href="{% url 'finance:fee_structures' %}"
+                       hx-get="{% url 'finance:fee_structures' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm w-full justify-start">
+                        <i class="fa-solid fa-layer-group w-5"></i>
+                        Fee Structures
+                    </a>
+                    <a href="{% url 'finance:scholarships' %}"
+                       hx-get="{% url 'finance:scholarships' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm w-full justify-start">
+                        <i class="fa-solid fa-graduation-cap w-5"></i>
+                        Scholarships
+                    </a>
+                    <a href="{% url 'finance:invoices' %}"
+                       hx-get="{% url 'finance:invoices' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm w-full justify-start">
+                        <i class="fa-solid fa-file-invoice w-5"></i>
+                        All Invoices
+                    </a>
+                    <a href="{% url 'finance:payments' %}"
+                       hx-get="{% url 'finance:payments' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm w-full justify-start">
+                        <i class="fa-solid fa-money-check-alt w-5"></i>
+                        All Payments
+                    </a>
+                    <div class="divider my-2"></div>
+                    <a href="{% url 'finance:reports' %}"
+                       hx-get="{% url 'finance:reports' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm w-full justify-start">
+                        <i class="fa-solid fa-chart-bar w-5"></i>
+                        Reports
+                    </a>
+                    <a href="{% url 'finance:gateway_settings' %}"
+                       hx-get="{% url 'finance:gateway_settings' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm w-full justify-start">
+                        <i class="fa-solid fa-credit-card w-5"></i>
+                        Payment Gateway Settings
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collection by Method -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                        <i class="fa-solid fa-chart-pie text-info"></i>
+                    </div>
+                    Collection by Method
+                </h2>
+                <div class="space-y-3">
+                    {% for item in collection_by_method %}
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            {% if item.method == 'CASH' %}
+                            <i class="fa-solid fa-money-bill text-success"></i>
+                            {% elif item.method == 'MOBILE_MONEY' %}
+                            <i class="fa-solid fa-mobile-alt text-warning"></i>
+                            {% elif item.method == 'CARD' %}
+                            <i class="fa-solid fa-credit-card text-primary"></i>
+                            {% elif item.method == 'BANK_TRANSFER' %}
+                            <i class="fa-solid fa-university text-info"></i>
+                            {% else %}
+                            <i class="fa-solid fa-money-check text-base-content/60"></i>
+                            {% endif %}
+                            <span class="text-sm">{{ item.method|title }}</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-medium">GHS {{ item.total|floatformat:2 }}</div>
+                            <div class="text-xs text-base-content/60">{{ item.count }} payments</div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-sm text-base-content/60 text-center py-4">No data available</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                        <i class="fa-solid fa-users text-warning"></i>
+                    </div>
+                    Outstanding Summary
+                </h2>
+                <div class="text-center py-4">
+                    <div class="text-4xl font-bold text-warning">{{ students_with_balance }}</div>
+                    <div class="text-sm text-base-content/60">Students with outstanding balance</div>
+                </div>
+                <a href="{% url 'finance:outstanding_report' %}"
+                   hx-get="{% url 'finance:outstanding_report' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-outline btn-warning btn-sm w-full">
+                    View Report
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

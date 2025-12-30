@@ -1,0 +1,178 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:fee_structures' %}"
+               hx-get="{% url 'finance:fee_structures' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Fee Structures">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
+                    <i class="fa-solid fa-layer-group text-white"></i>
+                </div>
+                {% if structure %}Edit{% else %}Add{% endif %} Fee Structure
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            {% if structure %}Update fee structure details{% else %}Define a new fee amount for classes or levels{% endif %}
+        </p>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body">
+        <form method="post"
+              hx-post="{% if structure %}{% url 'finance:fee_structure_edit' pk=structure.pk %}{% else %}{% url 'finance:fee_structure_create' %}{% endif %}"
+              hx-target="#main-content">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Fee Type -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Fee Type <span class="text-error">*</span></span>
+                    </label>
+                    {{ form.fee_type }}
+                    {% if form.fee_type.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.fee_type.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Amount -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Amount (GHS) <span class="text-error">*</span></span>
+                    </label>
+                    {{ form.amount }}
+                    {% if form.amount.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.amount.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Academic Year -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Academic Year <span class="text-error">*</span></span>
+                    </label>
+                    {{ form.academic_year }}
+                    {% if form.academic_year.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.academic_year.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Term -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Term</span>
+                    </label>
+                    {{ form.term }}
+                    <label class="label">
+                        <span class="label-text-alt">Leave blank for full year fee</span>
+                    </label>
+                    {% if form.term.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.term.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Class Assigned -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Specific Class</span>
+                    </label>
+                    {{ form.class_assigned }}
+                    <label class="label">
+                        <span class="label-text-alt">Select a specific class or use level type below</span>
+                    </label>
+                    {% if form.class_assigned.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.class_assigned.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Level Type -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Level Type</span>
+                    </label>
+                    {{ form.level_type }}
+                    <label class="label">
+                        <span class="label-text-alt">Apply to all classes of this level</span>
+                    </label>
+                    {% if form.level_type.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.level_type.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Programme (SHS) -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Programme (SHS)</span>
+                    </label>
+                    {{ form.programme }}
+                    <label class="label">
+                        <span class="label-text-alt">Optional: for SHS programme-specific fees</span>
+                    </label>
+                    {% if form.programme.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.programme.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Due Date -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Due Date</span>
+                    </label>
+                    {{ form.due_date }}
+                    {% if form.due_date.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.due_date.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Is Active -->
+                <div class="form-control md:col-span-2">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        {{ form.is_active }}
+                        <span class="label-text font-medium">Active</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-base-200">
+                <a href="{% url 'finance:fee_structures' %}"
+                   hx-get="{% url 'finance:fee_structures' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost">
+                    Cancel
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-save"></i>
+                    {% if structure %}Update{% else %}Create{% endif %} Fee Structure
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

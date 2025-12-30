@@ -1,0 +1,113 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:scholarships' %}"
+               hx-get="{% url 'finance:scholarships' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-warning to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-user-plus text-white"></i>
+                </div>
+                Assign Scholarship
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">{{ scholarship.name }}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Assign Form -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <h3 class="font-bold mb-4">Add Recipient</h3>
+            <form method="post" hx-post="{% url 'finance:scholarship_assign' pk=scholarship.pk %}" hx-target="#main-content">
+                {% csrf_token %}
+
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text font-medium">Student</span></label>
+                    {{ form.student }}
+                </div>
+
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text font-medium">Academic Year</span></label>
+                    {{ form.academic_year }}
+                </div>
+
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text font-medium">Reason</span></label>
+                    {{ form.reason }}
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-medium">Start Date</span></label>
+                        {{ form.start_date }}
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-medium">End Date</span></label>
+                        {{ form.end_date }}
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-full">
+                    <i class="fa-solid fa-plus"></i>
+                    Assign Scholarship
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Current Recipients -->
+    <div class="lg:col-span-2 card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            <div class="p-4 border-b border-base-200 flex items-center justify-between">
+                <h3 class="font-bold">Current Recipients</h3>
+                <span class="badge badge-primary">{{ recipients.count }}</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Student</th>
+                            <th>Academic Year</th>
+                            <th>Start Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for recipient in recipients %}
+                        <tr class="hover">
+                            <td>
+                                <div class="font-medium">{{ recipient.student.full_name }}</div>
+                                <div class="text-xs text-base-content/60">{{ recipient.student.admission_number }}</div>
+                            </td>
+                            <td>{{ recipient.academic_year.name }}</td>
+                            <td>{{ recipient.start_date|date:"M d, Y" }}</td>
+                            <td>
+                                {% if recipient.is_active %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-base-content/60">
+                                No recipients yet
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

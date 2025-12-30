@@ -1,0 +1,7 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Invoice {{ invoice.invoice_number }}{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/invoice_detail_content.html' %}
+{% endblock %}

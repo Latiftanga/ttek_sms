@@ -1,0 +1,105 @@
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:reports' %}"
+               hx-get="{% url 'finance:reports' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
+                    <i class="fa-solid fa-chart-line text-white"></i>
+                </div>
+                Collection Report
+            </h1>
+        </div>
+    </div>
+    <a href="{% url 'finance:export_report' %}?type=collection" class="btn btn-ghost btn-sm">
+        <i class="fa-solid fa-download"></i>
+        Export CSV
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+    <div class="card-body p-4">
+        <form class="flex flex-wrap gap-4" hx-get="{% url 'finance:collection_report' %}" hx-target="#main-content" hx-push-url="true">
+            <div class="form-control">
+                <input type="date" name="date_from" value="{{ date_from }}" class="input input-bordered input-sm" placeholder="From" />
+            </div>
+            <div class="form-control">
+                <input type="date" name="date_to" value="{{ date_to }}" class="input input-bordered input-sm" placeholder="To" />
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-filter"></i>
+                Filter
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Total -->
+<div class="card bg-success/10 border border-success/20 mb-6">
+    <div class="card-body p-6">
+        <div class="text-center">
+            <div class="text-sm text-success/70 mb-1">Total Collected</div>
+            <div class="text-4xl font-bold text-success">GHS {{ total_collected|floatformat:2 }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- By Method -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <h3 class="font-bold mb-4">By Payment Method</h3>
+            <div class="space-y-3">
+                {% for item in by_method %}
+                <div class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg">
+                    <div class="flex items-center gap-3">
+                        {% if item.method == 'CASH' %}
+                        <i class="fa-solid fa-money-bill text-success"></i>
+                        {% elif item.method == 'MOBILE_MONEY' %}
+                        <i class="fa-solid fa-mobile text-warning"></i>
+                        {% elif item.method == 'CARD' %}
+                        <i class="fa-solid fa-credit-card text-primary"></i>
+                        {% else %}
+                        <i class="fa-solid fa-money-check text-info"></i>
+                        {% endif %}
+                        <div>
+                            <div class="font-medium">{{ item.method|title }}</div>
+                            <div class="text-xs text-base-content/60">{{ item.count }} payment{{ item.count|pluralize }}</div>
+                        </div>
+                    </div>
+                    <div class="font-bold">GHS {{ item.total|floatformat:2 }}</div>
+                </div>
+                {% empty %}
+                <p class="text-center text-base-content/60 py-4">No data available</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- By Class -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <h3 class="font-bold mb-4">By Class</h3>
+            <div class="space-y-3 max-h-80 overflow-y-auto">
+                {% for item in by_class %}
+                <div class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg">
+                    <div>
+                        <div class="font-medium">{{ item.invoice__student__current_class__name|default:"No Class" }}</div>
+                        <div class="text-xs text-base-content/60">{{ item.count }} payment{{ item.count|pluralize }}</div>
+                    </div>
+                    <div class="font-bold">GHS {{ item.total|floatformat:2 }}</div>
+                </div>
+                {% empty %}
+                <p class="text-center text-base-content/60 py-4">No data available</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>

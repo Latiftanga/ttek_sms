@@ -2940,3 +2940,300 @@ def download_report_pdf(request, student_id):
         logger.error(f"Failed to generate PDF: {str(e)}")
         messages.error(request, f'Failed to generate PDF: {str(e)}')
         return redirect('gradebook:reports')
+
+
+# =============================================================================
+# TRANSCRIPT
+# =============================================================================
+
+@login_required
+def transcript(request, student_id):
+    """
+    View a student's complete academic transcript.
+    Shows all terms, grades, and cumulative performance.
+    """
+    student = get_object_or_404(
+        Student.objects.select_related('current_class'),
+        pk=student_id
+    )
+    user = request.user
+
+    # Permission check
+    if not is_school_admin(user):
+        if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+            teacher = user.teacher_profile
+            if not student.current_class or student.current_class.class_teacher != teacher:
+                messages.error(request, 'You can only view transcripts for students in your homeroom class.')
+                return redirect('gradebook:reports')
+        else:
+            messages.error(request, 'You do not have permission to view this transcript.')
+            return redirect('core:index')
+
+    # Get all term reports for the student, ordered by academic year and term
+    term_reports = TermReport.objects.filter(
+        student=student
+    ).select_related(
+        'term__academic_year', 'student_class'
+    ).order_by('term__academic_year__start_date', 'term__term_number')
+
+    # Get all subject grades grouped by term
+    all_grades = SubjectTermGrade.objects.filter(
+        student=student
+    ).select_related(
+        'subject', 'term__academic_year'
+    ).order_by('term__academic_year__start_date', 'term__term_number', '-subject__is_core', 'subject__name')
+
+    # Group grades by term
+    grades_by_term = {}
+    for grade in all_grades:
+        term_id = grade.term_id
+        if term_id not in grades_by_term:
+            grades_by_term[term_id] = []
+        grades_by_term[term_id].append(grade)
+
+    # Calculate cumulative statistics
+    total_subjects_taken = 0
+    total_subjects_passed = 0
+    total_credits = 0
+    cumulative_score_sum = 0
+    term_count = 0
+
+    academic_history = []
+    for report in term_reports:
+        term_grades = grades_by_term.get(report.term_id, [])
+
+        # Separate core and elective
+        core_grades = [g for g in term_grades if g.subject.is_core]
+        elective_grades = [g for g in term_grades if not g.subject.is_core]
+
+        academic_history.append({
+            'report': report,
+            'core_grades': core_grades,
+            'elective_grades': elective_grades,
+            'all_grades': term_grades,
+        })
+
+        # Cumulative calculations
+        total_subjects_taken += report.subjects_taken or 0
+        total_subjects_passed += report.subjects_passed or 0
+        total_credits += report.credits_count or 0
+        if report.average:
+            cumulative_score_sum += float(report.average)
+            term_count += 1
+
+    # Calculate cumulative average
+    cumulative_average = cumulative_score_sum / term_count if term_count > 0 else 0
+
+    # Get unique subjects across all terms
+    unique_subjects = set()
+    for grade in all_grades:
+        unique_subjects.add(grade.subject.name)
+
+    # Promotion history
+    promotion_history = term_reports.filter(promoted__isnull=False).values(
+        'term__academic_year__name',
+        'term__name',
+        'promoted',
+        'promoted_to__name',
+        'promotion_remarks'
+    )
+
+    context = {
+        'student': student,
+        'academic_history': academic_history,
+        'term_reports': term_reports,
+        'cumulative_stats': {
+            'total_terms': term_count,
+            'total_subjects_taken': total_subjects_taken,
+            'total_subjects_passed': total_subjects_passed,
+            'total_credits': total_credits,
+            'cumulative_average': round(cumulative_average, 2),
+            'unique_subjects': len(unique_subjects),
+        },
+        'promotion_history': list(promotion_history),
+    }
+
+    return htmx_render(
+        request,
+        'gradebook/transcript.html',
+        'gradebook/partials/transcript_content.html',
+        context
+    )
+
+
+@login_required
+def transcript_print(request, student_id):
+    """Print-friendly transcript view."""
+    student = get_object_or_404(
+        Student.objects.select_related('current_class'),
+        pk=student_id
+    )
+    user = request.user
+
+    # Permission check
+    if not is_school_admin(user):
+        if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+            teacher = user.teacher_profile
+            if not student.current_class or student.current_class.class_teacher != teacher:
+                messages.error(request, 'Permission denied.')
+                return redirect('gradebook:reports')
+        else:
+            messages.error(request, 'Permission denied.')
+            return redirect('core:index')
+
+    # Get all term reports
+    term_reports = TermReport.objects.filter(
+        student=student
+    ).select_related(
+        'term__academic_year', 'student_class'
+    ).order_by('term__academic_year__start_date', 'term__term_number')
+
+    # Get all subject grades
+    all_grades = SubjectTermGrade.objects.filter(
+        student=student
+    ).select_related(
+        'subject', 'term__academic_year'
+    ).order_by('term__academic_year__start_date', 'term__term_number', '-subject__is_core', 'subject__name')
+
+    # Group grades by term
+    grades_by_term = {}
+    for grade in all_grades:
+        term_id = grade.term_id
+        if term_id not in grades_by_term:
+            grades_by_term[term_id] = []
+        grades_by_term[term_id].append(grade)
+
+    # Build academic history
+    academic_history = []
+    cumulative_score_sum = 0
+    term_count = 0
+    total_credits = 0
+
+    for report in term_reports:
+        term_grades = grades_by_term.get(report.term_id, [])
+        core_grades = [g for g in term_grades if g.subject.is_core]
+        elective_grades = [g for g in term_grades if not g.subject.is_core]
+
+        academic_history.append({
+            'report': report,
+            'core_grades': core_grades,
+            'elective_grades': elective_grades,
+        })
+
+        if report.average:
+            cumulative_score_sum += float(report.average)
+            term_count += 1
+        total_credits += report.credits_count or 0
+
+    cumulative_average = cumulative_score_sum / term_count if term_count > 0 else 0
+
+    context = {
+        'student': student,
+        'academic_history': academic_history,
+        'cumulative_average': round(cumulative_average, 2),
+        'total_terms': term_count,
+        'total_credits': total_credits,
+        'generated_date': timezone.now(),
+    }
+
+    return render(request, 'gradebook/transcript_print.html', context)
+
+
+@login_required
+def download_transcript_pdf(request, student_id):
+    """Download PDF transcript for a student."""
+    student = get_object_or_404(
+        Student.objects.select_related('current_class'),
+        pk=student_id
+    )
+    user = request.user
+
+    # Permission check
+    if not is_school_admin(user):
+        if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+            if not student.current_class or student.current_class.class_teacher != user.teacher_profile:
+                messages.error(request, 'Permission denied.')
+                return redirect('gradebook:reports')
+        else:
+            messages.error(request, 'Permission denied.')
+            return redirect('gradebook:reports')
+
+    # Get all term reports
+    term_reports = TermReport.objects.filter(
+        student=student
+    ).select_related(
+        'term__academic_year', 'student_class'
+    ).order_by('term__academic_year__start_date', 'term__term_number')
+
+    if not term_reports.exists():
+        messages.error(request, 'No academic records found for this student.')
+        return redirect('gradebook:reports')
+
+    # Get all subject grades
+    all_grades = SubjectTermGrade.objects.filter(
+        student=student
+    ).select_related(
+        'subject', 'term__academic_year'
+    ).order_by('term__academic_year__start_date', 'term__term_number', '-subject__is_core', 'subject__name')
+
+    # Group grades by term
+    grades_by_term = {}
+    for grade in all_grades:
+        term_id = grade.term_id
+        if term_id not in grades_by_term:
+            grades_by_term[term_id] = []
+        grades_by_term[term_id].append(grade)
+
+    # Build academic history
+    academic_history = []
+    cumulative_score_sum = 0
+    term_count = 0
+    total_credits = 0
+
+    for report in term_reports:
+        term_grades = grades_by_term.get(report.term_id, [])
+        core_grades = [g for g in term_grades if g.subject.is_core]
+        elective_grades = [g for g in term_grades if not g.subject.is_core]
+
+        academic_history.append({
+            'report': report,
+            'core_grades': core_grades,
+            'elective_grades': elective_grades,
+        })
+
+        if report.average:
+            cumulative_score_sum += float(report.average)
+            term_count += 1
+        total_credits += report.credits_count or 0
+
+    cumulative_average = cumulative_score_sum / term_count if term_count > 0 else 0
+
+    context = {
+        'student': student,
+        'academic_history': academic_history,
+        'cumulative_average': round(cumulative_average, 2),
+        'total_terms': term_count,
+        'total_credits': total_credits,
+        'generated_date': timezone.now(),
+        'request': request,
+    }
+
+    # Generate PDF using WeasyPrint
+    try:
+        from weasyprint import HTML, CSS
+        from django.template.loader import render_to_string
+        from io import BytesIO
+
+        html_string = render_to_string('gradebook/transcript_pdf.html', context)
+        html = HTML(string=html_string, base_url=request.build_absolute_uri('/'))
+        pdf_buffer = BytesIO()
+        html.write_pdf(pdf_buffer)
+
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="transcript_{student.admission_number}.pdf"'
+        return response
+
+    except Exception as e:
+        logger.error(f"Failed to generate transcript PDF: {str(e)}")
+        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        return redirect('gradebook:transcript', student_id=student_id)

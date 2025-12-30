@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt {{ payment.receipt_number }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            color: #333;
+            background: #fff;
+            padding: 20px;
+        }
+        .receipt-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 30px;
+            border: 2px solid #333;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 12px;
+            color: #666;
+        }
+        .receipt-title {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .receipt-title h2 {
+            font-size: 24px;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            background: #333;
+            color: #fff;
+            padding: 10px 20px;
+            display: inline-block;
+        }
+        .receipt-number {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .receipt-number span {
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+
+        .details {
+            margin: 20px 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dotted #ccc;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            color: #666;
+        }
+        .detail-value {
+            font-weight: 500;
+        }
+
+        .amount-box {
+            background: #f5f5f5;
+            border: 2px solid #333;
+            padding: 20px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .amount-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .amount-value {
+            font-size: 32px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+        .amount-words {
+            font-style: italic;
+            color: #666;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-COMPLETED { background: #d4edda; color: #155724; }
+        .status-PENDING { background: #fff3cd; color: #856404; }
+        .status-PROCESSING { background: #cce5ff; color: #004085; }
+        .status-FAILED { background: #f8d7da; color: #721c24; }
+        .status-REFUNDED { background: #e2e3e5; color: #383d41; }
+        .status-CANCELLED { background: #f5f5f5; color: #999; }
+
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #999;
+            letter-spacing: 1px;
+            margin: 25px 0 10px 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #333;
+        }
+        .footer p {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .signature-area {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding-top: 20px;
+        }
+        .signature-box {
+            width: 45%;
+            text-align: center;
+        }
+        .signature-line {
+            border-top: 1px solid #333;
+            margin-bottom: 5px;
+            padding-top: 10px;
+        }
+        .signature-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+            .receipt-container {
+                border: 1px solid #000;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>{{ request.tenant.name|default:"School Name" }}</h1>
+            <p>{{ request.tenant.address|default:"School Address" }}</p>
+            <p>{{ request.tenant.phone|default:"Phone" }} | {{ request.tenant.email|default:"Email" }}</p>
+        </div>
+
+        <!-- Receipt Title -->
+        <div class="receipt-title">
+            <h2>Receipt</h2>
+        </div>
+        <div class="receipt-number">
+            Receipt No: <span>{{ payment.receipt_number }}</span>
+        </div>
+
+        <!-- Amount -->
+        <div class="amount-box">
+            <div class="amount-label">Amount Received</div>
+            <div class="amount-value">GHS {{ payment.amount|floatformat:2 }}</div>
+        </div>
+
+        <!-- Student Details -->
+        <div class="section-title">Student Information</div>
+        <div class="details">
+            <div class="detail-row">
+                <span class="detail-label">Student Name</span>
+                <span class="detail-value">{{ payment.invoice.student.full_name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Admission No.</span>
+                <span class="detail-value">{{ payment.invoice.student.admission_number }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Class</span>
+                <span class="detail-value">{{ payment.invoice.student.current_class.name|default:"-" }}</span>
+            </div>
+        </div>
+
+        <!-- Payment Details -->
+        <div class="section-title">Payment Information</div>
+        <div class="details">
+            <div class="detail-row">
+                <span class="detail-label">Invoice Number</span>
+                <span class="detail-value">{{ payment.invoice.invoice_number }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Payment Method</span>
+                <span class="detail-value">{{ payment.get_method_display }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Transaction Date</span>
+                <span class="detail-value">{{ payment.transaction_date|date:"M d, Y - H:i" }}</span>
+            </div>
+            {% if payment.reference %}
+            <div class="detail-row">
+                <span class="detail-label">Reference</span>
+                <span class="detail-value">{{ payment.reference }}</span>
+            </div>
+            {% endif %}
+            <div class="detail-row">
+                <span class="detail-label">Status</span>
+                <span class="detail-value">
+                    <span class="status-badge status-{{ payment.status }}">{{ payment.get_status_display }}</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Payer Information -->
+        {% if payment.payer_name or payment.payer_phone %}
+        <div class="section-title">Payer Information</div>
+        <div class="details">
+            {% if payment.payer_name %}
+            <div class="detail-row">
+                <span class="detail-label">Payer Name</span>
+                <span class="detail-value">{{ payment.payer_name }}</span>
+            </div>
+            {% endif %}
+            {% if payment.payer_phone %}
+            <div class="detail-row">
+                <span class="detail-label">Phone</span>
+                <span class="detail-value">{{ payment.payer_phone }}</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Invoice Summary -->
+        <div class="section-title">Invoice Summary</div>
+        <div class="details">
+            <div class="detail-row">
+                <span class="detail-label">Invoice Total</span>
+                <span class="detail-value">GHS {{ payment.invoice.total_amount|floatformat:2 }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Total Paid</span>
+                <span class="detail-value">GHS {{ payment.invoice.amount_paid|floatformat:2 }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Balance Due</span>
+                <span class="detail-value" style="{% if payment.invoice.balance > 0 %}color: #c00;{% else %}color: #090;{% endif %}">
+                    GHS {{ payment.invoice.balance|floatformat:2 }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Signature -->
+        <div class="signature-area">
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Received By: {{ payment.received_by.get_full_name|default:"-" }}</div>
+            </div>
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Date & Stamp</div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>This is an official receipt for payment received</p>
+            <p>Please retain for your records</p>
+            <p style="margin-top: 10px; font-size: 10px;">Generated on {% now "M d, Y H:i" %}</p>
+        </div>
+    </div>
+
+    <!-- Print Buttons -->
+    <div style="text-align: center; margin-top: 20px;" class="no-print">
+        <button onclick="window.print()" style="padding: 10px 30px; font-size: 16px; cursor: pointer; background: #333; color: #fff; border: none; border-radius: 5px;">
+            Print Receipt
+        </button>
+        <button onclick="window.close()" style="padding: 10px 30px; font-size: 16px; cursor: pointer; background: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 5px; margin-left: 10px;">
+            Close
+        </button>
+    </div>
+</body>
+</html>

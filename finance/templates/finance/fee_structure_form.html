@@ -1,0 +1,7 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{% if structure %}Edit{% else %}Add{% endif %} Fee Structure{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/fee_structure_form_content.html' %}
+{% endblock %}

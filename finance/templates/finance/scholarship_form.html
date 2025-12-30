@@ -1,0 +1,7 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{% if scholarship %}Edit{% else %}Add{% endif %} Scholarship{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/scholarship_form_content.html' %}
+{% endblock %}

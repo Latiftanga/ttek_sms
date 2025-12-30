@@ -12,9 +12,10 @@
         {% include "core/settings/partials/card_admin.html" %}
     </div>
 
-    <!-- Row 3: SMS Configuration -->
+    <!-- Row 3: SMS & Payment Configuration -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {% include "core/settings/partials/card_sms.html" %}
+        {% include "core/settings/partials/card_payment.html" %}
     </div>
 
     <!-- Row 4: Academic Years -->
@@ -291,6 +292,210 @@
                 <button type="submit" class="btn btn-primary">Save Changes</button>
             </div>
         </form>
+    </div>
+</dialog>
+
+<!-- Payment Gateway Settings Modal -->
+<dialog id="modal_payment_settings" class="modal">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+            <i class="fa-solid fa-credit-card text-primary"></i>
+            Payment Gateway Configuration
+        </h3>
+
+        {% if available_gateways %}
+        <div class="space-y-4">
+            <!-- Configuration Form -->
+            <form method="post"
+                  id="gateway-config-form"
+                  action="{% url 'core:settings_update_payment' %}"
+                  hx-post="{% url 'core:settings_update_payment' %}"
+                  hx-target="#card-payment"
+                  hx-swap="outerHTML"
+                  hx-on::after-request="if(event.detail.successful) modal_payment_settings.close()">
+                {% csrf_token %}
+
+                <!-- Gateway Selection -->
+                <label class="select select-bordered w-full mb-4">
+                    <span class="label">Select Gateway</span>
+                    <select name="gateway_id" id="gateway_id_input" onchange="showGatewayForm(this.options[this.selectedIndex].dataset.name)">
+                        {% for gateway in available_gateways %}
+                        <option value="{{ gateway.pk }}" data-name="{{ gateway.name }}" {% if forloop.first %}selected{% endif %}>
+                            {{ gateway.display_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <div class="divider text-xs text-base-content/60">API CREDENTIALS</div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Secret Key -->
+                    <div class="md:col-span-2">
+                        <label class="floating-label w-full">
+                            <span>Secret Key <span class="text-error">*</span></span>
+                            <input type="password"
+                                   name="secret_key"
+                                   class="input w-full font-mono text-sm"
+                                   placeholder="Enter your secret/private API key"
+                                   autocomplete="off" />
+                        </label>
+                        <p class="text-xs text-base-content/60 mt-1 ml-1">Your private/secret API key from the gateway dashboard</p>
+                    </div>
+
+                    <!-- Public Key -->
+                    <label class="floating-label w-full">
+                        <span>Public Key</span>
+                        <input type="text"
+                               name="public_key"
+                               class="input w-full font-mono text-sm"
+                               placeholder="Public key (if required)"
+                               autocomplete="off" />
+                    </label>
+
+                    <!-- Webhook Secret -->
+                    <label class="floating-label w-full">
+                        <span>Webhook Secret</span>
+                        <input type="password"
+                               name="webhook_secret"
+                               class="input w-full font-mono text-sm"
+                               placeholder="For webhook verification"
+                               autocomplete="off" />
+                    </label>
+
+                    <!-- Merchant ID (for some gateways) -->
+                    <div id="merchant_id_field">
+                        <label class="floating-label w-full">
+                            <span>Merchant ID</span>
+                            <input type="text"
+                                   name="merchant_id"
+                                   class="input w-full"
+                                   placeholder="Merchant/Client ID" />
+                        </label>
+                    </div>
+
+                    <!-- Encryption Key (Flutterwave) -->
+                    <div class="hidden" id="encryption_key_field">
+                        <label class="floating-label w-full">
+                            <span>Encryption Key</span>
+                            <input type="password"
+                                   name="encryption_key"
+                                   class="input w-full font-mono text-sm"
+                                   placeholder="Flutterwave encryption key" />
+                        </label>
+                    </div>
+
+                    <!-- Merchant Account (Hubtel) -->
+                    <div class="hidden" id="merchant_account_field">
+                        <label class="floating-label w-full">
+                            <span>Merchant Account</span>
+                            <input type="text"
+                                   name="merchant_account"
+                                   class="input w-full"
+                                   placeholder="Hubtel merchant account number" />
+                        </label>
+                    </div>
+                </div>
+
+                <div class="divider text-xs text-base-content/60">SETTINGS</div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Enable Gateway -->
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="is_active" class="checkbox checkbox-primary" checked />
+                        <span class="label-text">Enable Gateway</span>
+                    </label>
+
+                    <!-- Test Mode -->
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="is_test_mode" class="checkbox checkbox-warning" checked />
+                        <span class="label-text">Test/Sandbox Mode</span>
+                    </label>
+
+                    <!-- Primary Gateway -->
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="is_primary" class="checkbox checkbox-success" checked />
+                        <span class="label-text">Set as Primary</span>
+                    </label>
+                </div>
+
+                <div class="divider text-xs text-base-content/60">TRANSACTION CHARGES (Optional)</div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <label class="floating-label w-full">
+                        <span>Percentage Charge (%)</span>
+                        <input type="number"
+                               name="charge_percentage"
+                               class="input w-full"
+                               placeholder="0.00"
+                               step="0.01"
+                               min="0"
+                               max="100" />
+                    </label>
+
+                    <label class="floating-label w-full">
+                        <span>Fixed Charge (GHS)</span>
+                        <input type="number"
+                               name="charge_fixed"
+                               class="input w-full"
+                               placeholder="0.00"
+                               step="0.01"
+                               min="0" />
+                    </label>
+                </div>
+
+                <div>
+                    <label class="select select-bordered w-full">
+                        <span class="label">Who Bears Charge?</span>
+                        <select name="who_bears_charge">
+                            <option value="SCHOOL">School bears charges</option>
+                            <option value="PARENT">Parent bears charges</option>
+                        </select>
+                    </label>
+                    <p class="text-xs text-base-content/60 mt-1 ml-1">Determines who pays the gateway transaction fees</p>
+                </div>
+
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="modal_payment_settings.close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-save"></i>
+                        Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <script>
+            function showGatewayForm(gatewayName) {
+                // Show/hide gateway-specific fields
+                const encryptionField = document.getElementById('encryption_key_field');
+                const merchantAccountField = document.getElementById('merchant_account_field');
+
+                encryptionField.classList.add('hidden');
+                merchantAccountField.classList.add('hidden');
+
+                if (gatewayName === 'FLUTTERWAVE') {
+                    encryptionField.classList.remove('hidden');
+                } else if (gatewayName === 'HUBTEL') {
+                    merchantAccountField.classList.remove('hidden');
+                }
+            }
+        </script>
+        {% else %}
+        <div class="text-center py-8">
+            <div class="text-base-content/40">
+                <i class="fa-solid fa-credit-card text-4xl mb-3"></i>
+                <p class="text-lg font-medium mb-1">No Payment Gateways Available</p>
+                <p class="text-sm">Contact support to enable payment gateways for your school</p>
+            </div>
+        </div>
+        <div class="modal-action">
+            <button type="button" class="btn" onclick="modal_payment_settings.close()">Close</button>
+        </div>
+        {% endif %}
     </div>
 </dialog>
 
