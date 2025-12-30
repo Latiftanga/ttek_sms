@@ -1,51 +1,61 @@
 {% load core_tags %}
+<style>
+    .subject-item .action-buttons { opacity: 0; transition: opacity 0.2s ease; }
+    .subject-item:hover .action-buttons { opacity: 1; }
+    .subject-item:hover { background-color: oklch(var(--b2)); }
+</style>
 <div id="subjects-container">
     {% if subjects %}
-    <div class="overflow-x-auto">
-        <table class="table table-sm w-full">
-            <thead>
-                <tr class="text-xs uppercase text-base-content/60">
-                    <th>Subject</th>
-                    <th class="text-center">Classes</th>
-                    <th class="text-center">Students</th>
-                    <th class="text-right">Actions</th>
+    <div class="overflow-x-auto max-h-52">
+        <table class="table table-xs w-full">
+            <thead class="sticky top-0 bg-base-100">
+                <tr class="text-xs text-base-content/60 border-b border-base-200">
+                    <th class="font-medium py-2">Name</th>
+                    <th class="font-medium py-2 text-center w-16">Type</th>
+                    <th class="font-medium py-2 text-right w-20">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for subject in subjects %}
-                <tr class="hover">
-                    <td>
+                <tr class="subject-item border-b border-base-200/50 transition-colors">
+                    <td class="py-2">
                         <div class="flex items-center gap-2">
-                            <span class="font-medium">{{ subject.name }}</span>
-                            {% if subject.is_core %}
-                            <span class="badge badge-primary badge-sm">Core</span>
-                            {% endif %}
+                            <div class="w-7 h-7 rounded bg-info/10 flex items-center justify-center flex-shrink-0">
+                                <i class="fa-solid fa-book text-info text-xs"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <span class="font-medium text-sm block truncate">{{ subject.name }}</span>
+                                {% if subject.short_name %}
+                                <span class="text-xs text-base-content/50">{{ subject.short_name }}</span>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="text-xs text-base-content/50">{{ subject.short_name }}</div>
                     </td>
-                    <td class="text-center">
-                        <span class="badge badge-ghost badge-sm">{{ subject.class_count }}</span>
+                    <td class="py-2 text-center">
+                        {% if subject.is_core %}
+                        <span class="badge badge-primary badge-xs">Core</span>
+                        {% else %}
+                        <span class="badge badge-ghost badge-xs">Elective</span>
+                        {% endif %}
                     </td>
-                    <td class="text-center">
-                        <span class="font-medium">{{ subject.student_count }}</span>
-                    </td>
-                    <td class="text-right">
-                        <div class="flex justify-end gap-1">
-                            <button class="btn btn-ghost btn-xs"
+                    <td class="py-2 text-right">
+                        <div class="action-buttons inline-flex items-center gap-0.5">
+                            <button class="btn btn-ghost btn-xs btn-square hover:bg-primary/10 hover:text-primary"
                                     hx-get="{% url 'academics:subject_edit' subject.pk %}"
                                     hx-target="#modal-subject-edit-content"
                                     hx-swap="innerHTML"
-                                    onclick="document.getElementById('modal_subject_edit').showModal()">
-                                <i class="fa-solid fa-pen text-xs"></i>
+                                    onclick="document.getElementById('modal_subject_edit').showModal()"
+                                    title="Edit {{ subject.name }}">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
                             </button>
                             <form hx-post="{% url 'academics:subject_delete' subject.pk %}"
                                   hx-target="#subjects-container"
                                   hx-swap="outerHTML"
-                                  hx-confirm="Delete {{ subject.name }}?"
+                                  hx-confirm="Are you sure you want to delete '{{ subject.name }}'?"
                                   class="inline">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost btn-xs text-error">
-                                    <i class="fa-solid fa-trash text-xs"></i>
+                                <button type="submit" class="btn btn-ghost btn-xs btn-square hover:bg-error/10 hover:text-error" title="Delete {{ subject.name }}">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
                                 </button>
                             </form>
                         </div>
@@ -56,12 +66,12 @@
         </table>
     </div>
     {% else %}
-    <div class="text-center py-6 text-base-content/50">
+    <div class="text-center py-8">
         <div class="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-3">
-            <i class="fa-solid fa-book text-lg text-base-content/30"></i>
+            <i class="fa-solid fa-book text-base-content/30 text-lg"></i>
         </div>
-        <p class="text-sm font-medium">No subjects yet</p>
-        <p class="text-xs mt-1">Add subjects to assign them to classes</p>
+        <p class="text-sm text-base-content/60 font-medium">No subjects yet</p>
+        <p class="text-xs text-base-content/40 mt-1">Click + to add your first subject</p>
     </div>
     {% endif %}
 </div>

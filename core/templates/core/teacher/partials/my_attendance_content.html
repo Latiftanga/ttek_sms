@@ -1,0 +1,296 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'core:index' %}"
+               hx-get="{% url 'core:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Dashboard">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
+                    <i class="fa-solid fa-clipboard-user text-white"></i>
+                </div>
+                My Attendance
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            Take and view attendance for your classes
+        </p>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-calendar-check text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ stats.total_sessions }}</div>
+                    <div class="text-xs text-base-content/60">Sessions</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-user-check text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">{{ stats.present }}</div>
+                    <div class="text-xs text-base-content/60">Present</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center">
+                    <i class="fa-solid fa-user-xmark text-error text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-error">{{ stats.absent }}</div>
+                    <div class="text-xs text-base-content/60">Absent</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chart-pie text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold {% if stats.rate >= 80 %}text-success{% elif stats.rate >= 60 %}text-warning{% else %}text-error{% endif %}">{{ stats.rate }}%</div>
+                    <div class="text-xs text-base-content/60">Rate</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column - Take Attendance -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Classes Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard text-primary"></i>
+                        </div>
+                        My Classes
+                    </h2>
+                    <span class="badge badge-ghost">{{ today|date:"D, M d" }}</span>
+                </div>
+
+                <div class="p-4">
+                    {% if class_summary %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {% for item in class_summary %}
+                        <div class="p-4 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/30 transition-all">
+                            <div class="flex items-start justify-between mb-3">
+                                <div>
+                                    <h3 class="font-bold flex items-center gap-2">
+                                        {{ item.class.name }}
+                                        {% if item.is_homeroom %}
+                                        <span class="badge badge-primary badge-xs">Homeroom</span>
+                                        {% endif %}
+                                    </h3>
+                                    <p class="text-xs text-base-content/60">
+                                        <i class="fa-solid fa-users mr-1"></i>
+                                        {{ item.student_count }} students
+                                    </p>
+                                </div>
+                                {% if item.has_today %}
+                                <span class="badge badge-success badge-sm gap-1">
+                                    <i class="fa-solid fa-check text-xs"></i>
+                                    Done
+                                </span>
+                                {% else %}
+                                <span class="badge badge-warning badge-sm gap-1">
+                                    <i class="fa-solid fa-clock text-xs"></i>
+                                    Pending
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="flex items-center gap-2 mb-3">
+                                <progress class="progress flex-1 h-2 {% if item.rate >= 80 %}progress-success{% elif item.rate >= 60 %}progress-warning{% else %}progress-error{% endif %}" value="{{ item.rate }}" max="100"></progress>
+                                <span class="text-xs font-medium">{{ item.rate }}%</span>
+                            </div>
+
+                            <a href="{% url 'core:take_attendance' item.class.pk %}"
+                               hx-get="{% url 'core:take_attendance' item.class.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-primary btn-sm btn-block">
+                                {% if item.has_today %}
+                                <i class="fa-solid fa-pen"></i>
+                                Edit Today
+                                {% else %}
+                                <i class="fa-solid fa-clipboard-check"></i>
+                                Take Attendance
+                                {% endif %}
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard text-base-content/30 text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Classes Assigned</h3>
+                        <p class="text-sm text-base-content/50">You don't have any classes assigned yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Attendance -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                            <i class="fa-solid fa-clock-rotate-left text-info"></i>
+                        </div>
+                        Recent Sessions
+                    </h2>
+                </div>
+
+                <div class="p-4">
+                    {% if recent_data %}
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs uppercase text-base-content/60">
+                                    <th>Date</th>
+                                    <th>Class</th>
+                                    <th class="text-center">Present</th>
+                                    <th class="text-center">Absent</th>
+                                    <th class="text-center">Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in recent_data %}
+                                <tr class="hover">
+                                    <td class="font-mono text-sm">{{ item.session.date|date:"D, M d" }}</td>
+                                    <td class="font-medium">{{ item.session.class_assigned.name }}</td>
+                                    <td class="text-center text-success">{{ item.present }}</td>
+                                    <td class="text-center text-error">{{ item.absent }}</td>
+                                    <td class="text-center">
+                                        <span class="badge badge-sm {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                                            {{ item.rate }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-base-content/40">
+                        <i class="fa-solid fa-calendar-xmark text-3xl mb-2"></i>
+                        <p class="text-sm">No recent attendance records</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column - Filters & Info -->
+    <div class="space-y-6">
+        <!-- Filter Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-base-content/50"></i>
+                    Filter History
+                </h2>
+
+                <form method="get"
+                      hx-get="{% url 'core:my_attendance' %}"
+                      hx-target="#main-content"
+                      hx-push-url="true"
+                      class="space-y-3">
+                    <label class="select select-sm w-full">
+                        <span class="label">Class</span>
+                        <select name="class">
+                            <option value="">All Classes</option>
+                            {% for cls in classes %}
+                            <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ cls.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label class="input input-sm w-full">
+                        <span class="label">From Date</span>
+                        <input type="date" name="date_from" value="{{ date_from }}" />
+                    </label>
+
+                    <label class="input input-sm w-full">
+                        <span class="label">To Date</span>
+                        <input type="date" name="date_to" value="{{ date_to }}" />
+                    </label>
+
+                    <div class="flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-1">
+                            <i class="fa-solid fa-filter"></i>
+                            Apply
+                        </button>
+                        <a href="{% url 'core:my_attendance' %}"
+                           hx-get="{% url 'core:my_attendance' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-sm">
+                            <i class="fa-solid fa-times"></i>
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Quick Tips -->
+        <div class="card bg-gradient-to-br from-info/5 to-info/10 border border-info/20">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-lightbulb text-info"></i>
+                    Quick Tips
+                </h3>
+                <ul class="text-xs text-base-content/70 space-y-2">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Click "Take Attendance" to mark attendance for today</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>You can edit today's attendance if already taken</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Use filters to view attendance history</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

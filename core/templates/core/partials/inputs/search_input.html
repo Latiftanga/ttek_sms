@@ -1,0 +1,25 @@
+{% comment %}
+Search Input Component
+{% endcomment %}
+
+<label class="input input-sm {{ input_class }} flex items-center gap-2">
+    <i class="fa-solid fa-magnifying-glass text-base-content/50"></i>
+    <input type="search"
+           name="{{ name }}"
+           id="id_{{ name }}"
+           value="{{ value }}"
+           placeholder="{{ placeholder|default:'Search...' }}"
+           {% if disabled %}disabled{% endif %}
+           {% if hx_get %}hx-get="{{ hx_get }}"{% endif %}
+           {% if hx_target %}hx-target="{{ hx_target }}"{% endif %}
+           {% if hx_trigger %}hx-trigger="{{ hx_trigger }}"{% endif %}
+           {% if hx_swap %}hx-swap="{{ hx_swap }}"{% endif %}
+           class="grow bg-transparent border-none focus:outline-none" />
+    {% if value %}
+    <button type="button"
+            onclick="document.getElementById('id_{{ name }}').value=''; document.getElementById('id_{{ name }}').dispatchEvent(new Event('input'));"
+            class="btn btn-ghost btn-xs btn-circle">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    {% endif %}
+</label>

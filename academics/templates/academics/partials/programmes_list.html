@@ -1,46 +1,52 @@
 {% load core_tags %}
+<style>
+    .programme-item .action-buttons { opacity: 0; transition: opacity 0.2s ease; }
+    .programme-item:hover .action-buttons { opacity: 1; }
+    .programme-item:hover { background-color: oklch(var(--b2)); }
+</style>
 <div id="programmes-container">
     {% if programmes %}
-    <div class="overflow-x-auto">
-        <table class="table table-sm w-full">
-            <thead>
-                <tr class="text-xs uppercase text-base-content/60">
-                    <th>Programme</th>
-                    <th class="text-center">Classes</th>
-                    <th class="text-center">Students</th>
-                    <th class="text-right">Actions</th>
+    <div class="overflow-x-auto max-h-52">
+        <table class="table table-xs w-full">
+            <thead class="sticky top-0 bg-base-100">
+                <tr class="text-xs text-base-content/60 border-b border-base-200">
+                    <th class="font-medium py-2">Programme</th>
+                    <th class="font-medium py-2 text-center w-20">Code</th>
+                    <th class="font-medium py-2 text-right w-20">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for prog in programmes %}
-                <tr class="hover">
-                    <td>
-                        <div class="font-medium">{{ prog.name }}</div>
-                        <span class="badge badge-ghost badge-sm font-mono">{{ prog.code }}</span>
+                <tr class="programme-item border-b border-base-200/50 transition-colors">
+                    <td class="py-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                                <i class="fa-solid fa-graduation-cap text-secondary text-xs"></i>
+                            </div>
+                            <span class="font-medium text-sm truncate">{{ prog.name }}</span>
+                        </div>
                     </td>
-                    <td class="text-center">
-                        <span class="badge badge-ghost badge-sm">{{ prog.class_count }}</span>
+                    <td class="py-2 text-center">
+                        <span class="badge badge-ghost badge-xs font-mono">{{ prog.code }}</span>
                     </td>
-                    <td class="text-center">
-                        <span class="font-medium">{{ prog.student_count }}</span>
-                    </td>
-                    <td class="text-right">
-                        <div class="flex justify-end gap-1">
-                            <button class="btn btn-ghost btn-xs"
+                    <td class="py-2 text-right">
+                        <div class="action-buttons inline-flex items-center gap-0.5">
+                            <button class="btn btn-ghost btn-xs btn-square hover:bg-primary/10 hover:text-primary"
                                     hx-get="{% url 'academics:programme_edit' prog.pk %}"
                                     hx-target="#modal-programme-edit-content"
                                     hx-swap="innerHTML"
-                                    onclick="document.getElementById('modal_programme_edit').showModal()">
-                                <i class="fa-solid fa-pen text-xs"></i>
+                                    onclick="document.getElementById('modal_programme_edit').showModal()"
+                                    title="Edit {{ prog.name }}">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
                             </button>
                             <form hx-post="{% url 'academics:programme_delete' prog.pk %}"
                                   hx-target="#programmes-container"
                                   hx-swap="outerHTML"
-                                  hx-confirm="Delete {{ prog.name }}?"
+                                  hx-confirm="Are you sure you want to delete '{{ prog.name }}'?"
                                   class="inline">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost btn-xs text-error">
-                                    <i class="fa-solid fa-trash text-xs"></i>
+                                <button type="submit" class="btn btn-ghost btn-xs btn-square hover:bg-error/10 hover:text-error" title="Delete {{ prog.name }}">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
                                 </button>
                             </form>
                         </div>
@@ -51,12 +57,12 @@
         </table>
     </div>
     {% else %}
-    <div class="text-center py-6 text-base-content/50">
+    <div class="text-center py-8">
         <div class="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-3">
-            <i class="fa-solid fa-graduation-cap text-lg text-base-content/30"></i>
+            <i class="fa-solid fa-graduation-cap text-base-content/30 text-lg"></i>
         </div>
-        <p class="text-sm font-medium">No programmes yet</p>
-        <p class="text-xs mt-1">Required for SHS classes</p>
+        <p class="text-sm text-base-content/60 font-medium">No programmes yet</p>
+        <p class="text-xs text-base-content/40 mt-1">Click + to add your first programme</p>
     </div>
     {% endif %}
 </div>

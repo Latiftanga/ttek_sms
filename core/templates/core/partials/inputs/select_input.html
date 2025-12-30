@@ -1,0 +1,27 @@
+{% comment %}
+Select Input Component
+{% endcomment %}
+
+<label class="select select-sm {% if error %}select-error{% endif %} {{ input_class }}">
+    {% if label %}
+    <span class="label">{{ label }}{% if required %} *{% endif %}</span>
+    {% endif %}
+
+    <select name="{{ name }}"
+            id="id_{{ name }}"
+            {% if required %}required{% endif %}
+            {% if disabled %}disabled{% endif %}>
+        {% if placeholder %}
+        <option value="" disabled {% if not value %}selected{% endif %}>{{ placeholder }}</option>
+        {% endif %}
+        {% for opt in options %}
+        <option value="{{ opt.value }}" {% if opt.value|stringformat:"s" == value %}selected{% endif %}>{{ opt.label }}</option>
+        {% endfor %}
+    </select>
+</label>
+
+{% if error %}
+<p class="text-error text-xs mt-1">{{ error }}</p>
+{% elif help_text %}
+<p class="text-base-content/60 text-xs mt-1">{{ help_text }}</p>
+{% endif %}

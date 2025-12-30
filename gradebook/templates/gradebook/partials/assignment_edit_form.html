@@ -1,8 +1,8 @@
 <!-- Assignment Edit Form -->
 <div class="p-4 bg-base-200 rounded-lg border border-base-300">
     <form hx-post="{% url 'gradebook:assignment_edit' assignment.pk %}"
-          hx-target="#assignments-list"
-          hx-swap="innerHTML"
+          hx-target="#assignments-container"
+          hx-swap="outerHTML"
           class="space-y-3">
         {% csrf_token %}
 
@@ -10,8 +10,8 @@
             <h4 class="font-medium text-sm">Edit Assignment</h4>
             <button type="button"
                     hx-get="{% url 'gradebook:assignments' assignment.subject.pk %}"
-                    hx-target="#assignments-list"
-                    hx-swap="innerHTML"
+                    hx-target="#assignments-container"
+                    hx-swap="outerHTML"
                     class="btn btn-ghost btn-xs btn-circle">
                 <i class="fa-solid fa-times"></i>
             </button>
@@ -62,8 +62,8 @@
             </button>
             <button type="button"
                     hx-get="{% url 'gradebook:assignments' assignment.subject.pk %}"
-                    hx-target="#assignments-list"
-                    hx-swap="innerHTML"
+                    hx-target="#assignments-container"
+                    hx-swap="outerHTML"
                     class="btn btn-ghost btn-sm">
                 Cancel
             </button>

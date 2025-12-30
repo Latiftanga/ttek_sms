@@ -38,51 +38,68 @@
     </div>
 </div>
 
-<!-- Stats Section - Using DaisyUI Stats Component -->
-<div class="stats stats-vertical lg:stats-horizontal shadow-sm border border-base-200 w-full mb-6 bg-base-100">
-    <div class="stat">
-        <div class="stat-figure text-primary">
-            <i class="fa-solid fa-chalkboard text-3xl"></i>
-        </div>
-        <div class="stat-title">Classes</div>
-        <div class="stat-value text-primary">{{ stats.classes }}</div>
-        <div class="stat-desc">Active classes</div>
-    </div>
-
-    <div class="stat">
-        <div class="stat-figure text-secondary">
-            <i class="fa-solid fa-user-graduate text-3xl"></i>
-        </div>
-        <div class="stat-title">Students</div>
-        <div class="stat-value text-secondary">{{ stats.students }}</div>
-        <div class="stat-desc">Enrolled students</div>
-    </div>
-
-    <div class="stat">
-        <div class="stat-figure text-accent">
-            <i class="fa-solid fa-clipboard-list text-3xl"></i>
-        </div>
-        <div class="stat-title">Assignments</div>
-        <div class="stat-value text-accent">{{ stats.assignments }}</div>
-        <div class="stat-desc">This term</div>
-    </div>
-
-    <div class="stat">
-        <div class="stat-figure text-info">
-            <div class="radial-progress text-info" style="--value:{{ stats.score_progress }};--size:3.5rem;--thickness:4px;" role="progressbar">
-                <span class="text-xs font-bold">{{ stats.score_progress|floatformat:0 }}%</span>
+<!-- Stats Section -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chalkboard text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ stats.classes }}</div>
+                    <div class="text-xs text-base-content/60">Classes</div>
+                </div>
             </div>
         </div>
-        <div class="stat-title">Scores Entered</div>
-        <div class="stat-value">{{ stats.scores_entered }}</div>
-        <div class="stat-desc">
-            {% if stats.score_progress < 50 %}
-            <span class="text-warning">In Progress</span>
-            {% elif stats.score_progress < 100 %}
-            <span class="text-info">Almost Done</span>
-            {% else %}
-            <span class="text-success">Complete</span>
-            {% endif %}
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-user-graduate text-secondary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-secondary">{{ stats.students }}</div>
+                    <div class="text-xs text-base-content/60">Students</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clipboard-list text-accent text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-accent">{{ stats.assignments }}</div>
+                    <div class="text-xs text-base-content/60">Assignments</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <div class="radial-progress text-info" style="--value:{{ stats.score_progress }};--size:2.5rem;--thickness:3px;" role="progressbar">
+                        <span class="text-[10px] font-bold">{{ stats.score_progress|floatformat:0 }}%</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold">{{ stats.scores_entered }}</div>
+                    <div class="text-xs text-base-content/60">
+                        {% if stats.score_progress < 50 %}
+                        <span class="text-warning">In Progress</span>
+                        {% elif stats.score_progress < 100 %}
+                        <span class="text-info">Almost Done</span>
+                        {% else %}
+                        <span class="text-success">Complete</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

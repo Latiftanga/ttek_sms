@@ -1,0 +1,26 @@
+{% comment %}
+Date/Time Input Component
+Supports: date, time, datetime-local
+{% endcomment %}
+
+<label class="input input-sm {% if error %}input-error{% endif %} {{ input_class }}">
+    {% if label %}
+    <span class="label">{{ label }}{% if required %} *{% endif %}</span>
+    {% endif %}
+
+    <input type="{{ input_type|default:'date' }}"
+           name="{{ name }}"
+           id="id_{{ name }}"
+           value="{{ value }}"
+           {% if required %}required{% endif %}
+           {% if disabled %}disabled{% endif %}
+           {% if readonly %}readonly{% endif %}
+           {% if min %}min="{{ min }}"{% endif %}
+           {% if max %}max="{{ max }}"{% endif %} />
+</label>
+
+{% if error %}
+<p class="text-error text-xs mt-1">{{ error }}</p>
+{% elif help_text %}
+<p class="text-base-content/60 text-xs mt-1">{{ help_text }}</p>
+{% endif %}

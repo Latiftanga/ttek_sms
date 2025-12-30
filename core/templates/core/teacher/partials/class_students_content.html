@@ -1,0 +1,383 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'core:my_classes' %}"
+               hx-get="{% url 'core:my_classes' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               hx-swap="innerHTML show:window:top"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-users text-white"></i>
+                </div>
+                {{ class_obj.name }} Students
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            {% if current_term %}
+            <i class="fa-solid fa-calendar-day mr-1"></i>
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="flex items-center gap-2">
+        <span class="badge badge-lg gap-2">
+            <i class="fa-solid fa-users"></i>
+            {{ student_count }} student{{ student_count|pluralize }}
+        </span>
+        <button class="btn btn-primary btn-sm gap-2" onclick="modal_enroll.showModal()">
+            <i class="fa-solid fa-user-plus"></i>
+            Enroll Student
+        </button>
+    </div>
+</div>
+
+<!-- Refreshable content area -->
+<div id="students-list-container"
+     hx-get="{% url 'core:class_students' class_obj.pk %}"
+     hx-trigger="studentEnrolled from:body, studentRemoved from:body, electivesUpdated from:body"
+     hx-select="#students-list-container"
+     hx-swap="outerHTML">
+
+{% if not students_data %}
+<!-- No Students -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body py-12 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-info/10 flex items-center justify-center">
+            <i class="fa-solid fa-users-slash text-info text-2xl"></i>
+        </div>
+        <h3 class="font-semibold text-lg mb-2">No Students Yet</h3>
+        <p class="text-base-content/60 max-w-md mx-auto mb-4">
+            There are no students enrolled in {{ class_obj.name }}.
+            Use the "Enroll Student" button to add students to this class.
+        </p>
+        <button class="btn btn-primary" onclick="modal_enroll.showModal()">
+            <i class="fa-solid fa-user-plus"></i>
+            Enroll First Student
+        </button>
+    </div>
+</div>
+
+{% else %}
+
+<!-- Subject Summary -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <!-- Core Subjects -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-book text-primary"></i>
+                Core Subjects
+                <span class="badge badge-primary badge-sm">{{ core_subjects|length }}</span>
+            </h3>
+            {% if core_subjects %}
+            <div class="flex flex-wrap gap-2">
+                {% for cs in core_subjects %}
+                <span class="badge badge-outline badge-sm">{{ cs.subject.short_name|default:cs.subject.name }}</span>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-base-content/60 mt-2">
+                <i class="fa-solid fa-circle-info mr-1"></i>
+                All students are automatically enrolled in core subjects.
+            </p>
+            {% else %}
+            <p class="text-sm text-base-content/60">No core subjects assigned to this class.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Elective Subjects -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-book-bookmark text-secondary"></i>
+                Elective Subjects
+                <span class="badge badge-secondary badge-sm">{{ elective_subjects|length }}</span>
+            </h3>
+            {% if elective_subjects %}
+            <div class="flex flex-wrap gap-2">
+                {% for cs in elective_subjects %}
+                <span class="badge badge-outline badge-sm">{{ cs.subject.short_name|default:cs.subject.name }}</span>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-base-content/60 mt-2">
+                <i class="fa-solid fa-circle-info mr-1"></i>
+                Click on a student to assign elective subjects.
+            </p>
+            {% else %}
+            <p class="text-sm text-base-content/60">No elective subjects assigned to this class.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Students Table -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-0">
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="bg-base-200">
+                        <th class="min-w-[200px]">Student</th>
+                        <th class="text-center">Admission No</th>
+                        <th class="text-center">Gender</th>
+                        <th class="text-center">Subjects</th>
+                        <th class="min-w-[150px]">Electives</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in students_data %}
+                    <tr class="hover">
+                        <td>
+                            <div class="flex items-center gap-3">
+                                <div class="avatar placeholder">
+                                    <div class="w-10 h-10 rounded-full bg-base-300 text-base-content">
+                                        {% if item.student.photo %}
+                                        <img src="{{ item.student.photo.url }}" alt="{{ item.student.full_name }}" />
+                                        {% else %}
+                                        <span class="text-sm">{{ item.student.first_name|slice:":1" }}{{ item.student.last_name|slice:":1" }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="font-medium">{{ item.student.full_name }}</div>
+                                    <div class="text-xs text-base-content/50">
+                                        {% if item.student.date_of_birth %}
+                                        Born: {{ item.student.date_of_birth|date:"M d, Y" }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-center font-mono text-sm">{{ item.student.admission_number }}</td>
+                        <td class="text-center">
+                            {% if item.student.gender == 'M' %}
+                            <span class="badge badge-info badge-sm">Male</span>
+                            {% else %}
+                            <span class="badge badge-secondary badge-sm">Female</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge badge-outline">{{ item.enrolled_subjects_count }}</span>
+                        </td>
+                        <td>
+                            {% if item.enrolled_electives %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for subject in item.enrolled_electives %}
+                                <span class="badge badge-sm badge-ghost">{{ subject.short_name }}</span>
+                                {% endfor %}
+                            </div>
+                            {% elif elective_subjects %}
+                            <span class="text-xs text-base-content/50">None selected</span>
+                            {% else %}
+                            <span class="text-xs text-base-content/50">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                {% if elective_subjects %}
+                                <button class="btn btn-ghost btn-xs"
+                                        onclick="openElectivesModal({{ item.student.pk }}, '{{ item.student.full_name }}')"
+                                        title="Manage Electives">
+                                    <i class="fa-solid fa-book-bookmark text-secondary"></i>
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-ghost btn-xs text-error"
+                                        hx-post="{% url 'core:remove_student' class_obj.pk item.student.pk %}"
+                                        hx-confirm="Are you sure you want to remove {{ item.student.full_name }} from this class?"
+                                        title="Remove from class">
+                                    <i class="fa-solid fa-user-minus"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+</div><!-- end students-list-container -->
+
+<!-- Enroll Student Modal -->
+<dialog id="modal_enroll" class="modal">
+    <div class="modal-box max-w-lg">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <h3 class="text-lg font-bold mb-4">
+            <i class="fa-solid fa-user-plus text-primary mr-2"></i>
+            Enroll Student to {{ class_obj.name }}
+        </h3>
+
+        {% if available_students %}
+        <form hx-post="{% url 'core:enroll_student' class_obj.pk %}"
+              hx-swap="none"
+              hx-on::after-request="if(event.detail.successful) modal_enroll.close()">
+            {% csrf_token %}
+
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text font-medium">Select Student</span>
+                </label>
+                <select name="student_id" class="select select-bordered w-full" required>
+                    <option value="">-- Choose a student --</option>
+                    {% for student in available_students %}
+                    <option value="{{ student.pk }}">
+                        {{ student.full_name }} ({{ student.admission_number }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <label class="label">
+                    <span class="label-text-alt text-base-content/60">
+                        Showing students not currently in any class
+                    </span>
+                </label>
+            </div>
+
+            <div class="alert alert-info mb-4">
+                <i class="fa-solid fa-circle-info"></i>
+                <div>
+                    <p class="font-medium">What happens when you enroll:</p>
+                    <ul class="list-disc list-inside text-sm mt-1">
+                        <li>Student is added to {{ class_obj.name }}</li>
+                        <li>Student is auto-enrolled in {{ core_subjects|length }} core subject{{ core_subjects|length|pluralize }}</li>
+                        {% if elective_subjects %}
+                        <li>You can then assign elective subjects</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="modal_enroll.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary gap-2">
+                    <i class="fa-solid fa-user-plus"></i>
+                    Enroll Student
+                </button>
+            </div>
+        </form>
+        {% else %}
+        <div class="text-center py-8">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-warning/10 flex items-center justify-center">
+                <i class="fa-solid fa-user-slash text-warning text-2xl"></i>
+            </div>
+            <h4 class="font-semibold mb-2">No Available Students</h4>
+            <p class="text-base-content/60 text-sm mb-4">
+                All active students are already assigned to classes.
+                New students must be registered first before they can be enrolled.
+            </p>
+            <button type="button" class="btn btn-ghost" onclick="modal_enroll.close()">Close</button>
+        </div>
+        {% endif %}
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Electives Modal -->
+<dialog id="modal_electives" class="modal">
+    <div class="modal-box max-w-md">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <h3 class="text-lg font-bold mb-4">
+            <i class="fa-solid fa-book-bookmark text-secondary mr-2"></i>
+            Manage Electives
+        </h3>
+
+        <p class="text-sm text-base-content/60 mb-4" id="electives-student-name">
+            Select elective subjects for student
+        </p>
+
+        <form id="electives-form"
+              hx-post=""
+              hx-swap="none"
+              hx-on::after-request="if(event.detail.successful) modal_electives.close()">
+            {% csrf_token %}
+
+            {% if elective_subjects %}
+            <div class="space-y-2 mb-6">
+                {% for cs in elective_subjects %}
+                <label class="flex items-center gap-3 p-3 rounded-lg border border-base-200 hover:bg-base-200/50 cursor-pointer">
+                    <input type="checkbox"
+                           name="electives"
+                           value="{{ cs.pk }}"
+                           class="checkbox checkbox-secondary checkbox-sm elective-checkbox">
+                    <div class="flex-1">
+                        <div class="font-medium">{{ cs.subject.name }}</div>
+                        {% if cs.teacher %}
+                        <div class="text-xs text-base-content/50">
+                            <i class="fa-solid fa-chalkboard-user mr-1"></i>
+                            {{ cs.teacher.full_name }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-4">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>No elective subjects available for this class.</span>
+            </div>
+            {% endif %}
+
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="modal_electives.close()">Cancel</button>
+                <button type="submit" class="btn btn-secondary gap-2">
+                    <i class="fa-solid fa-check"></i>
+                    Save Electives
+                </button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+// Initialize student elective data (ClassSubject IDs)
+window.studentElectives = {};
+{% for item in students_data %}
+window.studentElectives[{{ item.student.pk }}] = [{% for id in item.enrolled_elective_ids %}{{ id }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+{% endfor %}
+
+function openElectivesModal(studentId, studentName) {
+    document.getElementById('electives-student-name').textContent = 'Select elective subjects for ' + studentName;
+
+    const form = document.getElementById('electives-form');
+    form.setAttribute('hx-post', '{% url "core:update_student_electives" class_obj.pk 0 %}'.replace('/0/', '/' + studentId + '/'));
+    htmx.process(form);
+
+    // Reset all checkboxes
+    document.querySelectorAll('.elective-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+
+    // Check boxes for currently enrolled electives (using ClassSubject IDs)
+    const enrolledIds = window.studentElectives[studentId] || [];
+    enrolledIds.forEach(classSubjectId => {
+        const checkbox = document.querySelector('.elective-checkbox[value="' + classSubjectId + '"]');
+        if (checkbox) checkbox.checked = true;
+    });
+
+    modal_electives.showModal();
+}
+</script>

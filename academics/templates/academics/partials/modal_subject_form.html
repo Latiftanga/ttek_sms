@@ -1,10 +1,15 @@
 {% load core_tags %}
+<form method="dialog">
+    <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+</form>
 <h3 class="text-lg font-bold mb-6">{% if is_create %}Add{% else %}Edit{% endif %} Subject</h3>
 <form method="post"
       action="{% if subject %}{% url 'academics:subject_edit' subject.pk %}{% else %}{% url 'academics:subject_create' %}{% endif %}"
       hx-post="{% if subject %}{% url 'academics:subject_edit' subject.pk %}{% else %}{% url 'academics:subject_create' %}{% endif %}"
-      hx-target="#subjects-container"
-      hx-swap="outerHTML">
+      hx-target="{% if is_create %}#modal_subject .modal-box{% else %}#modal_subject_edit .modal-box{% endif %}"
+      hx-swap="innerHTML">
     {% csrf_token %}
     <div class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
@@ -28,7 +33,16 @@
     {% if form.errors %}
     <div class="alert alert-error mt-4 py-2 text-sm">
         <i class="fa-solid fa-exclamation-circle"></i>
-        <span>{{ form.non_field_errors.0|default:"Please fix the errors below." }}</span>
+        <div>
+            {% for field in form %}
+                {% if field.errors %}
+                <p><strong>{{ field.label }}:</strong> {{ field.errors.0 }}</p>
+                {% endif %}
+            {% endfor %}
+            {% if form.non_field_errors %}
+            <p>{{ form.non_field_errors.0 }}</p>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
     <div class="modal-action">

@@ -1,7 +1,11 @@
+from functools import wraps
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpResponse
-
+from django.utils import timezone
+from django.urls import reverse
 from .models import SchoolSettings, AcademicYear, Term
 from .forms import (
     SchoolBasicInfoForm,
@@ -11,7 +15,29 @@ from .forms import (
     AcademicSettingsForm,
     AcademicYearForm,
     TermForm,
+    SMSSettingsForm,
 )
+
+
+def is_school_admin(user):
+    """Check if user is a school admin or superuser."""
+    if not user.is_authenticated:
+        return False
+    return user.is_superuser or getattr(user, 'is_school_admin', False)
+
+
+def admin_required(view_func):
+    """Decorator to require school admin or superuser access."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if not is_school_admin(request.user):
+            messages.error(request, 'You do not have permission to access this page.')
+            return redirect('core:index')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
 
 
 def htmx_render(request, full_template, partial_template, context=None):
@@ -368,37 +394,37 @@ def index(request):
 
 
 # School Admin views
-@login_required
+@admin_required
 def students_list(request):
     context = {}
     return htmx_render(request, 'core/students/list.html', 'core/students/partials/list_content.html', context)
 
 
-@login_required
+@admin_required
 def teachers_list(request):
     context = {}
     return htmx_render(request, 'core/teachers/list.html', 'core/teachers/partials/list_content.html', context)
 
 
-@login_required
+@admin_required
 def finance_overview(request):
     context = {}
     return htmx_render(request, 'core/finance/overview.html', 'core/finance/partials/overview_content.html', context)
 
 
-@login_required
+@admin_required
 def invoices(request):
     context = {}
     return htmx_render(request, 'core/finance/invoices.html', 'core/finance/partials/invoices_content.html', context)
 
 
-@login_required
+@admin_required
 def payments(request):
     context = {}
     return htmx_render(request, 'core/finance/payments.html', 'core/finance/partials/payments_content.html', context)
 
 
-@login_required
+@admin_required
 def settings(request):
     """School settings page with all configuration options."""
     tenant = request.tenant
@@ -435,6 +461,14 @@ def settings(request):
     academic_year_form = AcademicYearForm()
     term_form = TermForm(period_type=period_type)
 
+    # SMS settings - derive sender ID from school name
+    derived_sender_id = ''
+    if school_settings.display_name:
+        derived_sender_id = ''.join(c for c in school_settings.display_name if c.isalnum())[:11]
+    elif tenant.name:
+        derived_sender_id = ''.join(c for c in tenant.name if c.isalnum())[:11]
+    derived_sender_id = derived_sender_id or 'SchoolSMS'
+
     context = {
         'tenant': tenant,
         'school_settings': school_settings,
@@ -449,6 +483,7 @@ def settings(request):
         'period_type': period_type,
         'period_label': school_settings.period_label,
         'period_label_plural': school_settings.period_label_plural,
+        'derived_sender_id': derived_sender_id,
     }
     return htmx_render(request, 'core/settings/index.html', 'core/settings/partials/index_content.html', context)
 
@@ -559,6 +594,41 @@ def settings_update_admin(request):
         context = {'tenant': tenant, 'errors': form.errors}
 
     return render(request, 'core/settings/partials/card_admin.html', context)
+
+
+@login_required
+def settings_update_sms(request):
+    """Update SMS configuration settings."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    school_settings = SchoolSettings.load()
+
+    # Handle checkbox - if not in POST, it's unchecked
+    sms_enabled = request.POST.get('sms_enabled') == 'on'
+    sms_backend = request.POST.get('sms_backend', 'console')
+    sms_api_key = request.POST.get('sms_api_key', '').strip()
+    sms_sender_id = request.POST.get('sms_sender_id', '').strip()
+
+    # Update settings
+    school_settings.sms_enabled = sms_enabled
+    school_settings.sms_backend = sms_backend
+    school_settings.sms_sender_id = sms_sender_id
+
+    # Only update API key if a new one was provided (not placeholder)
+    if sms_api_key and not sms_api_key.startswith('••'):
+        school_settings.sms_api_key = sms_api_key
+
+    school_settings.save()
+
+    if not request.htmx:
+        return redirect('core:settings')
+
+    context = {
+        'school_settings': school_settings,
+        'success': 'SMS settings updated successfully',
+    }
+    return render(request, 'core/settings/partials/card_sms.html', context)
 
 
 def get_academic_card_context(success=None, errors=None):
@@ -811,20 +881,1186 @@ def term_set_current(request, pk):
 # Teacher views
 @login_required
 def my_classes(request):
-    context = {}
+    """Teacher view of their assigned classes."""
+    from academics.models import Class, ClassSubject
+    from students.models import Student
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Verify user is a teacher
+    if not getattr(user, 'is_teacher', False):
+        messages.error(request, 'This page is only accessible to teachers.')
+        return redirect('core:index')
+
+    teacher = getattr(user, 'teacher_profile', None)
+    if not teacher:
+        messages.error(request, 'No teacher profile linked to your account.')
+        return redirect('core:index')
+
+    # Get current term
+    current_term = Term.get_current()
+
+    # Get homeroom classes (where teacher is class teacher)
+    homeroom_classes = Class.objects.filter(
+        class_teacher=teacher,
+        is_active=True
+    ).prefetch_related('students').order_by('level_number', 'name')
+
+    # Get subject assignments
+    subject_assignments = ClassSubject.objects.filter(
+        teacher=teacher
+    ).select_related('class_assigned', 'subject').order_by(
+        'class_assigned__level_number', 'class_assigned__name', 'subject__name'
+    )
+
+    # Build class data with student counts
+    classes_data = []
+    seen_classes = set()
+
+    # Add homeroom classes
+    for cls in homeroom_classes:
+        student_count = cls.students.filter(status='active').count()
+        # Get all subjects offered by this class
+        class_subjects = ClassSubject.objects.filter(
+            class_assigned=cls
+        ).select_related('subject', 'teacher').order_by('-subject__is_core', 'subject__name')
+
+        classes_data.append({
+            'class': cls,
+            'is_homeroom': True,
+            'subjects': [],  # Subjects this teacher teaches
+            'class_subjects': list(class_subjects),  # All subjects offered
+            'student_count': student_count,
+        })
+        seen_classes.add(cls.id)
+
+    # Add classes from subject assignments
+    for assignment in subject_assignments:
+        cls = assignment.class_assigned
+        if cls.id not in seen_classes:
+            student_count = cls.students.filter(status='active').count()
+            # Get all subjects offered by this class
+            class_subjects = ClassSubject.objects.filter(
+                class_assigned=cls
+            ).select_related('subject', 'teacher').order_by('-subject__is_core', 'subject__name')
+
+            classes_data.append({
+                'class': cls,
+                'is_homeroom': False,
+                'subjects': [assignment.subject],  # Subjects this teacher teaches
+                'class_subjects': list(class_subjects),  # All subjects offered
+                'student_count': student_count,
+            })
+            seen_classes.add(cls.id)
+        else:
+            # Add subject to existing class entry
+            for data in classes_data:
+                if data['class'].id == cls.id:
+                    if assignment.subject not in data['subjects']:
+                        data['subjects'].append(assignment.subject)
+                    break
+
+    context = {
+        'teacher': teacher,
+        'current_term': current_term,
+        'classes_data': classes_data,
+        'total_classes': len(classes_data),
+        'homeroom_count': sum(1 for c in classes_data if c['is_homeroom']),
+    }
+
     return htmx_render(request, 'core/teacher/my_classes.html', 'core/teacher/partials/my_classes_content.html', context)
 
 
 @login_required
-def attendance(request):
-    context = {}
-    return htmx_render(request, 'core/teacher/attendance.html', 'core/teacher/partials/attendance_content.html', context)
+def my_attendance(request):
+    """Teacher's attendance dashboard - view and take attendance for assigned classes."""
+    from django.db.models import Count, Q
+    from datetime import timedelta
+    from academics.models import Class, ClassSubject, AttendanceSession, AttendanceRecord
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('core:index')
+
+    teacher = user.teacher_profile
+
+    # Get teacher's classes (homeroom + assigned)
+    homeroom_classes = Class.objects.filter(class_teacher=teacher, is_active=True)
+    assigned_class_ids = ClassSubject.objects.filter(teacher=teacher).values_list('class_assigned_id', flat=True)
+    all_class_ids = set(homeroom_classes.values_list('id', flat=True)) | set(assigned_class_ids)
+    classes = Class.objects.filter(id__in=all_class_ids, is_active=True).order_by('level_number', 'name')
+
+    # Get filter parameters
+    class_filter = request.GET.get('class', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+
+    # Default date range: last 30 days
+    today = timezone.now().date()
+    if not date_from:
+        date_from = (today - timedelta(days=30)).isoformat()
+    if not date_to:
+        date_to = today.isoformat()
+
+    # Get attendance records for teacher's classes
+    records = AttendanceRecord.objects.filter(
+        session__class_assigned_id__in=all_class_ids
+    ).select_related('session', 'student', 'session__class_assigned')
+
+    sessions = AttendanceSession.objects.filter(
+        class_assigned_id__in=all_class_ids
+    ).select_related('class_assigned')
+
+    # Apply date filter
+    if date_from:
+        sessions = sessions.filter(date__gte=date_from)
+        records = records.filter(session__date__gte=date_from)
+    if date_to:
+        sessions = sessions.filter(date__lte=date_to)
+        records = records.filter(session__date__lte=date_to)
+
+    # Apply class filter
+    if class_filter:
+        sessions = sessions.filter(class_assigned_id=class_filter)
+        records = records.filter(session__class_assigned_id=class_filter)
+
+    # Calculate summary stats
+    total_sessions = sessions.count()
+    total_records = records.count()
+    present_count = records.filter(status__in=['P', 'L']).count()
+    absent_count = records.filter(status='A').count()
+    late_count = records.filter(status='L').count()
+
+    attendance_rate = 0
+    if total_records > 0:
+        attendance_rate = round((present_count / total_records) * 100, 1)
+
+    # Summary by class
+    class_summary = []
+    for cls in classes:
+        cls_records = records.filter(session__class_assigned=cls)
+        cls_total = cls_records.count()
+        is_homeroom = cls in homeroom_classes
+
+        # Check if attendance taken today
+        has_today = AttendanceSession.objects.filter(
+            class_assigned=cls,
+            date=today
+        ).exists()
+
+        if cls_total > 0:
+            cls_present = cls_records.filter(status__in=['P', 'L']).count()
+            cls_absent = cls_records.filter(status='A').count()
+            cls_rate = round((cls_present / cls_total) * 100, 1)
+        else:
+            cls_present = 0
+            cls_absent = 0
+            cls_rate = 0
+
+        class_summary.append({
+            'class': cls,
+            'total': cls_total,
+            'present': cls_present,
+            'absent': cls_absent,
+            'rate': cls_rate,
+            'is_homeroom': is_homeroom,
+            'has_today': has_today,
+            'student_count': cls.students.filter(status='active').count(),
+        })
+
+    # Recent sessions (last 10)
+    recent_sessions = sessions.order_by('-date')[:10]
+    recent_data = []
+    for session in recent_sessions:
+        session_records = session.records.all()
+        s_total = session_records.count()
+        s_present = session_records.filter(status__in=['P', 'L']).count()
+        s_absent = session_records.filter(status='A').count()
+        recent_data.append({
+            'session': session,
+            'total': s_total,
+            'present': s_present,
+            'absent': s_absent,
+            'rate': round((s_present / s_total) * 100, 1) if s_total > 0 else 0,
+        })
+
+    context = {
+        'teacher': teacher,
+        'classes': classes,
+        'class_filter': class_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+        'today': today,
+        'stats': {
+            'total_sessions': total_sessions,
+            'total_records': total_records,
+            'present': present_count,
+            'absent': absent_count,
+            'late': late_count,
+            'rate': attendance_rate,
+        },
+        'class_summary': class_summary,
+        'recent_data': recent_data,
+    }
+
+    return htmx_render(request, 'core/teacher/my_attendance.html', 'core/teacher/partials/my_attendance_content.html', context)
 
 
 @login_required
-def grading(request):
-    context = {}
-    return htmx_render(request, 'core/teacher/grading.html', 'core/teacher/partials/grading_content.html', context)
+def take_attendance(request, class_id):
+    """Teacher takes attendance for a specific class."""
+    from academics.models import Class, ClassSubject, AttendanceSession, AttendanceRecord
+    from students.models import Student
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        messages.error(request, 'You do not have permission to take attendance.')
+        return redirect('core:index')
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+
+    # Check permission: must be class teacher or assigned to teach this class
+    is_class_teacher = class_obj.class_teacher == teacher
+    is_subject_teacher = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        teacher=teacher
+    ).exists()
+
+    if not is_class_teacher and not is_subject_teacher:
+        messages.error(request, 'You are not assigned to this class.')
+        return redirect('core:my_attendance')
+
+    target_date = timezone.now().date()
+
+    # Check if session exists
+    session, created = AttendanceSession.objects.get_or_create(
+        class_assigned=class_obj,
+        date=target_date
+    )
+
+    if request.method == 'POST':
+        students = Student.objects.filter(current_class=class_obj, status='active')
+
+        for student in students:
+            status_key = f"status_{student.id}"
+            new_status = request.POST.get(status_key, AttendanceRecord.Status.PRESENT)
+
+            AttendanceRecord.objects.update_or_create(
+                session=session,
+                student=student,
+                defaults={'status': new_status}
+            )
+
+        messages.success(request, f'Attendance saved for {class_obj.name}.')
+
+        if request.htmx:
+            response = HttpResponse(status=204)
+            response['HX-Redirect'] = reverse('core:my_attendance')
+            return response
+
+        return redirect('core:my_attendance')
+
+    # GET: Prepare form data
+    students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name', 'last_name')
+    records = {r.student_id: r.status for r in session.records.all()}
+
+    student_list = []
+    for student in students:
+        student_list.append({
+            'obj': student,
+            'status': records.get(student.id, 'P')
+        })
+
+    context = {
+        'class': class_obj,
+        'session': session,
+        'student_list': student_list,
+        'date': target_date,
+        'is_homeroom': class_obj.class_teacher == teacher,
+    }
+
+    return htmx_render(request, 'core/teacher/take_attendance.html', 'core/teacher/partials/take_attendance_content.html', context)
+
+
+@login_required
+def my_grading(request):
+    """Teacher's grading dashboard - view and enter scores for assigned classes."""
+    from academics.models import Class, ClassSubject, Subject
+    from gradebook.models import Assignment, Score, AssessmentCategory
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('core:index')
+
+    teacher = user.teacher_profile
+    current_term = Term.get_current()
+
+    # Get teacher's class-subject assignments (only active classes)
+    assignments = ClassSubject.objects.filter(
+        teacher=teacher,
+        class_assigned__is_active=True
+    ).select_related('class_assigned', 'subject').order_by(
+        'class_assigned__level_number', 'class_assigned__name', 'subject__name'
+    )
+
+    # Build class data with progress info
+    class_data = []
+    for assignment in assignments:
+        cls = assignment.class_assigned
+        subject = assignment.subject
+
+        # Count students
+        student_count = cls.students.filter(status='active').count()
+
+        # Count assignments and scores entered
+        if current_term:
+            term_assignments = Assignment.objects.filter(
+                subject=subject,
+                term=current_term
+            ).count()
+
+            if term_assignments > 0 and student_count > 0:
+                total_possible = term_assignments * student_count
+                scores_entered = Score.objects.filter(
+                    assignment__subject=subject,
+                    assignment__term=current_term,
+                    student__current_class=cls
+                ).count()
+                progress = round((scores_entered / total_possible) * 100) if total_possible > 0 else 0
+            else:
+                scores_entered = 0
+                progress = 0
+        else:
+            term_assignments = 0
+            scores_entered = 0
+            progress = 0
+
+        class_data.append({
+            'class': cls,
+            'subject': subject,
+            'student_count': student_count,
+            'assignments': term_assignments,
+            'scores_entered': scores_entered,
+            'progress': progress,
+        })
+
+    # Get categories for reference
+    categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
+
+    context = {
+        'teacher': teacher,
+        'current_term': current_term,
+        'class_data': class_data,
+        'categories': categories,
+        'total_classes': len(class_data),
+    }
+
+    return htmx_render(request, 'core/teacher/my_grading.html', 'core/teacher/partials/my_grading_content.html', context)
+
+
+@login_required
+def enter_scores(request, class_id, subject_id):
+    """Teacher enters scores for a specific class/subject."""
+    from academics.models import Class, ClassSubject, Subject
+    from gradebook.models import Assignment, Score, AssessmentCategory
+    from students.models import Student
+    from teachers.models import Teacher
+    from collections import defaultdict
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        messages.error(request, 'You do not have permission to enter scores.')
+        return redirect('core:index')
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+    subject = get_object_or_404(Subject, pk=subject_id)
+    current_term = Term.get_current()
+
+    # Check permission: must be assigned to teach this subject in this class
+    is_assigned = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        subject=subject,
+        teacher=teacher
+    ).exists()
+
+    if not is_assigned:
+        messages.error(request, 'You are not assigned to teach this subject in this class.')
+        return redirect('core:my_grading')
+
+    # Check if grades are locked
+    grades_locked = current_term.grades_locked if current_term else True
+
+    # Get students
+    students = list(Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('last_name', 'first_name'))
+
+    # Get assignments for this subject/term
+    assignments_list = list(Assignment.objects.filter(
+        subject=subject,
+        term=current_term
+    ).select_related('assessment_category').order_by('assessment_category__order', 'name'))
+
+    # Get existing scores - build nested dict for O(1) lookup
+    scores_dict = defaultdict(dict)
+    if students and assignments_list:
+        student_ids = [s.id for s in students]
+        assignment_ids = [a.id for a in assignments_list]
+        for score in Score.objects.filter(
+            student_id__in=student_ids,
+            assignment_id__in=assignment_ids
+        ).only('student_id', 'assignment_id', 'points'):
+            scores_dict[score.student_id][score.assignment_id] = score.points
+
+    # Get categories
+    categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
+
+    context = {
+        'class_obj': class_obj,
+        'subject': subject,
+        'current_term': current_term,
+        'students': students,
+        'assignments': assignments_list,
+        'categories': categories,
+        'scores_dict': dict(scores_dict),
+        'grades_locked': grades_locked,
+        'can_edit': not grades_locked,
+    }
+
+    return htmx_render(request, 'core/teacher/enter_scores.html', 'core/teacher/partials/enter_scores_content.html', context)
+
+
+@login_required
+def export_scores(request, class_id, subject_id):
+    """Export scores for a class/subject as CSV or Excel."""
+    import csv
+    from io import BytesIO
+    from django.http import HttpResponse
+    from academics.models import Class, ClassSubject, Subject
+    from gradebook.models import Assignment, Score
+    from students.models import Student
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        messages.error(request, 'You do not have permission to export scores.')
+        return redirect('core:index')
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+    subject = get_object_or_404(Subject, pk=subject_id)
+    current_term = Term.get_current()
+
+    # Check permission
+    is_assigned = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        subject=subject,
+        teacher=teacher
+    ).exists()
+
+    if not is_assigned:
+        messages.error(request, 'You are not assigned to teach this subject.')
+        return redirect('core:my_grading')
+
+    # Get students
+    students = Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('last_name', 'first_name')
+
+    # Get assignments
+    assignments = Assignment.objects.filter(
+        subject=subject,
+        term=current_term
+    ).select_related('assessment_category').order_by('assessment_category__order', 'name')
+
+    # Get existing scores
+    scores_dict = {}
+    if students and assignments:
+        student_ids = [s.id for s in students]
+        assignment_ids = [a.id for a in assignments]
+        for score in Score.objects.filter(
+            student_id__in=student_ids,
+            assignment_id__in=assignment_ids
+        ):
+            if score.student_id not in scores_dict:
+                scores_dict[score.student_id] = {}
+            scores_dict[score.student_id][score.assignment_id] = score.points
+
+    # Check format
+    export_format = request.GET.get('format', 'csv')
+
+    # Build headers
+    headers = ['Admission No', 'Student Name']
+    for assignment in assignments:
+        headers.append(f"{assignment.name} ({assignment.assessment_category.short_name}) /{assignment.points_possible}")
+
+    # Build rows
+    rows = []
+    for student in students:
+        row = [student.admission_number, student.full_name]
+        student_scores = scores_dict.get(student.id, {})
+        for assignment in assignments:
+            score = student_scores.get(assignment.id, '')
+            row.append(score if score != '' else '')
+        rows.append(row)
+
+    filename = f"{class_obj.name}_{subject.name}_{current_term.name}_scores".replace(' ', '_')
+
+    if export_format == 'xlsx':
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Scores"
+
+            # Header style
+            header_font = Font(bold=True)
+            header_fill = PatternFill(start_color="DDEEFF", end_color="DDEEFF", fill_type="solid")
+
+            # Write headers
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+
+            # Write data
+            for row_idx, row in enumerate(rows, 2):
+                for col_idx, value in enumerate(row, 1):
+                    ws.cell(row=row_idx, column=col_idx, value=value)
+
+            # Adjust column widths
+            ws.column_dimensions['A'].width = 15
+            ws.column_dimensions['B'].width = 25
+            for col_idx in range(3, len(headers) + 1):
+                ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = 12
+
+            # Create response
+            output = BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            response = HttpResponse(
+                output.read(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+            return response
+
+        except ImportError:
+            export_format = 'csv'
+
+    # CSV export
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow(row)
+
+    return response
+
+
+@login_required
+def import_scores(request, class_id, subject_id):
+    """Import scores from CSV/Excel file - preview step."""
+    import csv
+    import json
+    from io import TextIOWrapper
+    from django.http import HttpResponse
+    from academics.models import Class, ClassSubject, Subject
+    from gradebook.models import Assignment, Score
+    from students.models import Student
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        return HttpResponse('<div class="alert alert-error">Permission denied.</div>')
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+    subject = get_object_or_404(Subject, pk=subject_id)
+    current_term = Term.get_current()
+
+    # Check permission
+    is_assigned = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        subject=subject,
+        teacher=teacher
+    ).exists()
+
+    if not is_assigned:
+        return HttpResponse('<div class="alert alert-error">You are not assigned to teach this subject.</div>')
+
+    # Check if grades locked
+    if current_term and current_term.grades_locked:
+        return HttpResponse('<div class="alert alert-warning">Grades are locked for this term.</div>')
+
+    if request.method != 'POST':
+        return HttpResponse('<div class="alert alert-error">Invalid request.</div>')
+
+    uploaded_file = request.FILES.get('file')
+    if not uploaded_file:
+        return HttpResponse('<div class="alert alert-error">No file uploaded.</div>')
+
+    # Get assignments for validation
+    assignments = list(Assignment.objects.filter(
+        subject=subject,
+        term=current_term
+    ).select_related('assessment_category').order_by('assessment_category__order', 'name'))
+
+    # Get students for validation
+    students = {s.admission_number: s for s in Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    )}
+
+    # Parse file
+    rows = []
+    filename = uploaded_file.name.lower()
+
+    try:
+        if filename.endswith('.xlsx') or filename.endswith('.xls'):
+            try:
+                import openpyxl
+                from io import BytesIO
+
+                wb = openpyxl.load_workbook(BytesIO(uploaded_file.read()))
+                ws = wb.active
+
+                for row_idx, row in enumerate(ws.iter_rows(values_only=True)):
+                    if row_idx == 0:
+                        continue
+                    if row and row[0]:
+                        rows.append(list(row))
+            except ImportError:
+                return HttpResponse('<div class="alert alert-error">Excel support not available. Please use CSV format.</div>')
+        else:
+            decoded_file = TextIOWrapper(uploaded_file.file, encoding='utf-8-sig')
+            reader = csv.reader(decoded_file)
+            next(reader)
+            for row in reader:
+                if row and row[0]:
+                    rows.append(row)
+    except Exception as e:
+        return HttpResponse(f'<div class="alert alert-error">Error reading file: {str(e)}</div>')
+
+    # Validate and prepare preview data
+    preview_data = []
+    valid_count = 0
+    error_count = 0
+
+    for row_idx, row in enumerate(rows):
+        if len(row) < 2:
+            continue
+
+        admission_no = str(row[0]).strip()
+        student = students.get(admission_no)
+
+        row_data = {
+            'row_num': row_idx + 2,
+            'admission_no': admission_no,
+            'student_name': row[1] if len(row) > 1 else '',
+            'student': student,
+            'scores': [],
+            'errors': []
+        }
+
+        if not student:
+            row_data['errors'].append(f"Student not found: {admission_no}")
+            error_count += 1
+        else:
+            for idx, assignment in enumerate(assignments):
+                col_idx = idx + 2
+                score_value = row[col_idx] if len(row) > col_idx else ''
+
+                score_data = {
+                    'assignment': assignment,
+                    'value': score_value,
+                    'valid': True,
+                    'error': None
+                }
+
+                if score_value != '' and score_value is not None:
+                    try:
+                        score_float = float(score_value)
+                        if score_float < 0:
+                            score_data['valid'] = False
+                            score_data['error'] = 'Negative value'
+                        elif score_float > assignment.points_possible:
+                            score_data['valid'] = False
+                            score_data['error'] = f'Exceeds max ({assignment.points_possible})'
+                    except (ValueError, TypeError):
+                        score_data['valid'] = False
+                        score_data['error'] = 'Invalid number'
+
+                row_data['scores'].append(score_data)
+
+                if not score_data['valid']:
+                    error_count += 1
+
+            if not row_data['errors'] and all(s['valid'] for s in row_data['scores']):
+                valid_count += 1
+
+        preview_data.append(row_data)
+
+    # Store in session for confirmation
+    session_data = []
+    for row in preview_data:
+        if row['student']:
+            scores_to_save = []
+            for score_data in row['scores']:
+                if score_data['valid'] and score_data['value'] != '' and score_data['value'] is not None:
+                    scores_to_save.append({
+                        'assignment_id': str(score_data['assignment'].id),
+                        'value': float(score_data['value'])
+                    })
+            session_data.append({
+                'student_id': row['student'].id,
+                'scores': scores_to_save
+            })
+
+    request.session[f'import_scores_{class_id}_{subject_id}'] = json.dumps(session_data)
+
+    # Render preview
+    from django.middleware.csrf import get_token
+    csrf_token = get_token(request)
+
+    html = f'''
+    <div class="space-y-4">
+        <div class="flex gap-4">
+            <div class="stat bg-success/10 rounded-lg p-3">
+                <div class="stat-title text-xs">Valid Rows</div>
+                <div class="stat-value text-lg text-success">{valid_count}</div>
+            </div>
+            <div class="stat bg-error/10 rounded-lg p-3">
+                <div class="stat-title text-xs">Errors</div>
+                <div class="stat-value text-lg text-error">{error_count}</div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto max-h-64">
+            <table class="table table-xs">
+                <thead>
+                    <tr>
+                        <th>Row</th>
+                        <th>Admission No</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+    '''
+
+    for row in preview_data[:20]:
+        status_class = 'text-success' if row['student'] and not row['errors'] else 'text-error'
+        status_icon = 'fa-check' if row['student'] and not row['errors'] else 'fa-xmark'
+        status_text = 'Valid' if row['student'] and not row['errors'] else (row['errors'][0] if row['errors'] else 'Has errors')
+
+        html += f'''
+            <tr>
+                <td>{row['row_num']}</td>
+                <td class="font-mono">{row['admission_no']}</td>
+                <td>{row['student_name']}</td>
+                <td class="{status_class}">
+                    <i class="fa-solid {status_icon} mr-1"></i>{status_text}
+                </td>
+            </tr>
+        '''
+
+    if len(preview_data) > 20:
+        html += f'<tr><td colspan="4" class="text-center text-base-content/60">... and {len(preview_data) - 20} more rows</td></tr>'
+
+    html += '''
+                </tbody>
+            </table>
+        </div>
+    '''
+
+    from django.urls import reverse
+    confirm_url = reverse('core:import_scores_confirm', args=[class_id, subject_id])
+
+    if valid_count > 0:
+        html += f'''
+        <form hx-post="{confirm_url}"
+              hx-target="#import-content"
+              hx-swap="innerHTML">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="modal_import.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary gap-2">
+                    <i class="fa-solid fa-check"></i>
+                    Import {valid_count} Rows
+                </button>
+            </div>
+        </form>
+        '''
+    else:
+        html += '''
+        <div class="modal-action">
+            <button type="button" class="btn btn-ghost" onclick="modal_import.close()">Close</button>
+        </div>
+        '''
+
+    html += '</div>'
+
+    return HttpResponse(html)
+
+
+@login_required
+def import_scores_confirm(request, class_id, subject_id):
+    """Confirm and save imported scores."""
+    import json
+    from django.http import HttpResponse
+    from academics.models import Class, ClassSubject, Subject
+    from gradebook.models import Assignment, Score
+    from students.models import Student
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        return HttpResponse('<div class="alert alert-error">Permission denied.</div>')
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+    subject = get_object_or_404(Subject, pk=subject_id)
+    current_term = Term.get_current()
+
+    # Check permission
+    is_assigned = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        subject=subject,
+        teacher=teacher
+    ).exists()
+
+    if not is_assigned:
+        return HttpResponse('<div class="alert alert-error">You are not assigned to teach this subject.</div>')
+
+    # Check if grades locked
+    if current_term and current_term.grades_locked:
+        return HttpResponse('<div class="alert alert-warning">Grades are locked for this term.</div>')
+
+    # Get session data
+    session_key = f'import_scores_{class_id}_{subject_id}'
+    session_data = request.session.get(session_key)
+
+    if not session_data:
+        return HttpResponse('<div class="alert alert-error">Session expired. Please upload the file again.</div>')
+
+    try:
+        import_data = json.loads(session_data)
+    except json.JSONDecodeError:
+        return HttpResponse('<div class="alert alert-error">Invalid session data.</div>')
+
+    # Import scores
+    saved_count = 0
+    updated_count = 0
+
+    for row in import_data:
+        student_id = row['student_id']
+        for score_data in row['scores']:
+            assignment_id = score_data['assignment_id']
+            value = score_data['value']
+
+            score, created = Score.objects.update_or_create(
+                student_id=student_id,
+                assignment_id=assignment_id,
+                defaults={'points': value}
+            )
+
+            if created:
+                saved_count += 1
+            else:
+                updated_count += 1
+
+    # Clear session
+    del request.session[session_key]
+
+    # Return success message
+    html = f'''
+    <div class="text-center py-8">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
+            <i class="fa-solid fa-check text-success text-3xl"></i>
+        </div>
+        <h3 class="font-bold text-lg mb-2">Import Complete!</h3>
+        <p class="text-base-content/60 mb-4">
+            {saved_count} new scores added, {updated_count} scores updated.
+        </p>
+        <button type="button" class="btn btn-primary" onclick="modal_import.close(); location.reload();">
+            Done
+        </button>
+    </div>
+    '''
+
+    return HttpResponse(html)
+
+
+@login_required
+def class_students(request, class_id):
+    """Form teacher view to manage students in their homeroom class."""
+    from academics.models import Class, ClassSubject, StudentSubjectEnrollment
+    from students.models import Student
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        messages.error(request, 'This page is only accessible to teachers.')
+        return redirect('core:index')
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+
+    # Must be the form teacher (class teacher) of this class
+    if class_obj.class_teacher != teacher:
+        messages.error(request, 'You are not the form teacher for this class.')
+        return redirect('core:my_classes')
+
+    current_term = Term.get_current()
+
+    # Get students in this class
+    students = Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('last_name', 'first_name')
+
+    # Get class subjects (for elective enrollment)
+    class_subjects = ClassSubject.objects.filter(
+        class_assigned=class_obj
+    ).select_related('subject', 'teacher').order_by('-subject__is_core', 'subject__name')
+
+    core_subjects = [cs for cs in class_subjects if cs.subject.is_core]
+    elective_subjects = [cs for cs in class_subjects if not cs.subject.is_core]
+
+    # Get enrollment data for each student
+    students_data = []
+    for student in students:
+        enrollments = StudentSubjectEnrollment.objects.filter(
+            student=student,
+            class_subject__class_assigned=class_obj,
+            is_active=True
+        ).select_related('class_subject__subject')
+
+        enrolled_subjects = [e.class_subject.subject for e in enrollments]
+        enrolled_electives = [e for e in enrollments if not e.class_subject.subject.is_core]
+        enrolled_elective_ids = [e.class_subject_id for e in enrolled_electives]
+
+        students_data.append({
+            'student': student,
+            'enrolled_subjects_count': len(enrolled_subjects),
+            'enrolled_electives': [e.class_subject.subject for e in enrolled_electives],
+            'enrolled_elective_ids': enrolled_elective_ids,
+        })
+
+    # Get students available for enrollment (not in any class)
+    available_students = Student.objects.filter(
+        status='active',
+        current_class__isnull=True
+    ).order_by('last_name', 'first_name')[:50]
+
+    context = {
+        'teacher': teacher,
+        'class_obj': class_obj,
+        'current_term': current_term,
+        'students_data': students_data,
+        'student_count': len(students_data),
+        'core_subjects': core_subjects,
+        'elective_subjects': elective_subjects,
+        'available_students': available_students,
+    }
+
+    return htmx_render(
+        request,
+        'core/teacher/class_students.html',
+        'core/teacher/partials/class_students_content.html',
+        context
+    )
+
+
+@login_required
+def enroll_student(request, class_id):
+    """Enroll a student into a class (form teacher only)."""
+    from academics.models import Class, ClassSubject, StudentSubjectEnrollment
+    from students.models import Student
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        return HttpResponse('<div class="alert alert-error">Permission denied.</div>', status=403)
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+
+    # Must be the form teacher
+    if class_obj.class_teacher != teacher:
+        return HttpResponse('<div class="alert alert-error">You are not the form teacher for this class.</div>', status=403)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    student_id = request.POST.get('student_id')
+    if not student_id:
+        return HttpResponse('<div class="alert alert-error">No student selected.</div>', status=400)
+
+    student = get_object_or_404(Student, pk=student_id)
+
+    # Check if student already in a class
+    if student.current_class:
+        return HttpResponse(f'<div class="alert alert-warning">Student is already in {student.current_class.name}.</div>', status=400)
+
+    # Enroll student in the class
+    student.current_class = class_obj
+    student.save()
+
+    # Auto-enroll in core subjects
+    StudentSubjectEnrollment.enroll_student_in_core_subjects(student, class_obj, enrolled_by=teacher)
+
+    # Return success response with redirect trigger
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = 'studentEnrolled'
+    return response
+
+
+@login_required
+def remove_student(request, class_id, student_id):
+    """Remove a student from a class (form teacher only)."""
+    from academics.models import Class, StudentSubjectEnrollment
+    from students.models import Student
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        return HttpResponse('<div class="alert alert-error">Permission denied.</div>', status=403)
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+
+    # Must be the form teacher
+    if class_obj.class_teacher != teacher:
+        return HttpResponse('<div class="alert alert-error">You are not the form teacher for this class.</div>', status=403)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    student = get_object_or_404(Student, pk=student_id)
+
+    # Check if student is in this class
+    if student.current_class != class_obj:
+        return HttpResponse('<div class="alert alert-error">Student is not in this class.</div>', status=400)
+
+    # Remove subject enrollments
+    StudentSubjectEnrollment.objects.filter(
+        student=student,
+        class_subject__class_assigned=class_obj
+    ).update(is_active=False)
+
+    # Remove from class
+    student.current_class = None
+    student.save()
+
+    # Return success response with refresh trigger
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = 'studentRemoved'
+    return response
+
+
+@login_required
+def update_student_electives(request, class_id, student_id):
+    """Update elective subject enrollments for a student."""
+    from academics.models import Class, ClassSubject, StudentSubjectEnrollment
+    from students.models import Student
+    from teachers.models import Teacher
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        return HttpResponse('<div class="alert alert-error">Permission denied.</div>', status=403)
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+
+    # Must be the form teacher
+    if class_obj.class_teacher != teacher:
+        return HttpResponse('<div class="alert alert-error">You are not the form teacher for this class.</div>', status=403)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    student = get_object_or_404(Student, pk=student_id)
+
+    # Check if student is in this class
+    if student.current_class != class_obj:
+        return HttpResponse('<div class="alert alert-error">Student is not in this class.</div>', status=400)
+
+    # Get selected elective IDs
+    selected_elective_ids = request.POST.getlist('electives')
+
+    # Get all elective class subjects for this class
+    elective_class_subjects = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        subject__is_core=False
+    )
+
+    # Update enrollments
+    for class_subject in elective_class_subjects:
+        should_be_enrolled = str(class_subject.id) in selected_elective_ids
+
+        if should_be_enrolled:
+            # Create or reactivate enrollment
+            enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
+                student=student,
+                class_subject=class_subject,
+                defaults={
+                    'enrolled_by': teacher,
+                    'is_active': True
+                }
+            )
+            if not created and not enrollment.is_active:
+                enrollment.is_active = True
+                enrollment.save()
+        else:
+            # Deactivate enrollment
+            StudentSubjectEnrollment.objects.filter(
+                student=student,
+                class_subject=class_subject
+            ).update(is_active=False)
+
+    # Return success response
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = 'electivesUpdated'
+    return response
 
 
 # Student views

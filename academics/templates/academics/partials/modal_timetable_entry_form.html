@@ -1,0 +1,105 @@
+{% load core_tags %}
+
+<h3 class="font-bold text-lg mb-4">
+    <i class="fa-solid fa-calendar-plus text-primary"></i>
+    Add Timetable Entry
+</h3>
+
+<form hx-post="{% url 'academics:timetable_entry_create' class_obj.pk %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML"
+      class="space-y-4">
+    {% csrf_token %}
+
+    <!-- Subject -->
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text font-medium">Subject</span>
+        </label>
+        <select name="class_subject" class="select select-bordered w-full" required>
+            <option value="">Select a subject...</option>
+            {% for cs in form.fields.class_subject.queryset %}
+            <option value="{{ cs.pk }}" {% if form.class_subject.value == cs.pk|stringformat:"s" %}selected{% endif %}>
+                {{ cs.subject.name }} ({% if cs.teacher %}{{ cs.teacher.full_name }}{% else %}No teacher{% endif %})
+            </option>
+            {% endfor %}
+        </select>
+        {% if form.class_subject.errors %}
+        <label class="label">
+            <span class="label-text-alt text-error">{{ form.class_subject.errors.0 }}</span>
+        </label>
+        {% endif %}
+    </div>
+
+    <!-- Day -->
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text font-medium">Day</span>
+        </label>
+        <select name="weekday" class="select select-bordered w-full" required>
+            <option value="">Select a day...</option>
+            {% for day_num, day_name in weekdays %}
+            <option value="{{ day_num }}" {% if form.weekday.value == day_num|stringformat:"s" %}selected{% endif %}>
+                {{ day_name }}
+            </option>
+            {% endfor %}
+        </select>
+        {% if form.weekday.errors %}
+        <label class="label">
+            <span class="label-text-alt text-error">{{ form.weekday.errors.0 }}</span>
+        </label>
+        {% endif %}
+    </div>
+
+    <!-- Period -->
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text font-medium">Period</span>
+        </label>
+        <select name="period" class="select select-bordered w-full" required>
+            <option value="">Select a period...</option>
+            {% for period in form.fields.period.queryset %}
+            <option value="{{ period.pk }}" {% if form.period.value == period.pk|stringformat:"s" %}selected{% endif %}>
+                {{ period.name }} ({{ period.start_time|time:"g:i A" }} - {{ period.end_time|time:"g:i A" }})
+            </option>
+            {% endfor %}
+        </select>
+        {% if form.period.errors %}
+        <label class="label">
+            <span class="label-text-alt text-error">{{ form.period.errors.0 }}</span>
+        </label>
+        {% endif %}
+    </div>
+
+    <!-- Double Period -->
+    <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-3">
+            <input type="checkbox" name="is_double" class="checkbox checkbox-primary"
+                   {% if form.is_double.value %}checked{% endif %}>
+            <div>
+                <span class="label-text font-medium">Double Period</span>
+                <p class="text-xs text-base-content/50">Lesson spans two consecutive periods</p>
+            </div>
+        </label>
+        {% if form.is_double.errors %}
+        <label class="label">
+            <span class="label-text-alt text-error">{{ form.is_double.errors.0 }}</span>
+        </label>
+        {% endif %}
+    </div>
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>{{ form.non_field_errors.0 }}</span>
+    </div>
+    {% endif %}
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="modal_form.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i>
+            Add Entry
+        </button>
+    </div>
+</form>

@@ -20,41 +20,58 @@
 </div>
 
 <!-- Stats -->
-<div class="stats stats-vertical lg:stats-horizontal shadow-sm border border-base-200 w-full mb-6">
-    <div class="stat">
-        <div class="stat-figure text-primary">
-            <i class="fa-solid fa-clock text-2xl"></i>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ stats.total_periods }}</div>
+                    <div class="text-xs text-base-content/60">Periods/Week</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Periods</div>
-        <div class="stat-value text-primary">{{ stats.total_periods }}</div>
-        <div class="stat-desc">Per week</div>
     </div>
-
-    <div class="stat">
-        <div class="stat-figure text-secondary">
-            <i class="fa-solid fa-chalkboard text-2xl"></i>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chalkboard text-secondary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-secondary">{{ stats.classes_taught|default:0 }}</div>
+                    <div class="text-xs text-base-content/60">Classes</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Classes</div>
-        <div class="stat-value text-secondary">{{ stats.classes_taught|default:0 }}</div>
-        <div class="stat-desc">Teaching</div>
     </div>
-
-    <div class="stat">
-        <div class="stat-figure text-accent">
-            <i class="fa-solid fa-calendar-day text-2xl"></i>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                    <i class="fa-solid fa-calendar-day text-accent text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-accent">{{ periods|length }}</div>
+                    <div class="text-xs text-base-content/60">Time Slots</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Time Slots</div>
-        <div class="stat-value text-accent">{{ periods|length }}</div>
-        <div class="stat-desc">Available</div>
     </div>
-
-    <div class="stat">
-        <div class="stat-figure text-info">
-            <i class="fa-solid fa-calendar-week text-2xl"></i>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-calendar-week text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-info">5</div>
+                    <div class="text-xs text-base-content/60">Days/Week</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Days</div>
-        <div class="stat-value text-info">5</div>
-        <div class="stat-desc">Per week</div>
     </div>
 </div>
 

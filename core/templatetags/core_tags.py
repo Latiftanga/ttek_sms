@@ -35,7 +35,12 @@ NAVIGATION_CONFIG = [
             {
                 'label': 'Classes',
                 'icon': 'fa-solid fa-chalkboard',
-                'url_name': 'academics:index',
+                'url_name': 'academics:classes',
+            },
+            {
+                'label': 'Timetable',
+                'icon': 'fa-solid fa-calendar-days',
+                'url_name': 'academics:timetable',
             },
             {
                 'label': 'Attendance',
@@ -93,6 +98,12 @@ NAVIGATION_CONFIG = [
     },
     # Teacher navigation
     {
+        'label': 'My Classes',
+        'icon': 'fa-solid fa-chalkboard-user',
+        'url_name': 'core:my_classes',
+        'roles': ['teacher'],
+    },
+    {
         'label': 'Schedule',
         'icon': 'fa-solid fa-calendar-days',
         'url_name': 'core:schedule',
@@ -101,13 +112,13 @@ NAVIGATION_CONFIG = [
     {
         'label': 'Attendance',
         'icon': 'fa-solid fa-clipboard-user',
-        'url_name': 'academics:attendance_reports',
+        'url_name': 'core:my_attendance',
         'roles': ['teacher'],
     },
     {
         'label': 'Grading',
         'icon': 'fa-solid fa-pen-to-square',
-        'url_name': 'gradebook:score_entry',
+        'url_name': 'core:my_grading',
         'roles': ['teacher'],
     },
     # Student navigation
@@ -405,3 +416,484 @@ def get_item(dictionary, key):
     if dictionary is None:
         return None
     return dictionary.get(key)
+
+
+@register.filter
+def get_category_score(grade, category):
+    """
+    Get the score for a specific category from SubjectTermGrade.category_scores.
+    Usage: {{ grade|get_category_score:cat }}
+
+    Args:
+        grade: SubjectTermGrade object with category_scores JSONField
+        category: AssessmentCategory object
+
+    Returns:
+        The score for that category, or None if not found
+    """
+    if grade is None or category is None:
+        return None
+
+    category_scores = getattr(grade, 'category_scores', None)
+    if not category_scores:
+        return None
+
+    # Look up by category primary key (stored as string in JSON)
+    cat_id = str(category.pk)
+    cat_data = category_scores.get(cat_id)
+
+    if cat_data and isinstance(cat_data, dict):
+        score = cat_data.get('score')
+        if score is not None:
+            return round(score, 1)
+
+    return None
+
+
+# =============================================================================
+# Form Input Template Tags
+# =============================================================================
+
+@register.inclusion_tag('core/partials/inputs/text_input.html')
+def text_input(name, value='', label=None, placeholder='', required=False,
+               disabled=False, readonly=False, help_text='', error='',
+               input_class='', icon=None, size='md'):
+    """
+    Render a text input field with DaisyUI styling.
+
+    Usage:
+        {% text_input "username" value=form_value label="Username" placeholder="Enter username" %}
+        {% text_input "email" label="Email" icon="fa-solid fa-envelope" required=True %}
+    """
+    return {
+        'name': name,
+        'value': value,
+        'label': label,
+        'placeholder': placeholder,
+        'required': required,
+        'disabled': disabled,
+        'readonly': readonly,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'icon': icon,
+        'size': size,
+        'input_type': 'text',
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/text_input.html')
+def email_input(name, value='', label=None, placeholder='', required=False,
+                disabled=False, readonly=False, help_text='', error='',
+                input_class='', icon='fa-solid fa-envelope', size='md'):
+    """Render an email input field."""
+    return {
+        'name': name,
+        'value': value,
+        'label': label,
+        'placeholder': placeholder or 'Enter email address',
+        'required': required,
+        'disabled': disabled,
+        'readonly': readonly,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'icon': icon,
+        'size': size,
+        'input_type': 'email',
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/text_input.html')
+def password_input(name, value='', label=None, placeholder='', required=False,
+                   disabled=False, help_text='', error='', input_class='',
+                   icon='fa-solid fa-lock', size='md'):
+    """Render a password input field."""
+    return {
+        'name': name,
+        'value': value,
+        'label': label,
+        'placeholder': placeholder or 'Enter password',
+        'required': required,
+        'disabled': disabled,
+        'readonly': False,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'icon': icon,
+        'size': size,
+        'input_type': 'password',
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/text_input.html')
+def number_input(name, value='', label=None, placeholder='', required=False,
+                 disabled=False, readonly=False, help_text='', error='',
+                 input_class='', icon=None, size='md', min=None, max=None, step=None):
+    """Render a number input field."""
+    return {
+        'name': name,
+        'value': value,
+        'label': label,
+        'placeholder': placeholder,
+        'required': required,
+        'disabled': disabled,
+        'readonly': readonly,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'icon': icon,
+        'size': size,
+        'input_type': 'number',
+        'min': min,
+        'max': max,
+        'step': step,
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/text_input.html')
+def phone_input(name, value='', label=None, placeholder='', required=False,
+                disabled=False, readonly=False, help_text='', error='',
+                input_class='', icon='fa-solid fa-phone', size='md'):
+    """Render a phone input field."""
+    return {
+        'name': name,
+        'value': value,
+        'label': label,
+        'placeholder': placeholder or 'Enter phone number',
+        'required': required,
+        'disabled': disabled,
+        'readonly': readonly,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'icon': icon,
+        'size': size,
+        'input_type': 'tel',
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/textarea_input.html')
+def textarea_input(name, value='', label=None, placeholder='', required=False,
+                   disabled=False, readonly=False, help_text='', error='',
+                   input_class='', rows=4, size='md'):
+    """
+    Render a textarea field with DaisyUI styling.
+
+    Usage:
+        {% textarea_input "description" label="Description" rows=5 %}
+    """
+    return {
+        'name': name,
+        'value': value,
+        'label': label,
+        'placeholder': placeholder,
+        'required': required,
+        'disabled': disabled,
+        'readonly': readonly,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'rows': rows,
+        'size': size,
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/select_input.html')
+def select_input(name, options, value='', label=None, required=False,
+                 disabled=False, help_text='', error='', input_class='',
+                 placeholder='Select an option', size='md', icon=None):
+    """
+    Render a select dropdown with DaisyUI styling.
+
+    Usage:
+        {% select_input "status" options=status_choices value=current_status label="Status" %}
+
+    Options should be a list of tuples: [(value, label), ...]
+    Or a list of dicts: [{'value': 'x', 'label': 'X'}, ...]
+    """
+    # Normalize options to list of dicts
+    normalized_options = []
+    for opt in options:
+        if isinstance(opt, (list, tuple)):
+            normalized_options.append({'value': opt[0], 'label': opt[1]})
+        elif isinstance(opt, dict):
+            normalized_options.append(opt)
+        else:
+            normalized_options.append({'value': opt, 'label': str(opt)})
+
+    return {
+        'name': name,
+        'options': normalized_options,
+        'value': str(value) if value is not None else '',
+        'label': label,
+        'required': required,
+        'disabled': disabled,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'placeholder': placeholder,
+        'size': size,
+        'icon': icon,
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/date_input.html')
+def date_input(name, value='', label=None, required=False, disabled=False,
+               readonly=False, help_text='', error='', input_class='',
+               min=None, max=None, size='md'):
+    """
+    Render a date input field with DaisyUI styling.
+
+    Usage:
+        {% date_input "birth_date" label="Date of Birth" required=True %}
+    """
+    return {
+        'name': name,
+        'value': value,
+        'label': label,
+        'required': required,
+        'disabled': disabled,
+        'readonly': readonly,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'min': min,
+        'max': max,
+        'size': size,
+        'input_type': 'date',
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/date_input.html')
+def time_input(name, value='', label=None, required=False, disabled=False,
+               readonly=False, help_text='', error='', input_class='',
+               min=None, max=None, size='md'):
+    """Render a time input field with DaisyUI styling."""
+    return {
+        'name': name,
+        'value': value,
+        'label': label,
+        'required': required,
+        'disabled': disabled,
+        'readonly': readonly,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'min': min,
+        'max': max,
+        'size': size,
+        'input_type': 'time',
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/date_input.html')
+def datetime_input(name, value='', label=None, required=False, disabled=False,
+                   readonly=False, help_text='', error='', input_class='',
+                   min=None, max=None, size='md'):
+    """Render a datetime input field with DaisyUI styling."""
+    return {
+        'name': name,
+        'value': value,
+        'label': label,
+        'required': required,
+        'disabled': disabled,
+        'readonly': readonly,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'min': min,
+        'max': max,
+        'size': size,
+        'input_type': 'datetime-local',
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/file_input.html')
+def file_input(name, label=None, required=False, disabled=False,
+               help_text='', error='', input_class='', accept='',
+               multiple=False, size='md'):
+    """
+    Render a file input field with DaisyUI styling.
+
+    Usage:
+        {% file_input "photo" label="Profile Photo" accept="image/*" %}
+        {% file_input "documents" label="Documents" multiple=True %}
+    """
+    return {
+        'name': name,
+        'label': label,
+        'required': required,
+        'disabled': disabled,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'accept': accept,
+        'multiple': multiple,
+        'size': size,
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/checkbox_input.html')
+def checkbox_input(name, checked=False, label=None, required=False,
+                   disabled=False, help_text='', error='', input_class='',
+                   value='true', size='md', color='primary'):
+    """
+    Render a checkbox input with DaisyUI styling.
+
+    Usage:
+        {% checkbox_input "agree_terms" label="I agree to the terms" required=True %}
+    """
+    return {
+        'name': name,
+        'checked': checked,
+        'label': label,
+        'required': required,
+        'disabled': disabled,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'value': value,
+        'size': size,
+        'color': color,
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/toggle_input.html')
+def toggle_input(name, checked=False, label=None, required=False,
+                 disabled=False, help_text='', error='', input_class='',
+                 value='true', size='md', color='primary'):
+    """
+    Render a toggle switch with DaisyUI styling.
+
+    Usage:
+        {% toggle_input "is_active" label="Active" checked=True %}
+    """
+    return {
+        'name': name,
+        'checked': checked,
+        'label': label,
+        'required': required,
+        'disabled': disabled,
+        'help_text': help_text,
+        'error': error,
+        'input_class': input_class,
+        'value': value,
+        'size': size,
+        'color': color,
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/radio_group.html')
+def radio_group(name, options, value='', label=None, required=False,
+                disabled=False, help_text='', error='', inline=False,
+                size='md', color='primary'):
+    """
+    Render a group of radio buttons with DaisyUI styling.
+
+    Usage:
+        {% radio_group "gender" options=gender_choices value=selected label="Gender" %}
+    """
+    normalized_options = []
+    for opt in options:
+        if isinstance(opt, (list, tuple)):
+            normalized_options.append({'value': opt[0], 'label': opt[1]})
+        elif isinstance(opt, dict):
+            normalized_options.append(opt)
+        else:
+            normalized_options.append({'value': opt, 'label': str(opt)})
+
+    return {
+        'name': name,
+        'options': normalized_options,
+        'value': str(value) if value is not None else '',
+        'label': label,
+        'required': required,
+        'disabled': disabled,
+        'help_text': help_text,
+        'error': error,
+        'inline': inline,
+        'size': size,
+        'color': color,
+    }
+
+
+@register.inclusion_tag('core/partials/inputs/search_input.html')
+def search_input(name='search', value='', placeholder='Search...',
+                 input_class='', size='md', autofocus=False):
+    """
+    Render a search input with DaisyUI styling.
+
+    Usage:
+        {% search_input placeholder="Search students..." %}
+    """
+    return {
+        'name': name,
+        'value': value,
+        'placeholder': placeholder,
+        'input_class': input_class,
+        'size': size,
+        'autofocus': autofocus,
+    }
+
+
+# =============================================================================
+# Form Field Wrapper (for Django form fields)
+# =============================================================================
+
+@register.inclusion_tag('core/partials/inputs/form_field.html')
+def form_field(field, label=None, help_text=None, icon=None, size='md'):
+    """
+    Render a Django form field with consistent DaisyUI styling.
+
+    Usage:
+        {% form_field form.username %}
+        {% form_field form.email icon="fa-solid fa-envelope" %}
+        {% form_field form.password label="Your Password" %}
+    """
+    widget_type = field.field.widget.__class__.__name__.lower()
+
+    # Determine input type
+    is_checkbox = widget_type == 'checkboxinput'
+    is_select = 'select' in widget_type
+    is_textarea = widget_type == 'textarea'
+    is_file = 'file' in widget_type
+    is_date = widget_type in ('dateinput', 'datetimeinput', 'timeinput')
+    is_radio = widget_type == 'radioselect'
+
+    # Get input type from widget attrs
+    input_type = field.field.widget.attrs.get('type', 'text')
+    if widget_type == 'dateinput':
+        input_type = 'date'
+    elif widget_type == 'timeinput':
+        input_type = 'time'
+    elif widget_type == 'datetimeinput':
+        input_type = 'datetime-local'
+
+    # Size classes
+    size_classes = {
+        'xs': 'input-xs',
+        'sm': 'input-sm',
+        'md': '',
+        'lg': 'input-lg',
+    }
+    size_class = size_classes.get(size, '')
+
+    return {
+        'field': field,
+        'label': label or field.label,
+        'help_text': help_text or field.help_text,
+        'icon': icon,
+        'size': size,
+        'size_class': size_class,
+        'widget_type': widget_type,
+        'input_type': input_type,
+        'is_checkbox': is_checkbox,
+        'is_select': is_select,
+        'is_textarea': is_textarea,
+        'is_file': is_file,
+        'is_date': is_date,
+        'is_radio': is_radio,
+        'errors': field.errors,
+        'required': field.field.required,
+    }

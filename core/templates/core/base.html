@@ -342,7 +342,7 @@
             <p class="py-4 text-base-content/70" id="confirm-message">Are you sure?</p>
             <div class="modal-action justify-center">
                 <button type="button" class="btn" id="confirm-cancel">Cancel</button>
-                <button type="button" class="btn btn-error" id="confirm-ok">Delete</button>
+                <button type="button" class="btn btn-error" id="confirm-ok">Confirm</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop">
@@ -365,10 +365,11 @@
         // Update sidebar active state on HTMX navigation
         function updateSidebarActive() {
             const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('#desktop-nav a, #mobile-nav a');
+            // Select all nav links in both sidebars (including Settings links)
+            const navLinks = document.querySelectorAll('.desktop-sidebar a[href], .drawer-side a[href]');
 
             // Find the best matching link for current path
-            let bestMatch = null;
+            let bestMatches = [];
             let bestMatchLength = 0;
 
             navLinks.forEach(link => {
@@ -376,19 +377,23 @@
                 if (!href || href === '#') return;
 
                 const hrefBase = href.replace(/\/$/, '');
+                const currentPathBase = currentPath.replace(/\/$/, '');
                 let isMatch = false;
 
                 if (href === '/' || currentPath === '/') {
-                    isMatch = currentPath === href;
+                    isMatch = currentPathBase === hrefBase;
                 } else {
-                    isMatch = currentPath === href ||
-                              currentPath.replace(/\/$/, '') === hrefBase ||
+                    isMatch = currentPathBase === hrefBase ||
                               currentPath.startsWith(hrefBase + '/');
                 }
 
-                if (isMatch && href.length > bestMatchLength) {
-                    bestMatch = link;
-                    bestMatchLength = href.length;
+                if (isMatch) {
+                    if (href.length > bestMatchLength) {
+                        bestMatches = [link];
+                        bestMatchLength = href.length;
+                    } else if (href.length === bestMatchLength) {
+                        bestMatches.push(link);
+                    }
                 }
             });
 
@@ -397,20 +402,21 @@
                 link.classList.remove('active');
             });
 
-            // Apply active class to best match and open parent details
-            if (bestMatch) {
-                bestMatch.classList.add('active');
+            // Apply active class to best matches (both desktop and mobile)
+            bestMatches.forEach(match => {
+                match.classList.add('active');
 
                 // Open parent details element if link is inside one
-                const parentDetails = bestMatch.closest('details');
+                const parentDetails = match.closest('details');
                 if (parentDetails) {
                     parentDetails.setAttribute('open', '');
                 }
-            }
+            });
         }
 
-        // Update on HTMX navigation
+        // Update on HTMX navigation and page load
         document.body.addEventListener('htmx:pushedIntoHistory', updateSidebarActive);
+        document.addEventListener('DOMContentLoaded', updateSidebarActive);
 
         // Custom confirm dialog
         const confirmDialog = document.getElementById('confirm-dialog');

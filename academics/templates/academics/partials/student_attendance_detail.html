@@ -1,0 +1,135 @@
+<!-- Student Attendance Detail Modal Content -->
+<div class="space-y-4">
+    <!-- Student Header -->
+    <div class="flex items-center gap-4 pb-4 border-b border-base-200">
+        <div class="avatar placeholder">
+            <div class="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <span class="text-xl font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+            </div>
+        </div>
+        <div>
+            <h3 class="text-lg font-bold">{{ student.full_name }}</h3>
+            <p class="text-sm text-base-content/60">{{ student.admission_number }}</p>
+            {% if student.current_class %}
+            <span class="badge badge-ghost badge-sm mt-1">{{ student.current_class.name }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div class="stat bg-base-200 rounded-lg p-3">
+            <div class="stat-title text-xs">Total</div>
+            <div class="stat-value text-lg">{{ stats.total }}</div>
+        </div>
+        <div class="stat bg-success/10 rounded-lg p-3">
+            <div class="stat-title text-xs">Present</div>
+            <div class="stat-value text-lg text-success">{{ stats.present }}</div>
+        </div>
+        <div class="stat bg-error/10 rounded-lg p-3">
+            <div class="stat-title text-xs">Absent</div>
+            <div class="stat-value text-lg text-error">{{ stats.absent }}</div>
+        </div>
+        <div class="stat bg-warning/10 rounded-lg p-3">
+            <div class="stat-title text-xs">Late</div>
+            <div class="stat-value text-lg text-warning">{{ stats.late }}</div>
+        </div>
+        <div class="stat bg-primary/10 rounded-lg p-3">
+            <div class="stat-title text-xs">Rate</div>
+            <div class="stat-value text-lg {% if stats.rate >= 80 %}text-success{% elif stats.rate >= 60 %}text-warning{% else %}text-error{% endif %}">
+                {{ stats.rate }}%
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Rate Bar -->
+    <div class="w-full bg-base-200 rounded-full h-3">
+        <div class="h-3 rounded-full {% if stats.rate >= 80 %}bg-success{% elif stats.rate >= 60 %}bg-warning{% else %}bg-error{% endif %}"
+             style="width: {{ stats.rate }}%"></div>
+    </div>
+
+    <!-- Attendance Calendar/History -->
+    <div class="mt-4">
+        <h4 class="font-semibold mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-calendar-days text-primary"></i>
+            Attendance History
+            <span class="text-xs text-base-content/50 font-normal">({{ date_from }} to {{ date_to }})</span>
+        </h4>
+
+        {% if attendance_data %}
+        <!-- Calendar Grid View -->
+        <div class="grid grid-cols-7 gap-1 mb-4">
+            <div class="text-center text-xs text-base-content/50 font-medium">Sun</div>
+            <div class="text-center text-xs text-base-content/50 font-medium">Mon</div>
+            <div class="text-center text-xs text-base-content/50 font-medium">Tue</div>
+            <div class="text-center text-xs text-base-content/50 font-medium">Wed</div>
+            <div class="text-center text-xs text-base-content/50 font-medium">Thu</div>
+            <div class="text-center text-xs text-base-content/50 font-medium">Fri</div>
+            <div class="text-center text-xs text-base-content/50 font-medium">Sat</div>
+        </div>
+
+        <!-- Recent Records Table -->
+        <div class="overflow-x-auto max-h-64">
+            <table class="table table-xs">
+                <thead class="sticky top-0 bg-base-100">
+                    <tr class="text-xs uppercase text-base-content/50">
+                        <th>Date</th>
+                        <th class="text-center">Status</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in attendance_data %}
+                    <tr class="hover">
+                        <td class="font-mono text-sm">{{ record.date }}</td>
+                        <td class="text-center">
+                            {% if record.status == 'P' %}
+                            <span class="badge badge-success badge-xs">Present</span>
+                            {% elif record.status == 'A' %}
+                            <span class="badge badge-error badge-xs">Absent</span>
+                            {% elif record.status == 'L' %}
+                            <span class="badge badge-warning badge-xs">Late</span>
+                            {% elif record.status == 'E' %}
+                            <span class="badge badge-info badge-xs">Excused</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-xs">{{ record.status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-xs text-base-content/60">{{ record.remarks|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-base-content/40">
+            <i class="fa-solid fa-calendar-xmark text-3xl mb-2"></i>
+            <p class="text-sm">No attendance records for this period</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Guardian Contact -->
+    {% if student.guardian_phone or student.guardian_email %}
+    <div class="bg-base-200 rounded-lg p-3 mt-4">
+        <h4 class="font-semibold text-sm mb-2">
+            <i class="fa-solid fa-user-tie mr-1"></i> Guardian Contact
+        </h4>
+        <div class="flex flex-wrap gap-3 text-sm">
+            {% if student.guardian_name %}
+            <span class="text-base-content/70">{{ student.guardian_name }}</span>
+            {% endif %}
+            {% if student.guardian_phone %}
+            <a href="tel:{{ student.guardian_phone }}" class="link link-primary">
+                <i class="fa-solid fa-phone mr-1"></i>{{ student.guardian_phone }}
+            </a>
+            {% endif %}
+            {% if student.guardian_email %}
+            <a href="mailto:{{ student.guardian_email }}" class="link link-primary">
+                <i class="fa-solid fa-envelope mr-1"></i>{{ student.guardian_email }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>

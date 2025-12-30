@@ -1,216 +1,250 @@
 {% load core_tags %}
 
-<!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <h1 class="text-2xl font-bold">Communications</h1>
-        <p class="text-sm text-base-content/60">Send SMS notifications to parents and guardians</p>
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-comment-sms text-white"></i>
+                </div>
+                Communications
+            </h1>
+            <p class="text-sm text-base-content/60 ml-12">Send SMS notifications to parents and guardians</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'communications:history' %}"
+               hx-get="{% url 'communications:history' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-sm btn-ghost">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                History
+            </a>
+            <a href="{% url 'communications:templates' %}"
+               hx-get="{% url 'communications:templates' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-sm btn-ghost">
+                <i class="fa-solid fa-file-lines"></i>
+                Templates
+            </a>
+        </div>
     </div>
-    <div class="flex gap-2">
-        <a href="{% url 'communications:history' %}"
-           hx-get="{% url 'communications:history' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-sm btn-ghost">
-            <i class="fa-solid fa-clock-rotate-left"></i>
-            History
-        </a>
-        <a href="{% url 'communications:templates' %}"
-           hx-get="{% url 'communications:templates' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-sm btn-ghost">
-            <i class="fa-solid fa-file-lines"></i>
-            Templates
-        </a>
-    </div>
-</div>
 
-<!-- Stats Cards -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Today</p>
-            <p class="text-2xl font-bold text-primary">{{ stats.total_today }}</p>
-            <p class="text-xs text-base-content/50">messages</p>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Sent</p>
-            <p class="text-2xl font-bold text-success">{{ stats.sent_today }}</p>
-            <p class="text-xs text-base-content/50">delivered</p>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Failed</p>
-            <p class="text-2xl font-bold text-error">{{ stats.failed_today }}</p>
-            <p class="text-xs text-base-content/50">errors</p>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4 text-center">
-            <p class="text-xs text-base-content/50 uppercase">Pending</p>
-            <p class="text-2xl font-bold text-warning">{{ stats.pending }}</p>
-            <p class="text-xs text-base-content/50">in queue</p>
-        </div>
-    </div>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Quick Actions -->
-    <div class="lg:col-span-1">
+    <!-- Stats Row -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-4">
-                <h2 class="font-bold mb-4 flex items-center gap-2">
+            <div class="card-body p-3 flex-row items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <i class="fa-solid fa-paper-plane text-primary"></i>
-                    Quick Actions
-                </h2>
-
-                <div class="space-y-3">
-                    <button class="btn btn-block btn-outline justify-start gap-3"
-                            hx-get="{% url 'communications:send_single' %}"
-                            hx-target="#modal-sms-content"
-                            onclick="modal_sms.showModal()">
-                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <i class="fa-solid fa-user text-primary"></i>
-                        </div>
-                        <div class="text-left">
-                            <div class="font-medium">Send to Individual</div>
-                            <div class="text-xs text-base-content/60">Single recipient</div>
-                        </div>
-                    </button>
-
-                    <button class="btn btn-block btn-outline justify-start gap-3"
-                            hx-get="{% url 'communications:send_to_class' %}"
-                            hx-target="#modal-sms-content"
-                            onclick="modal_sms.showModal()">
-                        <div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-                            <i class="fa-solid fa-users text-secondary"></i>
-                        </div>
-                        <div class="text-left">
-                            <div class="font-medium">Send to Class</div>
-                            <div class="text-xs text-base-content/60">All parents in a class</div>
-                        </div>
-                    </button>
-
-                    <button class="btn btn-block btn-outline btn-error justify-start gap-3"
-                            hx-get="{% url 'communications:notify_absent' %}"
-                            hx-target="#modal-sms-content"
-                            onclick="modal_sms.showModal()">
-                        <div class="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center">
-                            <i class="fa-solid fa-user-xmark text-error"></i>
-                        </div>
-                        <div class="text-left">
-                            <div class="font-medium">Notify Absent Parents</div>
-                            <div class="text-xs text-base-content/60">Today's absentees</div>
-                        </div>
-                    </button>
+                </div>
+                <div>
+                    <div class="text-xl font-bold text-primary">{{ stats.total_today }}</div>
+                    <div class="text-xs text-base-content/60">Today</div>
                 </div>
             </div>
         </div>
-
-        <!-- Templates -->
-        <div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
-            <div class="card-body p-4">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-bold flex items-center gap-2">
-                        <i class="fa-solid fa-file-lines text-accent"></i>
-                        Templates
-                    </h2>
-                    <a href="{% url 'communications:templates' %}"
-                       hx-get="{% url 'communications:templates' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-xs">
-                        Manage
-                    </a>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-3 flex-row items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-check text-success"></i>
                 </div>
-
-                {% if templates %}
-                <div class="space-y-2">
-                    {% for template in templates|slice:":3" %}
-                    <div class="p-2 rounded-lg bg-base-200/50 border border-base-200">
-                        <div class="font-medium text-sm">{{ template.name }}</div>
-                        <div class="text-xs text-base-content/60 truncate">{{ template.content|truncatechars:50 }}</div>
-                    </div>
-                    {% endfor %}
+                <div>
+                    <div class="text-xl font-bold text-success">{{ stats.sent_today }}</div>
+                    <div class="text-xs text-base-content/60">Sent</div>
                 </div>
-                {% else %}
-                <p class="text-sm text-base-content/50 text-center py-4">No templates yet</p>
-                {% endif %}
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-3 flex-row items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-xmark text-error"></i>
+                </div>
+                <div>
+                    <div class="text-xl font-bold text-error">{{ stats.failed_today }}</div>
+                    <div class="text-xs text-base-content/60">Failed</div>
+                </div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-3 flex-row items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-clock text-warning"></i>
+                </div>
+                <div>
+                    <div class="text-xl font-bold text-warning">{{ stats.pending }}</div>
+                    <div class="text-xs text-base-content/60">Pending</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Recent Messages -->
-    <div class="lg:col-span-2">
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-4">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-bold flex items-center gap-2">
-                        <i class="fa-solid fa-envelope text-info"></i>
-                        Recent Messages
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Quick Actions & Templates -->
+        <div class="lg:col-span-1 space-y-4">
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h2 class="font-bold mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-bolt text-warning"></i>
+                        Quick Actions
                     </h2>
-                    <a href="{% url 'communications:history' %}"
-                       hx-get="{% url 'communications:history' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-xs">
-                        View All
-                    </a>
+                    <div class="space-y-1">
+                        <a href="#"
+                           hx-get="{% url 'communications:send_single' %}"
+                           hx-target="#modal-sms-content"
+                           onclick="modal_sms.showModal()"
+                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-user text-primary w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm">Send to Individual</div>
+                                <div class="text-xs text-base-content/50">Single recipient</div>
+                            </div>
+                        </a>
+                        <a href="#"
+                           hx-get="{% url 'communications:send_to_class' %}"
+                           hx-target="#modal-sms-content"
+                           onclick="modal_sms.showModal()"
+                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-users text-secondary w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm">Send to Class</div>
+                                <div class="text-xs text-base-content/50">All parents in a class</div>
+                            </div>
+                        </a>
+                        <a href="#"
+                           hx-get="{% url 'communications:notify_absent' %}"
+                           hx-target="#modal-sms-content"
+                           onclick="modal_sms.showModal()"
+                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-error/10 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-user-xmark text-error w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm">Notify Absent Parents</div>
+                                <div class="text-xs text-base-content/50">Today's absentees</div>
+                            </div>
+                        </a>
+                    </div>
                 </div>
+            </div>
 
-                {% if messages %}
-                <div class="overflow-x-auto">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr class="text-xs uppercase text-base-content/60">
-                                <th>Recipient</th>
-                                <th class="hidden sm:table-cell">Type</th>
-                                <th>Status</th>
-                                <th class="hidden md:table-cell">Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for msg in messages|slice:":10" %}
-                            <tr class="hover">
-                                <td>
-                                    <div>
-                                        <div class="font-medium text-sm">{{ msg.recipient_name|default:msg.recipient_phone }}</div>
-                                        <div class="text-xs text-base-content/50 font-mono">{{ msg.recipient_phone }}</div>
-                                    </div>
-                                </td>
-                                <td class="hidden sm:table-cell">
-                                    <span class="badge badge-ghost badge-sm">{{ msg.get_message_type_display }}</span>
-                                </td>
-                                <td>
-                                    {% if msg.status == 'sent' %}
-                                    <span class="badge badge-success badge-sm">Sent</span>
-                                    {% elif msg.status == 'failed' %}
-                                    <span class="badge badge-error badge-sm">Failed</span>
-                                    {% elif msg.status == 'pending' %}
-                                    <span class="badge badge-warning badge-sm">Pending</span>
-                                    {% else %}
-                                    <span class="badge badge-ghost badge-sm">{{ msg.get_status_display }}</span>
-                                    {% endif %}
-                                </td>
-                                <td class="hidden md:table-cell text-xs text-base-content/60">
-                                    {{ msg.created_at|timesince }} ago
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <!-- Templates -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-file-lines text-accent"></i>
+                            Templates
+                        </h2>
+                        <a href="{% url 'communications:templates' %}"
+                           hx-get="{% url 'communications:templates' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-xs">
+                            Manage
+                        </a>
+                    </div>
+
+                    {% if templates %}
+                    <div class="space-y-2">
+                        {% for template in templates|slice:":3" %}
+                        <div class="p-2 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors">
+                            <div class="font-medium text-sm">{{ template.name }}</div>
+                            <div class="text-xs text-base-content/60 truncate">{{ template.content|truncatechars:40 }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-base-content/50 text-center py-4">No templates yet</p>
+                    {% endif %}
                 </div>
-                {% else %}
-                <div class="text-center py-12 text-base-content/40">
-                    <i class="fa-solid fa-envelope text-4xl mb-3"></i>
-                    <p class="text-sm">No messages sent yet</p>
-                    <p class="text-xs">Use the quick actions to send your first message</p>
+            </div>
+        </div>
+
+        <!-- Recent Messages -->
+        <div class="lg:col-span-2">
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-0">
+                    <div class="flex items-center justify-between p-4 border-b border-base-200">
+                        <h2 class="font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-envelope text-info"></i>
+                            Recent Messages
+                        </h2>
+                        <a href="{% url 'communications:history' %}"
+                           hx-get="{% url 'communications:history' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-xs">
+                            View All <i class="fa-solid fa-arrow-right text-xs ml-1"></i>
+                        </a>
+                    </div>
+
+                    {% if messages %}
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs bg-base-200">
+                                    <th>Recipient</th>
+                                    <th class="hidden sm:table-cell">Type</th>
+                                    <th>Status</th>
+                                    <th class="hidden md:table-cell">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for msg in messages|slice:":10" %}
+                                <tr class="hover">
+                                    <td>
+                                        <div class="flex items-center gap-2">
+                                            <div class="avatar placeholder">
+                                                <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center">
+                                                    <i class="fa-solid fa-user text-xs"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="font-medium text-sm">{{ msg.recipient_name|default:"Unknown" }}</div>
+                                                <div class="text-xs text-base-content/50 font-mono">{{ msg.recipient_phone }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="hidden sm:table-cell">
+                                        <span class="badge badge-ghost badge-sm">{{ msg.get_message_type_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if msg.status == 'sent' %}
+                                        <span class="badge badge-success badge-sm gap-1">
+                                            <i class="fa-solid fa-check text-xs"></i> Sent
+                                        </span>
+                                        {% elif msg.status == 'failed' %}
+                                        <span class="badge badge-error badge-sm gap-1">
+                                            <i class="fa-solid fa-xmark text-xs"></i> Failed
+                                        </span>
+                                        {% elif msg.status == 'pending' %}
+                                        <span class="badge badge-warning badge-sm gap-1">
+                                            <i class="fa-solid fa-clock text-xs"></i> Pending
+                                        </span>
+                                        {% else %}
+                                        <span class="badge badge-ghost badge-sm">{{ msg.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="hidden md:table-cell text-xs text-base-content/60">
+                                        {{ msg.created_at|timesince }} ago
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-envelope text-base-content/30 text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Messages Yet</h3>
+                        <p class="text-sm text-base-content/50 max-w-md mx-auto mt-1">
+                            Use the quick actions to send your first message
+                        </p>
+                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>

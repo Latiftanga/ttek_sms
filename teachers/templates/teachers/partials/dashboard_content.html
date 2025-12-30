@@ -30,41 +30,58 @@
 </div>
 
 <!-- Stats -->
-<div class="stats stats-vertical lg:stats-horizontal shadow-sm border border-base-200 w-full mb-6">
-    <div class="stat">
-        <div class="stat-figure text-primary">
-            <i class="fa-solid fa-chalkboard text-2xl"></i>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chalkboard text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ stats.classes_count }}</div>
+                    <div class="text-xs text-base-content/60">Classes</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Classes</div>
-        <div class="stat-value text-primary">{{ stats.classes_count }}</div>
-        <div class="stat-desc">Assigned to you</div>
     </div>
-
-    <div class="stat">
-        <div class="stat-figure text-secondary">
-            <i class="fa-solid fa-book text-2xl"></i>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-book text-secondary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-secondary">{{ stats.subjects_count }}</div>
+                    <div class="text-xs text-base-content/60">Subjects</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Subjects</div>
-        <div class="stat-value text-secondary">{{ stats.subjects_count }}</div>
-        <div class="stat-desc">Teaching this term</div>
     </div>
-
-    <div class="stat">
-        <div class="stat-figure text-accent">
-            <i class="fa-solid fa-users text-2xl"></i>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                    <i class="fa-solid fa-users text-accent text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-accent">{{ stats.total_students }}</div>
+                    <div class="text-xs text-base-content/60">Students</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Students</div>
-        <div class="stat-value text-accent">{{ stats.total_students }}</div>
-        <div class="stat-desc">Across all classes</div>
     </div>
-
-    <div class="stat">
-        <div class="stat-figure text-info">
-            <i class="fa-solid fa-clock text-2xl"></i>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-info">{{ stats.periods_today }}</div>
+                    <div class="text-xs text-base-content/60">{% if is_weekend %}Weekend{% else %}Today{% endif %}</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Today</div>
-        <div class="stat-value text-info">{{ stats.periods_today }}</div>
-        <div class="stat-desc">{% if is_weekend %}Weekend{% else %}Periods scheduled{% endif %}</div>
     </div>
 </div>
 
@@ -133,8 +150,8 @@
                             </div>
 
                             {% if entry.is_current %}
-                            <a href="{% url 'gradebook:score_entry' %}?class={{ entry.class.pk }}&subject={{ entry.subject.pk }}"
-                               hx-get="{% url 'gradebook:score_entry' %}?class={{ entry.class.pk }}&subject={{ entry.subject.pk }}"
+                            <a href="{% url 'core:enter_scores' entry.class.pk entry.subject.pk %}"
+                               hx-get="{% url 'core:enter_scores' entry.class.pk entry.subject.pk %}"
                                hx-target="#main-content"
                                hx-push-url="true"
                                class="btn btn-primary btn-sm">
@@ -193,8 +210,8 @@
                                     </label>
                                     <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-44 border border-base-200">
                                         <li>
-                                            <a href="{% url 'gradebook:score_entry' %}?class={{ data.class.pk }}"
-                                               hx-get="{% url 'gradebook:score_entry' %}?class={{ data.class.pk }}"
+                                            <a href="{% url 'core:my_grading' %}"
+                                               hx-get="{% url 'core:my_grading' %}"
                                                hx-target="#main-content"
                                                hx-push-url="true">
                                                 <i class="fa-solid fa-pen-to-square text-primary"></i>
@@ -202,8 +219,8 @@
                                             </a>
                                         </li>
                                         <li>
-                                            <a href="{% url 'academics:attendance_reports' %}?class={{ data.class.pk }}"
-                                               hx-get="{% url 'academics:attendance_reports' %}?class={{ data.class.pk }}"
+                                            <a href="{% url 'core:my_attendance' %}?class={{ data.class.pk }}"
+                                               hx-get="{% url 'core:my_attendance' %}?class={{ data.class.pk }}"
                                                hx-target="#main-content"
                                                hx-push-url="true">
                                                 <i class="fa-solid fa-clipboard-check text-success"></i>
@@ -246,7 +263,7 @@
             </div>
         </div>
 
-        <!-- Homeroom Classes -->
+        <!-- Homeroom Classes (Form Teacher Section) -->
         {% if homeroom_classes %}
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-0">
@@ -255,33 +272,73 @@
                         <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
                             <i class="fa-solid fa-house-user text-info"></i>
                         </div>
-                        Homeroom Classes
-                        <span class="badge badge-info badge-sm">{{ homeroom_classes|length }}</span>
+                        My Homeroom Classes
+                        <span class="badge badge-info badge-sm">Form Teacher</span>
                     </h2>
                 </div>
 
                 <div class="divide-y divide-base-200">
                     {% for class in homeroom_classes %}
-                    <div class="flex items-center justify-between p-4 hover:bg-base-200/30 transition-colors">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-                                <i class="fa-solid fa-users text-info"></i>
-                            </div>
-                            <div>
-                                <div class="font-semibold">{{ class.name }}</div>
-                                <div class="text-xs text-base-content/50">
-                                    {{ class.students.count }} students enrolled
+                    <div class="p-4 hover:bg-base-200/20 transition-colors">
+                        <!-- Class Header -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-info/20 to-primary/20 flex items-center justify-center">
+                                    <i class="fa-solid fa-users text-info text-lg"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-lg">{{ class.name }}</div>
+                                    <div class="text-sm text-base-content/50">
+                                        {{ class.students.count }} students enrolled
+                                    </div>
                                 </div>
                             </div>
+                            <div class="badge badge-outline badge-info">
+                                <i class="fa-solid fa-star mr-1"></i>
+                                Form Teacher
+                            </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <a href="{% url 'academics:attendance_reports' %}?class={{ class.pk }}"
-                               hx-get="{% url 'academics:attendance_reports' %}?class={{ class.pk }}"
+
+                        <!-- Quick Actions Grid -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <!-- Attendance -->
+                            <a href="{% url 'core:my_attendance' %}?class={{ class.pk }}"
+                               hx-get="{% url 'core:my_attendance' %}?class={{ class.pk }}"
                                hx-target="#main-content"
                                hx-push-url="true"
-                               class="btn btn-ghost btn-sm">
-                                <i class="fa-solid fa-clipboard-check"></i>
-                                Attendance
+                               class="btn btn-sm btn-ghost bg-success/5 hover:bg-success/10 border border-success/20 gap-1">
+                                <i class="fa-solid fa-clipboard-check text-success"></i>
+                                <span class="hidden sm:inline">Attendance</span>
+                            </a>
+
+                            <!-- View Reports -->
+                            <a href="{% url 'gradebook:reports' %}?class={{ class.pk }}"
+                               hx-get="{% url 'gradebook:reports' %}?class={{ class.pk }}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-sm btn-ghost bg-info/5 hover:bg-info/10 border border-info/20 gap-1">
+                                <i class="fa-solid fa-file-lines text-info"></i>
+                                <span class="hidden sm:inline">Reports</span>
+                            </a>
+
+                            <!-- Enter Remarks -->
+                            <a href="{% url 'gradebook:bulk_remarks' class.pk %}"
+                               hx-get="{% url 'gradebook:bulk_remarks' class.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-sm btn-ghost bg-warning/5 hover:bg-warning/10 border border-warning/20 gap-1">
+                                <i class="fa-solid fa-comment-dots text-warning"></i>
+                                <span class="hidden sm:inline">Remarks</span>
+                            </a>
+
+                            <!-- Distribute Reports -->
+                            <a href="{% url 'gradebook:report_distribution' class.pk %}"
+                               hx-get="{% url 'gradebook:report_distribution' class.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-sm btn-ghost bg-primary/5 hover:bg-primary/10 border border-primary/20 gap-1">
+                                <i class="fa-solid fa-paper-plane text-primary"></i>
+                                <span class="hidden sm:inline">Distribute</span>
                             </a>
                         </div>
                     </div>
@@ -306,8 +363,8 @@
                 </h2>
 
                 <div class="space-y-2">
-                    <a href="{% url 'gradebook:score_entry' %}"
-                       hx-get="{% url 'gradebook:score_entry' %}"
+                    <a href="{% url 'core:my_grading' %}"
+                       hx-get="{% url 'core:my_grading' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
                        class="flex items-center gap-3 p-3 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/10 hover:border-primary/20 transition-all group">
@@ -321,8 +378,8 @@
                         <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
 
-                    <a href="{% url 'academics:attendance_reports' %}"
-                       hx-get="{% url 'academics:attendance_reports' %}"
+                    <a href="{% url 'core:my_attendance' %}"
+                       hx-get="{% url 'core:my_attendance' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
                        class="flex items-center gap-3 p-3 rounded-xl bg-success/5 hover:bg-success/10 border border-success/10 hover:border-success/20 transition-all group">

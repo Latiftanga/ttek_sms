@@ -93,7 +93,7 @@
                                    value="{{ scores_dict|get_item:student.pk|get_item:assign.pk|default:'' }}"
                                    {% if editing_allowed %}
                                    hx-post="{% url 'gradebook:score_save' %}"
-                                   hx-trigger="change delayed:300ms, blur"
+                                   hx-trigger="change delay:300ms, blur"
                                    hx-vals='{"student_id": "{{ student.pk }}", "assignment_id": "{{ assign.pk }}"}'
                                    hx-include="this"
                                    hx-swap="none"

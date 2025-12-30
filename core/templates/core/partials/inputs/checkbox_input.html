@@ -1,0 +1,23 @@
+{% comment %}
+Checkbox Input Component
+{% endcomment %}
+
+<label class="flex items-center gap-2 cursor-pointer">
+    <input type="checkbox"
+           name="{{ name }}"
+           id="id_{{ name }}"
+           value="{{ value|default:'true' }}"
+           {% if checked %}checked{% endif %}
+           {% if required %}required{% endif %}
+           {% if disabled %}disabled{% endif %}
+           class="checkbox checkbox-sm checkbox-{{ color|default:'primary' }} {% if error %}checkbox-error{% endif %} {{ input_class }}" />
+    {% if label %}
+    <span class="label-text">{{ label }}{% if required %} *{% endif %}</span>
+    {% endif %}
+</label>
+
+{% if error %}
+<p class="text-error text-xs mt-1">{{ error }}</p>
+{% elif help_text %}
+<p class="text-base-content/60 text-xs mt-1">{{ help_text }}</p>
+{% endif %}

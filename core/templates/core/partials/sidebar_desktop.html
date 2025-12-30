@@ -20,7 +20,8 @@
         {% include "core/partials/nav_items.html" with nav_items=nav_items is_mobile=False %}
     </ul>
 
-    <!-- Settings at bottom -->
+    <!-- Settings at bottom (admin only) -->
+    {% if user.is_superuser or user.is_school_admin %}
     <div class="p-2 border-t border-base-300 mt-auto">
         <ul class="menu p-0">
             <li>
@@ -35,4 +36,5 @@
             </li>
         </ul>
     </div>
+    {% endif %}
 </aside>

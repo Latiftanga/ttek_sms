@@ -1,0 +1,158 @@
+{% load core_tags %}
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                <a href="{% url 'gradebook:reports' %}"
+                   hx-get="{% url 'gradebook:reports' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="hover:text-primary">Reports</a>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+                <span>Remark Templates</span>
+            </div>
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-wand-magic-sparkles text-secondary"></i>
+                </div>
+                Remark Templates
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">
+                Pre-defined remark templates for class teachers to use
+            </p>
+        </div>
+
+        <button hx-get="{% url 'gradebook:remark_template_create' %}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML"
+                class="btn btn-primary gap-2">
+            <i class="fa-solid fa-plus"></i>
+            Add Template
+        </button>
+    </div>
+
+    <!-- Info Box -->
+    <div class="alert alert-info">
+        <i class="fa-solid fa-info-circle"></i>
+        <div>
+            <p class="font-medium">Placeholders</p>
+            <p class="text-sm">Use <code class="bg-base-200 px-1 rounded">{student_name}</code>,
+            <code class="bg-base-200 px-1 rounded">{average}</code>, and
+            <code class="bg-base-200 px-1 rounded">{position}</code> in your templates.
+            They will be replaced with actual student data when used.</p>
+        </div>
+    </div>
+
+    <!-- Templates by Category -->
+    <div class="space-y-6" id="templates-list">
+        {% for category_name, category_templates in templates_by_category.items %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h3 class="card-title text-lg flex items-center gap-2">
+                    {% if 'Excellent' in category_name %}
+                    <span class="badge badge-success">{{ category_name }}</span>
+                    {% elif 'Good' in category_name %}
+                    <span class="badge badge-info">{{ category_name }}</span>
+                    {% elif 'Average' in category_name %}
+                    <span class="badge badge-warning">{{ category_name }}</span>
+                    {% elif 'Needs' in category_name %}
+                    <span class="badge badge-error">{{ category_name }}</span>
+                    {% else %}
+                    <span class="badge badge-ghost">{{ category_name }}</span>
+                    {% endif %}
+                    <span class="text-sm text-base-content/60 font-normal">
+                        ({{ category_templates|length }} template{{ category_templates|length|pluralize }})
+                    </span>
+                </h3>
+
+                <div class="space-y-3 mt-4">
+                    {% for template in category_templates %}
+                    <div class="flex items-start gap-4 p-3 bg-base-200/30 rounded-lg hover:bg-base-200/50 transition-colors group">
+                        <div class="flex-1">
+                            <p class="text-sm">{{ template.content }}</p>
+                            <div class="flex items-center gap-2 mt-2 text-xs text-base-content/50">
+                                <span>Order: {{ template.order }}</span>
+                                {% if not template.is_active %}
+                                <span class="badge badge-ghost badge-xs">Inactive</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button hx-get="{% url 'gradebook:remark_template_edit' template.pk %}"
+                                    hx-target="#modal-container"
+                                    hx-swap="innerHTML"
+                                    class="btn btn-ghost btn-xs btn-square">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                            <button hx-post="{% url 'gradebook:remark_template_delete' template.pk %}"
+                                    hx-confirm="Delete this template?"
+                                    hx-swap="none"
+                                    class="btn btn-ghost btn-xs btn-square text-error">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body text-center py-12">
+                <div class="text-base-content/30 mb-4">
+                    <i class="fa-solid fa-file-lines text-5xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold">No Templates Yet</h3>
+                <p class="text-base-content/60 mb-4">
+                    Create remark templates to help teachers enter remarks quickly.
+                </p>
+                <button hx-get="{% url 'gradebook:remark_template_create' %}"
+                        hx-target="#modal-container"
+                        hx-swap="innerHTML"
+                        class="btn btn-primary btn-sm gap-2 mx-auto">
+                    <i class="fa-solid fa-plus"></i>
+                    Create First Template
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between p-4 bg-base-200/30 rounded-lg border border-base-200">
+        <a href="{% url 'gradebook:reports' %}"
+           hx-get="{% url 'gradebook:reports' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost gap-2">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back to Reports
+        </a>
+
+        <div class="text-sm text-base-content/60">
+            Total: {{ templates|length }} template{{ templates|length|pluralize }}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Container -->
+<div id="modal-container"></div>
+
+<script>
+document.addEventListener('refreshTemplates', function() {
+    htmx.ajax('GET', window.location.pathname, {
+        target: '#main-content',
+        swap: 'innerHTML'
+    });
+});
+
+document.addEventListener('closeModal', function() {
+    const modal = document.querySelector('.modal.modal-open');
+    if (modal) {
+        modal.classList.remove('modal-open');
+    }
+    document.getElementById('modal-container').innerHTML = '';
+});
+</script>

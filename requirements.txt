@@ -14,7 +14,11 @@ django-celery-beat>=2.8.1
 openpyxl>=3.1.5,<3.2.0
 pandas>=2.1.4,<2.2.0
 
+# PDF Generation
+weasyprint>=60.0
+
 # SMS Providers
+requests>=2.31.0
 africastalking>=2.0.1
 pyhubtel-sms>=0.0.1
 arkesel-python>=0.1.0

@@ -61,4 +61,21 @@ urlpatterns = [
     path('analytics/overview/', views.analytics_overview, name='analytics_overview'),
     path('analytics/class/<int:class_id>/', views.analytics_class_data, name='analytics_class'),
     path('analytics/terms/', views.analytics_term_comparison, name='analytics_terms'),
+
+    # Bulk Remarks Entry
+    path('remarks/bulk/<int:class_id>/', views.bulk_remarks_entry, name='bulk_remarks'),
+    path('remarks/save/', views.bulk_remark_save, name='bulk_remark_save'),
+    path('remarks/sign/<int:class_id>/', views.bulk_remarks_sign, name='bulk_remarks_sign'),
+
+    # Remark Templates (Admin)
+    path('remarks/templates/', views.remark_templates, name='remark_templates'),
+    path('remarks/templates/create/', views.remark_template_create, name='remark_template_create'),
+    path('remarks/templates/<uuid:pk>/edit/', views.remark_template_edit, name='remark_template_edit'),
+    path('remarks/templates/<uuid:pk>/delete/', views.remark_template_delete, name='remark_template_delete'),
+
+    # Report Distribution
+    path('reports/distribute/<int:class_id>/', views.report_distribution, name='report_distribution'),
+    path('reports/send/<int:student_id>/', views.send_single_report, name='send_single_report'),
+    path('reports/send-bulk/<int:class_id>/', views.send_bulk_reports, name='send_bulk_reports'),
+    path('reports/<int:student_id>/pdf/', views.download_report_pdf, name='download_report_pdf'),
 ]

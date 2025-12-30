@@ -6,7 +6,7 @@
 </label>
 {% elif is_date %}
 {# Date/time inputs use wrapper class pattern in DaisyUI v5 #}
-<label class="input w-full">
+<label class="input input-bordered w-full">
     <span class="label">{{ label }}</span>
     <input type="{{ input_type }}"
            name="{{ field.html_name }}"
@@ -15,7 +15,7 @@
 </label>
 {% elif is_select %}
 {# Select in DaisyUI v5 #}
-<label class="select w-full">
+<label class="select select-bordered w-full">
     <span class="label">{{ label }}</span>
     <select name="{{ field.html_name }}" {% if field.field.required %}required{% endif %}>
         {% for choice in field.field.choices %}

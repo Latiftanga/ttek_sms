@@ -24,6 +24,7 @@
         <form hx-post="{% url 'gradebook:report_remarks' student.pk %}"
               hx-swap="none"
               class="flex gap-2">
+            {% csrf_token %}
             <input type="hidden" name="remark_type" value="class_teacher">
             <textarea name="remark"
                       class="textarea textarea-bordered flex-1 {% if not can_edit_class_remark %}textarea-disabled{% endif %}"
@@ -52,6 +53,7 @@
         <form hx-post="{% url 'gradebook:report_remarks' student.pk %}"
               hx-swap="none"
               class="flex gap-2">
+            {% csrf_token %}
             <input type="hidden" name="remark_type" value="head_teacher">
             <textarea name="remark"
                       class="textarea textarea-bordered flex-1 {% if not can_edit_head_remark %}textarea-disabled{% endif %}"

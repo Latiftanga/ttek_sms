@@ -256,6 +256,34 @@ class SchoolSettings(models.Model):
     secondary_color_oklch = models.CharField(max_length=50, blank=True, editable=False)
     accent_color_oklch = models.CharField(max_length=50, blank=True, editable=False)
 
+    # SMS Configuration
+    SMS_BACKEND_CHOICES = [
+        ('console', 'Console (Development)'),
+        ('arkesel', 'Arkesel'),
+        ('hubtel', 'Hubtel'),
+        ('africastalking', "Africa's Talking"),
+    ]
+    sms_backend = models.CharField(
+        max_length=20,
+        choices=SMS_BACKEND_CHOICES,
+        default='console',
+        help_text="SMS provider to use for sending messages"
+    )
+    sms_api_key = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Arkesel API key (get from https://sms.arkesel.com/user/sms-api/info)"
+    )
+    sms_sender_id = models.CharField(
+        max_length=11,
+        blank=True,
+        help_text="Sender ID shown on SMS (max 11 characters)"
+    )
+    sms_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable SMS messaging for this school"
+    )
+
     @property
     def period_label(self):
         """Return 'Term' or 'Semester' based on setting."""

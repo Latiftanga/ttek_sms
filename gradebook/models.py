@@ -266,6 +266,22 @@ class GradeScale(models.Model):
         indexes = [
             models.Index(fields=['grading_system', 'min_percentage', 'max_percentage']),
         ]
+        constraints = [
+            # Ensure min_percentage <= max_percentage
+            models.CheckConstraint(
+                check=models.Q(min_percentage__lte=models.F('max_percentage')),
+                name='grade_scale_min_lte_max'
+            ),
+            # Ensure percentages are within 0-100 range
+            models.CheckConstraint(
+                check=models.Q(min_percentage__gte=0) & models.Q(min_percentage__lte=100),
+                name='grade_scale_min_percentage_range'
+            ),
+            models.CheckConstraint(
+                check=models.Q(max_percentage__gte=0) & models.Q(max_percentage__lte=100),
+                name='grade_scale_max_percentage_range'
+            ),
+        ]
 
 
 class AssessmentCategory(models.Model):
@@ -273,6 +289,13 @@ class AssessmentCategory(models.Model):
     School-wide assessment categories (applies to all subjects).
     e.g., Class Score (30%), Examination (70%)
     """
+    # Category types for programmatic identification
+    CATEGORY_TYPES = [
+        ('CLASS_SCORE', 'Class Score / Continuous Assessment'),
+        ('EXAM', 'Examination / Final Exam'),
+        ('OTHER', 'Other'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(
         max_length=100,
@@ -281,6 +304,12 @@ class AssessmentCategory(models.Model):
     short_name = models.CharField(
         max_length=10,
         help_text='Short code (e.g., CA, EXAM)'
+    )
+    category_type = models.CharField(
+        max_length=15,
+        choices=CATEGORY_TYPES,
+        default='OTHER',
+        help_text='Type of category for grade calculation'
     )
     percentage = models.IntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(100)],
@@ -333,6 +362,13 @@ class AssessmentCategory(models.Model):
         verbose_name = 'Assessment Category'
         verbose_name_plural = 'Assessment Categories'
         unique_together = ['name']
+        constraints = [
+            # Ensure percentage is within 0-100 range
+            models.CheckConstraint(
+                check=models.Q(percentage__gte=0) & models.Q(percentage__lte=100),
+                name='assessment_category_percentage_range'
+            ),
+        ]
 
 
 class Assignment(models.Model):
@@ -397,6 +433,13 @@ class Assignment(models.Model):
         indexes = [
             models.Index(fields=['subject', 'term', 'assessment_category']),
         ]
+        constraints = [
+            # Ensure points_possible > 0
+            models.CheckConstraint(
+                check=models.Q(points_possible__gt=0),
+                name='assignment_points_positive'
+            ),
+        ]
 
 
 class Score(models.Model):
@@ -451,6 +494,13 @@ class Score(models.Model):
         unique_together = ['student', 'assignment']
         indexes = [
             models.Index(fields=['student', 'assignment']),
+        ]
+        constraints = [
+            # Ensure points >= 0
+            models.CheckConstraint(
+                check=models.Q(points__gte=0),
+                name='score_points_non_negative'
+            ),
         ]
 
 
@@ -564,21 +614,28 @@ class SubjectTermGrade(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text='Class work/CA total percentage'
+        help_text='Class work/CA total percentage (legacy, for standard 2-category system)'
     )
     exam_score = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
-        help_text='Examination percentage'
+        help_text='Examination percentage (legacy, for standard 2-category system)'
+    )
+    # Dynamic category scores - supports any number of assessment categories
+    # Format: {"category_id": {"score": 15.5, "short_name": "CA", "name": "Class Score"}, ...}
+    category_scores = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Scores for each assessment category (supports multiple categories)'
     )
     total_score = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
-        help_text='Total percentage (class + exam)'
+        help_text='Total percentage (sum of all category scores)'
     )
 
     # Grade (looked up from GradeScale)
@@ -615,12 +672,22 @@ class SubjectTermGrade(models.Model):
         return f"{self.student} - {self.subject.name} ({self.term}): {self.total_score}%"
 
     def calculate_scores(self):
-        """Calculate scores from individual assignment scores"""
+        """Calculate scores from individual assignment scores.
+
+        Populates:
+        - category_scores: JSON with all category breakdowns
+        - class_score: Sum of CLASS_SCORE type categories (legacy)
+        - exam_score: Sum of EXAM type categories (legacy)
+        - total_score: Sum of all categories
+        """
         from django.db.models import Sum
 
-        categories = AssessmentCategory.objects.filter(is_active=True)
+        categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
         category_totals = {}
+        category_scores_json = {}
         total = Decimal('0.0')
+        class_score_total = Decimal('0.0')
+        exam_score_total = Decimal('0.0')
 
         for category in categories:
             assignments = Assignment.objects.filter(
@@ -645,12 +712,34 @@ class SubjectTermGrade(models.Model):
                     score_pct = Decimal(str(score.points)) / Decimal(str(assignment.points_possible))
                     category_total += score_pct * weight_per_assignment
 
-            category_totals[category.short_name] = round(category_total, 2)
+            rounded_total = round(category_total, 2)
+
+            # Store in JSON format for dynamic category support
+            category_scores_json[str(category.pk)] = {
+                'score': float(rounded_total),
+                'short_name': category.short_name,
+                'name': category.name,
+                'percentage': category.percentage,
+                'category_type': category.category_type,
+                'order': category.order,
+            }
+
+            # Store by short_name for backwards compatibility
+            category_totals[category.short_name] = rounded_total
             total += category_total
 
-        # Store common category scores
-        self.class_score = category_totals.get('CA', Decimal('0.0'))
-        self.exam_score = category_totals.get('EXAM', Decimal('0.0'))
+            # Aggregate by category type for legacy fields
+            if category.category_type == 'CLASS_SCORE':
+                class_score_total += category_total
+            elif category.category_type == 'EXAM':
+                exam_score_total += category_total
+
+        # Store dynamic category scores
+        self.category_scores = category_scores_json
+
+        # Store legacy fields (aggregated by category_type)
+        self.class_score = round(class_score_total, 2)
+        self.exam_score = round(exam_score_total, 2)
         self.total_score = round(total, 2)
 
         return category_totals
@@ -683,6 +772,7 @@ class SubjectTermGrade(models.Model):
         indexes = [
             models.Index(fields=['student', 'term']),
             models.Index(fields=['subject', 'term', 'total_score']),
+            models.Index(fields=['is_passing']),  # For filtering passing/failing grades
         ]
 
 
@@ -758,6 +848,59 @@ class TermReport(models.Model):
     # Remarks
     class_teacher_remark = models.TextField(blank=True)
     head_teacher_remark = models.TextField(blank=True)
+
+    # Conduct and Behavior Ratings
+    CONDUCT_CHOICES = [
+        ('A', 'Excellent'),
+        ('B', 'Very Good'),
+        ('C', 'Good'),
+        ('D', 'Fair'),
+        ('E', 'Poor'),
+    ]
+    RATING_CHOICES = [
+        ('EXCELLENT', 'Excellent'),
+        ('VERY_GOOD', 'Very Good'),
+        ('GOOD', 'Good'),
+        ('FAIR', 'Fair'),
+        ('POOR', 'Poor'),
+    ]
+
+    conduct_rating = models.CharField(
+        max_length=1,
+        choices=CONDUCT_CHOICES,
+        blank=True,
+        help_text='Overall conduct grade (A-E)'
+    )
+    attitude_rating = models.CharField(
+        max_length=10,
+        choices=RATING_CHOICES,
+        blank=True,
+        help_text='Attitude to work'
+    )
+    interest_rating = models.CharField(
+        max_length=10,
+        choices=RATING_CHOICES,
+        blank=True,
+        help_text='Interest in school activities'
+    )
+    punctuality_rating = models.CharField(
+        max_length=10,
+        choices=RATING_CHOICES,
+        blank=True,
+        help_text='Punctuality record'
+    )
+
+    # Approval tracking
+    class_teacher_signed = models.BooleanField(
+        default=False,
+        help_text='Class teacher has confirmed the remarks'
+    )
+    class_teacher_signed_at = models.DateTimeField(null=True, blank=True)
+    head_teacher_approved = models.BooleanField(
+        default=False,
+        help_text='Head teacher has approved the report'
+    )
+    head_teacher_approved_at = models.DateTimeField(null=True, blank=True)
 
     # Attendance (optional, pulled from AttendanceRecord)
     attendance_percentage = models.DecimalField(
@@ -931,4 +1074,143 @@ class TermReport(models.Model):
         indexes = [
             models.Index(fields=['term', 'average']),
             models.Index(fields=['term', 'aggregate']),
+            models.Index(fields=['term', 'position']),  # For ranking queries
+            models.Index(fields=['student', 'term']),  # For student report lookups
+        ]
+
+
+class RemarkTemplate(models.Model):
+    """Pre-defined remark templates for teachers."""
+
+    PERFORMANCE_CATEGORY = [
+        ('EXCELLENT', 'Excellent (80%+)'),
+        ('GOOD', 'Good (60-79%)'),
+        ('AVERAGE', 'Average (50-59%)'),
+        ('NEEDS_IMPROVEMENT', 'Needs Improvement (<50%)'),
+        ('GENERAL', 'General'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    category = models.CharField(
+        max_length=20,
+        choices=PERFORMANCE_CATEGORY,
+        default='GENERAL',
+        help_text='Performance category this remark applies to'
+    )
+    content = models.TextField(
+        help_text='Remark text. Use {student_name}, {average}, {position} as placeholders'
+    )
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.get_category_display()}: {self.content[:50]}..."
+
+    def render(self, context):
+        """Render template with context variables."""
+        message = self.content
+        for key, value in context.items():
+            message = message.replace(f'{{{key}}}', str(value))
+        return message
+
+    class Meta:
+        db_table = 'remark_template'
+        ordering = ['category', 'order']
+        verbose_name = 'Remark Template'
+        verbose_name_plural = 'Remark Templates'
+        indexes = [
+            models.Index(fields=['is_active', 'category']),  # For filtering active templates
+        ]
+
+
+class ReportDistributionLog(models.Model):
+    """Track report distribution to guardians via email and SMS."""
+
+    DISTRIBUTION_TYPE = [
+        ('EMAIL', 'Email with PDF'),
+        ('SMS', 'SMS Summary'),
+        ('BOTH', 'Email and SMS'),
+    ]
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('SENT', 'Sent'),
+        ('FAILED', 'Failed'),
+        ('DELIVERED', 'Delivered'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    term_report = models.ForeignKey(
+        TermReport,
+        on_delete=models.CASCADE,
+        related_name='distribution_logs'
+    )
+    distribution_type = models.CharField(
+        max_length=10,
+        choices=DISTRIBUTION_TYPE
+    )
+
+    # Email tracking
+    email_status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='PENDING'
+    )
+    email_sent_to = models.EmailField(blank=True)
+    email_sent_at = models.DateTimeField(null=True, blank=True)
+    email_error = models.TextField(blank=True)
+
+    # SMS tracking
+    sms_status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='PENDING'
+    )
+    sms_sent_to = models.CharField(max_length=20, blank=True)
+    sms_sent_at = models.DateTimeField(null=True, blank=True)
+    sms_error = models.TextField(blank=True)
+    sms_message = models.ForeignKey(
+        'communications.SMSMessage',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='report_distributions'
+    )
+
+    # Who sent it
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='report_distributions'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.term_report.student} - {self.get_distribution_type_display()} ({self.get_email_status_display()})"
+
+    @property
+    def is_successful(self):
+        """Check if distribution was successful."""
+        if self.distribution_type == 'EMAIL':
+            return self.email_status in ['SENT', 'DELIVERED']
+        elif self.distribution_type == 'SMS':
+            return self.sms_status in ['SENT', 'DELIVERED']
+        else:  # BOTH
+            return (
+                self.email_status in ['SENT', 'DELIVERED'] or
+                self.sms_status in ['SENT', 'DELIVERED']
+            )
+
+    class Meta:
+        db_table = 'report_distribution_log'
+        ordering = ['-created_at']
+        verbose_name = 'Report Distribution Log'
+        verbose_name_plural = 'Report Distribution Logs'
+        indexes = [
+            models.Index(fields=['term_report', '-created_at']),
+            models.Index(fields=['email_status']),
+            models.Index(fields=['sms_status']),
         ]

@@ -1,0 +1,378 @@
+{% load core_tags %}
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                <a href="{% url 'gradebook:reports' %}"
+                   hx-get="{% url 'gradebook:reports' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="hover:text-primary">Reports</a>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+                <span>Bulk Remarks</span>
+            </div>
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-comment-dots text-primary"></i>
+                </div>
+                {{ class_obj.name }} - Term Remarks
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">
+                {{ current_term.name }} | Enter remarks for all students
+            </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <!-- Progress indicator -->
+            <div class="flex items-center gap-2 px-4 py-2 bg-base-200 rounded-lg">
+                <div class="text-sm">
+                    <div class="font-semibold">{{ completed_count }}/{{ total_count }}</div>
+                    <div class="text-xs text-base-content/60">Completed</div>
+                </div>
+            </div>
+
+            <!-- Sign Off Button -->
+            <button hx-post="{% url 'gradebook:bulk_remarks_sign' class_obj.pk %}"
+                    hx-confirm="Sign off all remarks for this class? This confirms all entries are complete."
+                    class="btn btn-primary gap-2">
+                <i class="fa-solid fa-signature"></i>
+                Sign Off
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Content - Student Cards -->
+        <div class="lg:col-span-2 space-y-4">
+            {% for student in students %}
+            <div class="card bg-base-100 shadow-sm border border-base-200" id="student-card-{{ student.pk }}">
+                <div class="card-body p-4">
+                    <!-- Student Header -->
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                                <span class="text-sm font-bold">{{ forloop.counter }}</span>
+                            </div>
+                            <div>
+                                <div class="font-semibold">{{ student.full_name }}</div>
+                                <div class="text-xs text-base-content/50">{{ student.admission_number }}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            {% if student.term_report %}
+                            <div class="text-right">
+                                <div class="text-xs text-base-content/50">Position</div>
+                                <div class="font-bold">{{ student.term_report.position|default:"-" }}/{{ student.term_report.out_of|default:"-" }}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs text-base-content/50">Average</div>
+                                <div class="font-bold {% if student.term_report.average >= 80 %}text-success{% elif student.term_report.average >= 50 %}text-warning{% else %}text-error{% endif %}">
+                                    {{ student.term_report.average|floatformat:1|default:"-" }}%
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="badge badge-ghost">No grades yet</span>
+                            {% endif %}
+                            <span class="save-indicator hidden text-success" id="save-indicator-{{ student.pk }}">
+                                <i class="fa-solid fa-check-circle"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Ratings Row -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                        <!-- Conduct -->
+                        <label class="select select-sm">
+                            <span class="label">Conduct</span>
+                            <select hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "conduct_rating"}'
+                                    hx-trigger="change"
+                                    hx-swap="none"
+                                    name="value">
+                                <option value="">Select...</option>
+                                {% for value, label in conduct_choices %}
+                                <option value="{{ value }}" {% if student.term_report and student.term_report.conduct_rating == value %}selected{% endif %}>{{ value }} - {{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+
+                        <!-- Attitude -->
+                        <label class="select select-sm">
+                            <span class="label">Attitude</span>
+                            <select hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "attitude_rating"}'
+                                    hx-trigger="change"
+                                    hx-swap="none"
+                                    name="value">
+                                <option value="">Select...</option>
+                                {% for value, label in rating_choices %}
+                                <option value="{{ value }}" {% if student.term_report and student.term_report.attitude_rating == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+
+                        <!-- Interest -->
+                        <label class="select select-sm">
+                            <span class="label">Interest</span>
+                            <select hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "interest_rating"}'
+                                    hx-trigger="change"
+                                    hx-swap="none"
+                                    name="value">
+                                <option value="">Select...</option>
+                                {% for value, label in rating_choices %}
+                                <option value="{{ value }}" {% if student.term_report and student.term_report.interest_rating == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+
+                        <!-- Punctuality -->
+                        <label class="select select-sm">
+                            <span class="label">Punctuality</span>
+                            <select hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "punctuality_rating"}'
+                                    hx-trigger="change"
+                                    hx-swap="none"
+                                    name="value">
+                                <option value="">Select...</option>
+                                {% for value, label in rating_choices %}
+                                <option value="{{ value }}" {% if student.term_report and student.term_report.punctuality_rating == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                    </div>
+
+                    <!-- Remark Textarea -->
+                    <label class="floating-label w-full">
+                        <span>Class Teacher's Remark</span>
+                        <textarea class="textarea textarea-sm w-full remark-textarea"
+                                  rows="2"
+                                  hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                                  hx-vals='{"student_id": "{{ student.pk }}", "field": "class_teacher_remark"}'
+                                  hx-trigger="input delay:500ms"
+                                  hx-swap="none"
+                                  name="value"
+                                  placeholder="Enter remark for {{ student.first_name }}..."
+                                  data-student-id="{{ student.pk }}"
+                                  data-student-name="{{ student.first_name }}"
+                                  data-average="{% if student.term_report %}{{ student.term_report.average|floatformat:1 }}{% endif %}"
+                                  data-position="{% if student.term_report %}{{ student.term_report.position }}{% endif %}">{% if student.term_report %}{{ student.term_report.class_teacher_remark }}{% endif %}</textarea>
+                    </label>
+                </div>
+            </div>
+            {% empty %}
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body text-center py-12">
+                    <i class="fa-solid fa-users text-4xl text-base-content/30 mb-3"></i>
+                    <p class="text-base-content/50">No students found in this class</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Sidebar - Remark Templates -->
+        <div class="lg:col-span-1">
+            <div class="card bg-base-100 shadow-sm border border-base-200 sticky top-4">
+                <div class="card-body p-4">
+                    <h3 class="font-bold flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-wand-magic-sparkles text-secondary"></i>
+                        Quick Remarks
+                    </h3>
+
+                    <div class="alert alert-info py-2 mb-4">
+                        <i class="fa-solid fa-lightbulb text-sm"></i>
+                        <span class="text-xs">Click a student's remark field, then click a template to insert it.</span>
+                    </div>
+
+                    {% if templates_by_category %}
+                    <div class="space-y-3 max-h-[60vh] overflow-y-auto">
+                        {% for category, templates in templates_by_category.items %}
+                        <div class="collapse collapse-arrow bg-base-200/50 rounded-lg">
+                            <input type="checkbox" {% if forloop.first %}checked{% endif %}>
+                            <div class="collapse-title py-2 px-3 min-h-0 font-medium text-sm">
+                                {% if 'Excellent' in category %}
+                                <span class="badge badge-success badge-sm">{{ category }}</span>
+                                {% elif 'Good' in category %}
+                                <span class="badge badge-info badge-sm">{{ category }}</span>
+                                {% elif 'Average' in category %}
+                                <span class="badge badge-warning badge-sm">{{ category }}</span>
+                                {% elif 'Needs' in category %}
+                                <span class="badge badge-error badge-sm">{{ category }}</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">{{ category }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="collapse-content px-2 pb-2">
+                                <div class="space-y-1">
+                                    {% for template in templates %}
+                                    <button type="button"
+                                            class="remark-template btn btn-ghost btn-sm h-auto py-2 px-3 text-left justify-start w-full whitespace-normal leading-snug font-normal text-xs"
+                                            data-content="{{ template.content }}">
+                                        {{ template.content|truncatechars:80 }}
+                                    </button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-6 text-base-content/50">
+                        <i class="fa-solid fa-file-lines text-2xl mb-2"></i>
+                        <p class="text-sm">No templates available</p>
+                        {% if is_admin %}
+                        <a href="{% url 'gradebook:remark_templates' %}"
+                           hx-get="{% url 'gradebook:remark_templates' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-xs mt-2">
+                            Create Templates
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if is_admin %}
+                    <div class="divider my-2"></div>
+                    <a href="{% url 'gradebook:remark_templates' %}"
+                       hx-get="{% url 'gradebook:remark_templates' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm btn-block gap-2">
+                        <i class="fa-solid fa-gear"></i>
+                        Manage Templates
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Actions -->
+    <div class="flex items-center justify-between p-4 bg-base-200/30 rounded-lg border border-base-200">
+        <a href="{% url 'gradebook:reports' %}?class={{ class_obj.pk }}"
+           hx-get="{% url 'gradebook:reports' %}?class={{ class_obj.pk }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost gap-2">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back to Reports
+        </a>
+
+        <div class="flex items-center gap-4">
+            <span class="text-sm text-base-content/60">
+                <i class="fa-solid fa-cloud-arrow-up mr-1"></i>
+                Auto-saved
+            </span>
+            <a href="{% url 'gradebook:report_distribution' class_obj.pk %}"
+               hx-get="{% url 'gradebook:report_distribution' class_obj.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-secondary gap-2">
+                <i class="fa-solid fa-paper-plane"></i>
+                Distribute Reports
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // Store the active textarea globally for this page
+    window.activeRemarkTextarea = null;
+
+    function initRemarkTemplates() {
+        // Track active textarea on focus
+        document.querySelectorAll('.remark-textarea').forEach(textarea => {
+            textarea.addEventListener('focus', function() {
+                window.activeRemarkTextarea = this;
+                // Highlight the parent card
+                document.querySelectorAll('[id^="student-card-"]').forEach(c => c.classList.remove('ring-2', 'ring-primary'));
+                this.closest('[id^="student-card-"]').classList.add('ring-2', 'ring-primary');
+            });
+        });
+
+        // Handle template clicks using event delegation
+        document.querySelectorAll('.remark-template').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                let activeTextarea = window.activeRemarkTextarea;
+
+                if (!activeTextarea) {
+                    // Find the first textarea and focus it
+                    const firstTextarea = document.querySelector('.remark-textarea');
+                    if (firstTextarea) {
+                        activeTextarea = firstTextarea;
+                        window.activeRemarkTextarea = firstTextarea;
+                        firstTextarea.focus();
+                        firstTextarea.closest('[id^="student-card-"]').classList.add('ring-2', 'ring-primary');
+                    } else {
+                        return;
+                    }
+                }
+
+                let content = this.dataset.content;
+
+                // Replace placeholders with student data
+                const studentName = activeTextarea.dataset.studentName || '';
+                const average = activeTextarea.dataset.average || '';
+                const position = activeTextarea.dataset.position || '';
+
+                content = content.replace(/\{student_name\}/g, studentName);
+                content = content.replace(/\{average\}/g, average);
+                content = content.replace(/\{position\}/g, position);
+
+                // Set the textarea value
+                activeTextarea.value = content;
+
+                // Trigger HTMX auto-save by dispatching input event
+                activeTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+                // Keep focus on the textarea
+                activeTextarea.focus();
+
+                // Visual feedback - flash the button
+                this.classList.add('btn-success');
+                setTimeout(() => {
+                    this.classList.remove('btn-success');
+                }, 300);
+            });
+        });
+    }
+
+    // Initialize on page load
+    initRemarkTemplates();
+
+    // Re-initialize after HTMX swaps (for SPA navigation)
+    document.body.addEventListener('htmx:afterSettle', function(e) {
+        if (e.target.querySelector('.remark-textarea')) {
+            initRemarkTemplates();
+        }
+    });
+
+    // Show save indicator on successful save
+    document.body.addEventListener('htmx:afterRequest', function(e) {
+        if (e.detail.successful && e.detail.xhr.status === 200) {
+            try {
+                const trigger = e.detail.xhr.getResponseHeader('HX-Trigger');
+                if (trigger) {
+                    const data = JSON.parse(trigger);
+                    if (data.remarkSaved) {
+                        const studentId = data.remarkSaved.student_id;
+                        const indicator = document.getElementById('save-indicator-' + studentId);
+                        if (indicator) {
+                            indicator.classList.remove('hidden');
+                            setTimeout(() => {
+                                indicator.classList.add('hidden');
+                            }, 2000);
+                        }
+                    }
+                }
+            } catch (err) {}
+        }
+    });
+})();
+</script>

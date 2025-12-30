@@ -50,8 +50,9 @@ def index(request):
 @login_required
 def send_single(request):
     """Send SMS to a single recipient."""
+    templates = SMSTemplate.objects.filter(is_active=True)
+
     if request.method == 'GET':
-        templates = SMSTemplate.objects.filter(is_active=True)
         return render(request, 'communications/partials/modal_send_single.html', {
             'templates': templates,
         })
@@ -66,7 +67,10 @@ def send_single(request):
     if not phone or not message:
         return render(request, 'communications/partials/modal_send_single.html', {
             'error': 'Phone number and message are required.',
-            'templates': SMSTemplate.objects.filter(is_active=True),
+            'templates': templates,
+            'phone': phone,
+            'message': message,
+            'recipient_name': recipient_name,
         })
 
     # Normalize phone number (add Ghana country code if needed)
@@ -80,7 +84,10 @@ def send_single(request):
     except Exception as e:
         return render(request, 'communications/partials/modal_send_single.html', {
             'error': str(e),
-            'templates': SMSTemplate.objects.filter(is_active=True),
+            'templates': templates,
+            'phone': phone,
+            'message': message,
+            'recipient_name': recipient_name,
         })
 
     # Create SMS record
@@ -98,22 +105,27 @@ def send_single(request):
         sms.mark_sent()
     except Exception as e:
         sms.mark_failed(str(e))
+        return render(request, 'communications/partials/modal_send_single.html', {
+            'error': f'Failed to send: {str(e)}',
+            'templates': templates,
+            'phone': phone,
+            'message': message,
+            'recipient_name': recipient_name,
+        })
 
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
-
-    return redirect('communications:index')
+    # Show success state
+    return render(request, 'communications/partials/modal_send_single.html', {
+        'success': True,
+    })
 
 
 @login_required
 def send_to_class(request):
     """Send SMS to all parents in a class."""
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
+    templates = SMSTemplate.objects.filter(is_active=True)
 
     if request.method == 'GET':
-        templates = SMSTemplate.objects.filter(is_active=True)
         return render(request, 'communications/partials/modal_send_class.html', {
             'classes': classes,
             'templates': templates,
@@ -129,7 +141,9 @@ def send_to_class(request):
         return render(request, 'communications/partials/modal_send_class.html', {
             'error': 'Class and message are required.',
             'classes': classes,
-            'templates': SMSTemplate.objects.filter(is_active=True),
+            'templates': templates,
+            'selected_class': int(class_id) if class_id else None,
+            'message': message,
         })
 
     class_obj = get_object_or_404(Class, pk=class_id)
@@ -137,10 +151,12 @@ def send_to_class(request):
 
     sent_count = 0
     failed_count = 0
+    skipped_count = 0
 
     for student in students:
         phone = student.guardian_phone
         if not phone:
+            skipped_count += 1
             continue
 
         # Normalize phone
@@ -170,19 +186,63 @@ def send_to_class(request):
             sms.mark_failed(str(e))
             failed_count += 1
 
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
+    # Show success state with counts
+    return render(request, 'communications/partials/modal_send_class.html', {
+        'success': True,
+        'sent_count': sent_count,
+        'failed_count': failed_count,
+        'skipped_count': skipped_count,
+    })
 
-    return redirect('communications:index')
+
+@login_required
+def class_recipients(request):
+    """Get recipient count for a class (HTMX endpoint)."""
+    class_id = request.GET.get('class_id')
+
+    if not class_id:
+        return HttpResponse('''
+            <div class="bg-base-200 rounded-lg p-3 text-sm text-base-content/60">
+                <i class="fa-solid fa-info-circle mr-1"></i>
+                Select a class to see recipient count
+            </div>
+        ''')
+
+    try:
+        class_obj = Class.objects.get(pk=class_id)
+        students = Student.objects.filter(current_class=class_obj, status='active')
+        total_students = students.count()
+        with_phone = students.exclude(guardian_phone='').exclude(guardian_phone__isnull=True).count()
+        without_phone = total_students - with_phone
+
+        return HttpResponse(f'''
+            <div class="bg-base-200 rounded-lg p-3">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="font-medium">{class_obj.name}</span>
+                    <span class="badge badge-primary">{total_students} students</span>
+                </div>
+                <div class="flex items-center gap-4 mt-2 text-xs text-base-content/70">
+                    <span class="flex items-center gap-1">
+                        <i class="fa-solid fa-check text-success"></i>
+                        {with_phone} with phone
+                    </span>
+                    {'<span class="flex items-center gap-1 text-warning"><i class="fa-solid fa-triangle-exclamation"></i>' + str(without_phone) + ' without phone</span>' if without_phone > 0 else ''}
+                </div>
+            </div>
+        ''')
+    except Class.DoesNotExist:
+        return HttpResponse('''
+            <div class="alert alert-error py-2 text-sm">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                Class not found
+            </div>
+        ''')
 
 
 @login_required
 def notify_absent(request):
     """Notify parents of absent students."""
     today = timezone.now().date()
-    classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
 
     if request.method == 'GET':
         # Get today's absent students
@@ -229,6 +289,12 @@ def notify_absent(request):
             'date': today,
         })
 
+    if not student_ids:
+        return render(request, 'communications/partials/modal_notify_absent.html', {
+            'error': 'Please select at least one student.',
+            'date': today,
+        })
+
     sent_count = 0
     failed_count = 0
 
@@ -271,12 +337,13 @@ def notify_absent(request):
             sms.mark_failed(str(e))
             failed_count += 1
 
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
-
-    return redirect('communications:index')
+    # Show success state with counts
+    return render(request, 'communications/partials/modal_notify_absent.html', {
+        'success': True,
+        'sent_count': sent_count,
+        'failed_count': failed_count,
+        'date': today,
+    })
 
 
 @login_required

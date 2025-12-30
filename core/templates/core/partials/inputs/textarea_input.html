@@ -1,0 +1,24 @@
+{% comment %}
+Textarea Input Component
+{% endcomment %}
+
+<label class="floating-label">
+    {% if label %}
+    <span>{{ label }}{% if required %} *{% endif %}</span>
+    {% endif %}
+
+    <textarea name="{{ name }}"
+              id="id_{{ name }}"
+              placeholder="{{ placeholder }}"
+              rows="{{ rows|default:4 }}"
+              {% if required %}required{% endif %}
+              {% if disabled %}disabled{% endif %}
+              {% if readonly %}readonly{% endif %}
+              class="textarea textarea-sm {% if error %}textarea-error{% endif %} {{ input_class }}">{{ value }}</textarea>
+</label>
+
+{% if error %}
+<p class="text-error text-xs mt-1">{{ error }}</p>
+{% elif help_text %}
+<p class="text-base-content/60 text-xs mt-1">{{ help_text }}</p>
+{% endif %}

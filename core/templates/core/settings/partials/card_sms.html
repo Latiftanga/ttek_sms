@@ -1,0 +1,67 @@
+<div id="card-sms" class="card bg-base-100 shadow-sm border border-base-200 h-full">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-message text-primary text-sm"></i>
+                SMS Configuration
+            </h3>
+            <button class="btn btn-ghost btn-xs" onclick="modal_sms_settings.showModal()">
+                <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+        </div>
+
+        {% if success %}
+        {% include "core/partials/alert.html" with type="success" message=success %}
+        {% endif %}
+
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between items-center">
+                <span class="text-base-content/60">Status</span>
+                {% if school_settings.sms_enabled %}
+                <span class="badge badge-success badge-sm gap-1">
+                    <i class="fa-solid fa-circle text-[6px]"></i>
+                    Enabled
+                </span>
+                {% else %}
+                <span class="badge badge-ghost badge-sm gap-1">
+                    <i class="fa-solid fa-circle text-[6px]"></i>
+                    Disabled
+                </span>
+                {% endif %}
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Provider</span>
+                <span class="font-medium">{{ school_settings.get_sms_backend_display }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">API Key</span>
+                <span class="font-medium">
+                    {% if school_settings.sms_api_key %}
+                    <span class="text-success">Configured</span>
+                    {% else %}
+                    <span class="text-warning">Not set</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Sender ID</span>
+                <span class="font-medium font-mono text-xs">
+                    {% if school_settings.sms_sender_id %}
+                        {{ school_settings.sms_sender_id }}
+                    {% else %}
+                        <span class="text-base-content/40">(uses school name)</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        {% if school_settings.sms_enabled and not school_settings.sms_api_key %}
+        <div class="mt-3 p-2 bg-warning/10 rounded-lg border border-warning/30">
+            <p class="text-xs text-warning flex items-center gap-1">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                SMS enabled but API key not configured
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>

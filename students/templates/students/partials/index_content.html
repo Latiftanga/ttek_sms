@@ -52,13 +52,13 @@
                            name="search"
                            value="{{ search }}"
                            placeholder="Search name or admission number..."
-                           class="input input-sm w-full pl-9"
+                           class="input input-sm input-bordered w-full pl-9"
                            hx-get="{% url 'students:index' %}"
                            hx-target="#main-content"
                            hx-trigger="keyup changed delay:300ms"
                            hx-include="[name='class'], [name='status']" />
                 </div>
-                <select name="class" class="select select-sm w-auto">
+                <select name="class" class="select select-sm select-bordered w-auto">
                     <option value="">All Classes</option>
                     {% for cls in classes %}
                     <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"s" %}selected{% endif %}>
@@ -66,7 +66,7 @@
                     </option>
                     {% endfor %}
                 </select>
-                <select name="status" class="select select-sm w-auto">
+                <select name="status" class="select select-sm select-bordered w-auto">
                     <option value="">All Status</option>
                     {% for value, label in status_choices %}
                     <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>

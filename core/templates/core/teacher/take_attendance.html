@@ -1,0 +1,8 @@
+{% extends 'core/base.html' %}
+{% load core_tags %}
+
+{% block title %}Take Attendance - {{ class.name }}{% endblock %}
+
+{% block content %}
+{% include 'core/teacher/partials/take_attendance_content.html' %}
+{% endblock %}

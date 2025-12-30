@@ -57,6 +57,36 @@
 </div>
 
 {% if selected_class %}
+<!-- Action Buttons -->
+<div class="flex flex-wrap gap-2 mb-6">
+    <a href="{% url 'gradebook:bulk_remarks' selected_class.pk %}"
+       hx-get="{% url 'gradebook:bulk_remarks' selected_class.pk %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-primary gap-2">
+        <i class="fa-solid fa-comment-dots"></i>
+        Enter Remarks
+    </a>
+    <a href="{% url 'gradebook:report_distribution' selected_class.pk %}"
+       hx-get="{% url 'gradebook:report_distribution' selected_class.pk %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-secondary gap-2">
+        <i class="fa-solid fa-paper-plane"></i>
+        Distribute Reports
+    </a>
+    {% if is_admin %}
+    <a href="{% url 'gradebook:remark_templates' %}"
+       hx-get="{% url 'gradebook:remark_templates' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost gap-2">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        Manage Templates
+    </a>
+    {% endif %}
+</div>
+
 <!-- Students List -->
 <div class="card bg-base-100 shadow-sm border border-base-200">
     <div class="card-body p-4">

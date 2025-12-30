@@ -1,6 +1,36 @@
 {% load core_tags %}
 
-<h3 class="text-lg font-bold mb-4">Send SMS to Class</h3>
+<h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+    <i class="fa-solid fa-users text-secondary"></i>
+    Send SMS to Class
+</h3>
+
+{% if success %}
+<div class="text-center py-8">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
+        <i class="fa-solid fa-check text-success text-2xl"></i>
+    </div>
+    <h4 class="font-bold text-lg mb-2">Messages Sent!</h4>
+    <div class="stats stats-vertical lg:stats-horizontal shadow mb-4">
+        <div class="stat py-2 px-4">
+            <div class="stat-title text-xs">Sent</div>
+            <div class="stat-value text-success text-xl">{{ sent_count }}</div>
+        </div>
+        <div class="stat py-2 px-4">
+            <div class="stat-title text-xs">Failed</div>
+            <div class="stat-value text-error text-xl">{{ failed_count }}</div>
+        </div>
+        <div class="stat py-2 px-4">
+            <div class="stat-title text-xs">Skipped</div>
+            <div class="stat-value text-warning text-xl">{{ skipped_count }}</div>
+        </div>
+    </div>
+    <p class="text-sm text-base-content/60 mb-4">Messages have been queued for delivery.</p>
+    <button type="button" class="btn btn-primary" onclick="modal_sms.close(); location.reload();">
+        Done
+    </button>
+</div>
+{% else %}
 
 {% if error %}
 <div class="alert alert-error mb-4">
@@ -12,7 +42,9 @@
 <form method="post"
       action="{% url 'communications:send_to_class' %}"
       hx-post="{% url 'communications:send_to_class' %}"
-      hx-target="#modal-sms-content">
+      hx-target="#modal-sms-content"
+      hx-indicator="#send-class-indicator"
+      id="send-class-form">
     {% csrf_token %}
 
     <div class="space-y-4">
@@ -20,21 +52,38 @@
             <label class="label">
                 <span class="label-text">Select Class <span class="text-error">*</span></span>
             </label>
-            <select name="class_id" class="select select-bordered w-full" required>
+            <select name="class_id"
+                    class="select select-bordered w-full"
+                    required
+                    hx-get="{% url 'communications:class_recipients' %}"
+                    hx-target="#recipient-info"
+                    hx-trigger="change"
+                    hx-swap="innerHTML"
+                    hx-include="this">
                 <option value="">-- Choose a class --</option>
                 {% for class in classes %}
-                <option value="{{ class.pk }}">{{ class.name }}</option>
+                <option value="{{ class.pk }}" {% if selected_class == class.pk %}selected{% endif %}>
+                    {{ class.name }}
+                </option>
                 {% endfor %}
             </select>
+        </div>
+
+        <!-- Recipient info (loaded dynamically) -->
+        <div id="recipient-info">
+            <div class="bg-base-200 rounded-lg p-3 text-sm text-base-content/60">
+                <i class="fa-solid fa-info-circle mr-1"></i>
+                Select a class to see recipient count
+            </div>
         </div>
 
         {% if templates %}
         <div class="form-control">
             <label class="label">
-                <span class="label-text">Use Template (optional)</span>
+                <span class="label-text">Quick Template</span>
             </label>
             <select class="select select-bordered w-full"
-                    onchange="if(this.value) document.getElementById('class-message-input').value = this.value;">
+                    onchange="if(this.value) { document.getElementById('class-message-input').value = this.value; updateClassCharCount(document.getElementById('class-message-input')); }">
                 <option value="">-- Select a template --</option>
                 {% for template in templates %}
                 <option value="{{ template.content }}">{{ template.name }}</option>
@@ -49,29 +98,35 @@
             </label>
             <textarea id="class-message-input"
                       name="message"
-                      class="textarea textarea-bordered h-32"
+                      class="textarea textarea-bordered h-28"
                       placeholder="Type your message here..."
                       required
-                      oninput="updateClassCharCount(this)"></textarea>
+                      oninput="updateClassCharCount(this)">{{ message|default:'' }}</textarea>
             <label class="label">
-                <span class="label-text-alt text-base-content/50">
-                    <span id="class-char-count">0</span>/160 characters
+                <span class="label-text-alt">
+                    <span id="class-char-count" class="font-mono">0</span>/160 chars
+                    <span class="mx-1">•</span>
+                    <span id="class-sms-count" class="font-bold">1</span> SMS
+                </span>
+                <span class="label-text-alt">
+                    <span id="class-char-warning" class="text-warning hidden">Long message - may cost more</span>
                 </span>
             </label>
         </div>
 
-        <div class="bg-base-200 rounded-lg p-3 text-sm">
-            <p class="font-medium mb-1">Available placeholders:</p>
-            <div class="flex flex-wrap gap-2 text-xs">
-                <code class="badge badge-ghost">{student_name}</code>
-                <code class="badge badge-ghost">{class_name}</code>
+        <div class="bg-base-200 rounded-lg p-3">
+            <p class="font-medium text-sm mb-2">Available placeholders:</p>
+            <div class="flex flex-wrap gap-2">
+                <code class="badge badge-ghost badge-sm">{student_name}</code>
+                <code class="badge badge-ghost badge-sm">{class_name}</code>
             </div>
         </div>
     </div>
 
     <div class="modal-action">
-        <button type="button" class="btn" onclick="modal_sms.close()">Cancel</button>
-        <button type="submit" class="btn btn-primary">
+        <button type="button" class="btn btn-ghost" onclick="modal_sms.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary gap-2" id="send-class-btn">
+            <span id="send-class-indicator" class="loading loading-spinner loading-sm htmx-indicator"></span>
             <i class="fa-solid fa-paper-plane"></i>
             Send to All Parents
         </button>
@@ -81,6 +136,22 @@
 <script>
 function updateClassCharCount(textarea) {
     const count = textarea.value.length;
+    const smsCount = Math.ceil(count / 160) || 1;
     document.getElementById('class-char-count').textContent = count;
+    document.getElementById('class-sms-count').textContent = smsCount;
+
+    const warning = document.getElementById('class-char-warning');
+    if (count > 160) {
+        warning.classList.remove('hidden');
+    } else {
+        warning.classList.add('hidden');
+    }
 }
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('class-message-input');
+    if (textarea && textarea.value) updateClassCharCount(textarea);
+});
 </script>
+{% endif %}

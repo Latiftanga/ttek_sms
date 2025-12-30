@@ -1,0 +1,180 @@
+{% load core_tags %}
+<div id="my-grading-content">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'core:index' %}"
+               hx-get="{% url 'core:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Dashboard">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-pen-to-square text-white"></i>
+                </div>
+                My Grading
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            {% if current_term %}
+            <i class="fa-solid fa-calendar-day mr-1"></i>
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% if current_term.grades_locked %}
+            <span class="badge badge-warning badge-sm ml-2 gap-1">
+                <i class="fa-solid fa-lock text-xs"></i>
+                Locked
+            </span>
+            {% endif %}
+            {% else %}
+            <span class="text-warning"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No current term set</span>
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+{% if current_term.grades_locked %}
+<div class="alert alert-warning mb-6">
+    <i class="fa-solid fa-lock"></i>
+    <span>Grades are locked for this term. You can view scores but cannot make changes.</span>
+</div>
+{% endif %}
+
+{% if not current_term %}
+<div class="alert alert-warning mb-6">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>No current term is set. Please contact the administrator.</span>
+</div>
+{% else %}
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chalkboard text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ total_classes }}</div>
+                    <div class="text-xs text-base-content/60">Subjects</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-layer-group text-secondary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-secondary">{{ categories|length }}</div>
+                    <div class="text-xs text-base-content/60">Categories</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200 col-span-2">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chart-pie text-info text-xl"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="text-xs text-base-content/60 mb-1">Score Categories</div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for cat in categories %}
+                        <span class="badge badge-outline badge-sm">{{ cat.name }} ({{ cat.percentage }}%)</span>
+                        {% empty %}
+                        <span class="text-xs text-base-content/50">No categories configured</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Class/Subject Cards -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-0">
+        <div class="flex items-center justify-between p-4 border-b border-base-200">
+            <h2 class="font-bold flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-book text-primary"></i>
+                </div>
+                My Subject Assignments
+            </h2>
+        </div>
+
+        <div class="p-4">
+            {% if class_data %}
+            <div class="space-y-2">
+                {% for item in class_data %}
+                <div class="flex items-center justify-between p-3 rounded-lg bg-base-200/30 hover:bg-base-200/50 transition-colors">
+                    <!-- Subject Info -->
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                            <span class="text-xs font-bold">{{ item.subject.short_name|default:item.subject.name|slice:":2" }}</span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="font-medium text-sm truncate">{{ item.subject.name }}</div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="badge badge-ghost badge-xs">{{ item.class.name }}</span>
+                                <span class="text-xs text-base-content/50">
+                                    <i class="fa-solid fa-users text-xs mr-1"></i>{{ item.student_count }}
+                                </span>
+                                <span class="text-xs text-base-content/50">
+                                    <i class="fa-solid fa-clipboard-list text-xs mr-1"></i>{{ item.assignments }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress & Action -->
+                    <div class="flex items-center gap-3">
+                        <div class="hidden sm:flex items-center gap-2 w-24">
+                            <progress class="progress flex-1 h-2 {% if item.progress == 100 %}progress-success{% elif item.progress >= 50 %}progress-info{% elif item.progress > 0 %}progress-warning{% else %}progress-error{% endif %}" value="{{ item.progress }}" max="100"></progress>
+                            <span class="text-xs font-medium w-8 {% if item.progress == 100 %}text-success{% elif item.progress >= 50 %}text-info{% elif item.progress > 0 %}text-warning{% else %}text-error{% endif %}">{{ item.progress }}%</span>
+                        </div>
+                        <a href="{% url 'core:enter_scores' item.class.pk item.subject.pk %}"
+                           hx-get="{% url 'core:enter_scores' item.class.pk item.subject.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-primary btn-sm gap-1">
+                            <i class="fa-solid fa-pen-to-square text-xs"></i>
+                            <span class="hidden sm:inline">{% if item.progress == 0 %}Enter{% elif item.progress == 100 %}View{% else %}Continue{% endif %}</span>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                    <i class="fa-solid fa-book text-base-content/30 text-2xl"></i>
+                </div>
+                <h3 class="font-semibold text-base-content/70">No Subjects Assigned</h3>
+                <p class="text-sm text-base-content/50 max-w-md mx-auto">
+                    You don't have any subjects assigned to you yet.
+                    Subject allocations are managed by the school administrator in the
+                    Academics &rarr; Classes &rarr; Teachers/Subjects section.
+                </p>
+                {% if teacher %}
+                <p class="text-xs text-base-content/40 mt-4">
+                    <i class="fa-solid fa-info-circle mr-1"></i>
+                    Staff ID: {{ teacher.staff_id }}
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endif %}
+</div><!-- end my-grading-content -->
