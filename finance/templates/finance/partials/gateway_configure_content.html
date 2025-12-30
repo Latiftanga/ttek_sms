@@ -1,0 +1,160 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:gateway_settings' %}"
+               hx-get="{% url 'finance:gateway_settings' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-cog text-white"></i>
+                </div>
+                Configure {{ gateway.display_name }}
+            </h1>
+        </div>
+    </div>
+</div>
+
+<!-- Security Notice -->
+<div class="alert alert-warning mb-6">
+    <i class="fa-solid fa-shield-halved"></i>
+    <div>
+        <div class="font-bold">Security Reminder</div>
+        <div class="text-sm">Never share your API keys. All credentials are encrypted before storage.</div>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body">
+        <form method="post" hx-post="{% url 'finance:gateway_configure' pk=gateway.pk %}" hx-target="#main-content">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- API Keys -->
+                <div class="md:col-span-2">
+                    <h3 class="font-bold mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-key text-warning"></i>
+                        API Credentials
+                    </h3>
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Secret Key <span class="text-error">*</span></span></label>
+                    {{ form.secret_key }}
+                    <label class="label"><span class="label-text-alt">Your private/secret API key</span></label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Public Key</span></label>
+                    {{ form.public_key }}
+                    <label class="label"><span class="label-text-alt">Your public API key (if applicable)</span></label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Webhook Secret</span></label>
+                    {{ form.webhook_secret }}
+                    <label class="label"><span class="label-text-alt">For verifying webhook notifications</span></label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Merchant ID</span></label>
+                    {{ form.merchant_id }}
+                </div>
+
+                {% if gateway.name == 'FLUTTERWAVE' %}
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Encryption Key</span></label>
+                    {{ form.encryption_key }}
+                </div>
+                {% endif %}
+
+                {% if gateway.name == 'HUBTEL' %}
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Merchant Account</span></label>
+                    {{ form.merchant_account }}
+                </div>
+                {% endif %}
+
+                <!-- Settings -->
+                <div class="md:col-span-2 mt-4">
+                    <h3 class="font-bold mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-info"></i>
+                        Settings
+                    </h3>
+                </div>
+
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        {{ form.is_active }}
+                        <span class="label-text">Enable this gateway</span>
+                    </label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        {{ form.is_test_mode }}
+                        <span class="label-text">Test/Sandbox mode</span>
+                    </label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        {{ form.is_primary }}
+                        <span class="label-text">Set as primary gateway</span>
+                    </label>
+                </div>
+
+                <!-- Transaction Charges -->
+                <div class="md:col-span-2 mt-4">
+                    <h3 class="font-bold mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-percent text-success"></i>
+                        Transaction Charges
+                    </h3>
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Percentage Charge (%)</span></label>
+                    {{ form.transaction_charge_percentage }}
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Fixed Charge (GHS)</span></label>
+                    {{ form.transaction_charge_fixed }}
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Who Bears the Charge?</span></label>
+                    {{ form.who_bears_charge }}
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-base-200">
+                <a href="{% url 'finance:gateway_settings' %}" hx-get="{% url 'finance:gateway_settings' %}" hx-target="#main-content" hx-push-url="true" class="btn btn-ghost">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-save"></i>
+                    Save Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Setup Instructions -->
+{% if gateway.setup_instructions %}
+<div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
+    <div class="card-body">
+        <h3 class="font-bold flex items-center gap-2 mb-4">
+            <i class="fa-solid fa-book text-info"></i>
+            Setup Instructions
+        </h3>
+        <pre class="text-sm text-base-content/70 whitespace-pre-wrap">{{ gateway.setup_instructions }}</pre>
+    </div>
+</div>
+{% endif %}

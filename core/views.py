@@ -1,4 +1,5 @@
 from functools import wraps
+from decimal import Decimal
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -17,6 +18,7 @@ from .forms import (
     TermForm,
     SMSSettingsForm,
 )
+from finance.models import PaymentGateway, PaymentGatewayConfig
 
 
 def is_school_admin(user):
@@ -469,6 +471,11 @@ def settings(request):
         derived_sender_id = ''.join(c for c in tenant.name if c.isalnum())[:11]
     derived_sender_id = derived_sender_id or 'SchoolSMS'
 
+    # Payment gateway settings
+    available_gateways = PaymentGateway.objects.filter(is_active=True)
+    gateway_configs = PaymentGatewayConfig.objects.select_related('gateway').all()
+    primary_gateway = gateway_configs.filter(is_primary=True, is_active=True).first()
+
     context = {
         'tenant': tenant,
         'school_settings': school_settings,
@@ -484,6 +491,10 @@ def settings(request):
         'period_label': school_settings.period_label,
         'period_label_plural': school_settings.period_label_plural,
         'derived_sender_id': derived_sender_id,
+        # Payment gateway context
+        'available_gateways': available_gateways,
+        'gateway_configs': gateway_configs,
+        'primary_gateway': primary_gateway,
     }
     return htmx_render(request, 'core/settings/index.html', 'core/settings/partials/index_content.html', context)
 
@@ -629,6 +640,81 @@ def settings_update_sms(request):
         'success': 'SMS settings updated successfully',
     }
     return render(request, 'core/settings/partials/card_sms.html', context)
+
+
+@login_required
+def settings_update_payment(request):
+    """Update payment gateway configuration."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    gateway_id = request.POST.get('gateway_id')
+    if not gateway_id:
+        return HttpResponse("Gateway ID required", status=400)
+
+    gateway = get_object_or_404(PaymentGateway, pk=gateway_id)
+
+    # Get or create the configuration for this gateway
+    config, created = PaymentGatewayConfig.objects.get_or_create(
+        gateway=gateway,
+        defaults={'secret_key': '', 'configured_by': request.user}
+    )
+
+    # Update credentials (only if new values provided)
+    secret_key = request.POST.get('secret_key', '').strip()
+    public_key = request.POST.get('public_key', '').strip()
+    webhook_secret = request.POST.get('webhook_secret', '').strip()
+    merchant_id = request.POST.get('merchant_id', '').strip()
+    encryption_key = request.POST.get('encryption_key', '').strip()
+    merchant_account = request.POST.get('merchant_account', '').strip()
+
+    # Only update if new value provided (not placeholder)
+    if secret_key and not secret_key.startswith('••'):
+        config.secret_key = secret_key
+    if public_key and not public_key.startswith('••'):
+        config.public_key = public_key
+    if webhook_secret and not webhook_secret.startswith('••'):
+        config.webhook_secret = webhook_secret
+    if merchant_id:
+        config.merchant_id = merchant_id
+    if encryption_key and not encryption_key.startswith('••'):
+        config.encryption_key = encryption_key
+    if merchant_account:
+        config.merchant_account = merchant_account
+
+    # Update settings
+    config.is_active = request.POST.get('is_active') == 'on'
+    config.is_test_mode = request.POST.get('is_test_mode') == 'on'
+    config.is_primary = request.POST.get('is_primary') == 'on'
+
+    # Update transaction charges
+    charge_percentage = request.POST.get('charge_percentage', '').strip()
+    charge_fixed = request.POST.get('charge_fixed', '').strip()
+    who_bears_charge = request.POST.get('who_bears_charge', 'SCHOOL')
+
+    if charge_percentage:
+        config.transaction_charge_percentage = Decimal(charge_percentage)
+    if charge_fixed:
+        config.transaction_charge_fixed = Decimal(charge_fixed)
+    config.who_bears_charge = who_bears_charge
+
+    config.configured_by = request.user
+    config.verification_status = 'PENDING'  # Reset verification status
+    config.save()
+
+    if not request.htmx:
+        return redirect('core:settings')
+
+    # Get updated context for the card
+    gateway_configs = PaymentGatewayConfig.objects.select_related('gateway').all()
+    primary_gateway = gateway_configs.filter(is_primary=True, is_active=True).first()
+
+    context = {
+        'gateway_configs': gateway_configs,
+        'primary_gateway': primary_gateway,
+        'payment_success': f'{gateway.display_name} configured successfully',
+    }
+    return render(request, 'core/settings/partials/card_payment.html', context)
 
 
 def get_academic_card_context(success=None, errors=None):
@@ -961,15 +1047,92 @@ def my_classes(request):
                         data['subjects'].append(assignment.subject)
                     break
 
+    # Separate homeroom and subject-only classes
+    homeroom_classes_list = [c for c in classes_data if c['is_homeroom']]
+    subject_classes_list = [c for c in classes_data if not c['is_homeroom']]
+
+    # Calculate totals
+    total_students = sum(c['student_count'] for c in classes_data)
+
+    # Get all unique subjects teacher teaches
+    all_subjects = list({subj for c in classes_data for subj in c['subjects']})
+    all_subjects.sort(key=lambda s: s.name)
+
     context = {
         'teacher': teacher,
         'current_term': current_term,
         'classes_data': classes_data,
+        'homeroom_classes': homeroom_classes_list,
+        'subject_classes': subject_classes_list,
         'total_classes': len(classes_data),
-        'homeroom_count': sum(1 for c in classes_data if c['is_homeroom']),
+        'homeroom_count': len(homeroom_classes_list),
+        'total_students': total_students,
+        'total_subjects': len(all_subjects),
+        'all_subjects': all_subjects,
     }
 
     return htmx_render(request, 'core/teacher/my_classes.html', 'core/teacher/partials/my_classes_content.html', context)
+
+
+@login_required
+def my_timetable(request):
+    """Teacher's weekly timetable showing all their scheduled classes."""
+    from academics.models import TimetableEntry, Period
+
+    user = request.user
+
+    # Verify user is a teacher
+    if not getattr(user, 'is_teacher', False):
+        messages.error(request, 'This page is only accessible to teachers.')
+        return redirect('core:index')
+
+    teacher = getattr(user, 'teacher_profile', None)
+    if not teacher:
+        messages.error(request, 'No teacher profile linked to your account.')
+        return redirect('core:index')
+
+    # Get all periods ordered by start time
+    periods = Period.objects.filter(is_active=True).order_by('order', 'start_time')
+
+    # Get all timetable entries for this teacher
+    entries = TimetableEntry.objects.filter(
+        class_subject__teacher=teacher
+    ).select_related(
+        'class_subject__class_assigned',
+        'class_subject__subject',
+        'period'
+    ).order_by('weekday', 'period__order')
+
+    # Build timetable grid: {weekday: {period_id: entry}}
+    timetable = {day: {} for day in range(1, 6)}  # Monday=1 to Friday=5
+    for entry in entries:
+        timetable[entry.weekday][entry.period_id] = entry
+
+    # Weekday labels
+    weekdays = [
+        (1, 'Monday'),
+        (2, 'Tuesday'),
+        (3, 'Wednesday'),
+        (4, 'Thursday'),
+        (5, 'Friday'),
+    ]
+
+    # Calculate stats
+    total_lessons = entries.count()
+    classes_taught = len(set(e.class_subject.class_assigned_id for e in entries))
+    subjects_taught = len(set(e.class_subject.subject_id for e in entries))
+
+    context = {
+        'periods': periods,
+        'timetable': timetable,
+        'weekdays': weekdays,
+        'entries': entries,
+        'total_lessons': total_lessons,
+        'classes_taught': classes_taught,
+        'subjects_taught': subjects_taught,
+    }
+
+    return htmx_render(request, 'core/teacher/my_timetable.html', 'core/teacher/partials/my_timetable_content.html', context)
 
 
 @login_required
@@ -2142,7 +2305,70 @@ def my_results(request):
 
 @login_required
 def timetable(request):
-    context = {}
+    """Student's class timetable view."""
+    from academics.models import TimetableEntry, Period
+
+    user = request.user
+
+    # Verify user is a student
+    if not getattr(user, 'is_student', False):
+        messages.error(request, 'This page is only accessible to students.')
+        return redirect('core:index')
+
+    student = getattr(user, 'student_profile', None)
+    if not student:
+        messages.error(request, 'No student profile linked to your account.')
+        return redirect('core:index')
+
+    # Get student's current class
+    current_class = student.current_class
+    if not current_class:
+        context = {
+            'no_class': True,
+        }
+        return htmx_render(request, 'core/student/timetable.html', 'core/student/partials/timetable_content.html', context)
+
+    # Get all periods ordered by start time
+    periods = Period.objects.filter(is_active=True).order_by('order', 'start_time')
+
+    # Get all timetable entries for this class
+    entries = TimetableEntry.objects.filter(
+        class_subject__class_assigned=current_class
+    ).select_related(
+        'class_subject__subject',
+        'class_subject__teacher__user',
+        'period'
+    ).order_by('weekday', 'period__order')
+
+    # Build timetable grid: {weekday: {period_id: entry}}
+    timetable = {day: {} for day in range(1, 6)}  # Monday=1 to Friday=5
+    for entry in entries:
+        timetable[entry.weekday][entry.period_id] = entry
+
+    # Weekday labels
+    weekdays = [
+        (1, 'Monday'),
+        (2, 'Tuesday'),
+        (3, 'Wednesday'),
+        (4, 'Thursday'),
+        (5, 'Friday'),
+    ]
+
+    # Calculate stats
+    total_lessons = entries.count()
+    total_subjects = len(set(e.class_subject.subject_id for e in entries))
+
+    context = {
+        'student': student,
+        'current_class': current_class,
+        'periods': periods,
+        'timetable': timetable,
+        'weekdays': weekdays,
+        'entries': entries,
+        'total_lessons': total_lessons,
+        'total_subjects': total_subjects,
+    }
+
     return htmx_render(request, 'core/student/timetable.html', 'core/student/partials/timetable_content.html', context)
 
 

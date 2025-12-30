@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Transcript - {{ student.full_name }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 11px;
+            color: #333;
+            background: #fff;
+            padding: 15px;
+            line-height: 1.4;
+        }
+        .transcript-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px double #333;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 11px;
+            color: #666;
+        }
+        .header h2 {
+            font-size: 16px;
+            margin-top: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        .student-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+        }
+        .student-info div {
+            flex: 1;
+        }
+        .student-info p {
+            margin-bottom: 3px;
+        }
+        .student-info strong {
+            display: inline-block;
+            width: 100px;
+        }
+        .summary-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+        }
+        .stat-box {
+            text-align: center;
+        }
+        .stat-box .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-box .label {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        .term-section {
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+        .term-header {
+            background: #333;
+            color: #fff;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .term-header h3 {
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .term-header .stats {
+            font-size: 11px;
+        }
+        .term-header .stats span {
+            margin-left: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px 8px;
+            text-align: left;
+        }
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        td {
+            font-size: 11px;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .grade-pass {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .grade-fail {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+        .badge-core {
+            background: #007bff;
+            color: #fff;
+        }
+        .badge-elective {
+            background: #6c757d;
+            color: #fff;
+        }
+        .promotion-status {
+            padding: 8px 12px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-top: none;
+            font-size: 11px;
+        }
+        .promoted {
+            color: #28a745;
+        }
+        .not-promoted {
+            color: #dc3545;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+        }
+        .signature-area {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding-top: 20px;
+        }
+        .signature-box {
+            width: 200px;
+            text-align: center;
+        }
+        .signature-line {
+            border-top: 1px solid #333;
+            margin-bottom: 5px;
+            padding-top: 5px;
+        }
+        .signature-label {
+            font-size: 10px;
+            color: #666;
+        }
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            color: rgba(0,0,0,0.03);
+            z-index: -1;
+            white-space: nowrap;
+        }
+        @media print {
+            body {
+                padding: 0;
+            }
+            .no-print {
+                display: none;
+            }
+            .term-section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="watermark">OFFICIAL TRANSCRIPT</div>
+
+    <div class="transcript-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>{{ request.tenant.name|default:"School Name" }}</h1>
+            <p>{{ request.tenant.address|default:"School Address" }}</p>
+            <p>{{ request.tenant.phone|default:"Phone" }} | {{ request.tenant.email|default:"Email" }}</p>
+            <h2>Academic Transcript</h2>
+        </div>
+
+        <!-- Student Information -->
+        <div class="student-info">
+            <div>
+                <p><strong>Student Name:</strong> {{ student.full_name }}</p>
+                <p><strong>Admission No:</strong> {{ student.admission_number }}</p>
+                {% if student.date_of_birth %}
+                <p><strong>Date of Birth:</strong> {{ student.date_of_birth|date:"M d, Y" }}</p>
+                {% endif %}
+            </div>
+            <div>
+                <p><strong>Current Class:</strong> {{ student.current_class.name|default:"N/A" }}</p>
+                <p><strong>Date Issued:</strong> {{ generated_date|date:"M d, Y" }}</p>
+                <p><strong>Transcript ID:</strong> TR-{{ student.admission_number }}-{{ generated_date|date:"Ymd" }}</p>
+            </div>
+        </div>
+
+        <!-- Summary Statistics -->
+        <div class="summary-stats">
+            <div class="stat-box">
+                <div class="value">{{ cumulative_average }}%</div>
+                <div class="label">Cumulative Average</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ total_terms }}</div>
+                <div class="label">Terms Completed</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ total_credits }}</div>
+                <div class="label">Total Credits</div>
+            </div>
+        </div>
+
+        <!-- Academic History -->
+        {% for term_data in academic_history %}
+        <div class="term-section">
+            <div class="term-header">
+                <h3>{{ term_data.report.term.academic_year.name }} - {{ term_data.report.term.name }}</h3>
+                <div class="stats">
+                    <span>Class: {{ term_data.report.student_class.name|default:"-" }}</span>
+                    <span>Average: {{ term_data.report.average|floatformat:1 }}%</span>
+                    <span>Position: {{ term_data.report.position }}/{{ term_data.report.out_of }}</span>
+                    {% if term_data.report.aggregate %}
+                    <span>Aggregate: {{ term_data.report.aggregate }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 35%">Subject</th>
+                        <th class="text-center" style="width: 10%">Type</th>
+                        <th class="text-center" style="width: 12%">Score</th>
+                        <th class="text-center" style="width: 10%">Grade</th>
+                        <th class="text-center" style="width: 18%">Interpretation</th>
+                        <th class="text-center" style="width: 10%">Position</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grade in term_data.core_grades %}
+                    <tr>
+                        <td>{{ grade.subject.name }}</td>
+                        <td class="text-center"><span class="badge badge-core">Core</span></td>
+                        <td class="text-center">{{ grade.total_score|floatformat:1 }}</td>
+                        <td class="text-center {% if grade.is_passing %}grade-pass{% else %}grade-fail{% endif %}">{{ grade.grade }}</td>
+                        <td class="text-center">{{ grade.grade_remark|default:"-" }}</td>
+                        <td class="text-center">{{ grade.position|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% for grade in term_data.elective_grades %}
+                    <tr>
+                        <td>{{ grade.subject.name }}</td>
+                        <td class="text-center"><span class="badge badge-elective">Elective</span></td>
+                        <td class="text-center">{{ grade.total_score|floatformat:1 }}</td>
+                        <td class="text-center {% if grade.is_passing %}grade-pass{% else %}grade-fail{% endif %}">{{ grade.grade }}</td>
+                        <td class="text-center">{{ grade.grade_remark|default:"-" }}</td>
+                        <td class="text-center">{{ grade.position|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if term_data.report.promoted is not None %}
+            <div class="promotion-status">
+                {% if term_data.report.promoted %}
+                <span class="promoted"><strong>PROMOTED</strong> to {{ term_data.report.promoted_to.name|default:"Next Class" }}</span>
+                {% else %}
+                <span class="not-promoted"><strong>NOT PROMOTED</strong></span>
+                {% endif %}
+                {% if term_data.report.promotion_remarks %}
+                - {{ term_data.report.promotion_remarks }}
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div style="text-align: center; padding: 40px; color: #666;">
+            No academic records found.
+        </div>
+        {% endfor %}
+
+        <!-- Signature Area -->
+        <div class="signature-area">
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Registrar / Academic Officer</div>
+            </div>
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Head of School</div>
+            </div>
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Official School Stamp</div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>This is an official academic transcript of {{ student.full_name }}</p>
+            <p>Generated on {{ generated_date|date:"F d, Y" }} at {{ generated_date|time:"H:i" }}</p>
+            <p style="margin-top: 10px;">*** End of Transcript ***</p>
+        </div>
+    </div>
+
+    <!-- Print Button -->
+    <div style="text-align: center; margin-top: 20px;" class="no-print">
+        <button onclick="window.print()" style="padding: 10px 30px; font-size: 14px; cursor: pointer; background: #333; color: #fff; border: none; border-radius: 5px;">
+            Print Transcript
+        </button>
+        <button onclick="window.close()" style="padding: 10px 30px; font-size: 14px; cursor: pointer; background: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 5px; margin-left: 10px;">
+            Close
+        </button>
+    </div>
+</body>
+</html>

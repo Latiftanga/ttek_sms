@@ -51,19 +51,39 @@ NAVIGATION_CONFIG = [
     },
     {
         'label': 'Finance',
-        'icon': 'fa-solid fa-money-bill',
-        'url_name': 'core:finance',
+        'icon': 'fa-solid fa-coins',
+        'url_name': 'finance:index',
         'roles': ['school_admin', 'superuser'],
         'children': [
             {
+                'label': 'Fee Types',
+                'icon': 'fa-solid fa-tags',
+                'url_name': 'finance:fee_types',
+            },
+            {
+                'label': 'Fee Structures',
+                'icon': 'fa-solid fa-layer-group',
+                'url_name': 'finance:fee_structures',
+            },
+            {
                 'label': 'Invoices',
                 'icon': 'fa-solid fa-file-invoice',
-                'url_name': 'core:invoices',
+                'url_name': 'finance:invoices',
             },
             {
                 'label': 'Payments',
-                'icon': 'fa-solid fa-credit-card',
-                'url_name': 'core:payments',
+                'icon': 'fa-solid fa-money-bill-wave',
+                'url_name': 'finance:payments',
+            },
+            {
+                'label': 'Scholarships',
+                'icon': 'fa-solid fa-graduation-cap',
+                'url_name': 'finance:scholarships',
+            },
+            {
+                'label': 'Reports',
+                'icon': 'fa-solid fa-chart-bar',
+                'url_name': 'finance:reports',
             },
         ]
     },

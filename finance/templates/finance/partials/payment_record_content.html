@@ -1,0 +1,90 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:payments' %}"
+               hx-get="{% url 'finance:payments' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
+                    <i class="fa-solid fa-money-bill-wave text-white"></i>
+                </div>
+                Record Payment
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            Record a manual payment for an invoice
+        </p>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body">
+        <form method="post" hx-post="{% url 'finance:payment_record' %}" hx-target="#main-content">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="form-control md:col-span-2">
+                    <label class="label"><span class="label-text font-medium">Invoice <span class="text-error">*</span></span></label>
+                    {{ form.invoice }}
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Amount (GHS) <span class="text-error">*</span></span></label>
+                    {{ form.amount }}
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Payment Method <span class="text-error">*</span></span></label>
+                    {{ form.method }}
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Payer Name</span></label>
+                    {{ form.payer_name }}
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Payer Phone</span></label>
+                    {{ form.payer_phone }}
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Payer Email</span></label>
+                    {{ form.payer_email }}
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Reference Number</span></label>
+                    {{ form.reference }}
+                    <label class="label"><span class="label-text-alt">Bank/Mobile money transaction reference</span></label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Transaction Date</span></label>
+                    {{ form.transaction_date }}
+                </div>
+
+                <div class="form-control md:col-span-2">
+                    <label class="label"><span class="label-text font-medium">Notes</span></label>
+                    {{ form.notes }}
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-base-200">
+                <a href="{% url 'finance:payments' %}" hx-get="{% url 'finance:payments' %}" hx-target="#main-content" hx-push-url="true" class="btn btn-ghost">Cancel</a>
+                <button type="submit" class="btn btn-success">
+                    <i class="fa-solid fa-check"></i>
+                    Record Payment
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

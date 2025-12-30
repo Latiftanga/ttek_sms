@@ -1,0 +1,147 @@
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:index' %}"
+               hx-get="{% url 'finance:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Finance">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-warning to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-graduation-cap text-white"></i>
+                </div>
+                Scholarships
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            Manage scholarships and fee discounts for students
+        </p>
+    </div>
+    <a href="{% url 'finance:scholarship_create' %}"
+       hx-get="{% url 'finance:scholarship_create' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-plus"></i>
+        Add Scholarship
+    </a>
+</div>
+
+<!-- Scholarships Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for scholarship in scholarships %}
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+        <div class="card-body p-4">
+            <div class="flex items-start justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                        <i class="fa-solid fa-award text-warning text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold">{{ scholarship.name }}</h3>
+                        <div class="text-sm text-base-content/60">
+                            {% if scholarship.discount_type == 'PERCENTAGE' %}
+                            {{ scholarship.discount_value }}% Discount
+                            {% elif scholarship.discount_type == 'FULL' %}
+                            Full Scholarship (100%)
+                            {% else %}
+                            GHS {{ scholarship.discount_value|floatformat:2 }} Fixed
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% if scholarship.is_active %}
+                <span class="badge badge-success badge-sm">Active</span>
+                {% else %}
+                <span class="badge badge-ghost badge-sm">Inactive</span>
+                {% endif %}
+            </div>
+
+            {% if scholarship.description %}
+            <p class="text-sm text-base-content/70 mb-3">{{ scholarship.description|truncatewords:20 }}</p>
+            {% endif %}
+
+            <div class="flex items-center justify-between pt-3 border-t border-base-200">
+                <div class="flex items-center gap-1 text-sm text-base-content/60">
+                    <i class="fa-solid fa-users"></i>
+                    <span>{{ scholarship.recipient_count }} recipient{{ scholarship.recipient_count|pluralize }}</span>
+                </div>
+                <div class="flex gap-1">
+                    <a href="{% url 'finance:scholarship_assign' pk=scholarship.pk %}"
+                       hx-get="{% url 'finance:scholarship_assign' pk=scholarship.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-xs"
+                       title="Assign to Students">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </a>
+                    <a href="{% url 'finance:scholarship_edit' pk=scholarship.pk %}"
+                       hx-get="{% url 'finance:scholarship_edit' pk=scholarship.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-xs"
+                       title="Edit">
+                        <i class="fa-solid fa-edit"></i>
+                    </a>
+                    <a href="{% url 'finance:scholarship_delete' pk=scholarship.pk %}"
+                       hx-get="{% url 'finance:scholarship_delete' pk=scholarship.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-xs text-error"
+                       title="Delete">
+                        <i class="fa-solid fa-trash"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body text-center py-12">
+                <div class="text-base-content/40">
+                    <i class="fa-solid fa-graduation-cap text-4xl mb-3"></i>
+                    <p class="text-lg font-medium mb-1">No scholarships defined</p>
+                    <p class="text-sm mb-4">Create scholarships to offer fee discounts to students</p>
+                    <a href="{% url 'finance:scholarship_create' %}"
+                       hx-get="{% url 'finance:scholarship_create' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-primary btn-sm">
+                        <i class="fa-solid fa-plus"></i>
+                        Add First Scholarship
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Scholarship Types Info -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
+    <div class="card-body p-4">
+        <h3 class="font-bold flex items-center gap-2 mb-3">
+            <i class="fa-solid fa-info-circle text-info"></i>
+            Scholarship Types
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div class="p-3 bg-base-200/50 rounded-lg">
+                <div class="font-medium text-primary mb-1">Percentage Discount</div>
+                <p class="text-base-content/70">Reduces fees by a percentage (e.g., 25%, 50%)</p>
+            </div>
+            <div class="p-3 bg-base-200/50 rounded-lg">
+                <div class="font-medium text-success mb-1">Full Scholarship</div>
+                <p class="text-base-content/70">100% fee waiver for selected fee types</p>
+            </div>
+            <div class="p-3 bg-base-200/50 rounded-lg">
+                <div class="font-medium text-warning mb-1">Fixed Amount</div>
+                <p class="text-base-content/70">Reduces fees by a fixed GHS amount</p>
+            </div>
+        </div>
+    </div>
+</div>

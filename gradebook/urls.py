@@ -78,4 +78,9 @@ urlpatterns = [
     path('reports/send/<int:student_id>/', views.send_single_report, name='send_single_report'),
     path('reports/send-bulk/<int:class_id>/', views.send_bulk_reports, name='send_bulk_reports'),
     path('reports/<int:student_id>/pdf/', views.download_report_pdf, name='download_report_pdf'),
+
+    # Transcripts
+    path('transcript/<int:student_id>/', views.transcript, name='transcript'),
+    path('transcript/<int:student_id>/print/', views.transcript_print, name='transcript_print'),
+    path('transcript/<int:student_id>/pdf/', views.download_transcript_pdf, name='download_transcript_pdf'),
 ]

@@ -21,26 +21,65 @@
         </div>
         <p class="text-sm text-base-content/60 ml-12">
             {% if current_term %}
-            <i class="fa-solid fa-calendar-day mr-1"></i>
             {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% else %}
+            Manage your assigned classes and subjects
             {% endif %}
         </p>
     </div>
+</div>
 
-    <!-- Quick Stats -->
-    <div class="flex gap-3">
-        <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
-            <i class="fa-solid fa-chalkboard text-primary"></i>
-            <div>
-                <div class="text-lg font-bold text-primary">{{ total_classes }}</div>
-                <div class="text-xs text-base-content/60">Classes</div>
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chalkboard text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ total_classes }}</div>
+                    <div class="text-xs text-base-content/60">Total Classes</div>
+                </div>
             </div>
         </div>
-        <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary/10 border border-secondary/20">
-            <i class="fa-solid fa-house-user text-secondary"></i>
-            <div>
-                <div class="text-lg font-bold text-secondary">{{ homeroom_count }}</div>
-                <div class="text-xs text-base-content/60">Homeroom</div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-house-user text-secondary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-secondary">{{ homeroom_count }}</div>
+                    <div class="text-xs text-base-content/60">Homeroom</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-users text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">{{ total_students }}</div>
+                    <div class="text-xs text-base-content/60">Students</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-book text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-info">{{ total_subjects }}</div>
+                    <div class="text-xs text-base-content/60">Subjects</div>
+                </div>
             </div>
         </div>
     </div>
@@ -63,93 +102,276 @@
 
 {% else %}
 
-<!-- Classes Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    {% for item in classes_data %}
-    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
-        <div class="card-body p-5">
-            <!-- Class Header -->
-            <div class="flex items-start justify-between mb-3">
-                <div>
-                    <h3 class="font-bold text-lg flex items-center gap-2">
-                        {{ item.class.name }}
-                        {% if item.is_homeroom %}
-                        <span class="badge badge-primary badge-sm">Homeroom</span>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column - Classes List -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Homeroom Classes -->
+        {% if homeroom_classes %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-house-user text-secondary"></i>
+                        </div>
+                        Homeroom Classes
+                    </h2>
+                    <span class="badge badge-secondary">{{ homeroom_classes|length }}</span>
+                </div>
+
+                <div class="divide-y divide-base-200">
+                    {% for item in homeroom_classes %}
+                    <div class="p-4 hover:bg-base-200/30 transition-colors">
+                        <div class="flex items-center gap-4">
+                            <!-- Class Avatar -->
+                            <div class="avatar placeholder">
+                                <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-secondary to-primary text-white">
+                                    <span class="text-lg font-bold">{{ item.class.name|slice:":2" }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Class Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <h3 class="font-bold text-lg">{{ item.class.name }}</h3>
+                                    <span class="badge badge-secondary badge-sm">Homeroom</span>
+                                </div>
+                                <div class="flex items-center gap-4 text-sm text-base-content/60">
+                                    <span><i class="fa-solid fa-users mr-1"></i>{{ item.student_count }} students</span>
+                                    {% if item.subjects %}
+                                    <span><i class="fa-solid fa-book mr-1"></i>{{ item.subjects|length }} subject{{ item.subjects|length|pluralize }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center gap-2">
+                                <a href="{% url 'core:class_students' item.class.pk %}"
+                                   hx-get="{% url 'core:class_students' item.class.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="fa-solid fa-users-gear"></i>
+                                    <span class="hidden sm:inline">Students</span>
+                                </a>
+                                <div class="dropdown dropdown-end">
+                                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                                    </label>
+                                    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-48 border border-base-200">
+                                        <li>
+                                            <a href="{% url 'core:take_attendance' item.class.pk %}"
+                                               hx-get="{% url 'core:take_attendance' item.class.pk %}"
+                                               hx-target="#main-content"
+                                               hx-push-url="true">
+                                                <i class="fa-solid fa-clipboard-user text-primary"></i>
+                                                Take Attendance
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{% url 'core:my_grading' %}"
+                                               hx-get="{% url 'core:my_grading' %}"
+                                               hx-target="#main-content"
+                                               hx-push-url="true">
+                                                <i class="fa-solid fa-pen-to-square text-success"></i>
+                                                Grade Students
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Subjects Tags -->
+                        {% if item.class_subjects %}
+                        <div class="mt-3 ml-18 pl-0.5">
+                            <div class="flex flex-wrap gap-1">
+                                {% for cs in item.class_subjects %}
+                                <span class="badge badge-sm {% if cs.teacher == teacher %}badge-primary{% else %}badge-ghost{% endif %}">
+                                    {{ cs.subject.short_name|default:cs.subject.name }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
                         {% endif %}
-                    </h3>
-                    <p class="text-sm text-base-content/60">
-                        {{ item.class.get_level_type_display|default:"" }}
-                    </p>
-                </div>
-                <div class="avatar placeholder">
-                    <div class="w-12 h-12 rounded-lg bg-primary/10 text-primary">
-                        <span class="text-lg font-bold">{{ item.class.name|slice:":2" }}</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Student Count -->
-            <div class="flex items-center gap-2 text-base-content/70 mb-3">
-                <i class="fa-solid fa-users text-sm"></i>
-                <span class="text-sm">{{ item.student_count }} student{{ item.student_count|pluralize }}</span>
-            </div>
-
-            <!-- Class Subjects -->
-            {% if item.class_subjects %}
-            <div class="mb-4">
-                <p class="text-xs text-base-content/50 mb-2">Subjects offered:</p>
-                <div class="flex flex-wrap gap-1">
-                    {% for cs in item.class_subjects %}
-                    <span class="badge badge-sm {% if cs.teacher == teacher %}badge-primary{% else %}badge-outline{% endif %}">
-                        {{ cs.subject.short_name|default:cs.subject.name }}
-                    </span>
                     {% endfor %}
                 </div>
-                {% if item.subjects %}
-                <p class="text-xs text-base-content/50 mt-2">
-                    <i class="fa-solid fa-chalkboard-user mr-1"></i>
-                    You teach {{ item.subjects|length }} subject{{ item.subjects|length|pluralize }}
-                </p>
-                {% endif %}
             </div>
-            {% elif item.is_homeroom %}
-            <div class="mb-4">
-                <p class="text-xs text-base-content/50">No subjects assigned to this class yet.</p>
-            </div>
-            {% endif %}
+        </div>
+        {% endif %}
 
-            <!-- Action Buttons -->
-            <div class="card-actions justify-end mt-auto pt-3 border-t border-base-200">
-                {% if item.is_homeroom %}
-                <a href="{% url 'core:class_students' item.class.pk %}"
-                   hx-get="{% url 'core:class_students' item.class.pk %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-primary btn-sm">
-                    <i class="fa-solid fa-users-gear"></i>
-                    Students
-                </a>
-                {% endif %}
-                <a href="{% url 'core:my_grading' %}"
-                   hx-get="{% url 'core:my_grading' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-ghost btn-sm">
-                    <i class="fa-solid fa-pen-to-square"></i>
-                    Grades
-                </a>
-                <a href="{% url 'core:take_attendance' item.class.pk %}"
-                   hx-get="{% url 'core:take_attendance' item.class.pk %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-ghost btn-sm">
-                    <i class="fa-solid fa-clipboard-user"></i>
-                    Attendance
-                </a>
+        <!-- Subject Classes (Non-Homeroom) -->
+        {% if subject_classes %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-book-open text-primary"></i>
+                        </div>
+                        Subject Classes
+                    </h2>
+                    <span class="badge badge-primary">{{ subject_classes|length }}</span>
+                </div>
+
+                <div class="divide-y divide-base-200">
+                    {% for item in subject_classes %}
+                    <div class="p-4 hover:bg-base-200/30 transition-colors">
+                        <div class="flex items-center gap-4">
+                            <!-- Class Avatar -->
+                            <div class="avatar placeholder">
+                                <div class="w-14 h-14 rounded-xl bg-primary/10 text-primary">
+                                    <span class="text-lg font-bold">{{ item.class.name|slice:":2" }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Class Info -->
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-bold text-lg mb-1">{{ item.class.name }}</h3>
+                                <div class="flex items-center gap-4 text-sm text-base-content/60">
+                                    <span><i class="fa-solid fa-users mr-1"></i>{{ item.student_count }} students</span>
+                                    <span><i class="fa-solid fa-book mr-1"></i>{{ item.subjects|length }} subject{{ item.subjects|length|pluralize }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center gap-2">
+                                <a href="{% url 'core:take_attendance' item.class.pk %}"
+                                   hx-get="{% url 'core:take_attendance' item.class.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-ghost btn-sm">
+                                    <i class="fa-solid fa-clipboard-user"></i>
+                                    <span class="hidden sm:inline">Attendance</span>
+                                </a>
+                                <a href="{% url 'core:my_grading' %}"
+                                   hx-get="{% url 'core:my_grading' %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-ghost btn-sm">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                    <span class="hidden sm:inline">Grades</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- My Subjects in this class -->
+                        {% if item.subjects %}
+                        <div class="mt-3 ml-18 pl-0.5">
+                            <p class="text-xs text-base-content/50 mb-1">You teach:</p>
+                            <div class="flex flex-wrap gap-1">
+                                {% for subj in item.subjects %}
+                                <span class="badge badge-sm badge-primary">{{ subj.short_name|default:subj.name }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column - Quick Actions & Info -->
+    <div class="space-y-6">
+        <!-- Quick Actions Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-bolt text-warning"></i>
+                    Quick Actions
+                </h2>
+
+                <div class="space-y-2">
+                    <a href="{% url 'core:my_attendance' %}"
+                       hx-get="{% url 'core:my_attendance' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm justify-start w-full gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                            <i class="fa-solid fa-clipboard-user text-success"></i>
+                        </div>
+                        <span class="flex-1 text-left">Take Attendance</span>
+                        <i class="fa-solid fa-chevron-right text-base-content/30"></i>
+                    </a>
+                    <a href="{% url 'core:my_grading' %}"
+                       hx-get="{% url 'core:my_grading' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm justify-start w-full gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-pen-to-square text-primary"></i>
+                        </div>
+                        <span class="flex-1 text-left">Grade Students</span>
+                        <i class="fa-solid fa-chevron-right text-base-content/30"></i>
+                    </a>
+                    <a href="{% url 'core:my_timetable' %}"
+                       hx-get="{% url 'core:my_timetable' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm justify-start w-full gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                            <i class="fa-solid fa-calendar-days text-info"></i>
+                        </div>
+                        <span class="flex-1 text-left">My Timetable</span>
+                        <i class="fa-solid fa-chevron-right text-base-content/30"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Subjects Summary -->
+        {% if all_subjects %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-book text-primary"></i>
+                    My Subjects
+                </h2>
+
+                <div class="space-y-2">
+                    {% for subj in all_subjects %}
+                    <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/50">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <span class="text-xs font-bold text-primary">{{ subj.short_name|default:subj.name|slice:":2" }}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-sm truncate">{{ subj.name }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Quick Tips -->
+        <div class="card bg-gradient-to-br from-info/5 to-info/10 border border-info/20">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-lightbulb text-info"></i>
+                    Quick Tips
+                </h3>
+                <ul class="text-xs text-base-content/70 space-y-2">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Homeroom classes allow you to manage students directly</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Click on a class to take attendance or grade students</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Your assigned subjects are highlighted in blue</span>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
-    {% endfor %}
 </div>
 
 {% endif %}

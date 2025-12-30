@@ -1,0 +1,232 @@
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:invoices' %}"
+               hx-get="{% url 'finance:invoices' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-file-invoice text-white"></i>
+                </div>
+                {{ invoice.invoice_number }}
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            {{ invoice.student.full_name }} - {{ invoice.term.name }}
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'finance:invoice_print' pk=invoice.pk %}" target="_blank" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-print"></i>
+            Print
+        </a>
+        {% if invoice.status != 'PAID' and invoice.status != 'CANCELLED' and invoice.balance > 0 %}
+        <a href="{% url 'finance:payment_record' %}?invoice={{ invoice.pk }}"
+           hx-get="{% url 'finance:payment_record' %}?invoice={{ invoice.pk }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-plus"></i>
+            Record Payment
+        </a>
+        {% if gateway_available %}
+        <a href="{% url 'finance:pay_online' invoice_pk=invoice.pk %}"
+           class="btn btn-success btn-sm">
+            <i class="fa-solid fa-credit-card"></i>
+            Pay Online
+        </a>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Invoice Details -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Status & Summary -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold">Invoice Summary</h3>
+                    {% if invoice.status == 'DRAFT' %}
+                    <span class="badge badge-ghost">Draft</span>
+                    {% elif invoice.status == 'ISSUED' %}
+                    <span class="badge badge-info">Issued</span>
+                    {% elif invoice.status == 'PARTIALLY_PAID' %}
+                    <span class="badge badge-warning">Partially Paid</span>
+                    {% elif invoice.status == 'PAID' %}
+                    <span class="badge badge-success">Paid</span>
+                    {% elif invoice.status == 'OVERDUE' %}
+                    <span class="badge badge-error">Overdue</span>
+                    {% elif invoice.status == 'CANCELLED' %}
+                    <span class="badge badge-ghost">Cancelled</span>
+                    {% endif %}
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <div class="text-sm text-base-content/60">Subtotal</div>
+                        <div class="font-bold">GHS {{ invoice.subtotal|floatformat:2 }}</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-base-content/60">Discount</div>
+                        <div class="font-bold text-success">- GHS {{ invoice.discount|floatformat:2 }}</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-base-content/60">Total</div>
+                        <div class="font-bold text-primary">GHS {{ invoice.total_amount|floatformat:2 }}</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-base-content/60">Balance</div>
+                        <div class="font-bold {% if invoice.balance > 0 %}text-warning{% else %}text-success{% endif %}">
+                            GHS {{ invoice.balance|floatformat:2 }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Line Items -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="p-4 border-b border-base-200">
+                    <h3 class="font-bold">Fee Items</h3>
+                </div>
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Description</th>
+                            <th>Fee Type</th>
+                            <th class="text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ item.description }}</td>
+                            <td><span class="badge badge-sm badge-ghost">{{ item.fee_type.get_category_display }}</span></td>
+                            <td class="text-right font-medium">GHS {{ item.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-base-200/50">
+                            <td colspan="2" class="text-right font-bold">Total:</td>
+                            <td class="text-right font-bold">GHS {{ invoice.total_amount|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Payments -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="p-4 border-b border-base-200">
+                    <h3 class="font-bold">Payment History</h3>
+                </div>
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Receipt</th>
+                            <th>Date</th>
+                            <th>Method</th>
+                            <th class="text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'finance:payment_detail' pk=payment.pk %}" class="link link-primary">
+                                    {{ payment.receipt_number }}
+                                </a>
+                            </td>
+                            <td>{{ payment.transaction_date|date:"M d, Y" }}</td>
+                            <td><span class="badge badge-sm badge-ghost">{{ payment.get_method_display }}</span></td>
+                            <td class="text-right font-medium text-success">GHS {{ payment.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-base-content/60">No payments recorded</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+        <!-- Student Info -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h3 class="font-bold mb-4">Student Information</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Name:</span>
+                        <span class="font-medium">{{ invoice.student.full_name }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Admission No:</span>
+                        <span class="font-medium">{{ invoice.student.admission_number }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Class:</span>
+                        <span class="font-medium">{{ invoice.student.current_class.name|default:"-" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invoice Info -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h3 class="font-bold mb-4">Invoice Details</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Academic Year:</span>
+                        <span class="font-medium">{{ invoice.academic_year.name }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Term:</span>
+                        <span class="font-medium">{{ invoice.term.name }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Issue Date:</span>
+                        <span class="font-medium">{{ invoice.issue_date|date:"M d, Y" }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Due Date:</span>
+                        <span class="font-medium {% if invoice.status == 'OVERDUE' %}text-error{% endif %}">
+                            {{ invoice.due_date|date:"M d, Y" }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if invoice.status == 'DRAFT' %}
+        <!-- Actions -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h3 class="font-bold mb-4">Actions</h3>
+                <form method="post" action="{% url 'finance:invoice_edit' pk=invoice.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="issue">
+                    <button type="submit" class="btn btn-primary btn-sm w-full">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        Issue Invoice
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>

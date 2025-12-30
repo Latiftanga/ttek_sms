@@ -1,0 +1,105 @@
+<div id="card-payment" class="card bg-base-100 shadow-sm border border-base-200 h-full">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-credit-card text-primary text-sm"></i>
+                Payment Gateways
+            </h3>
+            <button class="btn btn-ghost btn-xs" onclick="modal_payment_settings.showModal()">
+                <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+        </div>
+
+        {% if payment_success %}
+        {% include "core/partials/alert.html" with type="success" message=payment_success %}
+        {% endif %}
+
+        <div class="space-y-2 text-sm">
+            <!-- Primary Gateway Status -->
+            <div class="flex justify-between items-center">
+                <span class="text-base-content/60">Status</span>
+                {% if primary_gateway %}
+                <span class="badge badge-success badge-sm gap-1">
+                    <i class="fa-solid fa-circle text-[6px]"></i>
+                    Configured
+                </span>
+                {% else %}
+                <span class="badge badge-warning badge-sm gap-1">
+                    <i class="fa-solid fa-circle text-[6px]"></i>
+                    Not Configured
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- Primary Gateway -->
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Primary Gateway</span>
+                <span class="font-medium">
+                    {% if primary_gateway %}
+                    {{ primary_gateway.gateway.display_name }}
+                    {% else %}
+                    <span class="text-base-content/40">None</span>
+                    {% endif %}
+                </span>
+            </div>
+
+            <!-- Mode -->
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Mode</span>
+                <span class="font-medium">
+                    {% if primary_gateway %}
+                        {% if primary_gateway.is_test_mode %}
+                        <span class="text-warning">Test/Sandbox</span>
+                        {% else %}
+                        <span class="text-success">Live</span>
+                        {% endif %}
+                    {% else %}
+                    <span class="text-base-content/40">-</span>
+                    {% endif %}
+                </span>
+            </div>
+
+            <!-- Verification -->
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Verification</span>
+                <span class="font-medium">
+                    {% if primary_gateway %}
+                        {% if primary_gateway.verification_status == 'VERIFIED' %}
+                        <span class="text-success">Verified</span>
+                        {% elif primary_gateway.verification_status == 'PENDING' %}
+                        <span class="text-warning">Pending</span>
+                        {% else %}
+                        <span class="text-error">Failed</span>
+                        {% endif %}
+                    {% else %}
+                    <span class="text-base-content/40">-</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Configured Gateways Summary -->
+        {% if gateway_configs %}
+        <div class="mt-3 pt-3 border-t border-base-200">
+            <p class="text-xs text-base-content/60 mb-2">Configured Gateways:</p>
+            <div class="flex flex-wrap gap-1">
+                {% for config in gateway_configs %}
+                <span class="badge badge-sm {% if config.is_active %}badge-primary{% else %}badge-ghost{% endif %}">
+                    {{ config.gateway.display_name }}
+                    {% if config.is_primary %}<i class="fa-solid fa-star text-[8px] ml-1"></i>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if not primary_gateway %}
+        <div class="mt-3 p-2 bg-warning/10 rounded-lg border border-warning/30">
+            <p class="text-xs text-warning flex items-center gap-1">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                No payment gateway configured for online payments
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>

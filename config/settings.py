@@ -46,6 +46,7 @@ TENANT_APPS = (
     'communications',
     'accounts',
     'gradebook',
+    'finance',
 
 )
 
@@ -149,6 +150,15 @@ SMS_BACKEND = os.getenv('SMS_BACKEND', 'console')
 ARKESEL_API_KEY = os.getenv('ARKESEL_API_KEY', '')
 ARKESEL_SENDER_ID = os.getenv('ARKESEL_SENDER_ID', '')  # Max 11 characters
 
+
+# Field encryption key (store securely, different from gateway keys)
+# Generate a key with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', 'WY8ynJza0bt1SqohG8vJZwiMGhWv1l3WxquzVpOMpos=')
+
+# Optional: Platform-level default credentials (for schools that haven't set up their own)
+PLATFORM_PAYSTACK_SECRET_KEY = os.getenv('PLATFORM_PAYSTACK_SECRET_KEY', default='')
+PLATFORM_PAYSTACK_PUBLIC_KEY = os.getenv('PLATFORM_PAYSTACK_PUBLIC_KEY', default='')
+
 # --- 7. CELERY ---
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
@@ -162,7 +172,6 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 # --- 8. STATIC FILES ---
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 
 MULTITENANT_RELATIVE_MEDIA_ROOT = 'schools/%s'
@@ -172,7 +181,7 @@ STORAGES = {
         "BACKEND": 'core.storage.CustomSchemaStorage',
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 

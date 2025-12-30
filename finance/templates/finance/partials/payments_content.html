@@ -1,0 +1,205 @@
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:index' %}"
+               hx-get="{% url 'finance:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Finance">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
+                    <i class="fa-solid fa-money-bill-wave text-white"></i>
+                </div>
+                Payments
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            View and manage all payment records
+        </p>
+    </div>
+    <a href="{% url 'finance:payment_record' %}"
+       hx-get="{% url 'finance:payment_record' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-success btn-sm">
+        <i class="fa-solid fa-plus"></i>
+        Record Payment
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+    <div class="card-body p-4">
+        <form class="flex flex-wrap gap-4" hx-get="{% url 'finance:payments' %}" hx-target="#main-content" hx-push-url="true">
+            <div class="form-control flex-1 min-w-[200px]">
+                <input type="text" name="search" value="{{ search }}" placeholder="Search by receipt #, student name..."
+                       class="input input-bordered input-sm w-full" />
+            </div>
+            <div class="form-control">
+                <select name="status" class="select select-bordered select-sm">
+                    <option value="">All Status</option>
+                    {% for code, label in status_choices %}
+                    <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-control">
+                <select name="method" class="select select-bordered select-sm">
+                    <option value="">All Methods</option>
+                    {% for code, label in method_choices %}
+                    <option value="{{ code }}" {% if method_filter == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-control">
+                <input type="date" name="date_from" class="input input-bordered input-sm" placeholder="From" />
+            </div>
+            <div class="form-control">
+                <input type="date" name="date_to" class="input input-bordered input-sm" placeholder="To" />
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-search"></i>
+                Search
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Payments Table -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-0">
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="bg-base-200/50">
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Receipt #</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Student</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Invoice</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold text-right">Amount</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Method</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Status</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold">Date</th>
+                        <th class="text-xs uppercase text-base-content/60 font-semibold"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr class="hover">
+                        <td>
+                            <a href="{% url 'finance:payment_detail' pk=payment.pk %}"
+                               hx-get="{% url 'finance:payment_detail' pk=payment.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="link link-primary font-medium">
+                                {{ payment.receipt_number }}
+                            </a>
+                        </td>
+                        <td>
+                            <div class="font-medium">{{ payment.invoice.student.full_name }}</div>
+                            <div class="text-xs text-base-content/60">{{ payment.invoice.student.admission_number }}</div>
+                        </td>
+                        <td class="text-sm">{{ payment.invoice.invoice_number }}</td>
+                        <td class="text-sm text-right font-medium text-success">GHS {{ payment.amount|floatformat:2 }}</td>
+                        <td>
+                            {% if payment.method == 'CASH' %}
+                            <span class="badge badge-sm badge-ghost"><i class="fa-solid fa-money-bill mr-1"></i>Cash</span>
+                            {% elif payment.method == 'MOBILE_MONEY' %}
+                            <span class="badge badge-sm badge-warning"><i class="fa-solid fa-mobile mr-1"></i>MoMo</span>
+                            {% elif payment.method == 'CARD' %}
+                            <span class="badge badge-sm badge-primary"><i class="fa-solid fa-credit-card mr-1"></i>Card</span>
+                            {% elif payment.method == 'BANK_TRANSFER' %}
+                            <span class="badge badge-sm badge-info"><i class="fa-solid fa-university mr-1"></i>Bank</span>
+                            {% else %}
+                            <span class="badge badge-sm badge-ghost">{{ payment.get_method_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if payment.status == 'COMPLETED' %}
+                            <span class="badge badge-sm badge-success">Completed</span>
+                            {% elif payment.status == 'PENDING' %}
+                            <span class="badge badge-sm badge-warning">Pending</span>
+                            {% elif payment.status == 'PROCESSING' %}
+                            <span class="badge badge-sm badge-info">Processing</span>
+                            {% elif payment.status == 'FAILED' %}
+                            <span class="badge badge-sm badge-error">Failed</span>
+                            {% elif payment.status == 'REFUNDED' %}
+                            <span class="badge badge-sm badge-secondary">Refunded</span>
+                            {% else %}
+                            <span class="badge badge-sm badge-ghost">{{ payment.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-sm">{{ payment.transaction_date|date:"M d, Y H:i" }}</td>
+                        <td>
+                            <div class="dropdown dropdown-end">
+                                <label tabindex="0" class="btn btn-ghost btn-xs">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </label>
+                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-40">
+                                    <li>
+                                        <a href="{% url 'finance:payment_detail' pk=payment.pk %}"
+                                           hx-get="{% url 'finance:payment_detail' pk=payment.pk %}"
+                                           hx-target="#main-content"
+                                           hx-push-url="true">
+                                            <i class="fa-solid fa-eye"></i> View
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{% url 'finance:payment_receipt' pk=payment.pk %}" target="_blank">
+                                            <i class="fa-solid fa-print"></i> Print Receipt
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-12">
+                            <div class="text-base-content/40">
+                                <i class="fa-solid fa-money-bill-wave text-4xl mb-3"></i>
+                                <p class="text-lg font-medium mb-1">No payments found</p>
+                                <p class="text-sm">Record a payment to get started</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if payments.has_other_pages %}
+        <div class="flex justify-center p-4 border-t border-base-200">
+            <div class="join">
+                {% if payments.has_previous %}
+                <a href="?page={{ payments.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if method_filter %}&method={{ method_filter }}{% endif %}"
+                   hx-get="?page={{ payments.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if method_filter %}&method={{ method_filter }}{% endif %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="join-item btn btn-sm">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+                {% endif %}
+
+                <button class="join-item btn btn-sm btn-active">
+                    Page {{ payments.number }} of {{ payments.paginator.num_pages }}
+                </button>
+
+                {% if payments.has_next %}
+                <a href="?page={{ payments.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if method_filter %}&method={{ method_filter }}{% endif %}"
+                   hx-get="?page={{ payments.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if method_filter %}&method={{ method_filter }}{% endif %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="join-item btn btn-sm">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>

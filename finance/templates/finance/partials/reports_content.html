@@ -1,0 +1,194 @@
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:index' %}"
+               hx-get="{% url 'finance:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Finance">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-info to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-chart-bar text-white"></i>
+                </div>
+                Finance Reports
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            Generate and view financial reports
+        </p>
+    </div>
+</div>
+
+<!-- Report Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Collection Report -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+        <div class="card-body">
+            <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-money-bill-trend-up text-success text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="card-title text-lg">Collection Report</h2>
+                    <p class="text-sm text-base-content/60">View fee collections by date, method, and class</p>
+                </div>
+            </div>
+            <div class="card-actions justify-end mt-4">
+                <a href="{% url 'finance:collection_report' %}"
+                   hx-get="{% url 'finance:collection_report' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-success btn-sm">
+                    View Report
+                </a>
+                <a href="{% url 'finance:export_report' %}?type=collection" class="btn btn-ghost btn-sm">
+                    <i class="fa-solid fa-download"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outstanding Report -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+        <div class="card-body">
+            <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-xl bg-warning/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-warning text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="card-title text-lg">Outstanding Report</h2>
+                    <p class="text-sm text-base-content/60">Students with pending fee balances</p>
+                </div>
+            </div>
+            <div class="card-actions justify-end mt-4">
+                <a href="{% url 'finance:outstanding_report' %}"
+                   hx-get="{% url 'finance:outstanding_report' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-warning btn-sm">
+                    View Report
+                </a>
+                <a href="{% url 'finance:export_report' %}?type=outstanding" class="btn btn-ghost btn-sm">
+                    <i class="fa-solid fa-download"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fee Structure Summary -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+        <div class="card-body">
+            <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-list-check text-primary text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="card-title text-lg">Fee Structure</h2>
+                    <p class="text-sm text-base-content/60">View fee structures by class and term</p>
+                </div>
+            </div>
+            <div class="card-actions justify-end mt-4">
+                <a href="{% url 'finance:fee_structures' %}"
+                   hx-get="{% url 'finance:fee_structures' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-primary btn-sm">
+                    View Structures
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scholarship Report -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+        <div class="card-body">
+            <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-graduation-cap text-secondary text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="card-title text-lg">Scholarships</h2>
+                    <p class="text-sm text-base-content/60">View scholarship recipients and discounts</p>
+                </div>
+            </div>
+            <div class="card-actions justify-end mt-4">
+                <a href="{% url 'finance:scholarships' %}"
+                   hx-get="{% url 'finance:scholarships' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-secondary btn-sm">
+                    View Scholarships
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Summary -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+        <div class="card-body">
+            <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-file-invoice text-info text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="card-title text-lg">Invoice Summary</h2>
+                    <p class="text-sm text-base-content/60">Overview of all invoices by status</p>
+                </div>
+            </div>
+            <div class="card-actions justify-end mt-4">
+                <a href="{% url 'finance:invoices' %}"
+                   hx-get="{% url 'finance:invoices' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-info btn-sm">
+                    View Invoices
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Methods -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+        <div class="card-body">
+            <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center">
+                    <i class="fa-solid fa-credit-card text-accent text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="card-title text-lg">Payment Methods</h2>
+                    <p class="text-sm text-base-content/60">Breakdown by payment channel</p>
+                </div>
+            </div>
+            <div class="card-actions justify-end mt-4">
+                <a href="{% url 'finance:collection_report' %}"
+                   hx-get="{% url 'finance:collection_report' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-accent btn-sm">
+                    View Analysis
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
+    <div class="card-body">
+        <h3 class="font-bold mb-4">Quick Export Options</h3>
+        <div class="flex flex-wrap gap-3">
+            <a href="{% url 'finance:export_report' %}?type=collection&format=csv" class="btn btn-outline btn-sm">
+                <i class="fa-solid fa-file-csv text-success"></i>
+                Collection Report (CSV)
+            </a>
+            <a href="{% url 'finance:export_report' %}?type=outstanding&format=csv" class="btn btn-outline btn-sm">
+                <i class="fa-solid fa-file-csv text-warning"></i>
+                Outstanding Report (CSV)
+            </a>
+        </div>
+    </div>
+</div>
