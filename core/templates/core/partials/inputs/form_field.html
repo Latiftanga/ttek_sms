@@ -1,0 +1,64 @@
+{% comment %}
+Django Form Field Wrapper Component
+Renders a Django form field with DaisyUI styling
+{% endcomment %}
+
+{% if is_checkbox or is_toggle %}
+<label class="flex items-center gap-2 cursor-pointer">
+    {{ field }}
+    {% if label %}
+    <span class="label-text">{{ label }}{% if field.field.required %} *{% endif %}</span>
+    {% endif %}
+</label>
+{% elif is_select %}
+<label class="select select-sm {% if field.errors %}select-error{% endif %}">
+    {% if label %}
+    <span class="label">{{ label }}{% if field.field.required %} *{% endif %}</span>
+    {% endif %}
+    {{ field }}
+</label>
+{% elif is_date %}
+<label class="input input-sm {% if field.errors %}input-error{% endif %}">
+    {% if label %}
+    <span class="label">{{ label }}{% if field.field.required %} *{% endif %}</span>
+    {% endif %}
+    {{ field }}
+</label>
+{% elif is_textarea %}
+<label class="floating-label">
+    {% if label %}
+    <span>{{ label }}{% if field.field.required %} *{% endif %}</span>
+    {% endif %}
+    {{ field }}
+</label>
+{% elif is_file %}
+<label class="floating-label">
+    {% if label %}
+    <span>{{ label }}{% if field.field.required %} *{% endif %}</span>
+    {% endif %}
+    {{ field }}
+</label>
+{% else %}
+<label class="floating-label">
+    {% if label %}
+    <span>{{ label }}{% if field.field.required %} *{% endif %}</span>
+    {% endif %}
+
+    {% if icon %}
+    <div class="input input-sm {% if field.errors %}input-error{% endif %} flex items-center gap-2">
+        <i class="{{ icon }} text-base-content/50"></i>
+        {{ field }}
+    </div>
+    {% else %}
+    {{ field }}
+    {% endif %}
+</label>
+{% endif %}
+
+{% if field.errors %}
+{% for error in field.errors %}
+<p class="text-error text-xs mt-1">{{ error }}</p>
+{% endfor %}
+{% elif help_text %}
+<p class="text-base-content/60 text-xs mt-1">{{ help_text }}</p>
+{% endif %}

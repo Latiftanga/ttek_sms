@@ -1,0 +1,7 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ class_obj.name }} Timetable - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "academics/partials/class_timetable_content.html" %}
+{% endblock %}

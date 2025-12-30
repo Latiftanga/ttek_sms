@@ -1,7 +1,35 @@
 {% load core_tags %}
 
-<h3 class="text-lg font-bold mb-4">Notify Absent Parents</h3>
-<p class="text-sm text-base-content/60 mb-4">Send SMS to parents of students marked absent today ({{ date|date:"M d, Y" }})</p>
+<h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+    <i class="fa-solid fa-user-xmark text-error"></i>
+    Notify Absent Parents
+</h3>
+<p class="text-sm text-base-content/60 mb-4">
+    Send SMS to parents of students marked absent today ({{ date|date:"M d, Y" }})
+</p>
+
+{% if success %}
+<div class="text-center py-8">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
+        <i class="fa-solid fa-check text-success text-2xl"></i>
+    </div>
+    <h4 class="font-bold text-lg mb-2">Notifications Sent!</h4>
+    <div class="stats stats-vertical lg:stats-horizontal shadow mb-4">
+        <div class="stat py-2 px-4">
+            <div class="stat-title text-xs">Sent</div>
+            <div class="stat-value text-success text-xl">{{ sent_count }}</div>
+        </div>
+        <div class="stat py-2 px-4">
+            <div class="stat-title text-xs">Failed</div>
+            <div class="stat-value text-error text-xl">{{ failed_count }}</div>
+        </div>
+    </div>
+    <p class="text-sm text-base-content/60 mb-4">Parents have been notified of their child's absence.</p>
+    <button type="button" class="btn btn-primary" onclick="modal_sms.close(); location.reload();">
+        Done
+    </button>
+</div>
+{% elif absent_students %}
 
 {% if error %}
 <div class="alert alert-error mb-4">
@@ -10,14 +38,20 @@
 </div>
 {% endif %}
 
-{% if absent_students %}
 <form method="post"
       action="{% url 'communications:notify_absent' %}"
       hx-post="{% url 'communications:notify_absent' %}"
-      hx-target="#modal-sms-content">
+      hx-target="#modal-sms-content"
+      hx-indicator="#notify-absent-indicator">
     {% csrf_token %}
 
     <div class="space-y-4">
+        <!-- Summary -->
+        <div class="alert alert-warning py-2">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span><strong>{{ absent_students|length }}</strong> student{{ absent_students|length|pluralize }} marked absent today</span>
+        </div>
+
         <div class="form-control">
             <label class="label">
                 <span class="label-text">Select Students to Notify</span>
@@ -27,52 +61,65 @@
                     <button type="button" class="link text-xs" onclick="toggleAllAbsent(false)">Clear</button>
                 </span>
             </label>
-            <div class="bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+            <div class="bg-base-200 rounded-lg p-2 max-h-40 overflow-y-auto space-y-1">
                 {% for item in absent_students %}
                 <label class="flex items-center gap-3 cursor-pointer hover:bg-base-300 p-2 rounded">
                     <input type="checkbox"
                            name="student_ids"
                            value="{{ item.student.pk }}"
-                           class="checkbox checkbox-sm checkbox-primary absent-checkbox"
+                           class="checkbox checkbox-sm checkbox-error absent-checkbox"
                            checked>
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0">
                         <span class="font-medium text-sm">{{ item.student.full_name }}</span>
                         <span class="text-xs text-base-content/50 ml-2">{{ item.class.name }}</span>
                     </div>
-                    <span class="text-xs font-mono text-base-content/50">{{ item.student.guardian_phone }}</span>
+                    <span class="text-xs font-mono text-base-content/50 flex-shrink-0">{{ item.student.guardian_phone }}</span>
                 </label>
                 {% endfor %}
             </div>
+            <label class="label">
+                <span class="label-text-alt text-base-content/50">
+                    <span id="selected-count">{{ absent_students|length }}</span> selected
+                </span>
+            </label>
         </div>
 
         <div class="form-control">
             <label class="label">
                 <span class="label-text">Message <span class="text-error">*</span></span>
             </label>
-            <textarea name="message"
-                      class="textarea textarea-bordered h-32"
-                      required>{{ default_message }}</textarea>
+            <textarea id="absent-message-input"
+                      name="message"
+                      class="textarea textarea-bordered h-24"
+                      required
+                      oninput="updateAbsentCharCount(this)">{{ default_message }}</textarea>
             <label class="label">
-                <span class="label-text-alt text-base-content/50">
-                    Placeholders will be replaced with actual values
+                <span class="label-text-alt">
+                    <span id="absent-char-count" class="font-mono">{{ default_message|length }}</span>/160 chars
+                    <span class="mx-1">•</span>
+                    <span id="absent-sms-count" class="font-bold">1</span> SMS
+                </span>
+                <span class="label-text-alt">
+                    <span id="absent-char-warning" class="text-warning {% if default_message|length <= 160 %}hidden{% endif %}">Long message</span>
                 </span>
             </label>
         </div>
 
-        <div class="bg-base-200 rounded-lg p-3 text-sm">
-            <p class="font-medium mb-1">Available placeholders:</p>
-            <div class="flex flex-wrap gap-2 text-xs">
-                <code class="badge badge-ghost">{student_name}</code>
-                <code class="badge badge-ghost">{class_name}</code>
-                <code class="badge badge-ghost">{date}</code>
-                <code class="badge badge-ghost">{school_name}</code>
+        <div class="bg-base-200 rounded-lg p-3">
+            <p class="font-medium text-sm mb-2">Available placeholders:</p>
+            <div class="flex flex-wrap gap-2">
+                <code class="badge badge-ghost badge-sm">{student_name}</code>
+                <code class="badge badge-ghost badge-sm">{class_name}</code>
+                <code class="badge badge-ghost badge-sm">{date}</code>
+                <code class="badge badge-ghost badge-sm">{school_name}</code>
             </div>
         </div>
     </div>
 
     <div class="modal-action">
-        <button type="button" class="btn" onclick="modal_sms.close()">Cancel</button>
-        <button type="submit" class="btn btn-error">
+        <button type="button" class="btn btn-ghost" onclick="modal_sms.close()">Cancel</button>
+        <button type="submit" class="btn btn-error gap-2">
+            <span id="notify-absent-indicator" class="loading loading-spinner loading-sm htmx-indicator"></span>
             <i class="fa-solid fa-paper-plane"></i>
             Notify Selected Parents
         </button>
@@ -81,18 +128,52 @@
 
 <script>
 function toggleAllAbsent(checked) {
-    document.querySelectorAll('.absent-checkbox').forEach(cb => cb.checked = checked);
+    const checkboxes = document.querySelectorAll('.absent-checkbox');
+    checkboxes.forEach(cb => cb.checked = checked);
+    updateSelectedCount();
 }
+
+function updateSelectedCount() {
+    const checked = document.querySelectorAll('.absent-checkbox:checked').length;
+    document.getElementById('selected-count').textContent = checked;
+}
+
+function updateAbsentCharCount(textarea) {
+    const count = textarea.value.length;
+    const smsCount = Math.ceil(count / 160) || 1;
+    document.getElementById('absent-char-count').textContent = count;
+    document.getElementById('absent-sms-count').textContent = smsCount;
+
+    const warning = document.getElementById('absent-char-warning');
+    if (count > 160) {
+        warning.classList.remove('hidden');
+    } else {
+        warning.classList.add('hidden');
+    }
+}
+
+// Update count when checkboxes change
+document.querySelectorAll('.absent-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+});
+
+// Initialize char count
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('absent-message-input');
+    if (textarea) updateAbsentCharCount(textarea);
+});
 </script>
 
 {% else %}
-<div class="text-center py-12 text-base-content/40">
-    <i class="fa-solid fa-check-circle text-4xl mb-3 text-success"></i>
-    <p class="text-sm font-medium">No absences recorded today!</p>
-    <p class="text-xs">All students are present or attendance hasn't been taken yet.</p>
+<div class="text-center py-12">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
+        <i class="fa-solid fa-check text-success text-2xl"></i>
+    </div>
+    <h4 class="font-bold text-lg mb-2">No Absences Today!</h4>
+    <p class="text-sm text-base-content/60">All students are present or attendance hasn't been taken yet.</p>
 </div>
 
 <div class="modal-action">
-    <button type="button" class="btn" onclick="modal_sms.close()">Close</button>
+    <button type="button" class="btn btn-ghost" onclick="modal_sms.close()">Close</button>
 </div>
 {% endif %}

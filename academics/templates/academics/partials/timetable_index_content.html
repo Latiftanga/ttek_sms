@@ -1,0 +1,102 @@
+{% load core_tags %}
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                <a href="{% url 'academics:index' %}"
+                   hx-get="{% url 'academics:index' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="hover:text-primary">Academics</a>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+                <span>Timetable</span>
+            </div>
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-calendar-days text-primary"></i>
+                </div>
+                Timetable Management
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">
+                Select a class to view or edit its timetable
+            </p>
+        </div>
+
+        <a href="{% url 'academics:periods' %}"
+           hx-get="{% url 'academics:periods' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost gap-2">
+            <i class="fa-solid fa-clock"></i>
+            Manage Periods
+        </a>
+    </div>
+
+    <!-- Warning if no periods -->
+    {% if periods_count == 0 %}
+    <div class="alert alert-warning">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        <div>
+            <h4 class="font-bold">No Periods Defined</h4>
+            <p class="text-sm">You need to create school periods before building timetables.</p>
+        </div>
+        <a href="{% url 'academics:periods' %}"
+           hx-get="{% url 'academics:periods' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-warning">
+            Create Periods
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Classes Grid -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <h2 class="card-title text-lg mb-4">
+                <i class="fa-solid fa-chalkboard text-primary"></i>
+                Select a Class
+            </h2>
+
+            {% if classes %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {% for class in classes %}
+                <a href="{% url 'academics:class_timetable' class.pk %}"
+                   hx-get="{% url 'academics:class_timetable' class.pk %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="group card bg-base-200/50 hover:bg-primary/10 border border-base-300 hover:border-primary/30 transition-all">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-bold text-lg group-hover:text-primary transition-colors">
+                                    {{ class.name }}
+                                </h3>
+                                <p class="text-sm text-base-content/50">
+                                    {{ class.students.count }} students
+                                </p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                <i class="fa-solid fa-arrow-right text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                    <i class="fa-solid fa-chalkboard text-base-content/30 text-2xl"></i>
+                </div>
+                <h3 class="font-semibold text-base-content/70 mb-2">No Classes Found</h3>
+                <p class="text-sm text-base-content/50">
+                    Create classes first before setting up timetables
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

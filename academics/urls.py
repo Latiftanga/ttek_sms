@@ -6,6 +6,7 @@ app_name = 'academics'
 urlpatterns = [
     # Main page
     path('', views.index, name='index'),
+    path('classes/', views.classes_list, name='classes'),
 
     # Programme routes (SHS only)
     path('programmes/create/', views.programme_create, name='programme_create'),
@@ -32,6 +33,8 @@ urlpatterns = [
     # Attendance reports
     path('attendance/', views.attendance_reports, name='attendance_reports'),
     path('attendance/export/', views.attendance_export, name='attendance_export'),
+    path('attendance/notify-parents/', views.notify_absent_parents, name='notify_absent_parents'),
+    path('attendance/student/<uuid:student_id>/', views.student_attendance_detail, name='student_attendance_detail'),
 
     # Subject routes
     path('subjects/create/', views.subject_create, name='subject_create'),
@@ -40,4 +43,16 @@ urlpatterns = [
 
     # API endpoints
     path('api/class/<int:pk>/subjects/', views.api_class_subjects, name='api_class_subjects'),
+
+    # Period Management (Timetable Setup)
+    path('periods/', views.periods, name='periods'),
+    path('periods/create/', views.period_create, name='period_create'),
+    path('periods/<int:pk>/edit/', views.period_edit, name='period_edit'),
+    path('periods/<int:pk>/delete/', views.period_delete, name='period_delete'),
+
+    # Timetable Management
+    path('timetable/', views.timetable_index, name='timetable'),
+    path('timetable/class/<int:class_id>/', views.class_timetable, name='class_timetable'),
+    path('timetable/class/<int:class_id>/entry/create/', views.timetable_entry_create, name='timetable_entry_create'),
+    path('timetable/entry/<int:pk>/delete/', views.timetable_entry_delete, name='timetable_entry_delete'),
 ]

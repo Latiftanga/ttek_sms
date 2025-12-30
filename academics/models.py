@@ -225,6 +225,83 @@ class ClassSubject(models.Model):
         return f"{self.subject.name} - {self.class_assigned.name}"
 
 
+class StudentSubjectEnrollment(models.Model):
+    """
+    Tracks which subjects a student is enrolled in for their class.
+
+    For core subjects: Auto-created when student is enrolled in a class
+    For elective subjects: Manually created by form teacher
+
+    This is especially important for SHS where students choose electives
+    (e.g., French vs Literature, Economics vs Geography)
+    """
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='subject_enrollments'
+    )
+    class_subject = models.ForeignKey(
+        ClassSubject,
+        on_delete=models.CASCADE,
+        related_name='student_enrollments'
+    )
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    enrolled_by = models.ForeignKey(
+        'teachers.Teacher',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='student_enrollments_created'
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ['student', 'class_subject']
+        verbose_name = "Student Subject Enrollment"
+        verbose_name_plural = "Student Subject Enrollments"
+        ordering = ['student__last_name', 'class_subject__subject__name']
+
+    def __str__(self):
+        return f"{self.student} - {self.class_subject.subject.name}"
+
+    @classmethod
+    def enroll_student_in_core_subjects(cls, student, class_obj, enrolled_by=None):
+        """
+        Auto-enroll a student in all core subjects for their class.
+        Called when a student is enrolled in a new class.
+        """
+        core_class_subjects = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject__is_core=True
+        )
+
+        enrollments = []
+        for class_subject in core_class_subjects:
+            enrollment, created = cls.objects.get_or_create(
+                student=student,
+                class_subject=class_subject,
+                defaults={
+                    'enrolled_by': enrolled_by,
+                    'is_active': True
+                }
+            )
+            if created:
+                enrollments.append(enrollment)
+
+        return enrollments
+
+    @classmethod
+    def get_student_subjects(cls, student, class_obj=None):
+        """
+        Get all subjects a student is enrolled in.
+        If class_obj is provided, filter by that class.
+        """
+        queryset = cls.objects.filter(student=student, is_active=True)
+        if class_obj:
+            queryset = queryset.filter(class_subject__class_assigned=class_obj)
+        return queryset.select_related('class_subject__subject', 'class_subject__teacher')
+
+
 class AttendanceSession(models.Model):
     class_assigned = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='attendance_sessions')
     date = models.DateField(default=timezone.now)
@@ -315,10 +392,15 @@ class TimetableEntry(models.Model):
     period = models.ForeignKey(
         Period,
         on_delete=models.CASCADE,
-        related_name='timetable_entries'
+        related_name='timetable_entries',
+        help_text="Starting period for this lesson"
     )
     weekday = models.PositiveSmallIntegerField(
         choices=Weekday.choices
+    )
+    is_double = models.BooleanField(
+        default=False,
+        help_text="If true, this lesson spans two consecutive periods"
     )
 
     class Meta:

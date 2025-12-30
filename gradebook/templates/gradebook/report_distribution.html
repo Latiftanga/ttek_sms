@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% load core_tags %}
+
+{% block title %}Distribute Reports - {{ class_obj.name }} - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "gradebook/partials/report_distribution_content.html" %}
+{% endblock %}

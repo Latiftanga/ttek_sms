@@ -57,48 +57,65 @@
 
 <!-- Summary Stats -->
 {% if term_report %}
-<div class="stats stats-vertical lg:stats-horizontal shadow-sm border border-base-200 w-full mb-6 bg-base-100">
-    <div class="stat">
-        <div class="stat-figure text-primary">
-            <i class="fa-solid fa-percent text-2xl"></i>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-percent text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ term_report.average|floatformat:1 }}%</div>
+                    <div class="text-xs text-base-content/60">Average</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Average</div>
-        <div class="stat-value text-primary">{{ term_report.average|floatformat:1 }}%</div>
-        <div class="stat-desc">Overall average</div>
     </div>
-
-    <div class="stat">
-        <div class="stat-figure text-secondary">
-            <i class="fa-solid fa-trophy text-2xl"></i>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-trophy text-secondary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-secondary">
+                        {% if term_report.position %}
+                        {{ term_report.position }}<span class="text-base font-normal text-base-content/60">/{{ term_report.out_of }}</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-base-content/60">Position</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Position</div>
-        <div class="stat-value text-secondary">
-            {% if term_report.position %}
-            {{ term_report.position }}<span class="text-base font-normal">/{{ term_report.out_of }}</span>
-            {% else %}
-            -
-            {% endif %}
-        </div>
-        <div class="stat-desc">Class rank</div>
     </div>
-
-    <div class="stat">
-        <div class="stat-figure text-success">
-            <i class="fa-solid fa-check-circle text-2xl"></i>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-check-circle text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">{{ term_report.subjects_passed }}<span class="text-base font-normal text-base-content/60">/{{ term_report.subjects_taken }}</span></div>
+                    <div class="text-xs text-base-content/60">Passed</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Passed</div>
-        <div class="stat-value text-success">{{ term_report.subjects_passed }}</div>
-        <div class="stat-desc">of {{ term_report.subjects_taken }} subjects</div>
     </div>
-
     {% if term_report.aggregate %}
-    <div class="stat">
-        <div class="stat-figure text-warning">
-            <i class="fa-solid fa-star text-2xl"></i>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                    <i class="fa-solid fa-star text-warning text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-warning">{{ term_report.aggregate }}</div>
+                    <div class="text-xs text-base-content/60">Aggregate</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-title">Aggregate</div>
-        <div class="stat-value text-warning">{{ term_report.aggregate }}</div>
-        <div class="stat-desc">Best 6 subjects</div>
     </div>
     {% endif %}
 </div>

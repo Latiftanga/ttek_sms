@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% load core_tags %}
+
+{% block title %}Remark Templates - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "gradebook/partials/remark_templates_content.html" %}
+{% endblock %}

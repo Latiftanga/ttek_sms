@@ -1,6 +1,22 @@
 {% load core_tags %}
 
-<h3 class="text-lg font-bold mb-4">Send SMS to Individual</h3>
+<h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+    <i class="fa-solid fa-user text-primary"></i>
+    Send SMS to Individual
+</h3>
+
+{% if success %}
+<div class="text-center py-8">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
+        <i class="fa-solid fa-check text-success text-2xl"></i>
+    </div>
+    <h4 class="font-bold text-lg mb-2">Message Sent!</h4>
+    <p class="text-sm text-base-content/60 mb-4">Your SMS has been queued for delivery.</p>
+    <button type="button" class="btn btn-primary" onclick="modal_sms.close(); location.reload();">
+        Done
+    </button>
+</div>
+{% else %}
 
 {% if error %}
 <div class="alert alert-error mb-4">
@@ -12,16 +28,18 @@
 <form method="post"
       action="{% url 'communications:send_single' %}"
       hx-post="{% url 'communications:send_single' %}"
-      hx-target="#modal-sms-content">
+      hx-target="#modal-sms-content"
+      hx-indicator="#send-single-indicator">
     {% csrf_token %}
 
     <div class="space-y-4">
         <div class="form-control">
             <label class="label">
-                <span class="label-text">Recipient Name (optional)</span>
+                <span class="label-text">Recipient Name <span class="text-base-content/50">(optional)</span></span>
             </label>
             <input type="text"
                    name="recipient_name"
+                   value="{{ recipient_name|default:'' }}"
                    class="input input-bordered w-full"
                    placeholder="e.g., John's Parent">
         </div>
@@ -30,23 +48,28 @@
             <label class="label">
                 <span class="label-text">Phone Number <span class="text-error">*</span></span>
             </label>
-            <input type="tel"
-                   name="phone"
-                   class="input input-bordered w-full"
-                   placeholder="0241234567 or +233241234567"
-                   required>
+            <div class="join w-full">
+                <span class="btn join-item btn-disabled">+233</span>
+                <input type="tel"
+                       name="phone"
+                       value="{{ phone|default:'' }}"
+                       class="input input-bordered join-item flex-1"
+                       placeholder="241234567"
+                       pattern="[0-9]{9,10}"
+                       required>
+            </div>
             <label class="label">
-                <span class="label-text-alt text-base-content/50">Ghana numbers will be formatted automatically</span>
+                <span class="label-text-alt text-base-content/50">Enter 9-10 digits without the leading zero</span>
             </label>
         </div>
 
         {% if templates %}
         <div class="form-control">
             <label class="label">
-                <span class="label-text">Use Template (optional)</span>
+                <span class="label-text">Quick Template</span>
             </label>
             <select class="select select-bordered w-full"
-                    onchange="if(this.value) document.getElementById('message-input').value = this.value;">
+                    onchange="if(this.value) { document.getElementById('message-input').value = this.value; updateCharCount(document.getElementById('message-input')); }">
                 <option value="">-- Select a template --</option>
                 {% for template in templates %}
                 <option value="{{ template.content }}">{{ template.name }}</option>
@@ -61,22 +84,27 @@
             </label>
             <textarea id="message-input"
                       name="message"
-                      class="textarea textarea-bordered h-32"
+                      class="textarea textarea-bordered h-28"
                       placeholder="Type your message here..."
                       required
-                      oninput="updateCharCount(this)"></textarea>
+                      oninput="updateCharCount(this)">{{ message|default:'' }}</textarea>
             <label class="label">
-                <span class="label-text-alt text-base-content/50">
-                    <span id="char-count">0</span>/160 characters
-                    (<span id="sms-count">1</span> SMS)
+                <span class="label-text-alt">
+                    <span id="char-count" class="font-mono">0</span>/160 chars
+                    <span class="mx-1">•</span>
+                    <span id="sms-count" class="font-bold">1</span> SMS
+                </span>
+                <span class="label-text-alt">
+                    <span id="char-warning" class="text-warning hidden">Long message - may cost more</span>
                 </span>
             </label>
         </div>
     </div>
 
     <div class="modal-action">
-        <button type="button" class="btn" onclick="modal_sms.close()">Cancel</button>
-        <button type="submit" class="btn btn-primary">
+        <button type="button" class="btn btn-ghost" onclick="modal_sms.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary gap-2">
+            <span id="send-single-indicator" class="loading loading-spinner loading-sm htmx-indicator"></span>
             <i class="fa-solid fa-paper-plane"></i>
             Send SMS
         </button>
@@ -86,7 +114,21 @@
 <script>
 function updateCharCount(textarea) {
     const count = textarea.value.length;
+    const smsCount = Math.ceil(count / 160) || 1;
     document.getElementById('char-count').textContent = count;
-    document.getElementById('sms-count').textContent = Math.ceil(count / 160) || 1;
+    document.getElementById('sms-count').textContent = smsCount;
+
+    const warning = document.getElementById('char-warning');
+    if (count > 160) {
+        warning.classList.remove('hidden');
+    } else {
+        warning.classList.add('hidden');
+    }
 }
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('message-input');
+    if (textarea && textarea.value) updateCharCount(textarea);
+});
 </script>
+{% endif %}

@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('send/', views.send_single, name='send_single'),
     path('send/class/', views.send_to_class, name='send_to_class'),
+    path('send/class/recipients/', views.class_recipients, name='class_recipients'),
     path('notify-absent/', views.notify_absent, name='notify_absent'),
     path('history/', views.message_history, name='history'),
     path('templates/', views.templates_list, name='templates'),

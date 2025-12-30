@@ -1,0 +1,24 @@
+{% comment %}
+File Input Component
+{% endcomment %}
+
+<label class="floating-label">
+    {% if label %}
+    <span>{{ label }}{% if required %} *{% endif %}</span>
+    {% endif %}
+
+    <input type="file"
+           name="{{ name }}"
+           id="id_{{ name }}"
+           {% if accept %}accept="{{ accept }}"{% endif %}
+           {% if multiple %}multiple{% endif %}
+           {% if required %}required{% endif %}
+           {% if disabled %}disabled{% endif %}
+           class="file-input file-input-sm {% if error %}file-input-error{% endif %} {{ input_class }}" />
+</label>
+
+{% if error %}
+<p class="text-error text-xs mt-1">{{ error }}</p>
+{% elif help_text %}
+<p class="text-base-content/60 text-xs mt-1">{{ help_text }}</p>
+{% endif %}

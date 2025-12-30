@@ -68,7 +68,7 @@
             <tr class="text-xs uppercase bg-base-200">
                 <th>Subject</th>
                 {% for cat in categories %}
-                <th class="text-center">{{ cat.short_name }}</th>
+                <th class="text-center" title="{{ cat.name }} ({{ cat.percentage }}%)">{{ cat.short_name }}</th>
                 {% endfor %}
                 <th class="text-center">Total</th>
                 <th class="text-center">Grade</th>
@@ -82,13 +82,9 @@
                 <td class="font-medium">{{ grade.subject.name }}</td>
                 {% for cat in categories %}
                 <td class="text-center">
-                    {% if cat.short_name == 'CA' %}
-                    {{ grade.class_score|default:'-' }}
-                    {% elif cat.short_name == 'EXAM' %}
-                    {{ grade.exam_score|default:'-' }}
-                    {% else %}
-                    -
-                    {% endif %}
+                    {% with score=grade|get_category_score:cat %}
+                    {{ score|default:'-' }}
+                    {% endwith %}
                 </td>
                 {% endfor %}
                 <td class="text-center font-bold">{{ grade.total_score|default:'-' }}</td>
@@ -106,7 +102,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="10" class="text-center py-8 text-base-content/40">
+                <td colspan="{{ categories|length|add:5 }}" class="text-center py-8 text-base-content/40">
                     No grades calculated yet. Please calculate grades first.
                 </td>
             </tr>

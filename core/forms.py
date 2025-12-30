@@ -115,6 +115,33 @@ class AcademicSettingsForm(forms.ModelForm):
         }
 
 
+class SMSSettingsForm(forms.ModelForm):
+    """Form for SMS configuration settings."""
+    class Meta:
+        model = SchoolSettings
+        fields = ['sms_enabled', 'sms_backend', 'sms_api_key', 'sms_sender_id']
+        labels = {
+            'sms_enabled': 'Enable SMS',
+            'sms_backend': 'SMS Provider',
+            'sms_api_key': 'API Key',
+            'sms_sender_id': 'Sender ID (Optional)',
+        }
+        widgets = {
+            'sms_api_key': forms.PasswordInput(attrs={
+                'placeholder': 'Enter your Arkesel API key',
+                'autocomplete': 'off',
+            }),
+            'sms_sender_id': forms.TextInput(attrs={
+                'placeholder': 'Max 11 characters (uses school name if empty)',
+                'maxlength': '11',
+            }),
+        }
+        help_texts = {
+            'sms_api_key': 'Get your API key from https://sms.arkesel.com/user/sms-api/info',
+            'sms_sender_id': 'Leave empty to use school name',
+        }
+
+
 class AcademicYearForm(forms.ModelForm):
     """Form for creating/editing academic years."""
     class Meta:

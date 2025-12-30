@@ -1,6 +1,6 @@
 from django import forms
 from django.db.models import Q  # Import Q directly here
-from .models import Programme, Class, Subject, ClassSubject, AttendanceSession
+from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, Period, TimetableEntry
 from students.models import Student
 
 
@@ -171,3 +171,139 @@ class AttendanceSessionForm(forms.ModelForm):
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date', 'class': 'input input-bordered'})
         }
+
+
+class PeriodForm(forms.ModelForm):
+    """Form for creating/editing school periods."""
+    class Meta:
+        model = Period
+        fields = ['name', 'start_time', 'end_time', 'order', 'is_break', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder': 'e.g., Period 1, Break, Assembly'}),
+            'start_time': forms.TimeInput(attrs={'type': 'time'}),
+            'end_time': forms.TimeInput(attrs={'type': 'time'}),
+            'order': forms.NumberInput(attrs={'min': 0, 'max': 20}),
+        }
+        labels = {
+            'is_break': 'Break Period (not for classes)',
+            'order': 'Display Order',
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_time = cleaned_data.get('start_time')
+        end_time = cleaned_data.get('end_time')
+
+        if start_time and end_time and start_time >= end_time:
+            raise forms.ValidationError('End time must be after start time.')
+
+        return cleaned_data
+
+
+class TimetableEntryForm(forms.ModelForm):
+    """Form for creating/editing timetable entries."""
+    class Meta:
+        model = TimetableEntry
+        fields = ['class_subject', 'period', 'weekday', 'is_double']
+        labels = {
+            'is_double': 'Double Period (spans 2 periods)',
+        }
+
+    def __init__(self, *args, class_instance=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.class_instance = class_instance
+
+        # Filter periods to only active, non-break periods
+        self.fields['period'].queryset = Period.objects.filter(
+            is_active=True,
+            is_break=False
+        ).order_by('order')
+
+        # Filter class subjects if class is provided
+        if class_instance:
+            self.fields['class_subject'].queryset = ClassSubject.objects.filter(
+                class_assigned=class_instance
+            ).select_related('subject', 'teacher')
+            self.fields['class_subject'].label_from_instance = lambda obj: f"{obj.subject.name} ({obj.teacher.full_name if obj.teacher else 'No teacher'})"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        class_subject = cleaned_data.get('class_subject')
+        period = cleaned_data.get('period')
+        weekday = cleaned_data.get('weekday')
+        is_double = cleaned_data.get('is_double', False)
+
+        if class_subject and period and weekday:
+            # Get list of periods to check (1 or 2 depending on double)
+            periods_to_check = [period]
+
+            if is_double:
+                # Find the next period by order
+                next_period = Period.objects.filter(
+                    is_active=True,
+                    is_break=False,
+                    order__gt=period.order
+                ).order_by('order').first()
+
+                if not next_period:
+                    raise forms.ValidationError(
+                        f'Cannot create double period: no period exists after {period.name}.'
+                    )
+                periods_to_check.append(next_period)
+
+            # Check for duplicate entries for all periods
+            for check_period in periods_to_check:
+                existing = TimetableEntry.objects.filter(
+                    class_subject__class_assigned=class_subject.class_assigned,
+                    period=check_period,
+                    weekday=weekday
+                )
+                if self.instance.pk:
+                    existing = existing.exclude(pk=self.instance.pk)
+
+                if existing.exists():
+                    raise forms.ValidationError(
+                        f'This class already has a subject scheduled for {check_period.name} on {dict(TimetableEntry.Weekday.choices)[weekday]}.'
+                    )
+
+                # Also check if there's a double period that occupies this slot
+                double_occupying = TimetableEntry.objects.filter(
+                    class_subject__class_assigned=class_subject.class_assigned,
+                    weekday=weekday,
+                    is_double=True
+                ).exclude(period=check_period)
+
+                if self.instance.pk:
+                    double_occupying = double_occupying.exclude(pk=self.instance.pk)
+
+                for entry in double_occupying:
+                    # Check if entry's next period is the one we're checking
+                    entry_next = Period.objects.filter(
+                        is_active=True,
+                        is_break=False,
+                        order__gt=entry.period.order
+                    ).order_by('order').first()
+                    if entry_next and entry_next.pk == check_period.pk:
+                        raise forms.ValidationError(
+                            f'{check_period.name} is occupied by a double period ({entry.class_subject.subject.name}).'
+                        )
+
+            # Check for teacher conflicts for all periods
+            if class_subject.teacher:
+                for check_period in periods_to_check:
+                    teacher_conflict = TimetableEntry.objects.filter(
+                        class_subject__teacher=class_subject.teacher,
+                        period=check_period,
+                        weekday=weekday
+                    ).exclude(class_subject__class_assigned=class_subject.class_assigned)
+
+                    if self.instance.pk:
+                        teacher_conflict = teacher_conflict.exclude(pk=self.instance.pk)
+
+                    if teacher_conflict.exists():
+                        conflicting = teacher_conflict.first()
+                        raise forms.ValidationError(
+                            f'{class_subject.teacher.full_name} is already teaching {conflicting.class_subject.class_assigned.name} during {check_period.name}.'
+                        )
+
+        return cleaned_data

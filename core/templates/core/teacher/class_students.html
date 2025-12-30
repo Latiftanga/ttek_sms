@@ -1,0 +1,10 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ class_obj.name }} Students{% endblock %}
+
+{% block content %}
+<div id="main-content">
+    {% include 'core/teacher/partials/class_students_content.html' %}
+</div>
+{% endblock %}

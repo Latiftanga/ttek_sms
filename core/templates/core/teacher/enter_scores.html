@@ -1,0 +1,8 @@
+{% extends 'core/base.html' %}
+{% load core_tags %}
+
+{% block title %}Enter Scores - {{ subject.name }} ({{ class_obj.name }}){% endblock %}
+
+{% block content %}
+{% include 'core/teacher/partials/enter_scores_content.html' %}
+{% endblock %}

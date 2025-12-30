@@ -1,0 +1,184 @@
+{% load core_tags %}
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                <a href="{% url 'academics:index' %}"
+                   hx-get="{% url 'academics:index' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="hover:text-primary">Academics</a>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+                <span>School Periods</span>
+            </div>
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-primary"></i>
+                </div>
+                School Periods
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">
+                Define time slots for the school timetable
+            </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <a href="{% url 'academics:timetable' %}"
+               hx-get="{% url 'academics:timetable' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost gap-2">
+                <i class="fa-solid fa-calendar-days"></i>
+                View Timetable
+            </a>
+            <button class="btn btn-primary gap-2"
+                    hx-get="{% url 'academics:period_create' %}"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML"
+                    onclick="modal_form.showModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add Period
+            </button>
+        </div>
+    </div>
+
+    <!-- Periods List -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            {% if periods %}
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th class="w-16">Order</th>
+                            <th>Period Name</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Duration</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th class="w-24">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for period in periods %}
+                        <tr class="hover:bg-base-200/30 {% if period.is_break %}bg-warning/5{% endif %}">
+                            <td class="font-mono text-center">{{ period.order }}</td>
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    {% if period.is_break %}
+                                    <i class="fa-solid fa-mug-hot text-warning"></i>
+                                    {% else %}
+                                    <i class="fa-solid fa-book text-primary"></i>
+                                    {% endif %}
+                                    <span class="font-medium">{{ period.name }}</span>
+                                </div>
+                            </td>
+                            <td>{{ period.start_time|time:"g:i A" }}</td>
+                            <td>{{ period.end_time|time:"g:i A" }}</td>
+                            <td>
+                                <span class="badge badge-ghost badge-sm">
+                                    {{ period.duration_minutes }} min
+                                </span>
+                            </td>
+                            <td>
+                                {% if period.is_break %}
+                                <span class="badge badge-warning badge-sm">Break</span>
+                                {% else %}
+                                <span class="badge badge-primary badge-sm">Class</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if period.is_active %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="flex items-center gap-1">
+                                    <button class="btn btn-ghost btn-xs btn-square"
+                                            hx-get="{% url 'academics:period_edit' period.pk %}"
+                                            hx-target="#modal-container"
+                                            hx-swap="innerHTML"
+                                            onclick="modal_form.showModal()"
+                                            title="Edit">
+                                        <i class="fa-solid fa-pen-to-square text-primary"></i>
+                                    </button>
+                                    <button class="btn btn-ghost btn-xs btn-square"
+                                            hx-post="{% url 'academics:period_delete' period.pk %}"
+                                            hx-confirm="Delete period '{{ period.name }}'? This cannot be undone."
+                                            title="Delete">
+                                        <i class="fa-solid fa-trash text-error"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-base-content/30 text-2xl"></i>
+                </div>
+                <h3 class="font-semibold text-base-content/70 mb-2">No Periods Defined</h3>
+                <p class="text-sm text-base-content/50 mb-4">
+                    Create school periods to build your timetable
+                </p>
+                <button class="btn btn-primary btn-sm gap-2"
+                        hx-get="{% url 'academics:period_create' %}"
+                        hx-target="#modal-container"
+                        hx-swap="innerHTML"
+                        onclick="modal_form.showModal()">
+                    <i class="fa-solid fa-plus"></i>
+                    Add First Period
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Setup Guide -->
+    {% if not periods %}
+    <div class="card bg-info/5 border border-info/20">
+        <div class="card-body">
+            <h3 class="font-bold flex items-center gap-2">
+                <i class="fa-solid fa-lightbulb text-info"></i>
+                Quick Setup Guide
+            </h3>
+            <div class="text-sm text-base-content/70 space-y-2 mt-2">
+                <p>A typical Ghanaian school day might look like:</p>
+                <ul class="list-disc list-inside space-y-1 ml-2">
+                    <li><strong>Assembly:</strong> 7:30 AM - 8:00 AM (Break period)</li>
+                    <li><strong>Period 1:</strong> 8:00 AM - 8:40 AM</li>
+                    <li><strong>Period 2:</strong> 8:40 AM - 9:20 AM</li>
+                    <li><strong>Break:</strong> 9:20 AM - 9:40 AM (Break period)</li>
+                    <li><strong>Period 3:</strong> 9:40 AM - 10:20 AM</li>
+                    <li>... and so on</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Container -->
+<dialog id="modal_form" class="modal">
+    <div class="modal-box" id="modal-container">
+        <!-- Form content loaded here -->
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+document.body.addEventListener('periodChanged', function() {
+    htmx.ajax('GET', '{% url "academics:periods" %}', {target: '#main-content'});
+    modal_form.close();
+});
+</script>

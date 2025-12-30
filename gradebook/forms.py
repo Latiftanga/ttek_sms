@@ -6,6 +6,7 @@ from .models import (
     GradingSystem, GradeScale, AssessmentCategory,
     Assignment, Score, SubjectTermGrade, TermReport
 )
+from . import config
 
 
 class GradingSystemForm(forms.ModelForm):
@@ -186,6 +187,7 @@ class SubjectGradeRemarkForm(forms.ModelForm):
 
 class BulkScoreImportForm(forms.Form):
     """Form for bulk importing scores from CSV/Excel."""
+
     file = forms.FileField(
         widget=forms.FileInput(attrs={
             'class': 'file-input file-input-bordered w-full',
@@ -198,7 +200,14 @@ class BulkScoreImportForm(forms.Form):
     def clean_file(self):
         uploaded_file = self.cleaned_data.get('file')
         if uploaded_file:
+            # Validate file extension
             ext = uploaded_file.name.split('.')[-1].lower()
             if ext not in ['csv', 'xlsx', 'xls']:
                 raise forms.ValidationError('Only CSV and Excel files are allowed.')
+
+            # Validate file size
+            if uploaded_file.size > config.MAX_FILE_SIZE:
+                max_mb = config.MAX_FILE_SIZE / (1024 * 1024)
+                raise forms.ValidationError(f'File size must be under {max_mb:.0f} MB.')
+
         return uploaded_file

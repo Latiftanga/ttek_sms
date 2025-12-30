@@ -33,9 +33,9 @@
                name="search"
                value="{{ search }}"
                placeholder="Search name, staff ID or subject..."
-               class="input flex-1 min-w-0" />
-        
-        <select name="status" class="select select-sm w-auto">
+               class="input input-bordered input-sm flex-1 min-w-0" />
+
+        <select name="status" class="select select-sm select-bordered w-auto">
             <option value="">All Status</option>
             {% for value, label in status_choices %}
             <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>

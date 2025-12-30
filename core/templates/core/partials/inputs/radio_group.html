@@ -1,0 +1,29 @@
+{% comment %}
+Radio Group Component
+{% endcomment %}
+
+{% if label %}
+<span class="label-text mb-1 block">{{ label }}{% if required %} *{% endif %}</span>
+{% endif %}
+
+<div class="{% if inline %}flex flex-wrap gap-4{% else %}space-y-2{% endif %}">
+    {% for opt in options %}
+    <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio"
+               name="{{ name }}"
+               id="id_{{ name }}_{{ forloop.counter }}"
+               value="{{ opt.value }}"
+               {% if opt.value|stringformat:"s" == value %}checked{% endif %}
+               {% if required and forloop.first %}required{% endif %}
+               {% if disabled %}disabled{% endif %}
+               class="radio radio-sm radio-{{ color|default:'primary' }} {% if error %}radio-error{% endif %} {{ input_class }}" />
+        <span class="label-text">{{ opt.label }}</span>
+    </label>
+    {% endfor %}
+</div>
+
+{% if error %}
+<p class="text-error text-xs mt-1">{{ error }}</p>
+{% elif help_text %}
+<p class="text-base-content/60 text-xs mt-1">{{ help_text }}</p>
+{% endif %}

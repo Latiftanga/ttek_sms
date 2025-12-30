@@ -21,6 +21,7 @@ urlpatterns = [
     path('settings/update/contact/', views.settings_update_contact, name='settings_update_contact'),
     path('settings/update/admin/', views.settings_update_admin, name='settings_update_admin'),
     path('settings/update/academic/', views.settings_update_academic, name='settings_update_academic'),
+    path('settings/update/sms/', views.settings_update_sms, name='settings_update_sms'),
 
     # Academic Year routes
     path('settings/academic-year/create/', views.academic_year_create, name='academic_year_create'),
@@ -36,8 +37,17 @@ urlpatterns = [
 
     # Teacher routes
     path('my-classes/', views.my_classes, name='my_classes'),
-    path('attendance/', views.attendance, name='attendance'),
-    path('grading/', views.grading, name='grading'),
+    path('my-classes/<int:class_id>/students/', views.class_students, name='class_students'),
+    path('my-classes/<int:class_id>/students/enroll/', views.enroll_student, name='enroll_student'),
+    path('my-classes/<int:class_id>/students/<int:student_id>/remove/', views.remove_student, name='remove_student'),
+    path('my-classes/<int:class_id>/students/<int:student_id>/electives/', views.update_student_electives, name='update_student_electives'),
+    path('my-attendance/', views.my_attendance, name='my_attendance'),
+    path('my-attendance/take/<int:class_id>/', views.take_attendance, name='take_attendance'),
+    path('my-grading/', views.my_grading, name='my_grading'),
+    path('my-grading/<int:class_id>/<int:subject_id>/', views.enter_scores, name='enter_scores'),
+    path('my-grading/<int:class_id>/<int:subject_id>/export/', views.export_scores, name='export_scores'),
+    path('my-grading/<int:class_id>/<int:subject_id>/import/', views.import_scores, name='import_scores'),
+    path('my-grading/<int:class_id>/<int:subject_id>/import/confirm/', views.import_scores_confirm, name='import_scores_confirm'),
 
     # Student routes
     path('my-results/', views.my_results, name='my_results'),

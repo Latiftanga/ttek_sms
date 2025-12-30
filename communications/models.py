@@ -16,6 +16,7 @@ class SMSMessage(models.Model):
         ATTENDANCE = 'attendance', 'Attendance Alert'
         FEE_REMINDER = 'fee', 'Fee Reminder'
         ANNOUNCEMENT = 'announcement', 'Announcement'
+        REPORT_FEEDBACK = 'report', 'Report Feedback'
 
     recipient_phone = models.CharField(max_length=20)
     recipient_name = models.CharField(max_length=100, blank=True)
@@ -78,7 +79,8 @@ class SMSTemplate(models.Model):
         default=SMSMessage.MessageType.GENERAL
     )
     content = models.TextField(
-        help_text="Use {student_name}, {class_name}, {date}, {school_name} as placeholders"
+        help_text="Placeholders: {student_name}, {class_name}, {school_name}, {date}, "
+                  "{position}, {average}, {conduct}, {attendance}, {term}, {remark}"
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

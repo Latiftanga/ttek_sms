@@ -65,12 +65,14 @@ class Command(BaseCommand):
             {
                 'name': 'Class Score',
                 'short_name': 'CA',
+                'category_type': 'CLASS_SCORE',
                 'percentage': 30,
                 'order': 1,
             },
             {
                 'name': 'Examination',
                 'short_name': 'EXAM',
+                'category_type': 'EXAM',
                 'percentage': 70,
                 'order': 2,
             },

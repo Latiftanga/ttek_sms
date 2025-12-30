@@ -133,20 +133,21 @@ if not DEBUG:
 # --- 6. COMMUNICATION ---
 # Email
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@schoolos.com')
 
-# SMS - Supported backends: 'hubtel', 'africastalking', 'console'
+# SMS - Supported backends: 'arkesel', 'console'
+# Arkesel is the primary SMS provider for Ghana
+# Get your API key from: https://sms.arkesel.com/user/sms-api/info
 SMS_BACKEND = os.getenv('SMS_BACKEND', 'console')
 
-# Hubtel (recommended for Ghana)
-HUBTEL_CLIENT_ID = os.getenv('HUBTEL_CLIENT_ID', '')
-HUBTEL_CLIENT_SECRET = os.getenv('HUBTEL_CLIENT_SECRET', '')
-HUBTEL_SENDER_ID = os.getenv('HUBTEL_SENDER_ID', '')
-
-# Africa's Talking (alternative)
-AT_USERNAME = os.getenv('AT_USERNAME', 'sandbox')
-AT_API_KEY = os.getenv('AT_API_KEY', '')
-AT_SENDER_ID = os.getenv('AT_SENDER_ID') or None
+# Arkesel SMS Configuration (https://developers.arkesel.com/)
+ARKESEL_API_KEY = os.getenv('ARKESEL_API_KEY', '')
+ARKESEL_SENDER_ID = os.getenv('ARKESEL_SENDER_ID', '')  # Max 11 characters
 
 # --- 7. CELERY ---
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')

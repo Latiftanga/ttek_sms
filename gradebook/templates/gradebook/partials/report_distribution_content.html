@@ -1,0 +1,448 @@
+{% load core_tags %}
+
+<div class="space-y-6 w-full max-w-full box-border">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                <a href="{% url 'gradebook:reports' %}"
+                   hx-get="{% url 'gradebook:reports' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="hover:text-primary">Reports</a>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+                <span>Distribute Reports</span>
+            </div>
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-paper-plane text-secondary"></i>
+                </div>
+                {{ class_obj.name }} - Report Distribution
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">
+                {{ current_term.name }} | Send reports to parents/guardians
+            </p>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="bg-base-100 rounded-lg border border-base-200 p-3 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-users text-primary"></i>
+            </div>
+            <div>
+                <div class="text-xl font-bold text-primary">{{ stats.total }}</div>
+                <div class="text-xs text-base-content/60">Students</div>
+            </div>
+        </div>
+
+        <div class="bg-base-100 rounded-lg border border-base-200 p-3 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-envelope text-info"></i>
+            </div>
+            <div>
+                <div class="text-xl font-bold text-info">{{ stats.with_email }}</div>
+                <div class="text-xs text-base-content/60">With Email</div>
+            </div>
+        </div>
+
+        <div class="bg-base-100 rounded-lg border border-base-200 p-3 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-phone text-warning"></i>
+            </div>
+            <div>
+                <div class="text-xl font-bold text-warning">{{ stats.with_phone }}</div>
+                <div class="text-xs text-base-content/60">With Phone</div>
+            </div>
+        </div>
+
+        <div class="bg-base-100 rounded-lg border border-base-200 p-3 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-check-circle text-success"></i>
+            </div>
+            <div>
+                <div class="text-xl font-bold text-success">{{ stats.already_sent }}</div>
+                <div class="text-xs text-base-content/60">Sent</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Send Section -->
+    <div class="bg-base-100 rounded-lg border border-base-200 p-4">
+        <div class="flex flex-col lg:flex-row lg:items-start gap-4">
+            <!-- Quick Send -->
+            <div class="flex-1">
+                <div class="flex items-center gap-2 text-sm font-medium mb-2">
+                    <i class="fa-solid fa-rocket text-secondary"></i>
+                    <span>Quick Send</span>
+                </div>
+                <form hx-post="{% url 'gradebook:send_bulk_reports' class_obj.pk %}"
+                      hx-swap="none"
+                      class="flex items-center gap-2 flex-wrap">
+                    <select name="type" class="select select-bordered select-sm">
+                        {% for value, label in distribution_types %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit"
+                            class="btn btn-secondary btn-sm gap-2"
+                            hx-confirm="Send reports to all students with valid contact information?">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        Send to All
+                    </button>
+                </form>
+            </div>
+
+            <!-- Custom SMS Feedback -->
+            <div class="flex-1">
+                <div class="flex items-center gap-2 text-sm font-medium mb-2">
+                    <i class="fa-solid fa-message text-primary"></i>
+                    <span>Custom SMS Feedback</span>
+                </div>
+                <button type="button"
+                        class="btn btn-outline btn-primary btn-sm gap-2"
+                        onclick="modal_sms_feedback.showModal()">
+                    <i class="fa-solid fa-edit"></i>
+                    Customize SMS Message
+                </button>
+            </div>
+        </div>
+        <p class="text-xs text-base-content/50 mt-3">
+            <i class="fa-solid fa-info-circle"></i>
+            Only students with valid contact info will receive reports. Use Custom SMS to personalize the feedback message.
+        </p>
+    </div>
+
+    <!-- Students List -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <h3 class="font-bold text-sm mb-4">Students ({{ students|length }})</h3>
+
+            {% if students %}
+            <div class="space-y-2">
+                {% for student in students %}
+                <div class="flex items-center justify-between p-3 rounded-lg bg-base-200/30 hover:bg-base-200/50 transition-colors">
+                    <!-- Student Info -->
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <div class="text-base-content/40 text-sm w-6">{{ forloop.counter }}</div>
+                        <div class="min-w-0 flex-1">
+                            <div class="font-medium text-sm truncate">{{ student.full_name }}</div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-xs text-base-content/50">{{ student.admission_number }}</span>
+                                {% if student.term_report %}
+                                <span class="badge badge-ghost badge-xs">Pos: {{ student.term_report.position|default:"-" }}</span>
+                                <span class="badge badge-xs {% if student.term_report.average >= 80 %}badge-success{% elif student.term_report.average >= 50 %}badge-warning{% else %}badge-error{% endif %}">
+                                    {{ student.term_report.average|floatformat:1 }}%
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact & Status -->
+                    <div class="flex items-center gap-2">
+                        <!-- Contact Icons -->
+                        <div class="flex items-center gap-1">
+                            {% if student.has_email %}
+                            <i class="fa-solid fa-envelope text-info text-xs"></i>
+                            {% endif %}
+                            {% if student.has_phone %}
+                            <i class="fa-solid fa-phone text-success text-xs"></i>
+                            {% endif %}
+                        </div>
+
+                        <!-- Status -->
+                        {% if student.last_distribution %}
+                            {% if student.last_distribution.email_status == 'SENT' or student.last_distribution.sms_status == 'SENT' %}
+                            <span class="badge badge-success badge-xs">Sent</span>
+                            {% elif student.last_distribution.email_status == 'FAILED' and student.last_distribution.sms_status == 'FAILED' %}
+                            <span class="badge badge-error badge-xs">Failed</span>
+                            {% else %}
+                            <span class="badge badge-warning badge-xs">Partial</span>
+                            {% endif %}
+                        {% endif %}
+
+                        <!-- Actions -->
+                        <div class="flex items-center">
+                            {% if student.has_email %}
+                            <button class="btn btn-ghost btn-xs btn-square"
+                                    hx-post="{% url 'gradebook:send_single_report' student.pk %}"
+                                    hx-vals='{"type": "EMAIL"}'
+                                    hx-swap="none"
+                                    title="Send Email">
+                                <i class="fa-solid fa-paper-plane text-info text-xs"></i>
+                            </button>
+                            {% endif %}
+                            {% if student.has_phone %}
+                            <button class="btn btn-ghost btn-xs btn-square"
+                                    hx-post="{% url 'gradebook:send_single_report' student.pk %}"
+                                    hx-vals='{"type": "SMS"}'
+                                    hx-swap="none"
+                                    title="Send SMS">
+                                <i class="fa-solid fa-comment-sms text-warning text-xs"></i>
+                            </button>
+                            {% endif %}
+                            <a href="{% url 'gradebook:download_report_pdf' student.pk %}"
+                               target="_blank"
+                               class="btn btn-ghost btn-xs btn-square"
+                               title="Download PDF">
+                                <i class="fa-solid fa-file-pdf text-error text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-base-content/50">
+                <i class="fa-solid fa-users text-3xl mb-2"></i>
+                <p>No students found in this class</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between p-4 bg-base-200/30 rounded-lg border border-base-200">
+        <a href="{% url 'gradebook:reports' %}?class={{ class_obj.pk }}"
+           hx-get="{% url 'gradebook:reports' %}?class={{ class_obj.pk }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost gap-2">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back to Reports
+        </a>
+
+        <a href="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+           hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-primary gap-2">
+            <i class="fa-solid fa-comment-dots"></i>
+            Enter Remarks
+        </a>
+    </div>
+</div>
+
+<!-- Custom SMS Feedback Modal -->
+<dialog id="modal_sms_feedback" class="modal">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+
+        <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-message text-primary"></i>
+            Customize SMS Feedback
+        </h3>
+
+        <form id="sms-feedback-form"
+              hx-post="{% url 'gradebook:send_bulk_reports' class_obj.pk %}"
+              hx-swap="none"
+              hx-on::after-request="if(event.detail.successful) modal_sms_feedback.close()">
+
+            <input type="hidden" name="type" value="SMS">
+
+            <!-- Template Selector -->
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text font-medium">Message Template</span>
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label class="cursor-pointer flex items-start gap-2 p-3 rounded-lg border border-base-300 hover:border-primary transition-colors">
+                        <input type="radio" name="template_choice" value="basic" class="radio radio-sm radio-primary mt-0.5" checked onchange="updateSmsPreview()">
+                        <div>
+                            <div class="font-medium text-sm">Basic Results</div>
+                            <div class="text-xs text-base-content/60">Position and average only</div>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer flex items-start gap-2 p-3 rounded-lg border border-base-300 hover:border-primary transition-colors">
+                        <input type="radio" name="template_choice" value="detailed" class="radio radio-sm radio-primary mt-0.5" onchange="updateSmsPreview()">
+                        <div>
+                            <div class="font-medium text-sm">Detailed</div>
+                            <div class="text-xs text-base-content/60">With conduct & attendance</div>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer flex items-start gap-2 p-3 rounded-lg border border-base-300 hover:border-primary transition-colors">
+                        <input type="radio" name="template_choice" value="encouraging" class="radio radio-sm radio-primary mt-0.5" onchange="updateSmsPreview()">
+                        <div>
+                            <div class="font-medium text-sm">Encouraging</div>
+                            <div class="text-xs text-base-content/60">Positive motivational tone</div>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer flex items-start gap-2 p-3 rounded-lg border border-base-300 hover:border-primary transition-colors">
+                        <input type="radio" name="template_choice" value="custom" class="radio radio-sm radio-primary mt-0.5" onchange="updateSmsPreview()">
+                        <div>
+                            <div class="font-medium text-sm">Custom Message</div>
+                            <div class="text-xs text-base-content/60">Write your own</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Custom Message Textarea -->
+            <div class="form-control mb-4" id="custom-message-section">
+                <label class="label">
+                    <span class="label-text font-medium">SMS Message</span>
+                    <span class="label-text-alt">
+                        <span id="sms-char-count" class="font-mono">0</span>/160 chars
+                    </span>
+                </label>
+                <textarea id="sms-template-input"
+                          name="sms_template"
+                          class="textarea textarea-bordered h-24 font-mono text-sm"
+                          placeholder="Dear Parent, {student_name}'s {term} results: Position {position}/{out_of}, Average {average}%."
+                          oninput="updateCharCount()"></textarea>
+                <p id="sms-char-warning" class="text-xs text-warning mt-1 hidden">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    Message exceeds 160 characters - will be sent as multiple SMS
+                </p>
+            </div>
+
+            <!-- Available Placeholders -->
+            <div class="mb-4 p-3 bg-base-200 rounded-lg">
+                <p class="font-medium text-xs mb-2">Available Placeholders:</p>
+                <div class="flex flex-wrap gap-1">
+                    <code class="badge badge-ghost badge-xs cursor-pointer hover:badge-primary" onclick="insertPlaceholder('{student_name}')">{student_name}</code>
+                    <code class="badge badge-ghost badge-xs cursor-pointer hover:badge-primary" onclick="insertPlaceholder('{class_name}')">{class_name}</code>
+                    <code class="badge badge-ghost badge-xs cursor-pointer hover:badge-primary" onclick="insertPlaceholder('{term}')">{term}</code>
+                    <code class="badge badge-ghost badge-xs cursor-pointer hover:badge-primary" onclick="insertPlaceholder('{position}')">{position}</code>
+                    <code class="badge badge-ghost badge-xs cursor-pointer hover:badge-primary" onclick="insertPlaceholder('{out_of}')">{out_of}</code>
+                    <code class="badge badge-ghost badge-xs cursor-pointer hover:badge-primary" onclick="insertPlaceholder('{average}')">{average}</code>
+                    <code class="badge badge-ghost badge-xs cursor-pointer hover:badge-primary" onclick="insertPlaceholder('{conduct}')">{conduct}</code>
+                    <code class="badge badge-ghost badge-xs cursor-pointer hover:badge-primary" onclick="insertPlaceholder('{attendance}')">{attendance}</code>
+                    <code class="badge badge-ghost badge-xs cursor-pointer hover:badge-primary" onclick="insertPlaceholder('{remark}')">{remark}</code>
+                </div>
+                <p class="text-xs text-base-content/50 mt-2">Click a placeholder to insert it at cursor position</p>
+            </div>
+
+            <!-- Preview -->
+            <div class="mb-4">
+                <label class="label">
+                    <span class="label-text font-medium">Preview (Sample Student)</span>
+                </label>
+                <div id="sms-preview" class="p-3 bg-success/10 border border-success/30 rounded-lg text-sm font-mono">
+                    Dear Parent, John's First Term results: Position 5/30, Average 78.5%.
+                </div>
+            </div>
+
+            <!-- Recipients Info -->
+            <div class="alert alert-info mb-4">
+                <i class="fa-solid fa-info-circle"></i>
+                <div>
+                    <p class="font-medium">{{ stats.with_phone }} students will receive this SMS</p>
+                    <p class="text-xs">Each message will be personalized with the student's actual results</p>
+                </div>
+            </div>
+
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="modal_sms_feedback.close()">Cancel</button>
+                <button type="submit" class="btn btn-primary gap-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    Send SMS to All Parents
+                </button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+const smsTemplates = {
+    basic: "Dear Parent, {student_name}'s {term} results: Position {position}/{out_of}, Average {average}%.",
+    detailed: "Dear Parent, {student_name} is {position}/{out_of} with {average}% avg. Conduct: {conduct}. Attendance: {attendance}%.",
+    encouraging: "Great news! {student_name} achieved Position {position} with {average}%. Keep encouraging them!",
+    custom: ""
+};
+
+const sampleContext = {
+    student_name: "John",
+    class_name: "{{ class_obj.name }}",
+    term: "{{ current_term.name }}",
+    position: "5",
+    out_of: "{{ stats.total }}",
+    average: "78.5",
+    conduct: "Very Good",
+    attendance: "95",
+    remark: "Keep up the good work"
+};
+
+function updateSmsPreview() {
+    const templateChoice = document.querySelector('input[name="template_choice"]:checked').value;
+    const textarea = document.getElementById('sms-template-input');
+    const customSection = document.getElementById('custom-message-section');
+
+    if (templateChoice === 'custom') {
+        customSection.classList.remove('hidden');
+        // Don't change textarea content for custom
+    } else {
+        customSection.classList.add('hidden');
+        textarea.value = smsTemplates[templateChoice];
+    }
+
+    updateCharCount();
+    renderPreview();
+}
+
+function updateCharCount() {
+    const textarea = document.getElementById('sms-template-input');
+    const count = textarea.value.length;
+    document.getElementById('sms-char-count').textContent = count;
+
+    const warning = document.getElementById('sms-char-warning');
+    if (count > 160) {
+        warning.classList.remove('hidden');
+    } else {
+        warning.classList.add('hidden');
+    }
+
+    renderPreview();
+}
+
+function renderPreview() {
+    const textarea = document.getElementById('sms-template-input');
+    let message = textarea.value;
+
+    for (const [key, value] of Object.entries(sampleContext)) {
+        message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+    }
+
+    document.getElementById('sms-preview').textContent = message || 'Enter a message to see preview';
+}
+
+function insertPlaceholder(placeholder) {
+    const textarea = document.getElementById('sms-template-input');
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+
+    textarea.value = text.substring(0, start) + placeholder + text.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + placeholder.length;
+    textarea.focus();
+
+    // Switch to custom mode
+    document.querySelector('input[name="template_choice"][value="custom"]').checked = true;
+    document.getElementById('custom-message-section').classList.remove('hidden');
+
+    updateCharCount();
+}
+
+// Initialize on modal open
+document.getElementById('modal_sms_feedback')?.addEventListener('show', function() {
+    updateSmsPreview();
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('sms-template-input');
+    if (textarea) {
+        textarea.value = smsTemplates.basic;
+        updateSmsPreview();
+    }
+});
+</script>

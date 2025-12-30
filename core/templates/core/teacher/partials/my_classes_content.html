@@ -1,0 +1,155 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'core:index' %}"
+               hx-get="{% url 'core:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Dashboard">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-chalkboard-user text-white"></i>
+                </div>
+                My Classes
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            {% if current_term %}
+            <i class="fa-solid fa-calendar-day mr-1"></i>
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="flex gap-3">
+        <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
+            <i class="fa-solid fa-chalkboard text-primary"></i>
+            <div>
+                <div class="text-lg font-bold text-primary">{{ total_classes }}</div>
+                <div class="text-xs text-base-content/60">Classes</div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary/10 border border-secondary/20">
+            <i class="fa-solid fa-house-user text-secondary"></i>
+            <div>
+                <div class="text-lg font-bold text-secondary">{{ homeroom_count }}</div>
+                <div class="text-xs text-base-content/60">Homeroom</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not classes_data %}
+<!-- No Classes -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body py-16 text-center">
+        <div class="w-20 h-20 rounded-full bg-info/10 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-chalkboard text-info text-3xl"></i>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">No Classes Assigned</h3>
+        <p class="text-base-content/60 max-w-md mx-auto">
+            You don't have any classes assigned yet. Please contact the school administration
+            if you believe this is an error.
+        </p>
+    </div>
+</div>
+
+{% else %}
+
+<!-- Classes Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for item in classes_data %}
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+        <div class="card-body p-5">
+            <!-- Class Header -->
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h3 class="font-bold text-lg flex items-center gap-2">
+                        {{ item.class.name }}
+                        {% if item.is_homeroom %}
+                        <span class="badge badge-primary badge-sm">Homeroom</span>
+                        {% endif %}
+                    </h3>
+                    <p class="text-sm text-base-content/60">
+                        {{ item.class.get_level_type_display|default:"" }}
+                    </p>
+                </div>
+                <div class="avatar placeholder">
+                    <div class="w-12 h-12 rounded-lg bg-primary/10 text-primary">
+                        <span class="text-lg font-bold">{{ item.class.name|slice:":2" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Count -->
+            <div class="flex items-center gap-2 text-base-content/70 mb-3">
+                <i class="fa-solid fa-users text-sm"></i>
+                <span class="text-sm">{{ item.student_count }} student{{ item.student_count|pluralize }}</span>
+            </div>
+
+            <!-- Class Subjects -->
+            {% if item.class_subjects %}
+            <div class="mb-4">
+                <p class="text-xs text-base-content/50 mb-2">Subjects offered:</p>
+                <div class="flex flex-wrap gap-1">
+                    {% for cs in item.class_subjects %}
+                    <span class="badge badge-sm {% if cs.teacher == teacher %}badge-primary{% else %}badge-outline{% endif %}">
+                        {{ cs.subject.short_name|default:cs.subject.name }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% if item.subjects %}
+                <p class="text-xs text-base-content/50 mt-2">
+                    <i class="fa-solid fa-chalkboard-user mr-1"></i>
+                    You teach {{ item.subjects|length }} subject{{ item.subjects|length|pluralize }}
+                </p>
+                {% endif %}
+            </div>
+            {% elif item.is_homeroom %}
+            <div class="mb-4">
+                <p class="text-xs text-base-content/50">No subjects assigned to this class yet.</p>
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="card-actions justify-end mt-auto pt-3 border-t border-base-200">
+                {% if item.is_homeroom %}
+                <a href="{% url 'core:class_students' item.class.pk %}"
+                   hx-get="{% url 'core:class_students' item.class.pk %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-users-gear"></i>
+                    Students
+                </a>
+                {% endif %}
+                <a href="{% url 'core:my_grading' %}"
+                   hx-get="{% url 'core:my_grading' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    Grades
+                </a>
+                <a href="{% url 'core:take_attendance' item.class.pk %}"
+                   hx-get="{% url 'core:take_attendance' item.class.pk %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm">
+                    <i class="fa-solid fa-clipboard-user"></i>
+                    Attendance
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endif %}

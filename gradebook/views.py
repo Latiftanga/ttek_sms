@@ -9,10 +9,15 @@ from django.http import HttpResponse, JsonResponse
 from django.db.models import Prefetch, Sum, Avg, Count, Q, F
 from django.db import models, transaction
 
+from django.contrib import messages
+
 from .models import (
     GradingSystem, GradeScale, AssessmentCategory,
-    Assignment, Score, SubjectTermGrade, TermReport, ScoreAuditLog
+    Assignment, Score, SubjectTermGrade, TermReport, ScoreAuditLog,
+    RemarkTemplate, ReportDistributionLog
 )
+from .signals import signals_disabled
+from . import config
 from academics.models import Class, Subject, ClassSubject
 from students.models import Student
 from core.models import Term
@@ -107,8 +112,9 @@ def htmx_render(request, full_template, partial_template, context=None):
 
 
 @login_required
+@admin_required
 def index(request):
-    """Gradebook dashboard."""
+    """Gradebook dashboard (Admin only)."""
     current_term = Term.get_current()
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
 
@@ -195,8 +201,9 @@ def index(request):
 
 
 @login_required
+@admin_required
 def settings(request):
-    """Gradebook settings - grading systems and categories."""
+    """Gradebook settings - grading systems and categories (Admin only)."""
     grading_systems = GradingSystem.objects.prefetch_related('scales').all()
     categories = AssessmentCategory.objects.all()
 
@@ -220,8 +227,9 @@ def settings(request):
 # ============ Grading System CRUD ============
 
 @login_required
+@admin_required
 def grading_systems(request):
-    """List all grading systems."""
+    """List all grading systems (Admin only)."""
     systems = GradingSystem.objects.prefetch_related('scales').all()
     return render(request, 'gradebook/partials/grading_systems_list.html', {
         'grading_systems': systems,
@@ -229,8 +237,9 @@ def grading_systems(request):
 
 
 @login_required
+@admin_required
 def grading_system_create(request):
-    """Create a new grading system."""
+    """Create a new grading system (Admin only)."""
     if request.method == 'GET':
         return render(request, 'gradebook/includes/modal_grading_system.html', {
             'levels': GradingSystem.SCHOOL_LEVELS,
@@ -261,8 +270,9 @@ def grading_system_create(request):
 
 
 @login_required
+@admin_required
 def grading_system_edit(request, pk):
-    """Edit a grading system."""
+    """Edit a grading system (Admin only)."""
     system = get_object_or_404(GradingSystem, pk=pk)
 
     if request.method == 'GET':
@@ -286,8 +296,9 @@ def grading_system_edit(request, pk):
 
 
 @login_required
+@admin_required
 def grading_system_delete(request, pk):
-    """Delete a grading system."""
+    """Delete a grading system (Admin only)."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -302,8 +313,9 @@ def grading_system_delete(request, pk):
 # ============ Grade Scale CRUD ============
 
 @login_required
+@admin_required
 def grade_scales(request, system_id):
-    """List grades for a grading system."""
+    """List grades for a grading system (Admin only)."""
     system = get_object_or_404(GradingSystem, pk=system_id)
     scales = system.scales.all()
 
@@ -314,8 +326,9 @@ def grade_scales(request, system_id):
 
 
 @login_required
+@admin_required
 def grade_scale_create(request, system_id):
-    """Create a new grade scale."""
+    """Create a new grade scale (Admin only)."""
     system = get_object_or_404(GradingSystem, pk=system_id)
 
     if request.method == 'GET':
@@ -350,8 +363,9 @@ def grade_scale_create(request, system_id):
 
 
 @login_required
+@admin_required
 def grade_scale_edit(request, pk):
-    """Edit a grade scale."""
+    """Edit a grade scale (Admin only)."""
     scale = get_object_or_404(GradeScale, pk=pk)
 
     if request.method == 'GET':
@@ -386,8 +400,9 @@ def grade_scale_edit(request, pk):
 
 
 @login_required
+@admin_required
 def grade_scale_delete(request, pk):
-    """Delete a grade scale."""
+    """Delete a grade scale (Admin only)."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -402,8 +417,9 @@ def grade_scale_delete(request, pk):
 # ============ Assessment Category CRUD ============
 
 @login_required
+@admin_required
 def categories(request):
-    """List all assessment categories."""
+    """List all assessment categories (Admin only)."""
     cats = AssessmentCategory.objects.all()
     total = sum(c.percentage for c in cats if c.is_active)
 
@@ -414,8 +430,9 @@ def categories(request):
 
 
 @login_required
+@admin_required
 def category_create(request):
-    """Create a new assessment category."""
+    """Create a new assessment category (Admin only)."""
     if request.method == 'GET':
         return render(request, 'gradebook/includes/modal_category.html', {})
 
@@ -454,8 +471,9 @@ def category_create(request):
 
 
 @login_required
+@admin_required
 def category_edit(request, pk):
-    """Edit an assessment category."""
+    """Edit an assessment category (Admin only)."""
     category = get_object_or_404(AssessmentCategory, pk=pk)
 
     if request.method == 'GET':
@@ -479,8 +497,9 @@ def category_edit(request, pk):
 
 
 @login_required
+@admin_required
 def category_delete(request, pk):
-    """Delete an assessment category."""
+    """Delete an assessment category (Admin only)."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -612,22 +631,11 @@ def score_save(request):
     student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
     assignment = get_object_or_404(Assignment.objects.select_related('term', 'subject'), pk=assignment_id)
 
-    # Check if grades are locked for this term
-    if assignment.term.grades_locked:
-        response = HttpResponse(status=200)
-        response['HX-Trigger'] = '{"showToast": {"message": "Grades are locked for this term", "type": "error"}}'
-        return response
-
-    # Check if user is authorized to edit scores for this subject/class
+    # Early check for authorization (before transaction)
     if not can_edit_scores(request.user, student.current_class, assignment.subject):
         response = HttpResponse(status=200)
         response['HX-Trigger'] = '{"showToast": {"message": "You are not authorized to edit scores for this subject", "type": "error"}}'
         return response
-
-    # Get existing score for reverting on error and audit logging
-    existing_score = Score.objects.filter(student=student, assignment=assignment).first()
-    old_value = existing_score.points if existing_score else None
-    old_value_str = str(old_value) if old_value is not None else ''
 
     # Get audit context
     client_ip = get_client_ip(request)
@@ -635,9 +643,18 @@ def score_save(request):
 
     if points == '' or points is None:
         # Delete score if empty
-        if existing_score:
-            try:
-                with transaction.atomic():
+        try:
+            with transaction.atomic():
+                # Re-check grade lock inside transaction with row lock
+                term = Term.objects.select_for_update().get(pk=assignment.term_id)
+                if term.grades_locked:
+                    response = HttpResponse(status=200)
+                    response['HX-Trigger'] = '{"showToast": {"message": "Grades are locked for this term", "type": "error"}}'
+                    return response
+
+                existing_score = Score.objects.filter(student=student, assignment=assignment).first()
+                if existing_score:
+                    old_value = existing_score.points
                     # Log deletion first
                     ScoreAuditLog.objects.create(
                         score=None,
@@ -651,12 +668,17 @@ def score_save(request):
                         user_agent=user_agent
                     )
                     existing_score.delete()
-            except Exception as e:
-                logger.error(f"Error deleting score: {e}")
-                response = HttpResponse(status=200)
-                response['HX-Trigger'] = '{"showToast": {"message": "Error deleting score", "type": "error"}}'
-                return response
+        except Exception as e:
+            logger.error(f"Error deleting score: {e}")
+            response = HttpResponse(status=200)
+            response['HX-Trigger'] = '{"showToast": {"message": "Error deleting score", "type": "error"}}'
+            return response
         return HttpResponse(status=200)
+
+    # Get existing score for reverting on error
+    existing_score = Score.objects.filter(student=student, assignment=assignment).first()
+    old_value = existing_score.points if existing_score else None
+    old_value_str = str(old_value) if old_value is not None else ''
 
     try:
         points_decimal = Decimal(points)
@@ -686,9 +708,16 @@ def score_save(request):
         )
         return response
 
-    # Save score with transaction handling
+    # Save score with transaction handling and race condition protection
     try:
         with transaction.atomic():
+            # Re-check grade lock inside transaction with row lock to prevent race condition
+            term = Term.objects.select_for_update().get(pk=assignment.term_id)
+            if term.grades_locked:
+                response = HttpResponse(status=200)
+                response['HX-Trigger'] = '{"showToast": {"message": "Grades are locked for this term", "type": "error"}}'
+                return response
+
             score, created = Score.objects.update_or_create(
                 student=student,
                 assignment=assignment,
@@ -731,7 +760,7 @@ def score_audit_history(request, student_id, assignment_id):
     logs = ScoreAuditLog.objects.filter(
         student=student,
         assignment=assignment
-    ).select_related('user').order_by('-created_at')[:50]
+    ).select_related('user').order_by('-created_at')[:config.AUDIT_LOG_DISPLAY_LIMIT]
 
     return render(request, 'gradebook/partials/score_audit_history.html', {
         'student': student,
@@ -868,14 +897,27 @@ def assignment_edit(request, pk):
 
 
 @login_required
+@teacher_or_admin_required
 def assignment_delete(request, pk):
-    """Delete an assignment."""
+    """Delete an assignment and all associated scores."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
     assignment = get_object_or_404(Assignment, pk=pk)
     subject = assignment.subject
     current_term = assignment.term
+
+    # Check for existing scores (they will be cascade deleted)
+    score_count = Score.objects.filter(assignment=assignment).count()
+    if score_count > 0:
+        # Log the deletion for audit purposes
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Assignment '{assignment.name}' deleted by {request.user}. "
+            f"{score_count} scores were cascade deleted."
+        )
+
     assignment.delete()
 
     # Return updated assignments list
@@ -933,7 +975,7 @@ def score_import_template(request, class_id, subject_id):
 
     # Styles
     header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    header_fill = PatternFill(start_color=config.EXCEL_HEADER_COLOR, end_color=config.EXCEL_HEADER_COLOR, fill_type="solid")
     thin_border = Border(
         left=Side(style='thin'),
         right=Side(style='thin'),
@@ -1262,8 +1304,9 @@ def score_import_confirm(request, class_id, subject_id):
 # ============ Grade Calculation ============
 
 @login_required
+@admin_required
 def calculate_grades(request):
-    """Calculate grades page - select class."""
+    """Calculate grades page - select class (Admin only)."""
     current_term = Term.get_current()
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
     grading_systems = GradingSystem.objects.filter(is_active=True)
@@ -1309,7 +1352,8 @@ def calculate_class_grades(request, class_id):
     is_final_term = current_term.term_number == 3 if hasattr(current_term, 'term_number') else False
 
     try:
-        with transaction.atomic():
+        # Disable auto-calculation signals during bulk operation
+        with signals_disabled(), transaction.atomic():
             # ========== PHASE 1: Bulk prefetch all data ==========
 
             # Get students
@@ -1433,12 +1477,14 @@ def calculate_class_grades(request, class_id):
                                 score_pct = Decimal(str(score.points)) / Decimal(str(assign.points_possible))
                                 category_total += score_pct * weight_per_assignment
 
+                        # Store by both short_name and category_type for flexibility
                         category_totals[category.short_name] = round(category_total, 2)
+                        category_totals[f'_type_{category.category_type}'] = round(category_total, 2)
                         total += category_total
 
-                    # Update grade object
-                    grade.class_score = category_totals.get('CA', Decimal('0.0'))
-                    grade.exam_score = category_totals.get('EXAM', Decimal('0.0'))
+                    # Update grade object using category_type (with fallback to short_name)
+                    grade.class_score = category_totals.get('_type_CLASS_SCORE', category_totals.get('CA', Decimal('0.0')))
+                    grade.exam_score = category_totals.get('_type_EXAM', category_totals.get('EXAM', Decimal('0.0')))
                     grade.total_score = round(total, 2)
 
                     # Determine grade from scale (no DB query - uses prefetched scales)
@@ -1457,7 +1503,7 @@ def calculate_class_grades(request, class_id):
             SubjectTermGrade.objects.bulk_update(
                 grades_to_update,
                 ['class_score', 'exam_score', 'total_score', 'grade', 'grade_remark', 'is_passing'],
-                batch_size=500
+                batch_size=config.BULK_UPDATE_BATCH_SIZE
             )
 
             # ========== PHASE 3: Calculate positions per subject ==========
@@ -1493,7 +1539,7 @@ def calculate_class_grades(request, class_id):
             SubjectTermGrade.objects.bulk_update(
                 position_updates,
                 ['position'],
-                batch_size=500
+                batch_size=config.BULK_UPDATE_BATCH_SIZE
             )
 
             # ========== PHASE 4: Calculate term reports ==========
@@ -1527,8 +1573,8 @@ def calculate_class_grades(request, class_id):
 
             # Calculate aggregates for each report
             reports_to_update = []
-            pass_mark = grading_system.pass_mark if grading_system else Decimal('50.00')
-            credit_mark = grading_system.credit_mark if grading_system else Decimal('50.00')
+            pass_mark = grading_system.pass_mark if grading_system else config.DEFAULT_PASS_MARK
+            credit_mark = grading_system.credit_mark if grading_system else config.DEFAULT_CREDIT_MARK
 
             for student in students:
                 report = existing_reports[student.id]
@@ -1595,7 +1641,7 @@ def calculate_class_grades(request, class_id):
                  'subjects_failed', 'credits_count', 'core_subjects_total',
                  'core_subjects_passed', 'aggregate', 'out_of', 'promoted',
                  'promotion_remarks'],
-                batch_size=500
+                batch_size=config.BULK_UPDATE_BATCH_SIZE
             )
 
             # ========== PHASE 5: Calculate overall positions ==========
@@ -1625,7 +1671,7 @@ def calculate_class_grades(request, class_id):
             TermReport.objects.bulk_update(
                 reports_to_update,
                 ['position'],
-                batch_size=500
+                batch_size=config.BULK_UPDATE_BATCH_SIZE
             )
 
             logger.info(
@@ -1690,11 +1736,30 @@ def report_cards(request):
     """Report cards page - select class/term.
 
     OPTIMIZED: Uses dict lookup for O(1) report access per student.
+
+    For teachers: Only show classes where they are the form master (class_teacher).
+    For admins: Show all classes.
     """
     current_term = Term.get_current()
-    classes = Class.objects.filter(is_active=True).only(
-        'id', 'name', 'level_number'
-    ).order_by('level_number', 'name')
+    user = request.user
+
+    # Filter classes based on user role
+    if is_school_admin(user):
+        # Admins see all classes
+        classes = Class.objects.filter(is_active=True).only(
+            'id', 'name', 'level_number'
+        ).order_by('level_number', 'name')
+    elif getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+        # Teachers only see classes where they are the form master
+        teacher = user.teacher_profile
+        classes = Class.objects.filter(
+            class_teacher=teacher,
+            is_active=True
+        ).only(
+            'id', 'name', 'level_number'
+        ).order_by('level_number', 'name')
+    else:
+        classes = Class.objects.none()
 
     # Get class filter
     class_id = request.GET.get('class')
@@ -1703,6 +1768,20 @@ def report_cards(request):
 
     if class_id:
         class_obj = get_object_or_404(Class, pk=class_id)
+
+        # Verify teacher has permission to view this class
+        if not is_school_admin(user):
+            if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+                teacher = user.teacher_profile
+                if class_obj.class_teacher != teacher:
+                    from django.contrib import messages
+                    messages.error(request, 'You can only view reports for classes you are the form master of.')
+                    return redirect('gradebook:reports')
+            else:
+                from django.contrib import messages
+                messages.error(request, 'You do not have permission to view reports.')
+                return redirect('core:index')
+
         students = list(Student.objects.filter(
             current_class=class_obj
         ).only(
@@ -1730,6 +1809,7 @@ def report_cards(request):
         'classes': classes,
         'selected_class': class_obj,
         'students': students,
+        'is_admin': is_school_admin(user),
     }
 
     return htmx_render(
@@ -1745,9 +1825,27 @@ def student_report(request, student_id):
     """View individual student report card with Ghana-specific data.
 
     OPTIMIZED: Uses select_related and computes grade summary in-memory.
+
+    For teachers: Only allow viewing reports for students in their homeroom classes.
+    For admins: Allow viewing all reports.
     """
     current_term = Term.get_current()
-    student = get_object_or_404(Student, pk=student_id)
+    student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
+    user = request.user
+
+    # Permission check for teachers
+    if not is_school_admin(user):
+        if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+            teacher = user.teacher_profile
+            # Teacher must be the form master of the student's class
+            if not student.current_class or student.current_class.class_teacher != teacher:
+                from django.contrib import messages
+                messages.error(request, 'You can only view reports for students in your homeroom class.')
+                return redirect('gradebook:reports')
+        else:
+            from django.contrib import messages
+            messages.error(request, 'You do not have permission to view this report.')
+            return redirect('core:index')
 
     # Get subject grades with core/elective distinction - single query
     subject_grades = list(SubjectTermGrade.objects.filter(
@@ -1868,9 +1966,27 @@ def report_card_print(request, student_id):
     """Print-friendly report card with Ghana-specific data.
 
     OPTIMIZED: Uses select_related and computes grade summary in-memory.
+
+    For teachers: Only allow printing reports for students in their homeroom classes.
+    For admins: Allow printing all reports.
     """
     current_term = Term.get_current()
-    student = get_object_or_404(Student, pk=student_id)
+    student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
+    user = request.user
+
+    # Permission check for teachers
+    if not is_school_admin(user):
+        if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+            teacher = user.teacher_profile
+            # Teacher must be the form master of the student's class
+            if not student.current_class or student.current_class.class_teacher != teacher:
+                from django.contrib import messages
+                messages.error(request, 'You can only print reports for students in your homeroom class.')
+                return redirect('gradebook:reports')
+        else:
+            from django.contrib import messages
+            messages.error(request, 'You do not have permission to print this report.')
+            return redirect('core:index')
 
     # Get subject grades with core/elective distinction - single query
     subject_grades = list(SubjectTermGrade.objects.filter(
@@ -1895,10 +2011,59 @@ def report_card_print(request, student_id):
 
     categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
 
+    # Calculate category-wise scores for each subject
+    from django.db.models import Sum, F, Value
+    from django.db.models.functions import Coalesce
+
+    # Get all scores for this student in current term, grouped by subject and category
+    category_scores = {}
+    scores_qs = Score.objects.filter(
+        student=student,
+        assignment__term=current_term
+    ).select_related('assignment__subject', 'assignment__assessment_category')
+
+    for score in scores_qs:
+        subject_id = score.assignment.subject_id
+        category_id = score.assignment.assessment_category_id
+
+        if subject_id not in category_scores:
+            category_scores[subject_id] = {}
+        if category_id not in category_scores[subject_id]:
+            category_scores[subject_id][category_id] = {'earned': 0, 'possible': 0}
+
+        category_scores[subject_id][category_id]['earned'] += float(score.points)
+        category_scores[subject_id][category_id]['possible'] += float(score.assignment.points_possible)
+
+    # Attach category scores to each subject grade
+    for sg in subject_grades:
+        sg.category_scores = {}
+        subject_cat_scores = category_scores.get(sg.subject_id, {})
+        for cat in categories:
+            cat_data = subject_cat_scores.get(cat.pk, {'earned': 0, 'possible': 0})
+            if cat_data['possible'] > 0:
+                # Calculate percentage and apply category weight
+                percentage = (cat_data['earned'] / cat_data['possible']) * 100
+                weighted = (percentage * cat.percentage) / 100
+                sg.category_scores[cat.pk] = round(weighted, 1)
+            else:
+                sg.category_scores[cat.pk] = None
+
     # Get grading system with scales for the grade key
     grading_system = GradingSystem.objects.filter(
         is_active=True
     ).prefetch_related('scales').first()
+
+    # Get school/tenant info
+    school = None
+    school_settings = None
+    try:
+        from django.db import connection
+        from schools.models import School
+        from core.models import SchoolSettings
+        school = School.objects.get(schema_name=connection.schema_name)
+        school_settings = SchoolSettings.objects.first()
+    except Exception:
+        pass
 
     context = {
         'student': student,
@@ -1910,6 +2075,8 @@ def report_card_print(request, student_id):
         'grade_summary': grade_summary,
         'categories': categories,
         'grading_system': grading_system,
+        'school': school,
+        'school_settings': school_settings,
     }
 
     return render(request, 'gradebook/report_card_print.html', context)
@@ -1918,8 +2085,9 @@ def report_card_print(request, student_id):
 # ============ Analytics Dashboard ============
 
 @login_required
+@admin_required
 def analytics(request):
-    """Analytics dashboard with grade trends and statistics."""
+    """Analytics dashboard with grade trends and statistics (Admin only)."""
     current_term = Term.get_current()
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
 
@@ -1963,8 +2131,8 @@ def analytics_class_data(request, class_id):
     ).first()
 
     # Use grading system thresholds or defaults
-    pass_mark = grading_system.pass_mark if grading_system else Decimal('50.00')
-    min_avg_for_promotion = grading_system.min_average_for_promotion if grading_system else Decimal('50.00')
+    pass_mark = grading_system.pass_mark if grading_system else config.DEFAULT_PASS_MARK
+    min_avg_for_promotion = grading_system.min_average_for_promotion if grading_system else config.DEFAULT_MIN_AVERAGE_FOR_PROMOTION
 
     # Get all term reports for this class
     term_reports = list(TermReport.objects.filter(
@@ -1989,13 +2157,13 @@ def analytics_class_data(request, class_id):
     grade_distribution = calculate_grade_distribution(subject_grades)
 
     # Get top performers
-    top_performers = term_reports[:5] if term_reports else []
+    top_performers = term_reports[:config.TOP_PERFORMERS_LIMIT] if term_reports else []
 
     # Get students needing attention (failed 2+ subjects or avg below promotion threshold)
     at_risk = [
         r for r in term_reports
         if r.subjects_failed >= 2 or (r.average and r.average < min_avg_for_promotion)
-    ][:5]
+    ][:config.AT_RISK_STUDENTS_LIMIT]
 
     context = {
         'class_obj': class_obj,
@@ -2016,8 +2184,9 @@ def analytics_class_data(request, class_id):
 
 
 @login_required
+@admin_required
 def analytics_overview(request):
-    """School-wide analytics overview (HTMX partial)."""
+    """School-wide analytics overview (HTMX partial, Admin only)."""
     current_term = Term.get_current()
 
     if not current_term:
@@ -2027,7 +2196,7 @@ def analytics_overview(request):
 
     # Get default pass mark from any active grading system (school-wide stats)
     default_grading_system = GradingSystem.objects.filter(is_active=True).first()
-    default_pass_mark = default_grading_system.pass_mark if default_grading_system else Decimal('50.00')
+    default_pass_mark = default_grading_system.pass_mark if default_grading_system else config.DEFAULT_PASS_MARK
 
     # Get all classes with their stats
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
@@ -2071,7 +2240,7 @@ def analytics_overview(request):
         avg_score=Avg('total_score'),
         students=Count('id'),
         passed=Count('id', filter=Q(total_score__gte=default_pass_mark)),
-    ).order_by('-avg_score')[:10]
+    ).order_by('-avg_score')[:config.TOP_SUBJECTS_LIMIT]
 
     context = {
         'current_term': current_term,
@@ -2094,8 +2263,9 @@ def analytics_overview(request):
 
 
 @login_required
+@admin_required
 def analytics_term_comparison(request):
-    """Compare performance across terms (HTMX partial)."""
+    """Compare performance across terms (HTMX partial, Admin only)."""
     # Get all terms from current academic year
     current_term = Term.get_current()
     if not current_term:
@@ -2177,10 +2347,10 @@ def calculate_subject_performance(subject_grades, pass_mark=None):
 
     Args:
         subject_grades: List of SubjectTermGrade objects
-        pass_mark: The pass mark threshold (defaults to grading system standard or 50)
+        pass_mark: The pass mark threshold (defaults to grading system standard)
     """
     if pass_mark is None:
-        pass_mark = Decimal('50.00')
+        pass_mark = config.DEFAULT_PASS_MARK
 
     subject_data = defaultdict(lambda: {'scores': [], 'passed': 0, 'total': 0})
 
@@ -2223,3 +2393,550 @@ def calculate_grade_distribution(subject_grades):
             })
 
     return result
+
+
+# ============ Bulk Remarks Entry ============
+
+@login_required
+def bulk_remarks_entry(request, class_id):
+    """
+    Bulk remarks entry page for form teachers.
+    Shows all students with their performance data and input fields.
+    """
+    current_term = Term.get_current()
+    class_obj = get_object_or_404(Class, pk=class_id)
+    user = request.user
+
+    # Permission check - must be class teacher or admin
+    if not is_school_admin(user):
+        if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
+            messages.error(request, 'You do not have permission to access this page.')
+            return redirect('gradebook:reports')
+        if class_obj.class_teacher != user.teacher_profile:
+            messages.error(request, 'You can only enter remarks for your homeroom class.')
+            return redirect('gradebook:reports')
+
+    # Get students with term reports
+    students = list(Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('last_name', 'first_name'))
+
+    if not students:
+        messages.info(request, 'No active students found in this class.')
+        return redirect('gradebook:reports')
+
+    # Prefetch term reports
+    student_ids = [s.id for s in students]
+    reports = {
+        r.student_id: r for r in TermReport.objects.filter(
+            student_id__in=student_ids,
+            term=current_term
+        )
+    }
+
+    # Attach reports to students and count completed
+    completed_count = 0
+    for student in students:
+        student.term_report = reports.get(student.id)
+        if student.term_report and student.term_report.class_teacher_remark:
+            completed_count += 1
+
+    # Get remark templates
+    remark_templates = RemarkTemplate.objects.filter(is_active=True).order_by('category', 'order')
+
+    # Group templates by category
+    templates_by_category = {}
+    for template in remark_templates:
+        category = template.get_category_display()
+        if category not in templates_by_category:
+            templates_by_category[category] = []
+        templates_by_category[category].append(template)
+
+    context = {
+        'class_obj': class_obj,
+        'students': students,
+        'current_term': current_term,
+        'templates_by_category': templates_by_category,
+        'conduct_choices': TermReport.CONDUCT_CHOICES,
+        'rating_choices': TermReport.RATING_CHOICES,
+        'completed_count': completed_count,
+        'total_count': len(students),
+        'is_admin': is_school_admin(user),
+    }
+
+    return htmx_render(
+        request,
+        'gradebook/bulk_remarks.html',
+        'gradebook/partials/bulk_remarks_content.html',
+        context
+    )
+
+
+@login_required
+def bulk_remark_save(request):
+    """Save individual student remark via HTMX (auto-save)."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    student_id = request.POST.get('student_id')
+    field = request.POST.get('field')
+    value = request.POST.get('value', '').strip()
+
+    current_term = Term.get_current()
+    if not current_term:
+        return HttpResponse('No current term', status=400)
+
+    student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
+
+    # Permission check
+    user = request.user
+    if not is_school_admin(user):
+        if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
+            return HttpResponse(status=403)
+        if not student.current_class or student.current_class.class_teacher != user.teacher_profile:
+            return HttpResponse(status=403)
+
+    # Get or create term report
+    term_report, created = TermReport.objects.get_or_create(
+        student=student,
+        term=current_term,
+        defaults={'out_of': 1}
+    )
+
+    # Update the field
+    allowed_fields = [
+        'class_teacher_remark', 'conduct_rating', 'attitude_rating',
+        'interest_rating', 'punctuality_rating'
+    ]
+
+    if field in allowed_fields:
+        setattr(term_report, field, value)
+        term_report.save(update_fields=[field])
+
+        # Return success indicator
+        response = HttpResponse(status=200)
+        response['HX-Trigger'] = json.dumps({
+            'remarkSaved': {
+                'student_id': str(student_id),
+                'field': field
+            }
+        })
+        return response
+
+    return HttpResponse('Invalid field', status=400)
+
+
+@login_required
+def bulk_remarks_sign(request, class_id):
+    """Sign off all remarks for a class (class teacher confirmation)."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    current_term = Term.get_current()
+    class_obj = get_object_or_404(Class, pk=class_id)
+    user = request.user
+
+    # Permission check
+    if not is_school_admin(user):
+        if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
+            return HttpResponse(status=403)
+        if class_obj.class_teacher != user.teacher_profile:
+            return HttpResponse(status=403)
+
+    # Sign all reports for this class
+    from django.utils import timezone
+    now = timezone.now()
+
+    updated = TermReport.objects.filter(
+        student__current_class=class_obj,
+        term=current_term,
+        class_teacher_signed=False
+    ).update(
+        class_teacher_signed=True,
+        class_teacher_signed_at=now
+    )
+
+    response = HttpResponse(status=200)
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {
+            'message': f'Signed {updated} report(s) successfully',
+            'type': 'success'
+        },
+        'refreshPage': True
+    })
+    return response
+
+
+# ============ Remark Templates Management ============
+
+@login_required
+@admin_required
+def remark_templates(request):
+    """List and manage remark templates (Admin only)."""
+    templates = RemarkTemplate.objects.all().order_by('category', 'order')
+
+    # Group by category
+    templates_by_category = {}
+    for template in templates:
+        category = template.get_category_display()
+        if category not in templates_by_category:
+            templates_by_category[category] = []
+        templates_by_category[category].append(template)
+
+    context = {
+        'templates': templates,
+        'templates_by_category': templates_by_category,
+        'categories': RemarkTemplate.PERFORMANCE_CATEGORY,
+    }
+
+    return htmx_render(
+        request,
+        'gradebook/remark_templates.html',
+        'gradebook/partials/remark_templates_content.html',
+        context
+    )
+
+
+@login_required
+@admin_required
+def remark_template_create(request):
+    """Create a new remark template."""
+    if request.method == 'GET':
+        return render(request, 'gradebook/includes/modal_remark_template.html', {
+            'categories': RemarkTemplate.PERFORMANCE_CATEGORY,
+            'mode': 'create',
+        })
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    category = request.POST.get('category', 'GENERAL')
+    content = request.POST.get('content', '').strip()
+    order = int(request.POST.get('order', 0))
+
+    if not content:
+        return render(request, 'gradebook/includes/modal_remark_template.html', {
+            'categories': RemarkTemplate.PERFORMANCE_CATEGORY,
+            'mode': 'create',
+            'error': 'Remark content is required',
+            'form_data': {'category': category, 'content': content, 'order': order},
+        })
+
+    RemarkTemplate.objects.create(
+        category=category,
+        content=content,
+        order=order,
+    )
+
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = json.dumps({
+        'closeModal': True,
+        'showToast': {'message': 'Template created successfully', 'type': 'success'},
+        'refreshTemplates': True
+    })
+    return response
+
+
+@login_required
+@admin_required
+def remark_template_edit(request, pk):
+    """Edit a remark template."""
+    template = get_object_or_404(RemarkTemplate, pk=pk)
+
+    if request.method == 'GET':
+        return render(request, 'gradebook/includes/modal_remark_template.html', {
+            'template': template,
+            'categories': RemarkTemplate.PERFORMANCE_CATEGORY,
+            'mode': 'edit',
+        })
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    category = request.POST.get('category', 'GENERAL')
+    content = request.POST.get('content', '').strip()
+    order = int(request.POST.get('order', 0))
+    is_active = request.POST.get('is_active') == 'on'
+
+    if not content:
+        return render(request, 'gradebook/includes/modal_remark_template.html', {
+            'template': template,
+            'categories': RemarkTemplate.PERFORMANCE_CATEGORY,
+            'mode': 'edit',
+            'error': 'Remark content is required',
+        })
+
+    template.category = category
+    template.content = content
+    template.order = order
+    template.is_active = is_active
+    template.save()
+
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = json.dumps({
+        'closeModal': True,
+        'showToast': {'message': 'Template updated successfully', 'type': 'success'},
+        'refreshTemplates': True
+    })
+    return response
+
+
+@login_required
+@admin_required
+def remark_template_delete(request, pk):
+    """Delete a remark template."""
+    template = get_object_or_404(RemarkTemplate, pk=pk)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    template.delete()
+
+    response = HttpResponse(status=200)
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {'message': 'Template deleted', 'type': 'success'},
+        'refreshTemplates': True
+    })
+    return response
+
+
+# ============ Report Distribution ============
+
+@login_required
+def report_distribution(request, class_id):
+    """
+    Report distribution page for a class.
+    Shows students with their contact info and distribution status.
+    """
+    current_term = Term.get_current()
+    class_obj = get_object_or_404(Class, pk=class_id)
+    user = request.user
+
+    # Permission check - must be class teacher or admin
+    if not is_school_admin(user):
+        if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
+            messages.error(request, 'You do not have permission to access this page.')
+            return redirect('gradebook:reports')
+        if class_obj.class_teacher != user.teacher_profile:
+            messages.error(request, 'You can only distribute reports for your homeroom class.')
+            return redirect('gradebook:reports')
+
+    # Get students with term reports
+    students = list(Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('last_name', 'first_name'))
+
+    if not students:
+        messages.info(request, 'No active students found in this class.')
+        return redirect('gradebook:reports')
+
+    # Prefetch term reports and distribution logs
+    student_ids = [s.id for s in students]
+    reports = {
+        r.student_id: r for r in TermReport.objects.filter(
+            student_id__in=student_ids,
+            term=current_term
+        )
+    }
+
+    # Get latest distribution logs per student
+    distribution_logs = {}
+    for log in ReportDistributionLog.objects.filter(
+        term_report__student_id__in=student_ids,
+        term_report__term=current_term
+    ).select_related('term_report').order_by('-created_at'):
+        student_id = log.term_report.student_id
+        if student_id not in distribution_logs:
+            distribution_logs[student_id] = log
+
+    # Calculate stats
+    with_email = 0
+    with_phone = 0
+    already_sent = 0
+
+    for student in students:
+        student.term_report = reports.get(student.id)
+        student.last_distribution = distribution_logs.get(student.id)
+
+        # Check for guardian contact
+        guardian_email = getattr(student, 'guardian_email', None) or getattr(student, 'parent_email', None)
+        guardian_phone = getattr(student, 'guardian_phone', None) or getattr(student, 'parent_phone', None)
+
+        student.has_email = bool(guardian_email)
+        student.has_phone = bool(guardian_phone)
+        student.guardian_email = guardian_email
+        student.guardian_phone = guardian_phone
+
+        if student.has_email:
+            with_email += 1
+        if student.has_phone:
+            with_phone += 1
+        if student.last_distribution:
+            already_sent += 1
+
+    context = {
+        'class_obj': class_obj,
+        'students': students,
+        'current_term': current_term,
+        'is_admin': is_school_admin(user),
+        'stats': {
+            'total': len(students),
+            'with_email': with_email,
+            'with_phone': with_phone,
+            'already_sent': already_sent,
+        },
+        'distribution_types': [
+            ('EMAIL', 'Email with PDF'),
+            ('SMS', 'SMS Summary'),
+            ('BOTH', 'Email and SMS'),
+        ],
+    }
+
+    return htmx_render(
+        request,
+        'gradebook/report_distribution.html',
+        'gradebook/partials/report_distribution_content.html',
+        context
+    )
+
+
+@login_required
+def send_single_report(request, student_id):
+    """Send report to a single student's guardian."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    current_term = Term.get_current()
+    if not current_term:
+        return JsonResponse({'success': False, 'error': 'No current term'})
+
+    student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
+    user = request.user
+
+    # Permission check
+    if not is_school_admin(user):
+        if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
+            return JsonResponse({'success': False, 'error': 'Permission denied'})
+        if not student.current_class or student.current_class.class_teacher != user.teacher_profile:
+            return JsonResponse({'success': False, 'error': 'Permission denied'})
+
+    # Get term report
+    try:
+        term_report = TermReport.objects.get(student=student, term=current_term)
+    except TermReport.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'No report found for this student'})
+
+    distribution_type = request.POST.get('type', 'EMAIL')
+    sms_template = request.POST.get('sms_template', '').strip() or None
+
+    # Queue the task
+    from .tasks import distribute_single_report
+    from django.db import connection
+
+    distribute_single_report.delay(
+        str(term_report.pk),
+        distribution_type,
+        connection.schema_name,
+        user.pk,
+        sms_template
+    )
+
+    response = HttpResponse(status=200)
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {
+            'message': f'Report queued for {student.first_name}',
+            'type': 'success'
+        },
+        'refreshRow': str(student_id)
+    })
+    return response
+
+
+@login_required
+def send_bulk_reports(request, class_id):
+    """Send reports for all students in a class."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    current_term = Term.get_current()
+    if not current_term:
+        return JsonResponse({'success': False, 'error': 'No current term'})
+
+    class_obj = get_object_or_404(Class, pk=class_id)
+    user = request.user
+
+    # Permission check
+    if not is_school_admin(user):
+        if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
+            return JsonResponse({'success': False, 'error': 'Permission denied'})
+        if class_obj.class_teacher != user.teacher_profile:
+            return JsonResponse({'success': False, 'error': 'Permission denied'})
+
+    distribution_type = request.POST.get('type', 'EMAIL')
+    sms_template = request.POST.get('sms_template', '').strip() or None
+
+    # Queue the bulk task
+    from .tasks import distribute_bulk_reports
+    from django.db import connection
+
+    distribute_bulk_reports.delay(
+        class_obj.pk,
+        distribution_type,
+        connection.schema_name,
+        user.pk,
+        sms_template
+    )
+
+    response = HttpResponse(status=200)
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {
+            'message': f'Reports queued for all students in {class_obj.name}',
+            'type': 'success'
+        }
+    })
+    return response
+
+
+@login_required
+def download_report_pdf(request, student_id):
+    """Download PDF report for a student."""
+    current_term = Term.get_current()
+    if not current_term:
+        messages.error(request, 'No current term set.')
+        return redirect('gradebook:reports')
+
+    student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
+    user = request.user
+
+    # Permission check
+    if not is_school_admin(user):
+        if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
+            messages.error(request, 'Permission denied.')
+            return redirect('gradebook:reports')
+        if not student.current_class or student.current_class.class_teacher != user.teacher_profile:
+            messages.error(request, 'Permission denied.')
+            return redirect('gradebook:reports')
+
+    try:
+        term_report = TermReport.objects.get(student=student, term=current_term)
+    except TermReport.DoesNotExist:
+        messages.error(request, 'No report found for this student.')
+        return redirect('gradebook:reports')
+
+    # Generate PDF
+    from .tasks import generate_report_pdf
+    from django.db import connection
+
+    try:
+        pdf_buffer = generate_report_pdf(term_report, connection.schema_name)
+
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="report_card_{student.admission_number}.pdf"'
+        return response
+
+    except Exception as e:
+        logger.error(f"Failed to generate PDF: {str(e)}")
+        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        return redirect('gradebook:reports')

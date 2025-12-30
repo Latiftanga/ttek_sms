@@ -1,0 +1,235 @@
+{% load core_tags %}
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                <a href="{% url 'academics:index' %}"
+                   hx-get="{% url 'academics:index' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="hover:text-primary">Academics</a>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+                <a href="{% url 'academics:timetable' %}"
+                   hx-get="{% url 'academics:timetable' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="hover:text-primary">Timetable</a>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+                <span>{{ class_obj.name }}</span>
+            </div>
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-calendar-days text-primary"></i>
+                </div>
+                {{ class_obj.name }} Timetable
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">
+                Weekly class schedule
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button class="btn btn-primary gap-2"
+                    hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML"
+                    onclick="modal_form.showModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add Entry
+            </button>
+        </div>
+    </div>
+
+    <!-- No subjects warning -->
+    {% if not class_subjects %}
+    <div class="alert alert-warning">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        <div>
+            <h4 class="font-bold">No Subjects Assigned</h4>
+            <p class="text-sm">Assign subjects to this class before creating the timetable.</p>
+        </div>
+        <a href="{% url 'academics:class_detail' class_obj.pk %}"
+           hx-get="{% url 'academics:class_detail' class_obj.pk %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-warning">
+            Manage Subjects
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- No periods warning -->
+    {% if not periods %}
+    <div class="alert alert-warning">
+        <i class="fa-solid fa-exclamation-triangle"></i>
+        <div>
+            <h4 class="font-bold">No Periods Defined</h4>
+            <p class="text-sm">Create school periods before building the timetable.</p>
+        </div>
+        <a href="{% url 'academics:periods' %}"
+           hx-get="{% url 'academics:periods' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-warning">
+            Create Periods
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Timetable Grid -->
+    {% if periods and class_subjects %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0 overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="bg-base-200">
+                        <th class="w-32 sticky left-0 bg-base-200 z-10">Period</th>
+                        {% for day_num, day_name in weekdays %}
+                        <th class="text-center min-w-[140px]">{{ day_name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for period in periods %}
+                    <tr class="{% if period.is_break %}bg-warning/10{% endif %}">
+                        <!-- Period Info -->
+                        <td class="sticky left-0 bg-base-100 z-10 {% if period.is_break %}bg-warning/10{% endif %}">
+                            <div class="flex flex-col">
+                                <span class="font-semibold text-sm">{{ period.name }}</span>
+                                <span class="text-xs text-base-content/50">
+                                    {{ period.start_time|time:"g:i A" }} - {{ period.end_time|time:"g:i A" }}
+                                </span>
+                            </div>
+                        </td>
+
+                        <!-- Days -->
+                        {% for day_num, day_name in weekdays %}
+                        <td class="text-center p-1 {% if period.is_break %}bg-warning/10{% endif %}">
+                            {% if period.is_break %}
+                            <!-- Break period - show break indicator -->
+                            <div class="text-warning/70 text-sm">
+                                <i class="fa-solid fa-mug-hot"></i>
+                            </div>
+                            {% else %}
+                            <!-- Class period - check for entry, double period continuation, or empty -->
+                            {% with entry=timetable_grid|get_item:day_num|get_item:period.pk double_entry=double_period_slots|get_item:day_num|get_item:period.pk %}
+                            {% if entry %}
+                            <!-- Has entry -->
+                            <div class="group relative {% if entry.is_double %}bg-secondary/15 border-2 border-secondary/30{% else %}bg-primary/10{% endif %} rounded-lg p-2 min-h-[60px] flex flex-col justify-center">
+                                <div class="font-medium text-sm {% if entry.is_double %}text-secondary{% else %}text-primary{% endif %}">
+                                    {{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}
+                                </div>
+                                <div class="text-xs text-base-content/60">
+                                    {% if entry.class_subject.teacher %}
+                                    {{ entry.class_subject.teacher.full_name|truncatechars:15 }}
+                                    {% else %}
+                                    <span class="text-warning">No teacher</span>
+                                    {% endif %}
+                                </div>
+                                {% if entry.is_double %}
+                                <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 badge badge-secondary badge-xs">
+                                    <i class="fa-solid fa-arrows-up-down text-[10px] mr-1"></i>2x
+                                </div>
+                                {% endif %}
+                                <!-- Delete button (shown on hover) -->
+                                <button class="absolute -top-1 -right-1 btn btn-xs btn-circle btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                                        hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}"
+                                        hx-confirm="Remove {{ entry.class_subject.subject.name }}{% if entry.is_double %} (double period){% endif %} from {{ day_name }}?"
+                                        title="Remove">
+                                    <i class="fa-solid fa-times text-xs"></i>
+                                </button>
+                            </div>
+                            {% elif double_entry %}
+                            <!-- This slot is occupied by a double period from previous period -->
+                            <div class="bg-secondary/10 border-2 border-dashed border-secondary/30 rounded-lg p-2 min-h-[60px] flex flex-col justify-center text-secondary/60">
+                                <div class="text-xs">
+                                    <i class="fa-solid fa-arrow-up"></i>
+                                    {{ double_entry.class_subject.subject.short_name|default:double_entry.class_subject.subject.name }}
+                                </div>
+                                <div class="text-xs">(continued)</div>
+                            </div>
+                            {% else %}
+                            <!-- Empty slot - add button -->
+                            <button class="w-full min-h-[60px] border-2 border-dashed border-base-300 hover:border-primary/50 hover:bg-primary/5 rounded-lg text-base-content/30 hover:text-primary transition-all"
+                                    hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}?weekday={{ day_num }}&period={{ period.pk }}"
+                                    hx-target="#modal-container"
+                                    hx-swap="innerHTML"
+                                    onclick="modal_form.showModal()"
+                                    title="Add entry">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                            {% endif %}
+                            {% endwith %}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="flex flex-wrap items-center gap-4 text-sm text-base-content/60">
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded bg-primary/10 border border-primary/30"></div>
+            <span>Single Period</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded bg-secondary/15 border-2 border-secondary/30"></div>
+            <span>Double Period</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded bg-warning/10 border border-warning/30"></div>
+            <span>Break</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded border-2 border-dashed border-base-300"></div>
+            <span>Empty</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Subject Summary -->
+    {% if class_subjects %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <h3 class="font-bold flex items-center gap-2 mb-4">
+                <i class="fa-solid fa-book text-secondary"></i>
+                Assigned Subjects
+            </h3>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {% for cs in class_subjects %}
+                <div class="bg-base-200/50 rounded-lg p-3">
+                    <div class="font-medium text-sm">{{ cs.subject.name }}</div>
+                    <div class="text-xs text-base-content/50">
+                        {% if cs.teacher %}{{ cs.teacher.full_name }}{% else %}No teacher{% endif %}
+                    </div>
+                    <div class="text-xs text-primary">{{ cs.periods_per_week }} periods/week</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Container -->
+<dialog id="modal_form" class="modal">
+    <div class="modal-box" id="modal-container">
+        <!-- Form content loaded here -->
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+document.body.addEventListener('timetableChanged', function() {
+    htmx.ajax('GET', '{% url "academics:class_timetable" class_obj.pk %}', {target: '#main-content'});
+    modal_form.close();
+});
+</script>
