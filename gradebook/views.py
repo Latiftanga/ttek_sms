@@ -1823,13 +1823,17 @@ def report_cards(request):
     OPTIMIZED: Uses dict lookup for O(1) report access per student.
 
     For teachers: Only show classes where they are the form master (class_teacher).
-    For admins: Show all classes.
+    For admins: Show all classes. Admins can also filter by student status to view
+    transcripts for past students (graduated, withdrawn, etc.).
     """
+    from students.models import Enrollment
+
     current_term = Term.get_current()
     user = request.user
+    is_admin = is_school_admin(user)
 
     # Filter classes based on user role
-    if is_school_admin(user):
+    if is_admin:
         # Admins see all classes
         classes = Class.objects.filter(is_active=True).only(
             'id', 'name', 'level_number'
@@ -1846,16 +1850,20 @@ def report_cards(request):
     else:
         classes = Class.objects.none()
 
-    # Get class filter
+    # Get filters
     class_id = request.GET.get('class')
+    status_filter = request.GET.get('status', 'active')  # Default to active
     students = []
     class_obj = None
+
+    # Status choices for admins (to filter past students)
+    status_choices = Student.Status.choices if is_admin else []
 
     if class_id:
         class_obj = get_object_or_404(Class, pk=class_id)
 
         # Verify teacher has permission to view this class
-        if not is_school_admin(user):
+        if not is_admin:
             if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
                 teacher = user.teacher_profile
                 if class_obj.class_teacher != teacher:
@@ -1867,11 +1875,27 @@ def report_cards(request):
                 messages.error(request, 'You do not have permission to view reports.')
                 return redirect('core:index')
 
-        students = list(Student.objects.filter(
-            current_class=class_obj
-        ).only(
-            'id', 'first_name', 'last_name', 'admission_number'
-        ).order_by('last_name', 'first_name'))
+        if status_filter == 'active':
+            # Active students: filter by current_class (existing behavior)
+            students = list(Student.objects.filter(
+                current_class=class_obj
+            ).only(
+                'id', 'first_name', 'last_name', 'admission_number', 'status'
+            ).order_by('last_name', 'first_name'))
+        elif is_admin:
+            # Non-active students (graduated, etc.): find via enrollment history
+            # Get student IDs who were enrolled in this class with the selected status
+            student_ids = Enrollment.objects.filter(
+                class_assigned=class_obj,
+                student__status=status_filter
+            ).values_list('student_id', flat=True).distinct()
+
+            students = list(Student.objects.filter(
+                pk__in=student_ids,
+                status=status_filter
+            ).only(
+                'id', 'first_name', 'last_name', 'admission_number', 'status'
+            ).order_by('last_name', 'first_name'))
 
         if students:
             # Get term reports in single query - O(1) lookup per student
@@ -1894,7 +1918,9 @@ def report_cards(request):
         'classes': classes,
         'selected_class': class_obj,
         'students': students,
-        'is_admin': is_school_admin(user),
+        'is_admin': is_admin,
+        'status_choices': status_choices,
+        'status_filter': status_filter,
     }
 
     return htmx_render(
