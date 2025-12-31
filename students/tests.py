@@ -300,15 +300,15 @@ class BulkImportViewTests(BulkImportTestCase):
             full_name='Existing Guardian',
             phone_number='0201234567'
         )
-        Student.objects.create(
+        student = Student.objects.create(
             first_name='Existing',
             last_name='Student',
             date_of_birth=date(2010, 1, 1),
             gender='M',
             admission_number='STU-2024-001',
             admission_date=date(2024, 1, 1),
-            guardian=guardian
         )
+        student.add_guardian(guardian, Guardian.Relationship.GUARDIAN, is_primary=True)
 
         data = self.get_valid_student_data()
         file = self.create_csv_file(data)
@@ -458,7 +458,7 @@ class BulkImportConfirmViewTests(BulkImportTestCase):
         self.assertEqual(john.first_name, 'John')
         self.assertEqual(john.last_name, 'Doe')
         self.assertEqual(john.gender, 'M')
-        self.assertIsNotNone(john.guardian)
+        self.assertTrue(john.guardians.exists())
         self.assertEqual(john.current_class, self.test_class)
 
     def test_bulk_import_confirm_creates_enrollments(self):
@@ -583,7 +583,9 @@ class BulkImportIntegrationTests(BulkImportTestCase):
 
         # Verify relationships
         john = Student.objects.get(first_name='John')
-        self.assertEqual(john.guardian.full_name, 'James Doe')
+        primary_guardian = john.get_primary_guardian()
+        self.assertIsNotNone(primary_guardian)
+        self.assertEqual(primary_guardian.full_name, 'James Doe')
         self.assertEqual(john.current_class.name, 'B1-A')
 
         enrollment = john.enrollments.first()
@@ -717,9 +719,9 @@ class PromotionTestCase(TenantTestCase):
             admission_number=admission_number,
             admission_date=date(2024, 1, 1),
             current_class=class_assigned,
-            guardian=self.guardian,
             status=Student.Status.ACTIVE
         )
+        student.add_guardian(self.guardian, Guardian.Relationship.GUARDIAN, is_primary=True)
         enrollment = Enrollment.objects.create(
             student=student,
             academic_year=self.current_year,
@@ -819,9 +821,9 @@ class PromotionViewTests(PromotionTestCase):
             admission_number='STU-002',
             admission_date=date(2024, 1, 1),
             current_class=self.class_b1,
-            guardian=self.guardian,
             status=Student.Status.WITHDRAWN
         )
+        inactive_student.add_guardian(self.guardian, Guardian.Relationship.GUARDIAN, is_primary=True)
         Enrollment.objects.create(
             student=inactive_student,
             academic_year=self.current_year,

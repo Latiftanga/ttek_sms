@@ -1,9 +1,5 @@
 {% load core_tags %}
-<div x-data @guardian-created.window="
-        document.getElementById('id_guardian').value = $event.detail.id;
-        document.getElementById('guardian_search_input').value = $event.detail.text;
-        modal_guardian.close();
-    ">
+<div>
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-4">
             <a href="{% url 'students:index' %}"
@@ -108,7 +104,7 @@
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="font-semibold text-base flex items-center gap-2">
                                 <i class="fa-solid fa-user-shield text-primary"></i>
-                                Guardian Information
+                                Guardians
                             </h2>
                             <button type="button" class="btn btn-sm btn-ghost"
                                     hx-get="{% url 'students:guardian_create' %}"
@@ -118,30 +114,71 @@
                                 <i class="fa-solid fa-plus"></i> New Guardian
                             </button>
                         </div>
-                        <div x-data="{ open: false }" @htmx:after-swap.window="if ($event.target.id === 'guardian_search_results') open = true" class="relative">
-                            <input type="text"
-                                   id="guardian_search_input"
-                                   x-on:click="open = true"
-                                   class="input input-bordered w-full"
-                                   placeholder="Search for a guardian..."
-                                   hx-get="{% url 'students:guardian_search' %}"
-                                   hx-trigger="keyup changed delay:300ms"
-                                   hx-target="#guardian_search_results"
-                                   hx-include="[name='q']"
-                                   name="q"
-                                   autocomplete="off"
-                                   value="{% if student.guardian %}{{ student.guardian.full_name }} ({{ student.guardian.phone_number }}){% endif %}"
-                                   />
-                            <input type="hidden" name="guardian" id="id_guardian" value="{% if student.guardian %}{{ student.guardian.pk }}{% else %}{{ form.guardian.value|default:'' }}{% endif %}">
-                            <div id="guardian_search_results"
-                                 x-show="open"
-                                 @click.away="open = false"
-                                 class="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+
+                        <!-- Current Guardians List -->
+                        <div id="guardian-list" class="mb-4">
+                            {% include 'students/partials/student_guardians_list.html' %}
+                        </div>
+
+                        {% if student %}
+                        <!-- Add Guardian Form -->
+                        <div class="border-t border-base-200 pt-4">
+                            <p class="text-sm font-medium mb-3">Add Guardian</p>
+                            <div x-data="{ open: false, selectedGuardian: null, selectedName: '' }"
+                                 @htmx:after-swap.window="if ($event.target.id === 'guardian_search_results') open = true"
+                                 @guardian-created.window="
+                                    selectedGuardian = $event.detail.id;
+                                    selectedName = $event.detail.text;
+                                    document.getElementById('add_guardian_id').value = $event.detail.id;
+                                    document.getElementById('add_guardian_search').value = $event.detail.text;
+                                    modal_guardian.close();
+                                 ">
+                                <div class="flex gap-2">
+                                    <div class="relative flex-1">
+                                        <input type="text"
+                                               id="add_guardian_search"
+                                               x-on:click="open = true"
+                                               class="input input-bordered w-full input-sm"
+                                               placeholder="Search guardian by name or phone..."
+                                               hx-get="{% url 'students:guardian_search' %}"
+                                               hx-trigger="keyup changed delay:300ms"
+                                               hx-target="#guardian_search_results"
+                                               hx-include="[name='q']"
+                                               name="q"
+                                               autocomplete="off" />
+                                        <input type="hidden" name="guardian_id" id="add_guardian_id" value="">
+                                        <div id="guardian_search_results"
+                                             x-show="open"
+                                             @click.away="open = false"
+                                             class="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                        </div>
+                                    </div>
+                                    <select name="relationship" class="select select-bordered select-sm w-40">
+                                        {% for value, label in relationship_choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <label class="label cursor-pointer gap-2">
+                                        <input type="checkbox" name="is_primary" value="true" class="checkbox checkbox-sm checkbox-primary" />
+                                        <span class="label-text text-xs">Primary</span>
+                                    </label>
+                                    <button type="button"
+                                            class="btn btn-primary btn-sm"
+                                            hx-post="{% url 'students:student_add_guardian' student.pk %}"
+                                            hx-target="#guardian-list"
+                                            hx-swap="innerHTML"
+                                            hx-include="[name='guardian_id'], [name='relationship'], [name='is_primary']">
+                                        <i class="fa-solid fa-plus"></i> Add
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div class="mt-4">
-                            {% floating_field form.guardian_relationship %}
+                        {% else %}
+                        <div class="alert alert-info">
+                            <i class="fa-solid fa-info-circle"></i>
+                            <span>Save the student first, then you can add guardians.</span>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
 

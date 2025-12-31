@@ -5,6 +5,10 @@ from .students import (
     student_edit,
     student_delete,
     student_detail,
+    student_add_guardian,
+    student_remove_guardian,
+    student_set_primary_guardian,
+    student_update_guardian_relationship,
 )
 
 # Guardian views
@@ -36,6 +40,10 @@ __all__ = [
     'student_edit',
     'student_delete',
     'student_detail',
+    'student_add_guardian',
+    'student_remove_guardian',
+    'student_set_primary_guardian',
+    'student_update_guardian_relationship',
     # Guardians
     'guardian_index',
     'guardian_create',

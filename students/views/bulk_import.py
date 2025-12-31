@@ -10,7 +10,7 @@ import pandas as pd
 
 from academics.models import Class
 from core.models import AcademicYear
-from students.models import Student, Enrollment, Guardian
+from students.models import Student, Enrollment, Guardian, StudentGuardian
 from .utils import admin_required, parse_date, clean_value
 
 
@@ -81,6 +81,7 @@ def bulk_import(request):
             gender = clean_value(row.get('gender', '')).upper()
             guardian_name = clean_value(row.get('guardian_name', ''))
             guardian_phone = clean_value(row.get('guardian_phone', ''))
+            guardian_relationship = clean_value(row.get('guardian_relationship', 'guardian')).lower()
             admission_number = clean_value(row.get('admission_number', ''))
             class_name = clean_value(row.get('class_name', ''))
 
@@ -151,6 +152,7 @@ def bulk_import(request):
                     'class_pk': class_pk,
                     'guardian_pk': guardian_pk,
                     'guardian_name': guardian_name,
+                    'guardian_relationship': guardian_relationship,
                 })
                 existing_admissions.add(admission_number)
 
@@ -211,10 +213,10 @@ def bulk_import_confirm(request):
     current_year = AcademicYear.get_current()
 
     students_to_create = []
-    for row in rows:
+    student_guardian_data = []  # Store (row_index, guardian_pk, relationship) for later
+
+    for idx, row in enumerate(rows):
         try:
-            # Get related objects from pre-fetched dictionaries
-            guardian = guardians_dict.get(row['guardian_pk']) if row.get('guardian_pk') else None
             current_class = classes_dict.get(row['class_pk']) if row.get('class_pk') else None
 
             students_to_create.append(Student(
@@ -226,10 +228,16 @@ def bulk_import_confirm(request):
                 admission_number=row['admission_number'],
                 admission_date=datetime.strptime(row['admission_date'], '%Y-%m-%d').date(),
                 current_class=current_class,
-                guardian=guardian,
                 status='active',
                 is_active=True,
             ))
+
+            # Store guardian info for linking after student creation
+            if row.get('guardian_pk'):
+                # Get relationship from row or default to 'guardian'
+                relationship = row.get('guardian_relationship', Guardian.Relationship.GUARDIAN)
+                student_guardian_data.append((idx, row['guardian_pk'], relationship))
+
         except Exception as e:
             errors.append(f"Row {row.get('row_num', '?')}: Error preparing data - {str(e)}")
 
@@ -239,6 +247,22 @@ def bulk_import_confirm(request):
             with transaction.atomic():
                 # Bulk create students
                 created_students = Student.objects.bulk_create(students_to_create)
+
+                # Bulk create student-guardian relationships
+                if student_guardian_data:
+                    student_guardians_to_create = []
+                    for idx, guardian_pk, relationship in student_guardian_data:
+                        guardian = guardians_dict.get(guardian_pk)
+                        if guardian and idx < len(created_students):
+                            student_guardians_to_create.append(StudentGuardian(
+                                student=created_students[idx],
+                                guardian=guardian,
+                                relationship=relationship,
+                                is_primary=True,  # First guardian is primary
+                                is_emergency_contact=True,
+                            ))
+                    if student_guardians_to_create:
+                        StudentGuardian.objects.bulk_create(student_guardians_to_create)
 
                 # Bulk create enrollments for students with a class assigned
                 if current_year:

@@ -13,6 +13,12 @@ urlpatterns = [
     path('<int:pk>/edit/', views.student_edit, name='student_edit'),
     path('<int:pk>/delete/', views.student_delete, name='student_delete'),
 
+    # Student Guardian Management
+    path('<int:pk>/guardians/add/', views.student_add_guardian, name='student_add_guardian'),
+    path('<int:pk>/guardians/<int:guardian_pk>/remove/', views.student_remove_guardian, name='student_remove_guardian'),
+    path('<int:pk>/guardians/<int:guardian_pk>/set-primary/', views.student_set_primary_guardian, name='student_set_primary_guardian'),
+    path('<int:pk>/guardians/<int:guardian_pk>/update-relationship/', views.student_update_guardian_relationship, name='student_update_guardian_relationship'),
+
     # Guardian CRUD
     path('guardians/', views.guardian_index, name='guardian_index'),
     path('guardians/create/', views.guardian_create, name='guardian_create'),

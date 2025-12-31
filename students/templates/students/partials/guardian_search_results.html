@@ -1,11 +1,15 @@
 {% for guardian in guardians %}
 <div class="p-2 hover:bg-base-200 cursor-pointer"
      @click="
-        document.getElementById('id_guardian').value = '{{ guardian.pk }}';
-        document.getElementById('guardian_search_input').value = '{{ guardian.full_name }} ({{ guardian.phone_number }})';
-        document.getElementById('guardian_search_results').innerHTML = '';
+        document.getElementById('add_guardian_id').value = '{{ guardian.pk }}';
+        document.getElementById('add_guardian_search').value = '{{ guardian.full_name }} ({{ guardian.phone_number }})';
+        open = false;
      ">
     <p class="font-medium">{{ guardian.full_name }}</p>
-    <p class="text-xs text-base-content/60">{{ guardian.phone_number }}</p>
+    <p class="text-xs text-base-content/60">{{ guardian.phone_number }}{% if guardian.email %} &bull; {{ guardian.email }}{% endif %}</p>
+</div>
+{% empty %}
+<div class="p-3 text-center text-base-content/50 text-sm">
+    No guardians found. Try a different search or create a new guardian.
 </div>
 {% endfor %}

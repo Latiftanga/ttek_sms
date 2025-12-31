@@ -40,6 +40,73 @@ class Guardian(models.Model):
     def __str__(self):
         return self.full_name
 
+    @classmethod
+    def get_or_create_by_phone(cls, phone_number, full_name, **defaults):
+        """
+        Get existing guardian by phone or create new one.
+        Prevents duplicates by using phone_number as unique identifier.
+        """
+        guardian, created = cls.objects.get_or_create(
+            phone_number=phone_number,
+            defaults={'full_name': full_name, **defaults}
+        )
+        return guardian, created
+
+
+class StudentGuardian(models.Model):
+    """
+    Through model for Student-Guardian many-to-many relationship.
+    Stores the relationship type and whether this is the primary guardian.
+    """
+    student = models.ForeignKey(
+        'Student',
+        on_delete=models.CASCADE,
+        related_name='student_guardians'
+    )
+    guardian = models.ForeignKey(
+        Guardian,
+        on_delete=models.CASCADE,
+        related_name='guardian_students'
+    )
+    relationship = models.CharField(
+        _("relationship"),
+        max_length=20,
+        choices=Guardian.Relationship.choices,
+        default=Guardian.Relationship.GUARDIAN
+    )
+    is_primary = models.BooleanField(
+        _("primary guardian"),
+        default=False,
+        help_text=_("Is this the primary guardian/contact?")
+    )
+    is_emergency_contact = models.BooleanField(
+        _("emergency contact"),
+        default=True,
+        help_text=_("Can be contacted in emergencies?")
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Student Guardian")
+        verbose_name_plural = _("Student Guardians")
+        unique_together = ['student', 'guardian']
+        ordering = ['-is_primary', 'guardian__full_name']
+
+    def __str__(self):
+        return f"{self.guardian.full_name} ({self.get_relationship_display()}) - {self.student.full_name}"
+
+    def save(self, *args, **kwargs):
+        # If this is set as primary, unset other primary guardians for this student
+        if self.is_primary:
+            StudentGuardian.objects.filter(
+                student=self.student,
+                is_primary=True
+            ).exclude(pk=self.pk).update(is_primary=False)
+        super().save(*args, **kwargs)
+
 
 class Student(models.Model):
     """
@@ -68,18 +135,12 @@ class Student(models.Model):
     address = models.TextField(blank=True)
     phone = models.CharField(max_length=20, blank=True, help_text="Student's phone (if any)")
 
-    # Guardian Information
-    guardian = models.ForeignKey(
+    # Guardians (Many-to-Many through StudentGuardian)
+    guardians = models.ManyToManyField(
         Guardian,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='students'
-    )
-    guardian_relationship = models.CharField(
-        max_length=20,
-        choices=Guardian.Relationship.choices,
-        default=Guardian.Relationship.GUARDIAN
+        through='StudentGuardian',
+        related_name='wards',
+        blank=True
     )
 
     # Admission Details
@@ -170,6 +231,38 @@ class Student(models.Model):
                 status=Enrollment.Status.ACTIVE
             ).first()
         return None
+
+    def get_primary_guardian(self):
+        """Return the primary guardian for this student."""
+        sg = self.student_guardians.filter(is_primary=True).select_related('guardian').first()
+        return sg.guardian if sg else None
+
+    def get_guardians_with_relationships(self):
+        """Return all guardians with their relationship info."""
+        return self.student_guardians.select_related('guardian').all()
+
+    def add_guardian(self, guardian, relationship, is_primary=False, is_emergency_contact=True):
+        """Add a guardian to this student."""
+        sg, created = StudentGuardian.objects.get_or_create(
+            student=self,
+            guardian=guardian,
+            defaults={
+                'relationship': relationship,
+                'is_primary': is_primary,
+                'is_emergency_contact': is_emergency_contact
+            }
+        )
+        if not created:
+            # Update existing relationship
+            sg.relationship = relationship
+            sg.is_primary = is_primary
+            sg.is_emergency_contact = is_emergency_contact
+            sg.save()
+        return sg
+
+    def remove_guardian(self, guardian):
+        """Remove a guardian from this student."""
+        return self.student_guardians.filter(guardian=guardian).delete()
 
 
 class Enrollment(models.Model):
