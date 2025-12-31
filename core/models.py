@@ -1,8 +1,10 @@
 import uuid
+import secrets
 from django.conf import settings
 from django.db import models
 from django.core.cache import cache
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 import math
 from .choices import Gender
 
@@ -320,3 +322,105 @@ class SchoolSettings(models.Model):
 
     def __str__(self):
         return "School Profile & Settings"
+
+
+def generate_verification_code():
+    """Generate a unique 12-character verification code."""
+    return secrets.token_urlsafe(9)[:12].upper()
+
+
+class DocumentVerification(models.Model):
+    """
+    Stores verification records for generated PDF documents.
+    Allows external parties to verify document authenticity.
+    """
+    class DocumentType(models.TextChoices):
+        REPORT_CARD = 'report_card', _('Report Card')
+        TRANSCRIPT = 'transcript', _('Transcript')
+        STUDENT_PROFILE = 'student_profile', _('Student Profile')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    verification_code = models.CharField(
+        max_length=12,
+        unique=True,
+        default=generate_verification_code,
+        db_index=True,
+        help_text="Unique code for document verification"
+    )
+    document_type = models.CharField(
+        max_length=20,
+        choices=DocumentType.choices,
+    )
+
+    # Document metadata
+    student_name = models.CharField(max_length=200)
+    student_admission_number = models.CharField(max_length=50)
+    document_title = models.CharField(
+        max_length=200,
+        help_text="e.g., 'Report Card - Term 1 2024/2025'"
+    )
+
+    # Optional references (stored as strings for flexibility)
+    student_id = models.CharField(max_length=50, blank=True)
+    term_id = models.CharField(max_length=50, blank=True)
+    academic_year = models.CharField(max_length=100, blank=True)
+
+    # Timestamps
+    generated_at = models.DateTimeField(default=timezone.now)
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='generated_documents'
+    )
+
+    # Verification tracking
+    verification_count = models.PositiveIntegerField(default=0)
+    last_verified_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-generated_at']
+        verbose_name = "Document Verification"
+        verbose_name_plural = "Document Verifications"
+        indexes = [
+            models.Index(fields=['verification_code']),
+            models.Index(fields=['student_admission_number']),
+            models.Index(fields=['document_type', 'generated_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.verification_code} - {self.document_title}"
+
+    def record_verification(self):
+        """Record that this document was verified."""
+        self.verification_count += 1
+        self.last_verified_at = timezone.now()
+        self.save(update_fields=['verification_count', 'last_verified_at'])
+
+    @classmethod
+    def create_for_document(cls, document_type, student, title, user=None, term=None, academic_year=None):
+        """
+        Create a verification record for a document.
+
+        Args:
+            document_type: One of DocumentType choices
+            student: Student model instance
+            title: Document title string
+            user: User who generated the document (optional)
+            term: Term model instance (optional)
+            academic_year: Academic year string (optional)
+
+        Returns:
+            DocumentVerification instance
+        """
+        return cls.objects.create(
+            document_type=document_type,
+            student_name=student.full_name,
+            student_admission_number=student.admission_number,
+            document_title=title,
+            student_id=str(student.pk),
+            term_id=str(term.pk) if term else '',
+            academic_year=academic_year or '',
+            generated_by=user,
+        )

@@ -1,5 +1,7 @@
 import json
 import io
+import secrets
+import string
 from datetime import datetime
 
 from django.shortcuts import render, redirect
@@ -8,6 +10,7 @@ from django.db import transaction
 from django.contrib import messages
 import pandas as pd
 
+from accounts.models import User
 from academics.models import Class
 from core.models import AcademicYear
 from students.models import Student, Enrollment, Guardian, StudentGuardian
@@ -16,9 +19,16 @@ from .utils import admin_required, parse_date, clean_value
 
 EXPECTED_COLUMNS = [
     'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender',
-    'guardian_name', 'guardian_phone', 'guardian_email',
-    'admission_number', 'admission_date', 'class_name'
+    'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
+    'admission_number', 'admission_date', 'class_name',
+    'student_email'  # Optional - if provided, creates a user account
 ]
+
+
+def generate_temp_password(length=10):
+    """Generate a random temporary password."""
+    chars = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(length))
 
 
 @admin_required
@@ -65,6 +75,7 @@ def bulk_import(request):
         class_map = {c.name: c.pk for c in Class.objects.filter(is_active=True)}
         guardian_map = {g.phone_number: g.pk for g in Guardian.objects.all()}
         existing_admissions = set(Student.objects.values_list('admission_number', flat=True))
+        existing_emails = set(User.objects.values_list('email', flat=True))
 
         # Process rows
         all_errors = []
@@ -84,6 +95,7 @@ def bulk_import(request):
             guardian_relationship = clean_value(row.get('guardian_relationship', 'guardian')).lower()
             admission_number = clean_value(row.get('admission_number', ''))
             class_name = clean_value(row.get('class_name', ''))
+            student_email = clean_value(row.get('student_email', '')).lower()
 
             # Parse dates
             date_of_birth = parse_date(row.get('date_of_birth'))
@@ -124,6 +136,15 @@ def bulk_import(request):
             elif class_name:
                 errors.append(f'Class "{class_name}" not found')
 
+            # Validate student email (optional - for account creation)
+            if student_email:
+                if student_email in existing_emails:
+                    errors.append(f'Email "{student_email}" already exists')
+                elif '@' not in student_email:
+                    errors.append(f'Invalid email format: "{student_email}"')
+                else:
+                    existing_emails.add(student_email)  # Track to prevent duplicates in same import
+
             # Find or create guardian
             guardian_pk = None
             if guardian_phone in guardian_map:
@@ -153,6 +174,7 @@ def bulk_import(request):
                     'guardian_pk': guardian_pk,
                     'guardian_name': guardian_name,
                     'guardian_relationship': guardian_relationship,
+                    'student_email': student_email,  # Optional - for account creation
                 })
                 existing_admissions.add(admission_number)
 
@@ -195,6 +217,7 @@ def bulk_import_confirm(request):
         })
 
     created_count = 0
+    accounts_created = 0
     errors = []
 
     # Collect all guardian and class PKs for bulk fetching
@@ -214,6 +237,7 @@ def bulk_import_confirm(request):
 
     students_to_create = []
     student_guardian_data = []  # Store (row_index, guardian_pk, relationship) for later
+    student_account_data = []  # Store (row_index, email) for account creation
 
     for idx, row in enumerate(rows):
         try:
@@ -237,6 +261,10 @@ def bulk_import_confirm(request):
                 # Get relationship from row or default to 'guardian'
                 relationship = row.get('guardian_relationship', Guardian.Relationship.GUARDIAN)
                 student_guardian_data.append((idx, row['guardian_pk'], relationship))
+
+            # Store email for account creation
+            if row.get('student_email'):
+                student_account_data.append((idx, row['student_email'], row['first_name'], row['last_name']))
 
         except Exception as e:
             errors.append(f"Row {row.get('row_num', '?')}: Error preparing data - {str(e)}")
@@ -279,6 +307,24 @@ def bulk_import_confirm(request):
                     if enrollments_to_create:
                         Enrollment.objects.bulk_create(enrollments_to_create)
 
+                # Create user accounts for students with emails
+                if student_account_data:
+                    for idx, email, first_name, last_name in student_account_data:
+                        if idx < len(created_students):
+                            student = created_students[idx]
+                            temp_password = generate_temp_password()
+                            user = User.objects.create_user(
+                                email=email,
+                                password=temp_password,
+                                first_name=first_name,
+                                last_name=last_name,
+                                is_student=True,
+                                must_change_password=True,
+                            )
+                            student.user = user
+                            student.save(update_fields=['user'])
+                            accounts_created += 1
+
                 created_count = len(created_students)
         except Exception as e:
             errors.append(f"Error during bulk creation: {str(e)}")
@@ -289,7 +335,10 @@ def bulk_import_confirm(request):
     if errors:
         messages.warning(request, f"Some errors occurred: {'; '.join(errors)}")
     else:
-        messages.success(request, f"{created_count} student(s) imported successfully.")
+        msg = f"{created_count} student(s) imported successfully."
+        if accounts_created:
+            msg += f" {accounts_created} user account(s) created."
+        messages.success(request, msg)
 
     if request.htmx:
         response = HttpResponse(status=200)
@@ -315,6 +364,7 @@ def bulk_import_template(request):
         'admission_number': ['STU-2024-001', 'STU-2024-002'],
         'admission_date': ['2024-09-01', '2024-09-01'],
         'class_name': ['B1-A', 'B2-A'],
+        'student_email': ['john.doe@school.com', ''],  # Optional - creates portal account if provided
     }
 
     df = pd.DataFrame(sample_data)

@@ -200,6 +200,42 @@
             font-size: 10px;
             color: #666;
         }
+        /* QR Code Verification */
+        .verification-section {
+            display: flex;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px dashed #999;
+        }
+        .qr-cell {
+            flex-shrink: 0;
+        }
+        .qr-cell img {
+            width: 70px;
+            height: 70px;
+        }
+        .verification-info {
+            margin-left: 15px;
+            text-align: left;
+        }
+        .verification-info .title {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 3px;
+        }
+        .verification-info .code {
+            font-family: monospace;
+            font-size: 12pt;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .verification-info .hint {
+            font-size: 8pt;
+            color: #666;
+            margin-top: 3px;
+        }
         .watermark {
             position: fixed;
             top: 50%;
@@ -358,6 +394,19 @@
                 <div class="signature-label">Official School Stamp</div>
             </div>
         </div>
+
+        {% if qr_code_base64 and verification %}
+        <div class="verification-section">
+            <div class="qr-cell">
+                <img src="{{ qr_code_base64 }}" alt="Verification QR Code">
+            </div>
+            <div class="verification-info">
+                <div class="title">Document Verification</div>
+                <div class="code">{{ verification.verification_code }}</div>
+                <div class="hint">Scan QR code or visit /verify/{{ verification.verification_code }}/ to verify this document</div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Footer -->
         <div class="footer">

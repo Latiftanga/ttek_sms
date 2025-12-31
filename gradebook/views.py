@@ -2176,6 +2176,25 @@ def report_card_print(request, student_id):
     except Exception:
         pass
 
+    # Create verification record and generate QR code
+    verification = None
+    qr_code_base64 = None
+    try:
+        from core.models import DocumentVerification
+        from core.utils import generate_verification_qr
+
+        verification = DocumentVerification.create_for_document(
+            document_type=DocumentVerification.DocumentType.REPORT_CARD,
+            student=student,
+            title=f"Report Card - {current_term.name}" if current_term else "Report Card",
+            user=request.user,
+            term=current_term,
+            academic_year=current_term.academic_year.name if current_term and current_term.academic_year else '',
+        )
+        qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
+    except Exception as e:
+        logger.warning(f"Could not create verification record: {e}")
+
     context = {
         'student': student,
         'current_term': current_term,
@@ -2188,6 +2207,8 @@ def report_card_print(request, student_id):
         'grading_system': grading_system,
         'school': school,
         'school_settings': school_settings,
+        'verification': verification,
+        'qr_code_base64': qr_code_base64,
     }
 
     return render(request, 'gradebook/report_card_print.html', context)
@@ -3138,6 +3159,23 @@ def transcript_print(request, student_id):
     # Get school context
     school_ctx = get_school_context()
 
+    # Create verification record and generate QR code
+    verification = None
+    qr_code_base64 = None
+    try:
+        from core.models import DocumentVerification
+        from core.utils import generate_verification_qr
+
+        verification = DocumentVerification.create_for_document(
+            document_type=DocumentVerification.DocumentType.TRANSCRIPT,
+            student=student,
+            title=f"Academic Transcript - {student.full_name}",
+            user=request.user,
+        )
+        qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
+    except Exception as e:
+        logger.warning(f"Could not create verification record: {e}")
+
     context = {
         'student': student,
         'academic_history': history_data['academic_history'],
@@ -3147,6 +3185,8 @@ def transcript_print(request, student_id):
         'generated_date': timezone.now(),
         'school': school_ctx['school'],
         'school_settings': school_ctx['school_settings'],
+        'verification': verification,
+        'qr_code_base64': qr_code_base64,
     }
 
     return render(request, 'gradebook/transcript_print.html', context)
@@ -3179,6 +3219,18 @@ def download_transcript_pdf(request, student_id):
     # Get school context with base64 logo for PDF
     school_ctx = get_school_context(include_logo_base64=True)
 
+    # Create verification record and generate QR code
+    from core.models import DocumentVerification
+    from core.utils import generate_verification_qr
+
+    verification = DocumentVerification.create_for_document(
+        document_type=DocumentVerification.DocumentType.TRANSCRIPT,
+        student=student,
+        title=f"Academic Transcript - {student.full_name}",
+        user=request.user,
+    )
+    qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
+
     context = {
         'student': student,
         'academic_history': history_data['academic_history'],
@@ -3190,6 +3242,8 @@ def download_transcript_pdf(request, student_id):
         'school': school_ctx['school'],
         'school_settings': school_ctx['school_settings'],
         'logo_base64': school_ctx['logo_base64'],
+        'verification': verification,
+        'qr_code_base64': qr_code_base64,
     }
 
     # Generate PDF using WeasyPrint

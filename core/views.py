@@ -2429,3 +2429,25 @@ def my_wards(request):
 def fee_payments(request):
     context = {}
     return htmx_render(request, 'core/parent/fee_payments.html', 'core/parent/partials/fee_payments_content.html', context)
+
+
+def verify_document(request, code):
+    """
+    Public view to verify document authenticity.
+    No login required - anyone with the code can verify.
+    """
+    from .models import DocumentVerification
+
+    verification = None
+    try:
+        verification = DocumentVerification.objects.get(verification_code=code.upper())
+        verification.record_verification()
+    except DocumentVerification.DoesNotExist:
+        pass
+
+    context = {
+        'code': code,
+        'verification': verification,
+        'is_valid': verification is not None,
+    }
+    return render(request, 'core/verify_document.html', context)
