@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
-from django.db import models
+from django.db import models, transaction
 from django.contrib import messages
 
 from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, AttendanceRecord, Period, TimetableEntry
@@ -23,6 +23,26 @@ def admin_required(view_func):
         if not request.user.is_authenticated:
             return redirect('accounts:login')
         if not is_school_admin(request.user):
+            messages.error(request, "You don't have permission to access this page.")
+            return redirect('core:index')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+
+def is_teacher_or_admin(user):
+    """Check if user is a teacher, school admin, or superuser."""
+    return (user.is_superuser or
+            getattr(user, 'is_school_admin', False) or
+            getattr(user, 'is_teacher', False))
+
+
+def teacher_or_admin_required(view_func):
+    """Decorator to require teacher or admin access."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if not is_teacher_or_admin(request.user):
             messages.error(request, "You don't have permission to access this page.")
             return redirect('core:index')
         return view_func(request, *args, **kwargs)
@@ -311,7 +331,7 @@ def programme_edit(request, pk):
     return redirect('academics:index')
 
 
-@login_required
+@admin_required
 def programme_delete(request, pk):
     """Delete a programme."""
     if request.method != 'POST':
@@ -336,7 +356,7 @@ def get_classes_list_context():
     return {'classes': classes}
 
 
-@login_required
+@admin_required
 def class_create(request):
     """Create a new class."""
     if request.method != 'POST':
@@ -363,7 +383,7 @@ def class_create(request):
     return redirect('academics:classes')
 
 
-@login_required
+@admin_required
 def class_edit(request, pk):
     """Edit a class."""
     cls = get_object_or_404(Class, pk=pk)
@@ -405,7 +425,7 @@ def class_edit(request, pk):
     return redirect('academics:classes')
 
 
-@login_required
+@admin_required
 def class_delete(request, pk):
     """Delete a class."""
     if request.method != 'POST':
@@ -444,7 +464,7 @@ def get_subjects_list_context():
     return {'subjects': subjects}
 
 
-@login_required
+@admin_required
 def subject_create(request):
     """Create a new subject."""
     if request.method != 'POST':
@@ -472,7 +492,7 @@ def subject_create(request):
     return redirect('academics:index')
 
 
-@login_required
+@admin_required
 def subject_edit(request, pk):
     """Edit a subject."""
     subject = get_object_or_404(Subject, pk=pk)
@@ -509,7 +529,7 @@ def subject_edit(request, pk):
     return redirect('academics:index')
 
 
-@login_required
+@admin_required
 def subject_delete(request, pk):
     """Delete a subject."""
     if request.method != 'POST':
@@ -645,6 +665,7 @@ def get_promotion_history_context(class_obj):
 # --- Main Detail View ---
 
 @login_required
+@teacher_or_admin_required
 def class_detail(request, pk):
     """Detailed view of a specific class."""
     class_obj = get_object_or_404(Class, pk=pk)
@@ -668,7 +689,7 @@ def class_detail(request, pk):
     )
 
 # --- Action Views (Using Helpers) ---
-@login_required
+@admin_required
 def class_subject_create(request, pk):
     class_obj = get_object_or_404(Class, pk=pk)
 
@@ -693,7 +714,7 @@ def class_subject_create(request, pk):
     })
 
 
-@login_required
+@admin_required
 def class_subject_delete(request, class_pk, pk):
     allocation = get_object_or_404(ClassSubject, pk=pk, class_assigned_id=class_pk)
     allocation.delete()
@@ -706,7 +727,7 @@ def class_subject_delete(request, class_pk, pk):
     return redirect('academics:class_detail', pk=class_pk)
 
 
-@login_required
+@admin_required
 def class_student_enroll(request, pk):
     """Enroll existing students into a class."""
     class_obj = get_object_or_404(Class, pk=pk)
@@ -733,7 +754,7 @@ def class_student_enroll(request, pk):
     })
 
 
-@login_required
+@admin_required
 def class_student_remove(request, class_pk, student_pk):
     """Remove a student from a class."""
     if request.method != 'POST':
@@ -753,6 +774,7 @@ def class_student_remove(request, class_pk, student_pk):
 
 # --- 2. Take Attendance Action ---
 @login_required
+@teacher_or_admin_required
 def class_attendance_take(request, pk):
     """
     Opens the attendance sheet for a specific date (defaults to today).
@@ -793,19 +815,43 @@ def class_attendance_take(request, pk):
     if request.method == 'POST':
         # Process the form submission manually for grid data
         # Data format: "status_STUDENTID" : "STATUS_CODE"
-        
-        students = Student.objects.filter(current_class=class_obj, status='active')
-        
+
+        students = list(Student.objects.filter(current_class=class_obj, status='active'))
+        student_ids = [s.id for s in students]
+
+        # Fetch existing records in a single query
+        existing_records = {
+            r.student_id: r
+            for r in AttendanceRecord.objects.filter(session=session, student_id__in=student_ids)
+        }
+
+        records_to_create = []
+        records_to_update = []
+
         for student in students:
             status_key = f"status_{student.id}"
             new_status = request.POST.get(status_key, AttendanceRecord.Status.PRESENT)
-            
-            AttendanceRecord.objects.update_or_create(
-                session=session,
-                student=student,
-                defaults={'status': new_status}
-            )
-            
+
+            if student.id in existing_records:
+                # Update existing record
+                record = existing_records[student.id]
+                if record.status != new_status:
+                    record.status = new_status
+                    records_to_update.append(record)
+            else:
+                # Create new record
+                records_to_create.append(AttendanceRecord(
+                    session=session,
+                    student=student,
+                    status=new_status
+                ))
+
+        # Bulk operations
+        if records_to_create:
+            AttendanceRecord.objects.bulk_create(records_to_create)
+        if records_to_update:
+            AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+
         # HTMX Success: Refresh page to show updated data
         if request.htmx:
             response = HttpResponse(status=204)
@@ -834,7 +880,7 @@ def class_attendance_take(request, pk):
     })
 
 
-@login_required
+@admin_required
 def class_promote(request, pk):
     """Promote students from a specific class (modal-based)."""
     from students.models import Enrollment
@@ -881,79 +927,81 @@ def class_promote(request, pk):
         graduated_count = 0
         errors = []
 
-        for key, value in request.POST.items():
-            if key.startswith('action_'):
-                student_id = key.replace('action_', '')
-                action = value
+        # Wrap all promotion operations in a transaction for atomicity
+        with transaction.atomic():
+            for key, value in request.POST.items():
+                if key.startswith('action_'):
+                    student_id = key.replace('action_', '')
+                    action = value
 
-                if action == 'skip':
-                    continue
-
-                try:
-                    student = Student.objects.get(pk=student_id)
-                    current_enrollment = student.enrollments.filter(
-                        academic_year=current_year,
-                        class_assigned=class_obj,
-                        status=Enrollment.Status.ACTIVE
-                    ).first()
-
-                    if not current_enrollment:
+                    if action == 'skip':
                         continue
 
-                    if action == 'promote':
-                        target_class_id = request.POST.get(f'target_class_{student_id}')
-                        if not target_class_id:
-                            errors.append(f'{student.full_name}: No target class selected')
-                            continue
-
-                        try:
-                            target_class = Class.objects.get(pk=target_class_id)
-                        except Class.DoesNotExist:
-                            errors.append(f'{student.full_name}: Invalid target class')
-                            continue
-
-                        current_enrollment.status = Enrollment.Status.PROMOTED
-                        current_enrollment.save()
-
-                        Enrollment.objects.create(
-                            student=student,
-                            academic_year=next_year,
-                            class_assigned=target_class,
-                            status=Enrollment.Status.ACTIVE,
-                            promoted_from=current_enrollment,
-                        )
-
-                        student.current_class = target_class
-                        student.save()
-                        promoted_count += 1
-
-                    elif action == 'repeat':
-                        current_enrollment.status = Enrollment.Status.REPEATED
-                        current_enrollment.save()
-
-                        Enrollment.objects.create(
-                            student=student,
-                            academic_year=next_year,
+                    try:
+                        student = Student.objects.get(pk=student_id)
+                        current_enrollment = student.enrollments.filter(
+                            academic_year=current_year,
                             class_assigned=class_obj,
-                            status=Enrollment.Status.ACTIVE,
-                            promoted_from=current_enrollment,
-                            remarks='Repeated year',
-                        )
-                        repeated_count += 1
+                            status=Enrollment.Status.ACTIVE
+                        ).first()
 
-                    elif action == 'graduate':
-                        current_enrollment.status = Enrollment.Status.GRADUATED
-                        current_enrollment.save()
+                        if not current_enrollment:
+                            continue
 
-                        student.status = Student.Status.GRADUATED
-                        student.current_class = None
-                        student.save()
-                        graduated_count += 1
+                        if action == 'promote':
+                            target_class_id = request.POST.get(f'target_class_{student_id}')
+                            if not target_class_id:
+                                errors.append(f'{student.full_name}: No target class selected')
+                                continue
 
-                except Student.DoesNotExist:
-                    errors.append(f'Student ID {student_id}: Not found')
-                except Exception as e:
-                    errors.append(f'Error: {str(e)}')
+                            try:
+                                target_class = Class.objects.get(pk=target_class_id)
+                            except Class.DoesNotExist:
+                                errors.append(f'{student.full_name}: Invalid target class')
+                                continue
+
+                            current_enrollment.status = Enrollment.Status.PROMOTED
+                            current_enrollment.save()
+
+                            Enrollment.objects.create(
+                                student=student,
+                                academic_year=next_year,
+                                class_assigned=target_class,
+                                status=Enrollment.Status.ACTIVE,
+                                promoted_from=current_enrollment,
+                            )
+
+                            student.current_class = target_class
+                            student.save()
+                            promoted_count += 1
+
+                        elif action == 'repeat':
+                            current_enrollment.status = Enrollment.Status.REPEATED
+                            current_enrollment.save()
+
+                            Enrollment.objects.create(
+                                student=student,
+                                academic_year=next_year,
+                                class_assigned=class_obj,
+                                status=Enrollment.Status.ACTIVE,
+                                promoted_from=current_enrollment,
+                                remarks='Repeated year',
+                            )
+                            repeated_count += 1
+
+                        elif action == 'graduate':
+                            current_enrollment.status = Enrollment.Status.GRADUATED
+                            current_enrollment.save()
+
+                            student.status = Student.Status.GRADUATED
+                            student.current_class = None
+                            student.save()
+                            graduated_count += 1
+
+                    except Student.DoesNotExist:
+                        errors.append(f'Student ID {student_id}: Not found')
+                    except Exception as e:
+                        errors.append(f'Error: {str(e)}')
 
         # HTMX Response: Refresh page to show updated data
         if request.htmx:
@@ -979,23 +1027,48 @@ def class_promote(request, pk):
 
 
 @login_required
+@teacher_or_admin_required
 def class_attendance_edit(request, pk, session_pk):
     """Edit an existing attendance session."""
     class_obj = get_object_or_404(Class, pk=pk)
     session = get_object_or_404(AttendanceSession, pk=session_pk, class_assigned=class_obj)
 
     if request.method == 'POST':
-        students = Student.objects.filter(current_class=class_obj, status='active')
+        students = list(Student.objects.filter(current_class=class_obj, status='active'))
+        student_ids = [s.id for s in students]
+
+        # Fetch existing records in a single query
+        existing_records = {
+            r.student_id: r
+            for r in AttendanceRecord.objects.filter(session=session, student_id__in=student_ids)
+        }
+
+        records_to_create = []
+        records_to_update = []
 
         for student in students:
             status_key = f"status_{student.id}"
             new_status = request.POST.get(status_key, AttendanceRecord.Status.PRESENT)
 
-            AttendanceRecord.objects.update_or_create(
-                session=session,
-                student=student,
-                defaults={'status': new_status}
-            )
+            if student.id in existing_records:
+                # Update existing record
+                record = existing_records[student.id]
+                if record.status != new_status:
+                    record.status = new_status
+                    records_to_update.append(record)
+            else:
+                # Create new record
+                records_to_create.append(AttendanceRecord(
+                    session=session,
+                    student=student,
+                    status=new_status
+                ))
+
+        # Bulk operations
+        if records_to_create:
+            AttendanceRecord.objects.bulk_create(records_to_create)
+        if records_to_update:
+            AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
 
         if request.htmx:
             response = HttpResponse(status=204)
@@ -1025,6 +1098,7 @@ def class_attendance_edit(request, pk, session_pk):
 
 
 @login_required
+@teacher_or_admin_required
 def class_export(request, pk):
     """Export class register to Excel."""
     from openpyxl import Workbook
@@ -1137,6 +1211,7 @@ def class_export(request, pk):
 # ============ ATTENDANCE REPORTS ============
 
 @login_required
+@teacher_or_admin_required
 def attendance_reports(request):
     """Attendance reports with filters."""
     from django.db.models import Count, Q, F
@@ -1206,38 +1281,71 @@ def attendance_reports(request):
     if total_records > 0:
         attendance_rate = round((present_count / total_records) * 100, 1)
 
-    # Summary by class (only for allowed classes)
+    # Summary by class - use aggregated queries instead of N+1
+    from django.db.models import Count, Q, Case, When, IntegerField
+
+    # Get attendance stats per class in a single query
+    class_stats = records.values('session__class_assigned_id').annotate(
+        total=Count('id'),
+        present=Count('id', filter=Q(status__in=['P', 'L'])),
+        absent=Count('id', filter=Q(status='A'))
+    )
+    class_stats_dict = {
+        s['session__class_assigned_id']: s for s in class_stats
+    }
+
+    # Get today's sessions in a single query
+    today_sessions = set(
+        sessions.filter(date=today).values_list('class_assigned_id', flat=True)
+    )
+
+    # Get student counts per class in a single query
+    student_counts = dict(
+        Student.objects.filter(
+            current_class__in=classes,
+            status='active'
+        ).values('current_class_id').annotate(
+            count=Count('id')
+        ).values_list('current_class_id', 'count')
+    )
+
     class_summary = []
     for cls in classes:
-        cls_records = records.filter(session__class_assigned=cls)
-        cls_total = cls_records.count()
-        cls_present = cls_records.filter(status__in=['P', 'L']).count() if cls_total > 0 else 0
-        cls_absent = cls_records.filter(status='A').count() if cls_total > 0 else 0
+        stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0})
+        cls_total = stats['total']
+        cls_present = stats['present']
+        cls_absent = stats['absent']
         cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
-
-        # Check if attendance was taken today for this class
-        has_today = sessions.filter(class_assigned=cls, date=today).exists()
-
-        # Get student count for this class
-        student_count = cls.students.filter(is_active=True).count()
 
         class_summary.append({
             'class': cls,
-            'total': student_count,
+            'total': student_counts.get(cls.id, 0),
             'present': cls_present,
             'absent': cls_absent,
             'rate': cls_rate,
-            'has_today': has_today,
+            'has_today': cls.id in today_sessions,
         })
 
-    # Daily breakdown (always calculated for recent sessions display)
-    daily_data = []
+    # Daily breakdown - use annotated queryset instead of N+1
     daily_sessions = sessions.order_by('-date')[:20]
+    session_ids = [s.id for s in daily_sessions]
+
+    # Get stats per session in a single query
+    session_stats = AttendanceRecord.objects.filter(
+        session_id__in=session_ids
+    ).values('session_id').annotate(
+        total=Count('id'),
+        present=Count('id', filter=Q(status__in=['P', 'L'])),
+        absent=Count('id', filter=Q(status='A'))
+    )
+    session_stats_dict = {s['session_id']: s for s in session_stats}
+
+    daily_data = []
     for session in daily_sessions:
-        session_records = session.records.all()
-        s_total = session_records.count()
-        s_present = session_records.filter(status__in=['P', 'L']).count()
-        s_absent = session_records.filter(status='A').count()
+        stats = session_stats_dict.get(session.id, {'total': 0, 'present': 0, 'absent': 0})
+        s_total = stats['total']
+        s_present = stats['present']
+        s_absent = stats['absent']
         daily_data.append({
             'session': session,
             'total': s_total,
@@ -1402,6 +1510,7 @@ def attendance_reports(request):
 
 
 @login_required
+@teacher_or_admin_required
 def attendance_export(request):
     """Export attendance data to Excel."""
     from openpyxl import Workbook
@@ -1539,6 +1648,7 @@ def attendance_export(request):
 
 
 @login_required
+@teacher_or_admin_required
 def student_attendance_detail(request, student_id):
     """Get detailed attendance for a single student."""
     from students.models import Student
@@ -1612,6 +1722,7 @@ def student_attendance_detail(request, student_id):
 
 
 @login_required
+@teacher_or_admin_required
 def notify_absent_parents(request):
     """Send SMS notifications to parents of students with consecutive absences."""
     from django.contrib import messages
@@ -1689,6 +1800,7 @@ def notify_absent_parents(request):
 # ============ API ENDPOINTS ============
 
 @login_required
+@teacher_or_admin_required
 def api_class_subjects(request, pk):
     """API endpoint to get subjects for a class.
 

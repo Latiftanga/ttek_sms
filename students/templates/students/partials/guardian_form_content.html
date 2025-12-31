@@ -1,0 +1,102 @@
+{% load core_tags %}
+<div>
+    <!-- Page Header -->
+    {% if not in_modal %}
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'students:guardian_index' %}"
+               hx-get="{% url 'students:guardian_index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold">{% if guardian %}Edit Guardian{% else %}Add New Guardian{% endif %}</h1>
+                <p class="text-sm text-base-content/60">
+                    {% if guardian %}Update guardian information{% else %}Enter guardian details{% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'students:guardian_index' %}"
+               hx-get="{% url 'students:guardian_index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm">
+                Cancel
+            </a>
+            <button type="submit" form="guardian-form" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-save"></i>
+                {% if guardian %}Save Changes{% else %}Create Guardian{% endif %}
+            </button>
+        </div>
+    </div>
+    {% else %}
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-xl font-bold">Add New Guardian</h1>
+        <button type="submit" form="guardian-form" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-save"></i>
+            Create Guardian
+        </button>
+    </div>
+    {% endif %}
+
+    <form id="guardian-form"
+          method="post"
+          hx-post="{% if guardian %}{% url 'students:guardian_edit' guardian.pk %}{% else %}{% url 'students:guardian_create' %}{% endif %}"
+          hx-target="#modal-guardian-content">
+        {% csrf_token %}
+
+        <div class="space-y-4">
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-user-shield text-primary"></i>
+                        Guardian Information
+                    </h2>
+                    <div class="grid grid-cols-1 gap-4">
+                        {% floating_field form.full_name %}
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 mt-4">
+                        {% floating_field form.occupation %}
+                    </div>
+                </div>
+            </div>
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-phone text-primary"></i>
+                        Contact Information
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {% floating_field form.phone_number %}
+                        {% floating_field form.email %}
+                    </div>
+                    <div class="mt-4">
+                        {% floating_field form.address %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if form.errors %}
+        <div class="alert alert-error py-3 mt-6">
+            <i class="fa-solid fa-exclamation-circle"></i>
+            <div>
+                <p class="font-medium text-sm">Please fix the following errors:</p>
+                <ul class="text-xs mt-1 list-disc list-inside">
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                        <li>{{ field.label }}: {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </form>
+</div>

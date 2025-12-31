@@ -53,6 +53,16 @@ class SMSMessage(models.Model):
         ordering = ['-created_at']
         verbose_name = 'SMS Message'
         verbose_name_plural = 'SMS Messages'
+        indexes = [
+            # Dashboard stats queries filter by date and status
+            models.Index(fields=['created_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at', 'status']),
+            # Message history filters by type
+            models.Index(fields=['message_type']),
+            # Lookup by recipient phone
+            models.Index(fields=['recipient_phone']),
+        ]
 
     def __str__(self):
         return f"SMS to {self.recipient_phone} - {self.get_status_display()}"
@@ -88,6 +98,10 @@ class SMSTemplate(models.Model):
 
     class Meta:
         ordering = ['name']
+        indexes = [
+            # Finding active templates by type
+            models.Index(fields=['message_type', 'is_active']),
+        ]
 
     def __str__(self):
         return self.name

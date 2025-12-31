@@ -1,6 +1,9 @@
 {% load core_tags %}
-<div>
-    <!-- Page Header -->
+<div x-data @guardian-created.window="
+        document.getElementById('id_guardian').value = $event.detail.id;
+        document.getElementById('guardian_search_input').value = $event.detail.text;
+        modal_guardian.close();
+    ">
     <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-4">
             <a href="{% url 'students:index' %}"
@@ -102,18 +105,42 @@
                 <!-- Guardian Information -->
                 <div class="card bg-base-100 shadow-sm border border-base-200">
                     <div class="card-body p-5">
-                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
-                            <i class="fa-solid fa-user-shield text-primary"></i>
-                            Guardian Information
-                        </h2>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {% floating_field form.guardian_name %}
-                            {% floating_field form.guardian_relationship %}
-                            {% floating_field form.guardian_phone %}
-                            {% floating_field form.guardian_email %}
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="font-semibold text-base flex items-center gap-2">
+                                <i class="fa-solid fa-user-shield text-primary"></i>
+                                Guardian Information
+                            </h2>
+                            <button type="button" class="btn btn-sm btn-ghost"
+                                    hx-get="{% url 'students:guardian_create' %}"
+                                    hx-target="#modal-guardian-content"
+                                    hx-swap="innerHTML"
+                                    onclick="modal_guardian.showModal()">
+                                <i class="fa-solid fa-plus"></i> New Guardian
+                            </button>
+                        </div>
+                        <div x-data="{ open: false }" @htmx:after-swap.window="if ($event.target.id === 'guardian_search_results') open = true" class="relative">
+                            <input type="text"
+                                   id="guardian_search_input"
+                                   x-on:click="open = true"
+                                   class="input input-bordered w-full"
+                                   placeholder="Search for a guardian..."
+                                   hx-get="{% url 'students:guardian_search' %}"
+                                   hx-trigger="keyup changed delay:300ms"
+                                   hx-target="#guardian_search_results"
+                                   hx-include="[name='q']"
+                                   name="q"
+                                   autocomplete="off"
+                                   value="{% if student.guardian %}{{ student.guardian.full_name }} ({{ student.guardian.phone_number }}){% endif %}"
+                                   />
+                            <input type="hidden" name="guardian" id="id_guardian" value="{% if student.guardian %}{{ student.guardian.pk }}{% else %}{{ form.guardian.value|default:'' }}{% endif %}">
+                            <div id="guardian_search_results"
+                                 x-show="open"
+                                 @click.away="open = false"
+                                 class="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                            </div>
                         </div>
                         <div class="mt-4">
-                            {% floating_field form.guardian_address %}
+                            {% floating_field form.guardian_relationship %}
                         </div>
                     </div>
                 </div>
@@ -156,3 +183,22 @@
         {% endif %}
     </form>
 </div>
+
+<!-- Guardian Create Modal -->
+<dialog id="modal_guardian" class="modal">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-guardian-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>

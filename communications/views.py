@@ -1,15 +1,61 @@
+from functools import wraps
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.contrib import messages as django_messages
+from django.http import HttpResponse, HttpResponseForbidden
 from django.utils import timezone
+from django.utils.html import escape
 from django.db.models import Q
 
 from .models import SMSMessage, SMSTemplate
-from .utils import send_sms, validate_phone_number
+from .utils import send_sms, validate_phone_number, normalize_phone_number
 from students.models import Student
 from academics.models import Class, AttendanceSession, AttendanceRecord
 from core.models import SchoolSettings
 
+
+# =============================================================================
+# PERMISSION HELPERS
+# =============================================================================
+
+def is_school_admin(user):
+    """Check if user is a school admin or superuser."""
+    return user.is_superuser or getattr(user, 'is_school_admin', False)
+
+
+def is_teacher_or_admin(user):
+    """Check if user is a teacher, school admin, or superuser."""
+    return (user.is_superuser or
+            getattr(user, 'is_school_admin', False) or
+            getattr(user, 'is_teacher', False))
+
+
+def teacher_or_admin_required(view_func):
+    """Decorator that requires user to be a teacher or admin."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not is_teacher_or_admin(request.user):
+            django_messages.error(request, 'You do not have permission to access this page.')
+            return redirect('core:index')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def admin_required(view_func):
+    """Decorator that requires user to be a school admin."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not is_school_admin(request.user):
+            django_messages.error(request, 'Only administrators can access this page.')
+            return redirect('communications:index')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+# =============================================================================
+# VIEW HELPERS
+# =============================================================================
 
 def htmx_render(request, full_template, partial_template, context=None):
     """Render full template for regular requests, partial for HTMX requests."""
@@ -19,6 +65,7 @@ def htmx_render(request, full_template, partial_template, context=None):
 
 
 @login_required
+@teacher_or_admin_required
 def index(request):
     """SMS dashboard with recent messages and quick actions."""
     messages = SMSMessage.objects.select_related('student', 'created_by')[:50]
@@ -48,6 +95,7 @@ def index(request):
 
 
 @login_required
+@teacher_or_admin_required
 def send_single(request):
     """Send SMS to a single recipient."""
     templates = SMSTemplate.objects.filter(is_active=True)
@@ -120,6 +168,7 @@ def send_single(request):
 
 
 @login_required
+@teacher_or_admin_required
 def send_to_class(request):
     """Send SMS to all parents in a class."""
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
@@ -147,29 +196,35 @@ def send_to_class(request):
         })
 
     class_obj = get_object_or_404(Class, pk=class_id)
-    students = Student.objects.filter(current_class=class_obj, status='active')
 
-    sent_count = 0
-    failed_count = 0
-    skipped_count = 0
+    # Fetch all students with phone numbers in a single query
+    all_students = list(Student.objects.filter(current_class=class_obj, status='active'))
+    students_with_phone = [s for s in all_students if s.guardian_phone]
+    skipped_count = len(all_students) - len(students_with_phone)
 
-    for student in students:
-        phone = student.guardian_phone
+    if not students_with_phone:
+        return render(request, 'communications/partials/modal_send_class.html', {
+            'success': True,
+            'sent_count': 0,
+            'failed_count': 0,
+            'skipped_count': skipped_count,
+        })
+
+    # Prepare SMS records for bulk creation
+    sms_records = []
+    student_sms_map = {}  # Map student_id to (sms_record, phone, message)
+
+    for student in students_with_phone:
+        phone = normalize_phone_number(student.guardian_phone)
         if not phone:
             skipped_count += 1
             continue
-
-        # Normalize phone
-        if phone.startswith('0'):
-            phone = '+233' + phone[1:]
-        elif not phone.startswith('+'):
-            phone = '+233' + phone
 
         # Personalize message
         personalized = message.replace('{student_name}', student.full_name)
         personalized = personalized.replace('{class_name}', class_obj.name)
 
-        sms = SMSMessage.objects.create(
+        sms = SMSMessage(
             recipient_phone=phone,
             recipient_name=student.guardian_name or '',
             student=student,
@@ -177,14 +232,45 @@ def send_to_class(request):
             message_type=SMSMessage.MessageType.ANNOUNCEMENT,
             created_by=request.user,
         )
+        sms_records.append(sms)
+        student_sms_map[student.pk] = (sms, phone, personalized)
 
+    # Bulk create all SMS records (single INSERT)
+    SMSMessage.objects.bulk_create(sms_records)
+
+    # Send SMS and track results
+    sent_count = 0
+    failed_count = 0
+    sent_ids = []
+    failed_updates = []
+
+    for student in students_with_phone:
+        if student.pk not in student_sms_map:
+            continue
+
+        sms, phone, personalized = student_sms_map[student.pk]
         try:
             send_sms(phone, personalized)
-            sms.mark_sent()
+            sms.status = SMSMessage.Status.SENT
+            sms.sent_at = timezone.now()
+            sent_ids.append(sms.pk)
             sent_count += 1
         except Exception as e:
-            sms.mark_failed(str(e))
+            sms.status = SMSMessage.Status.FAILED
+            sms.error_message = str(e)[:500]
+            failed_updates.append(sms)
             failed_count += 1
+
+    # Bulk update sent records
+    if sent_ids:
+        SMSMessage.objects.filter(pk__in=sent_ids).update(
+            status=SMSMessage.Status.SENT,
+            sent_at=timezone.now()
+        )
+
+    # Bulk update failed records
+    if failed_updates:
+        SMSMessage.objects.bulk_update(failed_updates, ['status', 'error_message'])
 
     # Show success state with counts
     return render(request, 'communications/partials/modal_send_class.html', {
@@ -196,6 +282,7 @@ def send_to_class(request):
 
 
 @login_required
+@teacher_or_admin_required
 def class_recipients(request):
     """Get recipient count for a class (HTMX endpoint)."""
     class_id = request.GET.get('class_id')
@@ -215,10 +302,16 @@ def class_recipients(request):
         with_phone = students.exclude(guardian_phone='').exclude(guardian_phone__isnull=True).count()
         without_phone = total_students - with_phone
 
+        # Escape user-controlled data to prevent XSS
+        class_name = escape(class_obj.name)
+        warning_html = ''
+        if without_phone > 0:
+            warning_html = f'<span class="flex items-center gap-1 text-warning"><i class="fa-solid fa-triangle-exclamation"></i>{without_phone} without phone</span>'
+
         return HttpResponse(f'''
             <div class="bg-base-200 rounded-lg p-3">
                 <div class="flex items-center justify-between text-sm">
-                    <span class="font-medium">{class_obj.name}</span>
+                    <span class="font-medium">{class_name}</span>
                     <span class="badge badge-primary">{total_students} students</span>
                 </div>
                 <div class="flex items-center gap-4 mt-2 text-xs text-base-content/70">
@@ -226,7 +319,7 @@ def class_recipients(request):
                         <i class="fa-solid fa-check text-success"></i>
                         {with_phone} with phone
                     </span>
-                    {'<span class="flex items-center gap-1 text-warning"><i class="fa-solid fa-triangle-exclamation"></i>' + str(without_phone) + ' without phone</span>' if without_phone > 0 else ''}
+                    {warning_html}
                 </div>
             </div>
         ''')
@@ -240,6 +333,7 @@ def class_recipients(request):
 
 
 @login_required
+@teacher_or_admin_required
 def notify_absent(request):
     """Notify parents of absent students."""
     today = timezone.now().date()
@@ -295,32 +389,42 @@ def notify_absent(request):
             'date': today,
         })
 
-    sent_count = 0
-    failed_count = 0
+    # Fetch all students in a single query with related class
+    students = Student.objects.filter(
+        pk__in=student_ids
+    ).select_related('current_class')
 
-    for student_id in student_ids:
-        try:
-            student = Student.objects.get(pk=student_id)
-        except Student.DoesNotExist:
-            continue
+    # Filter to students with valid phone numbers
+    students_with_phone = [s for s in students if s.guardian_phone]
 
-        phone = student.guardian_phone
+    if not students_with_phone:
+        return render(request, 'communications/partials/modal_notify_absent.html', {
+            'success': True,
+            'sent_count': 0,
+            'failed_count': 0,
+            'date': today,
+        })
+
+    # Prepare date string once
+    date_str = today.strftime('%B %d, %Y')
+    school_name = school.display_name or ''
+
+    # Prepare SMS records for bulk creation
+    sms_records = []
+    student_sms_map = {}  # Map student_id to (sms_record, phone, message)
+
+    for student in students_with_phone:
+        phone = normalize_phone_number(student.guardian_phone)
         if not phone:
             continue
-
-        # Normalize phone
-        if phone.startswith('0'):
-            phone = '+233' + phone[1:]
-        elif not phone.startswith('+'):
-            phone = '+233' + phone
 
         # Personalize message
         message = message_template.replace('{student_name}', student.full_name)
         message = message.replace('{class_name}', student.current_class.name if student.current_class else '')
-        message = message.replace('{date}', today.strftime('%B %d, %Y'))
-        message = message.replace('{school_name}', school.display_name or '')
+        message = message.replace('{date}', date_str)
+        message = message.replace('{school_name}', school_name)
 
-        sms = SMSMessage.objects.create(
+        sms = SMSMessage(
             recipient_phone=phone,
             recipient_name=student.guardian_name or '',
             student=student,
@@ -328,14 +432,45 @@ def notify_absent(request):
             message_type=SMSMessage.MessageType.ATTENDANCE,
             created_by=request.user,
         )
+        sms_records.append(sms)
+        student_sms_map[student.pk] = (sms, phone, message)
 
+    # Bulk create all SMS records (single INSERT)
+    SMSMessage.objects.bulk_create(sms_records)
+
+    # Send SMS and track results
+    sent_count = 0
+    failed_count = 0
+    sent_ids = []
+    failed_updates = []
+
+    for student in students_with_phone:
+        if student.pk not in student_sms_map:
+            continue
+
+        sms, phone, message = student_sms_map[student.pk]
         try:
             send_sms(phone, message)
-            sms.mark_sent()
+            sms.status = SMSMessage.Status.SENT
+            sms.sent_at = timezone.now()
+            sent_ids.append(sms.pk)
             sent_count += 1
         except Exception as e:
-            sms.mark_failed(str(e))
+            sms.status = SMSMessage.Status.FAILED
+            sms.error_message = str(e)[:500]
+            failed_updates.append(sms)
             failed_count += 1
+
+    # Bulk update sent records
+    if sent_ids:
+        SMSMessage.objects.filter(pk__in=sent_ids).update(
+            status=SMSMessage.Status.SENT,
+            sent_at=timezone.now()
+        )
+
+    # Bulk update failed records
+    if failed_updates:
+        SMSMessage.objects.bulk_update(failed_updates, ['status', 'error_message'])
 
     # Show success state with counts
     return render(request, 'communications/partials/modal_notify_absent.html', {
@@ -347,6 +482,7 @@ def notify_absent(request):
 
 
 @login_required
+@teacher_or_admin_required
 def message_history(request):
     """View SMS message history with filters."""
     messages = SMSMessage.objects.select_related('student', 'created_by')
@@ -387,6 +523,7 @@ def message_history(request):
 
 
 @login_required
+@admin_required
 def templates_list(request):
     """Manage SMS templates."""
     templates = SMSTemplate.objects.all()
@@ -400,6 +537,7 @@ def templates_list(request):
 
 
 @login_required
+@admin_required
 def template_create(request):
     """Create a new SMS template."""
     if request.method == 'GET':
@@ -435,6 +573,7 @@ def template_create(request):
 
 
 @login_required
+@admin_required
 def template_delete(request, pk):
     """Delete an SMS template."""
     if request.method != 'POST':

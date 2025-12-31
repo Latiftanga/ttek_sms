@@ -1,6 +1,7 @@
 from django import forms
+from django.utils.translation import gettext_lazy as _
 from academics.models import Class
-from .models import Student
+from .models import Student, Guardian
 
 
 class BulkImportForm(forms.Form):
@@ -18,6 +19,25 @@ class BulkImportForm(forms.Form):
         return file
 
 
+class GuardianForm(forms.ModelForm):
+    """Form for creating/editing guardians."""
+    phone_number = forms.CharField(
+        label=_("Phone Number"),
+        widget=forms.TextInput(attrs={'placeholder': 'Phone number', 'required': True})
+    )
+    class Meta:
+        model = Guardian
+        fields = [
+            'full_name', 'phone_number', 'email', 'occupation', 'address'
+        ]
+        widgets = {
+            'full_name': forms.TextInput(attrs={'placeholder': 'Full name'}),
+            'email': forms.EmailInput(attrs={'placeholder': 'Email (optional)'}),
+            'occupation': forms.TextInput(attrs={'placeholder': 'Occupation (optional)'}),
+            'address': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Address (optional)'}),
+        }
+
+
 class StudentForm(forms.ModelForm):
     """Form for creating/editing individual students."""
 
@@ -29,8 +49,7 @@ class StudentForm(forms.ModelForm):
             'date_of_birth', 'gender', 'photo',
             'address', 'phone',
             # Guardian info
-            'guardian_name', 'guardian_phone', 'guardian_email',
-            'guardian_relationship', 'guardian_address',
+            'guardian', 'guardian_relationship',
             # Admission
             'admission_number', 'admission_date',
             # Enrollment
@@ -45,10 +64,6 @@ class StudentForm(forms.ModelForm):
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'address': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Student address'}),
             'phone': forms.TextInput(attrs={'placeholder': 'Phone number (optional)'}),
-            'guardian_name': forms.TextInput(attrs={'placeholder': 'Guardian full name'}),
-            'guardian_phone': forms.TextInput(attrs={'placeholder': 'Guardian phone'}),
-            'guardian_email': forms.EmailInput(attrs={'placeholder': 'Guardian email (optional)'}),
-            'guardian_address': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Guardian address'}),
             'admission_number': forms.TextInput(attrs={'placeholder': 'e.g., STU-2024-001'}),
             'admission_date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -58,3 +73,6 @@ class StudentForm(forms.ModelForm):
         # Only show active classes
         self.fields['current_class'].queryset = Class.objects.filter(is_active=True)
         self.fields['current_class'].required = False
+        # Set queryset for guardian
+        self.fields['guardian'].queryset = Guardian.objects.all()
+        self.fields['guardian'].required = False

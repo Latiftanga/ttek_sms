@@ -13,6 +13,13 @@ urlpatterns = [
     path('<int:pk>/edit/', views.student_edit, name='student_edit'),
     path('<int:pk>/delete/', views.student_delete, name='student_delete'),
 
+    # Guardian CRUD
+    path('guardians/', views.guardian_index, name='guardian_index'),
+    path('guardians/create/', views.guardian_create, name='guardian_create'),
+    path('guardians/<int:pk>/edit/', views.guardian_edit, name='guardian_edit'),
+    path('guardians/<int:pk>/delete/', views.guardian_delete, name='guardian_delete'),
+    path('guardians/search/', views.guardian_search, name='guardian_search'),
+
     # Bulk import
     path('import/', views.bulk_import, name='bulk_import'),
     path('import/confirm/', views.bulk_import_confirm, name='bulk_import_confirm'),

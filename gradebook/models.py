@@ -1,4 +1,5 @@
 import uuid
+from html import escape as html_escape
 from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -1108,11 +1109,21 @@ class RemarkTemplate(models.Model):
     def __str__(self):
         return f"{self.get_category_display()}: {self.content[:50]}..."
 
-    def render(self, context):
-        """Render template with context variables."""
+    def render(self, context, escape_html=True):
+        """
+        Render template with context variables.
+
+        Args:
+            context: Dictionary of placeholder values
+            escape_html: If True, escape HTML in values to prevent XSS (default: True)
+
+        Returns:
+            str: Rendered message with placeholders replaced
+        """
         message = self.content
         for key, value in context.items():
-            message = message.replace(f'{{{key}}}', str(value))
+            safe_value = html_escape(str(value)) if escape_html else str(value)
+            message = message.replace(f'{{{key}}}', safe_value)
         return message
 
     class Meta:
