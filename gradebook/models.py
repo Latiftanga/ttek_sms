@@ -329,6 +329,9 @@ class AssessmentCategory(models.Model):
 
     def clean(self):
         """Validate that total percentages don't exceed 100%"""
+        if self.percentage is None:
+            return
+
         total = AssessmentCategory.objects.filter(
             is_active=True
         ).exclude(

@@ -46,6 +46,9 @@ class GradeScaleForm(forms.ModelForm):
     def __init__(self, *args, grading_system=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.grading_system = grading_system
+        # Set on instance for model validation in clean()
+        if grading_system:
+            self.instance.grading_system = grading_system
 
     def clean(self):
         cleaned_data = super().clean()

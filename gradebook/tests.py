@@ -1,7 +1,12 @@
 from decimal import Decimal
+from datetime import date
+
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.db import models
+from django_tenants.test.cases import TenantTestCase
+from django_tenants.test.client import TenantClient
 
 from .models import (
     GradingSystem, GradeScale, AssessmentCategory,
@@ -13,10 +18,26 @@ from .forms import GradeScaleForm, AssessmentCategoryForm, ScoreForm
 User = get_user_model()
 
 
-class GradingSystemModelTest(TestCase):
+class GradebookTenantTestCase(TenantTestCase):
+    """Base test case for gradebook tests with tenant support."""
+
+    @classmethod
+    def setup_tenant(cls, tenant):
+        """Called when tenant is created."""
+        tenant.name = 'Test School'
+        tenant.short_name = 'TEST'
+
+    def setUp(self):
+        """Set up test client."""
+        super().setUp()
+        self.client = TenantClient(self.tenant)
+
+
+class GradingSystemModelTest(GradebookTenantTestCase):
     """Tests for GradingSystem model."""
 
     def setUp(self):
+        super().setUp()
         self.grading_system = GradingSystem.objects.create(
             name='WASSCE',
             level='SHS',
@@ -52,10 +73,11 @@ class GradingSystemModelTest(TestCase):
         self.assertEqual(str(self.grading_system), 'WASSCE (Senior High School)')
 
 
-class GradeScaleModelTest(TestCase):
+class GradeScaleModelTest(GradebookTenantTestCase):
     """Tests for GradeScale model."""
 
     def setUp(self):
+        super().setUp()
         self.grading_system = GradingSystem.objects.create(
             name='WASSCE',
             level='SHS'
@@ -102,10 +124,11 @@ class GradeScaleModelTest(TestCase):
         self.assertIn('80', str(self.grade_a1))
 
 
-class AssessmentCategoryModelTest(TestCase):
+class AssessmentCategoryModelTest(GradebookTenantTestCase):
     """Tests for AssessmentCategory model."""
 
     def setUp(self):
+        super().setUp()
         self.class_score = AssessmentCategory.objects.create(
             name='Class Score',
             short_name='CA',
@@ -136,10 +159,11 @@ class AssessmentCategoryModelTest(TestCase):
         self.assertEqual(str(self.class_score), 'Class Score (30%)')
 
 
-class GradeScaleFormTest(TestCase):
+class GradeScaleFormTest(GradebookTenantTestCase):
     """Tests for GradeScaleForm."""
 
     def setUp(self):
+        super().setUp()
         self.grading_system = GradingSystem.objects.create(
             name='WASSCE',
             level='SHS'
@@ -198,7 +222,7 @@ class GradeScaleFormTest(TestCase):
         self.assertFalse(form.is_valid())
 
 
-class AssessmentCategoryFormTest(TestCase):
+class AssessmentCategoryFormTest(GradebookTenantTestCase):
     """Tests for AssessmentCategoryForm."""
 
     def test_valid_form(self):
@@ -242,7 +266,7 @@ class AssessmentCategoryFormTest(TestCase):
         self.assertFalse(form.is_valid())
 
 
-class ScoreFormTest(TestCase):
+class ScoreFormTest(GradebookTenantTestCase):
     """Tests for ScoreForm."""
 
     def test_valid_score(self):
@@ -294,10 +318,11 @@ class ScoreFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
 
-class GradeCalculationTest(TestCase):
+class GradeCalculationTest(GradebookTenantTestCase):
     """Tests for grade calculation logic."""
 
     def setUp(self):
+        super().setUp()
         # Create grading system with full scale
         self.grading_system = GradingSystem.objects.create(
             name='WASSCE',
@@ -358,14 +383,11 @@ class GradeCalculationTest(TestCase):
         self.assertFalse(grade.is_pass)
 
 
-# Import models for aggregate calculation
-from django.db import models
-
-
-class AggregateCalculationTest(TestCase):
+class AggregateCalculationTest(GradebookTenantTestCase):
     """Tests for WASSCE aggregate calculation."""
 
     def setUp(self):
+        super().setUp()
         self.grading_system = GradingSystem.objects.create(
             name='WASSCE',
             level='SHS',
@@ -395,3 +417,327 @@ class AggregateCalculationTest(TestCase):
     def test_aggregate_subjects_count(self):
         """Test aggregate uses correct number of subjects."""
         self.assertEqual(self.grading_system.aggregate_subjects_count, 6)
+
+
+# ============ Report Cards Status Filter Tests ============
+
+from academics.models import Class, Programme
+from core.models import AcademicYear, Term
+from students.models import Student, Guardian, Enrollment
+
+
+class ReportCardsStatusFilterTestCase(GradebookTenantTestCase):
+    """Base test case for report cards status filter tests."""
+
+    def setUp(self):
+        """Set up test data."""
+        super().setUp()
+
+        # Create admin user
+        self.admin_user = User.objects.create_user(
+            email='admin@school.com',
+            password='testpass123',
+            is_school_admin=True
+        )
+
+        # Create teacher user (non-admin)
+        self.teacher_user = User.objects.create_user(
+            email='teacher@school.com',
+            password='testpass123',
+            is_teacher=True
+        )
+
+        # Create programme and class
+        self.programme = Programme.objects.create(
+            name='General Arts',
+            code='ART'
+        )
+        self.test_class = Class.objects.create(
+            level_type=Class.LevelType.SHS,
+            level_number=3,
+            section='A',
+            name='SHS 3A',
+            programme=self.programme,
+            is_active=True
+        )
+
+        # Create another class
+        self.test_class_2 = Class.objects.create(
+            level_type=Class.LevelType.SHS,
+            level_number=2,
+            section='A',
+            name='SHS 2A',
+            programme=self.programme,
+            is_active=True
+        )
+
+        # Create academic year and term
+        self.academic_year = AcademicYear.objects.create(
+            name='2024/2025',
+            start_date=date(2024, 9, 1),
+            end_date=date(2025, 7, 31),
+            is_current=True
+        )
+        self.term = Term.objects.create(
+            academic_year=self.academic_year,
+            name='First Term',
+            term_number=1,
+            start_date=date(2024, 9, 1),
+            end_date=date(2024, 12, 20),
+            is_current=True
+        )
+
+        # Create a guardian
+        self.guardian = Guardian.objects.create(
+            full_name='John Parent',
+            phone_number='233241234567'
+        )
+
+        # Create active students
+        self.active_student_1 = Student.objects.create(
+            first_name='Active',
+            last_name='Student One',
+            admission_number='ACT-001',
+            date_of_birth=date(2008, 5, 15),
+            gender='M',
+            admission_date=date(2024, 9, 1),
+            current_class=self.test_class,
+            guardian=self.guardian,
+            status=Student.Status.ACTIVE
+        )
+        self.active_student_2 = Student.objects.create(
+            first_name='Active',
+            last_name='Student Two',
+            admission_number='ACT-002',
+            date_of_birth=date(2008, 6, 20),
+            gender='F',
+            admission_date=date(2024, 9, 1),
+            current_class=self.test_class,
+            guardian=self.guardian,
+            status=Student.Status.ACTIVE
+        )
+
+        # Create graduated student (was in test_class)
+        self.graduated_student = Student.objects.create(
+            first_name='Graduated',
+            last_name='Student',
+            admission_number='GRAD-001',
+            date_of_birth=date(2006, 3, 10),
+            gender='M',
+            admission_date=date(2021, 9, 1),
+            current_class=None,  # Graduated students have no current class
+            guardian=self.guardian,
+            status=Student.Status.GRADUATED
+        )
+
+        # Create withdrawn student (was in test_class)
+        self.withdrawn_student = Student.objects.create(
+            first_name='Withdrawn',
+            last_name='Student',
+            admission_number='WITH-001',
+            date_of_birth=date(2007, 8, 5),
+            gender='F',
+            admission_date=date(2022, 9, 1),
+            current_class=None,
+            guardian=self.guardian,
+            status=Student.Status.WITHDRAWN
+        )
+
+        # Create enrollments for active students
+        Enrollment.objects.create(
+            student=self.active_student_1,
+            academic_year=self.academic_year,
+            class_assigned=self.test_class,
+            status=Enrollment.Status.ACTIVE
+        )
+        Enrollment.objects.create(
+            student=self.active_student_2,
+            academic_year=self.academic_year,
+            class_assigned=self.test_class,
+            status=Enrollment.Status.ACTIVE
+        )
+
+        # Create enrollment history for graduated student (was in test_class)
+        Enrollment.objects.create(
+            student=self.graduated_student,
+            academic_year=self.academic_year,
+            class_assigned=self.test_class,
+            status=Enrollment.Status.GRADUATED
+        )
+
+        # Create enrollment history for withdrawn student (was in test_class)
+        Enrollment.objects.create(
+            student=self.withdrawn_student,
+            academic_year=self.academic_year,
+            class_assigned=self.test_class,
+            status=Enrollment.Status.WITHDRAWN
+        )
+
+
+class ReportCardsViewTests(ReportCardsStatusFilterTestCase):
+    """Tests for report_cards view basic functionality."""
+
+    def test_report_cards_requires_login(self):
+        """Test that report cards page requires authentication."""
+        response = self.client.get(reverse('gradebook:reports'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('login', response.url)
+
+    def test_report_cards_loads_for_admin(self):
+        """Test that report cards page loads for admin."""
+        self.client.login(email='admin@school.com', password='testpass123')
+        response = self.client.get(reverse('gradebook:reports'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_sees_status_filter(self):
+        """Test that admin sees the status filter dropdown."""
+        self.client.login(email='admin@school.com', password='testpass123')
+        # Need to select a class to see the full form with status filter
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk}
+        )
+        self.assertContains(response, 'Student Status')
+
+
+class ReportCardsStatusFilterTests(ReportCardsStatusFilterTestCase):
+    """Tests for status filter functionality."""
+
+    def test_default_status_is_active(self):
+        """Test that default status filter is 'active'."""
+        self.client.login(email='admin@school.com', password='testpass123')
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk}
+        )
+        self.assertEqual(response.status_code, 200)
+        # Should show active students only (template shows "Last, First" format)
+        self.assertContains(response, 'Student One, Active')
+        self.assertContains(response, 'Student Two, Active')
+        # Should not show graduated/withdrawn students
+        self.assertNotContains(response, 'Student, Graduated')
+        self.assertNotContains(response, 'Student, Withdrawn')
+
+    def test_filter_by_active_status(self):
+        """Test filtering by active status explicitly."""
+        self.client.login(email='admin@school.com', password='testpass123')
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'active'}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Student One, Active')
+        self.assertContains(response, 'Student Two, Active')
+        self.assertNotContains(response, 'Student, Graduated')
+
+    def test_filter_by_graduated_status(self):
+        """Test filtering by graduated status shows graduated students."""
+        self.client.login(email='admin@school.com', password='testpass123')
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'graduated'}
+        )
+        self.assertEqual(response.status_code, 200)
+        # Should show graduated student who was enrolled in this class
+        self.assertContains(response, 'Student, Graduated')
+        # Should not show active or withdrawn students
+        self.assertNotContains(response, 'Student One, Active')
+        self.assertNotContains(response, 'Student, Withdrawn')
+
+    def test_filter_by_withdrawn_status(self):
+        """Test filtering by withdrawn status shows withdrawn students."""
+        self.client.login(email='admin@school.com', password='testpass123')
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'withdrawn'}
+        )
+        self.assertEqual(response.status_code, 200)
+        # Should show withdrawn student who was enrolled in this class
+        self.assertContains(response, 'Student, Withdrawn')
+        # Should not show active or graduated students
+        self.assertNotContains(response, 'Student One, Active')
+        self.assertNotContains(response, 'Student, Graduated')
+
+    def test_non_active_filter_uses_enrollment_history(self):
+        """Test that non-active status filter uses enrollment history."""
+        self.client.login(email='admin@school.com', password='testpass123')
+
+        # Graduated student was enrolled in test_class, not test_class_2
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class_2.pk, 'status': 'graduated'}
+        )
+        self.assertEqual(response.status_code, 200)
+        # Should not show graduated student (was not in test_class_2)
+        self.assertNotContains(response, 'Student, Graduated')
+
+    def test_empty_result_for_status_without_students(self):
+        """Test empty result when no students match the status filter."""
+        self.client.login(email='admin@school.com', password='testpass123')
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'suspended'}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No suspended students found for this class')
+
+    def test_info_alert_shown_for_non_active_status(self):
+        """Test info alert is shown when filtering by non-active status."""
+        self.client.login(email='admin@school.com', password='testpass123')
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'graduated'}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Viewing')
+        self.assertContains(response, 'Graduated')
+        self.assertContains(response, 'students who were enrolled in')
+
+    def test_action_buttons_hidden_for_non_active_status(self):
+        """Test action buttons are hidden for non-active status."""
+        self.client.login(email='admin@school.com', password='testpass123')
+
+        # For active status, should see action buttons
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'active'}
+        )
+        self.assertContains(response, 'Enter Remarks')
+        self.assertContains(response, 'Distribute Reports')
+
+        # For graduated status, should not see action buttons
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'graduated'}
+        )
+        self.assertNotContains(response, 'Enter Remarks')
+        self.assertNotContains(response, 'Distribute Reports')
+
+    def test_student_count_badge_correct(self):
+        """Test that student count badge shows correct count."""
+        self.client.login(email='admin@school.com', password='testpass123')
+
+        # Active status: 2 students
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'active'}
+        )
+        self.assertContains(response, '2 students')
+
+        # Graduated status: 1 student
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'graduated'}
+        )
+        self.assertContains(response, '1 students')
+
+    def test_transcript_link_available_for_all_statuses(self):
+        """Test transcript link is available for students of all statuses."""
+        self.client.login(email='admin@school.com', password='testpass123')
+
+        # Check transcript link for graduated student
+        response = self.client.get(
+            reverse('gradebook:reports'),
+            {'class': self.test_class.pk, 'status': 'graduated'}
+        )
+        self.assertContains(response, f"transcript/{self.graduated_student.pk}")
