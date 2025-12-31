@@ -12,6 +12,8 @@ urlpatterns = [
     path('<int:pk>/', views.student_detail, name='student_detail'),
     path('<int:pk>/edit/', views.student_edit, name='student_edit'),
     path('<int:pk>/delete/', views.student_delete, name='student_delete'),
+    path('<int:pk>/pdf/', views.student_detail_pdf, name='student_detail_pdf'),
+    path('<int:pk>/create-account/', views.student_create_account, name='student_create_account'),
 
     # Student Guardian Management
     path('<int:pk>/guardians/add/', views.student_add_guardian, name='student_add_guardian'),

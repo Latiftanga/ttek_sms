@@ -194,14 +194,15 @@
                         </td>
                         <td>
                             <div class="flex gap-1">
-                                <button class="btn btn-ghost btn-sm"
-                                        hx-get="{% url 'gradebook:student_report' student.pk %}"
-                                        hx-target="#report-modal-content"
-                                        onclick="modal_report.showModal()"
-                                        title="View Report">
+                                <a href="{% url 'gradebook:student_report' student.pk %}"
+                                   hx-get="{% url 'gradebook:student_report' student.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-ghost btn-sm"
+                                   title="View Report">
                                     <i class="fa-solid fa-eye"></i>
                                     View
-                                </button>
+                                </a>
                                 <a href="{% url 'gradebook:transcript' student.pk %}"
                                    hx-get="{% url 'gradebook:transcript' student.pk %}"
                                    hx-target="#main-content"
@@ -243,21 +244,5 @@
     <p class="text-sm">Select a class to view report cards</p>
 </div>
 {% endif %}
-
-<!-- Report Modal -->
-<dialog id="modal_report" class="modal modal-middle">
-    <div class="modal-box max-w-4xl max-h-[70vh] md:w-11/12">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </form>
-        <div id="report-modal-content" class="overflow-y-auto">
-            <div class="flex justify-center py-8">
-                <span class="loading loading-spinner loading-lg"></span>
-            </div>
-        </div>
-    </div>
-</dialog>
 
 {% endif %}

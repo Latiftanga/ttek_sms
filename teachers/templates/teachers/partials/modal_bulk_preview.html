@@ -23,6 +23,7 @@
                     <th>Staff ID</th>
                     <th>Gender</th>
                     <th>Subject</th>
+                    <th>Account</th>
                 </tr>
             </thead>
             <tbody>
@@ -33,6 +34,13 @@
                     <td>{{ row.staff_id }}</td>
                     <td>{{ row.gender }}</td>
                     <td>{{ row.subject_specialization }}</td>
+                    <td>
+                        {% if row.create_account %}
+                        <span class="badge badge-success badge-xs" title="{{ row.email }}">Yes</span>
+                        {% else %}
+                        <span class="text-base-content/30">-</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

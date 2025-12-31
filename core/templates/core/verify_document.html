@@ -1,0 +1,144 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Verification</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body class="min-h-screen bg-base-200">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-lg mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold">Document Verification</h1>
+                <p class="text-base-content/60 mt-2">Verify the authenticity of school documents</p>
+            </div>
+
+            {% if is_valid %}
+            <!-- Valid Document -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <div class="text-center mb-6">
+                        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
+                            <i class="fa-solid fa-circle-check text-success text-4xl"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-success">Document Verified</h2>
+                        <p class="text-base-content/60">This document is authentic and was issued by the school.</p>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-base-content/60">Verification Code</span>
+                            <span class="font-mono font-bold">{{ verification.verification_code }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-base-content/60">Document Type</span>
+                            <span class="badge badge-primary">{{ verification.get_document_type_display }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-base-content/60">Document Title</span>
+                            <span class="font-medium">{{ verification.document_title }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-base-content/60">Student Name</span>
+                            <span class="font-medium">{{ verification.student_name }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-base-content/60">Admission Number</span>
+                            <span class="font-mono">{{ verification.student_admission_number }}</span>
+                        </div>
+                        {% if verification.academic_year %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-base-content/60">Academic Year</span>
+                            <span>{{ verification.academic_year }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-base-content/60">Generated On</span>
+                            <span>{{ verification.generated_at|date:"M j, Y \a\t g:i A" }}</span>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="text-center text-sm text-base-content/50">
+                        <p>This document has been verified {{ verification.verification_count }} time{{ verification.verification_count|pluralize }}.</p>
+                        {% if verification.last_verified_at %}
+                        <p class="mt-1">Last verified: {{ verification.last_verified_at|date:"M j, Y \a\t g:i A" }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <!-- Invalid Document -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <div class="text-center mb-6">
+                        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-error/20 flex items-center justify-center">
+                            <i class="fa-solid fa-circle-xmark text-error text-4xl"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-error">Verification Failed</h2>
+                        <p class="text-base-content/60 mt-2">
+                            No document found with verification code: <span class="font-mono font-bold">{{ code }}</span>
+                        </p>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div>
+                            <h3 class="font-bold">Document Not Found</h3>
+                            <p class="text-sm">This could mean the document is invalid, forged, or the code was entered incorrectly.</p>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="text-center">
+                        <p class="text-sm text-base-content/60 mb-4">
+                            If you believe this is an error, please contact the school administration.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Verify Another Document -->
+            <div class="card bg-base-100 shadow mt-6">
+                <div class="card-body">
+                    <h3 class="font-semibold mb-4">Verify Another Document</h3>
+                    <form action="" method="get" class="flex gap-2">
+                        <input type="text"
+                               name="code"
+                               placeholder="Enter verification code"
+                               class="input input-bordered flex-1 font-mono uppercase"
+                               maxlength="12"
+                               pattern="[A-Za-z0-9]+"
+                               required>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa-solid fa-search"></i>
+                            Verify
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <script>
+                // Handle form submission to redirect to proper URL
+                document.querySelector('form').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const code = this.querySelector('input[name="code"]').value.trim().toUpperCase();
+                    if (code) {
+                        window.location.href = '/verify/' + code + '/';
+                    }
+                });
+            </script>
+        </div>
+    </div>
+</body>
+</html>

@@ -34,7 +34,7 @@ urlpatterns = [
     path('attendance/', views.attendance_reports, name='attendance_reports'),
     path('attendance/export/', views.attendance_export, name='attendance_export'),
     path('attendance/notify-parents/', views.notify_absent_parents, name='notify_absent_parents'),
-    path('attendance/student/<uuid:student_id>/', views.student_attendance_detail, name='student_attendance_detail'),
+    path('attendance/student/<int:student_id>/', views.student_attendance_detail, name='student_attendance_detail'),
 
     # Subject routes
     path('subjects/create/', views.subject_create, name='subject_create'),

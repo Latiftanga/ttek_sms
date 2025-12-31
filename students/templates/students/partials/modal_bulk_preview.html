@@ -56,6 +56,7 @@
                 <th>Guardian</th>
                 <th>Admission #</th>
                 <th>Class</th>
+                <th>Account</th>
             </tr>
         </thead>
         <tbody>
@@ -68,6 +69,13 @@
                 <td>{{ row.guardian_name }}</td>
                 <td class="font-mono">{{ row.admission_number }}</td>
                 <td>{{ row.class_name|default:"-" }}</td>
+                <td>
+                    {% if row.student_email %}
+                    <span class="badge badge-success badge-xs" title="{{ row.student_email }}">Yes</span>
+                    {% else %}
+                    <span class="text-base-content/30">-</span>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

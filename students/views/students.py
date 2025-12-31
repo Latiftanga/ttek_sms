@@ -1,20 +1,65 @@
 import json
+import secrets
+import string
 
 from django.shortcuts import redirect, get_object_or_404, render
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
 from django.views.decorators.http import require_POST
+from django.contrib import messages
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
 
+from accounts.models import User
 from academics.models import Class
 from students.models import Student, Guardian, StudentGuardian
 from students.forms import StudentForm, GuardianForm, StudentGuardianForm
 from .utils import admin_required, htmx_render, create_enrollment_for_student
 
 
+def generate_temp_password(length=10):
+    """Generate a random temporary password."""
+    chars = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(length))
+
+
+def send_student_credentials(user, password, student):
+    """Send login credentials to student's guardian email."""
+    try:
+        # Get primary guardian email
+        guardian_email = None
+        primary_guardian = student.get_primary_guardian()
+        if primary_guardian and primary_guardian.email:
+            guardian_email = primary_guardian.email
+
+        recipient = user.email or guardian_email
+        if not recipient:
+            return False
+
+        subject = f"Student Portal Login - {student.full_name}"
+        message = render_to_string('students/emails/account_credentials.txt', {
+            'student': student,
+            'user': user,
+            'password': password,
+        })
+
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [recipient],
+            fail_silently=False,
+        )
+        return True
+    except Exception:
+        return False
+
+
 @admin_required
 def index(request):
     """Student list page with search and filter."""
-    students = Student.objects.select_related('current_class', 'guardian').all()
+    students = Student.objects.select_related('current_class').prefetch_related('guardians').all()
 
     # Search
     search = request.GET.get('search', '').strip()
@@ -298,3 +343,194 @@ def student_update_guardian_relationship(request, pk, guardian_pk):
         })
 
     return redirect('students:student_edit', pk=pk)
+
+
+@admin_required
+def student_detail_pdf(request, pk):
+    """Download PDF profile for a student."""
+    import logging
+    from io import BytesIO
+    from django.template.loader import render_to_string
+    from django.conf import settings as django_settings
+    from django.db import connection
+
+    logger = logging.getLogger(__name__)
+
+    student = get_object_or_404(
+        Student.objects.select_related('current_class'),
+        pk=pk
+    )
+
+    # Get guardians
+    student_guardians = student.get_guardians_with_relationships()
+
+    # Get enrollment history
+    enrollments = student.enrollments.select_related(
+        'academic_year', 'class_assigned'
+    ).order_by('-academic_year__start_date')
+
+    # Get school context with logo
+    from gradebook.utils import get_school_context, encode_logo_base64
+    school_ctx = get_school_context(include_logo_base64=True)
+
+    # Encode student photo if exists
+    photo_base64 = None
+    if student.photo:
+        try:
+            import base64
+            import os
+            photo_path = os.path.join(
+                django_settings.MEDIA_ROOT,
+                'schools',
+                connection.schema_name,
+                student.photo.name.split('/')[-1] if '/' in student.photo.name else student.photo.name
+            )
+            # Try direct path first
+            if not os.path.exists(photo_path):
+                photo_path = student.photo.path
+
+            if os.path.exists(photo_path):
+                with open(photo_path, 'rb') as f:
+                    photo_data = f.read()
+                    ext = os.path.splitext(photo_path)[1].lower()
+                    mime_types = {
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.png': 'image/png',
+                        '.gif': 'image/gif',
+                    }
+                    mime = mime_types.get(ext, 'image/jpeg')
+                    photo_base64 = f"data:{mime};base64,{base64.b64encode(photo_data).decode()}"
+        except Exception as e:
+            logger.debug(f"Could not encode student photo: {e}")
+
+    # Create verification record and generate QR code
+    from core.models import DocumentVerification
+    from core.utils import generate_verification_qr
+
+    verification = DocumentVerification.create_for_document(
+        document_type=DocumentVerification.DocumentType.STUDENT_PROFILE,
+        student=student,
+        title=f"Student Profile - {student.full_name}",
+        user=request.user,
+    )
+
+    # Generate QR code for verification
+    qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
+
+    context = {
+        'student': student,
+        'student_guardians': student_guardians,
+        'enrollments': enrollments,
+        'school': school_ctx['school'],
+        'school_settings': school_ctx['school_settings'],
+        'logo_base64': school_ctx.get('logo_base64'),
+        'photo_base64': photo_base64,
+        'verification': verification,
+        'qr_code_base64': qr_code_base64,
+    }
+
+    # Generate PDF using WeasyPrint
+    try:
+        from weasyprint import HTML
+
+        html_string = render_to_string('students/student_detail_pdf.html', context)
+        html = HTML(string=html_string, base_url=str(django_settings.BASE_DIR))
+        pdf_buffer = BytesIO()
+        html.write_pdf(pdf_buffer)
+        pdf_buffer.seek(0)
+
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="student_profile_{student.admission_number}.pdf"'
+        return response
+
+    except ImportError:
+        logger.error("WeasyPrint not installed")
+        from django.contrib import messages
+        messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
+        return redirect('students:student_detail', pk=pk)
+    except Exception as e:
+        import traceback
+        logger.error(f"Failed to generate student PDF: {str(e)}\n{traceback.format_exc()}")
+        from django.contrib import messages
+        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        return redirect('students:student_detail', pk=pk)
+
+
+@admin_required
+def student_create_account(request, pk):
+    """Create a user account for a student - Admin only."""
+    student = get_object_or_404(Student, pk=pk)
+
+    # If student already has an account, redirect
+    if student.user:
+        messages.warning(request, f"{student.full_name} already has an account.")
+        response = HttpResponse(status=204)
+        response['HX-Refresh'] = 'true'
+        return response
+
+    # Get primary guardian for email
+    primary_guardian = student.get_primary_guardian()
+    guardian_email = primary_guardian.email if primary_guardian else None
+
+    if request.method == 'GET':
+        return render(request, 'students/partials/modal_create_account.html', {
+            'student': student,
+            'guardian_email': guardian_email,
+        })
+
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+
+        if not email:
+            return render(request, 'students/partials/modal_create_account.html', {
+                'student': student,
+                'guardian_email': guardian_email,
+                'error': 'Email address is required.',
+            })
+
+        # Check if email already exists
+        if User.objects.filter(email=email).exists():
+            return render(request, 'students/partials/modal_create_account.html', {
+                'student': student,
+                'guardian_email': guardian_email,
+                'error': f"An account with email '{email}' already exists.",
+            })
+
+        # Generate temporary password
+        temp_password = generate_temp_password()
+
+        # Create user account
+        user = User.objects.create_user(
+            email=email,
+            password=temp_password,
+            first_name=student.first_name,
+            last_name=student.last_name,
+            is_student=True,
+            must_change_password=True,
+        )
+
+        # Link to student
+        student.user = user
+        student.save(update_fields=['user'])
+
+        # Send credentials via email
+        email_sent = send_student_credentials(user, temp_password, student)
+
+        if email_sent:
+            messages.success(
+                request,
+                f"Account created for {student.full_name}. Credentials sent to {email}."
+            )
+        else:
+            # Show the password if email failed
+            messages.warning(
+                request,
+                f"Account created but email failed. Temporary password: {temp_password}"
+            )
+
+        response = HttpResponse(status=204)
+        response['HX-Refresh'] = 'true'
+        return response
+
+    return HttpResponse(status=405)

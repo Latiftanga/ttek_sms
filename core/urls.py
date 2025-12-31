@@ -56,4 +56,7 @@ urlpatterns = [
     # Parent routes
     path('my-wards/', views.my_wards, name='my_wards'),
     path('fee-payments/', views.fee_payments, name='fee_payments'),
+
+    # Document verification (public)
+    path('verify/<str:code>/', views.verify_document, name='verify_document'),
 ]

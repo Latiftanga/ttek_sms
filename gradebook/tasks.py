@@ -122,6 +122,26 @@ def generate_report_pdf(term_report, tenant_schema):
         except Exception:
             pass
 
+        # Create verification record and generate QR code
+        verification = None
+        qr_code_base64 = None
+        try:
+            from core.models import DocumentVerification
+            from core.utils import generate_verification_qr
+
+            verification = DocumentVerification.create_for_document(
+                document_type=DocumentVerification.DocumentType.REPORT_CARD,
+                student=student,
+                title=f"Report Card - {current_term.name}",
+                term=current_term,
+                academic_year=current_term.academic_year.name if current_term.academic_year else '',
+            )
+            # Get domain from school for QR code URL
+            domain = school.domain_url if school and hasattr(school, 'domain_url') else None
+            qr_code_base64 = generate_verification_qr(verification.verification_code, domain=domain)
+        except Exception as e:
+            logger.warning(f"Could not create verification record: {e}")
+
         context = {
             'student': student,
             'term_report': term_report,
@@ -131,6 +151,8 @@ def generate_report_pdf(term_report, tenant_schema):
             'school': school,
             'school_settings': school_settings,
             'logo_base64': logo_base64,
+            'verification': verification,
+            'qr_code_base64': qr_code_base64,
         }
 
         html_string = render_to_string('gradebook/report_card_pdf.html', context)

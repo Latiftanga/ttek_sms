@@ -1,0 +1,77 @@
+<h3 class="font-bold text-lg mb-4">
+    <i class="fa-solid fa-user-plus text-primary"></i>
+    Create Student Account
+</h3>
+
+<p class="text-sm text-base-content/60 mb-4">
+    Create a login account for <strong>{{ student.full_name }}</strong>.
+    Credentials will be sent to the provided email address.
+</p>
+
+{% if error %}
+<div class="alert alert-error mb-4">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+<form hx-post="{% url 'students:student_create_account' student.pk %}"
+      hx-target="#create-account-container"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text">Email Address</span>
+            </label>
+            <input type="email"
+                   name="email"
+                   class="input input-bordered w-full"
+                   value="{{ guardian_email|default:'' }}"
+                   placeholder="student@email.com"
+                   required>
+            {% if guardian_email %}
+            <label class="label">
+                <span class="label-text-alt text-base-content/50">
+                    <i class="fa-solid fa-check-circle text-success"></i>
+                    Using primary guardian's email
+                </span>
+            </label>
+            {% else %}
+            <label class="label">
+                <span class="label-text-alt text-warning">
+                    <i class="fa-solid fa-exclamation-triangle"></i>
+                    No guardian email on file. Please provide one.
+                </span>
+            </label>
+            {% endif %}
+        </div>
+
+        <div class="bg-base-200 rounded-lg p-4">
+            <h4 class="font-medium text-sm mb-2">What happens next?</h4>
+            <ul class="text-xs text-base-content/70 space-y-1">
+                <li class="flex items-start gap-2">
+                    <i class="fa-solid fa-key text-primary mt-0.5"></i>
+                    <span>A temporary password will be generated automatically</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <i class="fa-solid fa-envelope text-primary mt-0.5"></i>
+                    <span>Login credentials will be sent to the email address</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <i class="fa-solid fa-lock text-primary mt-0.5"></i>
+                    <span>Student must change password on first login</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="modal_create_account.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-user-plus"></i>
+            Create Account
+        </button>
+    </div>
+</form>

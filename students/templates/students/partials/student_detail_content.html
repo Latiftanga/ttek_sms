@@ -16,10 +16,10 @@
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="window.print()" class="btn btn-ghost btn-sm">
-                <i class="fa-solid fa-print"></i>
-                Print
-            </button>
+            <a href="{% url 'students:student_detail_pdf' student.pk %}" class="btn btn-ghost btn-sm">
+                <i class="fa-solid fa-file-pdf"></i>
+                Download PDF
+            </a>
             <a href="{% url 'students:student_edit' student.pk %}"
                hx-get="{% url 'students:student_edit' student.pk %}"
                hx-target="#main-content"
@@ -29,28 +29,6 @@
                 Edit
             </a>
         </div>
-    </div>
-
-    <!-- Print Header -->
-    <div class="hidden print:!block print:mb-6 print:border-b print:border-black print:pb-3">
-        <div class="flex items-center justify-center gap-4">
-            {% if school.logo %}
-            <img src="{{ school.logo.url }}" alt="Logo" class="h-16 w-16 object-contain" />
-            {% endif %}
-            <div class="text-center">
-                <h1 class="text-lg font-bold uppercase">{{ tenant.name|default:"School Name" }}</h1>
-                {% if tenant.address %}<p class="text-xs">{{ tenant.address }}</p>{% endif %}
-                {% if tenant.phone or tenant.email %}
-                <p class="text-xs">
-                    {% if tenant.phone %}Tel: {{ tenant.phone }}{% endif %}
-                    {% if tenant.phone and tenant.email %} | {% endif %}
-                    {% if tenant.email %}Email: {{ tenant.email }}{% endif %}
-                </p>
-                {% endif %}
-            </div>
-            {% if school.logo %}<div class="h-16 w-16"></div>{% endif %}
-        </div>
-        <h2 class="text-base font-bold text-center mt-3 uppercase">Student Record</h2>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -144,12 +122,18 @@
                 <div class="card-body p-4">
                     <h3 class="font-semibold text-sm mb-3">System</h3>
                     <div class="space-y-2 text-sm">
-                        <div class="flex justify-between">
+                        <div class="flex justify-between items-center">
                             <span class="text-base-content/60">Account</span>
                             {% if student.user %}
                             <span class="badge badge-success badge-sm">Linked</span>
                             {% else %}
-                            <span class="badge badge-ghost badge-sm">None</span>
+                            <button class="btn btn-xs btn-primary"
+                                    hx-get="{% url 'students:student_create_account' student.pk %}"
+                                    hx-target="#create-account-container"
+                                    onclick="modal_create_account.showModal()">
+                                <i class="fa-solid fa-user-plus"></i>
+                                Create
+                            </button>
                             {% endif %}
                         </div>
                         <div class="flex justify-between">
@@ -361,9 +345,23 @@
 
         </div>
     </div>
-
-    <!-- Print Footer -->
-    <div class="hidden print:!block print:mt-6 print:pt-3 print:border-t print:text-center print:text-xs">
-        Printed on {% now "M j, Y g:i A" %}
-    </div>
 </div>
+
+<!-- Create Account Modal -->
+<dialog id="modal_create_account" class="modal modal-middle">
+    <div class="modal-box max-w-lg">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="create-account-container">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
