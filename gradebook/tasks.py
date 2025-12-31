@@ -90,11 +90,35 @@ def generate_report_pdf(term_report, tenant_schema):
         # Get school info
         school = None
         school_settings = None
+        logo_base64 = None
         try:
             from schools.models import School
             from core.models import SchoolSettings
+            import base64
+            import os
+
             school = School.objects.get(schema_name=tenant_schema)
             school_settings = SchoolSettings.objects.first()
+
+            # Encode logo as base64 for PDF by reading directly from filesystem
+            if school_settings and school_settings.logo:
+                logo_path = os.path.join(
+                    settings.MEDIA_ROOT,
+                    'schools',
+                    tenant_schema,
+                    school_settings.logo.name
+                )
+                if os.path.exists(logo_path):
+                    with open(logo_path, 'rb') as f:
+                        logo_data = f.read()
+                    logo_base64 = base64.b64encode(logo_data).decode('utf-8')
+                    # Detect image type
+                    if logo_path.lower().endswith('.png'):
+                        logo_base64 = f"data:image/png;base64,{logo_base64}"
+                    elif logo_path.lower().endswith('.gif'):
+                        logo_base64 = f"data:image/gif;base64,{logo_base64}"
+                    else:
+                        logo_base64 = f"data:image/jpeg;base64,{logo_base64}"
         except Exception:
             pass
 
@@ -106,6 +130,7 @@ def generate_report_pdf(term_report, tenant_schema):
             'categories': categories,
             'school': school,
             'school_settings': school_settings,
+            'logo_base64': logo_base64,
         }
 
         html_string = render_to_string('gradebook/report_card_pdf.html', context)
@@ -174,11 +199,15 @@ def render_sms_template(template_text, context):
         context: Dictionary of placeholder values
 
     Returns:
-        str: Rendered message
+        str: Rendered message (plain text, HTML tags stripped)
     """
+    import re
     message = template_text
     for key, value in context.items():
-        message = message.replace(f'{{{key}}}', str(value))
+        # Strip HTML tags from values for SMS (plain text)
+        str_value = str(value)
+        clean_value = re.sub(r'<[^>]+>', '', str_value)
+        message = message.replace(f'{{{key}}}', clean_value)
     return message
 
 

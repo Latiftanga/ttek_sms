@@ -2,6 +2,7 @@ from collections import defaultdict, Counter
 from decimal import Decimal
 import logging
 import json
+from django.utils import timezone
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -18,6 +19,12 @@ from .models import (
 )
 from .signals import signals_disabled
 from . import config
+from .utils import (
+    check_transcript_permission,
+    get_transcript_data,
+    build_academic_history,
+    get_school_context,
+)
 from academics.models import Class, Subject, ClassSubject
 from students.models import Student
 from core.models import Term
@@ -122,20 +129,64 @@ def index(request):
     grading_systems = GradingSystem.objects.filter(is_active=True)
     categories = AssessmentCategory.objects.filter(is_active=True)
 
-    # Enhanced Stats
+    # Enhanced Stats - optimized with single queries
     total_students = Student.objects.filter(status='active').count()
     assignments_this_term = Assignment.objects.filter(term=current_term).count() if current_term else 0
     scores_entered = Score.objects.filter(assignment__term=current_term).count() if current_term else 0
     reports_generated = TermReport.objects.filter(term=current_term).count() if current_term else 0
 
-    # Calculate score entry progress
+    # Calculate score entry progress using optimized single query
+    # Count expected scores: for each assignment, count students in classes that have that subject
     total_possible_scores = 0
     if current_term:
-        for assignment in Assignment.objects.filter(term=current_term):
-            # Count students in classes that have this subject assigned
-            class_subjects = ClassSubject.objects.filter(subject=assignment.subject)
-            for cs in class_subjects:
-                total_possible_scores += cs.class_assigned.students.filter(status='active').count()
+        # Get all assignments for current term with their subjects
+        term_assignments = Assignment.objects.filter(term=current_term).values_list('subject_id', flat=True)
+        if term_assignments:
+            # Count unique (assignment, student) pairs where student's class has that subject
+            # Using aggregation instead of nested loops
+            total_possible_scores = Score.objects.filter(
+                assignment__term=current_term
+            ).values('student_id', 'assignment_id').distinct().count()
+
+            # For a more accurate "expected" count, calculate based on class-subject assignments
+            # This counts: sum of (students per class * assignments for subjects in that class)
+            class_subject_data = ClassSubject.objects.filter(
+                subject_id__in=term_assignments
+            ).select_related('class_assigned').values(
+                'subject_id', 'class_assigned_id'
+            )
+
+            # Build a mapping of subject -> list of class IDs
+            subject_classes = {}
+            for cs in class_subject_data:
+                subject_classes.setdefault(cs['subject_id'], set()).add(cs['class_assigned_id'])
+
+            # Get student counts per class (single query)
+            class_student_counts = dict(
+                Student.objects.filter(
+                    status='active',
+                    current_class__isnull=False
+                ).values('current_class_id').annotate(
+                    count=Count('id')
+                ).values_list('current_class_id', 'count')
+            )
+
+            # Get assignment counts per subject (single query)
+            subject_assignment_counts = dict(
+                Assignment.objects.filter(
+                    term=current_term
+                ).values('subject_id').annotate(
+                    count=Count('id')
+                ).values_list('subject_id', 'count')
+            )
+
+            # Calculate total expected scores
+            total_possible_scores = 0
+            for subject_id, class_ids in subject_classes.items():
+                assignment_count = subject_assignment_counts.get(subject_id, 0)
+                for class_id in class_ids:
+                    student_count = class_student_counts.get(class_id, 0)
+                    total_possible_scores += assignment_count * student_count
 
     score_progress = round((scores_entered / total_possible_scores * 100) if total_possible_scores > 0 else 0, 1)
 
@@ -146,30 +197,64 @@ def index(request):
         'student', 'assignment__subject'
     ).order_by('-updated_at')[:5] if current_term else []
 
-    # Classes with incomplete scores
+    # Classes with incomplete scores - optimized with annotations
     classes_needing_scores = []
-    for cls in classes[:6]:  # Limit to 6 for display
-        subjects = Subject.objects.filter(class_allocations__class_assigned=cls)
-        student_count = cls.students.filter(status='active').count()
-        if student_count > 0 and current_term:
-            assignments = Assignment.objects.filter(
-                term=current_term,
-                subject__in=subjects
-            ).count()
-            if assignments > 0:
-                expected_scores = assignments * student_count
-                actual_scores = Score.objects.filter(
-                    assignment__term=current_term,
-                    assignment__subject__in=subjects,
-                    student__current_class=cls
-                ).count()
-                progress = round((actual_scores / expected_scores * 100) if expected_scores > 0 else 0)
-                classes_needing_scores.append({
-                    'class': cls,
-                    'student_count': student_count,
-                    'progress': progress,
-                    'assignments': assignments,
-                })
+    if current_term:
+        # Get top 6 active classes with student counts in a single query
+        top_classes = classes[:6]
+        top_class_ids = [c.id for c in top_classes]
+
+        # Get student counts per class
+        class_student_counts = dict(
+            Student.objects.filter(
+                status='active',
+                current_class_id__in=top_class_ids
+            ).values('current_class_id').annotate(
+                count=Count('id')
+            ).values_list('current_class_id', 'count')
+        )
+
+        # Get subjects per class
+        class_subjects_map = {}
+        for cs in ClassSubject.objects.filter(class_assigned_id__in=top_class_ids).values('class_assigned_id', 'subject_id'):
+            class_subjects_map.setdefault(cs['class_assigned_id'], set()).add(cs['subject_id'])
+
+        # Get assignment counts per subject for current term
+        subject_assignment_counts = dict(
+            Assignment.objects.filter(term=current_term).values('subject_id').annotate(
+                count=Count('id')
+            ).values_list('subject_id', 'count')
+        )
+
+        # Get actual score counts per class
+        class_score_counts = dict(
+            Score.objects.filter(
+                assignment__term=current_term,
+                student__current_class_id__in=top_class_ids
+            ).values('student__current_class_id').annotate(
+                count=Count('id')
+            ).values_list('student__current_class_id', 'count')
+        )
+
+        for cls in top_classes:
+            student_count = class_student_counts.get(cls.id, 0)
+            if student_count > 0:
+                # Calculate expected scores for this class
+                class_subject_ids = class_subjects_map.get(cls.id, set())
+                total_assignments = sum(
+                    subject_assignment_counts.get(subj_id, 0)
+                    for subj_id in class_subject_ids
+                )
+                if total_assignments > 0:
+                    expected_scores = total_assignments * student_count
+                    actual_scores = class_score_counts.get(cls.id, 0)
+                    progress = round((actual_scores / expected_scores * 100) if expected_scores > 0 else 0)
+                    classes_needing_scores.append({
+                        'class': cls,
+                        'student_count': student_count,
+                        'progress': progress,
+                        'assignments': total_assignments,
+                    })
 
     stats = {
         'classes': classes.count(),
@@ -2956,78 +3041,18 @@ def transcript(request, student_id):
         Student.objects.select_related('current_class'),
         pk=student_id
     )
-    user = request.user
 
     # Permission check
-    if not is_school_admin(user):
-        if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
-            teacher = user.teacher_profile
-            if not student.current_class or student.current_class.class_teacher != teacher:
-                messages.error(request, 'You can only view transcripts for students in your homeroom class.')
-                return redirect('gradebook:reports')
-        else:
-            messages.error(request, 'You do not have permission to view this transcript.')
-            return redirect('core:index')
+    has_permission, error_msg = check_transcript_permission(request.user, student)
+    if not has_permission:
+        messages.error(request, error_msg)
+        return redirect('gradebook:reports' if 'homeroom' in error_msg else 'core:index')
 
-    # Get all term reports for the student, ordered by academic year and term
-    term_reports = TermReport.objects.filter(
-        student=student
-    ).select_related(
-        'term__academic_year', 'student_class'
-    ).order_by('term__academic_year__start_date', 'term__term_number')
+    # Get transcript data
+    term_reports, all_grades, grades_by_term = get_transcript_data(student)
 
-    # Get all subject grades grouped by term
-    all_grades = SubjectTermGrade.objects.filter(
-        student=student
-    ).select_related(
-        'subject', 'term__academic_year'
-    ).order_by('term__academic_year__start_date', 'term__term_number', '-subject__is_core', 'subject__name')
-
-    # Group grades by term
-    grades_by_term = {}
-    for grade in all_grades:
-        term_id = grade.term_id
-        if term_id not in grades_by_term:
-            grades_by_term[term_id] = []
-        grades_by_term[term_id].append(grade)
-
-    # Calculate cumulative statistics
-    total_subjects_taken = 0
-    total_subjects_passed = 0
-    total_credits = 0
-    cumulative_score_sum = 0
-    term_count = 0
-
-    academic_history = []
-    for report in term_reports:
-        term_grades = grades_by_term.get(report.term_id, [])
-
-        # Separate core and elective
-        core_grades = [g for g in term_grades if g.subject.is_core]
-        elective_grades = [g for g in term_grades if not g.subject.is_core]
-
-        academic_history.append({
-            'report': report,
-            'core_grades': core_grades,
-            'elective_grades': elective_grades,
-            'all_grades': term_grades,
-        })
-
-        # Cumulative calculations
-        total_subjects_taken += report.subjects_taken or 0
-        total_subjects_passed += report.subjects_passed or 0
-        total_credits += report.credits_count or 0
-        if report.average:
-            cumulative_score_sum += float(report.average)
-            term_count += 1
-
-    # Calculate cumulative average
-    cumulative_average = cumulative_score_sum / term_count if term_count > 0 else 0
-
-    # Get unique subjects across all terms
-    unique_subjects = set()
-    for grade in all_grades:
-        unique_subjects.add(grade.subject.name)
+    # Build academic history with cumulative stats
+    history_data = build_academic_history(term_reports, grades_by_term, include_all_grades=True)
 
     # Promotion history
     promotion_history = term_reports.filter(promoted__isnull=False).values(
@@ -3038,19 +3063,24 @@ def transcript(request, student_id):
         'promotion_remarks'
     )
 
+    # Get school context
+    school_ctx = get_school_context()
+
     context = {
         'student': student,
-        'academic_history': academic_history,
+        'academic_history': history_data['academic_history'],
         'term_reports': term_reports,
         'cumulative_stats': {
-            'total_terms': term_count,
-            'total_subjects_taken': total_subjects_taken,
-            'total_subjects_passed': total_subjects_passed,
-            'total_credits': total_credits,
-            'cumulative_average': round(cumulative_average, 2),
-            'unique_subjects': len(unique_subjects),
+            'total_terms': history_data['term_count'],
+            'total_subjects_taken': history_data['total_subjects_taken'],
+            'total_subjects_passed': history_data['total_subjects_passed'],
+            'total_credits': history_data['total_credits'],
+            'cumulative_average': history_data['cumulative_average'],
+            'unique_subjects': len(history_data['unique_subjects']),
         },
         'promotion_history': list(promotion_history),
+        'school': school_ctx['school'],
+        'school_settings': school_ctx['school_settings'],
     }
 
     return htmx_render(
@@ -3068,72 +3098,29 @@ def transcript_print(request, student_id):
         Student.objects.select_related('current_class'),
         pk=student_id
     )
-    user = request.user
 
     # Permission check
-    if not is_school_admin(user):
-        if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
-            teacher = user.teacher_profile
-            if not student.current_class or student.current_class.class_teacher != teacher:
-                messages.error(request, 'Permission denied.')
-                return redirect('gradebook:reports')
-        else:
-            messages.error(request, 'Permission denied.')
-            return redirect('core:index')
+    has_permission, error_msg = check_transcript_permission(request.user, student)
+    if not has_permission:
+        messages.error(request, 'Permission denied.')
+        return redirect('gradebook:reports' if 'homeroom' in (error_msg or '') else 'core:index')
 
-    # Get all term reports
-    term_reports = TermReport.objects.filter(
-        student=student
-    ).select_related(
-        'term__academic_year', 'student_class'
-    ).order_by('term__academic_year__start_date', 'term__term_number')
+    # Get transcript data and build academic history
+    term_reports, _, grades_by_term = get_transcript_data(student)
+    history_data = build_academic_history(term_reports, grades_by_term)
 
-    # Get all subject grades
-    all_grades = SubjectTermGrade.objects.filter(
-        student=student
-    ).select_related(
-        'subject', 'term__academic_year'
-    ).order_by('term__academic_year__start_date', 'term__term_number', '-subject__is_core', 'subject__name')
-
-    # Group grades by term
-    grades_by_term = {}
-    for grade in all_grades:
-        term_id = grade.term_id
-        if term_id not in grades_by_term:
-            grades_by_term[term_id] = []
-        grades_by_term[term_id].append(grade)
-
-    # Build academic history
-    academic_history = []
-    cumulative_score_sum = 0
-    term_count = 0
-    total_credits = 0
-
-    for report in term_reports:
-        term_grades = grades_by_term.get(report.term_id, [])
-        core_grades = [g for g in term_grades if g.subject.is_core]
-        elective_grades = [g for g in term_grades if not g.subject.is_core]
-
-        academic_history.append({
-            'report': report,
-            'core_grades': core_grades,
-            'elective_grades': elective_grades,
-        })
-
-        if report.average:
-            cumulative_score_sum += float(report.average)
-            term_count += 1
-        total_credits += report.credits_count or 0
-
-    cumulative_average = cumulative_score_sum / term_count if term_count > 0 else 0
+    # Get school context
+    school_ctx = get_school_context()
 
     context = {
         'student': student,
-        'academic_history': academic_history,
-        'cumulative_average': round(cumulative_average, 2),
-        'total_terms': term_count,
-        'total_credits': total_credits,
+        'academic_history': history_data['academic_history'],
+        'cumulative_average': history_data['cumulative_average'],
+        'total_terms': history_data['term_count'],
+        'total_credits': history_data['total_credits'],
         'generated_date': timezone.now(),
+        'school': school_ctx['school'],
+        'school_settings': school_ctx['school_settings'],
     }
 
     return render(request, 'gradebook/transcript_print.html', context)
@@ -3146,94 +3133,62 @@ def download_transcript_pdf(request, student_id):
         Student.objects.select_related('current_class'),
         pk=student_id
     )
-    user = request.user
 
     # Permission check
-    if not is_school_admin(user):
-        if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
-            if not student.current_class or student.current_class.class_teacher != user.teacher_profile:
-                messages.error(request, 'Permission denied.')
-                return redirect('gradebook:reports')
-        else:
-            messages.error(request, 'Permission denied.')
-            return redirect('gradebook:reports')
+    has_permission, error_msg = check_transcript_permission(request.user, student)
+    if not has_permission:
+        messages.error(request, 'Permission denied.')
+        return redirect('gradebook:reports')
 
-    # Get all term reports
-    term_reports = TermReport.objects.filter(
-        student=student
-    ).select_related(
-        'term__academic_year', 'student_class'
-    ).order_by('term__academic_year__start_date', 'term__term_number')
+    # Get transcript data
+    term_reports, _, grades_by_term = get_transcript_data(student)
 
     if not term_reports.exists():
         messages.error(request, 'No academic records found for this student.')
         return redirect('gradebook:reports')
 
-    # Get all subject grades
-    all_grades = SubjectTermGrade.objects.filter(
-        student=student
-    ).select_related(
-        'subject', 'term__academic_year'
-    ).order_by('term__academic_year__start_date', 'term__term_number', '-subject__is_core', 'subject__name')
-
-    # Group grades by term
-    grades_by_term = {}
-    for grade in all_grades:
-        term_id = grade.term_id
-        if term_id not in grades_by_term:
-            grades_by_term[term_id] = []
-        grades_by_term[term_id].append(grade)
-
     # Build academic history
-    academic_history = []
-    cumulative_score_sum = 0
-    term_count = 0
-    total_credits = 0
+    history_data = build_academic_history(term_reports, grades_by_term)
 
-    for report in term_reports:
-        term_grades = grades_by_term.get(report.term_id, [])
-        core_grades = [g for g in term_grades if g.subject.is_core]
-        elective_grades = [g for g in term_grades if not g.subject.is_core]
-
-        academic_history.append({
-            'report': report,
-            'core_grades': core_grades,
-            'elective_grades': elective_grades,
-        })
-
-        if report.average:
-            cumulative_score_sum += float(report.average)
-            term_count += 1
-        total_credits += report.credits_count or 0
-
-    cumulative_average = cumulative_score_sum / term_count if term_count > 0 else 0
+    # Get school context with base64 logo for PDF
+    school_ctx = get_school_context(include_logo_base64=True)
 
     context = {
         'student': student,
-        'academic_history': academic_history,
-        'cumulative_average': round(cumulative_average, 2),
-        'total_terms': term_count,
-        'total_credits': total_credits,
+        'academic_history': history_data['academic_history'],
+        'cumulative_average': history_data['cumulative_average'],
+        'total_terms': history_data['term_count'],
+        'total_credits': history_data['total_credits'],
         'generated_date': timezone.now(),
         'request': request,
+        'school': school_ctx['school'],
+        'school_settings': school_ctx['school_settings'],
+        'logo_base64': school_ctx['logo_base64'],
     }
 
     # Generate PDF using WeasyPrint
     try:
-        from weasyprint import HTML, CSS
+        from weasyprint import HTML
         from django.template.loader import render_to_string
+        from django.conf import settings as django_settings
         from io import BytesIO
 
         html_string = render_to_string('gradebook/transcript_pdf.html', context)
-        html = HTML(string=html_string, base_url=request.build_absolute_uri('/'))
+        html = HTML(string=html_string, base_url=str(django_settings.BASE_DIR))
         pdf_buffer = BytesIO()
         html.write_pdf(pdf_buffer)
+        pdf_buffer.seek(0)
 
         response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="transcript_{student.admission_number}.pdf"'
         return response
 
+    except ImportError:
+        logger.error("WeasyPrint not installed")
+        messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
+        return redirect('gradebook:transcript', student_id=student_id)
     except Exception as e:
-        logger.error(f"Failed to generate transcript PDF: {str(e)}")
+        import traceback
+        logger.error(f"Failed to generate transcript PDF: {str(e)}\n{traceback.format_exc()}")
         messages.error(request, f'Failed to generate PDF: {str(e)}')
         return redirect('gradebook:transcript', student_id=student_id)

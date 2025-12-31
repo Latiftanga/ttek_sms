@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Academic Transcript - {{ student.full_name }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm 15mm 20mm 15mm;
+            @bottom-center {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 9px;
+                color: #666;
+            }
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 10px;
+            color: #333;
+            line-height: 1.4;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+        }
+        .school-logo {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 6px;
+            object-fit: contain;
+        }
+        .header h1 {
+            font-size: 18px;
+            margin-bottom: 4px;
+            color: #222;
+        }
+        .header p {
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+        .header h2 {
+            font-size: 14px;
+            margin-top: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #333;
+        }
+        .school-motto {
+            font-size: 10px;
+            font-style: italic;
+            color: #444;
+            margin-bottom: 3px;
+        }
+        .student-info {
+            display: table;
+            width: 100%;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+        }
+        .info-column {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+        }
+        .info-row {
+            margin-bottom: 4px;
+        }
+        .info-label {
+            display: inline-block;
+            width: 100px;
+            font-weight: bold;
+            color: #555;
+        }
+        .summary-stats {
+            display: table;
+            width: 100%;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+        }
+        .stat-box {
+            display: table-cell;
+            width: 33.33%;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-label {
+            font-size: 9px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        .term-section {
+            margin-bottom: 15px;
+            page-break-inside: avoid;
+        }
+        .term-header {
+            background: #333;
+            color: #fff;
+            padding: 8px 10px;
+            display: table;
+            width: 100%;
+        }
+        .term-title {
+            display: table-cell;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .term-stats {
+            display: table-cell;
+            text-align: right;
+            font-size: 10px;
+        }
+        .term-stats span {
+            margin-left: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 5px 6px;
+            text-align: left;
+        }
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+        td {
+            font-size: 10px;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .grade-pass {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .grade-fail {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 5px;
+            border-radius: 2px;
+            font-size: 8px;
+            text-transform: uppercase;
+        }
+        .badge-core {
+            background: #007bff;
+            color: #fff;
+        }
+        .badge-elective {
+            background: #6c757d;
+            color: #fff;
+        }
+        .promotion-status {
+            padding: 6px 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-top: none;
+            font-size: 10px;
+        }
+        .promoted {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .not-promoted {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .signature-area {
+            display: table;
+            width: 100%;
+            margin-top: 30px;
+            padding-top: 15px;
+        }
+        .signature-box {
+            display: table-cell;
+            width: 33.33%;
+            text-align: center;
+            padding: 0 15px;
+        }
+        .signature-line {
+            border-top: 1px solid #333;
+            margin-bottom: 5px;
+            padding-top: 5px;
+        }
+        .signature-label {
+            font-size: 9px;
+            color: #666;
+        }
+        .footer {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 9px;
+            color: #666;
+        }
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 60px;
+            color: rgba(0, 0, 0, 0.03);
+            z-index: -1;
+            white-space: nowrap;
+        }
+        .no-records {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="watermark">OFFICIAL TRANSCRIPT</div>
+
+    <!-- Header -->
+    <div class="header">
+        {% if logo_base64 %}
+        <img src="{{ logo_base64 }}" class="school-logo" alt="School Logo">
+        {% endif %}
+        <h1>{{ school.name|default:"School Name" }}</h1>
+        {% if school_settings.motto %}
+        <p class="school-motto">"{{ school_settings.motto }}"</p>
+        {% endif %}
+        <p>{{ school.address|default:"" }}</p>
+        {% if school.phone or school.email %}
+        <p>{{ school.phone|default:"" }}{% if school.phone and school.email %} | {% endif %}{{ school.email|default:"" }}</p>
+        {% endif %}
+        <h2>Academic Transcript</h2>
+    </div>
+
+    <!-- Student Information -->
+    <div class="student-info">
+        <div class="info-column">
+            <div class="info-row"><span class="info-label">Student Name:</span> {{ student.full_name }}</div>
+            <div class="info-row"><span class="info-label">Admission No:</span> {{ student.admission_number }}</div>
+            {% if student.date_of_birth %}
+            <div class="info-row"><span class="info-label">Date of Birth:</span> {{ student.date_of_birth|date:"M d, Y" }}</div>
+            {% endif %}
+        </div>
+        <div class="info-column">
+            <div class="info-row"><span class="info-label">Current Class:</span> {{ student.current_class.name|default:"N/A" }}</div>
+            <div class="info-row"><span class="info-label">Date Issued:</span> {{ generated_date|date:"M d, Y" }}</div>
+            <div class="info-row"><span class="info-label">Transcript ID:</span> TR-{{ student.admission_number }}-{{ generated_date|date:"Ymd" }}</div>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="summary-stats">
+        <div class="stat-box">
+            <div class="stat-value">{{ cumulative_average }}%</div>
+            <div class="stat-label">Cumulative Average</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">{{ total_terms }}</div>
+            <div class="stat-label">Terms Completed</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">{{ total_credits }}</div>
+            <div class="stat-label">Total Credits</div>
+        </div>
+    </div>
+
+    <!-- Academic History -->
+    {% for term_data in academic_history %}
+    <div class="term-section">
+        <div class="term-header">
+            <div class="term-title">{{ term_data.report.term.academic_year.name }} - {{ term_data.report.term.name }}</div>
+            <div class="term-stats">
+                <span>Average: {{ term_data.report.average|floatformat:1 }}%</span>
+                <span>Position: {{ term_data.report.position }}/{{ term_data.report.out_of }}</span>
+                {% if term_data.report.aggregate %}
+                <span>Aggregate: {{ term_data.report.aggregate }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 35%">Subject</th>
+                    <th class="text-center" style="width: 10%">Type</th>
+                    <th class="text-center" style="width: 12%">Score</th>
+                    <th class="text-center" style="width: 10%">Grade</th>
+                    <th class="text-center" style="width: 18%">Interpretation</th>
+                    <th class="text-center" style="width: 10%">Position</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for grade in term_data.core_grades %}
+                <tr>
+                    <td>{{ grade.subject.name }}</td>
+                    <td class="text-center"><span class="badge badge-core">Core</span></td>
+                    <td class="text-center">{{ grade.total_score|floatformat:1 }}</td>
+                    <td class="text-center {% if grade.is_passing %}grade-pass{% else %}grade-fail{% endif %}">{{ grade.grade }}</td>
+                    <td class="text-center">{{ grade.grade_remark|default:"-" }}</td>
+                    <td class="text-center">{{ grade.position|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+                {% for grade in term_data.elective_grades %}
+                <tr>
+                    <td>{{ grade.subject.name }}</td>
+                    <td class="text-center"><span class="badge badge-elective">Elective</span></td>
+                    <td class="text-center">{{ grade.total_score|floatformat:1 }}</td>
+                    <td class="text-center {% if grade.is_passing %}grade-pass{% else %}grade-fail{% endif %}">{{ grade.grade }}</td>
+                    <td class="text-center">{{ grade.grade_remark|default:"-" }}</td>
+                    <td class="text-center">{{ grade.position|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if term_data.report.promoted is not None %}
+        <div class="promotion-status">
+            {% if term_data.report.promoted %}
+            <span class="promoted">PROMOTED to {{ term_data.report.promoted_to.name|default:"Next Class" }}</span>
+            {% else %}
+            <span class="not-promoted">NOT PROMOTED</span>
+            {% endif %}
+            {% if term_data.report.promotion_remarks %}
+            - {{ term_data.report.promotion_remarks }}
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="no-records">
+        No academic records found.
+    </div>
+    {% endfor %}
+
+    <!-- Signature Area -->
+    <div class="signature-area">
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-label">Registrar / Academic Officer</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-label">Head of School</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-label">Official School Stamp</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>This is an official academic transcript of {{ student.full_name }}</p>
+        <p>Generated on {{ generated_date|date:"F d, Y" }} at {{ generated_date|time:"H:i" }}</p>
+        <p style="margin-top: 8px;">*** End of Transcript ***</p>
+    </div>
+</body>
+</html>

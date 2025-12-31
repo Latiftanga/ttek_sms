@@ -4,11 +4,23 @@
     <h3 class="font-bold text-lg">
         Report Card - {{ student.first_name }} {{ student.last_name }}
     </h3>
-    <a href="{% url 'gradebook:report_card_print' student.pk %}"
-       target="_blank"
-       class="btn btn-sm btn-ghost">
-        <i class="fa-solid fa-print"></i>
-    </a>
+    <div class="flex gap-2">
+        <a href="{% url 'gradebook:transcript' student.pk %}"
+           hx-get="{% url 'gradebook:transcript' student.pk %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           onclick="modal_report.close()"
+           class="btn btn-sm btn-ghost"
+           title="View Transcript">
+            <i class="fa-solid fa-scroll"></i>
+        </a>
+        <a href="{% url 'gradebook:report_card_print' student.pk %}"
+           target="_blank"
+           class="btn btn-sm btn-ghost"
+           title="Print Report Card">
+            <i class="fa-solid fa-print"></i>
+        </a>
+    </div>
 </div>
 
 <!-- Student Info -->

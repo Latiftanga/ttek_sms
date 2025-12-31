@@ -299,8 +299,8 @@
 </head>
 <body>
     <div class="header">
-        {% if school_settings.logo %}
-        <img src="{{ school_settings.logo.url }}" class="school-logo" alt="School Logo">
+        {% if logo_base64 %}
+        <img src="{{ logo_base64 }}" class="school-logo" alt="School Logo">
         {% endif %}
         <div class="school-name">{{ school.name|default:"SCHOOL NAME" }}</div>
         {% if school_settings.motto %}

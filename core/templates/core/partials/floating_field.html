@@ -59,5 +59,8 @@
 <p class="text-xs text-base-content/60 mt-1 ml-1">{{ help_text }}</p>
 {% endif %}
 {% if field.errors %}
-<p class="text-xs text-error mt-1 ml-1">{{ field.errors.0 }}</p>
+<div class="text-xs text-error mt-1 ml-1 flex items-center gap-1">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ field.errors.0 }}</span>
+</div>
 {% endif %}

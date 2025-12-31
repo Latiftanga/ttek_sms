@@ -40,7 +40,7 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 EXPOSE 8000
 
-# Install Node.js and runtime system dependencies
+# Install Node.js, runtime system dependencies, and WeasyPrint dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         curl \
@@ -53,6 +53,15 @@ RUN apt-get update && \
         libgcc-s1 \
         libatomic1 \
         libstdc++6 \
+        libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        libgdk-pixbuf-2.0-0 \
+        libffi-dev \
+        shared-mime-info \
+        libcairo2 \
+        libgirepository-1.0-1 \
+        gir1.2-pango-1.0 \
+        fonts-liberation \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_VERSION nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \

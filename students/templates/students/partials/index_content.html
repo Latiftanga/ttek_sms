@@ -140,8 +140,12 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="text-sm">{{ student.guardian_name }}</div>
-                                <div class="text-xs text-base-content/60">{{ student.guardian_phone }}</div>
+                                {% if student.guardian %}
+                                <div class="text-sm">{{ student.guardian.full_name }}</div>
+                                <div class="text-xs text-base-content/60">{{ student.guardian.phone_number }}</div>
+                                {% else %}
+                                <span class="text-base-content/40">-</span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if student.status == 'active' %}

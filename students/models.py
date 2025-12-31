@@ -4,6 +4,43 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
 
+class Guardian(models.Model):
+    """
+    Represents a guardian or parent of a student.
+    A guardian can be associated with multiple students.
+    """
+    class Relationship(models.TextChoices):
+        FATHER = 'father', _('Father')
+        MOTHER = 'mother', _('Mother')
+        BROTHER = 'brother', _('Brother')
+        SISTER = 'sister', _('Sister')
+        UNCLE = 'uncle', _('Uncle')
+        AUNT = 'aunt', _('Aunt')
+        GRANDFATHER = 'grandfather', _('Grandfather')
+        GRANDMOTHER = 'grandmother', _('Grandmother')
+        GUARDIAN = 'guardian', _('Guardian')
+        OTHER = 'other', _('Other')
+
+    # Personal Information
+    full_name = models.CharField(_("full name"), max_length=255)
+    phone_number = models.CharField(_("phone number"), max_length=20, unique=True)
+    email = models.EmailField(_("email address"), blank=True, null=True)
+    occupation = models.CharField(_("occupation"), max_length=100, blank=True)
+    address = models.TextField(_("address"), blank=True)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Guardian")
+        verbose_name_plural = _("Guardians")
+        ordering = ['full_name']
+
+    def __str__(self):
+        return self.full_name
+
+
 class Student(models.Model):
     """
     Represents a student enrolled in the school.
@@ -19,16 +56,6 @@ class Student(models.Model):
         SUSPENDED = 'suspended', _('Suspended')
         TRANSFERRED = 'transferred', _('Transferred')
 
-    class GuardianRelationship(models.TextChoices):
-        FATHER = 'father', _('Father')
-        MOTHER = 'mother', _('Mother')
-        GUARDIAN = 'guardian', _('Guardian')
-        UNCLE = 'uncle', _('Uncle')
-        AUNT = 'aunt', _('Aunt')
-        GRANDPARENT = 'grandparent', _('Grandparent')
-        SIBLING = 'sibling', _('Sibling')
-        OTHER = 'other', _('Other')
-
     # Personal Information
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -42,15 +69,18 @@ class Student(models.Model):
     phone = models.CharField(max_length=20, blank=True, help_text="Student's phone (if any)")
 
     # Guardian Information
-    guardian_name = models.CharField(max_length=200)
-    guardian_phone = models.CharField(max_length=20)
-    guardian_email = models.EmailField(blank=True)
+    guardian = models.ForeignKey(
+        Guardian,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='students'
+    )
     guardian_relationship = models.CharField(
         max_length=20,
-        choices=GuardianRelationship.choices,
-        default=GuardianRelationship.GUARDIAN
+        choices=Guardian.Relationship.choices,
+        default=Guardian.Relationship.GUARDIAN
     )
-    guardian_address = models.TextField(blank=True)
 
     # Admission Details
     admission_number = models.CharField(
@@ -94,6 +124,14 @@ class Student(models.Model):
         ordering = ['last_name', 'first_name']
         verbose_name = "Student"
         verbose_name_plural = "Students"
+        indexes = [
+            # Frequently filtered by status (active, graduated, etc.)
+            models.Index(fields=['status']),
+            # Frequently joined/filtered by current_class
+            models.Index(fields=['current_class']),
+            # Common filter: active students in a class
+            models.Index(fields=['current_class', 'status']),
+        ]
 
     def __str__(self):
         return f"{self.full_name} ({self.admission_number})"
@@ -189,17 +227,19 @@ class Enrollment(models.Model):
         unique_together = ['student', 'academic_year']
         verbose_name = "Enrollment"
         verbose_name_plural = "Enrollments"
+        indexes = [
+            # Frequently filtered by academic year
+            models.Index(fields=['academic_year']),
+            # Frequently filtered by status
+            models.Index(fields=['status']),
+            # Common query: active enrollments for a year
+            models.Index(fields=['academic_year', 'status']),
+            # Lookup enrollments by class
+            models.Index(fields=['class_assigned']),
+        ]
 
     def __str__(self):
         return f"{self.student.full_name} - {self.class_assigned.name} ({self.academic_year})"
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # Update student's current_class if this is an active enrollment
-        if self.status == self.Status.ACTIVE:
-            from core.models import AcademicYear
-            current_year = AcademicYear.get_current()
-            if current_year and self.academic_year == current_year:
-                Student.objects.filter(pk=self.student_id).update(
-                    current_class=self.class_assigned
-                )
