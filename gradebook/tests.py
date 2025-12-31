@@ -502,9 +502,10 @@ class ReportCardsStatusFilterTestCase(GradebookTenantTestCase):
             gender='M',
             admission_date=date(2024, 9, 1),
             current_class=self.test_class,
-            guardian=self.guardian,
             status=Student.Status.ACTIVE
         )
+        self.active_student_1.add_guardian(self.guardian, Guardian.Relationship.GUARDIAN, is_primary=True)
+
         self.active_student_2 = Student.objects.create(
             first_name='Active',
             last_name='Student Two',
@@ -513,9 +514,9 @@ class ReportCardsStatusFilterTestCase(GradebookTenantTestCase):
             gender='F',
             admission_date=date(2024, 9, 1),
             current_class=self.test_class,
-            guardian=self.guardian,
             status=Student.Status.ACTIVE
         )
+        self.active_student_2.add_guardian(self.guardian, Guardian.Relationship.GUARDIAN, is_primary=True)
 
         # Create graduated student (was in test_class)
         self.graduated_student = Student.objects.create(
@@ -526,9 +527,9 @@ class ReportCardsStatusFilterTestCase(GradebookTenantTestCase):
             gender='M',
             admission_date=date(2021, 9, 1),
             current_class=None,  # Graduated students have no current class
-            guardian=self.guardian,
             status=Student.Status.GRADUATED
         )
+        self.graduated_student.add_guardian(self.guardian, Guardian.Relationship.GUARDIAN, is_primary=True)
 
         # Create withdrawn student (was in test_class)
         self.withdrawn_student = Student.objects.create(
@@ -539,9 +540,9 @@ class ReportCardsStatusFilterTestCase(GradebookTenantTestCase):
             gender='F',
             admission_date=date(2022, 9, 1),
             current_class=None,
-            guardian=self.guardian,
             status=Student.Status.WITHDRAWN
         )
+        self.withdrawn_student.add_guardian(self.guardian, Guardian.Relationship.GUARDIAN, is_primary=True)
 
         # Create enrollments for active students
         Enrollment.objects.create(

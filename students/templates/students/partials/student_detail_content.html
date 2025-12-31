@@ -232,40 +232,53 @@
                 </div>
             </div>
 
-            <!-- Guardian Information -->
-            {% if student.guardian %}
+            <!-- Guardians Information -->
+            {% if student_guardians %}
             <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
                 <div class="card-body p-5">
                     <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
                         <i class="fa-solid fa-user-shield text-primary print:!hidden"></i>
-                        Guardian Information
+                        Guardians ({{ student_guardians|length }})
                     </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Guardian Name</p>
-                            <p class="font-medium">{{ student.guardian.full_name }}</p>
+                    <div class="space-y-4">
+                        {% for sg in student_guardians %}
+                        <div class="{% if not forloop.last %}border-b border-base-200 pb-4{% endif %}">
+                            <div class="flex items-start justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium">{{ sg.guardian.full_name }}</span>
+                                    {% if sg.is_primary %}
+                                    <span class="badge badge-primary badge-sm">Primary</span>
+                                    {% endif %}
+                                </div>
+                                <span class="text-sm text-base-content/60">{{ sg.get_relationship_display }}</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                                <div>
+                                    <span class="text-base-content/60">Phone:</span>
+                                    <span>{{ sg.guardian.phone_number }}</span>
+                                </div>
+                                {% if sg.guardian.email %}
+                                <div>
+                                    <span class="text-base-content/60">Email:</span>
+                                    <span>{{ sg.guardian.email }}</span>
+                                </div>
+                                {% endif %}
+                                {% if sg.guardian.occupation %}
+                                <div>
+                                    <span class="text-base-content/60">Occupation:</span>
+                                    <span>{{ sg.guardian.occupation }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% if sg.guardian.address %}
+                            <div class="mt-2 text-sm">
+                                <span class="text-base-content/60">Address:</span>
+                                <span>{{ sg.guardian.address }}</span>
+                            </div>
+                            {% endif %}
                         </div>
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Relationship</p>
-                            <p>{{ student.get_guardian_relationship_display }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Phone</p>
-                            <p>{{ student.guardian.phone_number }}</p>
-                        </div>
-                        {% if student.guardian.email %}
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Email</p>
-                            <p>{{ student.guardian.email }}</p>
-                        </div>
-                        {% endif %}
+                        {% endfor %}
                     </div>
-                    {% if student.guardian.address %}
-                    <div class="mt-4 pt-4 border-t border-base-200">
-                        <p class="text-xs text-base-content/60 mb-1">Address</p>
-                        <p>{{ student.guardian.address }}</p>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
             {% endif %}

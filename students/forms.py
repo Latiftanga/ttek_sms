@@ -39,7 +39,7 @@ class GuardianForm(forms.ModelForm):
 
 
 class StudentForm(forms.ModelForm):
-    """Form for creating/editing individual students."""
+    """Form for creating/editing individual students (without guardian fields)."""
 
     class Meta:
         model = Student
@@ -48,8 +48,6 @@ class StudentForm(forms.ModelForm):
             'first_name', 'last_name', 'other_names',
             'date_of_birth', 'gender', 'photo',
             'address', 'phone',
-            # Guardian info
-            'guardian', 'guardian_relationship',
             # Admission
             'admission_number', 'admission_date',
             # Enrollment
@@ -73,6 +71,18 @@ class StudentForm(forms.ModelForm):
         # Only show active classes
         self.fields['current_class'].queryset = Class.objects.filter(is_active=True)
         self.fields['current_class'].required = False
-        # Set queryset for guardian
-        self.fields['guardian'].queryset = Guardian.objects.all()
-        self.fields['guardian'].required = False
+
+
+class StudentGuardianForm(forms.Form):
+    """Form for adding a guardian to a student."""
+    guardian = forms.ModelChoiceField(
+        queryset=Guardian.objects.all(),
+        required=True,
+        widget=forms.HiddenInput()
+    )
+    relationship = forms.ChoiceField(
+        choices=Guardian.Relationship.choices,
+        initial=Guardian.Relationship.GUARDIAN
+    )
+    is_primary = forms.BooleanField(required=False, initial=False)
+    is_emergency_contact = forms.BooleanField(required=False, initial=True)
