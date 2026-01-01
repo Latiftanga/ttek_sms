@@ -210,3 +210,18 @@ __marimo__/
 
 # Docker
 docker-compose.override.yml
+
+# Production secrets
+.env.prod
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt
+nginx/certbot/
+
+# Static and media files
+staticfiles/
+media/
+
+# Backups
+backups/*.sql
+backups/*.gz
