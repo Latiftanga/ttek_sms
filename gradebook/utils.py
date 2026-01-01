@@ -8,8 +8,120 @@ import logging
 
 from django.db import connection
 from django.conf import settings as django_settings
+from django.db.models import Count
+
+from .models import Assignment, Score
+from academics.models import Class, Subject, ClassSubject
+from students.models import Student
 
 logger = logging.getLogger(__name__)
+
+def calculate_score_entry_progress(current_term):
+    """Calculate the overall score entry progress for the current term."""
+    if not current_term:
+        return 0, 0, 0
+
+    scores_entered = Score.objects.filter(assignment__term=current_term).count()
+    
+    term_assignments = Assignment.objects.filter(term=current_term).values_list('subject_id', flat=True)
+    if not term_assignments:
+        return scores_entered, 0, 0
+
+    class_subject_data = ClassSubject.objects.filter(
+        subject_id__in=term_assignments
+    ).select_related('class_assigned').values(
+        'subject_id', 'class_assigned_id'
+    )
+
+    subject_classes = {}
+    for cs in class_subject_data:
+        subject_classes.setdefault(cs['subject_id'], set()).add(cs['class_assigned_id'])
+
+    class_student_counts = dict(
+        Student.objects.filter(
+            status='active',
+            current_class__isnull=False
+        ).values('current_class_id').annotate(
+            count=Count('id')
+        ).values_list('current_class_id', 'count')
+    )
+
+    subject_assignment_counts = dict(
+        Assignment.objects.filter(
+            term=current_term
+        ).values('subject_id').annotate(
+            count=Count('id')
+        ).values_list('subject_id', 'count')
+    )
+
+    total_possible_scores = 0
+    for subject_id, class_ids in subject_classes.items():
+        assignment_count = subject_assignment_counts.get(subject_id, 0)
+        for class_id in class_ids:
+            student_count = class_student_counts.get(class_id, 0)
+            total_possible_scores += assignment_count * student_count
+    
+    score_progress = round((scores_entered / total_possible_scores * 100) if total_possible_scores > 0 else 0, 1)
+
+    return scores_entered, total_possible_scores, score_progress
+
+
+def get_classes_needing_scores(current_term, classes):
+    """Get a list of classes with incomplete score entries."""
+    if not current_term:
+        return []
+
+    top_classes = classes[:6]
+    top_class_ids = [c.id for c in top_classes]
+
+    class_student_counts = dict(
+        Student.objects.filter(
+            status='active',
+            current_class_id__in=top_class_ids
+        ).values('current_class_id').annotate(
+            count=Count('id')
+        ).values_list('current_class_id', 'count')
+    )
+
+    class_subjects_map = {}
+    for cs in ClassSubject.objects.filter(class_assigned_id__in=top_class_ids).values('class_assigned_id', 'subject_id'):
+        class_subjects_map.setdefault(cs['class_assigned_id'], set()).add(cs['subject_id'])
+
+    subject_assignment_counts = dict(
+        Assignment.objects.filter(term=current_term).values('subject_id').annotate(
+            count=Count('id')
+        ).values_list('subject_id', 'count')
+    )
+
+    class_score_counts = dict(
+        Score.objects.filter(
+            assignment__term=current_term,
+            student__current_class_id__in=top_class_ids
+        ).values('student__current_class_id').annotate(
+            count=Count('id')
+        ).values_list('student__current_class_id', 'count')
+    )
+
+    classes_needing_scores = []
+    for cls in top_classes:
+        student_count = class_student_counts.get(cls.id, 0)
+        if student_count > 0:
+            class_subject_ids = class_subjects_map.get(cls.id, set())
+            total_assignments = sum(
+                subject_assignment_counts.get(subj_id, 0)
+                for subj_id in class_subject_ids
+            )
+            if total_assignments > 0:
+                expected_scores = total_assignments * student_count
+                actual_scores = class_score_counts.get(cls.id, 0)
+                progress = round((actual_scores / expected_scores * 100) if expected_scores > 0 else 0)
+                classes_needing_scores.append({
+                    'class': cls,
+                    'student_count': student_count,
+                    'progress': progress,
+                    'assignments': total_assignments,
+                })
+    return classes_needing_scores
 
 
 def check_transcript_permission(user, student):

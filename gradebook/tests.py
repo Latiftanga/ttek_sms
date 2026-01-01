@@ -13,6 +13,7 @@ from .models import (
     Assignment, Score, SubjectTermGrade, TermReport
 )
 from .forms import GradeScaleForm, AssessmentCategoryForm, ScoreForm
+from academics.models import Subject, Class, Programme
 
 
 User = get_user_model()
@@ -742,3 +743,48 @@ class ReportCardsStatusFilterTests(ReportCardsStatusFilterTestCase):
             {'class': self.test_class.pk, 'status': 'graduated'}
         )
         self.assertContains(response, f"transcript/{self.graduated_student.pk}")
+
+
+class SubjectTermGradeCalculationTest(GradebookTenantTestCase):
+    """Tests for the calculate_scores method of the SubjectTermGrade model."""
+
+    def setUp(self):
+        super().setUp()
+        self.academic_year = AcademicYear.objects.create(name='2024/2025', start_date=date(2024, 9, 1), end_date=date(2025, 7, 31), is_current=True)
+        self.term = Term.objects.create(academic_year=self.academic_year, name='First Term', term_number=1, start_date=date(2024, 9, 1), end_date=date(2024, 12, 20), is_current=True)
+        self.student = Student.objects.create(first_name='Test', last_name='Student', admission_number='TEST-001', status='active', date_of_birth=date(2010, 1, 1), admission_date=date(2020, 9, 1))
+        self.subject = Subject.objects.create(name='Mathematics', short_name='Math')
+
+        # Assessment categories
+        self.class_score_cat = AssessmentCategory.objects.create(name='Class Score', short_name='CA', category_type='CLASS_SCORE', percentage=30)
+        self.exam_cat = AssessmentCategory.objects.create(name='Examination', short_name='EXAM', category_type='EXAM', percentage=70)
+
+        # Assignments
+        self.assignment1 = Assignment.objects.create(assessment_category=self.class_score_cat, subject=self.subject, term=self.term, name='Quiz 1', points_possible=20)
+        self.assignment2 = Assignment.objects.create(assessment_category=self.class_score_cat, subject=self.subject, term=self.term, name='Homework 1', points_possible=10)
+        self.exam_assignment = Assignment.objects.create(assessment_category=self.exam_cat, subject=self.subject, term=self.term, name='Final Exam', points_possible=100)
+
+        # Scores
+        Score.objects.create(student=self.student, assignment=self.assignment1, points=15)  # 15/20 = 75%
+        Score.objects.create(student=self.student, assignment=self.assignment2, points=8)    # 8/10 = 80%
+        Score.objects.create(student=self.student, assignment=self.exam_assignment, points=85) # 85/100 = 85%
+
+    def test_calculate_scores(self):
+        """Test the calculation of class_score, exam_score, and total_score."""
+        subject_grade = SubjectTermGrade(student=self.student, subject=self.subject, term=self.term)
+        subject_grade.calculate_scores()
+
+        # CA has two assignments, so each is worth 15% of the final grade (30% / 2)
+        # Assignment 1 contribution: (15/20) * 15 = 11.25
+        # Assignment 2 contribution: (8/10) * 15 = 12.0
+        expected_class_score = Decimal('11.25') + Decimal('12.0') # 23.25
+
+        # Exam has one assignment, so it's worth 70% of the final grade
+        # Exam contribution: (85/100) * 70 = 59.5
+        expected_exam_score = Decimal('59.5')
+
+        expected_total_score = expected_class_score + expected_exam_score # 82.75
+
+        self.assertAlmostEqual(subject_grade.class_score, expected_class_score, places=2)
+        self.assertAlmostEqual(subject_grade.exam_score, expected_exam_score, places=2)
+        self.assertAlmostEqual(subject_grade.total_score, expected_total_score, places=2)
