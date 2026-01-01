@@ -165,6 +165,140 @@ def teacher_detail(request, pk):
 
 
 @admin_required
+def teacher_detail_pdf(request, pk):
+    """Download PDF profile for a teacher."""
+    import logging
+    from io import BytesIO
+    from django.template.loader import render_to_string
+    from django.conf import settings as django_settings
+    from django.db import connection
+
+    logger = logging.getLogger(__name__)
+
+    teacher = get_object_or_404(
+        Teacher.objects.select_related('user'),
+        pk=pk
+    )
+
+    # Classes where this teacher is the class teacher (form tutor)
+    homeroom_classes = Class.objects.filter(
+        class_teacher=teacher,
+        is_active=True
+    ).order_by('name')
+
+    # Subject assignments - classes and subjects this teacher teaches
+    subject_assignments = ClassSubject.objects.filter(
+        teacher=teacher
+    ).select_related('class_assigned', 'subject').order_by(
+        'class_assigned__level_number', 'class_assigned__name', 'subject__name'
+    )
+
+    # Calculate workload stats
+    classes_taught = subject_assignments.values('class_assigned').distinct().count()
+    subjects_taught = subject_assignments.values('subject').distinct().count()
+
+    # Total students taught (across all classes)
+    class_ids = subject_assignments.values_list('class_assigned_id', flat=True).distinct()
+    total_students = Student.objects.filter(
+        current_class_id__in=class_ids,
+        status='active'
+    ).count()
+
+    workload = {
+        'classes_taught': classes_taught,
+        'subjects_taught': subjects_taught,
+        'total_students': total_students,
+        'homeroom_classes': homeroom_classes.count(),
+    }
+
+    # Get school context with logo
+    from gradebook.utils import get_school_context
+    school_ctx = get_school_context(include_logo_base64=True)
+
+    # Encode teacher photo if exists
+    photo_base64 = None
+    if teacher.photo:
+        try:
+            import base64
+            import os
+            photo_path = os.path.join(
+                django_settings.MEDIA_ROOT,
+                'schools',
+                connection.schema_name,
+                teacher.photo.name.split('/')[-1] if '/' in teacher.photo.name else teacher.photo.name
+            )
+            # Try direct path first
+            if not os.path.exists(photo_path):
+                photo_path = teacher.photo.path
+
+            if os.path.exists(photo_path):
+                with open(photo_path, 'rb') as f:
+                    photo_data = f.read()
+                    ext = os.path.splitext(photo_path)[1].lower()
+                    mime_types = {
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.png': 'image/png',
+                        '.gif': 'image/gif',
+                    }
+                    mime = mime_types.get(ext, 'image/jpeg')
+                    photo_base64 = f"data:{mime};base64,{base64.b64encode(photo_data).decode()}"
+        except Exception as e:
+            logger.debug(f"Could not encode teacher photo: {e}")
+
+    # Create verification record and generate QR code
+    from core.models import DocumentVerification
+    from core.utils import generate_verification_qr
+
+    verification = DocumentVerification.create_for_document(
+        document_type=DocumentVerification.DocumentType.STAFF_PROFILE,
+        teacher=teacher,
+        title=f"Staff Record - {teacher.full_name}",
+        user=request.user,
+    )
+
+    # Generate QR code for verification
+    qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
+
+    context = {
+        'teacher': teacher,
+        'homeroom_classes': homeroom_classes,
+        'subject_assignments': subject_assignments,
+        'workload': workload,
+        'school': school_ctx['school'],
+        'school_settings': school_ctx['school_settings'],
+        'logo_base64': school_ctx.get('logo_base64'),
+        'photo_base64': photo_base64,
+        'verification': verification,
+        'qr_code_base64': qr_code_base64,
+    }
+
+    # Generate PDF using WeasyPrint
+    try:
+        from weasyprint import HTML
+
+        html_string = render_to_string('teachers/teacher_detail_pdf.html', context)
+        html = HTML(string=html_string, base_url=str(django_settings.BASE_DIR))
+        pdf_buffer = BytesIO()
+        html.write_pdf(pdf_buffer)
+        pdf_buffer.seek(0)
+
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="staff_record_{teacher.staff_id}.pdf"'
+        return response
+
+    except ImportError:
+        logger.error("WeasyPrint not installed")
+        messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
+        return redirect('teachers:teacher_detail', pk=pk)
+    except Exception as e:
+        import traceback
+        logger.error(f"Failed to generate teacher PDF: {str(e)}\n{traceback.format_exc()}")
+        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        return redirect('teachers:teacher_detail', pk=pk)
+
+
+@admin_required
 def teacher_delete(request, pk):
     """Delete a teacher."""
     if request.method != 'POST':

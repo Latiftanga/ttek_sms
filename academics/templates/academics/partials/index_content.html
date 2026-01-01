@@ -208,6 +208,14 @@
                         <i class="fa-solid fa-clock text-secondary w-5"></i>
                         Periods
                     </a>
+                    <a href="{% url 'academics:classrooms' %}"
+                       hx-get="{% url 'academics:classrooms' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm justify-start gap-2 w-full">
+                        <i class="fa-solid fa-door-open text-accent w-5"></i>
+                        Classrooms
+                    </a>
                     <a href="{% url 'academics:attendance_reports' %}"
                        hx-get="{% url 'academics:attendance_reports' %}"
                        hx-target="#main-content"

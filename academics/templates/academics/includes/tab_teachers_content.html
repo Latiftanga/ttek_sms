@@ -57,28 +57,45 @@
 
 <div class="flex justify-between items-center pt-4 border-t border-base-200 mt-4">
     <span class="text-xs text-base-content/50">{{ subject_allocations.count }} subjects assigned</span>
-    <button class="btn btn-sm btn-primary"
-            hx-get="{% url 'academics:class_subject_create' class.pk %}"
-            hx-target="#modal-edit-content"
-            onclick="modal_edit.showModal()">
-        <i class="fa-solid fa-plus"></i> Add Subject
-    </button>
+    <div class="flex items-center gap-2">
+        <div class="dropdown dropdown-end">
+            <div tabindex="0" role="button" class="btn btn-sm btn-ghost">
+                <i class="fa-solid fa-ellipsis-v"></i>
+            </div>
+            <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow bg-base-100 rounded-box w-48 border border-base-200">
+                <li>
+                    <button hx-get="{% url 'academics:class_subject_create' class.pk %}"
+                            hx-target="#modal-edit-content"
+                            onclick="modal_edit.showModal(); document.getElementById('modal_subjects').close();">
+                        <i class="fa-solid fa-plus w-4"></i> Add Manually
+                    </button>
+                </li>
+            </ul>
+        </div>
+        <a href="{% url 'academics:class_timetable' class.pk %}"
+           class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-calendar-days"></i> Manage via Timetable
+        </a>
+    </div>
+</div>
+
+<div class="alert alert-info mt-4 py-2">
+    <i class="fa-solid fa-info-circle"></i>
+    <span class="text-sm">Subjects are automatically assigned when you add timetable entries.</span>
 </div>
 
 {% else %}
 <div class="flex flex-col items-center justify-center py-12 text-center">
     <div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mb-4">
-        <i class="fa-solid fa-book text-3xl text-base-content/20"></i>
+        <i class="fa-solid fa-calendar-days text-3xl text-base-content/20"></i>
     </div>
     <h3 class="font-semibold mb-1">No Subjects Assigned</h3>
     <p class="text-base-content/60 text-sm max-w-xs mb-4">
-        Assign subjects and teachers to this class to get started.
+        Build your class timetable to automatically assign subjects and teachers.
     </p>
-    <button class="btn btn-primary btn-sm"
-            hx-get="{% url 'academics:class_subject_create' class.pk %}"
-            hx-target="#modal-edit-content"
-            onclick="modal_edit.showModal()">
-        <i class="fa-solid fa-plus"></i> Assign Subject
-    </button>
+    <a href="{% url 'academics:class_timetable' class.pk %}"
+       class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-plus"></i> Build Timetable
+    </a>
 </div>
 {% endif %}

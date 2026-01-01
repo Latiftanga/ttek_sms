@@ -1,6 +1,6 @@
 {% extends 'core/base.html' %}
 
-{% block title %}My Profile{% endblock %}
+{% block title %}My Profile - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'core/partials/profile_content.html' %}

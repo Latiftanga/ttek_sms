@@ -372,6 +372,50 @@ class Period(models.Model):
         return int((end - start).total_seconds() / 60)
 
 
+class Classroom(models.Model):
+    """Physical classroom/room where lessons are held."""
+
+    class RoomType(models.TextChoices):
+        REGULAR = 'regular', 'Regular Classroom'
+        LAB = 'lab', 'Laboratory'
+        COMPUTER = 'computer', 'Computer Lab'
+        LIBRARY = 'library', 'Library'
+        HALL = 'hall', 'Assembly Hall'
+        OTHER = 'other', 'Other'
+
+    name = models.CharField(
+        max_length=50,
+        help_text="e.g., Room 101, Science Lab 1"
+    )
+    code = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text="Short code e.g., R101, LAB1"
+    )
+    capacity = models.PositiveIntegerField(
+        default=40,
+        help_text="Maximum seating capacity"
+    )
+    room_type = models.CharField(
+        max_length=20,
+        choices=RoomType.choices,
+        default=RoomType.REGULAR
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Classroom"
+        verbose_name_plural = "Classrooms"
+
+    def __str__(self):
+        if self.code:
+            return f"{self.name} ({self.code})"
+        return self.name
+
+
 class TimetableEntry(models.Model):
     """
     Assigns a ClassSubject to a specific day and period.
@@ -402,11 +446,27 @@ class TimetableEntry(models.Model):
         default=False,
         help_text="If true, this lesson spans two consecutive periods"
     )
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='timetable_entries',
+        help_text="Physical room where this lesson is held"
+    )
 
     class Meta:
         ordering = ['weekday', 'period__order']
         verbose_name = "Timetable Entry"
         verbose_name_plural = "Timetable Entries"
+        indexes = [
+            # Index for grid display (fetching by day)
+            models.Index(fields=['weekday', 'period'], name='timetable_weekday_period_idx'),
+            # Index for conflict checking
+            models.Index(fields=['class_subject', 'period', 'weekday'], name='timetable_conflict_check_idx'),
+            # Index for teacher schedule lookup
+            models.Index(fields=['weekday'], name='timetable_weekday_idx'),
+        ]
 
     def __str__(self):
         return f"{self.class_subject} - {self.get_weekday_display()} {self.period.name}"

@@ -1,6 +1,6 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Record Payment{% endblock %}
+{% block title %}Record Payment - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'finance/partials/payment_record_content.html' %}

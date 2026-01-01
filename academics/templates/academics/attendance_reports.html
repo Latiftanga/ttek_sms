@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}
 {% load core_tags %}
 
-{% block title %}Attendance Reports{% endblock %}
+{% block title %}Attendance Reports - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include "academics/partials/attendance_reports_content.html" %}

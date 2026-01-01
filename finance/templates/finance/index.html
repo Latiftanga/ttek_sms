@@ -1,6 +1,6 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Finance{% endblock %}
+{% block title %}Finance - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'finance/partials/index_content.html' %}

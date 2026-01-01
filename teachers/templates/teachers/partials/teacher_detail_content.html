@@ -24,10 +24,10 @@
                 <i class="fa-solid fa-calendar-days"></i>
                 Schedule
             </a>
-            <button onclick="window.print()" class="btn btn-ghost btn-sm">
-                <i class="fa-solid fa-print"></i>
-                Print
-            </button>
+            <a href="{% url 'teachers:teacher_detail_pdf' teacher.pk %}" class="btn btn-ghost btn-sm">
+                <i class="fa-solid fa-file-pdf"></i>
+                Download PDF
+            </a>
             <a href="{% url 'teachers:teacher_edit' teacher.pk %}"
                hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
                hx-target="#main-content"
