@@ -1,7 +1,7 @@
 {% extends 'core/base.html' %}
 {% load core_tags %}
 
-{% block title %}Analytics - Gradebook{% endblock %}
+{% block title %}Analytics - Gradebook - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'gradebook/partials/analytics_content.html' %}

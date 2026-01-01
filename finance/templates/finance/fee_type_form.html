@@ -1,6 +1,6 @@
 {% extends 'core/base.html' %}
 
-{% block title %}{% if fee_type %}Edit{% else %}Add{% endif %} Fee Type{% endblock %}
+{% block title %}{% if fee_type %}Edit{% else %}Add{% endif %} Fee Type - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'finance/partials/fee_type_form_content.html' %}

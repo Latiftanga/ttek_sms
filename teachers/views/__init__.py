@@ -4,6 +4,7 @@ from .teachers import (
     teacher_create,
     teacher_edit,
     teacher_detail,
+    teacher_detail_pdf,
     teacher_delete,
 )
 
@@ -35,6 +36,7 @@ __all__ = [
     'teacher_create',
     'teacher_edit',
     'teacher_detail',
+    'teacher_detail_pdf',
     'teacher_delete',
     # Dashboard
     'profile',

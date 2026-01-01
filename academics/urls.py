@@ -50,9 +50,16 @@ urlpatterns = [
     path('periods/<int:pk>/edit/', views.period_edit, name='period_edit'),
     path('periods/<int:pk>/delete/', views.period_delete, name='period_delete'),
 
+    # Classroom Management
+    path('classrooms/', views.classrooms, name='classrooms'),
+    path('classrooms/create/', views.classroom_create, name='classroom_create'),
+    path('classrooms/<int:pk>/edit/', views.classroom_edit, name='classroom_edit'),
+    path('classrooms/<int:pk>/delete/', views.classroom_delete, name='classroom_delete'),
+
     # Timetable Management
     path('timetable/', views.timetable_index, name='timetable'),
     path('timetable/class/<int:class_id>/', views.class_timetable, name='class_timetable'),
     path('timetable/class/<int:class_id>/entry/create/', views.timetable_entry_create, name='timetable_entry_create'),
+    path('timetable/entry/<int:pk>/edit/', views.timetable_entry_edit, name='timetable_entry_edit'),
     path('timetable/entry/<int:pk>/delete/', views.timetable_entry_delete, name='timetable_entry_delete'),
 ]

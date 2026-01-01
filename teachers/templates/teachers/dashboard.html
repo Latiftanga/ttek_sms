@@ -1,7 +1,7 @@
 {% extends 'core/base.html' %}
 {% load core_tags %}
 
-{% block title %}My Dashboard - {{ teacher.full_name }}{% endblock %}
+{% block title %}My Dashboard - {{ teacher.full_name }} - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'teachers/partials/dashboard_content.html' %}

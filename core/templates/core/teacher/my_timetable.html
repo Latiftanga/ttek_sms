@@ -1,7 +1,7 @@
 {% extends 'core/base.html' %}
 {% load core_tags %}
 
-{% block title %}My Timetable{% endblock %}
+{% block title %}My Timetable - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'core/teacher/partials/my_timetable_content.html' %}

@@ -670,9 +670,22 @@ def class_detail(request, pk):
     """Detailed view of a specific class."""
     class_obj = get_object_or_404(Class, pk=pk)
 
+    # Get timetable stats
+    timetable_entries = TimetableEntry.objects.filter(
+        class_subject__class_assigned=class_obj
+    )
+    timetable_stats = {
+        'total_entries': timetable_entries.count(),
+        'subjects_count': timetable_entries.values('class_subject__subject').distinct().count(),
+        'teachers_count': timetable_entries.exclude(
+            class_subject__teacher__isnull=True
+        ).values('class_subject__teacher').distinct().count(),
+    }
+
     # Base context
     context = {
         'class': class_obj,
+        'timetable_stats': timetable_stats,
     }
 
     # Combine all tab contexts for the initial page load
@@ -1959,6 +1972,8 @@ def timetable_index(request):
 @admin_required
 def class_timetable(request, class_id):
     """View and manage timetable for a specific class."""
+    from core.models import SchoolSettings, Term
+
     class_obj = get_object_or_404(Class, pk=class_id)
     periods_list = list(Period.objects.filter(is_active=True).order_by('order'))
     weekdays = TimetableEntry.Weekday.choices
@@ -1966,12 +1981,13 @@ def class_timetable(request, class_id):
     # Get all timetable entries for this class
     entries = TimetableEntry.objects.filter(
         class_subject__class_assigned=class_obj
-    ).select_related('class_subject__subject', 'class_subject__teacher', 'period')
+    ).select_related('class_subject__subject', 'class_subject__teacher', 'period', 'classroom')
 
-    # Build timetable grid: {weekday: {period_id: entry}}
+    # Build timetable grid: {weekday: {period_id: [entries]}}
+    # Supports multiple entries per slot for combined/split lessons (e.g., Gov/Hist)
     # Also track which slots are occupied by double periods from previous period
     timetable_grid = {}
-    double_period_slots = {}  # {weekday: {period_id: entry}} - slots occupied by double periods
+    double_period_slots = {}  # {weekday: {period_id: [entries]}} - slots occupied by double periods
 
     # Create period order lookup for finding next period
     period_order_map = {p.pk: i for i, p in enumerate(periods_list)}
@@ -1980,7 +1996,11 @@ def class_timetable(request, class_id):
         if entry.weekday not in timetable_grid:
             timetable_grid[entry.weekday] = {}
             double_period_slots[entry.weekday] = {}
-        timetable_grid[entry.weekday][entry.period_id] = entry
+
+        # Store entries as a list to support combined lessons (e.g., Gov/Hist)
+        if entry.period_id not in timetable_grid[entry.weekday]:
+            timetable_grid[entry.weekday][entry.period_id] = []
+        timetable_grid[entry.weekday][entry.period_id].append(entry)
 
         # If it's a double period, mark the next period slot as occupied
         if entry.is_double:
@@ -1989,12 +2009,22 @@ def class_timetable(request, class_id):
                 next_period = periods_list[current_idx + 1]
                 # Only mark if next period is not a break
                 if not next_period.is_break:
-                    double_period_slots[entry.weekday][next_period.pk] = entry
+                    if next_period.pk not in double_period_slots[entry.weekday]:
+                        double_period_slots[entry.weekday][next_period.pk] = []
+                    double_period_slots[entry.weekday][next_period.pk].append(entry)
 
     # Get class subjects for the add entry form
     class_subjects = ClassSubject.objects.filter(
         class_assigned=class_obj
     ).select_related('subject', 'teacher')
+
+    # Calculate stats for the timetable page
+    timetable_entries_count = entries.count()
+    teachers_count = class_subjects.exclude(teacher__isnull=True).values('teacher').distinct().count()
+
+    # Get school settings and current term for print header
+    school = SchoolSettings.load()
+    current_term = Term.get_current()
 
     context = {
         'class_obj': class_obj,
@@ -2003,7 +2033,11 @@ def class_timetable(request, class_id):
         'timetable_grid': timetable_grid,
         'double_period_slots': double_period_slots,
         'class_subjects': class_subjects,
+        'timetable_entries_count': timetable_entries_count,
+        'teachers_count': teachers_count,
         'active_tab': 'timetable',
+        'school': school,
+        'current_term': current_term,
     }
 
     if request.headers.get('HX-Request'):
@@ -2019,8 +2053,31 @@ def timetable_entry_create(request, class_id):
 
     class_obj = get_object_or_404(Class, pk=class_id)
 
+    # Get selected period and day for display
+    selected_period = None
+    selected_day_name = None
+    weekday_choices = dict(TimetableEntry.Weekday.choices)
+
     if request.method == 'POST':
         form = TimetableEntryForm(request.POST, class_instance=class_obj)
+
+        # Get period and day for error display
+        if 'period' in request.POST:
+            selected_period = Period.objects.filter(pk=request.POST['period']).first()
+        if 'weekday' in request.POST:
+            selected_day_name = weekday_choices.get(int(request.POST['weekday']), '')
+
+        # Check for existing entries to determine if this is a combined lesson slot
+        existing_is_double = None
+        if selected_period and 'weekday' in request.POST:
+            existing_entry = TimetableEntry.objects.filter(
+                class_subject__class_assigned=class_obj,
+                period=selected_period,
+                weekday=request.POST['weekday']
+            ).first()
+            if existing_entry:
+                existing_is_double = existing_entry.is_double
+
         if form.is_valid():
             entry = form.save()
             messages.success(request, f'Timetable entry added: {entry.class_subject.subject.name} on {entry.get_weekday_display()}')
@@ -2033,15 +2090,38 @@ def timetable_entry_create(request, class_id):
         else:
             # Return form with errors
             if request.headers.get('HX-Request'):
-                context = {'form': form, 'class_obj': class_obj, 'weekdays': TimetableEntry.Weekday.choices}
+                context = {
+                    'form': form,
+                    'class_obj': class_obj,
+                    'weekdays': TimetableEntry.Weekday.choices,
+                    'selected_period': selected_period,
+                    'selected_day_name': selected_day_name,
+                    'existing_is_double': existing_is_double,
+                }
                 return render(request, 'academics/partials/modal_timetable_entry_form.html', context)
     else:
         # Pre-fill from query params if provided
         initial = {}
+        existing_is_double = None  # Track if slot has existing entries
+
         if 'weekday' in request.GET:
             initial['weekday'] = request.GET['weekday']
+            selected_day_name = weekday_choices.get(int(request.GET['weekday']), '')
         if 'period' in request.GET:
             initial['period'] = request.GET['period']
+            selected_period = Period.objects.filter(pk=request.GET['period']).first()
+
+            # Check if there are existing entries in this slot
+            if 'weekday' in request.GET and selected_period:
+                existing_entry = TimetableEntry.objects.filter(
+                    class_subject__class_assigned=class_obj,
+                    period=selected_period,
+                    weekday=request.GET['weekday']
+                ).first()
+                if existing_entry:
+                    # Auto-set is_double to match existing entries
+                    initial['is_double'] = existing_entry.is_double
+                    existing_is_double = existing_entry.is_double
 
         form = TimetableEntryForm(class_instance=class_obj, initial=initial)
 
@@ -2049,6 +2129,71 @@ def timetable_entry_create(request, class_id):
         'form': form,
         'class_obj': class_obj,
         'weekdays': TimetableEntry.Weekday.choices,
+        'selected_period': selected_period,
+        'selected_day_name': selected_day_name,
+        'existing_is_double': existing_is_double,  # None if empty slot, True/False if has entries
+    }
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'academics/partials/modal_timetable_entry_form.html', context)
+    return render(request, 'academics/timetable_entry_form.html', context)
+
+
+@login_required
+@admin_required
+def timetable_entry_edit(request, pk):
+    """Edit an existing timetable entry."""
+    from .forms import TimetableEntryForm
+
+    entry = get_object_or_404(
+        TimetableEntry.objects.select_related(
+            'class_subject__class_assigned',
+            'class_subject__subject',
+            'class_subject__teacher',
+            'period',
+            'classroom'
+        ),
+        pk=pk
+    )
+    class_obj = entry.class_subject.class_assigned
+    weekday_choices = dict(TimetableEntry.Weekday.choices)
+
+    if request.method == 'POST':
+        form = TimetableEntryForm(request.POST, instance=entry, class_instance=class_obj)
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Updated {entry.class_subject.subject.name} on {entry.get_weekday_display()}')
+
+            if request.headers.get('HX-Request'):
+                response = HttpResponse(status=204)
+                response['HX-Trigger'] = 'timetableChanged'
+                return response
+            return redirect('academics:class_timetable', class_id=class_obj.pk)
+        else:
+            # Return form with errors
+            if request.headers.get('HX-Request'):
+                context = {
+                    'form': form,
+                    'entry': entry,
+                    'class_obj': class_obj,
+                    'weekdays': TimetableEntry.Weekday.choices,
+                    'selected_period': entry.period,
+                    'selected_day_name': weekday_choices.get(entry.weekday, ''),
+                    'is_edit': True,
+                }
+                return render(request, 'academics/partials/modal_timetable_entry_form.html', context)
+    else:
+        form = TimetableEntryForm(instance=entry, class_instance=class_obj)
+
+    context = {
+        'form': form,
+        'entry': entry,
+        'class_obj': class_obj,
+        'weekdays': TimetableEntry.Weekday.choices,
+        'selected_period': entry.period,
+        'selected_day_name': weekday_choices.get(entry.weekday, ''),
+        'is_edit': True,
     }
 
     if request.headers.get('HX-Request'):
@@ -2074,5 +2219,118 @@ def timetable_entry_delete(request, pk):
             response['HX-Trigger'] = 'timetableChanged'
             return response
         return redirect('academics:class_timetable', class_id=class_id)
+
+    return HttpResponse(status=405)
+
+
+# ============ CLASSROOM MANAGEMENT ============
+
+@login_required
+@admin_required
+def classrooms(request):
+    """List all classrooms."""
+    from .models import Classroom
+
+    classrooms_list = Classroom.objects.all().order_by('name')
+
+    # Calculate stats
+    total_classrooms = classrooms_list.count()
+    active_classrooms = classrooms_list.filter(is_active=True).count()
+    labs_count = classrooms_list.filter(room_type__in=['lab', 'computer']).count()
+    total_capacity = sum(c.capacity for c in classrooms_list.filter(is_active=True))
+
+    context = {
+        'classrooms': classrooms_list,
+        'total_classrooms': total_classrooms,
+        'active_classrooms': active_classrooms,
+        'labs_count': labs_count,
+        'total_capacity': total_capacity,
+        'active_tab': 'classrooms',
+    }
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'academics/partials/classrooms_content.html', context)
+    return render(request, 'academics/classrooms.html', context)
+
+
+@login_required
+@admin_required
+def classroom_create(request):
+    """Create a new classroom."""
+    from .forms import ClassroomForm
+
+    if request.method == 'POST':
+        form = ClassroomForm(request.POST)
+        if form.is_valid():
+            classroom = form.save()
+            messages.success(request, f'Classroom "{classroom.name}" created successfully.')
+
+            if request.headers.get('HX-Request'):
+                response = HttpResponse(status=204)
+                response['HX-Trigger'] = 'classroomChanged'
+                return response
+            return redirect('academics:classrooms')
+    else:
+        form = ClassroomForm()
+
+    context = {'form': form, 'action': 'Create'}
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'academics/partials/classroom_form.html', context)
+    return render(request, 'academics/classroom_form.html', context)
+
+
+@login_required
+@admin_required
+def classroom_edit(request, pk):
+    """Edit an existing classroom."""
+    from .forms import ClassroomForm
+    from .models import Classroom
+
+    classroom = get_object_or_404(Classroom, pk=pk)
+
+    if request.method == 'POST':
+        form = ClassroomForm(request.POST, instance=classroom)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Classroom "{classroom.name}" updated successfully.')
+
+            if request.headers.get('HX-Request'):
+                response = HttpResponse(status=204)
+                response['HX-Trigger'] = 'classroomChanged'
+                return response
+            return redirect('academics:classrooms')
+    else:
+        form = ClassroomForm(instance=classroom)
+
+    context = {'form': form, 'action': 'Edit', 'classroom': classroom}
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'academics/partials/classroom_form.html', context)
+    return render(request, 'academics/classroom_form.html', context)
+
+
+@login_required
+@admin_required
+def classroom_delete(request, pk):
+    """Delete a classroom."""
+    from .models import Classroom
+
+    classroom = get_object_or_404(Classroom, pk=pk)
+
+    if request.method == 'POST':
+        name = classroom.name
+        # Check if classroom has timetable entries
+        if classroom.timetable_entries.exists():
+            messages.error(request, f'Cannot delete "{name}" - it is used in timetable entries. Remove them first.')
+        else:
+            classroom.delete()
+            messages.success(request, f'Classroom "{name}" deleted successfully.')
+
+        if request.headers.get('HX-Request'):
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'classroomChanged'
+            return response
+        return redirect('academics:classrooms')
 
     return HttpResponse(status=405)

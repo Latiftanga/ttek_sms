@@ -1,0 +1,217 @@
+{% load core_tags %}
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                <a href="{% url 'academics:index' %}"
+                   hx-get="{% url 'academics:index' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="hover:text-primary">Academics</a>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+                <span>Classrooms</span>
+            </div>
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-door-open text-primary"></i>
+                </div>
+                Classrooms
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">
+                Manage physical rooms for timetable scheduling
+            </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <a href="{% url 'academics:timetable' %}"
+               hx-get="{% url 'academics:timetable' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost gap-2">
+                <i class="fa-solid fa-calendar-days"></i>
+                View Timetable
+            </a>
+            <button class="btn btn-primary gap-2"
+                    hx-get="{% url 'academics:classroom_create' %}"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML"
+                    onclick="modal_form.showModal()">
+                <i class="fa-solid fa-plus"></i>
+                Add Classroom
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <i class="fa-solid fa-door-open text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="text-xl font-bold">{{ total_classrooms }}</div>
+                        <div class="text-xs text-base-content/60">Total Rooms</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                        <i class="fa-solid fa-check text-success"></i>
+                    </div>
+                    <div>
+                        <div class="text-xl font-bold">{{ active_classrooms }}</div>
+                        <div class="text-xs text-base-content/60">Active</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                        <i class="fa-solid fa-flask text-info"></i>
+                    </div>
+                    <div>
+                        <div class="text-xl font-bold">{{ labs_count }}</div>
+                        <div class="text-xs text-base-content/60">Labs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+                        <i class="fa-solid fa-users text-secondary"></i>
+                    </div>
+                    <div>
+                        <div class="text-xl font-bold">{{ total_capacity }}</div>
+                        <div class="text-xs text-base-content/60">Total Capacity</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Classrooms List -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            {% if classrooms %}
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Room Name</th>
+                            <th>Code</th>
+                            <th>Type</th>
+                            <th class="text-center">Capacity</th>
+                            <th>Status</th>
+                            <th class="w-24">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for classroom in classrooms %}
+                        <tr class="hover:bg-base-200/30">
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    {% if classroom.room_type == 'lab' or classroom.room_type == 'computer' %}
+                                    <i class="fa-solid fa-flask text-info"></i>
+                                    {% elif classroom.room_type == 'library' %}
+                                    <i class="fa-solid fa-book text-secondary"></i>
+                                    {% elif classroom.room_type == 'hall' %}
+                                    <i class="fa-solid fa-building-columns text-warning"></i>
+                                    {% else %}
+                                    <i class="fa-solid fa-door-open text-primary"></i>
+                                    {% endif %}
+                                    <span class="font-medium">{{ classroom.name }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                {% if classroom.code %}
+                                <span class="badge badge-ghost badge-sm font-mono">{{ classroom.code }}</span>
+                                {% else %}
+                                <span class="text-base-content/30">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-sm">{{ classroom.get_room_type_display }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-ghost badge-sm">{{ classroom.capacity }}</span>
+                            </td>
+                            <td>
+                                {% if classroom.is_active %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="flex items-center gap-1">
+                                    <button class="btn btn-ghost btn-xs btn-square"
+                                            hx-get="{% url 'academics:classroom_edit' classroom.pk %}"
+                                            hx-target="#modal-container"
+                                            hx-swap="innerHTML"
+                                            onclick="modal_form.showModal()"
+                                            title="Edit">
+                                        <i class="fa-solid fa-pen-to-square text-primary"></i>
+                                    </button>
+                                    <button class="btn btn-ghost btn-xs btn-square"
+                                            hx-post="{% url 'academics:classroom_delete' classroom.pk %}"
+                                            hx-confirm="Delete classroom '{{ classroom.name }}'? This cannot be undone."
+                                            title="Delete">
+                                        <i class="fa-solid fa-trash text-error"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                    <i class="fa-solid fa-door-open text-base-content/30 text-2xl"></i>
+                </div>
+                <h3 class="font-semibold text-base-content/70 mb-2">No Classrooms Defined</h3>
+                <p class="text-sm text-base-content/50 mb-4">
+                    Add classrooms to assign them to timetable entries
+                </p>
+                <button class="btn btn-primary btn-sm gap-2"
+                        hx-get="{% url 'academics:classroom_create' %}"
+                        hx-target="#modal-container"
+                        hx-swap="innerHTML"
+                        onclick="modal_form.showModal()">
+                    <i class="fa-solid fa-plus"></i>
+                    Add First Classroom
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Container -->
+<dialog id="modal_form" class="modal modal-middle">
+    <div class="modal-box" id="modal-container">
+        <!-- Form content loaded here -->
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+document.body.addEventListener('classroomChanged', function() {
+    htmx.ajax('GET', '{% url "academics:classrooms" %}', {target: '#main-content'});
+    modal_form.close();
+});
+</script>

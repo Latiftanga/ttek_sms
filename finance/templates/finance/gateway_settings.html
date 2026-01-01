@@ -1,6 +1,6 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Payment Gateway Settings{% endblock %}
+{% block title %}Payment Gateway Settings - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'finance/partials/gateway_settings_content.html' %}

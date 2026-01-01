@@ -338,6 +338,7 @@ class DocumentVerification(models.Model):
         REPORT_CARD = 'report_card', _('Report Card')
         TRANSCRIPT = 'transcript', _('Transcript')
         STUDENT_PROFILE = 'student_profile', _('Student Profile')
+        STAFF_PROFILE = 'staff_profile', _('Staff Profile')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     verification_code = models.CharField(
@@ -399,27 +400,41 @@ class DocumentVerification(models.Model):
         self.save(update_fields=['verification_count', 'last_verified_at'])
 
     @classmethod
-    def create_for_document(cls, document_type, student, title, user=None, term=None, academic_year=None):
+    def create_for_document(cls, document_type, title, user=None, term=None, academic_year=None,
+                            student=None, teacher=None):
         """
         Create a verification record for a document.
 
         Args:
             document_type: One of DocumentType choices
-            student: Student model instance
             title: Document title string
             user: User who generated the document (optional)
             term: Term model instance (optional)
             academic_year: Academic year string (optional)
+            student: Student model instance (optional)
+            teacher: Teacher model instance (optional)
 
         Returns:
             DocumentVerification instance
         """
+        # Handle both student and teacher documents
+        if student:
+            person_name = student.full_name
+            person_id_number = student.admission_number
+            person_pk = str(student.pk)
+        elif teacher:
+            person_name = teacher.full_name
+            person_id_number = teacher.staff_id
+            person_pk = str(teacher.pk)
+        else:
+            raise ValueError("Either student or teacher must be provided")
+
         return cls.objects.create(
             document_type=document_type,
-            student_name=student.full_name,
-            student_admission_number=student.admission_number,
+            student_name=person_name,  # Using same field for both (name field)
+            student_admission_number=person_id_number,  # Using same field for both (ID number field)
             document_title=title,
-            student_id=str(student.pk),
+            student_id=person_pk,  # Using same field for both (PK reference)
             term_id=str(term.pk) if term else '',
             academic_year=academic_year or '',
             generated_by=user,

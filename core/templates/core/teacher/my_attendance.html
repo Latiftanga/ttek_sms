@@ -1,7 +1,7 @@
 {% extends 'core/base.html' %}
 {% load core_tags %}
 
-{% block title %}My Attendance{% endblock %}
+{% block title %}My Attendance - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'core/teacher/partials/my_attendance_content.html' %}

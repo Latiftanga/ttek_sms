@@ -1,7 +1,7 @@
 {% extends 'core/base.html' %}
 {% load core_tags %}
 
-{% block title %}My Profile - {{ teacher.full_name }}{% endblock %}
+{% block title %}My Profile - {{ teacher.full_name }} - {{ block.super }}{% endblock %}
 
 {% block content %}
 {% include 'teachers/partials/profile_content.html' %}

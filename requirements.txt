@@ -28,6 +28,7 @@ django-tailwind[cookiecutter,honcho,reload]>=4.4.2,<4.5
 
 #Storage
 django-storages>=1.14.6,<1.15.0
+boto3>=1.42.19
 
 #Payments
 cryptography>=46.0.3

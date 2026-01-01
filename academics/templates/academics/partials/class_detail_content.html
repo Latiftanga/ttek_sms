@@ -202,22 +202,65 @@
                 </div>
             </div>
 
-            <!-- Subjects Card -->
+            <!-- Timetable Card -->
             <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
                 <div class="card-body p-4">
                     <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-semibold text-sm">Subjects</h3>
-                        <button class="btn btn-xs btn-ghost"
-                                hx-get="{% url 'academics:class_subject_create' class.pk %}"
-                                hx-target="#modal-edit-content"
-                                onclick="modal_edit.showModal()">
-                            <i class="fa-solid fa-plus"></i>
-                        </button>
+                        <h3 class="font-semibold text-sm">Timetable</h3>
+                        <a href="{% url 'academics:class_timetable' class.pk %}"
+                           hx-get="{% url 'academics:class_timetable' class.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-xs btn-primary">
+                            <i class="fa-solid fa-calendar-days"></i> View
+                        </a>
                     </div>
 
-                    {% if subject_allocations %}
+                    <!-- Timetable Stats -->
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div class="text-center p-2 rounded-lg bg-info/10">
+                            <div class="text-lg font-bold text-info">{{ timetable_stats.total_entries }}</div>
+                            <div class="text-xs text-base-content/60">Lessons/Week</div>
+                        </div>
+                        <div class="text-center p-2 rounded-lg bg-accent/10">
+                            <div class="text-lg font-bold text-accent">{{ timetable_stats.subjects_count }}</div>
+                            <div class="text-xs text-base-content/60">Subjects</div>
+                        </div>
+                    </div>
+
+                    <!-- Empty state or summary -->
+                    {% if timetable_stats.total_entries == 0 %}
+                    <div class="text-center py-2">
+                        <p class="text-sm text-base-content/50 mb-2">No timetable yet</p>
+                        <a href="{% url 'academics:class_timetable' class.pk %}"
+                           hx-get="{% url 'academics:class_timetable' class.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-plus"></i> Build Timetable
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="text-xs text-base-content/50 text-center">
+                        {{ timetable_stats.teachers_count }} teacher{{ timetable_stats.teachers_count|pluralize }} assigned
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Subjects Card (View Only) -->
+            {% if subject_allocations %}
+            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-sm">Assigned Subjects</h3>
+                        <button class="btn btn-xs btn-ghost"
+                                onclick="document.getElementById('modal_subjects').showModal()">
+                            <i class="fa-solid fa-list"></i>
+                        </button>
+                    </div>
                     <div class="space-y-2">
-                        {% for alloc in subject_allocations|slice:":5" %}
+                        {% for alloc in subject_allocations|slice:":4" %}
                         <div class="flex items-center justify-between py-1">
                             <div class="flex items-center gap-2 min-w-0">
                                 {% if alloc.subject.is_core %}
@@ -233,25 +276,15 @@
                         </div>
                         {% endfor %}
                     </div>
-                    {% if subject_allocations.count > 5 %}
-                    <button class="btn btn-ghost btn-sm btn-block mt-2"
+                    {% if subject_allocations.count > 4 %}
+                    <button class="btn btn-ghost btn-xs btn-block mt-2"
                             onclick="document.getElementById('modal_subjects').showModal()">
-                        View All {{ subject_allocations.count }} Subjects
+                        +{{ subject_allocations.count|add:"-4" }} more
                     </button>
-                    {% endif %}
-                    {% else %}
-                    <div class="text-center py-4 text-base-content/50">
-                        <p class="text-sm">No subjects assigned</p>
-                        <button class="btn btn-ghost btn-xs mt-2"
-                                hx-get="{% url 'academics:class_subject_create' class.pk %}"
-                                hx-target="#modal-edit-content"
-                                onclick="modal_edit.showModal()">
-                            Add Subject
-                        </button>
-                    </div>
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
 
         </div>
 
