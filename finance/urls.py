@@ -7,12 +7,6 @@ urlpatterns = [
     # Dashboard
     path('', views.index, name='index'),
 
-    # Fee Types
-    path('fee-types/', views.fee_types, name='fee_types'),
-    path('fee-types/create/', views.fee_type_create, name='fee_type_create'),
-    path('fee-types/<int:pk>/edit/', views.fee_type_edit, name='fee_type_edit'),
-    path('fee-types/<int:pk>/delete/', views.fee_type_delete, name='fee_type_delete'),
-
     # Fee Structures
     path('fee-structures/', views.fee_structures, name='fee_structures'),
     path('fee-structures/create/', views.fee_structure_create, name='fee_structure_create'),
@@ -63,4 +57,12 @@ urlpatterns = [
     # API endpoints for AJAX/HTMX
     path('api/student/<uuid:student_id>/balance/', views.api_student_balance, name='api_student_balance'),
     path('api/class/<int:class_id>/fees/', views.api_class_fees, name='api_class_fees'),
+    path('api/students/search/', views.student_search, name='student_search'),
+    path('api/invoices/search/', views.invoice_search, name='invoice_search'),
+
+    # Notifications
+    path('notifications/', views.notification_center, name='notification_center'),
+    path('notifications/send/<uuid:pk>/', views.send_invoice_notification_view, name='send_notification'),
+    path('notifications/bulk/', views.send_bulk_notifications_view, name='send_bulk_notifications'),
+    path('notifications/history/', views.notification_history, name='notification_history'),
 ]

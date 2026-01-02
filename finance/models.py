@@ -6,6 +6,24 @@ from django.conf import settings
 from django.utils import timezone
 import uuid
 
+# Fee categories - used by FeeStructure and InvoiceItem
+CATEGORY_CHOICES = [
+    ('TUITION', 'Tuition/School Fees'),
+    ('ADMISSION', 'Admission Fees'),
+    ('EXAM', 'Examination Fees'),
+    ('PTA', 'PTA Dues'),
+    ('SPORTS', 'Sports & Extra-curricular'),
+    ('ICT', 'ICT/Computer Lab'),
+    ('LIBRARY', 'Library Fees'),
+    ('BOARDING', 'Boarding Fees'),
+    ('FEEDING', 'Feeding Fees'),
+    ('TRANSPORT', 'Transport/Bus Fees'),
+    ('UNIFORM', 'Uniform & Materials'),
+    ('CAUTION', 'Caution Deposit'),
+    ('OTHER', 'Other Fees'),
+]
+
+
 class PaymentGateway(models.Model):
     """Available payment gateways in the system"""
     GATEWAY_CHOICES = [
@@ -122,45 +140,6 @@ class PaymentGatewayConfig(models.Model):
         }
 
 
-class FeeType(models.Model):
-    """Types of fees (Tuition, Admission, Exam, etc.)"""
-    # Ghana common fee categories
-    CATEGORY_CHOICES = [
-        ('TUITION', 'Tuition/School Fees'),
-        ('ADMISSION', 'Admission Fees'),
-        ('EXAM', 'Examination Fees'),
-        ('PTA', 'PTA Dues'),
-        ('SPORTS', 'Sports & Extra-curricular'),
-        ('ICT', 'ICT/Computer Lab'),
-        ('LIBRARY', 'Library Fees'),
-        ('BOARDING', 'Boarding Fees'),
-        ('FEEDING', 'Feeding Fees'),
-        ('TRANSPORT', 'Transport/Bus Fees'),
-        ('UNIFORM', 'Uniform & Materials'),
-        ('CAUTION', 'Caution Deposit'),
-        ('OTHER', 'Other Fees'),
-    ]
-
-    name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='OTHER')
-    description = models.TextField(blank=True)
-    is_recurring = models.BooleanField(default=True, help_text="Charged every term")
-    is_mandatory = models.BooleanField(default=True)
-    is_active = models.BooleanField(default=True)
-    # For SHS - some fees differ by programme
-    applies_to_boarding = models.BooleanField(default=True, help_text="Applies to boarding students")
-    applies_to_day = models.BooleanField(default=True, help_text="Applies to day students")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['category', 'name']
-
-    def __str__(self):
-        return self.name
-
-
 class FeeStructure(models.Model):
     """Fee amounts for different classes/terms"""
     LEVEL_TYPE_CHOICES = [
@@ -171,7 +150,12 @@ class FeeStructure(models.Model):
         ('SHS', 'SHS'),
     ]
 
-    fee_type = models.ForeignKey(FeeType, on_delete=models.CASCADE, related_name='structures')
+    # New: category directly on FeeStructure (replaces fee_type FK)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='TUITION')
+    is_mandatory = models.BooleanField(default=True)
+    applies_to_boarding = models.BooleanField(default=True, help_text="Applies to boarding students")
+    applies_to_day = models.BooleanField(default=True, help_text="Applies to day students")
+
     class_assigned = models.ForeignKey(
         'academics.Class',
         on_delete=models.CASCADE,
@@ -214,16 +198,25 @@ class FeeStructure(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['academic_year', 'term', 'fee_type']
+        ordering = ['academic_year', 'term', 'category']
 
     def __str__(self):
+        return f"{self.get_description()} (GHS {self.amount})"
+
+    def get_description(self):
+        """Auto-generate description: 'Tuition - Term 1' or 'PTA Dues - Full Year'"""
+        category_name = self.get_category_display()
+        if self.term:
+            return f"{category_name} - {self.term.name}"
+        return f"{category_name} - Full Year"
+
+    def get_applies_to_display(self):
+        """Return display string for what this fee applies to"""
         if self.class_assigned:
-            target = self.class_assigned.name
+            return self.class_assigned.name
         elif self.level_type:
-            target = self.get_level_type_display()
-        else:
-            target = "All Classes"
-        return f"{self.fee_type.name} - {target} (GHS {self.amount})"
+            return self.get_level_type_display()
+        return "All Classes"
 
 
 class Scholarship(models.Model):
@@ -243,11 +236,11 @@ class Scholarship(models.Model):
         default=Decimal('0.00'),
         help_text="Percentage (0-100) or fixed amount in GHS"
     )
-    # Which fees this applies to
-    applies_to_fee_types = models.ManyToManyField(
-        FeeType,
+    # Which fee categories this applies to (list of category codes)
+    applies_to_categories = models.JSONField(
+        default=list,
         blank=True,
-        help_text="Leave blank to apply to all fees"
+        help_text="List of category codes. Empty = applies to all fees"
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -259,6 +252,21 @@ class Scholarship(models.Model):
         elif self.discount_type == 'FULL':
             return f"{self.name} (Full)"
         return f"{self.name} (GHS {self.discount_value})"
+
+    def applies_to_category(self, category_code):
+        """Check if this scholarship applies to a given category"""
+        if not self.applies_to_categories:  # Empty = applies to all
+            return True
+        return category_code in self.applies_to_categories
+
+    def get_applies_to_display(self):
+        """Return display string for which categories this applies to"""
+        if not self.applies_to_categories:
+            return "All Fees"
+        # Convert codes to display names
+        category_dict = dict(CATEGORY_CHOICES)
+        names = [category_dict.get(code, code) for code in self.applies_to_categories]
+        return ", ".join(names)
 
 
 class StudentScholarship(models.Model):
@@ -373,13 +381,14 @@ class Invoice(models.Model):
         # Calculate balance
         self.balance = self.total_amount - self.amount_paid
 
-        # Update status based on payment
-        if self.amount_paid >= self.total_amount:
-            self.status = 'PAID'
-        elif self.amount_paid > 0:
-            self.status = 'PARTIALLY_PAID'
-        elif self.status not in ['DRAFT', 'CANCELLED'] and self.due_date < timezone.now().date():
-            self.status = 'OVERDUE'
+        # Update status based on payment (skip if cancelled)
+        if self.status != 'CANCELLED':
+            if self.total_amount > 0 and self.amount_paid >= self.total_amount:
+                self.status = 'PAID'
+            elif self.amount_paid > 0:
+                self.status = 'PARTIALLY_PAID'
+            elif self.status not in ['DRAFT'] and self.due_date and self.due_date < timezone.now().date():
+                self.status = 'OVERDUE'
 
         super().save(*args, **kwargs)
 
@@ -394,7 +403,7 @@ class Invoice(models.Model):
 class InvoiceItem(models.Model):
     """Individual line items on an invoice"""
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
-    fee_type = models.ForeignKey(FeeType, on_delete=models.PROTECT)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='OTHER')
     description = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -508,3 +517,88 @@ class PaymentGatewayTransaction(models.Model):
 
     def __str__(self):
         return f"{self.gateway_config.gateway.name} - {self.payment.receipt_number}"
+
+
+class FinanceNotificationLog(models.Model):
+    """Track finance notification distribution to guardians via email and SMS."""
+
+    NOTIFICATION_TYPE = [
+        ('INVOICE_ISSUED', 'Invoice Issued'),
+        ('PAYMENT_RECEIVED', 'Payment Received'),
+        ('OVERDUE_REMINDER', 'Overdue Reminder'),
+        ('BALANCE_REMINDER', 'Balance Reminder'),
+    ]
+
+    DISTRIBUTION_TYPE = [
+        ('EMAIL', 'Email with PDF'),
+        ('SMS', 'SMS Summary'),
+        ('BOTH', 'Email and SMS'),
+    ]
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('SENT', 'Sent'),
+        ('FAILED', 'Failed'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.CASCADE,
+        related_name='notification_logs'
+    )
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPE)
+    distribution_type = models.CharField(max_length=10, choices=DISTRIBUTION_TYPE)
+
+    # Email tracking
+    email_status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+    email_sent_to = models.EmailField(blank=True)
+    email_sent_at = models.DateTimeField(null=True, blank=True)
+    email_error = models.TextField(blank=True)
+
+    # SMS tracking
+    sms_status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+    sms_sent_to = models.CharField(max_length=20, blank=True)
+    sms_sent_at = models.DateTimeField(null=True, blank=True)
+    sms_error = models.TextField(blank=True)
+    sms_message = models.ForeignKey(
+        'communications.SMSMessage',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='finance_notifications'
+    )
+
+    # Who sent it
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='finance_notifications'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'finance_notification_log'
+        ordering = ['-created_at']
+        verbose_name = 'Finance Notification Log'
+        verbose_name_plural = 'Finance Notification Logs'
+        indexes = [
+            models.Index(fields=['invoice', '-created_at']),
+            models.Index(fields=['notification_type']),
+            models.Index(fields=['email_status']),
+            models.Index(fields=['sms_status']),
+        ]
+
+    def __str__(self):
+        return f"{self.invoice.invoice_number} - {self.get_notification_type_display()}"
+
+    @property
+    def is_successful(self):
+        """Check if notification was successful."""
+        if self.distribution_type == 'EMAIL':
+            return self.email_status == 'SENT'
+        elif self.distribution_type == 'SMS':
+            return self.sms_status == 'SENT'
+        else:  # BOTH
+            return self.email_status == 'SENT' or self.sms_status == 'SENT'

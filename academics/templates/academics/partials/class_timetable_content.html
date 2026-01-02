@@ -268,7 +268,7 @@
                     <i class="fa-solid fa-clock text-info text-xl"></i>
                 </div>
                 <div>
-                    <div class="text-2xl font-bold text-info">{{ periods|length }}</div>
+                    <div class="text-2xl font-bold text-info">{{ teaching_periods_count }}</div>
                     <div class="text-xs text-base-content/60">Periods/Day</div>
                 </div>
             </div>
@@ -434,25 +434,25 @@
 
         <!-- Legend -->
         <div class="flex flex-wrap items-center gap-4 text-sm text-base-content/60 print:!hidden">
-            <span class="font-medium">Legend:</span>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-primary"></div>
+            <span class="font-medium text-base-content">Legend:</span>
+            <div class="flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-sm bg-primary"></span>
                 <span>Single</span>
             </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-secondary"></div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-sm bg-secondary"></span>
                 <span>Double</span>
             </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-accent"></div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-sm bg-accent"></span>
                 <span>Combined</span>
             </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-amber-100 border border-amber-200"></div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-sm bg-warning/30 border border-warning/50"></span>
                 <span>Break</span>
             </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded border border-dashed border-base-300"></div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-sm border-2 border-dashed border-base-300 bg-base-100"></span>
                 <span>Empty</span>
             </div>
         </div>
@@ -473,8 +473,8 @@
                 </div>
                 <div class="p-4">
                     <div class="flex items-center gap-3 mb-3">
-                        <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                            <span class="font-bold text-primary">{{ class_obj.name }}</span>
+                        <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-center">
+                            <span class="font-bold text-primary text-sm leading-tight">{{ class_obj.name }}</span>
                         </div>
                         <div>
                             <h3 class="font-bold">{{ class_obj.level_display }}</h3>
@@ -516,13 +516,17 @@
                     <div class="space-y-2 max-h-64 overflow-y-auto">
                         {% for cs in class_subjects %}
                         <div class="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-base-200/50 transition-colors">
-                            <div class="min-w-0">
+                            <div class="min-w-0 flex-1">
                                 <div class="font-medium text-sm truncate">{{ cs.subject.name }}</div>
                                 <div class="text-xs text-base-content/50 truncate">
                                     {% if cs.teacher %}{{ cs.teacher.last_name }}{% else %}<span class="text-warning">TBA</span>{% endif %}
                                 </div>
                             </div>
-                            <span class="badge badge-ghost badge-sm font-mono">{{ cs.periods_per_week }}x</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="badge badge-sm font-mono {% if cs.scheduled_periods >= cs.periods_per_week %}badge-success{% elif cs.scheduled_periods > 0 %}badge-warning{% else %}badge-ghost{% endif %}">
+                                    {{ cs.scheduled_periods }}/{{ cs.periods_per_week }}
+                                </span>
+                            </div>
                         </div>
                         {% endfor %}
                     </div>

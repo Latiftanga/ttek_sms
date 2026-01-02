@@ -223,7 +223,7 @@
             <thead>
                 <tr>
                     <th style="width: 50%">Description</th>
-                    <th>Fee Type</th>
+                    <th>Category</th>
                     <th class="amount">Amount (GHS)</th>
                 </tr>
             </thead>
@@ -231,7 +231,7 @@
                 {% for item in items %}
                 <tr>
                     <td>{{ item.description }}</td>
-                    <td>{{ item.fee_type.name }}</td>
+                    <td>{{ item.get_category_display }}</td>
                     <td class="amount">{{ item.amount|floatformat:2 }}</td>
                 </tr>
                 {% empty %}

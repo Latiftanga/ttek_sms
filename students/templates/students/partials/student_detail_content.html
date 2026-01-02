@@ -55,6 +55,11 @@
                         {% if student.current_class %}
                         <span class="badge badge-primary">{{ student.current_class.name }}</span>
                         {% endif %}
+                        {% if student.house %}
+                        <span class="badge badge-outline" {% if student.house.color_code %}style="border-color: {{ student.house.color_code }}; color: {{ student.house.color_code }};"{% endif %}>
+                            {{ student.house.name }}
+                        </span>
+                        {% endif %}
                         {% if student.gender == 'M' %}
                         <span class="badge badge-info">Male</span>
                         {% else %}
@@ -286,6 +291,19 @@
                         <div>
                             <p class="text-xs text-base-content/60 mb-1">Current Class</p>
                             <p>{{ student.current_class.name|default:"Not Assigned" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60 mb-1">House</p>
+                            {% if student.house %}
+                            <p class="flex items-center gap-2">
+                                {% if student.house.color_code %}
+                                <span class="w-3 h-3 rounded-full" style="background-color: {{ student.house.color_code }};"></span>
+                                {% endif %}
+                                {{ student.house.name }}
+                            </p>
+                            {% else %}
+                            <p class="text-base-content/50">Not Assigned</p>
+                            {% endif %}
                         </div>
                         <div>
                             <p class="text-xs text-base-content/60 mb-1">Status</p>

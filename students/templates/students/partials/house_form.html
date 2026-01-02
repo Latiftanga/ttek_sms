@@ -1,0 +1,104 @@
+{% load core_tags %}
+<div>
+    <h3 class="font-bold text-lg mb-4">{{ action }} House</h3>
+
+    <form method="post"
+          action="{% if house %}{% url 'students:house_edit' house.pk %}{% else %}{% url 'students:house_create' %}{% endif %}"
+          hx-post="{% if house %}{% url 'students:house_edit' house.pk %}{% else %}{% url 'students:house_create' %}{% endif %}"
+          hx-swap="innerHTML"
+          hx-target="#modal-house-content">
+        {% csrf_token %}
+
+        <div class="space-y-4">
+            <!-- Name -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-medium">House Name <span class="text-error">*</span></span>
+                </label>
+                <input type="text"
+                       name="name"
+                       value="{{ form.name.value|default:'' }}"
+                       placeholder="e.g., Blue House, Nkrumah House"
+                       class="input input-bordered w-full {% if form.name.errors %}input-error{% endif %}"
+                       required />
+                {% if form.name.errors %}
+                <label class="label">
+                    <span class="label-text-alt text-error">{{ form.name.errors.0 }}</span>
+                </label>
+                {% endif %}
+            </div>
+
+            <!-- Color Row -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Color Name</span>
+                    </label>
+                    <input type="text"
+                           name="color"
+                           value="{{ form.color.value|default:'' }}"
+                           placeholder="e.g., Blue, Red"
+                           class="input input-bordered w-full" />
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Color Code</span>
+                    </label>
+                    <input type="color"
+                           name="color_code"
+                           value="{{ form.color_code.value|default:'#3b82f6' }}"
+                           class="input input-bordered w-full h-10 p-1 cursor-pointer" />
+                </div>
+            </div>
+
+            <!-- Motto -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-medium">Motto</span>
+                    <span class="label-text-alt text-base-content/50">Optional</span>
+                </label>
+                <input type="text"
+                       name="motto"
+                       value="{{ form.motto.value|default:'' }}"
+                       placeholder="House motto"
+                       class="input input-bordered w-full" />
+            </div>
+
+            <!-- Description -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-medium">Description</span>
+                    <span class="label-text-alt text-base-content/50">Optional</span>
+                </label>
+                <textarea name="description"
+                          rows="2"
+                          placeholder="Brief description of the house"
+                          class="textarea textarea-bordered w-full">{{ form.description.value|default:'' }}</textarea>
+            </div>
+
+            <!-- Active Status -->
+            <label class="label cursor-pointer justify-start gap-3">
+                <input type="checkbox"
+                       name="is_active"
+                       class="checkbox checkbox-primary"
+                       {% if form.is_active.value or not house %}checked{% endif %} />
+                <span class="label-text">Active House</span>
+            </label>
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error mt-4">
+            <i class="fa-solid fa-exclamation-circle"></i>
+            <span>{{ form.non_field_errors.0 }}</span>
+        </div>
+        {% endif %}
+
+        <div class="modal-action">
+            <button type="button" class="btn btn-ghost" onclick="modal_house.close()">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-save"></i>
+                {{ action }} House
+            </button>
+        </div>
+    </form>
+</div>

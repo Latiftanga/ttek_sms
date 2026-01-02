@@ -1,0 +1,742 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:index' %}"
+               hx-get="{% url 'finance:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Finance">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-warning to-error flex items-center justify-center">
+                    <i class="fa-solid fa-bell text-white"></i>
+                </div>
+                Fee Notifications
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            Send SMS and email notifications to parents about outstanding fees
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'finance:notification_history' %}"
+           hx-get="{% url 'finance:notification_history' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-outline gap-2">
+            <i class="fa-solid fa-history"></i>
+            History
+        </a>
+        <button onclick="window.print()" class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-print"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Overdue Alert -->
+{% if overdue_count > 0 %}
+<div class="alert alert-error shadow-sm mb-6 print:!hidden">
+    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+    <div>
+        <h3 class="font-bold">Overdue Fee Invoices</h3>
+        <div class="text-sm">
+            {{ overdue_count }} invoice{{ overdue_count|pluralize }} with overdue payments totaling GHS {{ overdue_balance|floatformat:0 }}
+            <button onclick="document.getElementById('overdue_modal').showModal()" class="link link-error ml-2">View Details</button>
+        </div>
+    </div>
+    <button hx-post="{% url 'finance:send_bulk_notifications' %}"
+            hx-vals='{"type": "SMS", "notification_type": "OVERDUE_REMINDER", "status": "OVERDUE"}'
+            hx-swap="none"
+            hx-confirm="Send SMS to all overdue invoice guardians?"
+            class="btn btn-sm btn-error">
+        <i class="fa-solid fa-bell"></i> Notify Parents
+    </button>
+</div>
+{% endif %}
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-file-invoice text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ total_invoices }}</div>
+                    <div class="text-xs text-base-content/60">Invoices</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-check-circle text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">{{ paid_count }}</div>
+                    <div class="text-xs text-base-content/60">Paid</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center">
+                    <i class="fa-solid fa-exclamation-circle text-error text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-error">{{ overdue_count }}</div>
+                    <div class="text-xs text-base-content/60">Overdue</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chart-pie text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-1">
+                        <span class="text-2xl font-bold {% if collection_rate >= 80 %}text-success{% elif collection_rate >= 60 %}text-warning{% else %}text-error{% endif %}">{{ collection_rate }}%</span>
+                    </div>
+                    <div class="text-xs text-base-content/60">Collected</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column - Classes & Invoices -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Classes Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard text-primary"></i>
+                        </div>
+                        Classes
+                    </h2>
+                    <span class="badge badge-ghost">{{ today|date:"D, M d" }}</span>
+                </div>
+
+                <div class="p-4">
+                    {% if class_summary %}
+                    <div class="space-y-2">
+                        {% for item in class_summary %}
+                        <div class="flex items-center gap-3 p-3 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/30 transition-all">
+                            <!-- Class Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-bold truncate">{{ item.class.name }}</h3>
+                                    {% if item.overdue > 0 %}
+                                    <span class="badge badge-error badge-xs gap-1">
+                                        <i class="fa-solid fa-exclamation text-xs"></i>
+                                        {{ item.overdue }} overdue
+                                    </span>
+                                    {% elif item.pending > 0 %}
+                                    <span class="badge badge-warning badge-xs gap-1">
+                                        <i class="fa-solid fa-clock text-xs"></i>
+                                        {{ item.pending }} pending
+                                    </span>
+                                    {% else %}
+                                    <span class="badge badge-success badge-xs gap-1">
+                                        <i class="fa-solid fa-check text-xs"></i>
+                                        All paid
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-xs text-base-content/60">
+                                    <i class="fa-solid fa-users mr-1"></i>
+                                    {{ item.total }} students
+                                    <span class="mx-1">|</span>
+                                    <span class="{% if item.balance > 0 %}text-error{% else %}text-success{% endif %}">GHS {{ item.balance|floatformat:0 }}</span> outstanding
+                                </p>
+                            </div>
+
+                            <!-- Progress -->
+                            <div class="flex items-center gap-2 w-24 md:w-32">
+                                <progress class="progress flex-1 h-2 {% if item.rate >= 80 %}progress-success{% elif item.rate >= 60 %}progress-warning{% else %}progress-error{% endif %}" value="{{ item.rate }}" max="100"></progress>
+                                <span class="text-xs font-medium">{{ item.rate }}%</span>
+                            </div>
+
+                            <!-- Action Button -->
+                            <button hx-post="{% url 'finance:send_bulk_notifications' %}"
+                                    hx-vals='{"type": "SMS", "notification_type": "BALANCE_REMINDER", "class_id": "{{ item.class.pk }}"}'
+                                    hx-swap="none"
+                                    hx-confirm="Send SMS to all guardians in {{ item.class.name }} with outstanding balance?"
+                                    class="btn btn-primary btn-sm"
+                                    {% if item.balance == 0 %}disabled{% endif %}>
+                                <i class="fa-solid fa-bell"></i>
+                                <span class="hidden sm:inline">Notify</span>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard text-base-content/30 text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Classes Found</h3>
+                        <p class="text-sm text-base-content/50">No classes with invoices found.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Outstanding Invoices -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                            <i class="fa-solid fa-file-invoice-dollar text-warning"></i>
+                        </div>
+                        Outstanding Invoices
+                    </h2>
+                    <span class="badge badge-warning">{{ invoices|length }} invoices</span>
+                </div>
+
+                <div class="p-4">
+                    {% if invoices %}
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs uppercase text-base-content/60">
+                                    <th>Student</th>
+                                    <th class="hidden sm:table-cell">Class</th>
+                                    <th class="text-center">Balance</th>
+                                    <th class="text-center">Due</th>
+                                    <th class="text-center">Contact</th>
+                                    <th class="text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in invoices|slice:":10" %}
+                                <tr class="hover">
+                                    <td>
+                                        <div class="flex items-center gap-2">
+                                            <div class="avatar placeholder">
+                                                <div class="w-8 h-8 rounded-full {% if invoice.status == 'OVERDUE' %}bg-error/10 text-error{% else %}bg-warning/10 text-warning{% endif %} flex items-center justify-center">
+                                                    <span class="text-xs font-bold">{{ invoice.student.first_name|slice:":1" }}{{ invoice.student.last_name|slice:":1" }}</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <a href="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                                   hx-get="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                                   hx-target="#main-content"
+                                                   hx-push-url="true"
+                                                   class="font-medium hover:text-primary">
+                                                    {{ invoice.student.full_name }}
+                                                </a>
+                                                <div class="text-xs text-base-content/50 font-mono">{{ invoice.invoice_number }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="hidden sm:table-cell">
+                                        {% if invoice.student.current_class %}
+                                        <span class="badge badge-sm badge-ghost">{{ invoice.student.current_class.name }}</span>
+                                        {% else %}
+                                        <span class="text-base-content/40">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="font-bold {% if invoice.status == 'OVERDUE' %}text-error{% else %}text-warning{% endif %}">
+                                            {{ invoice.balance|floatformat:0 }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge badge-sm {% if invoice.status == 'OVERDUE' %}badge-error{% else %}badge-warning{% endif %}">
+                                            {{ invoice.due_date|date:"M d" }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if invoice.guardian_phone %}
+                                        <i class="fa-solid fa-mobile-screen text-success" title="{{ invoice.guardian_phone }}"></i>
+                                        {% else %}
+                                        <i class="fa-solid fa-mobile-screen text-base-content/20" title="No phone"></i>
+                                        {% endif %}
+                                        {% if invoice.guardian_email %}
+                                        <i class="fa-solid fa-envelope text-info ml-1" title="{{ invoice.guardian_email }}"></i>
+                                        {% else %}
+                                        <i class="fa-solid fa-envelope text-base-content/20 ml-1" title="No email"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">
+                                        <div class="join">
+                                            <button hx-post="{% url 'finance:send_notification' pk=invoice.pk %}"
+                                                    hx-vals='{"type": "SMS", "notification_type": "{% if invoice.status == 'OVERDUE' %}OVERDUE_REMINDER{% else %}BALANCE_REMINDER{% endif %}"}'
+                                                    hx-swap="none"
+                                                    class="btn btn-ghost btn-xs join-item"
+                                                    title="Send SMS"
+                                                    {% if not invoice.guardian_phone %}disabled{% endif %}>
+                                                <i class="fa-solid fa-mobile-screen"></i>
+                                            </button>
+                                            <button hx-post="{% url 'finance:send_notification' pk=invoice.pk %}"
+                                                    hx-vals='{"type": "EMAIL", "notification_type": "{% if invoice.status == 'OVERDUE' %}OVERDUE_REMINDER{% else %}BALANCE_REMINDER{% endif %}"}'
+                                                    hx-swap="none"
+                                                    class="btn btn-ghost btn-xs join-item"
+                                                    title="Send Email"
+                                                    {% if not invoice.guardian_email %}disabled{% endif %}>
+                                                <i class="fa-solid fa-envelope"></i>
+                                            </button>
+                                            <button hx-post="{% url 'finance:send_notification' pk=invoice.pk %}"
+                                                    hx-vals='{"type": "BOTH", "notification_type": "{% if invoice.status == 'OVERDUE' %}OVERDUE_REMINDER{% else %}BALANCE_REMINDER{% endif %}"}'
+                                                    hx-swap="none"
+                                                    class="btn btn-primary btn-xs join-item"
+                                                    title="Send Both"
+                                                    {% if not invoice.guardian_phone and not invoice.guardian_email %}disabled{% endif %}>
+                                                <i class="fa-solid fa-paper-plane"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if invoices|length > 10 %}
+                    <div class="text-center mt-4">
+                        <button onclick="document.getElementById('all_invoices_modal').showModal()" class="btn btn-sm btn-ghost">
+                            View All {{ invoices|length }} Invoices
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-8 text-base-content/40">
+                        <i class="fa-solid fa-check-circle text-success text-3xl mb-2"></i>
+                        <p class="text-sm">No outstanding invoices</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Overdue Students Card -->
+        {% if overdue_invoices %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-error/10 flex items-center justify-center">
+                            <i class="fa-solid fa-exclamation-triangle text-error"></i>
+                        </div>
+                        Overdue Invoices
+                    </h2>
+                    <span class="badge badge-error">{{ overdue_invoices|length }} students</span>
+                </div>
+
+                <div class="p-4">
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs uppercase text-base-content/60">
+                                    <th>Student</th>
+                                    <th class="hidden sm:table-cell">Class</th>
+                                    <th class="text-center">Balance</th>
+                                    <th class="text-center">Days Overdue</th>
+                                    <th class="text-center">Last Notified</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in overdue_invoices|slice:":5" %}
+                                <tr class="hover">
+                                    <td>
+                                        <div class="flex items-center gap-2">
+                                            <div class="avatar placeholder">
+                                                <div class="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center">
+                                                    <span class="text-xs font-bold">{{ invoice.student.first_name|slice:":1" }}{{ invoice.student.last_name|slice:":1" }}</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <a href="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                                   hx-get="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                                   hx-target="#main-content"
+                                                   hx-push-url="true"
+                                                   class="font-medium hover:text-primary">
+                                                    {{ invoice.student.full_name }}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="hidden sm:table-cell">
+                                        {% if invoice.student.current_class %}
+                                        <span class="badge badge-sm badge-ghost">{{ invoice.student.current_class.name }}</span>
+                                        {% else %}
+                                        <span class="text-base-content/40">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center text-error font-medium">GHS {{ invoice.balance|floatformat:0 }}</td>
+                                    <td class="text-center">
+                                        <span class="badge badge-error font-bold">{{ invoice.days_overdue }} days</span>
+                                    </td>
+                                    <td class="text-center text-sm">
+                                        {% if invoice.last_notification %}
+                                        {{ invoice.last_notification.created_at|date:"M d" }}
+                                        {% else %}
+                                        <span class="text-base-content/40">Never</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if overdue_invoices|length > 5 %}
+                    <div class="text-center mt-4">
+                        <button onclick="document.getElementById('overdue_modal').showModal()" class="btn btn-sm btn-ghost">
+                            View All {{ overdue_invoices|length }} Overdue
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column - Filters & Info -->
+    <div class="space-y-6">
+        <!-- Filter Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-base-content/50"></i>
+                    Filter Data
+                </h2>
+
+                <form method="get"
+                      hx-get="{% url 'finance:notification_center' %}"
+                      hx-target="#main-content"
+                      hx-push-url="true"
+                      class="space-y-3">
+                    <label class="select select-sm w-full">
+                        <span class="label">Class</span>
+                        <select name="class_id">
+                            <option value="">All Classes</option>
+                            {% for cls in classes %}
+                            <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ cls.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label class="select select-sm w-full">
+                        <span class="label">Status</span>
+                        <select name="status">
+                            <option value="">All Status</option>
+                            <option value="OVERDUE" {% if status_filter == 'OVERDUE' %}selected{% endif %}>Overdue</option>
+                            <option value="PARTIALLY_PAID" {% if status_filter == 'PARTIALLY_PAID' %}selected{% endif %}>Partially Paid</option>
+                            <option value="ISSUED" {% if status_filter == 'ISSUED' %}selected{% endif %}>Issued</option>
+                        </select>
+                    </label>
+
+                    <label class="input input-sm w-full">
+                        <span class="label">Search</span>
+                        <input type="text" name="search" value="{{ search }}" placeholder="Student name..." />
+                    </label>
+
+                    <div class="flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-1">
+                            <i class="fa-solid fa-filter"></i>
+                            Apply
+                        </button>
+                        <a href="{% url 'finance:notification_center' %}"
+                           hx-get="{% url 'finance:notification_center' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-sm">
+                            <i class="fa-solid fa-times"></i>
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Notification Summary -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-bar text-primary"></i>
+                    Summary
+                </h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="text-center p-3 rounded-lg bg-success/5 border border-success/20">
+                        <div class="text-lg font-bold text-success">{{ sent_today }}</div>
+                        <div class="text-xs text-base-content/60">Sent Today</div>
+                    </div>
+                    <div class="text-center p-3 rounded-lg bg-primary/5 border border-primary/20">
+                        <div class="text-lg font-bold text-primary">{{ sent_week }}</div>
+                        <div class="text-xs text-base-content/60">This Week</div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-base-200">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-base-content/60">Total Balance</span>
+                        <span class="font-bold text-error">GHS {{ total_balance|floatformat:0 }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-base-content/60">Overdue Balance</span>
+                        <span class="font-bold text-error">GHS {{ overdue_balance|floatformat:0 }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Types -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-info-circle text-info"></i>
+                    Notification Types
+                </h2>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="text-error"><i class="fa-solid fa-exclamation-triangle"></i></span>
+                        <span>Overdue - Past due date</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-warning"><i class="fa-solid fa-bell"></i></span>
+                        <span>Balance - Outstanding fees</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-info"><i class="fa-solid fa-file-invoice"></i></span>
+                        <span>Invoice - New invoice</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-success"><i class="fa-solid fa-check-circle"></i></span>
+                        <span>Payment - Confirmation</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Tips -->
+        <div class="card bg-gradient-to-br from-info/5 to-info/10 border border-info/20">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-lightbulb text-info"></i>
+                    Quick Tips
+                </h3>
+                <ul class="text-xs text-base-content/70 space-y-2">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Click class card to notify all students</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Use filters to target specific groups</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Email includes PDF invoice attachment</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Check history for delivery status</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overdue Modal -->
+<dialog id="overdue_modal" class="modal modal-middle">
+    <div class="modal-box max-w-2xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </form>
+        <h3 class="font-bold text-lg flex items-center gap-2">
+            <i class="fa-solid fa-exclamation-triangle text-error"></i>
+            Overdue Invoices
+        </h3>
+        <p class="text-sm text-base-content/60 mt-1">{{ overdue_invoices|length }} invoices past due date</p>
+
+        <div class="overflow-x-auto mt-4">
+            <table class="table table-sm">
+                <thead>
+                    <tr class="text-xs uppercase text-base-content/60">
+                        <th>Student</th>
+                        <th class="hidden sm:table-cell">Class</th>
+                        <th class="text-center">Balance</th>
+                        <th class="text-center">Days</th>
+                        <th>Contact</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in overdue_invoices %}
+                    <tr class="hover">
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <div class="avatar placeholder">
+                                    <div class="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center">
+                                        <span class="text-xs font-bold">{{ invoice.student.first_name|slice:":1" }}{{ invoice.student.last_name|slice:":1" }}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <a href="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                       hx-get="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                       hx-target="#main-content"
+                                       hx-push-url="true"
+                                       class="font-medium hover:text-primary">
+                                        {{ invoice.student.full_name }}
+                                    </a>
+                                    <div class="text-xs text-base-content/50 font-mono">{{ invoice.invoice_number }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="hidden sm:table-cell">
+                            {% if invoice.student.current_class %}
+                            <span class="badge badge-sm badge-ghost">{{ invoice.student.current_class.name }}</span>
+                            {% else %}
+                            <span class="text-base-content/40">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center text-error font-medium">GHS {{ invoice.balance|floatformat:0 }}</td>
+                        <td class="text-center">
+                            <span class="badge badge-error font-bold">{{ invoice.days_overdue }}</span>
+                        </td>
+                        <td>
+                            {% if invoice.guardian_phone %}
+                            <a href="tel:{{ invoice.guardian_phone }}" class="btn btn-xs btn-ghost">
+                                <i class="fa-solid fa-phone text-primary"></i>
+                                {{ invoice.guardian_phone }}
+                            </a>
+                            {% else %}
+                            <span class="text-xs text-base-content/40">No phone</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-8 text-base-content/40">
+                            <i class="fa-solid fa-check-circle text-2xl text-success mb-2"></i>
+                            <p>No overdue invoices</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="modal-action">
+            <button hx-post="{% url 'finance:send_bulk_notifications' %}"
+                    hx-vals='{"type": "SMS", "notification_type": "OVERDUE_REMINDER", "status": "OVERDUE"}'
+                    hx-swap="none"
+                    hx-confirm="Send SMS to all overdue invoice guardians?"
+                    class="btn btn-error">
+                <i class="fa-solid fa-paper-plane"></i>
+                Notify All Overdue
+            </button>
+            <form method="dialog">
+                <button class="btn">Close</button>
+            </form>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- All Invoices Modal -->
+<dialog id="all_invoices_modal" class="modal modal-middle">
+    <div class="modal-box max-w-3xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </form>
+        <h3 class="font-bold text-lg flex items-center gap-2">
+            <i class="fa-solid fa-file-invoice-dollar text-warning"></i>
+            All Outstanding Invoices
+        </h3>
+        <p class="text-sm text-base-content/60 mt-1">{{ invoices|length }} invoices with outstanding balance</p>
+
+        <div class="overflow-x-auto mt-4 max-h-96">
+            <table class="table table-sm">
+                <thead class="sticky top-0 bg-base-100">
+                    <tr class="text-xs uppercase text-base-content/60">
+                        <th>Student</th>
+                        <th>Class</th>
+                        <th class="text-center">Balance</th>
+                        <th class="text-center">Due</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in invoices %}
+                    <tr class="hover">
+                        <td>
+                            <a href="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                               hx-get="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="font-medium hover:text-primary">
+                                {{ invoice.student.full_name }}
+                            </a>
+                        </td>
+                        <td>{{ invoice.student.current_class.name|default:"-" }}</td>
+                        <td class="text-center font-medium">GHS {{ invoice.balance|floatformat:0 }}</td>
+                        <td class="text-center text-sm">{{ invoice.due_date|date:"M d" }}</td>
+                        <td class="text-center">
+                            {% if invoice.status == 'OVERDUE' %}
+                            <span class="badge badge-error badge-xs">Overdue</span>
+                            {% else %}
+                            <span class="badge badge-warning badge-xs">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <button hx-post="{% url 'finance:send_notification' pk=invoice.pk %}"
+                                    hx-vals='{"type": "SMS", "notification_type": "BALANCE_REMINDER"}'
+                                    hx-swap="none"
+                                    class="btn btn-primary btn-xs"
+                                    {% if not invoice.guardian_phone %}disabled{% endif %}>
+                                <i class="fa-solid fa-bell"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="modal-action">
+            <button hx-post="{% url 'finance:send_bulk_notifications' %}"
+                    hx-vals='{"type": "SMS", "notification_type": "BALANCE_REMINDER"}'
+                    hx-swap="none"
+                    hx-confirm="Send SMS to all guardians with outstanding balance?"
+                    class="btn btn-warning">
+                <i class="fa-solid fa-paper-plane"></i>
+                Notify All
+            </button>
+            <form method="dialog">
+                <button class="btn">Close</button>
+            </form>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>

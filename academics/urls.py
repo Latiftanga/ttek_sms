@@ -6,7 +6,6 @@ app_name = 'academics'
 urlpatterns = [
     # Main page
     path('', views.index, name='index'),
-    path('classes/', views.classes_list, name='classes'),
 
     # Programme routes (SHS only)
     path('programmes/create/', views.programme_create, name='programme_create'),
@@ -14,6 +13,7 @@ urlpatterns = [
     path('programmes/<int:pk>/delete/', views.programme_delete, name='programme_delete'),
 
     # Class routes
+    path('classes/', views.classes_list, name='classes'),
     path('classes/create/', views.class_create, name='class_create'),
     path('classes/<int:pk>/', views.class_detail, name='class_detail'),
     path('classes/<int:pk>/edit/', views.class_edit, name='class_edit'),

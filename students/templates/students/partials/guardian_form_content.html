@@ -1,102 +1,103 @@
 {% load core_tags %}
 <div>
-    <!-- Page Header -->
-    {% if not in_modal %}
-    <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center gap-4">
-            <a href="{% url 'students:guardian_index' %}"
-               hx-get="{% url 'students:guardian_index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div>
-                <h1 class="text-xl font-bold">{% if guardian %}Edit Guardian{% else %}Add New Guardian{% endif %}</h1>
-                <p class="text-sm text-base-content/60">
-                    {% if guardian %}Update guardian information{% else %}Enter guardian details{% endif %}
-                </p>
-            </div>
-        </div>
-        <div class="flex gap-2">
-            <a href="{% url 'students:guardian_index' %}"
-               hx-get="{% url 'students:guardian_index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm">
-                Cancel
-            </a>
-            <button type="submit" form="guardian-form" class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-save"></i>
-                {% if guardian %}Save Changes{% else %}Create Guardian{% endif %}
-            </button>
-        </div>
-    </div>
-    {% else %}
-    <div class="flex items-center justify-between mb-6 pt-4">
-        <h1 class="text-xl font-bold">Add New Guardian</h1>
-        <button type="submit" form="guardian-form" class="btn btn-primary btn-sm mr-6">
-            <i class="fa-solid fa-save"></i>
-            Create Guardian
-        </button>
-    </div>
-    {% endif %}
+    <h3 class="font-bold text-lg mb-4">{% if guardian %}Edit Guardian{% else %}Add Guardian{% endif %}</h3>
 
-    <form id="guardian-form"
-          method="post"
+    <form method="post"
+          action="{% if guardian %}{% url 'students:guardian_edit' guardian.pk %}{% else %}{% url 'students:guardian_create' %}{% endif %}"
           hx-post="{% if guardian %}{% url 'students:guardian_edit' guardian.pk %}{% else %}{% url 'students:guardian_create' %}{% endif %}"
+          hx-swap="innerHTML"
           hx-target="#modal-guardian-content">
         {% csrf_token %}
 
         <div class="space-y-4">
-            <div class="card bg-base-100 shadow-sm border border-base-200">
-                <div class="card-body p-5">
-                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
-                        <i class="fa-solid fa-user-shield text-primary"></i>
-                        Guardian Information
-                    </h2>
-                    <div class="grid grid-cols-1 gap-4">
-                        {% floating_field form.full_name %}
-                    </div>
-                    <div class="grid grid-cols-1 gap-4 mt-4">
-                        {% floating_field form.occupation %}
-                    </div>
+            <!-- Name -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-medium">Full Name <span class="text-error">*</span></span>
+                </label>
+                <input type="text"
+                       name="full_name"
+                       value="{{ form.full_name.value|default:'' }}"
+                       placeholder="Guardian's full name"
+                       class="input input-bordered w-full {% if form.full_name.errors %}input-error{% endif %}"
+                       required />
+                {% if form.full_name.errors %}
+                <label class="label">
+                    <span class="label-text-alt text-error">{{ form.full_name.errors.0 }}</span>
+                </label>
+                {% endif %}
+            </div>
+
+            <!-- Phone & Email Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Phone Number <span class="text-error">*</span></span>
+                    </label>
+                    <input type="tel"
+                           name="phone_number"
+                           value="{{ form.phone_number.value|default:'' }}"
+                           placeholder="e.g., 0244123456"
+                           class="input input-bordered w-full {% if form.phone_number.errors %}input-error{% endif %}"
+                           required />
+                    {% if form.phone_number.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.phone_number.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Email</span>
+                        <span class="label-text-alt text-base-content/50">Optional</span>
+                    </label>
+                    <input type="email"
+                           name="email"
+                           value="{{ form.email.value|default:'' }}"
+                           placeholder="email@example.com"
+                           class="input input-bordered w-full" />
                 </div>
             </div>
-            <div class="card bg-base-100 shadow-sm border border-base-200">
-                <div class="card-body p-5">
-                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
-                        <i class="fa-solid fa-phone text-primary"></i>
-                        Contact Information
-                    </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {% floating_field form.phone_number %}
-                        {% floating_field form.email %}
-                    </div>
-                    <div class="mt-4">
-                        {% floating_field form.address %}
-                    </div>
-                </div>
+
+            <!-- Occupation -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-medium">Occupation</span>
+                    <span class="label-text-alt text-base-content/50">Optional</span>
+                </label>
+                <input type="text"
+                       name="occupation"
+                       value="{{ form.occupation.value|default:'' }}"
+                       placeholder="e.g., Teacher, Engineer, Trader"
+                       class="input input-bordered w-full" />
+            </div>
+
+            <!-- Address -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-medium">Address</span>
+                    <span class="label-text-alt text-base-content/50">Optional</span>
+                </label>
+                <textarea name="address"
+                          rows="2"
+                          placeholder="Home address"
+                          class="textarea textarea-bordered w-full">{{ form.address.value|default:'' }}</textarea>
             </div>
         </div>
 
-        {% if form.errors %}
-        <div class="alert alert-error py-3 mt-6">
+        {% if form.non_field_errors %}
+        <div class="alert alert-error mt-4">
             <i class="fa-solid fa-exclamation-circle"></i>
-            <div>
-                <p class="font-medium text-sm">Please fix the following errors:</p>
-                <ul class="text-xs mt-1 list-disc list-inside">
-                    {% for field in form %}
-                        {% for error in field.errors %}
-                        <li>{{ field.label }}: {{ error }}</li>
-                        {% endfor %}
-                    {% endfor %}
-                    {% for error in form.non_field_errors %}
-                    <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
+            <span>{{ form.non_field_errors.0 }}</span>
         </div>
         {% endif %}
+
+        <div class="modal-action">
+            <button type="button" class="btn btn-ghost" onclick="modal_guardian.close()">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-save"></i>
+                {% if guardian %}Save Changes{% else %}Add Guardian{% endif %}
+            </button>
+        </div>
     </form>
 </div>

@@ -19,6 +19,23 @@ NAVIGATION_CONFIG = [
         'icon': 'fa-solid fa-user-graduate',
         'url_name': 'students:index',
         'roles': ['school_admin', 'superuser'],
+        'children': [
+            {
+                'label': 'All Students',
+                'icon': 'fa-solid fa-users',
+                'url_name': 'students:index',
+            },
+            {
+                'label': 'Guardians',
+                'icon': 'fa-solid fa-user-shield',
+                'url_name': 'students:guardian_index',
+            },
+            {
+                'label': 'Houses',
+                'icon': 'fa-solid fa-flag',
+                'url_name': 'students:houses',
+            },
+        ]
     },
     {
         'label': 'Teachers',
@@ -47,6 +64,16 @@ NAVIGATION_CONFIG = [
                 'icon': 'fa-solid fa-clipboard-check',
                 'url_name': 'academics:attendance_reports',
             },
+            {
+                'label': 'Periods',
+                'icon': 'fa-solid fa-clock',
+                'url_name': 'academics:periods',
+            },
+            {
+                'label': 'Classrooms',
+                'icon': 'fa-solid fa-door-open',
+                'url_name': 'academics:classrooms',
+            },
         ]
     },
     {
@@ -55,11 +82,6 @@ NAVIGATION_CONFIG = [
         'url_name': 'finance:index',
         'roles': ['school_admin', 'superuser'],
         'children': [
-            {
-                'label': 'Fee Types',
-                'icon': 'fa-solid fa-tags',
-                'url_name': 'finance:fee_types',
-            },
             {
                 'label': 'Fee Structures',
                 'icon': 'fa-solid fa-layer-group',

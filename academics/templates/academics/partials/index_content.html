@@ -176,63 +176,97 @@
             </div>
         </div>
 
-        <!-- Quick Actions -->
+        <!-- Setup Status -->
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-4">
                 <h2 class="font-bold flex items-center gap-2 mb-3">
-                    <i class="fa-solid fa-bolt text-warning"></i>
-                    Quick Actions
+                    <i class="fa-solid fa-list-check text-info"></i>
+                    Setup Status
                 </h2>
-                <div class="space-y-1">
-                    <a href="{% url 'academics:classes' %}"
-                       hx-get="{% url 'academics:classes' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-sm justify-start gap-2 w-full">
-                        <i class="fa-solid fa-chalkboard text-primary w-5"></i>
-                        Manage Classes
-                    </a>
-                    <a href="{% url 'academics:timetable' %}"
-                       hx-get="{% url 'academics:timetable' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-sm justify-start gap-2 w-full">
-                        <i class="fa-solid fa-calendar-days text-info w-5"></i>
-                        Timetable
-                    </a>
+                <div class="space-y-2">
+                    <!-- Periods -->
                     <a href="{% url 'academics:periods' %}"
                        hx-get="{% url 'academics:periods' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="btn btn-ghost btn-sm justify-start gap-2 w-full">
-                        <i class="fa-solid fa-clock text-secondary w-5"></i>
-                        Periods
+                       class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/50 transition-colors cursor-pointer">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center {% if setup.periods > 0 %}bg-success/20 text-success{% else %}bg-warning/20 text-warning{% endif %}">
+                            <i class="fa-solid {% if setup.periods > 0 %}fa-check{% else %}fa-clock{% endif %} text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium">Periods</div>
+                            <div class="text-xs text-base-content/60">
+                                {% if setup.periods > 0 %}{{ setup.periods }} period{{ setup.periods|pluralize }} defined{% else %}Not configured{% endif %}
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
+
+                    <!-- Classrooms -->
                     <a href="{% url 'academics:classrooms' %}"
                        hx-get="{% url 'academics:classrooms' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="btn btn-ghost btn-sm justify-start gap-2 w-full">
-                        <i class="fa-solid fa-door-open text-accent w-5"></i>
-                        Classrooms
+                       class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/50 transition-colors cursor-pointer">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center {% if setup.classrooms > 0 %}bg-success/20 text-success{% else %}bg-base-200 text-base-content/40{% endif %}">
+                            <i class="fa-solid {% if setup.classrooms > 0 %}fa-check{% else %}fa-door-open{% endif %} text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium">Classrooms</div>
+                            <div class="text-xs text-base-content/60">
+                                {% if setup.classrooms > 0 %}{{ setup.classrooms }} room{{ setup.classrooms|pluralize }} available{% else %}Optional{% endif %}
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
-                    <a href="{% url 'academics:attendance_reports' %}"
-                       hx-get="{% url 'academics:attendance_reports' %}"
+
+                    <!-- Classes -->
+                    <a href="{% url 'academics:classes' %}"
+                       hx-get="{% url 'academics:classes' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="btn btn-ghost btn-sm justify-start gap-2 w-full">
-                        <i class="fa-solid fa-clipboard-check text-success w-5"></i>
-                        Attendance Reports
+                       class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/50 transition-colors cursor-pointer">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center {% if stats.total_classes > 0 %}bg-success/20 text-success{% else %}bg-warning/20 text-warning{% endif %}">
+                            <i class="fa-solid {% if stats.total_classes > 0 %}fa-check{% else %}fa-chalkboard{% endif %} text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium">Classes</div>
+                            <div class="text-xs text-base-content/60">
+                                {% if stats.total_classes > 0 %}{{ stats.total_classes }} class{{ stats.total_classes|pluralize:"es" }} created{% else %}No classes yet{% endif %}
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
-                    <a href="{% url 'students:promotion' %}"
-                       hx-get="{% url 'students:promotion' %}"
+
+                    <!-- Timetable -->
+                    <a href="{% url 'academics:timetable' %}"
+                       hx-get="{% url 'academics:timetable' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="btn btn-ghost btn-sm justify-start gap-2 w-full">
-                        <i class="fa-solid fa-arrow-up-right-dots text-warning w-5"></i>
-                        Student Promotion
+                       class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/50 transition-colors cursor-pointer">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center {% if setup.timetable_entries > 0 %}bg-success/20 text-success{% else %}bg-base-200 text-base-content/40{% endif %}">
+                            <i class="fa-solid {% if setup.timetable_entries > 0 %}fa-check{% else %}fa-calendar-days{% endif %} text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium">Timetable</div>
+                            <div class="text-xs text-base-content/60">
+                                {% if setup.timetable_entries > 0 %}{{ setup.timetable_entries }} lesson{{ setup.timetable_entries|pluralize }} scheduled{% else %}No lessons scheduled{% endif %}
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
                 </div>
+
+                <!-- Promotion Link -->
+                <div class="divider my-2"></div>
+                <a href="{% url 'students:promotion' %}"
+                   hx-get="{% url 'students:promotion' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm justify-start gap-2 w-full">
+                    <i class="fa-solid fa-arrow-up-right-dots text-warning w-5"></i>
+                    Student Promotion
+                </a>
             </div>
         </div>
     </div>

@@ -30,6 +30,7 @@ urlpatterns = [
     path('scores/<int:class_id>/<int:subject_id>/', views.score_entry_form, name='score_entry_form'),
     path('scores/save/', views.score_save, name='score_save'),
     path('scores/audit/<int:student_id>/<uuid:assignment_id>/', views.score_audit_history, name='score_audit'),
+    path('scores/<int:class_id>/<int:subject_id>/changes/', views.score_changes_list, name='score_changes'),
 
     # Bulk Import
     path('scores/<int:class_id>/<int:subject_id>/import/template/', views.score_import_template, name='import_template'),

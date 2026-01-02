@@ -1,0 +1,149 @@
+{% load core_tags %}
+<div class="space-y-4" hx-target="this" hx-swap="outerHTML">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'students:index' %}"
+               hx-get="{% url 'students:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold">Houses</h1>
+                <p class="text-sm text-base-content/60">
+                    Manage student houses
+                </p>
+            </div>
+        </div>
+        <button class="btn btn-primary btn-sm"
+                hx-get="{% url 'students:house_create' %}"
+                hx-target="#modal-house-content"
+                hx-swap="innerHTML"
+                onclick="modal_house.showModal()">
+            <i class="fa-solid fa-plus"></i>
+            Add House
+        </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="stat bg-base-100 rounded-box shadow-sm border border-base-200 p-4">
+            <div class="stat-title text-xs">Total Houses</div>
+            <div class="stat-value text-2xl text-primary">{{ total_houses }}</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box shadow-sm border border-base-200 p-4">
+            <div class="stat-title text-xs">Active Houses</div>
+            <div class="stat-value text-2xl text-success">{{ active_houses }}</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box shadow-sm border border-base-200 p-4">
+            <div class="stat-title text-xs">Total Students</div>
+            <div class="stat-value text-2xl text-info">{{ total_students }}</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box shadow-sm border border-base-200 p-4">
+            <div class="stat-title text-xs">Avg. per House</div>
+            <div class="stat-value text-2xl">{% if active_houses %}{{ avg_per_house }}{% else %}0{% endif %}</div>
+        </div>
+    </div>
+
+    <!-- Houses Grid -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            {% if houses %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for house in houses %}
+                <div class="card bg-base-200/50 border border-base-300 hover:shadow-md transition-shadow group">
+                    <div class="card-body p-4">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-3">
+                                <!-- Color indicator -->
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
+                                     style="background-color: {{ house.color_code|default:'#6b7280' }}">
+                                    {{ house.name|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold">{{ house.name }}</h3>
+                                    <p class="text-xs text-base-content/60">{{ house.color|default:"No color" }}</p>
+                                </div>
+                            </div>
+                            <!-- Status badge -->
+                            {% if house.is_active %}
+                            <span class="badge badge-success badge-xs">Active</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-xs">Inactive</span>
+                            {% endif %}
+                        </div>
+
+                        {% if house.motto %}
+                        <p class="text-sm italic text-base-content/70 mt-2">"{{ house.motto }}"</p>
+                        {% endif %}
+
+                        {% if house.description %}
+                        <p class="text-xs text-base-content/60 mt-1 line-clamp-2">{{ house.description }}</p>
+                        {% endif %}
+
+                        <div class="divider my-2"></div>
+
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-users text-sm text-base-content/50"></i>
+                                <span class="text-sm font-medium">{{ house.student_count_val }} student{{ house.student_count_val|pluralize }}</span>
+                            </div>
+                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button class="btn btn-ghost btn-xs"
+                                        hx-get="{% url 'students:house_edit' house.pk %}"
+                                        hx-target="#modal-house-content"
+                                        hx-swap="innerHTML"
+                                        onclick="modal_house.showModal()">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </button>
+                                <button class="btn btn-ghost btn-xs text-error"
+                                        hx-post="{% url 'students:house_delete' house.pk %}"
+                                        hx-confirm="Delete house '{{ house.name }}'? This cannot be undone."
+                                        hx-target="#main-content"
+                                        hx-swap="innerHTML">
+                                    <i class="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-base-content/40">
+                <i class="fa-solid fa-flag text-4xl mb-3"></i>
+                <p class="text-sm">No houses created yet</p>
+                <p class="text-xs">Create your first house to organize students</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- House Modal -->
+<dialog id="modal_house" class="modal modal-middle">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-house-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+document.body.addEventListener('houseChanged', function() {
+    htmx.ajax('GET', '{% url "students:houses" %}', {target: '#main-content', swap: 'innerHTML'});
+    modal_house.close();
+});
+</script>

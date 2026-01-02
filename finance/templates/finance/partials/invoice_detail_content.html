@@ -109,7 +109,7 @@
                         {% for item in items %}
                         <tr>
                             <td>{{ item.description }}</td>
-                            <td><span class="badge badge-sm badge-ghost">{{ item.fee_type.get_category_display }}</span></td>
+                            <td><span class="badge badge-sm badge-ghost">{{ item.get_category_display }}</span></td>
                             <td class="text-right font-medium">GHS {{ item.amount|floatformat:2 }}</td>
                         </tr>
                         {% endfor %}
@@ -212,19 +212,74 @@
             </div>
         </div>
 
-        {% if invoice.status == 'DRAFT' %}
+        {% if invoice.status != 'PAID' and invoice.status != 'CANCELLED' %}
+        <!-- Notify Guardian -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+                <h3 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-bell text-primary"></i>
+                    Notify Guardian
+                </h3>
+                <div class="space-y-2">
+                    <button hx-post="{% url 'finance:send_notification' pk=invoice.pk %}"
+                            hx-vals='{"type": "SMS", "notification_type": "{% if invoice.status == 'OVERDUE' %}OVERDUE_REMINDER{% else %}BALANCE_REMINDER{% endif %}"}'
+                            hx-swap="none"
+                            class="btn btn-outline btn-sm w-full">
+                        <i class="fa-solid fa-mobile-screen"></i>
+                        Send SMS
+                    </button>
+                    <button hx-post="{% url 'finance:send_notification' pk=invoice.pk %}"
+                            hx-vals='{"type": "EMAIL", "notification_type": "{% if invoice.status == 'OVERDUE' %}OVERDUE_REMINDER{% else %}BALANCE_REMINDER{% endif %}"}'
+                            hx-swap="none"
+                            class="btn btn-outline btn-sm w-full">
+                        <i class="fa-solid fa-envelope"></i>
+                        Send Email
+                    </button>
+                    <button hx-post="{% url 'finance:send_notification' pk=invoice.pk %}"
+                            hx-vals='{"type": "BOTH", "notification_type": "{% if invoice.status == 'OVERDUE' %}OVERDUE_REMINDER{% else %}BALANCE_REMINDER{% endif %}"}'
+                            hx-swap="none"
+                            class="btn btn-primary btn-sm w-full">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        Send Both
+                    </button>
+                </div>
+                {% if last_notification %}
+                <div class="mt-3 pt-3 border-t border-base-200">
+                    <p class="text-xs text-base-content/60">
+                        Last notified: {{ last_notification.created_at|date:"M d, Y H:i" }}
+                        {% if last_notification.is_successful %}
+                        <span class="badge badge-success badge-xs ml-1">Sent</span>
+                        {% else %}
+                        <span class="badge badge-error badge-xs ml-1">Failed</span>
+                        {% endif %}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
         <!-- Actions -->
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body">
                 <h3 class="font-bold mb-4">Actions</h3>
-                <form method="post" action="{% url 'finance:invoice_edit' pk=invoice.pk %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="issue">
-                    <button type="submit" class="btn btn-primary btn-sm w-full">
-                        <i class="fa-solid fa-paper-plane"></i>
-                        Issue Invoice
+                <div class="space-y-2">
+                    {% if invoice.status == 'DRAFT' %}
+                    <form method="post" action="{% url 'finance:invoice_edit' pk=invoice.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="issue">
+                        <button type="submit" class="btn btn-primary btn-sm w-full">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            Issue Invoice
+                        </button>
+                    </form>
+                    {% endif %}
+                    <button hx-post="{% url 'finance:invoice_cancel' pk=invoice.pk %}"
+                            hx-confirm="Cancel invoice {{ invoice.invoice_number }}? This cannot be undone."
+                            class="btn btn-outline btn-error btn-sm w-full">
+                        <i class="fa-solid fa-ban"></i>
+                        Cancel Invoice
                     </button>
-                </form>
+                </div>
             </div>
         </div>
         {% endif %}

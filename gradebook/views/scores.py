@@ -279,6 +279,39 @@ def score_audit_history(request, student_id, assignment_id):
     })
 
 
+@login_required
+@teacher_or_admin_required
+def score_changes_list(request, class_id, subject_id):
+    """View all score changes for a class/subject in current term."""
+    current_term = Term.get_current()
+    class_obj = get_object_or_404(Class, pk=class_id)
+    subject = get_object_or_404(Subject, pk=subject_id)
+
+    # Get all assignments for this subject in current term
+    assignments = Assignment.objects.filter(
+        subject=subject,
+        term=current_term
+    )
+
+    # Get all students in this class
+    students = Student.objects.filter(current_class=class_obj)
+
+    # Get all score changes for these students and assignments
+    logs = ScoreAuditLog.objects.filter(
+        student__in=students,
+        assignment__in=assignments
+    ).select_related(
+        'student', 'assignment', 'assignment__assessment_category', 'user'
+    ).order_by('-created_at')[:100]  # Limit to last 100 changes
+
+    return render(request, 'gradebook/partials/score_changes_list.html', {
+        'class_obj': class_obj,
+        'subject': subject,
+        'current_term': current_term,
+        'logs': logs,
+    })
+
+
 # ============ Assignments ============
 
 @login_required

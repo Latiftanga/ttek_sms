@@ -36,4 +36,10 @@ urlpatterns = [
     # Promotion
     path('promotion/', views.promotion, name='promotion'),
     path('promotion/process/', views.promotion_process, name='promotion_process'),
+
+    # Houses
+    path('houses/', views.house_index, name='houses'),
+    path('houses/create/', views.house_create, name='house_create'),
+    path('houses/<int:pk>/edit/', views.house_edit, name='house_edit'),
+    path('houses/<int:pk>/delete/', views.house_delete, name='house_delete'),
 ]

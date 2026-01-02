@@ -108,15 +108,15 @@ def score_import_template(request, class_id, subject_id):
     # Add metadata sheet for import validation
     meta_ws = wb.create_sheet("_metadata")
     meta_ws.cell(row=1, column=1, value="class_id")
-    meta_ws.cell(row=1, column=2, value=class_id)
+    meta_ws.cell(row=1, column=2, value=str(class_id))
     meta_ws.cell(row=2, column=1, value="subject_id")
-    meta_ws.cell(row=2, column=2, value=subject_id)
+    meta_ws.cell(row=2, column=2, value=str(subject_id))
     meta_ws.cell(row=3, column=1, value="term_id")
-    meta_ws.cell(row=3, column=2, value=current_term.id if current_term else "")
+    meta_ws.cell(row=3, column=2, value=str(current_term.id) if current_term else "")
 
     # Assignment IDs in order
     for col, assign in enumerate(assignments, 1):
-        meta_ws.cell(row=4, column=col, value=assign.id)
+        meta_ws.cell(row=4, column=col, value=str(assign.id))
 
     # Hide metadata sheet
     meta_ws.sheet_state = 'hidden'
@@ -247,14 +247,14 @@ def score_import_upload(request, class_id, subject_id):
                 for score in row['scores']:
                     if score['value'] is not None and score['value'] != '' and not score['error']:
                         import_data.append({
-                            'student_id': row['student'].id,
-                            'assignment_id': score['assignment'].id,
+                            'student_id': str(row['student'].id),
+                            'assignment_id': str(score['assignment'].id),
                             'points': str(score['value']),
                         })
 
         request.session['import_data'] = json.dumps(import_data)
-        request.session['import_class_id'] = class_id
-        request.session['import_subject_id'] = subject_id
+        request.session['import_class_id'] = str(class_id)
+        request.session['import_subject_id'] = str(subject_id)
 
         return render(request, 'gradebook/partials/import_preview.html', {
             'class_obj': class_obj,
@@ -304,8 +304,8 @@ def score_import_confirm(request, class_id, subject_id):
         })
 
     # Validate session data matches current request
-    if (request.session.get('import_class_id') != class_id or
-        request.session.get('import_subject_id') != subject_id):
+    if (request.session.get('import_class_id') != str(class_id) or
+        request.session.get('import_subject_id') != str(subject_id)):
         return render(request, 'gradebook/partials/import_error.html', {
             'error': 'Import data mismatch. Please upload the file again.'
         })

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice {{ invoice.invoice_number }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 11pt;
+            color: #333;
+            line-height: 1.4;
+        }
+        .invoice-container {
+            width: 100%;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .school-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        .school-logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+        .school-details h1 {
+            font-size: 18pt;
+            color: #333;
+            margin-bottom: 3px;
+        }
+        .school-details p {
+            font-size: 9pt;
+            color: #666;
+            margin-bottom: 2px;
+        }
+        .invoice-title {
+            text-align: right;
+        }
+        .invoice-title h2 {
+            font-size: 20pt;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .invoice-number {
+            font-size: 12pt;
+            color: #666;
+            margin-top: 5px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 8px;
+        }
+        .status-PAID { background: #d4edda; color: #155724; }
+        .status-ISSUED { background: #cce5ff; color: #004085; }
+        .status-PARTIALLY_PAID { background: #fff3cd; color: #856404; }
+        .status-OVERDUE { background: #f8d7da; color: #721c24; }
+        .status-DRAFT { background: #e2e3e5; color: #383d41; }
+        .status-CANCELLED { background: #f5f5f5; color: #999; }
+
+        .details-grid {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+        }
+        .detail-section {
+            width: 48%;
+        }
+        .detail-section h3 {
+            font-size: 9pt;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        .detail-section p {
+            margin-bottom: 3px;
+            font-size: 10pt;
+        }
+        .detail-section .name {
+            font-weight: bold;
+            font-size: 12pt;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 9pt;
+            letter-spacing: 0.5px;
+        }
+        td.amount, th.amount {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+
+        .totals {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 25px;
+        }
+        .totals-table {
+            width: 250px;
+            border-collapse: collapse;
+        }
+        .totals-table tr td {
+            padding: 6px 10px;
+            font-size: 10pt;
+        }
+        .totals-table tr td:last-child {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+        .totals-table tr.total {
+            background: #f5f5f5;
+            font-weight: bold;
+            font-size: 11pt;
+        }
+        .totals-table tr.balance {
+            background: #333;
+            color: #fff;
+            font-weight: bold;
+            font-size: 12pt;
+        }
+
+        .notes {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .notes h4 {
+            font-size: 9pt;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .notes p {
+            font-size: 10pt;
+        }
+
+        .payment-info {
+            background: #e8f4fd;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .payment-info h4 {
+            font-size: 10pt;
+            color: #1976D2;
+            margin-bottom: 5px;
+        }
+        .payment-info p {
+            font-size: 9pt;
+            color: #555;
+            margin-bottom: 3px;
+        }
+
+        .footer {
+            text-align: center;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+            color: #666;
+            font-size: 9pt;
+        }
+        .footer p {
+            margin-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="school-info">
+                {% if school_logo_base64 %}
+                <img src="data:image/png;base64,{{ school_logo_base64 }}" alt="Logo" class="school-logo">
+                {% endif %}
+                <div class="school-details">
+                    <h1>{{ school_name }}</h1>
+                    {% if school_address %}<p>{{ school_address }}</p>{% endif %}
+                    {% if school_phone or school_email %}
+                    <p>{% if school_phone %}{{ school_phone }}{% endif %}{% if school_phone and school_email %} | {% endif %}{% if school_email %}{{ school_email }}{% endif %}</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="invoice-title">
+                <h2>Invoice</h2>
+                <div class="invoice-number">#{{ invoice.invoice_number }}</div>
+                <span class="status-badge status-{{ invoice.status }}">{{ invoice.get_status_display }}</span>
+            </div>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="details-grid">
+            <div class="detail-section">
+                <h3>Bill To</h3>
+                <p class="name">{{ invoice.student.full_name }}</p>
+                <p>{{ invoice.student.admission_number }}</p>
+                <p>{{ invoice.student.current_class.name|default:"-" }}</p>
+                {% with guardian=invoice.student.get_primary_guardian %}
+                {% if guardian %}
+                <p style="margin-top: 5px;">Guardian: {{ guardian.full_name }}</p>
+                {% if guardian.phone_number %}<p>Phone: {{ guardian.phone_number }}</p>{% endif %}
+                {% endif %}
+                {% endwith %}
+            </div>
+            <div class="detail-section">
+                <h3>Invoice Details</h3>
+                <p><strong>Academic Year:</strong> {{ invoice.academic_year.name }}</p>
+                <p><strong>Term:</strong> {{ invoice.term.name }}</p>
+                <p><strong>Issue Date:</strong> {{ invoice.issue_date|date:"M d, Y" }}</p>
+                <p><strong>Due Date:</strong> {{ invoice.due_date|date:"M d, Y" }}</p>
+            </div>
+        </div>
+
+        <!-- Line Items -->
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 50%">Description</th>
+                    <th>Category</th>
+                    <th class="amount">Amount (GHS)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.description }}</td>
+                    <td>{{ item.get_category_display }}</td>
+                    <td class="amount">{{ item.amount|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" style="text-align: center; color: #999;">No items</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Totals -->
+        <div class="totals">
+            <table class="totals-table">
+                <tr>
+                    <td>Subtotal</td>
+                    <td>GHS {{ invoice.subtotal|floatformat:2 }}</td>
+                </tr>
+                {% if invoice.discount %}
+                <tr>
+                    <td>Discount</td>
+                    <td>- GHS {{ invoice.discount|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+                <tr class="total">
+                    <td>Total</td>
+                    <td>GHS {{ invoice.total_amount|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                    <td>Amount Paid</td>
+                    <td>GHS {{ invoice.amount_paid|floatformat:2 }}</td>
+                </tr>
+                <tr class="balance">
+                    <td>Balance Due</td>
+                    <td>GHS {{ invoice.balance|floatformat:2 }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Payment History -->
+        {% if payments %}
+        <div style="margin-bottom: 20px;">
+            <h3 style="font-size: 10pt; color: #666; text-transform: uppercase; margin-bottom: 10px;">Payment History</h3>
+            <table style="font-size: 9pt;">
+                <thead>
+                    <tr>
+                        <th>Receipt #</th>
+                        <th>Date</th>
+                        <th>Method</th>
+                        <th class="amount">Amount (GHS)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td>{{ payment.receipt_number }}</td>
+                        <td>{{ payment.transaction_date|date:"M d, Y" }}</td>
+                        <td>{{ payment.get_method_display }}</td>
+                        <td class="amount">{{ payment.amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Notes -->
+        {% if invoice.notes %}
+        <div class="notes">
+            <h4>Notes</h4>
+            <p>{{ invoice.notes }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Payment Instructions -->
+        <div class="payment-info">
+            <h4>Payment Information</h4>
+            <p>Please make payment at the school's accounts office or via mobile money.</p>
+            <p>Quote invoice number <strong>{{ invoice.invoice_number }}</strong> for all payments.</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Thank you for your payment</p>
+            <p>Please retain this invoice for your records</p>
+            <p style="margin-top: 8px; font-size: 8pt; color: #999;">Generated on {{ generated_at|date:"M d, Y H:i" }}</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -21,181 +21,338 @@
             Manage student fee invoices
         </p>
     </div>
-    <a href="{% url 'finance:invoice_generate' %}"
-       hx-get="{% url 'finance:invoice_generate' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="btn btn-primary btn-sm">
+    <button hx-get="{% url 'finance:invoice_generate' %}"
+            hx-target="#invoice-modal-content"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('invoice-modal').showModal()"
+            class="btn btn-primary btn-sm">
         <i class="fa-solid fa-plus"></i>
         Generate Invoices
-    </a>
+    </button>
 </div>
 
-<!-- Filters -->
-<div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
-    <div class="card-body p-4">
-        <form class="flex flex-wrap gap-4" hx-get="{% url 'finance:invoices' %}" hx-target="#main-content" hx-push-url="true">
-            <div class="form-control flex-1 min-w-[200px]">
-                <input type="text" name="search" value="{{ search }}" placeholder="Search by invoice #, student name..."
-                       class="input input-bordered input-sm w-full" />
+<!-- Invoice Modal -->
+<dialog id="invoice-modal" class="modal">
+    <div class="modal-box max-w-lg">
+        <div id="invoice-modal-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
             </div>
-            <div class="form-control">
-                <select name="status" class="select select-bordered select-sm">
-                    <option value="">All Status</option>
-                    {% for code, label in status_choices %}
-                    <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-file-invoice text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ total_count|default:0 }}</div>
+                    <div class="text-xs text-base-content/60">Invoices</div>
+                </div>
             </div>
-            <div class="form-control">
-                <select name="class" class="select select-bordered select-sm">
-                    <option value="">All Classes</option>
-                    {% for cls in classes %}
-                    <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"i" %}selected{% endif %}>{{ cls.name }}</option>
-                    {% endfor %}
-                </select>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-check-circle text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">{{ paid_count|default:0 }}</div>
+                    <div class="text-xs text-base-content/60">Paid</div>
+                </div>
             </div>
-            <button type="submit" class="btn btn-sm btn-primary">
-                <i class="fa-solid fa-search"></i>
-                Search
-            </button>
-        </form>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-warning text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-warning">{{ pending_count|default:0 }}</div>
+                    <div class="text-xs text-base-content/60">Pending</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center">
+                    <i class="fa-solid fa-exclamation-circle text-error text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-error">{{ overdue_count|default:0 }}</div>
+                    <div class="text-xs text-base-content/60">Overdue</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- Invoices Table -->
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-0">
-        <div class="overflow-x-auto">
-            <table class="table table-sm">
-                <thead>
-                    <tr class="bg-base-200/50">
-                        <th class="text-xs uppercase text-base-content/60 font-semibold">Invoice #</th>
-                        <th class="text-xs uppercase text-base-content/60 font-semibold">Student</th>
-                        <th class="text-xs uppercase text-base-content/60 font-semibold">Class</th>
-                        <th class="text-xs uppercase text-base-content/60 font-semibold">Term</th>
-                        <th class="text-xs uppercase text-base-content/60 font-semibold text-right">Total</th>
-                        <th class="text-xs uppercase text-base-content/60 font-semibold text-right">Balance</th>
-                        <th class="text-xs uppercase text-base-content/60 font-semibold">Status</th>
-                        <th class="text-xs uppercase text-base-content/60 font-semibold">Due Date</th>
-                        <th class="text-xs uppercase text-base-content/60 font-semibold"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for invoice in invoices %}
-                    <tr class="hover">
-                        <td>
-                            <a href="{% url 'finance:invoice_detail' pk=invoice.pk %}"
-                               hx-get="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column - Invoices List -->
+    <div class="lg:col-span-2 space-y-6">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-file-invoice text-primary"></i>
+                        </div>
+                        All Invoices
+                    </h2>
+                    <span class="badge badge-ghost">{{ invoices.paginator.count|default:0 }} total</span>
+                </div>
+
+                <div class="p-4">
+                    {% if invoices %}
+                    <div class="space-y-2">
+                        {% for invoice in invoices %}
+                        <div class="flex items-center gap-3 p-3 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/30 transition-all">
+                            <!-- Status Icon -->
+                            <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0
+                                {% if invoice.status == 'PAID' %}bg-success/10
+                                {% elif invoice.status == 'OVERDUE' %}bg-error/10
+                                {% elif invoice.status == 'PARTIALLY_PAID' %}bg-warning/10
+                                {% else %}bg-primary/10{% endif %}">
+                                {% if invoice.status == 'PAID' %}
+                                <i class="fa-solid fa-check-circle text-success text-xl"></i>
+                                {% elif invoice.status == 'OVERDUE' %}
+                                <i class="fa-solid fa-exclamation-circle text-error text-xl"></i>
+                                {% elif invoice.status == 'PARTIALLY_PAID' %}
+                                <i class="fa-solid fa-clock text-warning text-xl"></i>
+                                {% else %}
+                                <i class="fa-solid fa-file-invoice text-primary text-xl"></i>
+                                {% endif %}
+                            </div>
+
+                            <!-- Invoice Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-bold truncate">{{ invoice.student.full_name }}</h3>
+                                    {% if invoice.status == 'PAID' %}
+                                    <span class="badge badge-success badge-xs">Paid</span>
+                                    {% elif invoice.status == 'OVERDUE' %}
+                                    <span class="badge badge-error badge-xs">Overdue</span>
+                                    {% elif invoice.status == 'PARTIALLY_PAID' %}
+                                    <span class="badge badge-warning badge-xs">Partial</span>
+                                    {% elif invoice.status == 'ISSUED' %}
+                                    <span class="badge badge-info badge-xs">Issued</span>
+                                    {% else %}
+                                    <span class="badge badge-ghost badge-xs">{{ invoice.get_status_display }}</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-sm text-base-content/60">
+                                    <span class="font-mono">{{ invoice.invoice_number }}</span>
+                                    <span class="mx-1">•</span>
+                                    {{ invoice.term.name }}
+                                    <span class="mx-1">•</span>
+                                    Due: {{ invoice.due_date|date:"M d" }}
+                                </p>
+                            </div>
+
+                            <!-- Amount -->
+                            <div class="text-right">
+                                <div class="text-lg font-bold {% if invoice.balance > 0 %}text-warning{% else %}text-success{% endif %}">
+                                    GHS {{ invoice.balance|floatformat:2 }}
+                                </div>
+                                <div class="text-xs text-base-content/60">of {{ invoice.total_amount|floatformat:2 }}</div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex gap-1">
+                                <a href="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                   hx-get="{% url 'finance:invoice_detail' pk=invoice.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-ghost btn-sm"
+                                   title="View Details">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                                <a href="{% url 'finance:invoice_print' pk=invoice.pk %}"
+                                   target="_blank"
+                                   class="btn btn-ghost btn-sm"
+                                   title="Print Invoice">
+                                    <i class="fa-solid fa-print"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if invoices.has_other_pages %}
+                    <div class="flex justify-center mt-4 pt-4 border-t border-base-200">
+                        <div class="join">
+                            {% if invoices.has_previous %}
+                            <a href="?page={{ invoices.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
+                               hx-get="?page={{ invoices.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
                                hx-target="#main-content"
                                hx-push-url="true"
-                               class="link link-primary font-medium">
-                                {{ invoice.invoice_number }}
+                               class="join-item btn btn-sm">
+                                <i class="fa-solid fa-chevron-left"></i>
                             </a>
-                        </td>
-                        <td>
-                            <div class="font-medium">{{ invoice.student.full_name }}</div>
-                            <div class="text-xs text-base-content/60">{{ invoice.student.admission_number }}</div>
-                        </td>
-                        <td class="text-sm">{{ invoice.student.current_class.name|default:"-" }}</td>
-                        <td class="text-sm">{{ invoice.term.name }}</td>
-                        <td class="text-sm text-right font-medium">GHS {{ invoice.total_amount|floatformat:2 }}</td>
-                        <td class="text-sm text-right font-medium {% if invoice.balance > 0 %}text-warning{% else %}text-success{% endif %}">
-                            GHS {{ invoice.balance|floatformat:2 }}
-                        </td>
-                        <td>
-                            {% if invoice.status == 'DRAFT' %}
-                            <span class="badge badge-sm badge-ghost">Draft</span>
-                            {% elif invoice.status == 'ISSUED' %}
-                            <span class="badge badge-sm badge-info">Issued</span>
-                            {% elif invoice.status == 'PARTIALLY_PAID' %}
-                            <span class="badge badge-sm badge-warning">Partial</span>
-                            {% elif invoice.status == 'PAID' %}
-                            <span class="badge badge-sm badge-success">Paid</span>
-                            {% elif invoice.status == 'OVERDUE' %}
-                            <span class="badge badge-sm badge-error">Overdue</span>
-                            {% elif invoice.status == 'CANCELLED' %}
-                            <span class="badge badge-sm badge-ghost">Cancelled</span>
                             {% endif %}
-                        </td>
-                        <td class="text-sm">{{ invoice.due_date|date:"M d, Y" }}</td>
-                        <td>
-                            <div class="dropdown dropdown-end">
-                                <label tabindex="0" class="btn btn-ghost btn-xs">
-                                    <i class="fa-solid fa-ellipsis-vertical"></i>
-                                </label>
-                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-40">
-                                    <li>
-                                        <a href="{% url 'finance:invoice_detail' pk=invoice.pk %}"
-                                           hx-get="{% url 'finance:invoice_detail' pk=invoice.pk %}"
-                                           hx-target="#main-content"
-                                           hx-push-url="true">
-                                            <i class="fa-solid fa-eye"></i> View
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{% url 'finance:invoice_print' pk=invoice.pk %}" target="_blank">
-                                            <i class="fa-solid fa-print"></i> Print
-                                        </a>
-                                    </li>
-                                    {% if invoice.status != 'PAID' and invoice.status != 'CANCELLED' %}
-                                    <li>
-                                        <a href="{% url 'finance:payment_record' %}?invoice={{ invoice.pk }}"
-                                           hx-get="{% url 'finance:payment_record' %}?invoice={{ invoice.pk }}"
-                                           hx-target="#main-content"
-                                           hx-push-url="true">
-                                            <i class="fa-solid fa-plus"></i> Record Payment
-                                        </a>
-                                    </li>
-                                    {% endif %}
-                                </ul>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="9" class="text-center py-12">
-                            <div class="text-base-content/40">
-                                <i class="fa-solid fa-file-invoice text-4xl mb-3"></i>
-                                <p class="text-lg font-medium mb-1">No invoices found</p>
-                                <p class="text-sm">Generate invoices for students to get started</p>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        {% if invoices.has_other_pages %}
-        <div class="flex justify-center p-4 border-t border-base-200">
-            <div class="join">
-                {% if invoices.has_previous %}
-                <a href="?page={{ invoices.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
-                   hx-get="?page={{ invoices.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="join-item btn btn-sm">
-                    <i class="fa-solid fa-chevron-left"></i>
-                </a>
-                {% endif %}
-
-                <button class="join-item btn btn-sm btn-active">
-                    Page {{ invoices.number }} of {{ invoices.paginator.num_pages }}
-                </button>
-
-                {% if invoices.has_next %}
-                <a href="?page={{ invoices.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
-                   hx-get="?page={{ invoices.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="join-item btn btn-sm">
-                    <i class="fa-solid fa-chevron-right"></i>
-                </a>
-                {% endif %}
+                            <button class="join-item btn btn-sm btn-active">
+                                Page {{ invoices.number }} of {{ invoices.paginator.num_pages }}
+                            </button>
+                            {% if invoices.has_next %}
+                            <a href="?page={{ invoices.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
+                               hx-get="?page={{ invoices.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="join-item btn btn-sm">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-file-invoice text-base-content/30 text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Invoices Found</h3>
+                        <p class="text-sm text-base-content/50 mb-4">Generate invoices for students to get started</p>
+                        <button hx-get="{% url 'finance:invoice_generate' %}"
+                                hx-target="#invoice-modal-content"
+                                hx-swap="innerHTML"
+                                onclick="document.getElementById('invoice-modal').showModal()"
+                                class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-plus"></i>
+                            Generate First Invoice
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
-        {% endif %}
+    </div>
+
+    <!-- Right Column - Filters & Info -->
+    <div class="space-y-6">
+        <!-- Filter Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-base-content/50"></i>
+                    Filter Invoices
+                </h2>
+
+                <form method="get"
+                      hx-get="{% url 'finance:invoices' %}"
+                      hx-target="#main-content"
+                      hx-push-url="true"
+                      class="space-y-3">
+                    <input type="text" name="search" value="{{ search }}" placeholder="Search invoice # or student..."
+                           class="input input-bordered input-sm w-full" />
+
+                    <select name="status" class="select select-bordered select-sm w-full">
+                        <option value="">All Status</option>
+                        {% for code, label in status_choices %}
+                        <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <select name="class" class="select select-bordered select-sm w-full">
+                        <option value="">All Classes</option>
+                        {% for cls in classes %}
+                        <option value="{{ cls.pk }}" {% if class_filter == cls.pk|stringformat:"i" %}selected{% endif %}>{{ cls.name }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <div class="flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-1">
+                            <i class="fa-solid fa-filter"></i>
+                            Apply
+                        </button>
+                        <a href="{% url 'finance:invoices' %}"
+                           hx-get="{% url 'finance:invoices' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-sm">
+                            <i class="fa-solid fa-times"></i>
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Invoice Status Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-info-circle text-info"></i>
+                    Invoice Status
+                </h2>
+                <div class="space-y-3">
+                    <div class="p-3 bg-info/5 border border-info/20 rounded-lg">
+                        <div class="font-medium text-info text-sm mb-1">
+                            <i class="fa-solid fa-paper-plane mr-1"></i> Issued
+                        </div>
+                        <p class="text-xs text-base-content/60">Invoice sent, awaiting payment</p>
+                    </div>
+                    <div class="p-3 bg-warning/5 border border-warning/20 rounded-lg">
+                        <div class="font-medium text-warning text-sm mb-1">
+                            <i class="fa-solid fa-clock mr-1"></i> Partially Paid
+                        </div>
+                        <p class="text-xs text-base-content/60">Some payment received</p>
+                    </div>
+                    <div class="p-3 bg-success/5 border border-success/20 rounded-lg">
+                        <div class="font-medium text-success text-sm mb-1">
+                            <i class="fa-solid fa-check-circle mr-1"></i> Paid
+                        </div>
+                        <p class="text-xs text-base-content/60">Full payment received</p>
+                    </div>
+                    <div class="p-3 bg-error/5 border border-error/20 rounded-lg">
+                        <div class="font-medium text-error text-sm mb-1">
+                            <i class="fa-solid fa-exclamation-circle mr-1"></i> Overdue
+                        </div>
+                        <p class="text-xs text-base-content/60">Past due date, unpaid</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Tips -->
+        <div class="card bg-gradient-to-br from-info/5 to-info/10 border border-info/20">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-lightbulb text-info"></i>
+                    Quick Tips
+                </h3>
+                <ul class="text-xs text-base-content/70 space-y-2">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Generate invoices by class or student</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Click eye icon to view invoice details</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Print invoices for parents</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Scholarships auto-apply discounts</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>

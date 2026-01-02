@@ -15,27 +15,55 @@
         </p>
     </div>
     <div class="flex gap-2">
-        <a href="{% url 'finance:invoice_generate' %}"
-           hx-get="{% url 'finance:invoice_generate' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-primary btn-sm">
+        <button hx-get="{% url 'finance:invoice_generate' %}"
+                hx-target="#invoice-modal-content"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('invoice-modal').showModal()"
+                class="btn btn-primary btn-sm">
             <i class="fa-solid fa-file-invoice"></i>
             Generate Invoices
-        </a>
-        <a href="{% url 'finance:payment_record' %}"
-           hx-get="{% url 'finance:payment_record' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-success btn-sm">
+        </button>
+        <button hx-get="{% url 'finance:payment_record' %}"
+                hx-target="#payment-modal-content"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('payment-modal').showModal()"
+                class="btn btn-success btn-sm">
             <i class="fa-solid fa-plus"></i>
             Record Payment
-        </a>
+        </button>
     </div>
 </div>
 
+<!-- Invoice Modal -->
+<dialog id="invoice-modal" class="modal">
+    <div class="modal-box max-w-lg">
+        <div id="invoice-modal-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Payment Modal -->
+<dialog id="payment-modal" class="modal">
+    <div class="modal-box max-w-lg">
+        <div id="payment-modal-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
 <!-- Stats Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <!-- Total Invoiced -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-4">
@@ -240,14 +268,6 @@
                     Quick Actions
                 </h2>
                 <div class="space-y-2">
-                    <a href="{% url 'finance:fee_types' %}"
-                       hx-get="{% url 'finance:fee_types' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-sm w-full justify-start">
-                        <i class="fa-solid fa-tags w-5"></i>
-                        Fee Types
-                    </a>
                     <a href="{% url 'finance:fee_structures' %}"
                        hx-get="{% url 'finance:fee_structures' %}"
                        hx-target="#main-content"
@@ -271,6 +291,14 @@
                        class="btn btn-ghost btn-sm w-full justify-start">
                         <i class="fa-solid fa-file-invoice w-5"></i>
                         All Invoices
+                    </a>
+                    <a href="{% url 'finance:notification_center' %}"
+                       hx-get="{% url 'finance:notification_center' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm w-full justify-start text-warning">
+                        <i class="fa-solid fa-bell w-5"></i>
+                        Fee Notifications
                     </a>
                     <a href="{% url 'finance:payments' %}"
                        hx-get="{% url 'finance:payments' %}"

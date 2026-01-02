@@ -1,0 +1,106 @@
+<h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+    <i class="fa-solid fa-clock-rotate-left text-primary"></i>
+    Score Change History
+</h3>
+
+<div class="mb-4 p-3 bg-base-200 rounded-lg">
+    <div class="flex flex-wrap gap-4 text-sm">
+        <div>
+            <span class="font-medium">Class:</span> {{ class_obj.name }}
+        </div>
+        <div>
+            <span class="font-medium">Subject:</span> {{ subject.name }}
+        </div>
+        <div>
+            <span class="font-medium">Term:</span> {{ current_term.name|default:"No current term" }}
+        </div>
+    </div>
+</div>
+
+{% if logs %}
+<div class="overflow-x-auto max-h-96">
+    <table class="table table-sm table-pin-rows">
+        <thead>
+            <tr class="text-xs uppercase bg-base-200">
+                <th>Date/Time</th>
+                <th>Student</th>
+                <th>Assignment</th>
+                <th class="text-center">Action</th>
+                <th class="text-center">Old</th>
+                <th class="text-center">New</th>
+                <th>Changed By</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr class="hover">
+                <td class="text-xs whitespace-nowrap">
+                    {{ log.created_at|date:"M d, Y" }}<br>
+                    <span class="text-base-content/60">{{ log.created_at|time:"H:i:s" }}</span>
+                </td>
+                <td>
+                    <div class="font-medium">{{ log.student.last_name }}, {{ log.student.first_name }}</div>
+                    <div class="text-xs text-base-content/60">{{ log.student.admission_number }}</div>
+                </td>
+                <td>
+                    <div class="text-sm">{{ log.assignment.name }}</div>
+                    <div class="text-xs text-base-content/60">{{ log.assignment.assessment_category.short_name }}</div>
+                </td>
+                <td class="text-center">
+                    {% if log.action == 'CREATE' %}
+                    <span class="badge badge-success badge-sm">Created</span>
+                    {% elif log.action == 'UPDATE' %}
+                    <span class="badge badge-warning badge-sm">Updated</span>
+                    {% elif log.action == 'DELETE' %}
+                    <span class="badge badge-error badge-sm">Deleted</span>
+                    {% endif %}
+                </td>
+                <td class="text-center">
+                    {% if log.old_value is not None %}
+                    <span class="font-mono">{{ log.old_value }}</span>
+                    {% else %}
+                    <span class="text-base-content/40">-</span>
+                    {% endif %}
+                </td>
+                <td class="text-center">
+                    {% if log.new_value is not None %}
+                    <span class="font-mono font-medium">{{ log.new_value }}</span>
+                    {% else %}
+                    <span class="text-base-content/40">-</span>
+                    {% endif %}
+                </td>
+                <td class="text-sm">
+                    {% if log.user %}
+                    <div class="flex items-center gap-2">
+                        <div class="avatar placeholder">
+                            <div class="w-6 h-6 rounded-full bg-primary/10 text-primary">
+                                <span class="text-xs">{{ log.user.first_name|slice:":1" }}{{ log.user.last_name|slice:":1" }}</span>
+                            </div>
+                        </div>
+                        <span>{{ log.user.get_full_name|default:log.user.username }}</span>
+                    </div>
+                    {% else %}
+                    <span class="text-base-content/40">System</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-4 text-sm text-base-content/60 flex items-center gap-2">
+    <i class="fa-solid fa-info-circle"></i>
+    Showing last {{ logs|length }} changes
+</div>
+{% else %}
+<div class="text-center py-12 text-base-content/40">
+    <i class="fa-solid fa-clock-rotate-left text-4xl mb-3"></i>
+    <p class="text-sm">No score changes recorded yet</p>
+    <p class="text-xs mt-1">Changes will appear here when scores are entered or modified</p>
+</div>
+{% endif %}
+
+<div class="modal-action">
+    <button type="button" class="btn btn-ghost" onclick="modal_changes.close()">Close</button>
+</div>

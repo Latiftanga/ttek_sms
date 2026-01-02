@@ -43,11 +43,12 @@ def guardian_create(request):
         form = GuardianForm(request.POST)
         if form.is_valid():
             guardian = form.save()
+            messages.success(request, f'Guardian "{guardian.full_name}" created successfully.')
             if request.htmx:
-                # When creating from the modal, close the modal and update the guardian field
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = json.dumps({
-                    "guardianCreated": {
+                    "guardianChanged": True,
+                    "guardian-created": {
                         "id": guardian.id,
                         "text": f"{guardian.full_name} ({guardian.phone_number})"
                     }
@@ -57,12 +58,7 @@ def guardian_create(request):
     else:
         form = GuardianForm()
 
-    return htmx_render(
-        request,
-        'students/guardian_form.html',
-        'students/partials/guardian_form_content.html',
-        {'form': form, 'in_modal': request.htmx}
-    )
+    return render(request, 'students/partials/guardian_form_content.html', {'form': form})
 
 
 @admin_required
@@ -73,16 +69,19 @@ def guardian_edit(request, pk):
         form = GuardianForm(request.POST, instance=guardian)
         if form.is_valid():
             form.save()
+            messages.success(request, f'Guardian "{guardian.full_name}" updated successfully.')
+            if request.htmx:
+                response = HttpResponse(status=204)
+                response['HX-Trigger'] = 'guardianChanged'
+                return response
             return redirect('students:guardian_index')
     else:
         form = GuardianForm(instance=guardian)
 
-    return htmx_render(
-        request,
-        'students/guardian_form.html',
-        'students/partials/guardian_form_content.html',
-        {'form': form, 'guardian': guardian, 'in_modal': request.htmx}
-    )
+    return render(request, 'students/partials/guardian_form_content.html', {
+        'form': form,
+        'guardian': guardian
+    })
 
 
 @admin_required
@@ -93,16 +92,28 @@ def guardian_delete(request, pk):
 
     guardian = get_object_or_404(Guardian, pk=pk)
     # Check if guardian is attached to any students
-    if guardian.students.exists():
-        messages.error(request, "Cannot delete guardian with associated students.")
+    if guardian.wards.exists():
+        messages.error(request, "Cannot delete guardian with associated students. Remove them from students first.")
+        if request.htmx:
+            return htmx_render(
+                request,
+                'students/guardian_index.html',
+                'students/partials/guardian_list.html',
+                {'guardians': Guardian.objects.all()}
+            )
         return redirect('students:guardian_index')
 
+    name = guardian.full_name
     guardian.delete()
+    messages.success(request, f'Guardian "{name}" deleted.')
 
     if request.htmx:
-        response = HttpResponse(status=200)
-        response['HX-Refresh'] = 'true'
-        return response
+        return htmx_render(
+            request,
+            'students/guardian_index.html',
+            'students/partials/guardian_list.html',
+            {'guardians': Guardian.objects.all()}
+        )
     return redirect('students:guardian_index')
 
 

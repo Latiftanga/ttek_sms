@@ -41,6 +41,13 @@
                     <i class="fa-solid fa-list-check"></i>
                     Manage Assignments
                 </button>
+                <button class="btn btn-sm btn-ghost"
+                        hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
+                        hx-target="#changes-container"
+                        onclick="modal_changes.showModal()">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    View Changes
+                </button>
             </div>
         </div>
 
@@ -108,15 +115,9 @@
             </table>
         </div>
 
-        <div class="mt-4 flex justify-between items-center">
-            <div class="text-sm text-base-content/60">
-                <i class="fa-solid fa-clock-rotate-left"></i>
-                Right-click any score to view change history
-            </div>
-            <div class="text-sm text-base-content/60">
-                <i class="fa-solid fa-circle-info"></i>
-                Scores are saved automatically when you move to the next field
-            </div>
+        <div class="mt-4 text-center text-sm text-base-content/60">
+            <i class="fa-solid fa-circle-info"></i>
+            Scores are saved automatically when you move to the next field
         </div>
         {% else %}
         <div class="text-center py-8 text-base-content/40">
@@ -184,25 +185,4 @@ document.body.addEventListener('revertScore', function(e) {
     }
 });
 
-// Right-click context menu for score audit history (using event delegation)
-document.addEventListener('contextmenu', function(e) {
-    const input = e.target.closest('.score-input');
-    if (!input) return;
-
-    e.preventDefault();
-    const studentId = input.dataset.student;
-    const assignmentId = input.dataset.assignment;
-
-    // Load audit history via HTMX
-    htmx.ajax('GET', `/gradebook/scores/audit/${studentId}/${assignmentId}/`, {
-        target: '#audit-container',
-        swap: 'innerHTML'
-    });
-
-    // Show the modal
-    const modal = document.getElementById('modal_audit');
-    if (modal) {
-        modal.showModal();
-    }
-});
 </script>

@@ -4,6 +4,55 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
 
+class House(models.Model):
+    """
+    Represents a school house for grouping students.
+    Used for inter-house competitions, organizing students, etc.
+    """
+    name = models.CharField(
+        _("house name"),
+        max_length=50,
+        unique=True,
+        help_text="e.g., Blue House, Nkrumah House"
+    )
+    color = models.CharField(
+        _("color name"),
+        max_length=30,
+        blank=True,
+        help_text="e.g., Blue, Red, Green"
+    )
+    color_code = models.CharField(
+        _("color code"),
+        max_length=7,
+        blank=True,
+        help_text="Hex color code e.g., #3B82F6"
+    )
+    motto = models.CharField(
+        _("motto"),
+        max_length=255,
+        blank=True
+    )
+    description = models.TextField(_("description"), blank=True)
+    is_active = models.BooleanField(_("active"), default=True)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("House")
+        verbose_name_plural = _("Houses")
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def student_count(self):
+        """Return count of active students in this house."""
+        return self.students.filter(status='active').count()
+
+
 class Guardian(models.Model):
     """
     Represents a guardian or parent of a student.
@@ -160,6 +209,16 @@ class Student(models.Model):
         blank=True
     )
 
+    # House
+    house = models.ForeignKey(
+        House,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='students',
+        help_text="School house the student belongs to"
+    )
+
     # Status
     status = models.CharField(
         max_length=20,
@@ -263,6 +322,44 @@ class Student(models.Model):
     def remove_guardian(self, guardian):
         """Remove a guardian from this student."""
         return self.student_guardians.filter(guardian=guardian).delete()
+
+    def save(self, *args, **kwargs):
+        """Override save to resize photo if uploaded."""
+        from io import BytesIO
+        from django.core.files.base import ContentFile
+        from PIL import Image
+
+        PHOTO_MAX_SIZE = (150, 150)
+
+        # Resize photo if it's a new upload
+        if self.photo and hasattr(self.photo, 'file'):
+            try:
+                img = Image.open(self.photo)
+
+                # Convert to RGB if necessary (for PNG with transparency)
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+
+                # Resize using thumbnail to maintain aspect ratio
+                img.thumbnail(PHOTO_MAX_SIZE, Image.Resampling.LANCZOS)
+
+                # Save to buffer as WebP (better compression)
+                buffer = BytesIO()
+                img.save(buffer, format='WEBP', quality=80, optimize=True)
+                buffer.seek(0)
+
+                # Generate filename with .webp extension
+                filename = self.photo.name.rsplit('.', 1)[0] + '.webp'
+                if '/' in filename:
+                    filename = filename.rsplit('/', 1)[-1]
+
+                # Replace the photo with resized version
+                self.photo.save(filename, ContentFile(buffer.read()), save=False)
+            except Exception:
+                # If image processing fails, continue with original
+                pass
+
+        super().save(*args, **kwargs)
 
 
 class Enrollment(models.Model):
