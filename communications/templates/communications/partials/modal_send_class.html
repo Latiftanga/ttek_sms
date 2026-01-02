@@ -48,12 +48,9 @@
     {% csrf_token %}
 
     <div class="space-y-4">
-        <div class="form-control">
-            <label class="label">
-                <span class="label-text">Select Class <span class="text-error">*</span></span>
-            </label>
+        <label class="select select-bordered w-full">
+            <span class="label">Select Class <span class="text-error">*</span></span>
             <select name="class_id"
-                    class="select select-bordered w-full"
                     required
                     hx-get="{% url 'communications:class_recipients' %}"
                     hx-target="#recipient-info"
@@ -67,7 +64,7 @@
                 </option>
                 {% endfor %}
             </select>
-        </div>
+        </label>
 
         <!-- Recipient info (loaded dynamically) -->
         <div id="recipient-info">
@@ -78,40 +75,35 @@
         </div>
 
         {% if templates %}
-        <div class="form-control">
-            <label class="label">
-                <span class="label-text">Quick Template</span>
-            </label>
-            <select class="select select-bordered w-full"
-                    onchange="if(this.value) { document.getElementById('class-message-input').value = this.value; updateClassCharCount(document.getElementById('class-message-input')); }">
+        <label class="select select-bordered w-full">
+            <span class="label">Quick Template</span>
+            <select onchange="if(this.value) { document.getElementById('class-message-input').value = this.value; updateClassCharCount(document.getElementById('class-message-input')); }">
                 <option value="">-- Select a template --</option>
                 {% for template in templates %}
                 <option value="{{ template.content }}">{{ template.name }}</option>
                 {% endfor %}
             </select>
-        </div>
+        </label>
         {% endif %}
 
-        <div class="form-control">
-            <label class="label">
-                <span class="label-text">Message <span class="text-error">*</span></span>
+        <div>
+            <label class="floating-label w-full">
+                <span>Message <span class="text-error">*</span></span>
+                <textarea id="class-message-input"
+                          name="message"
+                          class="textarea textarea-bordered w-full h-28"
+                          placeholder="Type your message here..."
+                          required
+                          oninput="updateClassCharCount(this)">{{ message|default:'' }}</textarea>
             </label>
-            <textarea id="class-message-input"
-                      name="message"
-                      class="textarea textarea-bordered h-28"
-                      placeholder="Type your message here..."
-                      required
-                      oninput="updateClassCharCount(this)">{{ message|default:'' }}</textarea>
-            <label class="label">
-                <span class="label-text-alt">
+            <div class="flex justify-between text-xs text-base-content/60 mt-1 ml-1">
+                <span>
                     <span id="class-char-count" class="font-mono">0</span>/160 chars
                     <span class="mx-1">•</span>
                     <span id="class-sms-count" class="font-bold">1</span> SMS
                 </span>
-                <span class="label-text-alt">
-                    <span id="class-char-warning" class="text-warning hidden">Long message - may cost more</span>
-                </span>
-            </label>
+                <span id="class-char-warning" class="text-warning hidden">Long message - may cost more</span>
+            </div>
         </div>
 
         <div class="bg-base-200 rounded-lg p-3">

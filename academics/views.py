@@ -169,6 +169,7 @@ def index(request):
 
     # Recent attendance stats (last 7 days)
     from datetime import timedelta
+    from .models import Classroom
     today = timezone.now().date()
     week_ago = today - timedelta(days=7)
     recent_attendance = AttendanceRecord.objects.filter(
@@ -177,6 +178,11 @@ def index(request):
     total_records = recent_attendance.count()
     present_count = recent_attendance.filter(status__in=['P', 'L']).count()
     attendance_rate = round((present_count / total_records) * 100, 1) if total_records > 0 else 0
+
+    # Setup status for checklist
+    periods_count = Period.objects.filter(is_active=True).count()
+    classrooms_count = Classroom.objects.filter(is_active=True).count()
+    timetable_entries_count = TimetableEntry.objects.count()
 
     context = {
         'current_term': current_term,
@@ -190,6 +196,11 @@ def index(request):
             'total_students': total_students,
             'total_capacity': total_capacity,
             'attendance_rate': attendance_rate,
+        },
+        'setup': {
+            'periods': periods_count,
+            'classrooms': classrooms_count,
+            'timetable_entries': timetable_entries_count,
         },
         'programme_form': ProgrammeForm(),
         'subject_form': SubjectForm(),
@@ -2018,9 +2029,24 @@ def class_timetable(request, class_id):
         class_assigned=class_obj
     ).select_related('subject', 'teacher')
 
+    # Calculate scheduled periods per subject from timetable entries
+    scheduled_periods = {}
+    for entry in entries:
+        subject_id = entry.class_subject.subject_id
+        # Double periods count as 2
+        periods = 2 if entry.is_double else 1
+        scheduled_periods[subject_id] = scheduled_periods.get(subject_id, 0) + periods
+
+    # Add scheduled count to class_subjects
+    class_subjects_with_scheduled = []
+    for cs in class_subjects:
+        cs.scheduled_periods = scheduled_periods.get(cs.subject_id, 0)
+        class_subjects_with_scheduled.append(cs)
+
     # Calculate stats for the timetable page
     timetable_entries_count = entries.count()
     teachers_count = class_subjects.exclude(teacher__isnull=True).values('teacher').distinct().count()
+    teaching_periods_count = sum(1 for p in periods_list if not p.is_break)
 
     # Get school settings and current term for print header
     school = SchoolSettings.load()
@@ -2032,9 +2058,10 @@ def class_timetable(request, class_id):
         'weekdays': weekdays,
         'timetable_grid': timetable_grid,
         'double_period_slots': double_period_slots,
-        'class_subjects': class_subjects,
+        'class_subjects': class_subjects_with_scheduled,
         'timetable_entries_count': timetable_entries_count,
         'teachers_count': teachers_count,
+        'teaching_periods_count': teaching_periods_count,
         'active_tab': 'timetable',
         'school': school,
         'current_term': current_term,

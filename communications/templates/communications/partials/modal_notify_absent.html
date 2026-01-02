@@ -52,15 +52,15 @@
             <span><strong>{{ absent_students|length }}</strong> student{{ absent_students|length|pluralize }} marked absent today</span>
         </div>
 
-        <div class="form-control">
-            <label class="label">
-                <span class="label-text">Select Students to Notify</span>
-                <span class="label-text-alt">
-                    <button type="button" class="link link-primary text-xs" onclick="toggleAllAbsent(true)">Select All</button>
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium">Select Students to Notify</span>
+                <span class="text-xs">
+                    <button type="button" class="link link-primary" onclick="toggleAllAbsent(true)">Select All</button>
                     /
-                    <button type="button" class="link text-xs" onclick="toggleAllAbsent(false)">Clear</button>
+                    <button type="button" class="link" onclick="toggleAllAbsent(false)">Clear</button>
                 </span>
-            </label>
+            </div>
             <div class="bg-base-200 rounded-lg p-2 max-h-40 overflow-y-auto space-y-1">
                 {% for item in absent_students %}
                 <label class="flex items-center gap-3 cursor-pointer hover:bg-base-300 p-2 rounded">
@@ -77,32 +77,29 @@
                 </label>
                 {% endfor %}
             </div>
-            <label class="label">
-                <span class="label-text-alt text-base-content/50">
-                    <span id="selected-count">{{ absent_students|length }}</span> selected
-                </span>
-            </label>
+            <p class="text-xs text-base-content/60 mt-1 ml-1">
+                <span id="selected-count">{{ absent_students|length }}</span> selected
+            </p>
         </div>
 
-        <div class="form-control">
-            <label class="label">
-                <span class="label-text">Message <span class="text-error">*</span></span>
+        <div>
+            <label class="floating-label w-full">
+                <span>Message <span class="text-error">*</span></span>
+                <textarea id="absent-message-input"
+                          name="message"
+                          class="textarea textarea-bordered w-full h-24"
+                          placeholder="Type your message here..."
+                          required
+                          oninput="updateAbsentCharCount(this)">{{ default_message }}</textarea>
             </label>
-            <textarea id="absent-message-input"
-                      name="message"
-                      class="textarea textarea-bordered h-24"
-                      required
-                      oninput="updateAbsentCharCount(this)">{{ default_message }}</textarea>
-            <label class="label">
-                <span class="label-text-alt">
+            <div class="flex justify-between text-xs text-base-content/60 mt-1 ml-1">
+                <span>
                     <span id="absent-char-count" class="font-mono">{{ default_message|length }}</span>/160 chars
                     <span class="mx-1">•</span>
                     <span id="absent-sms-count" class="font-bold">1</span> SMS
                 </span>
-                <span class="label-text-alt">
-                    <span id="absent-char-warning" class="text-warning {% if default_message|length <= 160 %}hidden{% endif %}">Long message</span>
-                </span>
-            </label>
+                <span id="absent-char-warning" class="text-warning {% if default_message|length <= 160 %}hidden{% endif %}">Long message</span>
+            </div>
         </div>
 
         <div class="bg-base-200 rounded-lg p-3">

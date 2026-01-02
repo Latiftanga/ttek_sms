@@ -1,56 +1,11 @@
 from django import forms
 from .models import (
-    FeeType, FeeStructure, Scholarship, StudentScholarship,
+    FeeStructure, CATEGORY_CHOICES, Scholarship, StudentScholarship,
     Invoice, Payment, PaymentGatewayConfig
 )
 from students.models import Student
 from academics.models import Class
 from core.models import AcademicYear, Term
-
-
-class FeeTypeForm(forms.ModelForm):
-    """Form for creating/editing fee types."""
-
-    class Meta:
-        model = FeeType
-        fields = [
-            'name', 'code', 'category', 'description',
-            'is_recurring', 'is_mandatory', 'is_active',
-            'applies_to_boarding', 'applies_to_day'
-        ]
-        widgets = {
-            'name': forms.TextInput(attrs={
-                'class': 'input input-bordered w-full',
-                'placeholder': 'e.g., Tuition Fee'
-            }),
-            'code': forms.TextInput(attrs={
-                'class': 'input input-bordered w-full',
-                'placeholder': 'e.g., TUI001'
-            }),
-            'category': forms.Select(attrs={
-                'class': 'select select-bordered w-full'
-            }),
-            'description': forms.Textarea(attrs={
-                'class': 'textarea textarea-bordered w-full',
-                'rows': 3,
-                'placeholder': 'Description of this fee type'
-            }),
-            'is_recurring': forms.CheckboxInput(attrs={
-                'class': 'checkbox checkbox-primary'
-            }),
-            'is_mandatory': forms.CheckboxInput(attrs={
-                'class': 'checkbox checkbox-primary'
-            }),
-            'is_active': forms.CheckboxInput(attrs={
-                'class': 'checkbox checkbox-primary'
-            }),
-            'applies_to_boarding': forms.CheckboxInput(attrs={
-                'class': 'checkbox checkbox-primary'
-            }),
-            'applies_to_day': forms.CheckboxInput(attrs={
-                'class': 'checkbox checkbox-primary'
-            }),
-        }
 
 
 class FeeStructureForm(forms.ModelForm):
@@ -59,40 +14,43 @@ class FeeStructureForm(forms.ModelForm):
     class Meta:
         model = FeeStructure
         fields = [
-            'fee_type', 'class_assigned', 'level_type', 'programme',
-            'academic_year', 'term', 'amount', 'due_date', 'is_active'
+            'category', 'is_mandatory', 'applies_to_boarding', 'applies_to_day',
+            'class_assigned', 'academic_year', 'term', 'amount', 'due_date', 'is_active'
         ]
         widgets = {
-            'fee_type': forms.Select(attrs={
-                'class': 'select select-bordered w-full'
+            'category': forms.Select(attrs={
+                'class': 'select select-bordered select-sm w-full'
+            }),
+            'is_mandatory': forms.CheckboxInput(attrs={
+                'class': 'checkbox checkbox-primary checkbox-sm'
+            }),
+            'applies_to_boarding': forms.CheckboxInput(attrs={
+                'class': 'checkbox checkbox-primary checkbox-sm'
+            }),
+            'applies_to_day': forms.CheckboxInput(attrs={
+                'class': 'checkbox checkbox-primary checkbox-sm'
             }),
             'class_assigned': forms.Select(attrs={
-                'class': 'select select-bordered w-full'
-            }),
-            'level_type': forms.Select(attrs={
-                'class': 'select select-bordered w-full'
-            }),
-            'programme': forms.Select(attrs={
-                'class': 'select select-bordered w-full'
+                'class': 'select select-bordered select-sm w-full'
             }),
             'academic_year': forms.Select(attrs={
-                'class': 'select select-bordered w-full'
+                'class': 'select select-bordered select-sm w-full'
             }),
             'term': forms.Select(attrs={
-                'class': 'select select-bordered w-full'
+                'class': 'select select-bordered select-sm w-full'
             }),
             'amount': forms.NumberInput(attrs={
-                'class': 'input input-bordered w-full',
+                'class': 'input input-bordered input-sm w-full',
                 'placeholder': '0.00',
                 'step': '0.01',
                 'min': '0'
             }),
             'due_date': forms.DateInput(attrs={
-                'class': 'input input-bordered w-full',
+                'class': 'input input-bordered input-sm w-full',
                 'type': 'date'
             }),
             'is_active': forms.CheckboxInput(attrs={
-                'class': 'checkbox checkbox-primary'
+                'class': 'checkbox checkbox-primary checkbox-sm'
             }),
         }
 
@@ -100,18 +58,27 @@ class FeeStructureForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['class_assigned'].queryset = Class.objects.filter(is_active=True)
         self.fields['class_assigned'].required = False
-        self.fields['programme'].required = False
         self.fields['term'].required = False
 
 
 class ScholarshipForm(forms.ModelForm):
     """Form for creating/editing scholarships."""
 
+    # Multi-select for categories
+    applies_to_categories = forms.MultipleChoiceField(
+        choices=CATEGORY_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'checkbox checkbox-primary'
+        }),
+        help_text="Select fee categories this scholarship applies to. Leave empty for all fees."
+    )
+
     class Meta:
         model = Scholarship
         fields = [
             'name', 'description', 'discount_type', 'discount_value',
-            'applies_to_fee_types', 'is_active'
+            'is_active'
         ]
         widgets = {
             'name': forms.TextInput(attrs={
@@ -131,13 +98,24 @@ class ScholarshipForm(forms.ModelForm):
                 'step': '0.01',
                 'min': '0'
             }),
-            'applies_to_fee_types': forms.CheckboxSelectMultiple(attrs={
-                'class': 'checkbox checkbox-primary'
-            }),
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'checkbox checkbox-primary'
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            # Pre-populate the categories from JSONField
+            self.initial['applies_to_categories'] = self.instance.applies_to_categories or []
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Save the selected categories to the JSONField
+        instance.applies_to_categories = self.cleaned_data.get('applies_to_categories', [])
+        if commit:
+            instance.save()
+        return instance
 
 
 class StudentScholarshipForm(forms.ModelForm):
@@ -256,9 +234,9 @@ class PaymentForm(forms.ModelForm):
                 'class': 'input input-bordered w-full',
                 'placeholder': 'Transaction reference number'
             }),
-            'transaction_date': forms.DateTimeInput(attrs={
+            'transaction_date': forms.DateInput(attrs={
                 'class': 'input input-bordered w-full',
-                'type': 'datetime-local'
+                'type': 'date'
             }),
             'notes': forms.Textarea(attrs={
                 'class': 'textarea textarea-bordered w-full',

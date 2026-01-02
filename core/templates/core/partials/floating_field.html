@@ -10,7 +10,7 @@
     <span class="label">{{ label }}</span>
     <input type="{{ input_type }}"
            name="{{ field.html_name }}"
-           value="{% if field.value %}{{ field.value|date:'Y-m-d' }}{% endif %}"
+           value="{% if field.value %}{% if input_type == 'datetime-local' %}{{ field.value|date:'Y-m-d\TH:i' }}{% elif input_type == 'time' %}{{ field.value|date:'H:i' }}{% else %}{{ field.value|date:'Y-m-d' }}{% endif %}{% endif %}"
            {% if field.field.required %}required{% endif %} />
 </label>
 {% elif is_select %}

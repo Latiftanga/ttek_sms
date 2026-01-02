@@ -21,126 +21,243 @@
             Manage scholarships and fee discounts for students
         </p>
     </div>
-    <a href="{% url 'finance:scholarship_create' %}"
-       hx-get="{% url 'finance:scholarship_create' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="btn btn-primary btn-sm">
+    <button hx-get="{% url 'finance:scholarship_create' %}"
+            hx-target="#scholarship-modal-content"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('scholarship-modal').showModal()"
+            class="btn btn-primary btn-sm">
         <i class="fa-solid fa-plus"></i>
         Add Scholarship
-    </a>
+    </button>
 </div>
 
-<!-- Scholarships Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% for scholarship in scholarships %}
-    <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+<!-- Scholarship Modal -->
+<dialog id="scholarship-modal" class="modal">
+    <div class="modal-box max-w-lg">
+        <div id="scholarship-modal-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-4">
-            <div class="flex items-start justify-between mb-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-                        <i class="fa-solid fa-award text-warning text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold">{{ scholarship.name }}</h3>
-                        <div class="text-sm text-base-content/60">
-                            {% if scholarship.discount_type == 'PERCENTAGE' %}
-                            {{ scholarship.discount_value }}% Discount
-                            {% elif scholarship.discount_type == 'FULL' %}
-                            Full Scholarship (100%)
-                            {% else %}
-                            GHS {{ scholarship.discount_value|floatformat:2 }} Fixed
-                            {% endif %}
-                        </div>
-                    </div>
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-award text-primary text-xl"></i>
                 </div>
-                {% if scholarship.is_active %}
-                <span class="badge badge-success badge-sm">Active</span>
-                {% else %}
-                <span class="badge badge-ghost badge-sm">Inactive</span>
-                {% endif %}
-            </div>
-
-            {% if scholarship.description %}
-            <p class="text-sm text-base-content/70 mb-3">{{ scholarship.description|truncatewords:20 }}</p>
-            {% endif %}
-
-            <div class="flex items-center justify-between pt-3 border-t border-base-200">
-                <div class="flex items-center gap-1 text-sm text-base-content/60">
-                    <i class="fa-solid fa-users"></i>
-                    <span>{{ scholarship.recipient_count }} recipient{{ scholarship.recipient_count|pluralize }}</span>
-                </div>
-                <div class="flex gap-1">
-                    <a href="{% url 'finance:scholarship_assign' pk=scholarship.pk %}"
-                       hx-get="{% url 'finance:scholarship_assign' pk=scholarship.pk %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-xs"
-                       title="Assign to Students">
-                        <i class="fa-solid fa-user-plus"></i>
-                    </a>
-                    <a href="{% url 'finance:scholarship_edit' pk=scholarship.pk %}"
-                       hx-get="{% url 'finance:scholarship_edit' pk=scholarship.pk %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-xs"
-                       title="Edit">
-                        <i class="fa-solid fa-edit"></i>
-                    </a>
-                    <a href="{% url 'finance:scholarship_delete' pk=scholarship.pk %}"
-                       hx-get="{% url 'finance:scholarship_delete' pk=scholarship.pk %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-xs text-error"
-                       title="Delete">
-                        <i class="fa-solid fa-trash"></i>
-                    </a>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ scholarships|length }}</div>
+                    <div class="text-xs text-base-content/60">Scholarships</div>
                 </div>
             </div>
         </div>
     </div>
-    {% empty %}
-    <div class="col-span-full">
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body text-center py-12">
-                <div class="text-base-content/40">
-                    <i class="fa-solid fa-graduation-cap text-4xl mb-3"></i>
-                    <p class="text-lg font-medium mb-1">No scholarships defined</p>
-                    <p class="text-sm mb-4">Create scholarships to offer fee discounts to students</p>
-                    <a href="{% url 'finance:scholarship_create' %}"
-                       hx-get="{% url 'finance:scholarship_create' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-primary btn-sm">
-                        <i class="fa-solid fa-plus"></i>
-                        Add First Scholarship
-                    </a>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-user-check text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">{{ total_recipients|default:0 }}</div>
+                    <div class="text-xs text-base-content/60">Recipients</div>
                 </div>
             </div>
         </div>
     </div>
-    {% endfor %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                    <i class="fa-solid fa-percent text-warning text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-warning">{{ percentage_count|default:0 }}</div>
+                    <div class="text-xs text-base-content/60">Percentage</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-gift text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-info">{{ full_count|default:0 }}</div>
+                    <div class="text-xs text-base-content/60">Full Scholarships</div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- Scholarship Types Info -->
-<div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
-    <div class="card-body p-4">
-        <h3 class="font-bold flex items-center gap-2 mb-3">
-            <i class="fa-solid fa-info-circle text-info"></i>
-            Scholarship Types
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div class="p-3 bg-base-200/50 rounded-lg">
-                <div class="font-medium text-primary mb-1">Percentage Discount</div>
-                <p class="text-base-content/70">Reduces fees by a percentage (e.g., 25%, 50%)</p>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column - Scholarships List -->
+    <div class="lg:col-span-2 space-y-6">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                            <i class="fa-solid fa-award text-warning"></i>
+                        </div>
+                        All Scholarships
+                    </h2>
+                    <span class="badge badge-ghost">{{ scholarships|length }} total</span>
+                </div>
+
+                <div class="p-4">
+                    {% if scholarships %}
+                    <div class="space-y-2">
+                        {% for scholarship in scholarships %}
+                        <div class="flex items-center gap-3 p-3 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/30 transition-all">
+                            <!-- Scholarship Icon -->
+                            <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center flex-shrink-0">
+                                <i class="fa-solid fa-award text-warning text-xl"></i>
+                            </div>
+
+                            <!-- Scholarship Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-bold truncate">{{ scholarship.name }}</h3>
+                                    {% if scholarship.is_active %}
+                                    <span class="badge badge-success badge-xs">Active</span>
+                                    {% else %}
+                                    <span class="badge badge-ghost badge-xs">Inactive</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-sm text-base-content/60">
+                                    {% if scholarship.discount_type == 'PERCENTAGE' %}
+                                    <span class="font-medium text-warning">{{ scholarship.discount_value }}%</span> discount
+                                    {% elif scholarship.discount_type == 'FULL' %}
+                                    <span class="font-medium text-success">Full</span> scholarship
+                                    {% else %}
+                                    <span class="font-medium text-primary">GHS {{ scholarship.discount_value|floatformat:2 }}</span> fixed
+                                    {% endif %}
+                                    <span class="mx-1">•</span>
+                                    <i class="fa-solid fa-users text-xs"></i> {{ scholarship.recipient_count }} recipient{{ scholarship.recipient_count|pluralize }}
+                                </p>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex gap-1">
+                                <a href="{% url 'finance:scholarship_assign' pk=scholarship.pk %}"
+                                   hx-get="{% url 'finance:scholarship_assign' pk=scholarship.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-ghost btn-sm"
+                                   title="Assign to Students">
+                                    <i class="fa-solid fa-user-plus"></i>
+                                </a>
+                                <button hx-get="{% url 'finance:scholarship_edit' pk=scholarship.pk %}"
+                                        hx-target="#scholarship-modal-content"
+                                        hx-swap="innerHTML"
+                                        onclick="document.getElementById('scholarship-modal').showModal()"
+                                        class="btn btn-ghost btn-sm"
+                                        title="Edit">
+                                    <i class="fa-solid fa-edit"></i>
+                                </button>
+                                <button hx-post="{% url 'finance:scholarship_delete' pk=scholarship.pk %}"
+                                        hx-target="#main-content"
+                                        hx-swap="innerHTML"
+                                        hx-confirm="Delete scholarship '{{ scholarship.name }}'? This cannot be undone."
+                                        class="btn btn-ghost btn-sm text-error"
+                                        title="Delete">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-graduation-cap text-base-content/30 text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Scholarships Found</h3>
+                        <p class="text-sm text-base-content/50 mb-4">Create scholarships to offer fee discounts to students</p>
+                        <button hx-get="{% url 'finance:scholarship_create' %}"
+                                hx-target="#scholarship-modal-content"
+                                hx-swap="innerHTML"
+                                onclick="document.getElementById('scholarship-modal').showModal()"
+                                class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-plus"></i>
+                            Add First Scholarship
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
-            <div class="p-3 bg-base-200/50 rounded-lg">
-                <div class="font-medium text-success mb-1">Full Scholarship</div>
-                <p class="text-base-content/70">100% fee waiver for selected fee types</p>
+        </div>
+    </div>
+
+    <!-- Right Column - Info -->
+    <div class="space-y-6">
+        <!-- Scholarship Types Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-info-circle text-info"></i>
+                    Discount Types
+                </h2>
+                <div class="space-y-3">
+                    <div class="p-3 bg-warning/5 border border-warning/20 rounded-lg">
+                        <div class="font-medium text-warning text-sm mb-1">
+                            <i class="fa-solid fa-percent mr-1"></i> Percentage
+                        </div>
+                        <p class="text-xs text-base-content/60">Reduces fees by a percentage (e.g., 25%, 50%)</p>
+                    </div>
+                    <div class="p-3 bg-success/5 border border-success/20 rounded-lg">
+                        <div class="font-medium text-success text-sm mb-1">
+                            <i class="fa-solid fa-gift mr-1"></i> Full Scholarship
+                        </div>
+                        <p class="text-xs text-base-content/60">100% fee waiver for all applicable fees</p>
+                    </div>
+                    <div class="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                        <div class="font-medium text-primary text-sm mb-1">
+                            <i class="fa-solid fa-money-bill mr-1"></i> Fixed Amount
+                        </div>
+                        <p class="text-xs text-base-content/60">Reduces fees by a fixed GHS amount</p>
+                    </div>
+                </div>
             </div>
-            <div class="p-3 bg-base-200/50 rounded-lg">
-                <div class="font-medium text-warning mb-1">Fixed Amount</div>
-                <p class="text-base-content/70">Reduces fees by a fixed GHS amount</p>
+        </div>
+
+        <!-- Quick Tips -->
+        <div class="card bg-gradient-to-br from-info/5 to-info/10 border border-info/20">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-lightbulb text-info"></i>
+                    Quick Tips
+                </h3>
+                <ul class="text-xs text-base-content/70 space-y-2">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Click the user+ icon to assign students</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Scholarships apply automatically on invoices</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Set start/end dates when assigning</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Inactive scholarships won't apply to new invoices</span>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>

@@ -35,6 +35,14 @@ from .promotion import (
     promotion_process,
 )
 
+# House views
+from .houses import (
+    house_index,
+    house_create,
+    house_edit,
+    house_delete,
+)
+
 __all__ = [
     # Students
     'index',
@@ -61,4 +69,9 @@ __all__ = [
     # Promotion
     'promotion',
     'promotion_process',
+    # Houses
+    'house_index',
+    'house_create',
+    'house_edit',
+    'house_delete',
 ]

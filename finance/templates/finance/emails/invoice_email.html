@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <!-- Header -->
+    {% if notification_type == 'OVERDUE_REMINDER' %}
+    <div style="background: #dc3545; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">Overdue Fee Notice</h1>
+        <p style="margin: 5px 0 0; opacity: 0.9;">Invoice #{{ invoice_number }}</p>
+    </div>
+    {% elif notification_type == 'PAYMENT_RECEIVED' %}
+    <div style="background: #28a745; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">Payment Confirmation</h1>
+        <p style="margin: 5px 0 0; opacity: 0.9;">Thank you for your payment</p>
+    </div>
+    {% else %}
+    <div style="background: #1a365d; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">Fee Invoice</h1>
+        <p style="margin: 5px 0 0; opacity: 0.9;">{{ term }} - {{ academic_year }}</p>
+    </div>
+    {% endif %}
+
+    <div style="background: #f8f9fa; padding: 20px; border: 1px solid #ddd; border-top: none;">
+        <p>Dear {{ guardian_name }},</p>
+
+        {% if notification_type == 'INVOICE_ISSUED' %}
+        <p>Please find attached the fee invoice for your ward:</p>
+        {% elif notification_type == 'PAYMENT_RECEIVED' %}
+        <p>We have received your payment. Please find the updated invoice attached:</p>
+        {% elif notification_type == 'OVERDUE_REMINDER' %}
+        <p style="color: #dc3545; font-weight: bold;">This is a reminder that the following fees are overdue:</p>
+        {% else %}
+        <p>This is a reminder about outstanding fees for your ward:</p>
+        {% endif %}
+
+        <!-- Student Info -->
+        <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 0; color: #666; width: 40%;">Student Name:</td>
+                    <td style="padding: 8px 0; font-weight: bold;">{{ student_name }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #666;">Class:</td>
+                    <td style="padding: 8px 0; font-weight: bold;">{{ class_name }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #666;">Invoice Number:</td>
+                    <td style="padding: 8px 0; font-weight: bold;">{{ invoice_number }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #666;">Term:</td>
+                    <td style="padding: 8px 0;">{{ term }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Amount Summary -->
+        <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <h3 style="margin: 0 0 15px 0; color: #333; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 10px;">Amount Summary</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 0; color: #666;">Total Amount:</td>
+                    <td style="padding: 8px 0; text-align: right; font-weight: bold;">GHS {{ total_amount }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #666;">Amount Paid:</td>
+                    <td style="padding: 8px 0; text-align: right; color: #28a745;">GHS {{ amount_paid }}</td>
+                </tr>
+                <tr style="border-top: 2px solid #333;">
+                    <td style="padding: 12px 0; font-weight: bold; font-size: 16px;">Balance Due:</td>
+                    <td style="padding: 12px 0; text-align: right; font-weight: bold; font-size: 18px; color: {% if notification_type == 'OVERDUE_REMINDER' %}#dc3545{% else %}#333{% endif %};">GHS {{ balance }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Due Date Alert -->
+        {% if notification_type == 'OVERDUE_REMINDER' %}
+        <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 12px 15px; margin: 20px 0;">
+            <strong style="color: #dc3545;">Payment was due: {{ due_date }}</strong>
+            <p style="margin: 8px 0 0; color: #721c24;">Please make payment immediately to avoid any disruption to your ward's education.</p>
+        </div>
+        {% elif notification_type == 'INVOICE_ISSUED' or notification_type == 'BALANCE_REMINDER' %}
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px 15px; margin: 20px 0;">
+            <strong style="color: #856404;">Payment Due Date: {{ due_date }}</strong>
+            <p style="margin: 8px 0 0; color: #856404;">Please ensure payment is made before the due date.</p>
+        </div>
+        {% elif notification_type == 'PAYMENT_RECEIVED' %}
+        <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 12px 15px; margin: 20px 0;">
+            <strong style="color: #155724;">Payment Received - Thank You!</strong>
+            <p style="margin: 8px 0 0; color: #155724;">Your payment has been recorded. The attached invoice shows the updated balance.</p>
+        </div>
+        {% endif %}
+
+        <!-- Payment Instructions -->
+        {% if balance != '0.00' %}
+        <div style="background: #e8f4fd; border: 1px solid #b8daff; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <h4 style="margin: 0 0 10px 0; color: #004085;">Payment Options</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #004085;">
+                <li style="margin-bottom: 5px;">Visit the school's accounts office</li>
+                <li style="margin-bottom: 5px;">Mobile money payment</li>
+                <li style="margin-bottom: 5px;">Bank transfer</li>
+            </ul>
+            <p style="margin: 10px 0 0; font-size: 13px; color: #004085;">Please quote invoice number <strong>{{ invoice_number }}</strong> for all payments.</p>
+        </div>
+        {% endif %}
+
+        <p>The detailed invoice is attached to this email as a PDF document.</p>
+
+        <p>If you have any questions, please contact the school's accounts office.</p>
+
+        <p style="margin-top: 30px;">
+            Best regards,<br>
+            <strong>{{ school_name }}</strong>
+        </p>
+    </div>
+
+    <div style="background: #333; color: #aaa; padding: 15px; text-align: center; font-size: 12px; border-radius: 0 0 8px 8px;">
+        <p style="margin: 0;">This is an automated message from {{ school_name }}.</p>
+        <p style="margin: 5px 0 0;">Please do not reply directly to this email.</p>
+    </div>
+</body>
+</html>

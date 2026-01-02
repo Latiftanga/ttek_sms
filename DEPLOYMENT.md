@@ -1,6 +1,418 @@
-# TTEK SMS - Hetzner Deployment Guide
+# TTEK SMS - Deployment Guide
 
-Complete step-by-step guide to deploy your multi-tenant Django application on Hetzner Cloud.
+Complete step-by-step guides to deploy your multi-tenant Django application.
+
+## Deployment Options
+
+| Platform | Pros | Cons | Cost |
+|----------|------|------|------|
+| **Fly.io** | Easy, cheap, wildcard SSL included | Ephemeral filesystem | ~$10-15/month |
+| **Render.com** | Very easy, managed services | Wildcard needs Team plan ($19) | ~$25/month |
+| **Hetzner** | Full control, cheapest, persistent storage | Manual server management | ~$6/month |
+
+---
+
+# Option A: Fly.io Deployment (Recommended - Best Value)
+
+## Table of Contents
+1. [Prerequisites](#a1-prerequisites-fly)
+2. [Install Fly CLI](#a2-install-fly-cli)
+3. [Deploy Application](#a3-deploy-application)
+4. [Configure Database & Redis](#a4-configure-database--redis)
+5. [Set Environment Variables](#a5-set-environment-variables)
+6. [Configure Custom Domain](#a6-configure-custom-domain-fly)
+7. [Setup Media Storage](#a7-setup-media-storage-fly)
+8. [Maintenance](#a8-maintenance-fly)
+
+---
+
+## A.1 Prerequisites (Fly)
+
+1. A [Fly.io](https://fly.io) account (sign up with GitHub)
+2. This repository cloned locally
+3. A domain name (for multi-tenancy with subdomains)
+
+---
+
+## A.2 Install Fly CLI
+
+```bash
+# macOS
+brew install flyctl
+
+# Linux
+curl -L https://fly.io/install.sh | sh
+
+# Windows (PowerShell)
+powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
+
+# Login
+fly auth login
+```
+
+---
+
+## A.3 Deploy Application
+
+```bash
+cd ttek_sms
+
+# First deployment - creates app and resources
+fly launch --no-deploy
+
+# Create PostgreSQL database
+fly postgres create --name ttek-sms-db --region lhr --initial-cluster-size 1 --vm-size shared-cpu-1x --volume-size 1
+
+# Attach database to app
+fly postgres attach ttek-sms-db
+
+# Create Redis (using Upstash - Fly's managed Redis)
+fly redis create --name ttek-sms-redis --region lhr --no-eviction
+
+# Deploy the app
+fly deploy
+```
+
+---
+
+## A.4 Configure Database & Redis
+
+The `fly postgres attach` command automatically sets `DATABASE_URL`. For Redis:
+
+```bash
+# Get Redis URL
+fly redis status ttek-sms-redis
+
+# Set Redis URL as secret
+fly secrets set REDIS_URL="redis://default:password@your-redis-host.upstash.io:6379"
+```
+
+---
+
+## A.5 Set Environment Variables
+
+```bash
+# Required secrets
+fly secrets set SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(50))')"
+fly secrets set FIELD_ENCRYPTION_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+
+# Domain configuration
+fly secrets set ALLOWED_HOSTS="ttek-sms.fly.dev,yourdomain.com,*.yourdomain.com"
+fly secrets set CSRF_TRUSTED_ORIGINS="https://ttek-sms.fly.dev,https://yourdomain.com,https://*.yourdomain.com"
+
+# Optional: Email
+fly secrets set EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend"
+fly secrets set EMAIL_HOST="smtp.gmail.com"
+fly secrets set EMAIL_HOST_USER="your-email@gmail.com"
+fly secrets set EMAIL_HOST_PASSWORD="your-app-password"
+
+# Optional: SMS (Arkesel)
+fly secrets set SMS_BACKEND="arkesel"
+fly secrets set ARKESEL_API_KEY="your-api-key"
+fly secrets set ARKESEL_SENDER_ID="YourSchool"
+```
+
+---
+
+## A.6 Configure Custom Domain (Fly)
+
+### Add Your Domain
+```bash
+# Add apex domain
+fly certs create yourdomain.com
+
+# Add wildcard for subdomains (FREE on Fly.io!)
+fly certs create "*.yourdomain.com"
+```
+
+### Configure DNS
+Add these records at your DNS provider:
+
+| Type | Name | Value |
+|------|------|-------|
+| A | @ | `fly.io` IP (shown in dashboard) |
+| AAAA | @ | `fly.io` IPv6 (shown in dashboard) |
+| CNAME | * | `ttek-sms.fly.dev` |
+
+```bash
+# Verify certificates
+fly certs show yourdomain.com
+fly certs show "*.yourdomain.com"
+```
+
+---
+
+## A.7 Setup Media Storage (Fly)
+
+Fly.io has ephemeral filesystem. Use Tigris (Fly's S3-compatible storage) or external S3:
+
+### Option 1: Tigris (Fly's Built-in Storage)
+```bash
+# Create Tigris bucket
+fly storage create
+
+# This auto-sets AWS_* environment variables
+```
+
+### Option 2: Cloudflare R2 / AWS S3
+```bash
+fly secrets set AWS_ACCESS_KEY_ID="your-key"
+fly secrets set AWS_SECRET_ACCESS_KEY="your-secret"
+fly secrets set AWS_STORAGE_BUCKET_NAME="your-bucket"
+fly secrets set AWS_S3_ENDPOINT_URL="https://your-account.r2.cloudflarestorage.com"
+```
+
+---
+
+## A.8 Maintenance (Fly)
+
+### SSH into Container
+```bash
+fly ssh console
+```
+
+### Run Management Commands
+```bash
+fly ssh console -C "python manage.py createsuperuser"
+fly ssh console -C "python manage.py migrate_schemas"
+```
+
+### View Logs
+```bash
+fly logs
+fly logs -a ttek-sms  # specific app
+```
+
+### Scale Up/Down
+```bash
+# Scale memory
+fly scale memory 1024
+
+# Scale instances
+fly scale count 2
+
+# View current scale
+fly scale show
+```
+
+### Database Backup
+```bash
+fly postgres connect -a ttek-sms-db
+# Then run: pg_dump -U postgres ttek_sms > backup.sql
+```
+
+### Deploy Updates
+```bash
+git pull
+fly deploy
+```
+
+---
+
+## Fly.io Cost Estimate
+
+| Resource | Specs | Monthly Cost |
+|----------|-------|--------------|
+| Web App | shared-cpu-1x, 512MB | ~$3-5 |
+| Worker | shared-cpu-1x, 256MB | ~$2-3 |
+| PostgreSQL | 1GB, shared | ~$0 (free tier) |
+| Redis (Upstash) | 256MB | ~$0 (free tier) |
+| **Total** | | **~$5-10/month** |
+
+*Prices are pay-as-you-go based on usage*
+
+---
+---
+
+# Option B: Render.com Deployment
+
+## Table of Contents
+1. [Prerequisites](#a1-prerequisites)
+2. [Deploy with Render Blueprint](#a2-deploy-with-render-blueprint)
+3. [Configure Environment Variables](#a3-configure-environment-variables)
+4. [Configure Custom Domain](#a4-configure-custom-domain)
+5. [Setup Media Storage (S3/R2)](#a5-setup-media-storage)
+6. [Create First School](#a6-create-first-school)
+7. [Maintenance](#a7-maintenance)
+
+---
+
+## A.1 Prerequisites
+
+1. A [Render.com](https://render.com) account (sign up with GitHub)
+2. This repository pushed to GitHub
+3. A domain name (optional but recommended for multi-tenancy)
+
+---
+
+## A.2 Deploy with Render Blueprint
+
+### Quick Deploy (One-Click)
+1. Push this repository to GitHub
+2. Go to [Render Dashboard](https://dashboard.render.com)
+3. Click **New** → **Blueprint**
+4. Connect your GitHub repository
+5. Render will detect `render.yaml` and create all services
+
+### What Gets Created
+- **ttek-sms-web**: Main Django application
+- **ttek-sms-worker**: Celery worker for background tasks
+- **ttek-sms-beat**: Celery beat for scheduled tasks
+- **ttek-sms-db**: PostgreSQL 16 database
+- **ttek-sms-redis**: Redis for Celery message queue
+
+---
+
+## A.3 Configure Environment Variables
+
+After deployment, go to each service's **Environment** tab and set:
+
+### Required Variables (set manually)
+
+```bash
+# Your domain(s) - comma separated
+ALLOWED_HOSTS=ttek-sms-web.onrender.com,yourdomain.com,*.yourdomain.com
+
+# CSRF origins - must include https://
+CSRF_TRUSTED_ORIGINS=https://ttek-sms-web.onrender.com,https://yourdomain.com,https://*.yourdomain.com
+```
+
+### Optional Variables
+
+```bash
+# Email (for sending notifications)
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+
+# SMS (Arkesel)
+SMS_BACKEND=arkesel
+ARKESEL_API_KEY=your-api-key
+ARKESEL_SENDER_ID=YourSchool
+
+# Payments (Paystack)
+PLATFORM_PAYSTACK_SECRET_KEY=sk_live_xxxxx
+PLATFORM_PAYSTACK_PUBLIC_KEY=pk_live_xxxxx
+```
+
+---
+
+## A.4 Configure Custom Domain
+
+### For Single Domain (e.g., `app.yourdomain.com`)
+1. Go to your web service → **Settings** → **Custom Domains**
+2. Add `app.yourdomain.com`
+3. Configure DNS: `CNAME app → ttek-sms-web.onrender.com`
+
+### For Wildcard Subdomains (Multi-tenant)
+Render supports wildcard domains on **paid plans**:
+
+1. Upgrade to Render Team plan
+2. Add `*.yourdomain.com` as custom domain
+3. Configure DNS:
+   ```
+   A     @    → (Render IP)
+   CNAME *    → ttek-sms-web.onrender.com
+   ```
+4. Update environment variables:
+   ```
+   ALLOWED_HOSTS=yourdomain.com,*.yourdomain.com
+   CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://*.yourdomain.com
+   ```
+
+---
+
+## A.5 Setup Media Storage
+
+**Important:** Render has an ephemeral filesystem. Media files (student photos, documents) will be lost on redeploy. Use external storage:
+
+### Option 1: Cloudflare R2 (Recommended - Cheaper)
+
+1. Create R2 bucket at [Cloudflare Dashboard](https://dash.cloudflare.com)
+2. Create R2 API token with read/write permissions
+3. Add to environment variables:
+   ```
+   AWS_ACCESS_KEY_ID=your-r2-access-key
+   AWS_SECRET_ACCESS_KEY=your-r2-secret-key
+   AWS_STORAGE_BUCKET_NAME=your-bucket-name
+   AWS_S3_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
+   AWS_S3_CUSTOM_DOMAIN=your-bucket.your-domain.com
+   ```
+
+### Option 2: AWS S3
+
+1. Create S3 bucket in AWS Console
+2. Create IAM user with S3 permissions
+3. Add to environment variables:
+   ```
+   AWS_ACCESS_KEY_ID=your-access-key
+   AWS_SECRET_ACCESS_KEY=your-secret-key
+   AWS_STORAGE_BUCKET_NAME=your-bucket-name
+   AWS_S3_REGION_NAME=us-east-1
+   ```
+
+---
+
+## A.6 Create First School
+
+1. Access Django admin: `https://your-app.onrender.com/admin/`
+2. Create superuser (run in Render Shell):
+   ```bash
+   python manage.py createsuperuser
+   ```
+3. Create a School in admin with domain `school1.yourdomain.com`
+4. Visit `https://school1.yourdomain.com` to access the school
+
+---
+
+## A.7 Maintenance
+
+### View Logs
+- Go to service → **Logs** tab
+
+### Run Management Commands
+1. Go to web service → **Shell** tab
+2. Run commands:
+   ```bash
+   python manage.py migrate_schemas
+   python manage.py createsuperuser
+   ```
+
+### Database Backup
+1. Go to database service → **Backups**
+2. Click **Create Backup** or enable automatic backups
+
+### Redeploy
+- Push to GitHub (auto-deploys if connected)
+- Or click **Manual Deploy** in Render dashboard
+
+### Scale Up
+- Go to service → **Settings** → change plan
+
+---
+
+## Render Cost Estimate
+
+| Service | Plan | Monthly Cost |
+|---------|------|--------------|
+| Web Service | Starter | $7 |
+| Worker | Starter | $7 |
+| Beat | Starter | $7 |
+| PostgreSQL | Starter | $7 |
+| Redis | Starter | $0 (free) |
+| **Total** | | **~$28/month** |
+
+*Upgrade to Standard plans for production workloads (~$50/month)*
+
+---
+---
+
+# Option B: Hetzner Deployment (Full Control)
+
+Complete step-by-step guide to deploy on Hetzner Cloud.
 
 ## Table of Contents
 1. [Create Hetzner Account & Server](#1-create-hetzner-account--server)

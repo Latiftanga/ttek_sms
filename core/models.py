@@ -1,12 +1,19 @@
 import uuid
 import secrets
+from io import BytesIO
 from django.conf import settings
 from django.db import models
 from django.core.cache import cache
+from django.core.files.base import ContentFile
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
+from PIL import Image
 import math
 from .choices import Gender
+
+
+# Maximum photo dimensions for profile pictures
+PHOTO_MAX_SIZE = (150, 150)
 
 class Person(models.Model):
     """
@@ -39,6 +46,37 @@ class Person(models.Model):
     def __str__(self):
         parts = [self.first_name, self.middle_name, self.last_name]
         return " ".join(filter(None, parts))
+
+    def save(self, *args, **kwargs):
+        # Resize photo if it's a new upload (has file attribute)
+        if self.photo and hasattr(self.photo, 'file'):
+            try:
+                img = Image.open(self.photo)
+
+                # Convert to RGB if necessary (for PNG with transparency)
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+
+                # Resize using thumbnail to maintain aspect ratio
+                img.thumbnail(PHOTO_MAX_SIZE, Image.Resampling.LANCZOS)
+
+                # Save to buffer as WebP (better compression than JPEG)
+                buffer = BytesIO()
+                img.save(buffer, format='WEBP', quality=80, optimize=True)
+                buffer.seek(0)
+
+                # Generate filename with .webp extension
+                filename = self.photo.name.rsplit('.', 1)[0] + '.webp'
+                if '/' in filename:
+                    filename = filename.rsplit('/', 1)[-1]
+
+                # Replace the photo with resized version
+                self.photo.save(filename, ContentFile(buffer.read()), save=False)
+            except Exception:
+                # If image processing fails, continue with original
+                pass
+
+        super().save(*args, **kwargs)
 
 
 def hex_to_oklch_values(hex_color):

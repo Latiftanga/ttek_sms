@@ -87,4 +87,16 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy app code (after dependencies, to maximize cache reuse)
 COPY --chown=app_user:app_user . /app
 
+# Make scripts executable
+RUN chmod +x /app/render-build.sh /app/render-start.sh /app/fly-start.sh /app/docker-entrypoint.sh /app/docker-entrypoint.prod.sh 2>/dev/null || true
+
+# Build Tailwind CSS and collect static files during image build
+# This runs as root before switching to app_user
+RUN python manage.py tailwind build && \
+    python manage.py collectstatic --noinput
+
 USER app_user
+
+# Default command - works for Render, Fly.io, and other PaaS
+# Uses PORT env var which is set by most platforms
+CMD ["./fly-start.sh"]

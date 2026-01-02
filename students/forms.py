@@ -1,7 +1,7 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from academics.models import Class
-from .models import Student, Guardian
+from .models import Student, Guardian, House
 
 
 class BulkImportForm(forms.Form):
@@ -52,6 +52,8 @@ class StudentForm(forms.ModelForm):
             'admission_number', 'admission_date',
             # Enrollment
             'current_class',
+            # House
+            'house',
             # Status
             'status', 'is_active',
         ]
@@ -71,6 +73,9 @@ class StudentForm(forms.ModelForm):
         # Only show active classes
         self.fields['current_class'].queryset = Class.objects.filter(is_active=True)
         self.fields['current_class'].required = False
+        # Only show active houses
+        self.fields['house'].queryset = House.objects.filter(is_active=True)
+        self.fields['house'].required = False
 
 
 class StudentGuardianForm(forms.Form):
@@ -86,3 +91,17 @@ class StudentGuardianForm(forms.Form):
     )
     is_primary = forms.BooleanField(required=False, initial=False)
     is_emergency_contact = forms.BooleanField(required=False, initial=True)
+
+
+class HouseForm(forms.ModelForm):
+    """Form for creating/editing houses."""
+    class Meta:
+        model = House
+        fields = ['name', 'color', 'color_code', 'motto', 'description', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder': 'e.g., Blue House, Nkrumah House'}),
+            'color': forms.TextInput(attrs={'placeholder': 'e.g., Blue, Red, Green'}),
+            'color_code': forms.TextInput(attrs={'type': 'color', 'class': 'h-10'}),
+            'motto': forms.TextInput(attrs={'placeholder': 'House motto (optional)'}),
+            'description': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Description (optional)'}),
+        }

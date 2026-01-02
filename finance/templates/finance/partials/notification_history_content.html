@@ -1,0 +1,381 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-3 mb-1">
+            <a href="{% url 'finance:notification_center' %}"
+               hx-get="{% url 'finance:notification_center' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle"
+               title="Back to Notifications">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-history text-white"></i>
+                </div>
+                Notification History
+            </h1>
+        </div>
+        <p class="text-sm text-base-content/60 ml-12">
+            View all sent notifications and their delivery status
+        </p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'finance:notification_center' %}"
+           hx-get="{% url 'finance:notification_center' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-outline gap-2">
+            <i class="fa-solid fa-bell"></i>
+            Send Notifications
+        </a>
+        <button onclick="window.print()" class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-print"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-paper-plane text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ logs.paginator.count }}</div>
+                    <div class="text-xs text-base-content/60">Total Sent</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-check-circle text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">{{ success_count }}</div>
+                    <div class="text-xs text-base-content/60">Delivered</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center">
+                    <i class="fa-solid fa-times-circle text-error text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-error">{{ failed_count }}</div>
+                    <div class="text-xs text-base-content/60">Failed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chart-pie text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-1">
+                        <span class="text-2xl font-bold {% if delivery_rate >= 80 %}text-success{% elif delivery_rate >= 60 %}text-warning{% else %}text-error{% endif %}">{{ delivery_rate }}%</span>
+                    </div>
+                    <div class="text-xs text-base-content/60">Success Rate</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column - History List -->
+    <div class="lg:col-span-2 space-y-6">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <i class="fa-solid fa-list text-primary"></i>
+                        </div>
+                        Recent Notifications
+                    </h2>
+                    <span class="badge badge-ghost">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
+                </div>
+
+                <div class="p-4">
+                    {% if logs %}
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="text-xs uppercase text-base-content/60">
+                                    <th>Student</th>
+                                    <th class="hidden sm:table-cell">Invoice</th>
+                                    <th class="text-center">Type</th>
+                                    <th class="text-center">Channel</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-center">Sent</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr class="hover">
+                                    <td>
+                                        <div class="flex items-center gap-2">
+                                            <div class="avatar placeholder">
+                                                <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                                                    <span class="text-xs font-bold">{{ log.invoice.student.first_name|slice:":1" }}{{ log.invoice.student.last_name|slice:":1" }}</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <a href="{% url 'finance:invoice_detail' pk=log.invoice.pk %}"
+                                                   hx-get="{% url 'finance:invoice_detail' pk=log.invoice.pk %}"
+                                                   hx-target="#main-content"
+                                                   hx-push-url="true"
+                                                   class="font-medium hover:text-primary">
+                                                    {{ log.invoice.student.full_name }}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="hidden sm:table-cell text-sm font-mono text-base-content/60">{{ log.invoice.invoice_number }}</td>
+                                    <td class="text-center">
+                                        {% if log.notification_type == 'OVERDUE_REMINDER' %}
+                                        <span class="badge badge-error badge-xs">Overdue</span>
+                                        {% elif log.notification_type == 'INVOICE_ISSUED' %}
+                                        <span class="badge badge-info badge-xs">Invoice</span>
+                                        {% elif log.notification_type == 'PAYMENT_RECEIVED' %}
+                                        <span class="badge badge-success badge-xs">Payment</span>
+                                        {% else %}
+                                        <span class="badge badge-warning badge-xs">Reminder</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if log.distribution_type == 'SMS' %}
+                                        <i class="fa-solid fa-mobile-screen text-warning"></i>
+                                        {% elif log.distribution_type == 'EMAIL' %}
+                                        <i class="fa-solid fa-envelope text-info"></i>
+                                        {% else %}
+                                        <i class="fa-solid fa-mobile-screen text-warning"></i>
+                                        <i class="fa-solid fa-envelope text-info ml-1"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if log.distribution_type == 'EMAIL' or log.distribution_type == 'BOTH' %}
+                                        <div class="flex items-center justify-center gap-1 text-xs">
+                                            <i class="fa-solid fa-envelope text-info"></i>
+                                            {% if log.email_status == 'SENT' %}
+                                            <span class="text-success">OK</span>
+                                            {% elif log.email_status == 'FAILED' %}
+                                            <span class="text-error" title="{{ log.email_error }}">Fail</span>
+                                            {% else %}
+                                            <span class="text-base-content/50">...</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                        {% if log.distribution_type == 'SMS' or log.distribution_type == 'BOTH' %}
+                                        <div class="flex items-center justify-center gap-1 text-xs">
+                                            <i class="fa-solid fa-mobile-screen text-warning"></i>
+                                            {% if log.sms_status == 'SENT' %}
+                                            <span class="text-success">OK</span>
+                                            {% elif log.sms_status == 'FAILED' %}
+                                            <span class="text-error" title="{{ log.sms_error }}">Fail</span>
+                                            {% else %}
+                                            <span class="text-base-content/50">...</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center text-xs text-base-content/60">
+                                        {{ log.created_at|date:"M d, H:i" }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if logs.has_other_pages %}
+                    <div class="flex justify-center mt-4 pt-4 border-t border-base-200">
+                        <div class="join">
+                            {% if logs.has_previous %}
+                            <a href="?page={{ logs.previous_page_number }}{% if notification_type %}&notification_type={{ notification_type }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
+                               hx-get="?page={{ logs.previous_page_number }}{% if notification_type %}&notification_type={{ notification_type }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="join-item btn btn-sm">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </a>
+                            {% endif %}
+                            <button class="join-item btn btn-sm btn-active">
+                                Page {{ logs.number }} of {{ logs.paginator.num_pages }}
+                            </button>
+                            {% if logs.has_next %}
+                            <a href="?page={{ logs.next_page_number }}{% if notification_type %}&notification_type={{ notification_type }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
+                               hx-get="?page={{ logs.next_page_number }}{% if notification_type %}&notification_type={{ notification_type }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="join-item btn btn-sm">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-history text-base-content/30 text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Notifications Yet</h3>
+                        <p class="text-sm text-base-content/50 mb-4">No notifications have been sent</p>
+                        <a href="{% url 'finance:notification_center' %}"
+                           hx-get="{% url 'finance:notification_center' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-bell"></i>
+                            Send Notifications
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column - Filters -->
+    <div class="space-y-6">
+        <!-- Filter Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-base-content/50"></i>
+                    Filter Data
+                </h2>
+
+                <form method="get"
+                      hx-get="{% url 'finance:notification_history' %}"
+                      hx-target="#main-content"
+                      hx-push-url="true"
+                      class="space-y-3">
+                    <label class="input input-sm w-full">
+                        <span class="label">Search</span>
+                        <input type="text" name="search" value="{{ search }}" placeholder="Student/invoice..." />
+                    </label>
+
+                    <label class="select select-sm w-full">
+                        <span class="label">Type</span>
+                        <select name="notification_type">
+                            <option value="">All Types</option>
+                            {% for code, label in notification_types %}
+                            <option value="{{ code }}" {% if notification_type == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label class="select select-sm w-full">
+                        <span class="label">Status</span>
+                        <select name="status">
+                            <option value="">All Status</option>
+                            <option value="SUCCESS" {% if status_filter == 'SUCCESS' %}selected{% endif %}>Successful</option>
+                            <option value="FAILED" {% if status_filter == 'FAILED' %}selected{% endif %}>Failed</option>
+                            <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+                        </select>
+                    </label>
+
+                    <div class="flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-1">
+                            <i class="fa-solid fa-filter"></i>
+                            Apply
+                        </button>
+                        <a href="{% url 'finance:notification_history' %}"
+                           hx-get="{% url 'finance:notification_history' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-sm">
+                            <i class="fa-solid fa-times"></i>
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Summary Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-bar text-primary"></i>
+                    Summary
+                </h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="text-center p-3 rounded-lg bg-success/5 border border-success/20">
+                        <div class="text-lg font-bold text-success">{{ today_count }}</div>
+                        <div class="text-xs text-base-content/60">Today</div>
+                    </div>
+                    <div class="text-center p-3 rounded-lg bg-primary/5 border border-primary/20">
+                        <div class="text-lg font-bold text-primary">{{ week_count }}</div>
+                        <div class="text-xs text-base-content/60">This Week</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-info-circle text-info"></i>
+                    Status Legend
+                </h2>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="text-success"><i class="fa-solid fa-check-circle"></i></span>
+                        <span>Sent - Delivered to provider</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-error"><i class="fa-solid fa-times-circle"></i></span>
+                        <span>Failed - Delivery error</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-base-content/50"><i class="fa-solid fa-clock"></i></span>
+                        <span>Pending - In queue</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Tips -->
+        <div class="card bg-gradient-to-br from-info/5 to-info/10 border border-info/20">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-lightbulb text-info"></i>
+                    Quick Tips
+                </h3>
+                <ul class="text-xs text-base-content/70 space-y-2">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Click student name to view invoice</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Hover over failed status for error details</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Use filters to find specific notifications</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,6 +1,7 @@
 from functools import wraps
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
@@ -9,11 +10,11 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 
 from .models import (
-    PaymentGateway, PaymentGatewayConfig, FeeType, FeeStructure,
+    PaymentGateway, PaymentGatewayConfig, FeeStructure, CATEGORY_CHOICES,
     Scholarship, StudentScholarship, Invoice, InvoiceItem, Payment
 )
 from .forms import (
-    FeeTypeForm, FeeStructureForm, ScholarshipForm, StudentScholarshipForm,
+    FeeStructureForm, ScholarshipForm, StudentScholarshipForm,
     InvoiceGenerateForm, PaymentForm, GatewayConfigForm
 )
 from students.models import Student
@@ -120,97 +121,6 @@ def index(request):
 
 
 # =============================================================================
-# FEE TYPES
-# =============================================================================
-
-@admin_required
-def fee_types(request):
-    """List all fee types."""
-    fee_types_list = FeeType.objects.all().order_by('category', 'name')
-
-    # Group by category
-    fee_types_by_category = {}
-    for fee_type in fee_types_list:
-        category = fee_type.get_category_display()
-        if category not in fee_types_by_category:
-            fee_types_by_category[category] = []
-        fee_types_by_category[category].append(fee_type)
-
-    context = {
-        'fee_types': fee_types_list,
-        'fee_types_by_category': fee_types_by_category,
-        'form': FeeTypeForm(),
-    }
-
-    return htmx_render(
-        request,
-        'finance/fee_types.html',
-        'finance/partials/fee_types_content.html',
-        context
-    )
-
-
-@admin_required
-def fee_type_create(request):
-    """Create a new fee type."""
-    if request.method == 'POST':
-        form = FeeTypeForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Fee type created successfully.')
-            return redirect('finance:fee_types')
-    else:
-        form = FeeTypeForm()
-
-    return htmx_render(
-        request,
-        'finance/fee_type_form.html',
-        'finance/partials/fee_type_form_content.html',
-        {'form': form}
-    )
-
-
-@admin_required
-def fee_type_edit(request, pk):
-    """Edit a fee type."""
-    fee_type = get_object_or_404(FeeType, pk=pk)
-
-    if request.method == 'POST':
-        form = FeeTypeForm(request.POST, instance=fee_type)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Fee type updated successfully.')
-            return redirect('finance:fee_types')
-    else:
-        form = FeeTypeForm(instance=fee_type)
-
-    return htmx_render(
-        request,
-        'finance/fee_type_form.html',
-        'finance/partials/fee_type_form_content.html',
-        {'form': form, 'fee_type': fee_type}
-    )
-
-
-@admin_required
-def fee_type_delete(request, pk):
-    """Delete a fee type."""
-    fee_type = get_object_or_404(FeeType, pk=pk)
-
-    if request.method == 'POST':
-        fee_type.delete()
-        messages.success(request, 'Fee type deleted successfully.')
-        return redirect('finance:fee_types')
-
-    return htmx_render(
-        request,
-        'finance/fee_type_delete.html',
-        'finance/partials/fee_type_delete_content.html',
-        {'fee_type': fee_type}
-    )
-
-
-# =============================================================================
 # FEE STRUCTURES
 # =============================================================================
 
@@ -220,8 +130,8 @@ def fee_structures(request):
     current_year = AcademicYear.get_current()
 
     structures = FeeStructure.objects.select_related(
-        'fee_type', 'class_assigned', 'programme', 'academic_year', 'term'
-    ).order_by('-academic_year__start_date', 'fee_type__category')
+        'class_assigned', 'programme', 'academic_year', 'term'
+    ).order_by('-academic_year__start_date', 'category')
 
     # Filters
     year_filter = request.GET.get('year')
@@ -232,14 +142,24 @@ def fee_structures(request):
 
     category_filter = request.GET.get('category')
     if category_filter:
-        structures = structures.filter(fee_type__category=category_filter)
+        structures = structures.filter(category=category_filter)
+
+    # Stats
+    total_count = structures.count()
+    active_count = structures.filter(is_active=True).count()
+    mandatory_count = structures.filter(is_mandatory=True).count()
+    category_count = structures.values('category').distinct().count()
 
     context = {
         'structures': structures,
         'current_year': current_year,
         'academic_years': AcademicYear.objects.all().order_by('-start_date'),
-        'categories': FeeType.CATEGORY_CHOICES,
+        'categories': CATEGORY_CHOICES,
         'form': FeeStructureForm(),
+        'total_count': total_count,
+        'active_count': active_count,
+        'mandatory_count': mandatory_count,
+        'category_count': category_count,
     }
 
     return htmx_render(
@@ -258,16 +178,18 @@ def fee_structure_create(request):
         if form.is_valid():
             form.save()
             messages.success(request, 'Fee structure created successfully.')
+            # Return the refreshed list for HTMX
+            if request.htmx:
+                return redirect('finance:fee_structures')
             return redirect('finance:fee_structures')
     else:
         form = FeeStructureForm()
 
-    return htmx_render(
-        request,
-        'finance/fee_structure_form.html',
-        'finance/partials/fee_structure_form_content.html',
-        {'form': form}
-    )
+    # For modal, just return the partial
+    if request.htmx:
+        return render(request, 'finance/partials/fee_structure_form_content.html', {'form': form})
+
+    return render(request, 'finance/fee_structure_form.html', {'form': form})
 
 
 @admin_required
@@ -284,30 +206,38 @@ def fee_structure_edit(request, pk):
     else:
         form = FeeStructureForm(instance=structure)
 
-    return htmx_render(
-        request,
-        'finance/fee_structure_form.html',
-        'finance/partials/fee_structure_form_content.html',
-        {'form': form, 'structure': structure}
-    )
+    # For modal, just return the partial
+    if request.htmx:
+        return render(request, 'finance/partials/fee_structure_form_content.html', {'form': form, 'structure': structure})
+
+    return render(request, 'finance/fee_structure_form.html', {'form': form, 'structure': structure})
 
 
 @admin_required
 def fee_structure_delete(request, pk):
     """Delete a fee structure."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
     structure = get_object_or_404(FeeStructure, pk=pk)
+    structure.delete()
+    messages.success(request, 'Fee structure deleted successfully.')
 
-    if request.method == 'POST':
-        structure.delete()
-        messages.success(request, 'Fee structure deleted successfully.')
-        return redirect('finance:fee_structures')
+    if request.htmx:
+        # Return refreshed fee structures list
+        current_year = AcademicYear.get_current()
+        structures = FeeStructure.objects.select_related(
+            'class_assigned', 'programme', 'academic_year', 'term'
+        ).filter(academic_year=current_year).order_by('-academic_year__start_date', 'category')
 
-    return htmx_render(
-        request,
-        'finance/fee_structure_delete.html',
-        'finance/partials/fee_structure_delete_content.html',
-        {'structure': structure}
-    )
+        return render(request, 'finance/partials/fee_structures_content.html', {
+            'structures': structures,
+            'current_year': current_year,
+            'academic_years': AcademicYear.objects.all().order_by('-start_date'),
+            'categories': CATEGORY_CHOICES,
+        })
+
+    return redirect('finance:fee_structures')
 
 
 # =============================================================================
@@ -321,9 +251,17 @@ def scholarships(request):
         recipient_count=Count('recipients', filter=Q(recipients__is_active=True))
     ).order_by('name')
 
+    # Stats for the dashboard
+    total_recipients = StudentScholarship.objects.filter(is_active=True).count()
+    percentage_count = Scholarship.objects.filter(discount_type='PERCENTAGE', is_active=True).count()
+    full_count = Scholarship.objects.filter(discount_type='FULL', is_active=True).count()
+
     context = {
         'scholarships': scholarships_list,
         'form': ScholarshipForm(),
+        'total_recipients': total_recipients,
+        'percentage_count': percentage_count,
+        'full_count': full_count,
     }
 
     return htmx_render(
@@ -346,12 +284,11 @@ def scholarship_create(request):
     else:
         form = ScholarshipForm()
 
-    return htmx_render(
-        request,
-        'finance/scholarship_form.html',
-        'finance/partials/scholarship_form_content.html',
-        {'form': form}
-    )
+    # For modal, just return the partial
+    if request.htmx:
+        return render(request, 'finance/partials/scholarship_form_content.html', {'form': form})
+
+    return render(request, 'finance/scholarship_form.html', {'form': form})
 
 
 @admin_required
@@ -368,30 +305,44 @@ def scholarship_edit(request, pk):
     else:
         form = ScholarshipForm(instance=scholarship)
 
-    return htmx_render(
-        request,
-        'finance/scholarship_form.html',
-        'finance/partials/scholarship_form_content.html',
-        {'form': form, 'scholarship': scholarship}
-    )
+    # For modal, just return the partial
+    if request.htmx:
+        return render(request, 'finance/partials/scholarship_form_content.html', {'form': form, 'scholarship': scholarship})
+
+    return render(request, 'finance/scholarship_form.html', {'form': form, 'scholarship': scholarship})
 
 
 @admin_required
 def scholarship_delete(request, pk):
     """Delete a scholarship."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
     scholarship = get_object_or_404(Scholarship, pk=pk)
 
-    if request.method == 'POST':
+    # Check for active recipients
+    active_recipients = scholarship.recipients.filter(is_active=True).count()
+    if active_recipients > 0:
+        messages.error(
+            request,
+            f'Cannot delete "{scholarship.name}": It has {active_recipients} active recipient(s). '
+            'Remove or deactivate those assignments first.'
+        )
+    else:
         scholarship.delete()
-        messages.success(request, 'Scholarship deleted successfully.')
-        return redirect('finance:scholarships')
+        messages.success(request, f'Scholarship "{scholarship.name}" deleted successfully.')
 
-    return htmx_render(
-        request,
-        'finance/scholarship_delete.html',
-        'finance/partials/scholarship_delete_content.html',
-        {'scholarship': scholarship}
-    )
+    if request.htmx:
+        # Return refreshed scholarships list
+        scholarships_list = Scholarship.objects.annotate(
+            recipient_count=Count('recipients', filter=Q(recipients__is_active=True))
+        ).order_by('name')
+
+        return render(request, 'finance/partials/scholarships_content.html', {
+            'scholarships': scholarships_list,
+        })
+
+    return redirect('finance:scholarships')
 
 
 @admin_required
@@ -472,6 +423,13 @@ def invoices(request):
     page = request.GET.get('page', 1)
     invoices_page = paginator.get_page(page)
 
+    # Stats for dashboard
+    all_invoices = Invoice.objects.all()
+    total_count = all_invoices.count()
+    paid_count = all_invoices.filter(status='PAID').count()
+    pending_count = all_invoices.filter(status__in=['ISSUED', 'PARTIALLY_PAID']).count()
+    overdue_count = all_invoices.filter(status='OVERDUE').count()
+
     context = {
         'invoices': invoices_page,
         'current_year': current_year,
@@ -480,6 +438,10 @@ def invoices(request):
         'status_filter': status_filter,
         'class_filter': class_filter,
         'search': search,
+        'total_count': total_count,
+        'paid_count': paid_count,
+        'pending_count': pending_count,
+        'overdue_count': overdue_count,
     }
 
     return htmx_render(
@@ -536,17 +498,11 @@ def invoice_generate(request):
             'term': current_term
         })
 
-    context = {
-        'form': form,
-        'classes': Class.objects.filter(is_active=True),
-    }
+    # For modal, just return the partial
+    if request.htmx:
+        return render(request, 'finance/partials/invoice_generate_content.html', {'form': form})
 
-    return htmx_render(
-        request,
-        'finance/invoice_generate.html',
-        'finance/partials/invoice_generate_content.html',
-        context
-    )
+    return render(request, 'finance/invoice_generate.html', {'form': form})
 
 
 def create_student_invoice(student, academic_year, term, due_date, created_by):
@@ -567,7 +523,7 @@ def create_student_invoice(student, academic_year, term, due_date, created_by):
         is_active=True
     ).filter(
         Q(term=term) | Q(term__isnull=True)
-    ).select_related('fee_type')
+    )
 
     # Filter by class or level
     applicable_structures = []
@@ -597,19 +553,17 @@ def create_student_invoice(student, academic_year, term, due_date, created_by):
     # Add line items
     subtotal = Decimal('0.00')
     for structure in applicable_structures:
-        fee_type = structure.fee_type
-
         # Check if fee applies to student type (boarding/day)
         if hasattr(student, 'is_boarding'):
-            if student.is_boarding and not fee_type.applies_to_boarding:
+            if student.is_boarding and not structure.applies_to_boarding:
                 continue
-            if not student.is_boarding and not fee_type.applies_to_day:
+            if not student.is_boarding and not structure.applies_to_day:
                 continue
 
         InvoiceItem.objects.create(
             invoice=invoice,
-            fee_type=fee_type,
-            description=fee_type.name,
+            category=structure.category,
+            description=structure.get_description(),
             amount=structure.amount
         )
         subtotal += structure.amount
@@ -650,7 +604,7 @@ def invoice_detail(request, pk):
         pk=pk
     )
 
-    items = invoice.items.select_related('fee_type').all()
+    items = invoice.items.all()
     payments = invoice.payments.all().order_by('-created_at')
 
     # Check if online payment gateway is available
@@ -660,11 +614,15 @@ def invoice_detail(request, pk):
         verification_status='VERIFIED'
     ).exists()
 
+    # Get last notification
+    last_notification = invoice.notification_logs.first()
+
     context = {
         'invoice': invoice,
         'items': items,
         'payments': payments,
         'gateway_available': gateway_available,
+        'last_notification': last_notification,
     }
 
     return htmx_render(
@@ -677,56 +635,47 @@ def invoice_detail(request, pk):
 
 @admin_required
 def invoice_edit(request, pk):
-    """Edit invoice (only draft invoices)."""
+    """Edit invoice (only draft invoices) - handles issue action."""
+    if request.method != 'POST':
+        return redirect('finance:invoice_detail', pk=pk)
+
     invoice = get_object_or_404(Invoice, pk=pk)
 
     if invoice.status != 'DRAFT':
         messages.error(request, 'Only draft invoices can be edited.')
         return redirect('finance:invoice_detail', pk=pk)
 
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        if action == 'issue':
-            invoice.status = 'ISSUED'
-            invoice.issue_date = timezone.now().date()
-            invoice.save()
-            messages.success(request, 'Invoice issued successfully.')
-            return redirect('finance:invoice_detail', pk=pk)
+    action = request.POST.get('action')
+    if action == 'issue':
+        invoice.status = 'ISSUED'
+        invoice.issue_date = timezone.now().date()
+        invoice.save()
+        messages.success(request, 'Invoice issued successfully.')
 
-    context = {
-        'invoice': invoice,
-        'items': invoice.items.select_related('fee_type').all(),
-    }
-
-    return htmx_render(
-        request,
-        'finance/invoice_edit.html',
-        'finance/partials/invoice_edit_content.html',
-        context
-    )
+    return redirect('finance:invoice_detail', pk=pk)
 
 
 @admin_required
 def invoice_cancel(request, pk):
     """Cancel an invoice."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
     invoice = get_object_or_404(Invoice, pk=pk)
 
     if invoice.status == 'PAID':
         messages.error(request, 'Cannot cancel a paid invoice.')
         return redirect('finance:invoice_detail', pk=pk)
 
-    if request.method == 'POST':
-        invoice.status = 'CANCELLED'
-        invoice.save()
-        messages.success(request, 'Invoice cancelled successfully.')
+    invoice.status = 'CANCELLED'
+    invoice.save()
+    messages.success(request, 'Invoice cancelled successfully.')
+
+    if request.htmx:
+        # Return to invoices list
         return redirect('finance:invoices')
 
-    return htmx_render(
-        request,
-        'finance/invoice_cancel.html',
-        'finance/partials/invoice_cancel_content.html',
-        {'invoice': invoice}
-    )
+    return redirect('finance:invoices')
 
 
 @admin_required
@@ -739,7 +688,7 @@ def invoice_print(request, pk):
 
     context = {
         'invoice': invoice,
-        'items': invoice.items.select_related('fee_type').all(),
+        'items': invoice.items.all(),
     }
 
     return render(request, 'finance/invoice_print.html', context)
@@ -787,6 +736,13 @@ def payments(request):
     page = request.GET.get('page', 1)
     payments_page = paginator.get_page(page)
 
+    # Stats for dashboard
+    all_payments = Payment.objects.filter(status='COMPLETED')
+    total_count = all_payments.count()
+    total_amount = all_payments.aggregate(total=Sum('amount'))['total'] or 0
+    momo_count = all_payments.filter(method='MOBILE_MONEY').count()
+    cash_count = all_payments.filter(method='CASH').count()
+
     context = {
         'payments': payments_page,
         'status_choices': Payment.STATUS_CHOICES,
@@ -794,6 +750,10 @@ def payments(request):
         'status_filter': status_filter,
         'method_filter': method_filter,
         'search': search,
+        'total_count': total_count,
+        'total_amount': total_amount,
+        'momo_count': momo_count,
+        'cash_count': cash_count,
     }
 
     return htmx_render(
@@ -815,26 +775,15 @@ def payment_record(request):
             payment.status = 'COMPLETED'
             payment.save()
             messages.success(request, f'Payment recorded successfully. Receipt: {payment.receipt_number}')
-            return redirect('finance:payment_detail', pk=payment.pk)
+            return redirect('finance:payments')
     else:
         form = PaymentForm()
 
-    # Get pending invoices for dropdown
-    pending_invoices = Invoice.objects.filter(
-        status__in=['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']
-    ).select_related('student').order_by('student__last_name')
+    # For modal, just return the partial
+    if request.htmx:
+        return render(request, 'finance/partials/payment_record_content.html', {'form': form})
 
-    context = {
-        'form': form,
-        'pending_invoices': pending_invoices,
-    }
-
-    return htmx_render(
-        request,
-        'finance/payment_record.html',
-        'finance/partials/payment_record_content.html',
-        context
-    )
+    return render(request, 'finance/payment_record.html', {'form': form})
 
 
 @admin_required
@@ -1256,6 +1205,71 @@ def gateway_verify(request, pk):
 # API ENDPOINTS
 # =============================================================================
 
+@admin_required
+def student_search(request):
+    """Search students for HTMX autocomplete."""
+    q = request.GET.get('q', '').strip()
+
+    if len(q) < 2:
+        return HttpResponse('')
+
+    students = Student.objects.filter(
+        status='active'
+    ).filter(
+        Q(first_name__icontains=q) |
+        Q(last_name__icontains=q) |
+        Q(admission_number__icontains=q)
+    ).select_related('current_class')[:10]
+
+    if not students:
+        return HttpResponse('<div class="p-2 text-sm text-base-content/60">No students found</div>')
+
+    html = '<ul class="menu bg-base-100 shadow-lg rounded-box absolute z-50 w-full mt-1 max-h-48 overflow-y-auto">'
+    for student in students:
+        class_name = student.current_class.name if student.current_class else 'No class'
+        html += f'''<li><a onclick="selectStudent('{student.pk}', '{student.full_name}')" class="text-sm">
+            <span class="font-medium">{student.full_name}</span>
+            <span class="text-xs text-base-content/60">{student.admission_number} • {class_name}</span>
+        </a></li>'''
+    html += '</ul>'
+
+    return HttpResponse(html)
+
+
+@admin_required
+def invoice_search(request):
+    """Search invoices for HTMX autocomplete."""
+    q = request.GET.get('q', '').strip()
+
+    if len(q) < 2:
+        return HttpResponse('')
+
+    invoices = Invoice.objects.filter(
+        status__in=['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']
+    ).filter(
+        Q(invoice_number__icontains=q) |
+        Q(student__first_name__icontains=q) |
+        Q(student__last_name__icontains=q) |
+        Q(student__admission_number__icontains=q)
+    ).select_related('student')[:10]
+
+    if not invoices:
+        return HttpResponse('<div class="p-2 text-sm text-base-content/60">No pending invoices found</div>')
+
+    html = '<ul class="menu bg-base-100 shadow-lg rounded-box absolute z-50 w-full mt-1 max-h-48 overflow-y-auto">'
+    for invoice in invoices:
+        balance = f"{invoice.balance:.2f}"
+        html += f'''<li><a onclick="selectInvoice('{invoice.pk}', '{invoice.invoice_number}', '{invoice.student.full_name}', '{balance}')" class="text-sm py-2">
+            <div class="flex flex-col">
+                <span class="font-medium">{invoice.invoice_number}</span>
+                <span class="text-xs text-base-content/60">{invoice.student.full_name} • Balance: GHS {balance}</span>
+            </div>
+        </a></li>'''
+    html += '</ul>'
+
+    return HttpResponse(html)
+
+
 @login_required
 def api_student_balance(request, student_id):
     """Get student's current balance."""
@@ -1286,14 +1300,15 @@ def api_class_fees(request, class_id):
         Q(class_assigned=class_obj) |
         Q(level_type=class_obj.level_type) |
         Q(class_assigned__isnull=True, level_type='')
-    ).select_related('fee_type')
+    )
 
     fees = []
     for structure in structures:
         fees.append({
-            'fee_type': structure.fee_type.name,
+            'category': structure.get_category_display(),
+            'description': structure.get_description(),
             'amount': float(structure.amount),
-            'is_mandatory': structure.fee_type.is_mandatory,
+            'is_mandatory': structure.is_mandatory,
         })
 
     return JsonResponse({
@@ -1545,3 +1560,293 @@ def payment_webhook(request):
         payment.save()
 
         return JsonResponse({'status': 'success', 'message': 'Payment failed recorded'})
+
+
+# =============================================================================
+# FINANCE NOTIFICATIONS
+# =============================================================================
+
+@admin_required
+def notification_center(request):
+    """Finance notification center - manage and send invoice notifications."""
+    from datetime import timedelta
+    from .models import FinanceNotificationLog
+
+    current_year = AcademicYear.get_current()
+    current_term = Term.get_current() if hasattr(Term, 'get_current') else None
+    today = timezone.now().date()
+
+    # Get invoices with balance
+    invoices = Invoice.objects.filter(
+        balance__gt=0,
+        status__in=['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']
+    ).select_related(
+        'student', 'student__current_class', 'academic_year', 'term'
+    ).prefetch_related('notification_logs').order_by('student__last_name', 'student__first_name')
+
+    # Apply filters
+    status_filter = request.GET.get('status', '')
+    class_filter = request.GET.get('class_id', '')
+    search = request.GET.get('search', '')
+
+    if status_filter:
+        invoices = invoices.filter(status=status_filter)
+    if class_filter:
+        invoices = invoices.filter(student__current_class_id=class_filter)
+    if search:
+        invoices = invoices.filter(
+            Q(student__first_name__icontains=search) |
+            Q(student__last_name__icontains=search) |
+            Q(invoice_number__icontains=search)
+        )
+
+    # Overall Stats
+    all_invoices = Invoice.objects.filter(academic_year=current_year)
+    total_invoices = all_invoices.count()
+    paid_count = all_invoices.filter(status='PAID').count()
+
+    all_with_balance = Invoice.objects.filter(balance__gt=0, status__in=['ISSUED', 'PARTIALLY_PAID', 'OVERDUE'])
+    overdue_count = all_with_balance.filter(status='OVERDUE').count()
+    partial_count = all_with_balance.filter(status='PARTIALLY_PAID').count()
+    issued_count = all_with_balance.filter(status='ISSUED').count()
+    total_balance = all_with_balance.aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
+    overdue_balance = all_with_balance.filter(status='OVERDUE').aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
+
+    # Collection rate
+    total_invoiced = all_invoices.aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+    total_collected = Payment.objects.filter(
+        invoice__academic_year=current_year,
+        status='COMPLETED'
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    collection_rate = int((total_collected / total_invoiced * 100) if total_invoiced > 0 else 0)
+
+    # Notification stats
+    sent_today = FinanceNotificationLog.objects.filter(
+        created_at__date=today
+    ).count()
+
+    week_start = today - timedelta(days=today.weekday())
+    sent_week = FinanceNotificationLog.objects.filter(
+        created_at__date__gte=week_start
+    ).count()
+
+    # Class summary with fee collection stats
+    classes = Class.objects.filter(
+        students__invoices__balance__gt=0
+    ).distinct().order_by('name')
+
+    class_summary = []
+    for cls in classes:
+        class_invoices = Invoice.objects.filter(
+            student__current_class=cls,
+            academic_year=current_year
+        )
+        class_total = class_invoices.count()
+        class_paid = class_invoices.filter(status='PAID').count()
+        class_overdue = class_invoices.filter(status='OVERDUE').count()
+        class_pending = class_invoices.filter(status__in=['ISSUED', 'PARTIALLY_PAID']).count()
+        class_balance = class_invoices.filter(balance__gt=0).aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
+        class_rate = int((class_paid / class_total * 100) if class_total > 0 else 0)
+
+        class_summary.append({
+            'class': cls,
+            'total': class_total,
+            'paid': class_paid,
+            'overdue': class_overdue,
+            'pending': class_pending,
+            'balance': class_balance,
+            'rate': class_rate,
+        })
+
+    # Get last notification and guardian info for each invoice
+    invoice_list = list(invoices)
+    for invoice in invoice_list:
+        last_log = invoice.notification_logs.first()
+        invoice.last_notification = last_log
+        # Calculate days overdue
+        if invoice.status == 'OVERDUE' and invoice.due_date:
+            invoice.days_overdue = (today - invoice.due_date).days
+        else:
+            invoice.days_overdue = 0
+        # Get guardian contact info
+        primary_guardian = invoice.student.get_primary_guardian() if hasattr(invoice.student, 'get_primary_guardian') else None
+        invoice.guardian_phone = primary_guardian.phone_number if primary_guardian else None
+        invoice.guardian_email = primary_guardian.email if primary_guardian else None
+
+    # Separate overdue invoices for dedicated section
+    overdue_invoices = [inv for inv in invoice_list if inv.status == 'OVERDUE']
+
+    context = {
+        'invoices': invoice_list,
+        'overdue_invoices': overdue_invoices,
+        'classes': classes,
+        'class_summary': class_summary,
+        'total_invoices': total_invoices,
+        'paid_count': paid_count,
+        'overdue_count': overdue_count,
+        'partial_count': partial_count,
+        'issued_count': issued_count,
+        'total_balance': total_balance,
+        'overdue_balance': overdue_balance,
+        'collection_rate': collection_rate,
+        'sent_today': sent_today,
+        'sent_week': sent_week,
+        'today': today,
+        'status_filter': status_filter,
+        'class_filter': class_filter,
+        'search': search,
+        'current_year': current_year,
+        'current_term': current_term,
+    }
+
+    return htmx_render(
+        request,
+        'finance/notification_center.html',
+        'finance/partials/notification_center_content.html',
+        context
+    )
+
+
+@admin_required
+def send_invoice_notification_view(request, pk):
+    """Send notification for a single invoice."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    invoice = get_object_or_404(Invoice, pk=pk)
+    distribution_type = request.POST.get('type', 'SMS')
+    notification_type = request.POST.get('notification_type', 'BALANCE_REMINDER')
+    custom_sms = request.POST.get('custom_sms', '').strip() or None
+
+    # Get tenant schema
+    from django.db import connection
+    tenant_schema = connection.tenant.schema_name if hasattr(connection, 'tenant') else 'public'
+
+    # Queue the notification task
+    from .tasks import send_invoice_notification
+    send_invoice_notification.delay(
+        invoice_id=str(invoice.pk),
+        notification_type=notification_type,
+        distribution_type=distribution_type,
+        tenant_schema=tenant_schema,
+        sent_by_id=request.user.id,
+        custom_sms=custom_sms,
+    )
+
+    # Return success response with HTMX trigger for toast
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = '{"showToast": {"message": "Notification queued for sending", "type": "success"}}'
+    return response
+
+
+@admin_required
+def send_bulk_notifications_view(request):
+    """Send bulk notifications for multiple invoices."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    distribution_type = request.POST.get('type', 'SMS')
+    notification_type = request.POST.get('notification_type', 'OVERDUE_REMINDER')
+    custom_sms = request.POST.get('custom_sms', '').strip() or None
+
+    # Build filters from request
+    filters = {}
+    if request.POST.get('status'):
+        filters['status'] = request.POST.get('status')
+    if request.POST.get('class_id'):
+        filters['class_id'] = request.POST.get('class_id')
+
+    # Get selected invoice IDs if any
+    selected_ids = request.POST.getlist('invoice_ids')
+    if selected_ids:
+        filters['invoice_ids'] = selected_ids
+
+    # Get tenant schema
+    from django.db import connection
+    tenant_schema = connection.tenant.schema_name if hasattr(connection, 'tenant') else 'public'
+
+    # Queue the bulk notification task
+    from .tasks import send_bulk_notifications
+    send_bulk_notifications.delay(
+        notification_type=notification_type,
+        distribution_type=distribution_type,
+        tenant_schema=tenant_schema,
+        sent_by_id=request.user.id,
+        filters=filters,
+        custom_sms=custom_sms,
+    )
+
+    # Return success response with HTMX trigger
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = '{"showToast": {"message": "Bulk notifications queued for sending", "type": "success"}}'
+    return response
+
+
+@admin_required
+def notification_history(request):
+    """View notification history with filters."""
+    from datetime import timedelta
+    from .models import FinanceNotificationLog
+
+    today = timezone.now().date()
+
+    logs = FinanceNotificationLog.objects.select_related(
+        'invoice', 'invoice__student', 'sent_by'
+    ).order_by('-created_at')
+
+    # Stats for all logs (before filtering)
+    all_logs = FinanceNotificationLog.objects.all()
+    total_count = all_logs.count()
+    success_count = all_logs.filter(Q(email_status='SENT') | Q(sms_status='SENT')).count()
+    failed_count = all_logs.filter(email_status='FAILED', sms_status='FAILED').count()
+    delivery_rate = int((success_count / total_count * 100) if total_count > 0 else 0)
+
+    today_count = all_logs.filter(created_at__date=today).count()
+    week_start = today - timedelta(days=today.weekday())
+    week_count = all_logs.filter(created_at__date__gte=week_start).count()
+
+    # Filters
+    notification_type = request.GET.get('notification_type', '')
+    status = request.GET.get('status', '')
+    search = request.GET.get('search', '')
+
+    if notification_type:
+        logs = logs.filter(notification_type=notification_type)
+    if status:
+        if status == 'SUCCESS':
+            logs = logs.filter(Q(email_status='SENT') | Q(sms_status='SENT'))
+        elif status == 'FAILED':
+            logs = logs.filter(email_status='FAILED', sms_status='FAILED')
+        elif status == 'PENDING':
+            logs = logs.filter(email_status='PENDING', sms_status='PENDING')
+    if search:
+        logs = logs.filter(
+            Q(invoice__invoice_number__icontains=search) |
+            Q(invoice__student__first_name__icontains=search) |
+            Q(invoice__student__last_name__icontains=search)
+        )
+
+    # Paginate
+    paginator = Paginator(logs, 50)
+    page = request.GET.get('page', 1)
+    logs = paginator.get_page(page)
+
+    context = {
+        'logs': logs,
+        'notification_type': notification_type,
+        'status_filter': status,
+        'search': search,
+        'notification_types': FinanceNotificationLog.NOTIFICATION_TYPE,
+        'success_count': success_count,
+        'failed_count': failed_count,
+        'delivery_rate': delivery_rate,
+        'today_count': today_count,
+        'week_count': week_count,
+    }
+
+    return htmx_render(
+        request,
+        'finance/notification_history.html',
+        'finance/partials/notification_history_content.html',
+        context
+    )

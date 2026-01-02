@@ -11,6 +11,20 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-CHANGE-IN-PRODUCTION')
 # Parse ALLOWED_HOSTS from env (comma-separated)
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
+# CSRF Trusted Origins (required for Render and other PaaS with proxies)
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()
+]
+
+# PaaS-specific settings (Render, Fly.io, Railway, etc.)
+RENDER = os.getenv('RENDER', 'false').lower() == 'true'
+FLY = os.getenv('FLY', 'false').lower() == 'true'
+RAILWAY = os.getenv('RAILWAY_ENVIRONMENT', '') != ''
+
+if RENDER or FLY or RAILWAY:
+    # These platforms use load balancers, so trust the X-Forwarded-Proto header
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # --- 2. APPS ---
 SHARED_APPS = (
     'django_tenants',

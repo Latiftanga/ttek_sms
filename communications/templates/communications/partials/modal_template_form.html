@@ -16,37 +16,31 @@
     {% csrf_token %}
 
     <div class="space-y-4">
-        <div class="form-control">
-            <label class="label">
-                <span class="label-text">Template Name <span class="text-error">*</span></span>
-            </label>
+        <label class="floating-label w-full">
+            <span>Template Name <span class="text-error">*</span></span>
             <input type="text"
                    name="name"
                    class="input input-bordered w-full"
                    placeholder="e.g., Absence Notification"
                    required>
-        </div>
+        </label>
 
-        <div class="form-control">
-            <label class="label">
-                <span class="label-text">Message Type</span>
-            </label>
-            <select name="message_type" class="select select-bordered w-full">
+        <label class="select select-bordered w-full">
+            <span class="label">Message Type</span>
+            <select name="message_type">
                 {% for value, label in type_choices %}
                 <option value="{{ value }}">{{ label }}</option>
                 {% endfor %}
             </select>
-        </div>
+        </label>
 
-        <div class="form-control">
-            <label class="label">
-                <span class="label-text">Message Content <span class="text-error">*</span></span>
-            </label>
+        <label class="floating-label w-full">
+            <span>Message Content <span class="text-error">*</span></span>
             <textarea name="content"
-                      class="textarea textarea-bordered h-32"
+                      class="textarea textarea-bordered w-full h-32"
                       placeholder="Dear Parent, {student_name} was marked absent today..."
                       required></textarea>
-        </div>
+        </label>
 
         <div class="bg-base-200 rounded-lg p-3 text-sm">
             <p class="font-medium mb-1">Available placeholders:</p>

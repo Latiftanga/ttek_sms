@@ -1,90 +1,95 @@
 {% load core_tags %}
+<h3 class="text-lg font-bold mb-6">Record Payment</h3>
 
-<!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'finance:payments' %}"
-               hx-get="{% url 'finance:payments' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
-                    <i class="fa-solid fa-money-bill-wave text-white"></i>
+<form method="post"
+      hx-post="{% url 'finance:payment_record' %}"
+      hx-target="#main-content"
+      hx-on:htmx:after-request="if(event.detail.successful && event.detail.elt === this) document.getElementById('payment-modal').close()">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+        <!-- Invoice Search -->
+        <div hx-disinherit="*">
+            <label class="input input-bordered w-full flex items-center gap-2">
+                <span class="label">Invoice</span>
+                <input type="text"
+                       id="invoice-search"
+                       name="q"
+                       placeholder="Search by invoice # or student..."
+                       hx-get="{% url 'finance:invoice_search' %}"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-target="#invoice-results"
+                       hx-swap="innerHTML"
+                       autocomplete="off" />
+                <i class="fa-solid fa-search text-base-content/40"></i>
+            </label>
+            <input type="hidden" name="invoice" id="invoice-id" value="">
+            <div id="invoice-results" class="relative"></div>
+            <div id="selected-invoice" class="mt-2 hidden">
+                <div class="p-2 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
+                    <div>
+                        <span class="font-medium text-sm" id="selected-invoice-number"></span>
+                        <span class="text-xs text-base-content/60 ml-2" id="selected-invoice-student"></span>
+                        <span class="badge badge-sm badge-warning ml-2" id="selected-invoice-balance"></span>
+                    </div>
+                    <button type="button" onclick="clearInvoice()" class="btn btn-ghost btn-xs btn-circle">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
                 </div>
-                Record Payment
-            </h1>
+            </div>
+            <p class="text-xs text-base-content/60 mt-1">Search pending invoices by number or student name</p>
         </div>
-        <p class="text-sm text-base-content/60 ml-12">
-            Record a manual payment for an invoice
-        </p>
+
+        <div class="grid grid-cols-2 gap-4">
+            {% floating_field form.amount "Amount (GHS)" %}
+            {% floating_field form.method %}
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            {% floating_field form.payer_name %}
+            {% floating_field form.payer_phone %}
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            {% floating_field form.transaction_date "Date" %}
+            {% floating_field form.reference "Reference" %}
+        </div>
     </div>
-</div>
 
-<!-- Form -->
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body">
-        <form method="post" hx-post="{% url 'finance:payment_record' %}" hx-target="#main-content">
-            {% csrf_token %}
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="form-control md:col-span-2">
-                    <label class="label"><span class="label-text font-medium">Invoice <span class="text-error">*</span></span></label>
-                    {{ form.invoice }}
-                </div>
-
-                <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">Amount (GHS) <span class="text-error">*</span></span></label>
-                    {{ form.amount }}
-                </div>
-
-                <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">Payment Method <span class="text-error">*</span></span></label>
-                    {{ form.method }}
-                </div>
-
-                <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">Payer Name</span></label>
-                    {{ form.payer_name }}
-                </div>
-
-                <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">Payer Phone</span></label>
-                    {{ form.payer_phone }}
-                </div>
-
-                <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">Payer Email</span></label>
-                    {{ form.payer_email }}
-                </div>
-
-                <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">Reference Number</span></label>
-                    {{ form.reference }}
-                    <label class="label"><span class="label-text-alt">Bank/Mobile money transaction reference</span></label>
-                </div>
-
-                <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">Transaction Date</span></label>
-                    {{ form.transaction_date }}
-                </div>
-
-                <div class="form-control md:col-span-2">
-                    <label class="label"><span class="label-text font-medium">Notes</span></label>
-                    {{ form.notes }}
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-base-200">
-                <a href="{% url 'finance:payments' %}" hx-get="{% url 'finance:payments' %}" hx-target="#main-content" hx-push-url="true" class="btn btn-ghost">Cancel</a>
-                <button type="submit" class="btn btn-success">
-                    <i class="fa-solid fa-check"></i>
-                    Record Payment
-                </button>
-            </div>
-        </form>
+    {% if form.errors %}
+    <div class="alert alert-error mt-4 py-2 text-sm">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>{{ form.non_field_errors.0|default:"Please fix the errors below." }}</span>
     </div>
-</div>
+    {% endif %}
+
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-success">
+            <i class="fa-solid fa-check"></i>
+            Record Payment
+        </button>
+    </div>
+</form>
+
+<script>
+function selectInvoice(id, number, student, balance) {
+    document.getElementById('invoice-id').value = id;
+    document.getElementById('invoice-search').value = '';
+    document.getElementById('selected-invoice-number').textContent = number;
+    document.getElementById('selected-invoice-student').textContent = student;
+    document.getElementById('selected-invoice-balance').textContent = 'GHS ' + balance;
+    document.getElementById('selected-invoice').classList.remove('hidden');
+    document.getElementById('invoice-results').innerHTML = '';
+    // Pre-fill amount with balance
+    const amountField = document.querySelector('input[name="amount"]');
+    if (amountField && !amountField.value) {
+        amountField.value = balance;
+    }
+}
+
+function clearInvoice() {
+    document.getElementById('invoice-id').value = '';
+    document.getElementById('selected-invoice').classList.add('hidden');
+}
+</script>

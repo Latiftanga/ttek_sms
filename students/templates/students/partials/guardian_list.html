@@ -1,24 +1,31 @@
 {% load core_tags %}
-<div class="space-y-4">
+<div class="space-y-4" hx-target="this" hx-swap="outerHTML">
     <!-- Page Header -->
     <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-xl font-bold">Guardians</h1>
-            <p class="text-sm text-base-content/60">
-                {% if guardians %}{{ guardians|length }} guardian{{ guardians|length|pluralize }}{% else %}No guardians{% endif %}
-                {% if search %}<span class="text-primary"> (filtered)</span>{% endif %}
-            </p>
-        </div>
-        <div class="flex gap-2">
-            <a href="{% url 'students:guardian_create' %}"
-               hx-get="{% url 'students:guardian_create' %}"
+        <div class="flex items-center gap-4">
+            <a href="{% url 'students:index' %}"
+               hx-get="{% url 'students:index' %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-plus"></i>
-                Add Guardian
+               class="btn btn-ghost btn-sm btn-circle">
+                <i class="fa-solid fa-arrow-left"></i>
             </a>
+            <div>
+                <h1 class="text-xl font-bold">Guardians</h1>
+                <p class="text-sm text-base-content/60">
+                    {% if guardians %}{{ guardians|length }} guardian{{ guardians|length|pluralize }}{% else %}No guardians{% endif %}
+                    {% if search %}<span class="text-primary"> (filtered)</span>{% endif %}
+                </p>
+            </div>
         </div>
+        <button class="btn btn-primary btn-sm"
+                hx-get="{% url 'students:guardian_create' %}"
+                hx-target="#modal-guardian-content"
+                hx-swap="innerHTML"
+                onclick="modal_guardian.showModal()">
+            <i class="fa-solid fa-plus"></i>
+            Add Guardian
+        </button>
     </div>
 
     <!-- Search & Filters -->
@@ -78,23 +85,23 @@
                             </td>
                             <td class="font-mono text-xs">{{ guardian.phone_number }}</td>
                             <td>{{ guardian.email|default:"-" }}</td>
-                            <td>{{ guardian.students.count }}</td>
+                            <td>{{ guardian.wards.count }}</td>
                             <td class="text-right">
                                 <div class="flex justify-end gap-1">
-                                    <a href="{% url 'students:guardian_edit' guardian.pk %}"
-                                       hx-get="{% url 'students:guardian_edit' guardian.pk %}"
-                                       hx-target="#main-content"
-                                       hx-push-url="true"
-                                       class="btn btn-ghost btn-xs">
+                                    <button class="btn btn-ghost btn-xs"
+                                            hx-get="{% url 'students:guardian_edit' guardian.pk %}"
+                                            hx-target="#modal-guardian-content"
+                                            hx-swap="innerHTML"
+                                            onclick="modal_guardian.showModal()">
                                         <i class="fa-solid fa-pen text-xs"></i>
-                                    </a>
-                                    <form hx-post="{% url 'students:guardian_delete' guardian.pk %}"
-                                          hx-confirm="Delete {{ guardian.full_name }}?">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-ghost btn-xs text-error">
-                                            <i class="fa-solid fa-trash text-xs"></i>
-                                        </button>
-                                    </form>
+                                    </button>
+                                    <button class="btn btn-ghost btn-xs text-error"
+                                            hx-post="{% url 'students:guardian_delete' guardian.pk %}"
+                                            hx-confirm="Delete {{ guardian.full_name }}?"
+                                            hx-target="#main-content"
+                                            hx-swap="innerHTML">
+                                        <i class="fa-solid fa-trash text-xs"></i>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -116,3 +123,29 @@
         </div>
     </div>
 </div>
+
+<!-- Guardian Modal -->
+<dialog id="modal_guardian" class="modal modal-middle">
+    <div class="modal-box max-w-lg">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-guardian-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+document.body.addEventListener('guardianChanged', function() {
+    htmx.ajax('GET', '{% url "students:guardian_index" %}', {target: '#main-content', swap: 'innerHTML'});
+    modal_guardian.close();
+});
+</script>
