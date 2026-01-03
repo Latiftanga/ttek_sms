@@ -226,9 +226,11 @@ fly deploy
 
 # Option B: Render.com Deployment
 
+*Note: Wildcard subdomains require Render Team plan ($19/month). Consider Fly.io for cheaper wildcard support.*
+
 ## Table of Contents
-1. [Prerequisites](#a1-prerequisites)
-2. [Deploy with Render Blueprint](#a2-deploy-with-render-blueprint)
+1. [Prerequisites](#b1-prerequisites)
+2. [Deploy with Render Blueprint](#b2-deploy-with-render-blueprint)
 3. [Configure Environment Variables](#a3-configure-environment-variables)
 4. [Configure Custom Domain](#a4-configure-custom-domain)
 5. [Setup Media Storage (S3/R2)](#a5-setup-media-storage)
@@ -410,12 +412,12 @@ Render supports wildcard domains on **paid plans**:
 ---
 ---
 
-# Option B: Hetzner Deployment (Full Control)
+# Option C: Hetzner Deployment (Full Control - Cheapest)
 
-Complete step-by-step guide to deploy on Hetzner Cloud.
+Complete step-by-step guide to deploy on Hetzner Cloud (or any VPS).
 
 ## Table of Contents
-1. [Create Hetzner Account & Server](#1-create-hetzner-account--server)
+1. [Create Hetzner Account & Server](#c1-create-hetzner-account--server)
 2. [Initial Server Setup](#2-initial-server-setup)
 3. [Install Docker](#3-install-docker)
 4. [Configure Domain & DNS](#4-configure-domain--dns)

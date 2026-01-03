@@ -34,25 +34,19 @@ FROM python:3.12-slim
 LABEL maintainer="ttek.com"
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    NODE_VERSION=20.x
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 EXPOSE 8000
 
-# Install Node.js, runtime system dependencies, and WeasyPrint dependencies
+# Install runtime system dependencies and WeasyPrint dependencies
+# No Node.js needed - Tailwind CSS is pre-built locally
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        curl \
-        ca-certificates \
-        gnupg \
         libjpeg62-turbo \
         zlib1g \
         libpq5 \
         postgresql-client \
-        libgcc-s1 \
-        libatomic1 \
-        libstdc++6 \
         libpango-1.0-0 \
         libpangocairo-1.0-0 \
         libgdk-pixbuf-2.0-0 \
@@ -62,23 +56,15 @@ RUN apt-get update && \
         libgirepository-1.0-1 \
         gir1.2-pango-1.0 \
         fonts-liberation \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_VERSION nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
-
-# Verify Node.js and npm installation
-RUN node --version && npm --version
 
 # Add non-root user
 RUN adduser --disabled-password --no-create-home app_user
 
 # Create dirs and set ownership
-RUN mkdir -p /vol/web/{media,static} /home/app_user/.cookiecutter_replay && \
-    chown -R app_user:app_user /vol /home/app_user
+RUN mkdir -p /vol/web/{media,static} && \
+    chown -R app_user:app_user /vol
 
 # Copy virtual environment from builder
 COPY --from=builder --chown=app_user:app_user /opt/venv /opt/venv
@@ -88,15 +74,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --chown=app_user:app_user . /app
 
 # Make scripts executable
-RUN chmod +x /app/render-build.sh /app/render-start.sh /app/fly-start.sh /app/docker-entrypoint.sh /app/docker-entrypoint.prod.sh 2>/dev/null || true
+RUN chmod +x /app/fly-start.sh /app/docker-entrypoint.sh /app/docker-entrypoint.prod.sh 2>/dev/null || true
 
-# Build Tailwind CSS and collect static files during image build
-# This runs as root before switching to app_user
-RUN python manage.py tailwind build && \
-    python manage.py collectstatic --noinput
+# Collect static files (Tailwind CSS is pre-built and committed to repo)
+RUN python manage.py collectstatic --noinput
 
 USER app_user
 
 # Default command - works for Render, Fly.io, and other PaaS
-# Uses PORT env var which is set by most platforms
 CMD ["./fly-start.sh"]
