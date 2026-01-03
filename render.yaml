@@ -39,6 +39,12 @@ services:
         value: "true"
       - key: FIELD_ENCRYPTION_KEY
         generateValue: true
+      - key: PUBLIC_DOMAIN
+        sync: false  # Set manually: yourdomain.com
+      - key: SUPERUSER_EMAIL
+        sync: false  # Set manually
+      - key: SUPERUSER_PASSWORD
+        sync: false  # Set manually
       # Email settings (configure in dashboard)
       - key: EMAIL_BACKEND
         value: django.core.mail.backends.console.EmailBackend
