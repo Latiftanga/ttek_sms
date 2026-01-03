@@ -109,6 +109,7 @@ AUTH_USER_MODEL = 'accounts.User'
 
 TAILWIND_APP_NAME = 'theme'
 
+PUBLIC_SCHEMA_NAME = 'public'  # Schema name for the public tenant
 PUBLIC_SCHEMA_URLCONF = 'config.urls_public'
 ROOT_URLCONF = 'config.urls'
 SHOW_PUBLIC_IF_NO_TENANT_FOUND = True  # Always show public schema if no tenant found
