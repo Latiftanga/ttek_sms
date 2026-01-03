@@ -21,6 +21,10 @@ class HealthCheckMiddleware:
         if request.path == '/health/' or request.path == '/health':
             return JsonResponse({'status': 'healthy'})
 
+        # Debug: print for all non-health requests
+        import sys
+        print(f'[HealthCheck MW] Request path: {request.path}, Host: {request.get_host()}', file=sys.stderr, flush=True)
+
         return self.get_response(request)
 
 
