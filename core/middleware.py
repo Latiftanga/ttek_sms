@@ -1,8 +1,4 @@
-import logging
 from django.http import JsonResponse
-from django.conf import settings
-
-logger = logging.getLogger(__name__)
 
 
 class HealthCheckMiddleware:
@@ -20,35 +16,5 @@ class HealthCheckMiddleware:
         # Handle health check before tenant middleware processes the request
         if request.path == '/health/' or request.path == '/health':
             return JsonResponse({'status': 'healthy'})
-
-        # Debug: print for all non-health requests
-        import sys
-        print(f'[HealthCheck MW] Request path: {request.path}, Host: {request.get_host()}', file=sys.stderr, flush=True)
-
-        return self.get_response(request)
-
-
-class TenantDebugMiddleware:
-    """
-    Debug middleware to log tenant resolution info.
-    Place AFTER TenantMainMiddleware to see resolved tenant.
-    """
-
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        # Log tenant info after TenantMainMiddleware has set it
-        tenant = getattr(request, 'tenant', None)
-        urlconf = getattr(request, 'urlconf', 'NOT SET')
-
-        if tenant:
-            print(f'[TenantDebug] Path: {request.path}')
-            print(f'[TenantDebug] Tenant schema: {tenant.schema_name}')
-            print(f'[TenantDebug] Tenant name: {tenant.name}')
-            print(f'[TenantDebug] URLConf: {urlconf}')
-        else:
-            print(f'[TenantDebug] Path: {request.path} - NO TENANT RESOLVED!')
-            print(f'[TenantDebug] Host: {request.get_host()}')
 
         return self.get_response(request)

@@ -76,7 +76,6 @@ TENANT_DOMAIN_MODEL = "schools.Domain"
 MIDDLEWARE = [
     'core.middleware.HealthCheckMiddleware',  # Must be before TenantMainMiddleware
     'django_tenants.middleware.main.TenantMainMiddleware',
-    'core.middleware.TenantDebugMiddleware',  # Debug: logs tenant resolution
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
