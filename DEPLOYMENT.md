@@ -6,27 +6,175 @@ Complete step-by-step guides to deploy your multi-tenant Django application.
 
 | Platform | Pros | Cons | Cost |
 |----------|------|------|------|
+| **Railway.app** | Easy, auto-scaling, flexible payments | Usage-based pricing | ~$5-15/month |
 | **Fly.io** | Easy, cheap, wildcard SSL included | Ephemeral filesystem | ~$10-15/month |
 | **Render.com** | Very easy, managed services | Wildcard needs Team plan ($19) | ~$25/month |
 | **Hetzner** | Full control, cheapest, persistent storage | Manual server management | ~$6/month |
 
 ---
 
-# Option A: Fly.io Deployment (Recommended - Best Value)
+# Option A: Railway.app Deployment (Recommended - Most Flexible)
+
+Railway offers easy deployment with flexible payment options and usage-based pricing.
 
 ## Table of Contents
-1. [Prerequisites](#a1-prerequisites-fly)
-2. [Install Fly CLI](#a2-install-fly-cli)
-3. [Deploy Application](#a3-deploy-application)
-4. [Configure Database & Redis](#a4-configure-database--redis)
-5. [Set Environment Variables](#a5-set-environment-variables)
-6. [Configure Custom Domain](#a6-configure-custom-domain-fly)
-7. [Setup Media Storage](#a7-setup-media-storage-fly)
-8. [Maintenance](#a8-maintenance-fly)
+1. [Prerequisites](#a1-prerequisites-railway)
+2. [Deploy to Railway](#a2-deploy-to-railway)
+3. [Configure Database & Redis](#a3-configure-database--redis-railway)
+4. [Set Environment Variables](#a4-set-environment-variables-railway)
+5. [Configure Custom Domain](#a5-configure-custom-domain-railway)
+6. [Maintenance](#a6-maintenance-railway)
 
 ---
 
-## A.1 Prerequisites (Fly)
+## A.1 Prerequisites (Railway)
+
+1. A [Railway.app](https://railway.app) account (sign up with GitHub)
+2. This repository pushed to GitHub
+3. A domain name (for multi-tenancy with subdomains)
+
+---
+
+## A.2 Deploy to Railway
+
+### One-Click Deploy
+1. Go to [Railway Dashboard](https://railway.app/dashboard)
+2. Click **New Project** → **Deploy from GitHub repo**
+3. Select your `ttek_sms` repository
+4. Railway detects `railway.json` and starts building
+
+### Add Database & Redis
+After deploying the app:
+
+1. In your project, click **+ New** → **Database** → **PostgreSQL**
+2. Click **+ New** → **Database** → **Redis**
+3. Railway auto-injects `DATABASE_URL` and `REDIS_URL`
+
+---
+
+## A.3 Configure Database & Redis (Railway)
+
+Railway automatically provisions and connects services. Verify by checking the **Variables** tab:
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection string
+
+---
+
+## A.4 Set Environment Variables (Railway)
+
+Go to your web service → **Variables** tab and add:
+
+```bash
+# Required
+DEBUG=0
+SECRET_KEY=your-super-secret-key-generate-new
+ALLOWED_HOSTS=*.up.railway.app,yourdomain.com,*.yourdomain.com
+CSRF_TRUSTED_ORIGINS=https://*.up.railway.app,https://yourdomain.com,https://*.yourdomain.com
+
+# Encryption key
+FIELD_ENCRYPTION_KEY=generate-using-fernet
+
+# Optional: Email
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+DEFAULT_FROM_EMAIL=noreply@yourdomain.com
+```
+
+### Generate Keys
+```bash
+# Secret key
+python -c "import secrets; print(secrets.token_urlsafe(50))"
+
+# Encryption key
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+---
+
+## A.5 Configure Custom Domain (Railway)
+
+### Add Custom Domain
+1. Go to your web service → **Settings** → **Domains**
+2. Click **Custom Domain**
+3. Add `yourdomain.com`
+4. Add `*.yourdomain.com` (for subdomains)
+
+### Configure DNS
+Add these records at your DNS provider:
+
+| Type | Name | Value |
+|------|------|-------|
+| CNAME | @ | `your-app.up.railway.app` |
+| CNAME | * | `your-app.up.railway.app` |
+
+---
+
+## A.6 Maintenance (Railway)
+
+### View Logs
+- Go to service → **Logs** tab
+
+### Run Management Commands
+1. Install Railway CLI:
+   ```bash
+   npm install -g @railway/cli
+   railway login
+   ```
+
+2. Run commands:
+   ```bash
+   railway run python manage.py createsuperuser
+   railway run python manage.py migrate_schemas
+   ```
+
+### Redeploy
+- Push to GitHub (auto-deploys)
+- Or click **Deploy** in Railway dashboard
+
+### Database Backup
+```bash
+# Connect to database
+railway connect postgres
+
+# Export data
+pg_dump -U postgres ttek_sms > backup.sql
+```
+
+---
+
+## Railway Cost Estimate
+
+| Resource | Usage | Monthly Cost |
+|----------|-------|--------------|
+| Web App | ~730 hours | ~$5 |
+| PostgreSQL | 1GB | ~$0-5 |
+| Redis | 256MB | ~$0-2 |
+| **Total** | | **~$5-15/month** |
+
+*Railway includes $5 free credit/month. Pay for actual usage.*
+
+---
+---
+
+# Option B: Fly.io Deployment (Best Value)
+
+## Table of Contents
+1. [Prerequisites](#b1-prerequisites-fly)
+2. [Install Fly CLI](#b2-install-fly-cli)
+3. [Deploy Application](#b3-deploy-application)
+4. [Configure Database & Redis](#b4-configure-database--redis)
+5. [Set Environment Variables](#b5-set-environment-variables)
+6. [Configure Custom Domain](#b6-configure-custom-domain-fly)
+7. [Setup Media Storage](#b7-setup-media-storage-fly)
+8. [Maintenance](#b8-maintenance-fly)
+
+---
+
+## B.1 Prerequisites (Fly)
 
 1. A [Fly.io](https://fly.io) account (sign up with GitHub)
 2. This repository cloned locally
@@ -34,7 +182,7 @@ Complete step-by-step guides to deploy your multi-tenant Django application.
 
 ---
 
-## A.2 Install Fly CLI
+## B.2 Install Fly CLI
 
 ```bash
 # macOS
@@ -52,7 +200,7 @@ fly auth login
 
 ---
 
-## A.3 Deploy Application
+## B.3 Deploy Application
 
 ```bash
 cd ttek_sms
@@ -75,7 +223,7 @@ fly deploy
 
 ---
 
-## A.4 Configure Database & Redis
+## B.4 Configure Database & Redis
 
 The `fly postgres attach` command automatically sets `DATABASE_URL`. For Redis:
 
@@ -89,7 +237,7 @@ fly secrets set REDIS_URL="redis://default:password@your-redis-host.upstash.io:6
 
 ---
 
-## A.5 Set Environment Variables
+## B.5 Set Environment Variables
 
 ```bash
 # Required secrets
@@ -114,7 +262,7 @@ fly secrets set ARKESEL_SENDER_ID="YourSchool"
 
 ---
 
-## A.6 Configure Custom Domain (Fly)
+## B.6 Configure Custom Domain (Fly)
 
 ### Add Your Domain
 ```bash
@@ -142,7 +290,7 @@ fly certs show "*.yourdomain.com"
 
 ---
 
-## A.7 Setup Media Storage (Fly)
+## B.7 Setup Media Storage (Fly)
 
 Fly.io has ephemeral filesystem. Use Tigris (Fly's S3-compatible storage) or external S3:
 
@@ -164,7 +312,7 @@ fly secrets set AWS_S3_ENDPOINT_URL="https://your-account.r2.cloudflarestorage.c
 
 ---
 
-## A.8 Maintenance (Fly)
+## B.8 Maintenance (Fly)
 
 ### SSH into Container
 ```bash
@@ -224,7 +372,7 @@ fly deploy
 ---
 ---
 
-# Option B: Render.com Deployment
+# Option C: Render.com Deployment
 
 *Note: Wildcard subdomains require Render Team plan ($19/month). Consider Fly.io for cheaper wildcard support.*
 
@@ -412,7 +560,7 @@ Render supports wildcard domains on **paid plans**:
 ---
 ---
 
-# Option C: Hetzner Deployment (Full Control - Cheapest)
+# Option D: Hetzner Deployment (Full Control - Cheapest)
 
 Complete step-by-step guide to deploy on Hetzner Cloud (or any VPS).
 
