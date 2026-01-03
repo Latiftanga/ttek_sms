@@ -74,6 +74,7 @@ TENANT_DOMAIN_MODEL = "schools.Domain"
 
 # --- 3. MIDDLEWARE ---
 MIDDLEWARE = [
+    'core.middleware.HealthCheckMiddleware',  # Must be before TenantMainMiddleware
     'django_tenants.middleware.main.TenantMainMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
