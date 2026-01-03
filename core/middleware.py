@@ -36,10 +36,15 @@ class TenantDebugMiddleware:
     def __call__(self, request):
         # Log tenant info after TenantMainMiddleware has set it
         tenant = getattr(request, 'tenant', None)
+        urlconf = getattr(request, 'urlconf', 'NOT SET')
+
         if tenant:
-            logger.info(f'[TenantDebug] Path: {request.path}, Tenant: {tenant.schema_name}, Name: {tenant.name}')
-            logger.info(f'[TenantDebug] URLConf: {request.urlconf if hasattr(request, "urlconf") else "default"}')
+            print(f'[TenantDebug] Path: {request.path}')
+            print(f'[TenantDebug] Tenant schema: {tenant.schema_name}')
+            print(f'[TenantDebug] Tenant name: {tenant.name}')
+            print(f'[TenantDebug] URLConf: {urlconf}')
         else:
-            logger.warning(f'[TenantDebug] Path: {request.path}, No tenant resolved!')
+            print(f'[TenantDebug] Path: {request.path} - NO TENANT RESOLVED!')
+            print(f'[TenantDebug] Host: {request.get_host()}')
 
         return self.get_response(request)
