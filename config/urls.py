@@ -1,9 +1,16 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
+from django.http import JsonResponse
+
+
+def health_check(request):
+    """Health check endpoint for load balancers and monitoring."""
+    return JsonResponse({'status': 'healthy'})
 
 
 urlpatterns = [
+    path('health/', health_check, name='health_check'),
     path('', include('core.urls')),
     path('', include('accounts.urls')),
     path('academics/', include('academics.urls')),
