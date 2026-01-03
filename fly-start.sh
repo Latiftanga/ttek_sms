@@ -10,6 +10,12 @@ python manage.py migrate_schemas --shared
 echo "=== Running migrations for tenant schemas ==="
 python manage.py migrate_schemas --tenant
 
+# Create superuser if environment variables are set
+if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_EMAIL" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
+    echo "=== Creating superuser ==="
+    python manage.py createsuperuser --noinput || echo "Superuser already exists or creation failed"
+fi
+
 echo "=== Starting Gunicorn ==="
 exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \
