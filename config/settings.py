@@ -155,15 +155,11 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@schoolos.com')
 
-# SMS - Supported backends: 'arkesel', 'console'
-# Arkesel is the primary SMS provider for Ghana
-# Get your API key from: https://sms.arkesel.com/user/sms-api/info
-SMS_BACKEND = os.getenv('SMS_BACKEND', 'console')
-
-# Arkesel SMS Configuration (https://developers.arkesel.com/)
-ARKESEL_API_KEY = os.getenv('ARKESEL_API_KEY', '')
-ARKESEL_SENDER_ID = os.getenv('ARKESEL_SENDER_ID', '')  # Max 11 characters
-
+# SMS & Payment Configuration
+# NOTE: These are configured PER-SCHOOL in the admin dashboard (Settings → SMS/Payment)
+# Each school chooses their own provider and enters their own API keys.
+# Supported SMS providers: Arkesel, Hubtel, Africa's Talking
+# Supported Payment providers: Paystack, Hubtel, Flutterwave
 
 # Field encryption key (store securely, different from gateway keys)
 # Generate a key with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

@@ -41,8 +41,8 @@ README.md
 # Crucial: prevents copying local binaries that crash in Alpine Linux
 node_modules/
 **/node_modules/
-package-lock.json
 npm-debug.log
+# Note: package-lock.json is NOT excluded - needed for reproducible builds
 
 # If you use the standard django-tailwind folder structure:
 theme/static_src/node_modules/
