@@ -10,6 +10,9 @@ python manage.py migrate_schemas --shared
 echo "=== Running migrations for tenant schemas ==="
 python manage.py migrate_schemas --tenant
 
+echo "=== Setting up public tenant ==="
+python manage.py setup_public_tenant
+
 # Create superuser if environment variables are set
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_EMAIL" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
     echo "=== Creating superuser ==="
