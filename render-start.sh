@@ -10,6 +10,12 @@ python manage.py migrate_schemas --shared
 echo "=== Running migrations for tenant schemas ==="
 python manage.py migrate_schemas --tenant
 
+echo "=== Setting up public tenant ==="
+python manage.py setup_public_tenant || echo "Public tenant already exists"
+
+echo "=== Creating superuser if not exists ==="
+python manage.py create_superuser_from_env || echo "Superuser creation skipped"
+
 echo "=== Starting Gunicorn ==="
 exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:$PORT \

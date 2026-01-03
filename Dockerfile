@@ -74,13 +74,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --chown=app_user:app_user . /app
 
 # Make scripts executable
-RUN chmod +x /app/fly-start.sh /app/docker-entrypoint.sh /app/docker-entrypoint.prod.sh \
-    /app/railway-start.sh /app/railway-worker.sh /app/railway-beat.sh 2>/dev/null || true
+RUN chmod +x /app/render-start.sh /app/docker-entrypoint.sh 2>/dev/null || true
 
 # Collect static files (Tailwind CSS is pre-built and committed to repo)
 RUN python manage.py collectstatic --noinput
 
 USER app_user
 
-# Default command - works for Render, Fly.io, and other PaaS
-CMD ["./fly-start.sh"]
+# Default command - Render web service
+CMD ["./render-start.sh"]
