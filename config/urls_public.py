@@ -11,25 +11,10 @@ def health_check(request):
     return JsonResponse({'status': 'healthy'})
 
 
-def test_public(request):
-    """Simple test to verify public URLconf is being used."""
-    return JsonResponse({'status': 'public_urlconf_working', 'path': request.path})
-
-
-def simple_home(request):
-    """Simple home page to test if root URL works."""
-    return JsonResponse({
-        'status': 'ok',
-        'message': 'TTEK SMS Platform - Public Home',
-        'urlconf': 'urls_public'
-    })
-
-
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', health_check, name='health_check'),
-    path('test/', test_public, name='test_public'),
-    path('', simple_home, name='public_home'),  # Temporarily use simple JSON response
+    path('', public_home, name='public_home'),
 ]
 
 if settings.DEBUG:

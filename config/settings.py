@@ -9,26 +9,27 @@ DEBUG = os.getenv('DEBUG', '0') == '1'
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-CHANGE-IN-PRODUCTION')
 
 # Parse ALLOWED_HOSTS from env (comma-separated)
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0,*').split(',')
 
-# CSRF Trusted Origins (required for Render and other PaaS with proxies)
+# CSRF Trusted Origins for PaaS deployments (Railway, Render, Fly.io)
 CSRF_TRUSTED_ORIGINS = [
     origin.strip() for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()
 ]
 
-# PaaS-specific settings (Render, Fly.io, Railway, etc.)
-RENDER = os.getenv('RENDER', 'false').lower() == 'true'
-FLY = os.getenv('FLY', 'false').lower() == 'true'
+# Platform detection for proxy header configuration
 RAILWAY = os.getenv('RAILWAY_ENVIRONMENT', '') != ''
+RENDER = os.getenv('RENDER', 'false').lower() == 'true'
+FLY = os.getenv('FLY_APP_NAME', '') != ''
 
-if RENDER or FLY or RAILWAY:
-    # These platforms use load balancers, so trust the X-Forwarded-Proto header
+# Trust proxy headers on PaaS platforms (required for HTTPS redirect to work correctly)
+if RAILWAY or RENDER or FLY:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # --- 2. APPS ---
 SHARED_APPS = (
     'django_tenants',
-    'schools',              # Public Tenant Model
+    'schools',
     'accounts',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -95,14 +96,45 @@ if DEBUG:
     ]
 
 # --- 1. DATABASE (Multi-Tenant) ---
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/school_db'),
-        engine='django_tenants.postgresql_backend',
-        conn_max_age=600,  # Connection pooling
-        conn_health_checks=True,  # Health checks
-    )
-}
+if DEBUG:
+    # DEVELOPMENT DATABASE SETTINGS
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/ttek_sms_db'),
+            engine='django_tenants.postgresql_backend',
+            conn_max_age=0,  # No connection pooling in dev for easier debugging
+            conn_health_checks=False,  # Disabled for faster local development
+        )
+    }
+    # Optional: Add additional dev-specific database options
+    DATABASES['default'].update({
+        'ATOMIC_REQUESTS': True,  # Wrap each request in a transaction
+        'OPTIONS': {
+            'connect_timeout': 10,
+        }
+    })
+else:
+    # PRODUCTION DATABASE SETTINGS
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.getenv('DATABASE_URL'),
+            engine='django_tenants.postgresql_backend',
+            conn_max_age=600,  # Connection pooling - reuse connections for 10 minutes
+            conn_health_checks=True,  # Enable health checks
+            ssl_require=True,  # Require SSL in production
+        )
+    }
+    # Production-specific database options
+    DATABASES['default'].update({
+        'ATOMIC_REQUESTS': True,
+        'DISABLE_SERVER_SIDE_CURSORS': True,  # Better for connection pooling
+        'OPTIONS': {
+            'connect_timeout': 10,
+            'options': '-c statement_timeout=30000',  # 30 second query timeout
+            'sslmode': 'require',  # Require SSL connection
+        }
+    })
+
 DATABASE_ROUTERS = ('django_tenants.routers.TenantSyncRouter',)
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -204,6 +236,7 @@ LOGOUT_REDIRECT_URL = 'accounts:login'
 # --- 9. MEDIA FILES ---
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+MULTITENANT_RELATIVE_MEDIA_ROOT = 'schools/%s/media'
 
 # --- 10. LOGGING ---
 LOGGING = {
