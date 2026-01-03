@@ -76,6 +76,7 @@ TENANT_DOMAIN_MODEL = "schools.Domain"
 MIDDLEWARE = [
     'core.middleware.HealthCheckMiddleware',  # Must be before TenantMainMiddleware
     'django_tenants.middleware.main.TenantMainMiddleware',
+    'core.middleware.TenantDebugMiddleware',  # Debug: logs tenant resolution
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -111,8 +112,7 @@ TAILWIND_APP_NAME = 'theme'
 
 PUBLIC_SCHEMA_URLCONF = 'config.urls_public'
 ROOT_URLCONF = 'config.urls'
-if DEBUG:
-    SHOW_PUBLIC_IF_NO_TENANT_FOUND = True
+SHOW_PUBLIC_IF_NO_TENANT_FOUND = True  # Always show public schema if no tenant found
 
 # --- 4. TEMPLATES ---
 TEMPLATES = [
