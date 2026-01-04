@@ -21,8 +21,9 @@ RAILWAY = os.getenv('RAILWAY_ENVIRONMENT', '') != ''
 RENDER = os.getenv('RENDER', 'false').lower() == 'true'
 FLY = os.getenv('FLY_APP_NAME', '') != ''
 
-# Trust proxy headers on PaaS platforms (required for HTTPS redirect to work correctly)
-if RAILWAY or RENDER or FLY:
+# Trust proxy headers (required for HTTPS redirect to work correctly behind nginx/proxy)
+# Enable for all production environments (PaaS or self-hosted behind nginx)
+if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
