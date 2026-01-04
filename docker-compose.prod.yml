@@ -11,8 +11,8 @@ services:
       timeout: 5s
       retries: 5
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-school_db}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
   redis:
@@ -33,8 +33,19 @@ services:
       args:
         DEV: "false"
     restart: always
-    entrypoint: ["/app/docker-entrypoint.prod.sh"]
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --worker-class gthread --timeout 120 --keep-alive 5 --max-requests 1000 --max-requests-jitter 50 --access-logfile - --error-logfile -
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command: >
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      --threads 2
+      --worker-class gthread
+      --timeout 120
+      --keep-alive 5
+      --max-requests 1000
+      --max-requests-jitter 100
+      --access-logfile -
+      --error-logfile -
     env_file: .env.prod
     volumes:
       - static_volume:/app/staticfiles
@@ -90,15 +101,24 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - static_volume:/app/staticfiles:ro
-      - media_volume:/app/media:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - ./nginx/certbot/www:/var/www/certbot:ro
+      - static_volume:/var/www/static:ro
+      - media_volume:/var/www/media:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_conf:/etc/letsencrypt:ro
     depends_on:
       - web
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:
   postgres_data:
   redis_data:
   static_volume:
   media_volume:
+  certbot_www:
+  certbot_conf:

@@ -74,12 +74,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --chown=app_user:app_user . /app
 
 # Make scripts executable
-RUN chmod +x /app/render-start.sh /app/docker-entrypoint.sh 2>/dev/null || true
+RUN chmod +x /app/docker-entrypoint.sh 2>/dev/null || true
 
 # Collect static files (Tailwind CSS is pre-built and committed to repo)
 RUN python manage.py collectstatic --noinput
 
 USER app_user
 
-# Default command - Render web service
-CMD ["./render-start.sh"]
+# Default command - will be overridden by docker-compose
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "config.wsgi:application"]
