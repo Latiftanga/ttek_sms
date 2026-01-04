@@ -1,29 +1,24 @@
 #!/bin/bash
-# TTEK SMS Database Backup Script
-# Usage: ./scripts/backup.sh
-
 set -e
 
-BACKUP_DIR="./backups"
+# Configuration
+BACKUP_DIR="/home/deploy/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/ttek_sms_$DATE.sql"
+RETENTION_DAYS=7
 
 # Create backup directory if it doesn't exist
 mkdir -p $BACKUP_DIR
 
-echo "Creating database backup..."
+echo "=== Starting database backup ==="
 
-# Create backup
-docker compose -f docker-compose.prod.yml exec -T db pg_dump -U ${POSTGRES_USER:-ttek_user} ${POSTGRES_DB:-ttek_sms_db} > $BACKUP_FILE
+# Dump the database
+docker compose -f docker-compose.prod.yml exec -T db pg_dump -U postgres school_db | gzip > "$BACKUP_DIR/db_backup_$DATE.sql.gz"
 
-# Compress backup
-gzip $BACKUP_FILE
+echo "Backup created: $BACKUP_DIR/db_backup_$DATE.sql.gz"
 
-echo "Backup created: ${BACKUP_FILE}.gz"
+# Remove old backups
+echo "Removing backups older than $RETENTION_DAYS days..."
+find $BACKUP_DIR -name "db_backup_*.sql.gz" -mtime +$RETENTION_DAYS -delete
 
-# Keep only last 7 backups
-echo "Cleaning old backups (keeping last 7)..."
-ls -t $BACKUP_DIR/*.gz 2>/dev/null | tail -n +8 | xargs -r rm
-
-echo "Backup complete!"
-ls -lh $BACKUP_DIR/
+echo "=== Backup complete ==="
+ls -lh $BACKUP_DIR
