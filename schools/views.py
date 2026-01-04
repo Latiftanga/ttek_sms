@@ -8,9 +8,6 @@ def public_home(request):
     region_count = Region.objects.count()
     district_count = District.objects.count()
 
-    # Get recent schools (latest 6)
-    recent_schools = School.objects.order_by('-created_on')[:6]
-
     # Features for the platform
     features = [
         {
@@ -59,7 +56,6 @@ def public_home(request):
         'school_count': school_count,
         'region_count': region_count,
         'district_count': district_count,
-        'recent_schools': recent_schools,
         'features': features,
     }
     return render(request, 'schools/public_home.html', context)

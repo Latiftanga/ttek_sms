@@ -25,34 +25,46 @@
 <body class="bg-base-100">
     <!-- Navbar -->
     <nav class="navbar bg-base-100 shadow-sm sticky top-0 z-50">
-        <div class="container mx-auto">
-            <div class="flex-1">
-                <a href="/" class="btn btn-ghost text-xl font-bold">
-                    <i class="fa-solid fa-graduation-cap text-primary"></i>
-                    TTEK SMS
-                </a>
-            </div>
-            <div class="flex-none gap-2">
-                <a href="/admin/" class="btn btn-ghost btn-sm">
-                    <i class="fa-solid fa-lock"></i>
-                    Admin
-                </a>
-                <a href="#features" class="btn btn-ghost btn-sm hidden sm:flex">Features</a>
-                <a href="#stats" class="btn btn-ghost btn-sm hidden sm:flex">Stats</a>
+        <div class="container mx-auto px-4 flex justify-between items-center">
+            <!-- Logo (left) -->
+            <a href="/" class="flex items-center gap-2 text-xl font-bold text-primary">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <span>TTEK SMS</span>
+            </a>
+
+            <!-- Right side -->
+            <div class="flex items-center gap-2">
+                <!-- Desktop Navigation Links -->
+                <div class="hidden md:flex items-center gap-1">
+                    <a href="#features" class="btn btn-ghost btn-sm">Features</a>
+                    <a href="#why-us" class="btn btn-ghost btn-sm">Why Us</a>
+                    <a href="#contact" class="btn btn-ghost btn-sm">Contact</a>
+                    <a href="#contact" class="btn btn-primary btn-sm ml-2">Get Started</a>
+                </div>
+
                 <!-- Theme Toggle -->
                 <label class="btn btn-ghost btn-circle swap swap-rotate">
-                    <input type="checkbox" class="theme-controller" value="dark"
-                           onchange="localStorage.setItem('theme', this.checked ? 'dark' : 'light')" />
-                    <!-- sun icon -->
-                    <svg class="swap-off h-6 w-6 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <input type="checkbox" id="theme-toggle" onchange="toggleTheme(this.checked)" />
+                    <svg class="swap-off h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                         <path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/>
                     </svg>
-                    <!-- moon icon -->
-                    <svg class="swap-on h-6 w-6 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <svg class="swap-on h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                         <path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z"/>
                     </svg>
                 </label>
-                <a href="#contact" class="btn btn-primary btn-sm">Get Started</a>
+
+                <!-- Mobile Menu -->
+                <div class="dropdown dropdown-end md:hidden">
+                    <label tabindex="0" class="btn btn-ghost btn-sm">
+                        <i class="fa-solid fa-bars text-lg"></i>
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-52 mt-4 z-50">
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#why-us">Why Us</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                        <li class="mt-2"><a href="#contact" class="btn btn-primary btn-sm">Get Started</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>
@@ -87,32 +99,32 @@
                 <div class="hidden lg:block">
                     <div class="mockup-browser bg-base-100 border border-base-300 shadow-2xl">
                         <div class="mockup-browser-toolbar">
-                            <div class="input border border-base-300 text-sm">school.tteksms.com</div>
+                            <div class="input border border-base-300 text-sm">yourschool.tteksms.com</div>
                         </div>
                         <div class="bg-base-200 p-4">
                             <div class="flex items-center gap-4 mb-4">
                                 <div class="avatar placeholder">
                                     <div class="bg-primary text-primary-content rounded-full w-12 flex items-center justify-center">
-                                        <span class="text-xl">A</span>
+                                        <i class="fa-solid fa-school"></i>
                                     </div>
                                 </div>
                                 <div>
-                                    <div class="font-bold">Amass School</div>
+                                    <div class="font-bold">Your School</div>
                                     <div class="text-sm text-base-content/60">Dashboard</div>
                                 </div>
                             </div>
                             <div class="grid grid-cols-3 gap-3">
                                 <div class="stat bg-base-100 rounded-lg p-3 shadow-sm">
                                     <div class="stat-title text-xs">Students</div>
-                                    <div class="stat-value text-xl text-primary">256</div>
+                                    <div class="stat-value text-xl text-primary"><i class="fa-solid fa-users text-lg"></i></div>
                                 </div>
                                 <div class="stat bg-base-100 rounded-lg p-3 shadow-sm">
                                     <div class="stat-title text-xs">Teachers</div>
-                                    <div class="stat-value text-xl text-secondary">24</div>
+                                    <div class="stat-value text-xl text-secondary"><i class="fa-solid fa-chalkboard-teacher text-lg"></i></div>
                                 </div>
                                 <div class="stat bg-base-100 rounded-lg p-3 shadow-sm">
                                     <div class="stat-title text-xs">Classes</div>
-                                    <div class="stat-value text-xl text-accent">12</div>
+                                    <div class="stat-value text-xl text-accent"><i class="fa-solid fa-door-open text-lg"></i></div>
                                 </div>
                             </div>
                         </div>
@@ -192,7 +204,7 @@
     </section>
 
     <!-- Why Choose Us Section -->
-    <section class="py-20 bg-base-200">
+    <section id="why-us" class="py-20 bg-base-200">
         <div class="container mx-auto px-4">
             <div class="grid lg:grid-cols-2 gap-12 items-center">
                 <div>
@@ -245,29 +257,23 @@
 
                 <div class="flex justify-center">
                     <div class="card bg-base-100 shadow-xl max-w-md">
-                        <div class="card-body p-8">
-                            <div class="flex items-center gap-4 mb-4">
+                        <div class="card-body p-8 text-center">
+                            <div class="flex justify-center mb-4">
                                 <div class="avatar placeholder">
-                                    <div class="bg-primary text-primary-content rounded-full w-14 flex items-center justify-center">
-                                        <i class="fa-solid fa-quote-left text-xl"></i>
+                                    <div class="bg-primary text-primary-content rounded-full w-16 flex items-center justify-center">
+                                        <i class="fa-solid fa-rocket text-2xl"></i>
                                     </div>
                                 </div>
                             </div>
-                            <blockquote class="text-lg mb-6 italic">
-                                "TTEK SMS has transformed how we manage our school. From student records to
-                                fee collection, everything is now organized and accessible."
-                            </blockquote>
-                            <div class="flex items-center gap-4">
-                                <div class="avatar placeholder">
-                                    <div class="bg-base-300 rounded-full w-12 flex items-center justify-center">
-                                        <span>JA</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div class="font-semibold">James Adjei</div>
-                                    <div class="text-sm text-base-content/60">Headmaster, Sample Academy</div>
-                                </div>
-                            </div>
+                            <h3 class="text-xl font-bold mb-3">Ready to Get Started?</h3>
+                            <p class="text-base-content/70 mb-6">
+                                Transform your school's administration with a modern,
+                                easy-to-use management system built for Ghanaian schools.
+                            </p>
+                            <a href="#contact" class="btn btn-primary">
+                                <i class="fa-solid fa-envelope mr-2"></i>
+                                Contact Us Today
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -275,25 +281,6 @@
         </div>
     </section>
 
-    {% if recent_schools %}
-    <!-- Recent Schools Section -->
-    <section class="py-16">
-        <div class="container mx-auto px-4">
-            <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold mb-4">Schools Using TTEK SMS</h2>
-                <p class="text-base-content/70">Join the growing community of schools on our platform.</p>
-            </div>
-            <div class="flex flex-wrap justify-center gap-6">
-                {% for school in recent_schools %}
-                <div class="badge badge-lg badge-outline gap-2 py-4 px-6">
-                    <i class="fa-solid fa-school"></i>
-                    {{ school.name }}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </section>
-    {% endif %}
 
     <!-- CTA Section -->
     <section id="contact" class="py-20 hero-gradient">
@@ -371,9 +358,21 @@
     </footer>
 
     <script>
-        // Sync theme toggle with saved preference
-        const themeCtrl = document.querySelector('.theme-controller');
-        if (themeCtrl) themeCtrl.checked = localStorage.getItem('theme') === 'dark';
+        // Theme toggle function
+        function toggleTheme(isDark) {
+            const theme = isDark ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+        }
+
+        // Initialize theme on page load
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            const isDark = savedTheme === 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const toggle = document.getElementById('theme-toggle');
+            if (toggle) toggle.checked = isDark;
+        })();
 
         // Smooth scroll for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {

@@ -131,7 +131,7 @@ else:
         'OPTIONS': {
             'connect_timeout': 10,
             'options': '-c statement_timeout=30000',  # 30 second query timeout
-            'sslmode': 'require',  # Require SSL connection
+            'sslmode': os.getenv('DB_SSLMODE', 'disable'),  # SSL mode (disable for Docker, require for external DB)
         }
     })
 
