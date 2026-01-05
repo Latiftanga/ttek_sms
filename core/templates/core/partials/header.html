@@ -105,8 +105,17 @@
                 </li>
                 {% endif %}
                 <div class="divider my-1"></div>
-                <li>
+                <!-- <li>
                     <a href="{% url 'accounts:logout' %}" class="py-2 text-sm text-error">
+                        <i class="fa-solid fa-right-from-bracket mr-2"></i> Logout
+                    </a>
+                </li> -->
+
+                <li>
+                    <a hx-post="{% url 'accounts:logout' %}" 
+                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                    hx-target="body"
+                    class="py-2 text-sm text-error cursor-pointer">
                         <i class="fa-solid fa-right-from-bracket mr-2"></i> Logout
                     </a>
                 </li>

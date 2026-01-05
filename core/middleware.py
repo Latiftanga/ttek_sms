@@ -10,6 +10,14 @@ class TenantNotFoundMiddleware(TenantMainMiddleware):
     when a school/tenant is not found instead of showing the public site.
     """
 
+    @property
+    def public_domains(self):
+        """Get list of domains that should show the public/landing page."""
+        from django.conf import settings
+        return getattr(settings, 'PUBLIC_DOMAINS', [
+            'ttek-sms.com', 'www.ttek-sms.com', 'localhost', '127.0.0.1'
+        ])
+
     def no_tenant_found(self, request, hostname):
         """
         Called when no tenant is found for the given hostname.
@@ -33,9 +41,28 @@ class TenantNotFoundMiddleware(TenantMainMiddleware):
             'hostname': hostname,
         }, status=404)
 
+    def is_public_domain(self, hostname):
+        """
+        Check if hostname is a known public/main domain.
+        Subdomains like 'demo.ttek-sms.com' should NOT be considered public.
+        """
+        # Remove port if present
+        hostname_without_port = hostname.split(':')[0].lower()
+
+        # Check exact match with public domains
+        if hostname_without_port in [d.lower() for d in self.public_domains]:
+            return True
+
+        # Check if it's localhost with port
+        if hostname_without_port.startswith('localhost') or hostname_without_port.startswith('127.0.0.1'):
+            return True
+
+        return False
+
     def process_request(self, request):
         """
         Override to catch tenant not found and show custom page.
+        Also catches subdomains that incorrectly route to public schema.
         """
         from django_tenants.utils import get_tenant_domain_model
         from django.db import connection
@@ -50,8 +77,16 @@ class TenantNotFoundMiddleware(TenantMainMiddleware):
             response = self.no_tenant_found(request, hostname)
             if response:
                 return response
-            # If no_tenant_found returned None, continue with request
             return None
+
+        # Check if we're routing to public schema for a non-public domain
+        # This catches subdomains that don't exist but might match a wildcard
+        if tenant.schema_name == get_public_schema_name():
+            if not self.is_public_domain(hostname):
+                # This is a subdomain trying to access public - show not found
+                response = self.no_tenant_found(request, hostname)
+                if response:
+                    return response
 
         tenant.domain_url = hostname
         request.tenant = tenant

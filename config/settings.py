@@ -147,6 +147,10 @@ PUBLIC_SCHEMA_URLCONF = 'config.urls_public'
 ROOT_URLCONF = 'config.urls'
 SHOW_PUBLIC_IF_NO_TENANT_FOUND = False  # Custom middleware handles this with a friendly error page
 
+# Domains that show the public landing page (subdomains will show "School Not Found" if not registered)
+# Can be set via environment variable as comma-separated list: PUBLIC_DOMAINS=example.com,www.example.com
+PUBLIC_DOMAINS = [d.strip() for d in os.getenv('PUBLIC_DOMAINS', 'ttek-sms.com,www.ttek-sms.com,localhost,127.0.0.1').split(',')]
+
 # --- 4. TEMPLATES ---
 TEMPLATES = [
     {
