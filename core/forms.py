@@ -142,6 +142,50 @@ class SMSSettingsForm(forms.ModelForm):
         }
 
 
+class EmailSettingsForm(forms.ModelForm):
+    """Form for email configuration settings."""
+    class Meta:
+        model = SchoolSettings
+        fields = [
+            'email_enabled', 'email_backend', 'email_host', 'email_port',
+            'email_use_tls', 'email_use_ssl', 'email_host_user',
+            'email_host_password', 'email_from_address', 'email_from_name'
+        ]
+        labels = {
+            'email_enabled': 'Enable Custom Email',
+            'email_backend': 'Email Provider',
+            'email_host': 'SMTP Host',
+            'email_port': 'SMTP Port',
+            'email_use_tls': 'Use TLS',
+            'email_use_ssl': 'Use SSL',
+            'email_host_user': 'Username',
+            'email_host_password': 'Password',
+            'email_from_address': 'From Email',
+            'email_from_name': 'From Name',
+        }
+        widgets = {
+            'email_host': forms.TextInput(attrs={
+                'placeholder': 'e.g., smtp.gmail.com',
+            }),
+            'email_port': forms.NumberInput(attrs={
+                'placeholder': '587',
+            }),
+            'email_host_user': forms.TextInput(attrs={
+                'placeholder': 'your-email@example.com',
+            }),
+            'email_host_password': forms.PasswordInput(attrs={
+                'placeholder': 'Enter your email password',
+                'autocomplete': 'off',
+            }),
+            'email_from_address': forms.EmailInput(attrs={
+                'placeholder': 'noreply@yourschool.com',
+            }),
+            'email_from_name': forms.TextInput(attrs={
+                'placeholder': 'Your School Name',
+            }),
+        }
+
+
 class AcademicYearForm(forms.ModelForm):
     """Form for creating/editing academic years."""
     class Meta:

@@ -76,8 +76,8 @@ TENANT_DOMAIN_MODEL = "schools.Domain"
 
 # --- 3. MIDDLEWARE ---
 MIDDLEWARE = [
-    'core.middleware.HealthCheckMiddleware',  # Must be before TenantMainMiddleware
-    'django_tenants.middleware.main.TenantMainMiddleware',
+    'core.middleware.HealthCheckMiddleware',  # Must be before TenantNotFoundMiddleware
+    'core.middleware.TenantNotFoundMiddleware',  # Custom middleware for friendly error page
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -145,7 +145,7 @@ TAILWIND_APP_NAME = 'theme'
 PUBLIC_SCHEMA_NAME = 'public'  # Schema name for the public tenant
 PUBLIC_SCHEMA_URLCONF = 'config.urls_public'
 ROOT_URLCONF = 'config.urls'
-SHOW_PUBLIC_IF_NO_TENANT_FOUND = True  # Always show public schema if no tenant found
+SHOW_PUBLIC_IF_NO_TENANT_FOUND = False  # Custom middleware handles this with a friendly error page
 
 # --- 4. TEMPLATES ---
 TEMPLATES = [
@@ -182,11 +182,14 @@ if not DEBUG:
         SECURE_HSTS_PRELOAD = True
 
 # --- 6. COMMUNICATION ---
-# Email
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+# Email - Tenant-aware backend that uses per-school SMTP settings when configured
+# Falls back to global settings (DEFAULT_EMAIL_BACKEND) when school email is disabled
+EMAIL_BACKEND = 'core.email_backend.TenantEmailBackend'
+DEFAULT_EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@schoolos.com')

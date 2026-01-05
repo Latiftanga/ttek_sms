@@ -9,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from PIL import Image
 import math
+from encrypted_model_fields.fields import EncryptedCharField
 from .choices import Gender
 
 
@@ -322,6 +323,62 @@ class SchoolSettings(models.Model):
     sms_enabled = models.BooleanField(
         default=False,
         help_text="Enable SMS messaging for this school"
+    )
+
+    # Email Configuration
+    EMAIL_BACKEND_CHOICES = [
+        ('console', 'Console (Development)'),
+        ('smtp', 'SMTP'),
+    ]
+    email_backend = models.CharField(
+        max_length=20,
+        choices=EMAIL_BACKEND_CHOICES,
+        default='console',
+        help_text="Email provider to use"
+    )
+    email_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable custom email settings for this school"
+    )
+
+    # SMTP Settings
+    email_host = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="SMTP server hostname (e.g., smtp.gmail.com)"
+    )
+    email_port = models.PositiveIntegerField(
+        default=587,
+        help_text="SMTP port (587 for TLS, 465 for SSL)"
+    )
+    email_use_tls = models.BooleanField(
+        default=True,
+        help_text="Use TLS encryption"
+    )
+    email_use_ssl = models.BooleanField(
+        default=False,
+        help_text="Use SSL encryption (mutually exclusive with TLS)"
+    )
+    email_host_user = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="SMTP username/email"
+    )
+    email_host_password = EncryptedCharField(
+        max_length=500,
+        blank=True,
+        help_text="SMTP password (encrypted)"
+    )
+
+    # From address
+    email_from_address = models.EmailField(
+        blank=True,
+        help_text="Default 'From' email address"
+    )
+    email_from_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Display name for 'From' address"
     )
 
     @property

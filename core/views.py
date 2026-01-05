@@ -643,6 +643,98 @@ def settings_update_sms(request):
 
 
 @login_required
+def settings_update_email(request):
+    """Update email configuration settings."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    school_settings = SchoolSettings.load()
+
+    # Update email settings
+    school_settings.email_enabled = request.POST.get('email_enabled') == 'on'
+    school_settings.email_backend = request.POST.get('email_backend', 'console')
+    school_settings.email_host = request.POST.get('email_host', '').strip()
+
+    # Handle port with default
+    try:
+        school_settings.email_port = int(request.POST.get('email_port', 587))
+    except (ValueError, TypeError):
+        school_settings.email_port = 587
+
+    school_settings.email_use_tls = request.POST.get('email_use_tls') == 'on'
+    school_settings.email_use_ssl = request.POST.get('email_use_ssl') == 'on'
+    school_settings.email_host_user = request.POST.get('email_host_user', '').strip()
+    school_settings.email_from_address = request.POST.get('email_from_address', '').strip()
+    school_settings.email_from_name = request.POST.get('email_from_name', '').strip()
+
+    # Only update password if a new one was provided (not placeholder)
+    password = request.POST.get('email_host_password', '').strip()
+    if password and not password.startswith('••'):
+        school_settings.email_host_password = password
+
+    school_settings.save()
+
+    if not request.htmx:
+        return redirect('core:settings')
+
+    context = {
+        'school_settings': school_settings,
+        'success': 'Email settings updated successfully',
+    }
+    return render(request, 'core/settings/partials/card_email.html', context)
+
+
+@login_required
+def settings_test_email(request):
+    """Send a test email to verify email configuration."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    from django.core.mail import send_mail
+
+    recipient = request.POST.get('test_email', '').strip()
+    if not recipient:
+        recipient = request.user.email
+
+    if not recipient:
+        return HttpResponse(
+            '<div class="alert alert-error text-sm py-2">'
+            '<i class="fa-solid fa-circle-xmark"></i> No recipient email address'
+            '</div>'
+        )
+
+    school_settings = SchoolSettings.load()
+    from_email = school_settings.email_from_address or None
+
+    try:
+        send_mail(
+            subject='Test Email - School Management System',
+            message=(
+                'This is a test email to verify your email configuration is working correctly.\n\n'
+                'If you received this email, your email settings are configured properly.'
+            ),
+            from_email=from_email,
+            recipient_list=[recipient],
+            fail_silently=False,
+        )
+        return HttpResponse(
+            '<div class="alert alert-success text-sm py-2">'
+            f'<i class="fa-solid fa-circle-check"></i> Test email sent to {recipient}'
+            '</div>'
+        )
+    except Exception as e:
+        error_msg = str(e)
+        # Truncate long error messages
+        if len(error_msg) > 100:
+            error_msg = error_msg[:100] + '...'
+        return HttpResponse(
+            f'<div class="alert alert-error text-sm py-2">'
+            f'<i class="fa-solid fa-circle-xmark"></i> Failed: {error_msg}'
+            f'</div>'
+        )
+
+
+@login_required
 def settings_update_payment(request):
     """Update payment gateway configuration."""
     if request.method != 'POST':

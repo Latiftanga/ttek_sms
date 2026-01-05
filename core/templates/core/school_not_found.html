@@ -1,0 +1,62 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Not Found</title>
+    {% tailwind_css %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="min-h-screen gradient-bg flex items-center justify-center p-4">
+    <div class="card bg-base-100 shadow-2xl max-w-lg w-full">
+        <div class="card-body items-center text-center py-12">
+            <div class="w-24 h-24 rounded-full bg-error/10 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-school-circle-xmark text-4xl text-error"></i>
+            </div>
+
+            <h1 class="text-2xl font-bold text-base-content mb-2">School Not Found</h1>
+
+            <p class="text-base-content/70 mb-6 max-w-sm">
+                The school you're looking for is either not registered on our platform or has been deactivated.
+            </p>
+
+            <div class="bg-base-200 rounded-lg px-4 py-3 mb-6 w-full">
+                <p class="text-xs text-base-content/50 mb-1">Requested domain</p>
+                <p class="font-mono text-sm text-base-content/80">{{ hostname }}</p>
+            </div>
+
+            <div class="space-y-3 w-full">
+                <div class="alert alert-info text-sm">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>If you believe this is an error, please contact your school administrator.</span>
+                </div>
+            </div>
+
+            <div class="divider text-xs text-base-content/40">Need help?</div>
+
+            <div class="flex flex-col sm:flex-row gap-3 w-full">
+                <a href="mailto:support@tteksms.com" class="btn btn-outline btn-sm flex-1">
+                    <i class="fa-solid fa-envelope"></i>
+                    Contact Support
+                </a>
+                <button onclick="window.location.reload()" class="btn btn-ghost btn-sm flex-1">
+                    <i class="fa-solid fa-rotate"></i>
+                    Try Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="fixed bottom-4 text-center w-full">
+        <p class="text-white/60 text-sm">
+            Powered by <span class="font-semibold">TTEK SMS</span>
+        </p>
+    </footer>
+</body>
+</html>
