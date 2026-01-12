@@ -8,11 +8,24 @@ class TenantNotFoundMiddleware(TenantMainMiddleware):
     """
     Custom tenant middleware that shows a friendly error page
     when a school/tenant is not found instead of showing the public site.
+
+    This ensures each school must be accessed via their specific subdomain,
+    and prevents users from accidentally landing on the main domain.
     """
 
     @property
+    def show_public_landing(self):
+        """
+        Whether to show a public landing page for main domains.
+        Set SHOW_PUBLIC_LANDING=True in settings to enable.
+        Default is False - shows "School Not Found" for all non-tenant domains.
+        """
+        from django.conf import settings
+        return getattr(settings, 'SHOW_PUBLIC_LANDING', False)
+
+    @property
     def public_domains(self):
-        """Get list of domains that should show the public/landing page."""
+        """Get list of domains that could show the public/landing page."""
         from django.conf import settings
         return getattr(settings, 'PUBLIC_DOMAINS', [
             'ttek-sms.com', 'www.ttek-sms.com', 'localhost', '127.0.0.1'
@@ -23,8 +36,8 @@ class TenantNotFoundMiddleware(TenantMainMiddleware):
         Called when no tenant is found for the given hostname.
         Shows a custom error page instead of raising Http404 or showing public.
         """
-        # Allow certain paths to work without a tenant (for platform admin, etc.)
-        allowed_paths = ['/health/', '/health', '/static/', '/favicon.ico']
+        # Allow certain paths to work without a tenant (health checks, static files, PWA)
+        allowed_paths = ['/health/', '/health', '/static/', '/favicon.ico', '/admin/', '/sw.js', '/manifest.json', '/offline/']
         if any(request.path.startswith(path) for path in allowed_paths):
             # Fall back to public schema for these paths
             from django.db import connection
@@ -39,12 +52,12 @@ class TenantNotFoundMiddleware(TenantMainMiddleware):
         # Render the "school not found" page
         return render(request, 'core/school_not_found.html', {
             'hostname': hostname,
+            'is_main_domain': self.is_public_domain(hostname),
         }, status=404)
 
     def is_public_domain(self, hostname):
         """
-        Check if hostname is a known public/main domain.
-        Subdomains like 'demo.ttek-sms.com' should NOT be considered public.
+        Check if hostname is a known public/main domain (not a subdomain).
         """
         # Remove port if present
         hostname_without_port = hostname.split(':')[0].lower()
@@ -53,8 +66,8 @@ class TenantNotFoundMiddleware(TenantMainMiddleware):
         if hostname_without_port in [d.lower() for d in self.public_domains]:
             return True
 
-        # Check if it's localhost with port
-        if hostname_without_port.startswith('localhost') or hostname_without_port.startswith('127.0.0.1'):
+        # Check if it's localhost with port (but not subdomain.localhost)
+        if hostname_without_port == 'localhost' or hostname_without_port == '127.0.0.1':
             return True
 
         return False
@@ -62,7 +75,14 @@ class TenantNotFoundMiddleware(TenantMainMiddleware):
     def process_request(self, request):
         """
         Override to catch tenant not found and show custom page.
-        Also catches subdomains that incorrectly route to public schema.
+
+        Flow:
+        1. Try to find tenant for hostname
+        2. If found and NOT public schema -> use it (school tenant)
+        3. If found and IS public schema:
+           - If SHOW_PUBLIC_LANDING=True and is main domain -> show landing
+           - Otherwise -> show "School Not Found"
+        4. If not found -> show "School Not Found"
         """
         from django_tenants.utils import get_tenant_domain_model
         from django.db import connection
@@ -79,11 +99,16 @@ class TenantNotFoundMiddleware(TenantMainMiddleware):
                 return response
             return None
 
-        # Check if we're routing to public schema for a non-public domain
-        # This catches subdomains that don't exist but might match a wildcard
+        # If this is the public schema tenant
         if tenant.schema_name == get_public_schema_name():
-            if not self.is_public_domain(hostname):
-                # This is a subdomain trying to access public - show not found
+            # Only allow if: public landing is enabled AND it's a main domain
+            if self.show_public_landing and self.is_public_domain(hostname):
+                # Allow public landing page
+                pass
+            else:
+                # Show "School Not Found" for:
+                # - Non-existent subdomains that fell through to public
+                # - Main domain when public landing is disabled
                 response = self.no_tenant_found(request, hostname)
                 if response:
                     return response

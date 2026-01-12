@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>School Not Found</title>
+    <title>{% if is_main_domain %}Access Your School{% else %}School Not Found{% endif %}</title>
     {% tailwind_css %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <style>
@@ -13,9 +13,40 @@
         }
     </style>
 </head>
-<body class="min-h-screen gradient-bg flex items-center justify-center p-4">
+<body class="min-h-screen gradient-bg flex flex-col items-center justify-center p-4">
     <div class="card bg-base-100 shadow-2xl max-w-lg w-full">
         <div class="card-body items-center text-center py-12">
+            {% if is_main_domain %}
+            <!-- Main domain access - guide users to their school subdomain -->
+            <div class="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-school text-4xl text-primary"></i>
+            </div>
+
+            <h1 class="text-2xl font-bold text-base-content mb-2">Access Your School</h1>
+
+            <p class="text-base-content/70 mb-6 max-w-sm">
+                Please access the system using your school's unique URL provided by your administrator.
+            </p>
+
+            <div class="bg-base-200 rounded-lg px-4 py-3 mb-6 w-full">
+                <p class="text-xs text-base-content/50 mb-2">Your school URL looks like:</p>
+                <p class="font-mono text-sm text-primary bg-base-100 px-3 py-2 rounded">
+                    <span class="text-success font-bold">yourschool</span>.{{ hostname }}
+                </p>
+            </div>
+
+            <div class="space-y-3 w-full">
+                <div class="alert alert-info text-sm text-left">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <div>
+                        <p class="font-medium">Don't know your school URL?</p>
+                        <p class="text-xs mt-1">Contact your school administrator or IT department for the correct address.</p>
+                    </div>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- Invalid subdomain - school not found -->
             <div class="w-24 h-24 rounded-full bg-error/10 flex items-center justify-center mb-4">
                 <i class="fa-solid fa-school-circle-xmark text-4xl text-error"></i>
             </div>
@@ -23,20 +54,24 @@
             <h1 class="text-2xl font-bold text-base-content mb-2">School Not Found</h1>
 
             <p class="text-base-content/70 mb-6 max-w-sm">
-                The school you're looking for is either not registered on our platform or has been deactivated.
+                The school you're looking for is either not registered on our platform or the URL is incorrect.
             </p>
 
             <div class="bg-base-200 rounded-lg px-4 py-3 mb-6 w-full">
                 <p class="text-xs text-base-content/50 mb-1">Requested domain</p>
-                <p class="font-mono text-sm text-base-content/80">{{ hostname }}</p>
+                <p class="font-mono text-sm text-error/80">{{ hostname }}</p>
             </div>
 
             <div class="space-y-3 w-full">
-                <div class="alert alert-info text-sm">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span>If you believe this is an error, please contact your school administrator.</span>
+                <div class="alert alert-warning text-sm text-left">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div>
+                        <p class="font-medium">Check your URL</p>
+                        <p class="text-xs mt-1">Make sure you're using the correct school subdomain provided by your administrator.</p>
+                    </div>
                 </div>
             </div>
+            {% endif %}
 
             <div class="divider text-xs text-base-content/40">Need help?</div>
 
@@ -53,7 +88,7 @@
         </div>
     </div>
 
-    <footer class="fixed bottom-4 text-center w-full">
+    <footer class="mt-8 text-center">
         <p class="text-white/60 text-sm">
             Powered by <span class="font-semibold">TTEK SMS</span>
         </p>

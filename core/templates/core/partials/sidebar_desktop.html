@@ -1,18 +1,27 @@
 {% load core_tags %}
 <aside class="desktop-sidebar bg-base-100 hidden lg:flex flex-col shrink-0 z-20 border-r border-base-300 shadow-sm">
-    <!-- Logo -->
-    <div class="h-16 flex items-center px-4 border-b border-base-300 shrink-0">
-        <div class="flex items-center gap-3 w-full">
-            {% if request.tenant.logo %}
-                <img src="{{ request.tenant.logo.url }}" alt="{{ request.tenant.short_name }}" class="w-8 h-8 rounded shrink-0 object-contain" />
+    <!-- Logo with school branding -->
+    <div class="h-16 flex items-center px-4 shrink-0 relative overflow-hidden">
+        <!-- Subtle gradient background -->
+        <div class="absolute inset-0 school-gradient opacity-5"></div>
+        <div class="flex items-center gap-3 w-full relative z-10">
+            {% if school.logo %}
+                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="w-9 h-9 rounded-lg shrink-0 object-contain bg-base-200 p-1" />
             {% else %}
-                <div class="w-8 h-8 rounded bg-primary text-primary-content grid place-content-center font-bold text-lg shrink-0">
-                    {{ request.tenant.short_name|slice:":1"|default:"S" }}
+                <div class="w-9 h-9 rounded-lg school-gradient text-white grid place-content-center font-bold text-lg shrink-0">
+                    {{ tenant.short_name|slice:":1"|default:"S" }}
                 </div>
             {% endif %}
-            <span class="sidebar-text font-bold text-lg tracking-tight">{{ request.tenant.short_name|default:"School" }}</span>
+            <div class="sidebar-text flex flex-col">
+                <span class="font-bold text-base tracking-tight leading-tight">{{ tenant.short_name|default:"School" }}</span>
+                {% if school.motto %}
+                <span class="text-[10px] text-base-content/50 truncate max-w-[120px] leading-tight">{{ school.motto|truncatewords:3 }}</span>
+                {% endif %}
+            </div>
         </div>
     </div>
+    <!-- Gradient divider -->
+    <div class="h-0.5 school-gradient-subtle opacity-30"></div>
 
     <!-- Navigation menu - scrollable -->
     <nav class="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">

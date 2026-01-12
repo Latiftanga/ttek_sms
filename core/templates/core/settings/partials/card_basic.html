@@ -1,8 +1,12 @@
-<div id="card-basic" class="card bg-base-100 shadow-sm border border-base-200 h-full">
+<div id="card-basic" class="card bg-base-100 shadow-sm border border-base-200 h-full overflow-hidden">
+    <!-- Branded top accent -->
+    <div class="h-1 school-gradient-subtle"></div>
     <div class="card-body p-4">
         <div class="flex items-center justify-between mb-3">
             <h3 class="font-semibold flex items-center gap-2">
-                <i class="fa-solid fa-school text-primary text-sm"></i>
+                <div class="w-7 h-7 rounded-lg school-gradient flex items-center justify-center">
+                    <i class="fa-solid fa-school text-white text-xs"></i>
+                </div>
                 Basic Information
             </h3>
             <button class="btn btn-ghost btn-xs" onclick="modal_basic.showModal()">

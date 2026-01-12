@@ -1,19 +1,77 @@
 {% load core_tags %}
 
-<!-- Dashboard Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <h1 class="text-2xl font-bold">Dashboard</h1>
-        <p class="text-base-content/60">
-            Welcome back, {{ user.first_name|default:user.username }}
-            {% if current_year and current_term %}
-            <span class="text-xs ml-2 badge badge-ghost">{{ current_year }} &bull; {{ current_term }}</span>
+<!-- School Branding Header -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6 overflow-hidden">
+    <div class="school-gradient p-6 sm:p-8 relative">
+        <!-- Decorative pattern -->
+        <div class="absolute inset-0 opacity-10" style="background-image: url(&quot;data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg&quot;);"></div>
+        <!-- Decorative circles -->
+        <div class="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5 hidden sm:block"></div>
+        <div class="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-white/5 hidden sm:block"></div>
+
+        <div class="flex flex-col items-center text-center relative z-10">
+            <!-- School Logo -->
+            <div class="mb-4">
+                {% if school.logo.name %}
+                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-contain bg-white/20 p-2 mx-auto">
+                {% else %}
+                <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-white/20 flex items-center justify-center mx-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 sm:w-14 sm:h-14 text-white" fill="currentColor" viewBox="0 0 640 512">
+                        <path d="M337.8 5.4C327-1.8 313-1.8 302.2 5.4L166.3 96 48 96C21.5 96 0 117.5 0 144L0 464c0 26.5 21.5 48 48 48l208 0 0-96c0-35.3 28.7-64 64-64s64 28.7 64 64l0 96 208 0c26.5 0 48-21.5 48-48l0-320c0-26.5-21.5-48-48-48L473.7 96 337.8 5.4zM96 192l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM96 320l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM232 176a88 88 0 1 1 176 0 88 88 0 1 1 -176 0zm88-48c-8.8 0-16 7.2-16 16l0 32 0 16-32 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0 16 0 0-16 0-64c0-8.8-7.2-16-16-16z"/>
+                    </svg>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- School Name -->
+            <h2 class="text-xl sm:text-2xl font-bold text-white mb-1">
+                {% if school and school.display_name %}
+                    {{ school.display_name }}
+                {% elif tenant and tenant.name %}
+                    {{ tenant.name }}
+                {% else %}
+                    School Dashboard
+                {% endif %}
+            </h2>
+
+            {% if school and school.motto %}
+            <p class="text-white/70 text-sm italic mb-4">"{{ school.motto }}"</p>
             {% endif %}
-        </p>
+
+            <!-- Welcome Message -->
+            <div class="bg-white/10 rounded-full px-6 py-2 mb-4">
+                <p class="text-white text-sm">
+                    Welcome back, <span class="font-semibold">{{ user.first_name|default:user.username }}</span>!
+                </p>
+            </div>
+
+            <!-- Date & Session Badges -->
+            <div class="flex flex-wrap justify-center gap-2 text-xs">
+                <span class="badge bg-white/20 border-0 text-white gap-1">
+                    <i class="fa-regular fa-calendar"></i>
+                    {{ today|date:"l, M d, Y" }}
+                </span>
+                {% if current_year %}
+                <span class="badge bg-white/20 border-0 text-white gap-1">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    {{ current_year }}
+                </span>
+                {% endif %}
+                {% if current_term %}
+                <span class="badge bg-white/20 border-0 text-white gap-1">
+                    <i class="fa-solid fa-calendar-alt"></i>
+                    {{ current_term }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
     </div>
-    <div class="text-sm text-base-content/60">
-        <i class="fa-regular fa-calendar mr-1"></i>
-        {{ today|date:"l, F j, Y" }}
+
+    <!-- Color Preview Bar -->
+    <div class="flex h-1">
+        <div class="flex-1" style="background-color: var(--school-primary);"></div>
+        <div class="flex-1" style="background-color: var(--school-secondary);"></div>
+        <div class="flex-1" style="background-color: var(--school-accent);"></div>
     </div>
 </div>
 
@@ -34,16 +92,17 @@
 
 <!-- Primary Stats Row -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <!-- Students Card -->
-    <div class="card bg-base-100 shadow-sm border border-base-200">
+    <!-- Students Card - Primary branded -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+        <div class="h-1 school-gradient-subtle"></div>
         <div class="card-body p-4">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs uppercase text-base-content/50 font-medium">Students</p>
                     <p class="text-3xl font-bold text-primary">{{ student_count }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-user-graduate text-xl text-primary"></i>
+                <div class="w-12 h-12 rounded-xl school-gradient flex items-center justify-center">
+                    <i class="fa-solid fa-user-graduate text-xl text-white"></i>
                 </div>
             </div>
             <div class="flex gap-3 mt-2 text-xs">
@@ -54,7 +113,8 @@
     </div>
 
     <!-- Teachers Card -->
-    <div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+        <div class="h-1 bg-info"></div>
         <div class="card-body p-4">
             <div class="flex items-center justify-between">
                 <div>
@@ -73,7 +133,8 @@
     </div>
 
     <!-- Classes Card -->
-    <div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+        <div class="h-1 bg-secondary"></div>
         <div class="card-body p-4">
             <div class="flex items-center justify-between">
                 <div>
@@ -92,7 +153,8 @@
     </div>
 
     <!-- Enrollments Card -->
-    <div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+        <div class="h-1 bg-accent"></div>
         <div class="card-body p-4">
             <div class="flex items-center justify-between">
                 <div>
@@ -115,11 +177,14 @@
     <div class="lg:col-span-2 space-y-6">
 
         <!-- Today's Attendance Card -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+            <div class="h-1 school-gradient-subtle"></div>
             <div class="card-body p-4">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="font-semibold flex items-center gap-2">
-                        <i class="fa-solid fa-clipboard-check text-success"></i>
+                        <div class="w-7 h-7 rounded-lg bg-success flex items-center justify-center">
+                            <i class="fa-solid fa-clipboard-check text-white text-xs"></i>
+                        </div>
                         Today's Attendance
                     </h2>
                     <span class="badge badge-ghost text-xs">{{ today|date:"M d" }}</span>
@@ -172,11 +237,14 @@
         </div>
 
         <!-- Students by Level -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+            <div class="h-1 school-gradient-subtle"></div>
             <div class="card-body p-4">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="font-semibold flex items-center gap-2">
-                        <i class="fa-solid fa-layer-group text-primary"></i>
+                        <div class="w-7 h-7 rounded-lg school-gradient flex items-center justify-center">
+                            <i class="fa-solid fa-layer-group text-white text-xs"></i>
+                        </div>
                         Students by Level
                     </h2>
                     <a href="{% url 'students:index' %}" hx-get="{% url 'students:index' %}" hx-target="#main-content"
@@ -211,11 +279,14 @@
         </div>
 
         <!-- Recent Students -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+            <div class="h-1 school-gradient-subtle"></div>
             <div class="card-body p-4">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="font-semibold flex items-center gap-2">
-                        <i class="fa-solid fa-user-plus text-primary"></i>
+                        <div class="w-7 h-7 rounded-lg school-gradient flex items-center justify-center">
+                            <i class="fa-solid fa-user-plus text-white text-xs"></i>
+                        </div>
                         Recent Students
                     </h2>
                     <a href="{% url 'students:index' %}" hx-get="{% url 'students:index' %}"
@@ -225,12 +296,53 @@
                 </div>
 
                 {% if recent_students %}
-                <div class="overflow-x-auto">
+
+                <!-- Mobile Card View -->
+                <div class="sm:hidden space-y-2">
+                    {% for student in recent_students %}
+                    <a href="{% url 'students:student_detail' student.pk %}"
+                       hx-get="{% url 'students:student_detail' student.pk %}"
+                       hx-target="#main-content" hx-push-url="true"
+                       class="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-base-200/50 transition-colors">
+                        <div class="avatar placeholder shrink-0">
+                            <div class="w-10 h-10 rounded-full bg-base-300 text-base-content flex items-center justify-center">
+                                {% if student.photo %}
+                                <img src="{{ student.photo.url }}" alt="" class="rounded-full object-cover" />
+                                {% else %}
+                                <span class="text-sm font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-sm truncate">{{ student.full_name }}</p>
+                            <div class="flex items-center gap-2 text-xs text-base-content/60">
+                                {% if student.current_class %}
+                                <span>{{ student.current_class.name }}</span>
+                                {% else %}
+                                <span class="italic">Unassigned</span>
+                                {% endif %}
+                                <span class="text-base-content/30">&bull;</span>
+                                <span class="font-mono">{{ student.admission_number }}</span>
+                            </div>
+                        </div>
+                        {% if student.status == 'active' %}
+                        <span class="badge badge-success badge-xs">Active</span>
+                        {% elif student.status == 'graduated' %}
+                        <span class="badge badge-info badge-xs">Grad</span>
+                        {% else %}
+                        <span class="badge badge-ghost badge-xs">{{ student.get_status_display }}</span>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+
+                <!-- Desktop Table View -->
+                <div class="hidden sm:block overflow-x-auto">
                     <table class="table table-sm">
                         <thead>
                             <tr class="text-xs uppercase text-base-content/50">
                                 <th>Student</th>
-                                <th class="hidden sm:table-cell">Admission #</th>
+                                <th>Admission #</th>
                                 <th>Class</th>
                                 <th>Status</th>
                             </tr>
@@ -257,7 +369,7 @@
                                         </a>
                                     </div>
                                 </td>
-                                <td class="font-mono text-xs hidden sm:table-cell">{{ student.admission_number }}</td>
+                                <td class="font-mono text-xs">{{ student.admission_number }}</td>
                                 <td>
                                     {% if student.current_class %}
                                     <span class="badge badge-sm badge-ghost">{{ student.current_class.name }}</span>
@@ -279,7 +391,9 @@
                         </tbody>
                     </table>
                 </div>
+
                 {% else %}
+                <!-- Empty State -->
                 <div class="text-center py-8 text-base-content/40">
                     <i class="fa-solid fa-user-graduate text-4xl mb-2"></i>
                     <p class="text-sm">No students yet</p>
@@ -298,10 +412,13 @@
     <div class="lg:col-span-1 space-y-6">
 
         <!-- Quick Actions -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+            <div class="h-1 school-gradient-subtle"></div>
             <div class="card-body p-4">
                 <h2 class="font-semibold mb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-bolt text-warning"></i>
+                    <div class="w-7 h-7 rounded-lg bg-warning flex items-center justify-center">
+                        <i class="fa-solid fa-bolt text-white text-xs"></i>
+                    </div>
                     Quick Actions
                 </h2>
                 <div class="grid grid-cols-2 gap-2">
@@ -353,10 +470,13 @@
         </div>
 
         <!-- Recent Activity -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+            <div class="h-1 school-gradient-subtle"></div>
             <div class="card-body p-4">
                 <h2 class="font-semibold mb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-clock-rotate-left text-accent"></i>
+                    <div class="w-7 h-7 rounded-lg bg-accent flex items-center justify-center">
+                        <i class="fa-solid fa-clock-rotate-left text-white text-xs"></i>
+                    </div>
                     Recent Activity
                 </h2>
 
@@ -386,25 +506,28 @@
             </div>
         </div>
 
-        <!-- System Info -->
-        <div class="card bg-gradient-to-br from-primary/5 to-secondary/5 border border-primary/10">
-            <div class="card-body p-4">
-                <h2 class="font-semibold mb-2 text-sm">Academic Period</h2>
+        <!-- System Info - School branded -->
+        <div class="card overflow-hidden border-0 shadow-sm">
+            <div class="school-gradient p-4">
+                <h2 class="font-semibold mb-3 text-sm text-white flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-alt"></i>
+                    Academic Period
+                </h2>
                 {% if current_year %}
                 <div class="space-y-2">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs text-base-content/60">Year</span>
-                        <span class="badge badge-primary badge-sm">{{ current_year }}</span>
+                        <span class="text-xs text-white/70">Year</span>
+                        <span class="badge badge-sm bg-white/20 border-0 text-white">{{ current_year }}</span>
                     </div>
                     {% if current_term %}
                     <div class="flex items-center justify-between">
-                        <span class="text-xs text-base-content/60">Term</span>
-                        <span class="badge badge-secondary badge-sm">{{ current_term }}</span>
+                        <span class="text-xs text-white/70">Term</span>
+                        <span class="badge badge-sm bg-white/20 border-0 text-white">{{ current_term }}</span>
                     </div>
                     {% endif %}
                 </div>
                 {% else %}
-                <p class="text-xs text-warning">Not configured</p>
+                <p class="text-xs text-white/70">Not configured</p>
                 {% endif %}
             </div>
         </div>

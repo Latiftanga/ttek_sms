@@ -1,8 +1,28 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.views import PasswordChangeView
+from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
+from .forms import LoginForm
+
+
+class CustomLoginView(LoginView):
+    """
+    Custom login view that handles the 'remember me' checkbox.
+    """
+    template_name = 'accounts/login.html'
+    authentication_form = LoginForm
+    redirect_authenticated_user = True
+
+    def form_valid(self, form):
+        remember = self.request.POST.get('remember')
+        if not remember:
+            # Session expires when browser closes
+            self.request.session.set_expiry(0)
+        else:
+            # Session expires in 2 weeks (1209600 seconds)
+            self.request.session.set_expiry(1209600)
+        return super().form_valid(form)
 
 
 class ForcePasswordChangeView(PasswordChangeView):

@@ -17,6 +17,16 @@
     <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
     {% endif %}
 
+    <!-- PWA Support (tenant-aware - each school gets their own installable app) -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="{{ school.primary_color|default:'#570df8' }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{ school.display_name|default:tenant.name|default:'School' }}">
+    {% if school.logo %}
+    <link rel="apple-touch-icon" href="{{ school.logo.url }}">
+    {% endif %}
+
     {% tailwind_css %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
@@ -47,8 +57,30 @@
             --color-secondary: oklch({{ school.secondary_color_oklch|default:"53% 0.253 293" }});
             --color-accent: oklch({{ school.accent_color_oklch|default:"75% 0.183 55" }});
 
+            /* School hex colors for gradients and custom styling */
+            --school-primary: {{ school.primary_color|default:'#570df8' }};
+            --school-secondary: {{ school.secondary_color|default:'#7c3aed' }};
+            --school-accent: {{ school.accent_color|default:'#f59e0b' }};
+
             /* Sidebar width */
             --desktop-width: 17rem;
+        }
+
+        /* School branding utilities */
+        .school-gradient {
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+        }
+
+        .school-gradient-subtle {
+            background: linear-gradient(90deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+        }
+
+        .school-border-gradient {
+            border-image: linear-gradient(90deg, var(--school-primary), var(--school-secondary)) 1;
+        }
+
+        .school-ring {
+            --tw-ring-color: var(--school-primary);
         }
 
         #desktop-toggle:checked ~ .drawer-content .desktop-sidebar {
@@ -114,6 +146,43 @@
 
         .htmx-request #loading-indicator {
             display: flex;
+        }
+
+        /* HTMX loading state utilities for buttons/elements */
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-request .htmx-indicator,
+        .htmx-request.htmx-indicator {
+            display: inline-flex;
+        }
+        .htmx-request .htmx-hide-on-request {
+            display: none;
+        }
+
+        /* Failed request styling */
+        .htmx-request-failed {
+            outline: 2px solid oklch(var(--er));
+            outline-offset: 2px;
+        }
+
+        /* Offline indicator animation */
+        @keyframes pulse-warning {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .offline-pulse {
+            animation: pulse-warning 2s ease-in-out infinite;
+        }
+
+        /* Network status toast transitions */
+        #network-toast {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        #network-toast.hidden {
+            transform: translateY(100%);
+            opacity: 0;
+            pointer-events: none;
         }
 
         /* Print styles */
@@ -357,10 +426,219 @@
         </form>
     </dialog>
 
+    <!-- Network status indicator -->
+    <div id="network-toast" class="fixed bottom-4 right-4 z-50 hidden">
+        <div id="network-toast-content" class="alert shadow-lg max-w-sm">
+            <!-- Content is set dynamically by JS -->
+        </div>
+    </div>
+
+    <!-- Offline banner (shown at top when offline) -->
+    <div id="offline-banner" class="fixed top-0 left-0 right-0 z-[100] hidden">
+        <div class="bg-warning text-warning-content text-center py-2 px-4 text-sm offline-pulse">
+            <i class="fa-solid fa-wifi-slash mr-2"></i>
+            You're offline. Some features may not work.
+        </div>
+    </div>
+
     <script>
-        // Sync theme toggle checkbox with saved preference
+        // ========================================
+        // HTMX Configuration for Slow Networks
+        // ========================================
+        htmx.config.timeout = 20000;  // 20 second timeout for slow connections
+        htmx.config.historyCacheSize = 20;  // Cache more pages for back/forward
+        htmx.config.refreshOnHistoryMiss = true;  // Refresh if history cache miss
+
+        // Network state management
+        const NetworkManager = {
+            isOnline: navigator.onLine,
+            retryQueue: [],
+            maxRetries: 3,
+            retryDelay: 2000,
+
+            init() {
+                window.addEventListener('online', () => this.handleOnline());
+                window.addEventListener('offline', () => this.handleOffline());
+                this.updateUI();
+            },
+
+            handleOnline() {
+                this.isOnline = true;
+                this.updateUI();
+                this.showToast('success', 'Back online', 'Your connection has been restored.');
+                this.processRetryQueue();
+            },
+
+            handleOffline() {
+                this.isOnline = false;
+                this.updateUI();
+            },
+
+            updateUI() {
+                const banner = document.getElementById('offline-banner');
+                if (banner) {
+                    banner.classList.toggle('hidden', this.isOnline);
+                }
+                // Adjust main content margin when banner is shown
+                const main = document.querySelector('main');
+                if (main) {
+                    main.style.marginTop = this.isOnline ? '' : '40px';
+                }
+            },
+
+            showToast(type, title, message, duration = 4000) {
+                const toast = document.getElementById('network-toast');
+                const content = document.getElementById('network-toast-content');
+                if (!toast || !content) return;
+
+                const icons = {
+                    success: 'fa-circle-check',
+                    error: 'fa-circle-xmark',
+                    warning: 'fa-triangle-exclamation',
+                    info: 'fa-circle-info'
+                };
+
+                const colors = {
+                    success: 'alert-success',
+                    error: 'alert-error',
+                    warning: 'alert-warning',
+                    info: 'alert-info'
+                };
+
+                content.className = `alert shadow-lg max-w-sm ${colors[type] || ''}`;
+                content.innerHTML = `
+                    <i class="fa-solid ${icons[type] || icons.info}"></i>
+                    <div>
+                        <h3 class="font-bold text-sm">${title}</h3>
+                        <p class="text-xs">${message}</p>
+                    </div>
+                    <button onclick="NetworkManager.hideToast()" class="btn btn-ghost btn-xs btn-circle">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+
+                toast.classList.remove('hidden');
+
+                if (this.toastTimeout) clearTimeout(this.toastTimeout);
+                if (duration > 0) {
+                    this.toastTimeout = setTimeout(() => this.hideToast(), duration);
+                }
+            },
+
+            hideToast() {
+                const toast = document.getElementById('network-toast');
+                if (toast) toast.classList.add('hidden');
+            },
+
+            showRetryToast(element, error) {
+                const toast = document.getElementById('network-toast');
+                const content = document.getElementById('network-toast-content');
+                if (!toast || !content) return;
+
+                content.className = 'alert alert-warning shadow-lg max-w-sm';
+                content.innerHTML = `
+                    <i class="fa-solid fa-wifi-slash"></i>
+                    <div>
+                        <h3 class="font-bold text-sm">Connection Problem</h3>
+                        <p class="text-xs">Request failed. Check your connection.</p>
+                    </div>
+                    <button onclick="NetworkManager.retryLastRequest()" class="btn btn-warning btn-xs">
+                        <i class="fa-solid fa-rotate-right"></i> Retry
+                    </button>
+                `;
+
+                toast.classList.remove('hidden');
+
+                // Store for retry
+                if (element) {
+                    this.lastFailedElement = element;
+                }
+            },
+
+            retryLastRequest() {
+                if (this.lastFailedElement) {
+                    this.hideToast();
+                    htmx.trigger(this.lastFailedElement, 'htmx:retry');
+                    // Manually trigger the request
+                    if (this.lastFailedElement.hasAttribute('hx-get')) {
+                        htmx.ajax('GET', this.lastFailedElement.getAttribute('hx-get'), {target: this.lastFailedElement.getAttribute('hx-target') || this.lastFailedElement});
+                    } else if (this.lastFailedElement.hasAttribute('hx-post')) {
+                        htmx.ajax('POST', this.lastFailedElement.getAttribute('hx-post'), {target: this.lastFailedElement.getAttribute('hx-target') || this.lastFailedElement, source: this.lastFailedElement});
+                    }
+                }
+            },
+
+            processRetryQueue() {
+                // Process any queued requests when back online
+                while (this.retryQueue.length > 0) {
+                    const item = this.retryQueue.shift();
+                    if (item.element && document.contains(item.element)) {
+                        htmx.trigger(item.element, item.event);
+                    }
+                }
+            }
+        };
+
+        // Initialize network manager
+        NetworkManager.init();
+
+        // ========================================
+        // HTMX Event Handlers
+        // ========================================
+
+        // Handle send errors (network failures)
+        document.body.addEventListener('htmx:sendError', function(e) {
+            console.warn('HTMX send error:', e.detail);
+            e.detail.elt.classList.add('htmx-request-failed');
+            NetworkManager.showRetryToast(e.detail.elt, 'Network error');
+        });
+
+        // Handle timeout
+        document.body.addEventListener('htmx:timeout', function(e) {
+            console.warn('HTMX timeout:', e.detail);
+            e.detail.elt.classList.add('htmx-request-failed');
+            NetworkManager.showToast('warning', 'Request Timeout', 'The server is taking too long. Please try again.', 5000);
+        });
+
+        // Handle server errors (5xx)
+        document.body.addEventListener('htmx:responseError', function(e) {
+            const status = e.detail.xhr?.status;
+            if (status >= 500) {
+                console.error('Server error:', status);
+                NetworkManager.showToast('error', 'Server Error', 'Something went wrong. Please try again later.');
+            } else if (status === 0) {
+                // Network error
+                NetworkManager.showRetryToast(e.detail.elt, 'Connection failed');
+            }
+        });
+
+        // Clear failed state on successful request
+        document.body.addEventListener('htmx:afterRequest', function(e) {
+            if (e.detail.successful) {
+                e.detail.elt.classList.remove('htmx-request-failed');
+                NetworkManager.hideToast();
+            }
+        });
+
+        // Show loading state before request (for slow connections feedback)
+        document.body.addEventListener('htmx:beforeRequest', function(e) {
+            // If offline, prevent request and show message
+            if (!navigator.onLine) {
+                e.preventDefault();
+                NetworkManager.showToast('warning', 'You\'re Offline', 'This action requires an internet connection.', 3000);
+                return false;
+            }
+        });
+
+        // ========================================
+        // Theme Management
+        // ========================================
         const themeCtrl = document.querySelector('.theme-controller');
         if (themeCtrl) themeCtrl.checked = localStorage.getItem('theme') === 'dark';
+
+        // ========================================
+        // HTMX Content Handlers
+        // ========================================
 
         // Initialize Alpine.js on HTMX swapped content and update page title
         document.body.addEventListener('htmx:afterSwap', (event) => {
@@ -378,13 +656,13 @@
             }
         });
 
-        // Update sidebar active state on HTMX navigation
+        // ========================================
+        // Sidebar Navigation
+        // ========================================
         function updateSidebarActive() {
             const currentPath = window.location.pathname;
-            // Select all nav links in both sidebars (including Settings links)
             const navLinks = document.querySelectorAll('.desktop-sidebar a[href], .drawer-side a[href]');
 
-            // Find the best matching link for current path
             let bestMatches = [];
             let bestMatchLength = 0;
 
@@ -413,16 +691,10 @@
                 }
             });
 
-            // Update all links - remove active class
-            navLinks.forEach(link => {
-                link.classList.remove('active');
-            });
+            navLinks.forEach(link => link.classList.remove('active'));
 
-            // Apply active class to best matches (both desktop and mobile)
             bestMatches.forEach(match => {
                 match.classList.add('active');
-
-                // Open parent details element if link is inside one
                 const parentDetails = match.closest('details');
                 if (parentDetails) {
                     parentDetails.setAttribute('open', '');
@@ -430,16 +702,16 @@
             });
         }
 
-        // Update on HTMX navigation and page load
         document.body.addEventListener('htmx:pushedIntoHistory', updateSidebarActive);
         document.addEventListener('DOMContentLoaded', updateSidebarActive);
 
-        // Custom confirm dialog
+        // ========================================
+        // Custom Confirm Dialog
+        // ========================================
         const confirmDialog = document.getElementById('confirm-dialog');
         const confirmMessage = document.getElementById('confirm-message');
 
         document.body.addEventListener('htmx:confirm', function(e) {
-            // Only intercept if there's an hx-confirm attribute
             if (!e.detail.question) return;
 
             e.preventDefault();
@@ -447,17 +719,14 @@
             confirmMessage.textContent = e.detail.question;
             confirmDialog.showModal();
 
-            // Get fresh references each time
             const confirmOk = document.getElementById('confirm-ok');
             const confirmCancel = document.getElementById('confirm-cancel');
 
-            // Clone to remove old listeners, then replace
             const newOk = confirmOk.cloneNode(true);
             const newCancel = confirmCancel.cloneNode(true);
             confirmOk.replaceWith(newOk);
             confirmCancel.replaceWith(newCancel);
 
-            // Add fresh listeners
             newOk.addEventListener('click', function() {
                 confirmDialog.close();
                 e.detail.issueRequest(true);
@@ -467,6 +736,42 @@
                 confirmDialog.close();
             });
         });
+
+        // ========================================
+        // Service Worker Registration
+        // ========================================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then((registration) => {
+                        console.log('[SW] Registered with scope:', registration.scope);
+
+                        // Check for updates periodically
+                        setInterval(() => {
+                            registration.update();
+                        }, 60 * 60 * 1000); // Check every hour
+
+                        // Handle updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New version available
+                                    NetworkManager.showToast(
+                                        'info',
+                                        'Update Available',
+                                        'A new version is available. Refresh to update.',
+                                        0 // Don't auto-hide
+                                    );
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('[SW] Registration failed:', error);
+                    });
+            });
+        }
     </script>
     {% block extra_js %}{% endblock %}
 </body>

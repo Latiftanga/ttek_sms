@@ -405,9 +405,16 @@ class SchoolSettings(models.Model):
 
     @classmethod
     def load(cls):
+        """
+        Load or create the singleton SchoolSettings instance.
+        Uses cache for performance.
+        """
         profile = cache.get('school_profile')
         if profile is None:
-            profile, created = cls.objects.get_or_create(pk=1)
+            # Get first settings object or create one (singleton pattern)
+            profile = cls.objects.first()
+            if profile is None:
+                profile = cls.objects.create()
             cache.set('school_profile', profile, 60*60*24)
         return profile
 

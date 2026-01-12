@@ -1,10 +1,21 @@
 {% load core_tags %}
-<header class="navbar bg-base-200 shadow-sm sticky top-0 z-30 px-4 h-16 border-b border-base-200 shrink-0 transition-colors">
-    <!-- Mobile menu toggle -->
-    <div class="flex-none lg:hidden">
+<header class="navbar bg-base-100 shadow-sm sticky top-0 z-30 px-4 h-16 shrink-0 transition-colors border-b-0 relative">
+    <!-- Gradient top border accent -->
+    <div class="absolute top-0 left-0 right-0 h-1 school-gradient-subtle"></div>
+
+    <!-- Mobile menu toggle + School branding -->
+    <div class="flex-none lg:hidden flex items-center gap-2">
         <label for="mobile-drawer" class="btn btn-square btn-ghost">
             <i class="fa-solid fa-bars text-xl"></i>
         </label>
+        <!-- Mobile school logo/name -->
+        {% if school.logo %}
+        <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="h-8 w-auto object-contain">
+        {% else %}
+        <div class="w-8 h-8 rounded school-gradient flex items-center justify-center text-white font-bold text-sm">
+            {{ tenant.short_name|slice:":1"|default:"S" }}
+        </div>
+        {% endif %}
     </div>
 
     <!-- Desktop sidebar toggle -->
@@ -16,7 +27,7 @@
 
     <!-- Current Academic Session -->
     {% if current_academic_year or current_term %}
-    <div class="flex items-center gap-2 px-3 py-1.5 bg-base-100 rounded-lg border border-base-300 ml-2">
+    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-base-200/50 rounded-lg border border-base-300/50 ml-2">
         <i class="fa-solid fa-calendar-alt text-primary text-sm"></i>
         <div class="text-sm">
             {% if current_academic_year %}
@@ -31,7 +42,7 @@
         </div>
     </div>
     {% else %}
-    <div class="flex items-center gap-2 px-3 py-1.5 bg-warning/10 rounded-lg border border-warning/30 ml-2">
+    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-warning/10 rounded-lg border border-warning/30 ml-2">
         <i class="fa-solid fa-calendar-alt text-warning text-sm"></i>
         <span class="text-sm text-warning">No session set</span>
     </div>
@@ -39,7 +50,7 @@
 
     <!-- Page title -->
     <div class="flex-1 px-4">
-        <h1 class="text-xl font-bold text-base-content/80">{% block page_title %}{% endblock %}</h1>
+        <h1 class="text-xl font-bold text-base-content/80 hidden sm:block">{% block page_title %}{% endblock %}</h1>
     </div>
 
     <!-- Right side actions -->
@@ -69,17 +80,30 @@
         <!-- User dropdown -->
         <div class="dropdown dropdown-end">
             <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
-                <div class="w-9 rounded-full ring ring-base-200">
+                <div class="w-9 rounded-full ring-2 ring-offset-2 ring-offset-base-100" style="--tw-ring-color: var(--school-primary);">
                     {% if user.profile_image %}
                         <img src="{{ user.profile_image.url }}" alt="{{ user.get_full_name }}" />
                     {% else %}
-                        <div class="bg-primary text-primary-content w-full h-full flex items-center justify-center text-lg font-bold">
+                        <div class="school-gradient text-white w-full h-full flex items-center justify-center text-lg font-bold">
                             {{ user.first_name|slice:":1"|default:user.email|slice:":1"|upper }}
                         </div>
                     {% endif %}
                 </div>
             </div>
             <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow-lg bg-base-100 rounded-box w-60 border border-base-200">
+                <!-- School branding in dropdown -->
+                <li class="pointer-events-none">
+                    <div class="school-gradient-subtle rounded-lg px-3 py-2 mb-1 flex items-center gap-2">
+                        {% if school.logo %}
+                        <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="h-6 w-auto object-contain bg-white/20 rounded p-0.5">
+                        {% else %}
+                        <div class="w-6 h-6 rounded bg-white/20 flex items-center justify-center text-white font-bold text-xs">
+                            {{ tenant.short_name|slice:":1"|default:"S" }}
+                        </div>
+                        {% endif %}
+                        <span class="text-white text-xs font-medium truncate">{{ school.display_name|default:tenant.name|default:"School" }}</span>
+                    </div>
+                </li>
                 <li class="menu-title px-4 py-2">
                     <span class="text-base font-bold text-base-content">{{ user.get_full_name|default:user.email }}</span>
                     <span class="text-xs font-normal opacity-60">{{ user.role_label }}</span>
