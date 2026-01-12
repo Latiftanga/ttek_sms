@@ -177,6 +177,11 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # --- 5. SECURITY (Production) ---
+# Multi-tenant session isolation: Each subdomain gets its own session cookie
+# This prevents sessions from being shared across tenants (subdomains)
+SESSION_COOKIE_DOMAIN = None  # Use exact subdomain, not shared across *.ttek-sms.com
+CSRF_COOKIE_DOMAIN = None     # Same for CSRF
+
 if not DEBUG:
     # SSL redirect - disable until SSL certificate is set up
     SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'

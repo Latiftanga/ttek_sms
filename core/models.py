@@ -2,7 +2,7 @@ import uuid
 import secrets
 from io import BytesIO
 from django.conf import settings
-from django.db import models
+from django.db import models, connection
 from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.utils.translation import gettext_lazy as _
@@ -401,21 +401,25 @@ class SchoolSettings(models.Model):
         if self.accent_color:
             self.accent_color_oklch = hex_to_oklch_values(self.accent_color)
         super().save(*args, **kwargs)
-        cache.delete('school_profile')
+        # Clear tenant-specific cache
+        cache_key = f'school_profile_{connection.schema_name}'
+        cache.delete(cache_key)
 
     @classmethod
     def load(cls):
         """
         Load or create the singleton SchoolSettings instance.
-        Uses cache for performance.
+        Uses tenant-specific cache key to prevent cross-tenant data leakage.
         """
-        profile = cache.get('school_profile')
+        # Use tenant-specific cache key to isolate settings per schema
+        cache_key = f'school_profile_{connection.schema_name}'
+        profile = cache.get(cache_key)
         if profile is None:
             # Get first settings object or create one (singleton pattern)
             profile = cls.objects.first()
             if profile is None:
                 profile = cls.objects.create()
-            cache.set('school_profile', profile, 60*60*24)
+            cache.set(cache_key, profile, 60*60*24)
         return profile
 
     class Meta:
