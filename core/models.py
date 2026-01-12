@@ -411,15 +411,20 @@ class SchoolSettings(models.Model):
         Load or create the singleton SchoolSettings instance.
         Uses tenant-specific cache key to prevent cross-tenant data leakage.
         """
-        # Use tenant-specific cache key to isolate settings per schema
-        cache_key = f'school_profile_{connection.schema_name}'
-        profile = cache.get(cache_key)
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # TEMPORARILY DISABLE CACHING FOR DEBUGGING
+        # Always query database directly to ensure correct tenant data
+        schema = connection.schema_name
+        logger.info(f"SchoolSettings.load: current schema = {schema}")
+
+        # Query directly from database (no cache)
+        profile = cls.objects.first()
         if profile is None:
-            # Get first settings object or create one (singleton pattern)
-            profile = cls.objects.first()
-            if profile is None:
-                profile = cls.objects.create()
-            cache.set(cache_key, profile, 60*60*24)
+            profile = cls.objects.create()
+
+        logger.info(f"SchoolSettings.load: schema={schema}, display_name={profile.display_name}, pk={profile.pk}")
         return profile
 
     class Meta:
