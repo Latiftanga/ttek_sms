@@ -4,9 +4,12 @@ from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse, JsonResponse
 from django.utils import timezone
 from django.urls import reverse
+from django.views.decorators.cache import cache_control
+from django.views.decorators.http import require_GET
+from django.db import connection
 from .models import SchoolSettings, AcademicYear, Term
 from .forms import (
     SchoolBasicInfoForm,
@@ -19,6 +22,121 @@ from .forms import (
     SMSSettingsForm,
 )
 from finance.models import PaymentGateway, PaymentGatewayConfig
+
+
+# ============================================
+# PWA / Offline Support Views
+# ============================================
+
+def offline(request):
+    """Offline fallback page for service worker."""
+    return render(request, 'core/offline.html')
+
+
+@require_GET
+@cache_control(max_age=0, no_cache=True, no_store=True, must_revalidate=True)
+def service_worker(request):
+    """Serve service worker from root scope."""
+    import os
+    sw_path = os.path.join(settings.BASE_DIR, 'core', 'static', 'core', 'sw.js')
+    return FileResponse(
+        open(sw_path, 'rb'),
+        content_type='application/javascript',
+        headers={'Service-Worker-Allowed': '/'}
+    )
+
+
+@require_GET
+def manifest(request):
+    """Generate PWA manifest with school-specific branding."""
+    # Get school settings for current tenant
+    try:
+        school = SchoolSettings.objects.first()
+        school_name = school.display_name if school else connection.tenant.name
+        short_name = school.short_name if school and school.short_name else school_name[:12]
+        theme_color = school.primary_color if school and school.primary_color else '#570df8'
+        background_color = '#f2f2f2'
+
+        # Build icon URLs
+        icons = []
+        if school and school.logo:
+            icons.append({
+                'src': school.logo.url,
+                'sizes': '192x192',
+                'type': 'image/png',
+                'purpose': 'any maskable'
+            })
+            icons.append({
+                'src': school.logo.url,
+                'sizes': '512x512',
+                'type': 'image/png',
+                'purpose': 'any maskable'
+            })
+        else:
+            # Default icons if no school logo
+            icons = [
+                {
+                    'src': '/static/core/icons/icon-192.svg',
+                    'sizes': '192x192',
+                    'type': 'image/svg+xml',
+                    'purpose': 'any'
+                },
+                {
+                    'src': '/static/core/icons/icon-512.svg',
+                    'sizes': '512x512',
+                    'type': 'image/svg+xml',
+                    'purpose': 'any'
+                }
+            ]
+    except Exception:
+        school_name = 'School Management'
+        short_name = 'School'
+        theme_color = '#570df8'
+        background_color = '#f2f2f2'
+        icons = [
+            {
+                'src': '/static/core/icons/icon-192.svg',
+                'sizes': '192x192',
+                'type': 'image/svg+xml',
+                'purpose': 'any'
+            },
+            {
+                'src': '/static/core/icons/icon-512.svg',
+                'sizes': '512x512',
+                'type': 'image/svg+xml',
+                'purpose': 'any'
+            }
+        ]
+
+    manifest_data = {
+        'name': school_name,
+        'short_name': short_name,
+        'description': f'{school_name} - School Management System',
+        'start_url': '/',
+        'scope': '/',
+        'display': 'standalone',
+        'orientation': 'portrait-primary',
+        'theme_color': theme_color,
+        'background_color': background_color,
+        'icons': icons,
+        'categories': ['education', 'productivity'],
+        'shortcuts': [
+            {
+                'name': 'Dashboard',
+                'short_name': 'Home',
+                'url': '/',
+                'icons': [{'src': '/static/core/icons/home.svg', 'sizes': '96x96', 'type': 'image/svg+xml'}]
+            },
+            {
+                'name': 'Take Attendance',
+                'short_name': 'Attendance',
+                'url': '/my-attendance/',
+                'icons': [{'src': '/static/core/icons/attendance.svg', 'sizes': '96x96', 'type': 'image/svg+xml'}]
+            }
+        ]
+    }
+
+    return JsonResponse(manifest_data, content_type='application/manifest+json')
 
 
 def is_school_admin(user):

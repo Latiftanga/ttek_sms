@@ -226,3 +226,6 @@ media/
 # Backups
 backups/*.sql
 backups/*.gz
+
+# Local production testing
+.env.prod.local

@@ -1,10 +1,14 @@
 {% load core_tags %}
-<div id="card-academic" class="card bg-base-100 shadow-sm border border-base-200">
+<div id="card-academic" class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+    <!-- Branded top accent -->
+    <div class="h-1 school-gradient-subtle"></div>
     <div class="card-body p-4">
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-3">
                 <h3 class="font-semibold flex items-center gap-2">
-                    <i class="fa-solid fa-calendar-alt text-primary text-sm"></i>
+                    <div class="w-7 h-7 rounded-lg school-gradient flex items-center justify-center">
+                        <i class="fa-solid fa-calendar-alt text-white text-xs"></i>
+                    </div>
                     Academic Years & {{ period_label_plural|default:"Terms" }}
                 </h3>
                 <form hx-post="{% url 'core:settings_update_academic' %}"

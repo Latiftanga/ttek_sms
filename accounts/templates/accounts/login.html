@@ -1,169 +1,219 @@
-{% load static tailwind_tags %}
+{% load static tailwind_tags core_tags %}
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - {{ school_name }}</title>
+    <meta name="description" content="{{ school.motto|default:'School Management System' }}">
+    <title>Login - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}</title>
+
+    {% if school.favicon.name %}
+    <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
+    {% endif %}
 
     {% tailwind_css %}
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <style>
+        :root {
+            --school-primary: {{ school.primary_color|default:'#570df8' }};
+            --school-secondary: {{ school.secondary_color|default:'#7c3aed' }};
+        }
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .school-gradient {
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+        }
+        .btn-school {
+            background-color: var(--school-primary);
+            border-color: var(--school-primary);
+            color: white;
+        }
+        .btn-school:hover {
+            background-color: var(--school-secondary);
+            border-color: var(--school-secondary);
+        }
+        .theme-toggle {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 20;
+        }
+        @media (min-width: 640px) {
+            .theme-toggle {
+                top: 1.5rem;
+                right: 1.5rem;
+            }
+        }
+    </style>
 </head>
-<body class="min-h-screen bg-base-200">
+<body>
+    <div class="min-h-screen school-gradient flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
+        <!-- Theme Toggle Button -->
+        <label class="swap swap-rotate theme-toggle">
+            <input type="checkbox" class="theme-controller" value="dark" onchange="toggleTheme()" />
+            <!-- Sun icon -->
+            <svg class="swap-off fill-current w-8 h-8 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/>
+            </svg>
+            <!-- Moon icon -->
+            <svg class="swap-on fill-current w-8 h-8 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z"/>
+            </svg>
+        </label>
 
-    <div class="min-h-screen flex">
-        <!-- Left Panel - Branding -->
-        <div class="hidden lg:flex lg:w-1/2 bg-primary text-primary-content flex-col justify-between p-12">
-            <div>
-                <h1 class="text-3xl font-bold">{{ school_name }}</h1>
-                {% if is_tenant %}
-                <p class="text-primary-content/70 mt-2">School Management System</p>
+        <!-- Decorative Elements (hidden on mobile to prevent overflow) -->
+        <div class="hidden sm:block absolute -top-20 -right-20 w-64 h-64 rounded-full bg-white/5 pointer-events-none"></div>
+        <div class="hidden sm:block absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-white/5 pointer-events-none"></div>
+
+        <div class="w-full max-w-md bg-base-100 rounded-2xl shadow-2xl p-5 sm:p-8 relative z-10">
+            <!-- Header -->
+            <div class="text-center mb-6 sm:mb-8">
+                <!-- School Logo/Icon -->
+                {% if school.logo.name %}
+                <div class="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full mb-3 sm:mb-4 p-2" style="background-color: var(--school-primary);">
+                    <img src="{{ school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
+                </div>
                 {% else %}
-                <p class="text-primary-content/70 mt-2">Multi-tenant School Platform</p>
+                <div class="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full mb-3 sm:mb-4" style="background-color: var(--school-primary);">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="currentColor" viewBox="0 0 640 512">
+                        <path d="M337.8 5.4C327-1.8 313-1.8 302.2 5.4L166.3 96 48 96C21.5 96 0 117.5 0 144L0 464c0 26.5 21.5 48 48 48l208 0 0-96c0-35.3 28.7-64 64-64s64 28.7 64 64l0 96 208 0c26.5 0 48-21.5 48-48l0-320c0-26.5-21.5-48-48-48L473.7 96 337.8 5.4zM96 192l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM96 320l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM232 176a88 88 0 1 1 176 0 88 88 0 1 1 -176 0zm88-48c-8.8 0-16 7.2-16 16l0 32 0 16-32 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0 16 0 0-16 0-64c0-8.8-7.2-16-16-16z"/>
+                    </svg>
+                </div>
                 {% endif %}
+
+                <!-- School Name -->
+                <h1 class="text-base sm:text-lg font-bold tracking-wide mb-1 line-clamp-2 px-2" style="color: var(--school-primary);" title="{% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School Portal{% endif %}">
+                    {% if school and school.display_name %}
+                        {{ school.display_name|upper|truncatechars:50 }}
+                    {% elif tenant and tenant.name %}
+                        {{ tenant.name|upper|truncatechars:50 }}
+                    {% else %}
+                        SCHOOL PORTAL
+                    {% endif %}
+                </h1>
+
+                {% if school and school.motto %}
+                <p class="text-xs text-base-content/50 italic mb-3">"{{ school.motto }}"</p>
+                {% endif %}
+
+                <h2 class="text-xl sm:text-2xl font-bold text-base-content">Welcome Back</h2>
+                <p class="text-base-content/60 text-xs sm:text-sm">Sign in to your account to continue</p>
             </div>
 
-            <div class="space-y-6">
-                <div class="flex items-start gap-4">
-                    <div class="bg-primary-content/20 p-3 rounded-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="font-semibold">Student Management</h3>
-                        <p class="text-sm text-primary-content/70">Track attendance, grades, and progress</p>
-                    </div>
-                </div>
-
-                <div class="flex items-start gap-4">
-                    <div class="bg-primary-content/20 p-3 rounded-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="font-semibold">SMS Communication</h3>
-                        <p class="text-sm text-primary-content/70">Instant messaging to parents and staff</p>
-                    </div>
-                </div>
-
-                <div class="flex items-start gap-4">
-                    <div class="bg-primary-content/20 p-3 rounded-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="font-semibold">Analytics & Reports</h3>
-                        <p class="text-sm text-primary-content/70">Data-driven insights for better decisions</p>
-                    </div>
-                </div>
+            <!-- Error Messages -->
+            {% if form.non_field_errors %}
+            <div class="alert alert-error mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </span>
             </div>
+            {% endif %}
 
-            <div class="text-sm text-primary-content/50">
-                &copy; {% now "Y" %} {{ school_name }}. Powered by SchoolOS.
-            </div>
-        </div>
+            <!-- Login Form -->
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
 
-        <!-- Right Panel - Login Form -->
-        <div class="w-full lg:w-1/2 flex items-center justify-center p-6">
-            <div class="w-full max-w-sm">
-                <!-- Mobile Header -->
-                <div class="lg:hidden text-center mb-6">
-                    <h1 class="text-xl font-bold text-base-content">{{ school_name }}</h1>
-                    <p class="text-base-content/60 text-sm">School Management System</p>
-                </div>
+                {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+                {% endif %}
 
-                <div class="card bg-base-100 shadow-xl card-compact">
-                    <div class="card-body p-6">
-                        <h2 class="card-title text-lg justify-center mb-1">Welcome Back</h2>
-                        <p class="text-center text-base-content/60 text-sm mb-4">Sign in to your account</p>
-
-                        <!-- Error Messages -->
-                        {% if form.non_field_errors %}
-                        <div class="alert alert-error py-2 px-3 mb-3 text-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>
-                                {% for error in form.non_field_errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </span>
-                        </div>
-                        {% endif %}
-
-                        <form method="post" id="login-form">
-                            {% csrf_token %}
-
-                            {% if next %}
-                            <input type="hidden" name="next" value="{{ next }}">
-                            {% endif %}
-
-                            <!-- Email Field -->
-                            <div class="form-control w-full mb-3">
-                                <label class="floating-label w-full">
-                                    <span>Email Address</span>
-                                    <input type="email"
-                                           name="username"
-                                           id="id_username"
-                                           class="input input-bordered w-full {% if form.username.errors %}input-error{% endif %}"
-                                           placeholder="Email Address"
-                                           value="{{ form.username.value|default:'' }}"
-                                           required
-                                           autofocus>
-                                </label>
-                                {% if form.username.errors %}
-                                <p class="text-xs text-error mt-1">{{ form.username.errors.0 }}</p>
-                                {% endif %}
-                            </div>
-
-                            <!-- Password Field -->
-                            <div class="form-control w-full mb-4">
-                                <label class="floating-label w-full">
-                                    <span>Password</span>
-                                    <input type="password"
-                                           name="password"
-                                           id="id_password"
-                                           class="input input-bordered w-full {% if form.password.errors %}input-error{% endif %}"
-                                           placeholder="Password"
-                                           required>
-                                </label>
-                                {% if form.password.errors %}
-                                <p class="text-xs text-error mt-1">{{ form.password.errors.0 }}</p>
-                                {% endif %}
-                            </div>
-
-                            <!-- Submit Button -->
-                            <button type="submit" class="btn btn-primary btn-sm w-full">
-                                Sign In
-                            </button>
-                        </form>
-
-                        <!-- Footer Links -->
-                        <div class="divider my-3 text-xs">OR</div>
-
-                        <p class="text-center text-xs text-base-content/60">
-                            Forgot your password? Contact your school administrator.
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Tenant Info Badge -->
-                {% if is_tenant %}
-                <div class="mt-4 text-center">
-                    <span class="badge badge-outline badge-sm gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                <!-- Email Input - Floating Label -->
+                <div class="form-control w-full pt-4">
+                    <label class="floating-label w-full">
+                        <span>Email *</span>
+                        <input type="email"
+                               name="username"
+                               id="id_username"
+                               class="input input-bordered input-lg w-full {% if form.username.errors %}input-error{% endif %}"
+                               placeholder="Email"
+                               value="{{ form.username.value|default:'' }}"
+                               required
+                               autofocus />
+                    </label>
+                    {% if form.username.errors %}
+                    <div class="text-xs text-error mt-1 ml-1 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="currentColor" viewBox="0 0 512 512">
+                            <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/>
                         </svg>
-                        {{ school_name }}
+                        <span>{{ form.username.errors.0 }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Password Input - Floating Label -->
+                <div class="form-control w-full pt-4">
+                    <label class="floating-label w-full">
+                        <span>Password *</span>
+                        <input type="password"
+                               name="password"
+                               id="id_password"
+                               class="input input-bordered input-lg w-full {% if form.password.errors %}input-error{% endif %}"
+                               placeholder="Password"
+                               required />
+                    </label>
+                    {% if form.password.errors %}
+                    <div class="text-xs text-error mt-1 ml-1 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="currentColor" viewBox="0 0 512 512">
+                            <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/>
+                        </svg>
+                        <span>{{ form.password.errors.0 }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Remember Me & Forgot Password -->
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+                    <div class="form-control">
+                        {% checkbox_input "remember" label="Remember me" color="primary" %}
+                    </div>
+                    <span class="text-sm text-base-content/60">
+                        Forgot password? <span class="link link-primary">Contact admin</span>
                     </span>
                 </div>
-                {% endif %}
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-lg btn-school w-full text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                    </svg>
+                    Sign In
+                </button>
+            </form>
+
+            <!-- Footer -->
+            <div class="mt-6 pt-4 border-t border-base-200 text-center">
+                <p class="text-xs text-base-content/40">
+                    Powered by <span class="font-semibold">TTEK SMS</span>
+                </p>
             </div>
         </div>
     </div>
 
+    <script>
+        // Check for saved theme preference or default to 'light'
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+
+        // Set checkbox state based on current theme
+        if (currentTheme === 'dark') {
+            document.querySelector('.theme-controller').checked = true;
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+    </script>
 </body>
 </html>

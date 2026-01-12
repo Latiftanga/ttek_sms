@@ -151,6 +151,10 @@ SHOW_PUBLIC_IF_NO_TENANT_FOUND = False  # Custom middleware handles this with a 
 # Can be set via environment variable as comma-separated list: PUBLIC_DOMAINS=example.com,www.example.com
 PUBLIC_DOMAINS = [d.strip() for d in os.getenv('PUBLIC_DOMAINS', 'ttek-sms.com,www.ttek-sms.com,localhost,127.0.0.1').split(',')]
 
+# Show public landing page on main domain
+# Set SHOW_PUBLIC_LANDING=False in .env to show "Access Your School" page instead
+SHOW_PUBLIC_LANDING = os.getenv('SHOW_PUBLIC_LANDING', 'True').lower() in ('true', '1', 'yes')
+
 # --- 4. TEMPLATES ---
 TEMPLATES = [
     {

@@ -1,7 +1,7 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
     <div>
         <div class="flex items-center gap-3 mb-1">
             <a href="{% url 'core:my_attendance' %}"
@@ -19,7 +19,7 @@
             </h1>
         </div>
         <p class="text-sm text-base-content/60 ml-12">
-            {{ class.name }} &bull; {{ date|date:"l, F j, Y" }}
+            {{ class.name }} &bull; {{ date|date:"D, M j" }}
         </p>
     </div>
 
@@ -36,34 +36,94 @@
     <div class="card-body p-0">
         <form method="post"
               hx-post="{% url 'core:take_attendance' class.pk %}"
-              hx-target="#main-content">
+              hx-target="#main-content"
+              id="attendance-form">
             {% csrf_token %}
 
-            <!-- Quick Actions Bar -->
-            <div class="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-base-200 bg-base-200/30">
+            <!-- Quick Actions Bar - Sticky on mobile -->
+            <div class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 p-3 md:p-4 border-b border-base-200 bg-base-100/95 backdrop-blur-sm">
                 <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium">Quick Actions:</span>
-                    <button type="button" onclick="setAllStatus('P')" class="btn btn-success btn-xs gap-1">
+                    <span class="text-sm font-medium hidden sm:inline">Quick:</span>
+                    <button type="button" onclick="setAllStatus('P')" class="btn btn-success btn-xs sm:btn-sm gap-1">
                         <i class="fa-solid fa-check"></i>
-                        All Present
+                        <span class="hidden xs:inline">All</span> Present
                     </button>
-                    <button type="button" onclick="setAllStatus('A')" class="btn btn-error btn-xs gap-1">
+                    <button type="button" onclick="setAllStatus('A')" class="btn btn-error btn-xs sm:btn-sm gap-1">
                         <i class="fa-solid fa-xmark"></i>
-                        All Absent
+                        <span class="hidden xs:inline">All</span> Absent
                     </button>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-sm text-base-content/60" id="summary-text">
-                        <span id="present-count">{{ student_list|length }}</span> Present,
-                        <span id="absent-count">0</span> Absent,
-                        <span id="late-count">0</span> Late
-                    </span>
+                <div class="flex items-center gap-1 text-xs sm:text-sm">
+                    <span class="text-success font-bold" id="present-count">{{ student_list|length }}</span>
+                    <span class="text-base-content/40">/</span>
+                    <span class="text-warning font-bold" id="late-count">0</span>
+                    <span class="text-base-content/40">/</span>
+                    <span class="text-error font-bold" id="absent-count">0</span>
                 </div>
             </div>
 
             <!-- Student List -->
             {% if student_list %}
-            <div class="overflow-x-auto">
+
+            <!-- Mobile Card View - Touch Optimized -->
+            <div class="md:hidden divide-y divide-base-200">
+                {% for item in student_list %}
+                <div class="student-row p-3 transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% endif %}"
+                     data-student-id="{{ item.obj.pk }}">
+                    <div class="flex items-center gap-3">
+                        <!-- Student Photo -->
+                        <div class="avatar placeholder shrink-0">
+                            <div class="w-12 h-12 rounded-full bg-base-300 text-base-content">
+                                {% if item.obj.photo %}
+                                <img src="{{ item.obj.photo.url }}" alt="{{ item.obj.full_name }}" class="object-cover" />
+                                {% else %}
+                                <span class="text-base font-medium">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Student Info -->
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-sm truncate">{{ item.obj.full_name }}</p>
+                            <p class="text-xs text-base-content/50 font-mono">{{ item.obj.admission_number }}</p>
+                        </div>
+
+                        <!-- Status Buttons - Large Touch Targets -->
+                        <div class="flex items-center gap-1">
+                            <input type="radio" name="status_{{ item.obj.pk }}" value="P"
+                                   id="m_p_{{ item.obj.pk }}" {% if item.status == 'P' %}checked{% endif %}
+                                   class="hidden">
+                            <label for="m_p_{{ item.obj.pk }}"
+                                   class="btn btn-circle w-11 h-11 min-h-0 {% if item.status == 'P' %}btn-success{% else %}btn-ghost border-base-300{% endif %} status-label"
+                                   data-status="P">
+                                <i class="fa-solid fa-check text-lg"></i>
+                            </label>
+
+                            <input type="radio" name="status_{{ item.obj.pk }}" value="L"
+                                   id="m_l_{{ item.obj.pk }}" {% if item.status == 'L' %}checked{% endif %}
+                                   class="hidden">
+                            <label for="m_l_{{ item.obj.pk }}"
+                                   class="btn btn-circle w-11 h-11 min-h-0 {% if item.status == 'L' %}btn-warning{% else %}btn-ghost border-base-300{% endif %} status-label"
+                                   data-status="L">
+                                <i class="fa-solid fa-clock text-lg"></i>
+                            </label>
+
+                            <input type="radio" name="status_{{ item.obj.pk }}" value="A"
+                                   id="m_a_{{ item.obj.pk }}" {% if item.status == 'A' %}checked{% endif %}
+                                   class="hidden">
+                            <label for="m_a_{{ item.obj.pk }}"
+                                   class="btn btn-circle w-11 h-11 min-h-0 {% if item.status == 'A' %}btn-error{% else %}btn-ghost border-base-300{% endif %} status-label"
+                                   data-status="A">
+                                <i class="fa-solid fa-xmark text-lg"></i>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Desktop Table View -->
+            <div class="hidden md:block overflow-x-auto">
                 <table class="table table-zebra">
                     <thead>
                         <tr class="bg-base-200">
@@ -96,27 +156,27 @@
                             <td>
                                 <div class="flex justify-center gap-2">
                                     <input type="radio" name="status_{{ item.obj.pk }}" value="P"
-                                           id="p_{{ item.obj.pk }}" {% if item.status == 'P' %}checked{% endif %}
+                                           id="d_p_{{ item.obj.pk }}" {% if item.status == 'P' %}checked{% endif %}
                                            class="hidden">
-                                    <label for="p_{{ item.obj.pk }}"
+                                    <label for="d_p_{{ item.obj.pk }}"
                                            class="btn btn-sm btn-circle {% if item.status == 'P' %}btn-success{% else %}btn-ghost{% endif %} status-label"
                                            data-status="P" title="Present">
                                         <i class="fa-solid fa-check"></i>
                                     </label>
 
                                     <input type="radio" name="status_{{ item.obj.pk }}" value="L"
-                                           id="l_{{ item.obj.pk }}" {% if item.status == 'L' %}checked{% endif %}
+                                           id="d_l_{{ item.obj.pk }}" {% if item.status == 'L' %}checked{% endif %}
                                            class="hidden">
-                                    <label for="l_{{ item.obj.pk }}"
+                                    <label for="d_l_{{ item.obj.pk }}"
                                            class="btn btn-sm btn-circle {% if item.status == 'L' %}btn-warning{% else %}btn-ghost{% endif %} status-label"
                                            data-status="L" title="Late">
                                         <i class="fa-solid fa-clock"></i>
                                     </label>
 
                                     <input type="radio" name="status_{{ item.obj.pk }}" value="A"
-                                           id="a_{{ item.obj.pk }}" {% if item.status == 'A' %}checked{% endif %}
+                                           id="d_a_{{ item.obj.pk }}" {% if item.status == 'A' %}checked{% endif %}
                                            class="hidden">
-                                    <label for="a_{{ item.obj.pk }}"
+                                    <label for="d_a_{{ item.obj.pk }}"
                                            class="btn btn-sm btn-circle {% if item.status == 'A' %}btn-error{% else %}btn-ghost{% endif %} status-label"
                                            data-status="A" title="Absent">
                                         <i class="fa-solid fa-xmark"></i>
@@ -128,7 +188,9 @@
                     </tbody>
                 </table>
             </div>
+
             {% else %}
+            <!-- Empty State -->
             <div class="text-center py-12">
                 <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
                     <i class="fa-solid fa-users-slash text-base-content/30 text-2xl"></i>
@@ -138,19 +200,21 @@
             </div>
             {% endif %}
 
-            <!-- Submit Button -->
+            <!-- Submit Button - Sticky on mobile -->
             {% if student_list %}
-            <div class="flex items-center justify-between p-4 border-t border-base-200 bg-base-200/30">
+            <div class="sticky bottom-0 flex items-center justify-between p-3 md:p-4 border-t border-base-200 bg-base-100/95 backdrop-blur-sm">
                 <a href="{% url 'core:my_attendance' %}"
                    hx-get="{% url 'core:my_attendance' %}"
                    hx-target="#main-content"
                    hx-push-url="true"
-                   class="btn btn-ghost">
+                   class="btn btn-ghost btn-sm md:btn-md">
                     Cancel
                 </a>
-                <button type="submit" class="btn btn-primary gap-2">
-                    <i class="fa-solid fa-save"></i>
-                    Save Attendance
+                <button type="submit" class="btn btn-primary btn-sm md:btn-md gap-2">
+                    <span class="loading loading-spinner loading-sm htmx-indicator"></span>
+                    <i class="fa-solid fa-save htmx-hide-on-request"></i>
+                    <span class="htmx-hide-on-request">Save</span>
+                    <span class="hidden htmx-show-on-request">Saving...</span>
                 </button>
             </div>
             {% endif %}
@@ -158,8 +222,8 @@
     </div>
 </div>
 
-<!-- Legend & Help -->
-<div class="mt-4 card bg-base-200/50 border border-base-300">
+<!-- Legend & Help - Hidden on mobile to save space -->
+<div class="mt-4 card bg-base-200/50 border border-base-300 hidden md:block">
     <div class="card-body p-4">
         <h3 class="font-semibold text-sm mb-2">
             <i class="fa-solid fa-circle-info text-info mr-1"></i>
@@ -188,28 +252,45 @@
 
 <script>
 function setAllStatus(status) {
+    // Get unique student IDs (avoid double-counting mobile + desktop)
+    const studentIds = new Set();
     document.querySelectorAll('.student-row').forEach(row => {
-        const studentId = row.dataset.studentId;
-        const radio = document.getElementById(status.toLowerCase() + '_' + studentId);
-        if (radio) {
-            radio.checked = true;
-            updateRowStyle(row, status);
-        }
+        studentIds.add(row.dataset.studentId);
     });
+
+    studentIds.forEach(studentId => {
+        // Check all radio inputs for this student (both mobile and desktop)
+        const radios = document.querySelectorAll(`input[name="status_${studentId}"][value="${status}"]`);
+        radios.forEach(radio => radio.checked = true);
+
+        // Update row styles for both views
+        document.querySelectorAll(`.student-row[data-student-id="${studentId}"]`).forEach(row => {
+            updateRowStyle(row, status);
+        });
+    });
+
     updateSummary();
 }
 
 function updateRowStyle(row, status) {
     row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10');
 
-    // Update label styles
+    // Update label styles within this row
     row.querySelectorAll('.status-label').forEach(label => {
         const labelStatus = label.dataset.status;
         label.classList.remove('btn-success', 'btn-warning', 'btn-error');
-        label.classList.add('btn-ghost');
+
+        // On mobile, unselected buttons have border; on desktop they're ghost
+        const isMobile = row.closest('.md\\:hidden') !== null;
+        if (isMobile) {
+            label.classList.remove('btn-ghost');
+            label.classList.add('btn-ghost', 'border-base-300');
+        } else {
+            label.classList.add('btn-ghost');
+        }
 
         if (labelStatus === status) {
-            label.classList.remove('btn-ghost');
+            label.classList.remove('btn-ghost', 'border-base-300');
             if (status === 'P') {
                 label.classList.add('btn-success');
                 row.classList.add('bg-success/10');
@@ -227,8 +308,13 @@ function updateRowStyle(row, status) {
 function updateSummary() {
     let present = 0, absent = 0, late = 0;
 
+    // Count unique students (avoid double-counting)
+    const counted = new Set();
     document.querySelectorAll('.student-row').forEach(row => {
         const studentId = row.dataset.studentId;
+        if (counted.has(studentId)) return;
+        counted.add(studentId);
+
         const checked = document.querySelector(`input[name="status_${studentId}"]:checked`);
         if (checked) {
             if (checked.value === 'P') present++;
@@ -246,8 +332,17 @@ function updateSummary() {
 document.querySelectorAll('.status-label').forEach(label => {
     label.addEventListener('click', function() {
         const row = this.closest('.student-row');
+        const studentId = row.dataset.studentId;
         const status = this.dataset.status;
-        updateRowStyle(row, status);
+
+        // Sync the other view (mobile <-> desktop)
+        document.querySelectorAll(`.student-row[data-student-id="${studentId}"]`).forEach(r => {
+            updateRowStyle(r, status);
+            // Also check the corresponding radio in the other view
+            const radio = r.querySelector(`input[value="${status}"]`);
+            if (radio) radio.checked = true;
+        });
+
         setTimeout(updateSummary, 10);
     });
 });

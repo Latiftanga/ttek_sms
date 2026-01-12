@@ -43,6 +43,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   celery:
     build:
@@ -59,7 +65,7 @@ services:
       redis:
         condition: service_healthy
       web:
-        condition: service_started  # Wait for web to start (migrations done)
+        condition: service_healthy
 
   celery-beat:
     build:
@@ -76,7 +82,7 @@ services:
       redis:
         condition: service_healthy
       web:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   postgres_data:

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 from django.http import JsonResponse
+from core.views import service_worker, offline, manifest
 
 
 def health_check(request):
@@ -15,6 +16,11 @@ def tenant_test(request):
 
 
 urlpatterns = [
+    # PWA / Offline support (tenant-aware - each school gets their own branded PWA)
+    path('sw.js', service_worker, name='service_worker'),
+    path('manifest.json', manifest, name='manifest'),
+    path('offline/', offline, name='offline'),
+
     path('health/', health_check, name='health_check'),
     path('tenant-test/', tenant_test, name='tenant_test'),
     path('', include('core.urls')),

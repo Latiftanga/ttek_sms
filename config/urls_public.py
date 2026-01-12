@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 from schools.views import public_home
+from core.views import service_worker, offline, manifest
 
 
 def health_check(request):
@@ -12,6 +13,11 @@ def health_check(request):
 
 
 urlpatterns = [
+    # PWA support (must be available on all domains)
+    path('sw.js', service_worker, name='service_worker'),
+    path('manifest.json', manifest, name='manifest'),
+    path('offline/', offline, name='offline'),
+
     path('admin/', admin.site.urls),
     path('health/', health_check, name='health_check'),
     path('', public_home, name='public_home'),
