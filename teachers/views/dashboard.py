@@ -30,10 +30,13 @@ def profile(request):
         'class_assigned__level_number', 'class_assigned__name'
     )
 
-    # Calculate workload
-    classes_taught = list({sa.class_assigned for sa in subject_assignments})
+    # Calculate workload efficiently using database queries
+    class_ids_taught = ClassSubject.objects.filter(
+        teacher=teacher
+    ).values_list('class_assigned_id', flat=True).distinct()
+
     total_students = Student.objects.filter(
-        current_class_id__in=[c.id for c in classes_taught],
+        current_class_id__in=class_ids_taught,
         status='active'
     ).count()
 
@@ -42,7 +45,7 @@ def profile(request):
         'homeroom_classes': homeroom_classes,
         'subject_assignments': subject_assignments,
         'workload': {
-            'classes_taught': len(classes_taught),
+            'classes_taught': len(class_ids_taught),
             'subjects_taught': subject_assignments.count(),
             'total_students': total_students,
             'homeroom_classes': homeroom_classes.count(),
@@ -83,18 +86,24 @@ def dashboard(request):
         'class_assigned__level_number', 'class_assigned__name'
     )
 
-    # Get unique classes taught
-    classes_taught = list({sa.class_assigned for sa in subject_assignments})
-    classes_taught.sort(key=lambda c: (c.level_number or 0, c.name))
+    # Get unique class IDs taught efficiently
+    class_ids_taught = ClassSubject.objects.filter(
+        teacher=teacher
+    ).values_list('class_assigned_id', flat=True).distinct()
 
-    # Calculate stats
+    # Get class objects for display (sorted)
+    classes_taught = list(Class.objects.filter(
+        id__in=class_ids_taught
+    ).order_by('level_number', 'name'))
+
+    # Calculate stats efficiently
     total_students = Student.objects.filter(
-        current_class_id__in=[c.id for c in classes_taught],
+        current_class_id__in=class_ids_taught,
         status='active'
     ).count()
 
     homeroom_students = Student.objects.filter(
-        current_class__in=homeroom_classes,
+        current_class_id__in=homeroom_classes.values_list('id', flat=True),
         status='active'
     ).count()
 

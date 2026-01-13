@@ -1,8 +1,8 @@
 {% load core_tags %}
 <div class="space-y-4" hx-target="this" hx-swap="outerHTML">
     <!-- Page Header -->
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
+    <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-3">
             <a href="{% url 'students:index' %}"
                hx-get="{% url 'students:index' %}"
                hx-target="#main-content"
@@ -24,11 +24,11 @@
                 hx-swap="innerHTML"
                 onclick="modal_guardian.showModal()">
             <i class="fa-solid fa-plus"></i>
-            Add Guardian
+            <span class="hidden sm:inline">Add Guardian</span>
         </button>
     </div>
 
-    <!-- Search & Filters -->
+    <!-- Search -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-3">
             <form method="get"
@@ -36,8 +36,8 @@
                   hx-target="#main-content"
                   hx-push-url="true"
                   hx-trigger="submit"
-                  class="flex flex-wrap gap-2">
-                <div class="flex-1 min-w-[200px] relative">
+                  class="flex gap-2">
+                <div class="flex-1 min-w-0 relative">
                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-sm"></i>
                     <input type="text"
                            name="search"
@@ -54,63 +54,84 @@
                    hx-target="#main-content"
                    hx-push-url="true"
                    class="btn btn-sm btn-ghost text-error">
-                    <i class="fa-solid fa-times"></i> Clear
+                    <i class="fa-solid fa-times"></i>
                 </a>
                 {% endif %}
             </form>
         </div>
     </div>
 
-    <!-- Guardians Table -->
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            {% if guardians %}
-            <div class="overflow-x-auto">
-                <table class="table table-sm table-zebra">
-                    <thead>
-                        <tr class="text-xs">
-                            <th>Guardian</th>
-                            <th>Phone Number</th>
-                            <th>Email</th>
-                            <th>Students</th>
-                            <th class="text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for guardian in guardians %}
-                        <tr>
-                            <td>
-                                <div class="font-medium">{{ guardian.full_name }}</div>
-                                <div class="text-xs text-base-content/60">{{ guardian.occupation|default:"-" }}</div>
-                            </td>
-                            <td class="font-mono text-xs">{{ guardian.phone_number }}</td>
-                            <td>{{ guardian.email|default:"-" }}</td>
-                            <td>{{ guardian.ward_count }}</td>
-                            <td class="text-right">
-                                <div class="flex justify-end gap-1">
-                                    <button class="btn btn-ghost btn-xs"
-                                            hx-get="{% url 'students:guardian_edit' guardian.pk %}"
-                                            hx-target="#modal-guardian-content"
-                                            hx-swap="innerHTML"
-                                            onclick="modal_guardian.showModal()">
-                                        <i class="fa-solid fa-pen text-xs"></i>
-                                    </button>
-                                    <button class="btn btn-ghost btn-xs text-error"
-                                            hx-post="{% url 'students:guardian_delete' guardian.pk %}"
-                                            hx-confirm="Delete {{ guardian.full_name }}?"
-                                            hx-target="#main-content"
-                                            hx-swap="innerHTML">
-                                        <i class="fa-solid fa-trash text-xs"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <!-- Guardians List -->
+    {% if guardians %}
+    <div class="space-y-3">
+        {% for guardian in guardians %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-3">
+                <div class="flex items-start gap-3">
+                    <!-- Avatar -->
+                    <div class="avatar placeholder flex-shrink-0">
+                        <div class="w-12 h-12 rounded-full bg-primary/10 text-primary">
+                            <i class="fa-solid fa-user-shield"></i>
+                        </div>
+                    </div>
+
+                    <!-- Info -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <h3 class="font-semibold text-sm truncate">{{ guardian.full_name }}</h3>
+                                <p class="text-xs text-base-content/60 font-mono">{{ guardian.phone_number }}</p>
+                            </div>
+                            <span class="badge badge-ghost badge-xs flex-shrink-0">
+                                {{ guardian.ward_count }} ward{{ guardian.ward_count|pluralize }}
+                            </span>
+                        </div>
+
+                        <!-- Details -->
+                        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-base-content/70">
+                            {% if guardian.email %}
+                            <span class="flex items-center gap-1 truncate max-w-[200px]">
+                                <i class="fa-solid fa-envelope w-3"></i>
+                                {{ guardian.email }}
+                            </span>
+                            {% endif %}
+                            {% if guardian.occupation %}
+                            <span class="flex items-center gap-1">
+                                <i class="fa-solid fa-briefcase w-3"></i>
+                                {{ guardian.occupation }}
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="mt-3 flex gap-2">
+                            <button class="btn btn-ghost btn-xs flex-1"
+                                    hx-get="{% url 'students:guardian_edit' guardian.pk %}"
+                                    hx-target="#modal-guardian-content"
+                                    hx-swap="innerHTML"
+                                    onclick="modal_guardian.showModal()">
+                                <i class="fa-solid fa-pen"></i>
+                                Edit
+                            </button>
+                            <button class="btn btn-ghost btn-xs text-error flex-1"
+                                    hx-post="{% url 'students:guardian_delete' guardian.pk %}"
+                                    hx-confirm="Delete {{ guardian.full_name }}?"
+                                    hx-target="#main-content"
+                                    hx-swap="innerHTML">
+                                <i class="fa-solid fa-trash"></i>
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            {% else %}
-            <div class="text-center py-12 text-base-content/40">
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <div class="text-center py-8 text-base-content/40">
                 <i class="fa-solid fa-user-shield text-4xl mb-3"></i>
                 <p class="text-sm">No guardians found</p>
                 {% if search %}
@@ -119,13 +140,13 @@
                 <p class="text-xs">Add your first guardian to get started</p>
                 {% endif %}
             </div>
-            {% endif %}
         </div>
     </div>
+    {% endif %}
 </div>
 
 <!-- Guardian Modal -->
-<dialog id="modal_guardian" class="modal modal-middle">
+<dialog id="modal_guardian" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box max-w-lg">
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
