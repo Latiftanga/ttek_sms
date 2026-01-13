@@ -9,6 +9,21 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('schedule/', views.schedule, name='schedule'),
 
+    # Setup Wizard
+    path('setup/', views.setup_wizard, name='setup_wizard'),
+    path('setup/academic-year/', views.setup_wizard_academic_year, name='setup_wizard_academic_year'),
+    path('setup/terms/', views.setup_wizard_terms, name='setup_wizard_terms'),
+    path('setup/classes/', views.setup_wizard_classes, name='setup_wizard_classes'),
+    path('setup/houses/', views.setup_wizard_houses, name='setup_wizard_houses'),
+    path('setup/seed/', views.setup_wizard_seed, name='setup_wizard_seed'),
+    path('setup/complete/', views.setup_wizard_complete, name='setup_wizard_complete'),
+
+    # Notifications
+    path('notifications/', views.notifications_dropdown, name='notifications_dropdown'),
+    path('notifications/badge/', views.notifications_badge, name='notifications_badge'),
+    path('notifications/<int:pk>/read/', views.notification_mark_read, name='notification_mark_read'),
+    path('notifications/mark-all-read/', views.notifications_mark_all_read, name='notifications_mark_all_read'),
+
     # School Admin routes
     path('settings/', views.settings_page, name='settings'),
 

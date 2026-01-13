@@ -1,12 +1,12 @@
 {% if is_checkbox %}
 {# Checkbox doesn't use floating label #}
 <label class="label cursor-pointer justify-start gap-3">
-    <input type="checkbox" name="{{ field.html_name }}" {% if field.value %}checked{% endif %} class="{{ input_class }}" />
-    <span class="label-text">{{ label }}</span>
+    <input type="checkbox" name="{{ field.html_name }}" {% if field.value %}checked{% endif %} class="{{ input_class }}{% if size_class %} checkbox-{{ size }}{% endif %}" />
+    <span class="label-text{% if size == 'sm' %} text-sm{% endif %}">{{ label }}</span>
 </label>
 {% elif is_date %}
 {# Date/time inputs use wrapper class pattern in DaisyUI v5 #}
-<label class="input input-bordered w-full">
+<label class="input input-bordered w-full{% if size_class %} {{ size_class }}{% endif %}">
     <span class="label">{{ label }}</span>
     <input type="{{ input_type }}"
            name="{{ field.html_name }}"
@@ -15,7 +15,7 @@
 </label>
 {% elif is_select %}
 {# Select in DaisyUI v5 #}
-<label class="select select-bordered w-full">
+<label class="select select-bordered w-full{% if size_class %} {{ size_class }}{% endif %}">
     <span class="label">{{ label }}</span>
     <select name="{{ field.html_name }}" {% if field.field.required %}required{% endif %}>
         {% for choice in field.field.choices %}
@@ -32,11 +32,11 @@
 {# File inputs need simple label wrapper, not floating-label #}
 <div class="form-control w-full">
     <label class="label">
-        <span class="label-text">{{ label }}</span>
+        <span class="label-text{% if size == 'sm' %} text-sm{% endif %}">{{ label }}</span>
     </label>
     <input type="file"
            name="{{ field.html_name }}"
-           class="{{ input_class }}"
+           class="{{ input_class }}{% if size_class %} file-{{ size }}{% endif %}"
            {% if field.field.required %}required{% endif %}
            {% if field.field.widget.attrs.accept %}accept="{{ field.field.widget.attrs.accept }}"{% endif %} />
 </div>
@@ -46,7 +46,7 @@
     {% if is_textarea %}
     <textarea name="{{ field.html_name }}"
               placeholder="{{ field.field.widget.attrs.placeholder|default:label }}"
-              class="{{ input_class }}"
+              class="{{ input_class }}{% if size_class %} {{ size_class }}{% endif %}"
               {% if field.field.required %}required{% endif %}
               {% if field.field.widget.attrs.rows %}rows="{{ field.field.widget.attrs.rows }}"{% endif %}
               {% if field.field.widget.attrs.maxlength %}maxlength="{{ field.field.widget.attrs.maxlength }}"{% endif %}>{{ field.value|default:'' }}</textarea>
@@ -55,7 +55,7 @@
            name="{{ field.html_name }}"
            value="{{ field.value|default:'' }}"
            placeholder="{{ field.field.widget.attrs.placeholder|default:label }}"
-           class="{{ input_class }}"
+           class="{{ input_class }}{% if size_class %} {{ size_class }}{% endif %}"
            {% if field.field.required %}required{% endif %}
            {% if field.field.max_length %}maxlength="{{ field.field.max_length }}"{% endif %}
            {% if field.field.min_length %}minlength="{{ field.field.min_length }}"{% endif %} />

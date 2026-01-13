@@ -1,0 +1,5 @@
+{% if unread_count > 0 %}
+<span class="badge badge-xs badge-primary indicator-item">{{ unread_count }}</span>
+{% else %}
+<span class="badge badge-xs badge-ghost indicator-item opacity-0"></span>
+{% endif %}

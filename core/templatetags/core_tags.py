@@ -370,7 +370,7 @@ def user_is_role(context, role):
 
 
 @register.inclusion_tag('core/partials/floating_field.html')
-def floating_field(field, label=None, help_text=None):
+def floating_field(field, label=None, help_text=None, size=None):
     """
     Render a form field with DaisyUI floating label.
 
@@ -378,6 +378,7 @@ def floating_field(field, label=None, help_text=None):
         {% floating_field form.name %}
         {% floating_field form.name "Custom Label" %}
         {% floating_field form.name label="Custom Label" help_text="Some help" %}
+        {% floating_field form.name size="sm" %}
     """
     # Determine field type for appropriate input class
     widget_type = field.field.widget.__class__.__name__.lower()
@@ -428,6 +429,22 @@ def floating_field(field, label=None, help_text=None):
     # Use custom help text or field help text
     field_help = help_text if help_text else field.help_text
 
+    # Size classes for DaisyUI components
+    size_class = ''
+    if size:
+        size_map = {
+            'xs': {'input': 'input-xs', 'select': 'select-xs', 'textarea': 'textarea-xs'},
+            'sm': {'input': 'input-sm', 'select': 'select-sm', 'textarea': 'textarea-sm'},
+            'lg': {'input': 'input-lg', 'select': 'select-lg', 'textarea': 'textarea-lg'},
+        }
+        if size in size_map:
+            if 'select' in widget_type:
+                size_class = size_map[size]['select']
+            elif widget_type == 'textarea':
+                size_class = size_map[size]['textarea']
+            else:
+                size_class = size_map[size]['input']
+
     return {
         'field': field,
         'label': field_label,
@@ -440,6 +457,8 @@ def floating_field(field, label=None, help_text=None):
         'is_select': 'select' in widget_type,
         'is_file': 'file' in widget_type,
         'is_date': is_date_type,
+        'size': size,
+        'size_class': size_class,
     }
 
 
@@ -458,6 +477,18 @@ def get_item(dictionary, key):
     if dictionary is None:
         return None
     return dictionary.get(key)
+
+
+@register.filter
+def multiply(value, arg):
+    """
+    Multiply value by arg.
+    Usage: {{ value|multiply:arg }}
+    """
+    try:
+        return int(value) * int(arg)
+    except (ValueError, TypeError):
+        return 0
 
 
 @register.filter

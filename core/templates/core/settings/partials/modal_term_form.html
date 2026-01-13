@@ -9,17 +9,15 @@
           hx-target="#card-academic"
           hx-swap="outerHTML">
         {% csrf_token %}
-        <div class="space-y-6 pt-2">
-            {% floating_field form.academic_year %}
-            {% floating_field form.name %}
-            {% floating_field form.term_number %}
-            <div class="grid grid-cols-2 gap-4">
-                {% floating_field form.start_date %}
-                {% floating_field form.end_date %}
-            </div>
+        <div class="space-y-3 pt-2">
+            {% floating_field form.academic_year size="sm" %}
+            {% floating_field form.name size="sm" %}
+            {% floating_field form.term_number size="sm" %}
+            {% floating_field form.start_date size="sm" %}
+            {% floating_field form.end_date size="sm" %}
             <label class="label cursor-pointer justify-start gap-3">
-                <input type="checkbox" name="is_current" class="checkbox checkbox-primary" {% if form.is_current.value %}checked{% endif %}>
-                <span class="label-text">Set as Current {{ period_label|default:"Term" }}</span>
+                <input type="checkbox" name="is_current" class="checkbox checkbox-sm checkbox-primary" {% if form.is_current.value %}checked{% endif %}>
+                <span class="label-text text-sm">Set as Current {{ period_label|default:"Term" }}</span>
             </label>
         </div>
         {% if form.errors %}
@@ -37,8 +35,8 @@
         </div>
         {% endif %}
         <div class="modal-action">
-            <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
-            <button type="submit" class="btn btn-primary">
+            <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-primary">
                 {% if is_create %}Create {{ period_label|default:"Term" }}{% else %}Save Changes{% endif %}
             </button>
         </div>

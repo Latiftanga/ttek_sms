@@ -381,6 +381,17 @@ class SchoolSettings(models.Model):
         help_text="Display name for 'From' address"
     )
 
+    # Setup wizard tracking
+    setup_completed = models.BooleanField(
+        default=False,
+        help_text="Whether the initial setup wizard has been completed"
+    )
+    setup_completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When setup was completed"
+    )
+
     @property
     def period_label(self):
         """Return 'Term' or 'Semester' based on setting."""
@@ -547,3 +558,100 @@ class DocumentVerification(models.Model):
             academic_year=academic_year or '',
             generated_by=user,
         )
+
+
+class Notification(models.Model):
+    """
+    User notifications for various system events.
+    """
+    class NotificationType(models.TextChoices):
+        INFO = 'info', 'Information'
+        SUCCESS = 'success', 'Success'
+        WARNING = 'warning', 'Warning'
+        ERROR = 'error', 'Error'
+
+    class Category(models.TextChoices):
+        SYSTEM = 'system', 'System'
+        ACADEMIC = 'academic', 'Academic'
+        ATTENDANCE = 'attendance', 'Attendance'
+        FINANCE = 'finance', 'Finance'
+        STUDENT = 'student', 'Student'
+        TEACHER = 'teacher', 'Teacher'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    notification_type = models.CharField(
+        max_length=20,
+        choices=NotificationType.choices,
+        default=NotificationType.INFO
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=Category.choices,
+        default=Category.SYSTEM
+    )
+    icon = models.CharField(max_length=50, blank=True, default='')
+    link = models.CharField(max_length=255, blank=True, default='')
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_read']),
+            models.Index(fields=['user', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.user}"
+
+    def mark_as_read(self):
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save(update_fields=['is_read', 'read_at'])
+
+    @classmethod
+    def create_notification(cls, user, title, message, notification_type='info',
+                           category='system', icon='', link=''):
+        """Create a notification for a user."""
+        return cls.objects.create(
+            user=user,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            category=category,
+            icon=icon,
+            link=link,
+        )
+
+    @classmethod
+    def notify_admins(cls, title, message, notification_type='info', category='system', icon='', link=''):
+        """Send notification to all school admins."""
+        from accounts.models import User
+        admins = User.objects.filter(
+            models.Q(is_superuser=True) | models.Q(is_school_admin=True)
+        )
+        notifications = []
+        for admin in admins:
+            notifications.append(cls(
+                user=admin,
+                title=title,
+                message=message,
+                notification_type=notification_type,
+                category=category,
+                icon=icon,
+                link=link,
+            ))
+        return cls.objects.bulk_create(notifications)
+
+    @classmethod
+    def unread_count(cls, user):
+        """Get unread notification count for a user."""
+        return cls.objects.filter(user=user, is_read=False).count()

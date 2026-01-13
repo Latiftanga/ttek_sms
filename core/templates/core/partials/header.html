@@ -70,12 +70,28 @@
         </label>
 
         <!-- Notifications -->
-        <button class="btn btn-ghost btn-circle">
-            <div class="indicator">
-                <i class="fa-regular fa-bell text-xl"></i>
-                <span class="badge badge-xs badge-primary indicator-item"></span>
+        <div class="dropdown dropdown-end">
+            <div tabindex="0" role="button" class="btn btn-ghost btn-circle"
+                 hx-get="{% url 'core:notifications_dropdown' %}"
+                 hx-target="#notifications-content"
+                 hx-trigger="click once">
+                <div class="indicator"
+                     hx-get="{% url 'core:notifications_badge' %}"
+                     hx-trigger="load, every 60s"
+                     hx-swap="innerHTML"
+                     hx-target="find .indicator-item">
+                    <i class="fa-regular fa-bell text-xl"></i>
+                    <span class="badge badge-xs badge-ghost indicator-item opacity-0"></span>
+                </div>
             </div>
-        </button>
+            <ul tabindex="0" class="menu dropdown-content mt-3 z-[1] p-0 shadow-lg bg-base-100 rounded-box w-80 border border-base-200">
+                <li id="notifications-content">
+                    <div class="flex justify-center py-8 hover:bg-transparent">
+                        <span class="loading loading-spinner loading-sm"></span>
+                    </div>
+                </li>
+            </ul>
+        </div>
 
         <!-- User dropdown -->
         <div class="dropdown dropdown-end">

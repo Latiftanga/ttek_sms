@@ -75,7 +75,20 @@
     </div>
 </div>
 
-{% if not current_year %}
+{% if school and not school.setup_completed %}
+<!-- Setup Wizard Banner -->
+<div class="alert alert-info mb-6 shadow-sm">
+    <i class="fa-solid fa-magic-wand-sparkles text-xl"></i>
+    <div>
+        <h3 class="font-bold">Welcome! Let's set up your school</h3>
+        <p class="text-sm">Use the setup wizard to quickly configure your academic year, terms, classes, and more.</p>
+    </div>
+    <a href="{% url 'core:setup_wizard' %}" hx-get="{% url 'core:setup_wizard' %}" hx-target="#main-content"
+        hx-push-url="true" class="btn btn-sm btn-info">
+        <i class="fa-solid fa-rocket"></i> Start Setup
+    </a>
+</div>
+{% elif not current_year %}
 <!-- Setup Warning -->
 <div class="alert alert-warning mb-6">
     <i class="fa-solid fa-exclamation-triangle"></i>
@@ -461,6 +474,13 @@
 
                 <div class="divider my-2"></div>
 
+                {% if school and not school.setup_completed %}
+                <a href="{% url 'core:setup_wizard' %}" hx-get="{% url 'core:setup_wizard' %}" hx-target="#main-content"
+                    hx-push-url="true" class="btn btn-info btn-sm w-full justify-start mb-2">
+                    <i class="fa-solid fa-magic-wand-sparkles w-5"></i>
+                    Setup Wizard
+                </a>
+                {% endif %}
                 <a href="{% url 'core:settings' %}" hx-get="{% url 'core:settings' %}" hx-target="#main-content"
                     hx-push-url="true" class="btn btn-ghost btn-sm w-full justify-start">
                     <i class="fa-solid fa-gear w-5"></i>

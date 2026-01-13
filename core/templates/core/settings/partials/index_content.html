@@ -237,6 +237,23 @@
     </div>
 </dialog>
 
+<!-- Edit Modal (for Academic Year and Term editing) -->
+<dialog id="modal_edit" class="modal modal-middle">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <div id="modal-edit-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
 <!-- SMS Settings Modal -->
 <dialog id="modal_sms_settings" class="modal modal-middle">
     <div class="modal-box">

@@ -1,0 +1,323 @@
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold">Setup Wizard</h1>
+            <p class="text-sm text-base-content/60">Let's get your school ready to use</p>
+        </div>
+        <a href="{% url 'core:index' %}" hx-get="{% url 'core:index' %}" hx-target="#main-content" hx-push-url="true" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-arrow-left"></i> Dashboard
+        </a>
+    </div>
+
+    <!-- Progress Steps -->
+    <ul class="steps steps-horizontal w-full text-xs sm:text-sm">
+        <li class="step {% if has_academic_year %}step-primary{% endif %}">
+            <span class="hidden sm:inline">Academic Year</span>
+            <span class="sm:hidden">Year</span>
+        </li>
+        <li class="step {% if has_terms %}step-primary{% endif %}">Terms</li>
+        <li class="step {% if has_classes %}step-primary{% endif %}">Classes</li>
+        <li class="step {% if has_houses %}step-primary{% endif %}">Houses</li>
+        <li class="step {% if has_subjects %}step-primary{% endif %}">
+            <span class="hidden sm:inline">Subjects</span>
+            <span class="sm:hidden">Data</span>
+        </li>
+    </ul>
+
+    <!-- Step 1: Academic Year -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full {% if has_academic_year %}bg-success text-success-content{% else %}bg-primary text-primary-content{% endif %} flex items-center justify-center text-sm">
+                        {% if has_academic_year %}
+                        <i class="fa-solid fa-check"></i>
+                        {% else %}
+                        <span class="font-bold">1</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-sm">Academic Year</h2>
+                        <p class="text-xs text-base-content/60">Create the current academic year</p>
+                    </div>
+                </div>
+                {% if has_academic_year %}
+                <span class="badge badge-success badge-sm">Done</span>
+                {% endif %}
+            </div>
+
+            {% if not has_academic_year %}
+            <form method="post" action="{% url 'core:setup_wizard_academic_year' %}" class="mt-4 space-y-3">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-xs">Name</span></label>
+                        <input type="text" name="name" value="2024/2025 Academic Year" class="input input-bordered input-sm" required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-xs">Start Date</span></label>
+                        <input type="date" name="start_date" value="2024-09-01" class="input input-bordered input-sm" required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-xs">End Date</span></label>
+                        <input type="date" name="end_date" value="2025-07-31" class="input input-bordered input-sm" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Create Academic Year
+                </button>
+            </form>
+            {% else %}
+            <div class="mt-3 p-2 bg-base-200 rounded-lg text-sm">
+                {% for year in academic_years %}
+                <div class="flex items-center justify-between">
+                    <span class="font-medium">{{ year.name }}</span>
+                    <span class="text-xs text-base-content/60">{{ year.start_date|date:"M Y" }} - {{ year.end_date|date:"M Y" }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Step 2: Terms -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 {% if not has_academic_year %}opacity-50{% endif %}">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full {% if has_terms %}bg-success text-success-content{% elif has_academic_year %}bg-primary text-primary-content{% else %}bg-base-300{% endif %} flex items-center justify-center text-sm">
+                        {% if has_terms %}
+                        <i class="fa-solid fa-check"></i>
+                        {% else %}
+                        <span class="font-bold">2</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-sm">Terms</h2>
+                        <p class="text-xs text-base-content/60">Set up your academic terms</p>
+                    </div>
+                </div>
+                {% if has_terms %}
+                <span class="badge badge-success badge-sm">Done</span>
+                {% endif %}
+            </div>
+
+            {% if has_academic_year and not has_terms %}
+            <form method="post" action="{% url 'core:setup_wizard_terms' %}" class="mt-4 space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="term_count" value="3">
+                <div class="space-y-2">
+                    {% for i in "123" %}
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 p-2 bg-base-200/50 rounded-lg">
+                        <div class="form-control">
+                            <label class="label py-1"><span class="label-text text-xs">Term {{ i }} Name</span></label>
+                            <input type="text" name="term_{{ i }}_name" value="Term {{ i }}" class="input input-bordered input-sm" required>
+                        </div>
+                        <div class="form-control">
+                            <label class="label py-1"><span class="label-text text-xs">Start Date</span></label>
+                            <input type="date" name="term_{{ i }}_start" class="input input-bordered input-sm" required>
+                        </div>
+                        <div class="form-control">
+                            <label class="label py-1"><span class="label-text text-xs">End Date</span></label>
+                            <input type="date" name="term_{{ i }}_end" class="input input-bordered input-sm" required>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Create Terms
+                </button>
+            </form>
+            {% elif has_terms %}
+            <div class="mt-3 space-y-1">
+                {% for term in terms %}
+                <div class="flex items-center justify-between p-2 bg-base-200 rounded-lg text-sm">
+                    <span class="font-medium">{{ term.name }}</span>
+                    <span class="text-xs text-base-content/60">{{ term.start_date|date:"M d" }} - {{ term.end_date|date:"M d, Y" }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Step 3: Classes -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 {% if not has_terms %}opacity-50{% endif %}">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full {% if has_classes %}bg-success text-success-content{% elif has_terms %}bg-primary text-primary-content{% else %}bg-base-300{% endif %} flex items-center justify-center text-sm">
+                        {% if has_classes %}
+                        <i class="fa-solid fa-check"></i>
+                        {% else %}
+                        <span class="font-bold">3</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-sm">Classes</h2>
+                        <p class="text-xs text-base-content/60">Create your school classes</p>
+                    </div>
+                </div>
+                {% if has_classes %}
+                <span class="badge badge-success badge-sm">{{ classes|length }} classes</span>
+                {% endif %}
+            </div>
+
+            {% if has_terms and not has_classes %}
+            <form method="post" action="{% url 'core:setup_wizard_classes' %}" class="mt-4 space-y-3">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-xs">Level Type</span></label>
+                        <select name="level_type" class="select select-bordered select-sm" required>
+                            <option value="kg">Kindergarten</option>
+                            <option value="primary" selected>Primary</option>
+                            <option value="jhs">JHS</option>
+                            <option value="shs">SHS</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-xs">Start Level</span></label>
+                        <input type="number" name="start_level" value="1" min="1" max="6" class="input input-bordered input-sm" required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-xs">End Level</span></label>
+                        <input type="number" name="end_level" value="6" min="1" max="6" class="input input-bordered input-sm" required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-xs">Sections</span></label>
+                        <input type="text" name="sections" value="A" placeholder="A,B,C" class="input input-bordered input-sm" required>
+                    </div>
+                </div>
+                <p class="text-xs text-base-content/60">Sections: comma separated (e.g., A,B,C)</p>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Create Classes
+                </button>
+            </form>
+            {% elif has_classes %}
+            <div class="mt-3 flex flex-wrap gap-1">
+                {% for cls in classes %}
+                <span class="badge badge-outline badge-sm">{{ cls.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Step 4: Houses -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 {% if not has_classes %}opacity-50{% endif %}">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full {% if has_houses %}bg-success text-success-content{% elif has_classes %}bg-primary text-primary-content{% else %}bg-base-300{% endif %} flex items-center justify-center text-sm">
+                        {% if has_houses %}
+                        <i class="fa-solid fa-check"></i>
+                        {% else %}
+                        <span class="font-bold">4</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-sm">Houses</h2>
+                        <p class="text-xs text-base-content/60">Create student houses (optional)</p>
+                    </div>
+                </div>
+                {% if has_houses %}
+                <span class="badge badge-success badge-sm">{{ houses|length }} houses</span>
+                {% endif %}
+            </div>
+
+            {% if has_classes and not has_houses %}
+            <form method="post" action="{% url 'core:setup_wizard_houses' %}" class="mt-4 space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="house_count" value="4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {% for i in "1234" %}
+                    <div class="flex gap-2 items-end">
+                        <div class="form-control flex-1">
+                            <label class="label py-1"><span class="label-text text-xs">House {{ i }} Name</span></label>
+                            <input type="text" name="house_{{ i }}_name" placeholder="e.g., Red House" class="input input-bordered input-sm">
+                        </div>
+                        <div class="form-control">
+                            <input type="color" name="house_{{ i }}_color_code" value="{% if i == '1' %}#ef4444{% elif i == '2' %}#3b82f6{% elif i == '3' %}#22c55e{% else %}#eab308{% endif %}" class="input input-bordered input-sm h-9 w-12 p-1">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fa-solid fa-plus"></i> Create Houses
+                    </button>
+                    <a href="{% url 'core:setup_wizard' %}?skip_houses=1" class="btn btn-ghost btn-sm">
+                        Skip
+                    </a>
+                </div>
+            </form>
+            {% elif has_houses %}
+            <div class="mt-3 flex flex-wrap gap-1">
+                {% for house in houses %}
+                <span class="badge badge-sm" style="background-color: {{ house.color_code }}; color: white;">{{ house.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Step 5: Seed Data -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 {% if not has_classes %}opacity-50{% endif %}">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full {% if has_subjects %}bg-success text-success-content{% elif has_classes %}bg-primary text-primary-content{% else %}bg-base-300{% endif %} flex items-center justify-center text-sm">
+                        {% if has_subjects %}
+                        <i class="fa-solid fa-check"></i>
+                        {% else %}
+                        <span class="font-bold">5</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-sm">Import Standard Data</h2>
+                        <p class="text-xs text-base-content/60">Programmes, subjects, periods, grading</p>
+                    </div>
+                </div>
+                {% if has_subjects %}
+                <span class="badge badge-success badge-sm">Done</span>
+                {% endif %}
+            </div>
+
+            {% if has_classes and not has_subjects %}
+            <form method="post" action="{% url 'core:setup_wizard_seed' %}" class="mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="seed_type" value="all">
+                <p class="text-xs text-base-content/60 mb-3">
+                    Import Ghana curriculum: 7 SHS programmes, 47 subjects, 11 periods, and BECE/WASSCE grading.
+                </p>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-download"></i> Import Data
+                </button>
+            </form>
+            {% elif has_subjects %}
+            <div class="mt-3 text-xs text-base-content/60">
+                <i class="fa-solid fa-check-circle text-success"></i> Standard curriculum data imported
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Complete Setup -->
+    {% if has_academic_year and has_terms and has_classes %}
+    <div class="card bg-success/10 border border-success/30">
+        <div class="card-body p-4 text-center">
+            <h2 class="text-lg font-bold text-success">Setup Complete!</h2>
+            <p class="text-sm text-base-content/70 mb-3">Your school is ready. You can add more data later from Settings.</p>
+            <form method="post" action="{% url 'core:setup_wizard_complete' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-sm">
+                    <i class="fa-solid fa-rocket"></i> Start Using the System
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>

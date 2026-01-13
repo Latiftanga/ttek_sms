@@ -23,7 +23,7 @@
     <input type="hidden" name="period" value="{{ form.period.value }}">
 
     <!-- Subject -->
-    <label class="select select-bordered w-full">
+    <label class="select select-bordered select-sm w-full">
         <span class="label">Subject</span>
         <select name="subject" required>
             <option value="" disabled {% if not form.subject.value %}selected{% endif %}>Select a subject...</option>
@@ -42,7 +42,7 @@
     {% endif %}
 
     <!-- Teacher -->
-    <label class="select select-bordered w-full">
+    <label class="select select-bordered select-sm w-full">
         <span class="label">Teacher</span>
         <select name="teacher" required>
             <option value="" disabled {% if not form.teacher.value %}selected{% endif %}>Select a teacher...</option>
@@ -61,7 +61,7 @@
     {% endif %}
 
     <!-- Classroom -->
-    <label class="select select-bordered w-full">
+    <label class="select select-bordered select-sm w-full">
         <span class="label">Classroom (Optional)</span>
         <select name="classroom">
             <option value="" {% if not form.classroom.value %}selected{% endif %}>No specific room</option>
@@ -97,10 +97,10 @@
     <!-- Empty slot - allow choosing duration -->
     <div class="form-control">
         <label class="label cursor-pointer justify-start gap-3">
-            <input type="checkbox" name="is_double" class="checkbox checkbox-primary"
+            <input type="checkbox" name="is_double" class="checkbox checkbox-sm checkbox-primary"
                    {% if form.is_double.value %}checked{% endif %}>
             <div>
-                <span class="label-text font-medium">Double Period</span>
+                <span class="label-text text-sm font-medium">Double Period</span>
                 <p class="text-xs text-base-content/50">Lesson spans two consecutive periods</p>
             </div>
         </label>
@@ -120,8 +120,8 @@
     {% endif %}
 
     <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="modal_form.close()">Cancel</button>
-        <button type="submit" class="btn btn-primary">
+        <button type="button" class="btn btn-sm btn-ghost" onclick="modal_form.close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
             <span class="loading loading-spinner loading-sm loading-indicator hidden"></span>
             <i class="fa-solid fa-{% if is_edit %}save{% else %}plus{% endif %} htmx-indicator-hide"></i>
             {% if is_edit %}Save Changes{% else %}Add Lesson{% endif %}
