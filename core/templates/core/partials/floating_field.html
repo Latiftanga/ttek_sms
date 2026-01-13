@@ -28,6 +28,18 @@
     </select>
 </label>
 
+{% elif is_file %}
+{# File inputs need simple label wrapper, not floating-label #}
+<div class="form-control w-full">
+    <label class="label">
+        <span class="label-text">{{ label }}</span>
+    </label>
+    <input type="file"
+           name="{{ field.html_name }}"
+           class="{{ input_class }}"
+           {% if field.field.required %}required{% endif %}
+           {% if field.field.widget.attrs.accept %}accept="{{ field.field.widget.attrs.accept }}"{% endif %} />
+</div>
 {% else %}
 <label class="floating-label w-full">
     <span>{{ label }}</span>
@@ -38,11 +50,6 @@
               {% if field.field.required %}required{% endif %}
               {% if field.field.widget.attrs.rows %}rows="{{ field.field.widget.attrs.rows }}"{% endif %}
               {% if field.field.widget.attrs.maxlength %}maxlength="{{ field.field.widget.attrs.maxlength }}"{% endif %}>{{ field.value|default:'' }}</textarea>
-    {% elif is_file %}
-    <input type="file"
-           name="{{ field.html_name }}"
-           class="{{ input_class }}"
-           {% if field.field.widget.attrs.accept %}accept="{{ field.field.widget.attrs.accept }}"{% endif %} />
     {% else %}
     <input type="{{ input_type }}"
            name="{{ field.html_name }}"

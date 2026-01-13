@@ -620,13 +620,11 @@
             }
         });
 
-        // Show loading state before request (for slow connections feedback)
+        // Show warning before request if offline (but don't block - let it fail naturally)
         document.body.addEventListener('htmx:beforeRequest', function(e) {
-            // If offline, prevent request and show message
+            // If offline, show warning but let request proceed (it will fail and show retry option)
             if (!navigator.onLine) {
-                e.preventDefault();
-                NetworkManager.showToast('warning', 'You\'re Offline', 'This action requires an internet connection.', 3000);
-                return false;
+                NetworkManager.showToast('warning', 'You appear to be offline', 'Request may fail.', 2000);
             }
         });
 
