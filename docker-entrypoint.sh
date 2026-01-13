@@ -13,5 +13,8 @@ python manage.py setup_public_tenant
 echo "📦 Running migrations for tenant schemas..."
 python manage.py migrate_schemas --tenant
 
+echo "📁 Collecting static files..."
+python manage.py collectstatic --noinput
+
 echo "🚀 Starting application..."
 exec "$@"
