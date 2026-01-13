@@ -545,7 +545,7 @@ def payments(request):
 
 
 @admin_required
-def settings(request):
+def settings_page(request):
     """School settings page with all configuration options."""
     tenant = request.tenant
     school_settings = SchoolSettings.load()

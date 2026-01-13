@@ -10,7 +10,7 @@ urlpatterns = [
     path('schedule/', views.schedule, name='schedule'),
 
     # School Admin routes
-    path('settings/', views.settings, name='settings'),
+    path('settings/', views.settings_page, name='settings'),
 
     # Settings update routes (modal POST handlers)
     path('settings/update/basic/', views.settings_update_basic, name='settings_update_basic'),
