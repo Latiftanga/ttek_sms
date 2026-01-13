@@ -1,8 +1,10 @@
+import logging
 import secrets
 import string
 
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
+from django.db import IntegrityError, transaction
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
@@ -10,6 +12,8 @@ from django.conf import settings
 from accounts.models import User
 from teachers.models import Teacher
 from .utils import admin_required
+
+logger = logging.getLogger(__name__)
 
 
 def generate_temp_password(length=10):
@@ -77,34 +81,34 @@ def create_account(request, pk):
                 'error': 'Email address is required. Please provide an email.',
             })
 
-        # Check if email already exists
-        if User.objects.filter(email=email).exists():
+        # Generate temporary password
+        temp_password = generate_temp_password()
+
+        # Create user account with atomic transaction to prevent race conditions
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    email=email,
+                    password=temp_password,
+                    first_name=teacher.first_name,
+                    last_name=teacher.last_name,
+                    is_teacher=True,
+                    must_change_password=True,
+                )
+
+                # Link to teacher
+                teacher.user = user
+                teacher.save(update_fields=['user'])
+
+                # Also update teacher email if it was empty
+                if not teacher.email:
+                    teacher.email = email
+                    teacher.save(update_fields=['email'])
+        except IntegrityError:
             return render(request, 'teachers/partials/modal_create_account.html', {
                 'teacher': teacher,
                 'error': f"An account with email '{email}' already exists.",
             })
-
-        # Generate temporary password
-        temp_password = generate_temp_password()
-
-        # Create user account
-        user = User.objects.create_user(
-            email=email,
-            password=temp_password,
-            first_name=teacher.first_name,
-            last_name=teacher.last_name,
-            is_teacher=True,
-            must_change_password=True,
-        )
-
-        # Link to teacher
-        teacher.user = user
-        teacher.save(update_fields=['user'])
-
-        # Also update teacher email if it was empty
-        if not teacher.email:
-            teacher.email = email
-            teacher.save(update_fields=['email'])
 
         # Send credentials via email
         email_sent = send_account_credentials(user, temp_password, teacher)

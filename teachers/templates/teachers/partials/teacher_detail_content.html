@@ -1,40 +1,44 @@
 {% load core_tags %}
 <div class="print:max-w-none">
     <!-- Page Header -->
-    <div class="flex items-center justify-between mb-6 print:!hidden">
-        <div class="flex items-center gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 print:!hidden">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
             <a href="{% url 'teachers:index' %}"
                hx-get="{% url 'teachers:index' %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
+               class="btn btn-ghost btn-sm btn-circle flex-shrink-0">
                 <i class="fa-solid fa-arrow-left"></i>
             </a>
-            <div>
-                <h1 class="text-xl font-bold">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
+            <div class="min-w-0">
+                <h1 class="text-lg sm:text-xl font-bold truncate">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
                 <p class="text-sm text-base-content/60 font-mono">{{ teacher.staff_id }}</p>
             </div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 pl-11 sm:pl-0">
             <a href="{% url 'teachers:teacher_schedule' teacher.pk %}"
                hx-get="{% url 'teachers:teacher_schedule' teacher.pk %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-ghost btn-sm">
+               class="btn btn-ghost btn-sm btn-square sm:btn-wide"
+               title="Schedule">
                 <i class="fa-solid fa-calendar-days"></i>
-                Schedule
+                <span class="hidden sm:inline">Schedule</span>
             </a>
-            <a href="{% url 'teachers:teacher_detail_pdf' teacher.pk %}" class="btn btn-ghost btn-sm">
+            <a href="{% url 'teachers:teacher_detail_pdf' teacher.pk %}"
+               class="btn btn-ghost btn-sm btn-square sm:btn-wide"
+               title="Download PDF">
                 <i class="fa-solid fa-file-pdf"></i>
-                Download PDF
+                <span class="hidden sm:inline">PDF</span>
             </a>
             <a href="{% url 'teachers:teacher_edit' teacher.pk %}"
                hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-primary btn-sm">
+               class="btn btn-primary btn-sm"
+               title="Edit">
                 <i class="fa-solid fa-pen"></i>
-                Edit
+                <span class="hidden sm:inline">Edit</span>
             </a>
         </div>
     </div>
@@ -311,40 +315,32 @@
 
             <!-- Teaching Assignments -->
             <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-5">
+                <div class="card-body p-4 sm:p-5">
                     <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
                         <i class="fa-solid fa-chalkboard-user text-primary print:!hidden"></i>
                         Teaching Assignments
+                        {% if subject_assignments %}
+                        <span class="badge badge-sm badge-ghost">{{ subject_assignments|length }}</span>
+                        {% endif %}
                     </h2>
 
                     {% if subject_assignments %}
-                    <div class="overflow-x-auto">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr class="text-xs uppercase text-base-content/60">
-                                    <th>Class</th>
-                                    <th>Subject</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for assignment in subject_assignments %}
-                                <tr class="hover">
-                                    <td>
-                                        <a href="{% url 'academics:class_detail' assignment.class_assigned.pk %}"
-                                           hx-get="{% url 'academics:class_detail' assignment.class_assigned.pk %}"
-                                           hx-target="#main-content"
-                                           hx-push-url="true"
-                                           class="link link-hover link-primary">
-                                            {{ assignment.class_assigned.name }}
-                                        </a>
-                                    </td>
-                                    <td>
-                                        <span class="badge badge-ghost">{{ assignment.subject.name }}</span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div class="space-y-2">
+                        {% for assignment in subject_assignments %}
+                        <a href="{% url 'academics:class_detail' assignment.class_assigned.pk %}"
+                           hx-get="{% url 'academics:class_detail' assignment.class_assigned.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="flex items-center justify-between p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                    <i class="fa-solid fa-chalkboard text-primary text-xs"></i>
+                                </div>
+                                <span class="font-medium text-sm">{{ assignment.class_assigned.name }}</span>
+                            </div>
+                            <span class="badge badge-ghost badge-sm">{{ assignment.subject.name }}</span>
+                        </a>
+                        {% endfor %}
                     </div>
                     {% else %}
                     <div class="text-center py-6 text-base-content/40">
@@ -358,45 +354,49 @@
 
             <!-- User Account -->
             <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
-                <div class="card-body p-5">
+                <div class="card-body p-4 sm:p-5">
                     <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
                         <i class="fa-solid fa-user-shield text-primary"></i>
                         User Account
                     </h2>
 
                     {% if teacher.user %}
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="avatar placeholder">
-                            <div class="bg-success/20 text-success rounded-full w-12">
-                                <i class="fa-solid fa-check"></i>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                            <div class="avatar placeholder flex-shrink-0">
+                                <div class="bg-success/20 text-success rounded-full w-10 sm:w-12">
+                                    <i class="fa-solid fa-check"></i>
+                                </div>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-medium truncate">{{ teacher.user.first_name }} {{ teacher.user.last_name }}</p>
+                                <p class="text-sm text-base-content/60 truncate">{{ teacher.user.email }}</p>
+                                <p class="text-xs mt-1 {% if teacher.user.is_active %}text-success{% else %}text-error{% endif %}">
+                                    {% if teacher.user.is_active %}
+                                    <i class="fa-solid fa-circle-check"></i> Active
+                                    {% else %}
+                                    <i class="fa-solid fa-circle-xmark"></i> Deactivated
+                                    {% endif %}
+                                </p>
                             </div>
                         </div>
-                        <div class="flex-1">
-                            <p class="font-medium">{{ teacher.user.first_name }} {{ teacher.user.last_name }}</p>
-                            <p class="text-sm text-base-content/60">{{ teacher.user.email }}</p>
-                            <p class="text-xs mt-1 {% if teacher.user.is_active %}text-success{% else %}text-error{% endif %}">
-                                {% if teacher.user.is_active %}
-                                <i class="fa-solid fa-circle-check"></i> Active
-                                {% else %}
-                                <i class="fa-solid fa-circle-xmark"></i> Deactivated
-                                {% endif %}
-                            </p>
-                        </div>
                     </div>
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-col sm:flex-row gap-2">
                         <form hx-post="{% url 'teachers:reset_password' teacher.pk %}"
-                              hx-confirm="Reset password for {{ teacher.full_name }}? A new temporary password will be sent to their email.">
+                              hx-confirm="Reset password for {{ teacher.full_name }}? A new temporary password will be sent to their email."
+                              class="flex-1 sm:flex-none">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline btn-warning">
+                            <button type="submit" class="btn btn-sm btn-outline btn-warning w-full sm:w-auto">
                                 <i class="fa-solid fa-key"></i>
                                 Reset Password
                             </button>
                         </form>
                         {% if teacher.user.is_active %}
                         <form hx-post="{% url 'teachers:deactivate_account' teacher.pk %}"
-                              hx-confirm="Deactivate account for {{ teacher.full_name }}? They will no longer be able to log in.">
+                              hx-confirm="Deactivate account for {{ teacher.full_name }}? They will no longer be able to log in."
+                              class="flex-1 sm:flex-none">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline btn-error">
+                            <button type="submit" class="btn btn-sm btn-outline btn-error w-full sm:w-auto">
                                 <i class="fa-solid fa-user-slash"></i>
                                 Deactivate
                             </button>
@@ -404,17 +404,19 @@
                         {% endif %}
                     </div>
                     {% else %}
-                    <div class="flex items-center gap-4">
-                        <div class="avatar placeholder">
-                            <div class="bg-warning/20 text-warning rounded-full w-12">
-                                <i class="fa-solid fa-user-slash"></i>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                        <div class="flex items-center gap-3 flex-1">
+                            <div class="avatar placeholder flex-shrink-0">
+                                <div class="bg-warning/20 text-warning rounded-full w-10 sm:w-12">
+                                    <i class="fa-solid fa-user-slash"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="font-medium text-base-content/70">No account</p>
+                                <p class="text-xs text-base-content/50">Teacher cannot log in to the system</p>
                             </div>
                         </div>
-                        <div class="flex-1">
-                            <p class="font-medium text-base-content/70">No account</p>
-                            <p class="text-xs text-base-content/50">Teacher cannot log in to the system</p>
-                        </div>
-                        <button class="btn btn-sm btn-primary"
+                        <button class="btn btn-sm btn-primary w-full sm:w-auto"
                                 hx-get="{% url 'teachers:create_account' teacher.pk %}"
                                 hx-target="#create-account-container"
                                 onclick="modal_create_account.showModal()">
@@ -430,8 +432,8 @@
     </div>
 
     <!-- Create Account Modal -->
-    <dialog id="modal_create_account" class="modal modal-middle">
-        <div class="modal-box">
+    <dialog id="modal_create_account" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box max-w-md">
             <form method="dialog">
                 <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
                     <i class="fa-solid fa-xmark"></i>

@@ -1,69 +1,49 @@
 {% load core_tags %}
-<style>
-    .subject-item .action-buttons { opacity: 0; transition: opacity 0.2s ease; }
-    .subject-item:hover .action-buttons { opacity: 1; }
-    .subject-item:hover { background-color: oklch(var(--b2)); }
-</style>
 <div id="subjects-container">
     {% if subjects %}
-    <div class="overflow-x-auto max-h-52">
-        <table class="table table-xs w-full">
-            <thead class="sticky top-0 bg-base-100">
-                <tr class="text-xs text-base-content/60 border-b border-base-200">
-                    <th class="font-medium py-2">Name</th>
-                    <th class="font-medium py-2 text-center w-16">Type</th>
-                    <th class="font-medium py-2 text-right w-20">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for subject in subjects %}
-                <tr class="subject-item border-b border-base-200/50 transition-colors">
-                    <td class="py-2">
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 rounded bg-info/10 flex items-center justify-center flex-shrink-0">
-                                <i class="fa-solid fa-book text-info text-xs"></i>
-                            </div>
-                            <div class="min-w-0">
-                                <span class="font-medium text-sm block truncate">{{ subject.name }}</span>
-                                {% if subject.short_name %}
-                                <span class="text-xs text-base-content/50">{{ subject.short_name }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </td>
-                    <td class="py-2 text-center">
-                        {% if subject.is_core %}
-                        <span class="badge badge-primary badge-xs">Core</span>
-                        {% else %}
-                        <span class="badge badge-ghost badge-xs">Elective</span>
-                        {% endif %}
-                    </td>
-                    <td class="py-2 text-right">
-                        <div class="action-buttons inline-flex items-center gap-0.5">
-                            <button class="btn btn-ghost btn-xs btn-square hover:bg-primary/10 hover:text-primary"
-                                    hx-get="{% url 'academics:subject_edit' subject.pk %}"
-                                    hx-target="#modal-subject-edit-content"
-                                    hx-swap="innerHTML"
-                                    onclick="document.getElementById('modal_subject_edit').showModal()"
-                                    title="Edit {{ subject.name }}">
-                                <i class="fa-solid fa-pen-to-square text-xs"></i>
-                            </button>
-                            <form hx-post="{% url 'academics:subject_delete' subject.pk %}"
-                                  hx-target="#subjects-container"
-                                  hx-swap="outerHTML"
-                                  hx-confirm="Are you sure you want to delete '{{ subject.name }}'?"
-                                  class="inline">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost btn-xs btn-square hover:bg-error/10 hover:text-error" title="Delete {{ subject.name }}">
-                                    <i class="fa-solid fa-trash-can text-xs"></i>
-                                </button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="space-y-2 max-h-64 overflow-y-auto">
+        {% for subject in subjects %}
+        <div class="flex items-center justify-between p-2 rounded-lg bg-base-200/30 hover:bg-base-200/50 transition-colors group">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+                <div class="w-8 h-8 rounded bg-info/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-book text-info text-xs"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <span class="font-medium text-sm block truncate">{{ subject.name }}</span>
+                    {% if subject.short_name %}
+                    <span class="text-xs text-base-content/50">{{ subject.short_name }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                {% if subject.is_core %}
+                <span class="badge badge-primary badge-xs">Core</span>
+                {% else %}
+                <span class="badge badge-ghost badge-xs">Elective</span>
+                {% endif %}
+                <div class="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button class="btn btn-ghost btn-xs btn-square hover:bg-primary/10 hover:text-primary"
+                            hx-get="{% url 'academics:subject_edit' subject.pk %}"
+                            hx-target="#modal-subject-edit-content"
+                            hx-swap="innerHTML"
+                            onclick="document.getElementById('modal_subject_edit').showModal()"
+                            title="Edit {{ subject.name }}">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
+                    <form hx-post="{% url 'academics:subject_delete' subject.pk %}"
+                          hx-target="#subjects-container"
+                          hx-swap="outerHTML"
+                          hx-confirm="Delete '{{ subject.name }}'?"
+                          class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-ghost btn-xs btn-square hover:bg-error/10 hover:text-error" title="Delete">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
     {% else %}
     <div class="text-center py-8">

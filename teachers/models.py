@@ -45,6 +45,11 @@ class Teacher(Person):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['status'], name='teachers_status_idx'),
+        ]
+
     @property
     def full_name(self):
         parts = [self.first_name, self.middle_name, self.last_name]
