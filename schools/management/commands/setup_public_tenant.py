@@ -1,10 +1,12 @@
 import os
+import sys
 import getpass
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.db import connection
 from schools.models import School, Domain
 
 
@@ -32,7 +34,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         is_production = not settings.DEBUG
-        no_input = options.get('no_input', False)
+        # Auto-detect non-interactive mode (e.g., Docker without TTY)
+        no_input = options.get('no_input', False) or not sys.stdin.isatty()
 
         self.stdout.write(self.style.NOTICE('\n' + '=' * 60))
         self.stdout.write(self.style.NOTICE('  TTEK SMS Platform Setup'))
@@ -57,6 +60,9 @@ class Command(BaseCommand):
 
         # Summary
         self._print_summary(domain)
+
+        # Close database connection to ensure clean exit
+        connection.close()
 
     def _setup_public_tenant(self):
         """Create or get the public tenant."""
@@ -92,7 +98,10 @@ class Command(BaseCommand):
                 default = 'localhost'
                 self.stdout.write('  Enter domain for development')
 
-            domain_name = input(f'  Domain [{default}]: ').strip() or default
+            try:
+                domain_name = input(f'  Domain [{default}]: ').strip() or default
+            except EOFError:
+                domain_name = default
 
         if not domain_name:
             domain_name = 'localhost'
@@ -142,24 +151,27 @@ class Command(BaseCommand):
         password = options.get('password') or os.getenv('SUPERUSER_PASSWORD')
 
         if not no_input:
-            if not email:
-                email = input('  Superuser email: ').strip()
+            try:
+                if not email:
+                    email = input('  Superuser email: ').strip()
 
-            if not password:
-                while True:
-                    password = getpass.getpass('  Superuser password: ')
-                    password_confirm = getpass.getpass('  Confirm password: ')
+                if not password:
+                    while True:
+                        password = getpass.getpass('  Superuser password: ')
+                        password_confirm = getpass.getpass('  Confirm password: ')
 
-                    if password != password_confirm:
-                        self.stdout.write(self.style.ERROR('  Passwords do not match. Try again.'))
-                        continue
+                        if password != password_confirm:
+                            self.stdout.write(self.style.ERROR('  Passwords do not match. Try again.'))
+                            continue
 
-                    try:
-                        validate_password(password)
-                        break
-                    except ValidationError as e:
-                        self.stdout.write(self.style.ERROR(f'  {"; ".join(e.messages)}'))
-                        continue
+                        try:
+                            validate_password(password)
+                            break
+                        except ValidationError as e:
+                            self.stdout.write(self.style.ERROR(f'  {"; ".join(e.messages)}'))
+                            continue
+            except EOFError:
+                pass  # Fall through to check if credentials were provided
 
         if not email or not password:
             self.stdout.write(self.style.WARNING('  ⚠ Skipping superuser creation (no credentials provided)'))
