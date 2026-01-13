@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db.models import Sum, Count, Q, F
+from django.db.models.functions import TruncDate
 from django.contrib import messages
 from django.core.paginator import Paginator
 
@@ -963,9 +964,9 @@ def collection_report(request):
         count=Count('id')
     ).order_by('-total')
 
-    # Summary by day
-    by_day = payments.extra(
-        select={'date': 'DATE(transaction_date)'}
+    # Summary by day (using TruncDate for database-agnostic date grouping)
+    by_day = payments.annotate(
+        date=TruncDate('transaction_date')
     ).values('date').annotate(
         total=Sum('amount'),
         count=Count('id')
@@ -1501,7 +1502,13 @@ def payment_webhook(request):
     """
     Handle webhook notifications from payment gateway.
     This is called server-to-server by the gateway.
+
+    SECURITY: Signature verification happens in the gateway adapter.
+    We reject webhooks with invalid signatures before any database changes.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     # Get signature from headers
     signature = request.headers.get('X-Paystack-Signature', '') or \
                 request.headers.get('X-Flutterwave-Signature', '') or \
@@ -1510,6 +1517,7 @@ def payment_webhook(request):
     try:
         payload = json.loads(request.body)
     except json.JSONDecodeError:
+        logger.warning("Payment webhook received invalid JSON")
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
 
     # Determine which gateway this is from and get reference
@@ -1520,6 +1528,7 @@ def payment_webhook(request):
         reference = payload['Data']['ClientReference']  # Hubtel format
 
     if not reference:
+        logger.warning("Payment webhook received without reference")
         return JsonResponse({'status': 'error', 'message': 'No reference found'}, status=400)
 
     # Find the payment
@@ -1529,22 +1538,33 @@ def payment_webhook(request):
         gateway_tx = payment.gateway_transaction
         gateway_config = gateway_tx.gateway_config
     except (Payment.DoesNotExist, PaymentGatewayTransaction.DoesNotExist):
-        return JsonResponse({'status': 'error', 'message': 'Payment not found'}, status=404)
+        # Don't reveal whether payment exists - use generic message
+        logger.warning(f"Payment webhook for unknown reference: {reference[:20]}...")
+        return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
     # Skip if already processed
     if payment.status == 'COMPLETED':
         return JsonResponse({'status': 'success', 'message': 'Already processed'})
 
-    # Verify with gateway adapter
+    # Verify signature and process with gateway adapter
+    # SECURITY: The adapter verifies the signature using HMAC
+    # If signature is invalid, response.success will be False
     from .gateways import get_gateway_adapter
     adapter = get_gateway_adapter(gateway_config)
     response = adapter.handle_webhook(payload, signature)
 
-    # Store webhook data
+    # SECURITY: Check for signature verification failure
+    # The adapter returns success=False with "signature" in message for invalid signatures
+    if not response.success and 'signature' in response.message.lower():
+        logger.warning(f"Payment webhook signature verification failed for {reference[:20]}...")
+        return JsonResponse({'status': 'error', 'message': 'Signature verification failed'}, status=403)
+
+    # Signature verified - now store webhook data
     gateway_tx.callback_data = payload
     gateway_tx.save()
 
     if response.success:
+        # Payment successful
         payment.status = 'COMPLETED'
         payment.transaction_date = timezone.now()
         payment.save()
@@ -1554,11 +1574,14 @@ def payment_webhook(request):
         gateway_tx.net_amount = response.amount - response.gateway_fee
         gateway_tx.save()
 
+        logger.info(f"Payment {reference[:20]}... confirmed via webhook")
         return JsonResponse({'status': 'success', 'message': 'Payment confirmed'})
     else:
+        # Payment failed (but webhook signature was valid)
         payment.status = 'FAILED'
         payment.save()
 
+        logger.info(f"Payment {reference[:20]}... failed: {response.message}")
         return JsonResponse({'status': 'success', 'message': 'Payment failed recorded'})
 
 

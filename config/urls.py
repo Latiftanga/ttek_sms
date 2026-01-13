@@ -10,11 +10,6 @@ def health_check(request):
     return JsonResponse({'status': 'healthy'})
 
 
-def tenant_test(request):
-    """Test to check if tenant URLconf is being used."""
-    return JsonResponse({'urlconf': 'config.urls (TENANT)', 'path': request.path})
-
-
 urlpatterns = [
     # PWA / Offline support (tenant-aware - each school gets their own branded PWA)
     path('sw.js', service_worker, name='service_worker'),
@@ -22,7 +17,6 @@ urlpatterns = [
     path('offline/', offline, name='offline'),
 
     path('health/', health_check, name='health_check'),
-    path('tenant-test/', tenant_test, name='tenant_test'),
     path('', include('core.urls')),
     path('', include('accounts.urls')),
     path('academics/', include('academics.urls')),

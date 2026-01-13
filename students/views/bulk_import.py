@@ -1,5 +1,6 @@
 import json
 import io
+import re
 import secrets
 import string
 from datetime import datetime
@@ -15,6 +16,40 @@ from academics.models import Class
 from core.models import AcademicYear
 from students.models import Student, Enrollment, Guardian, StudentGuardian
 from .utils import admin_required, parse_date, clean_value
+
+
+def validate_phone_number(phone):
+    """
+    Validate phone number format.
+    Accepts formats like: 0241234567, +233241234567, 233241234567
+    Returns (is_valid, normalized_phone, error_message)
+    """
+    if not phone:
+        return False, None, "Phone number is required"
+
+    # Remove all non-digit characters except +
+    cleaned = re.sub(r'[^\d+]', '', phone)
+
+    # Remove leading + if present
+    if cleaned.startswith('+'):
+        cleaned = cleaned[1:]
+
+    # Check for Ghana numbers (can be extended for other countries)
+    # Ghana: +233XXXXXXXXX (10 digits after country code) or 0XXXXXXXXX (10 digits)
+    if cleaned.startswith('233'):
+        cleaned = '0' + cleaned[3:]  # Convert to local format
+
+    # Validate length (most phone numbers are 10-15 digits)
+    if len(cleaned) < 10:
+        return False, None, "Phone number too short (minimum 10 digits)"
+    if len(cleaned) > 15:
+        return False, None, "Phone number too long (maximum 15 digits)"
+
+    # Validate it contains only digits
+    if not cleaned.isdigit():
+        return False, None, "Phone number should contain only digits"
+
+    return True, cleaned, None
 
 
 EXPECTED_COLUMNS = [
@@ -120,8 +155,12 @@ def bulk_import(request):
                 errors.append('Gender must be M or F')
             if not guardian_name:
                 errors.append('Guardian name is required')
-            if not guardian_phone:
-                errors.append('Guardian phone is required')
+            # Validate guardian phone
+            phone_valid, normalized_phone, phone_error = validate_phone_number(guardian_phone)
+            if not phone_valid:
+                errors.append(phone_error)
+            else:
+                guardian_phone = normalized_phone  # Use normalized phone number
             if not admission_number:
                 errors.append('Admission number is required')
             elif admission_number in existing_admissions:

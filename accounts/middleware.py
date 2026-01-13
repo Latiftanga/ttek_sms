@@ -1,5 +1,5 @@
 from django.shortcuts import redirect
-from django.urls import reverse
+from django.urls import reverse, NoReverseMatch
 
 
 class ForcePasswordChangeMiddleware:
@@ -29,7 +29,7 @@ class ForcePasswordChangeMiddleware:
                 for url_name in self.ALLOWED_URL_NAMES:
                     try:
                         allowed_paths.append(reverse(url_name))
-                    except:
+                    except NoReverseMatch:
                         pass
 
                 # Check if current path is allowed
@@ -43,7 +43,7 @@ class ForcePasswordChangeMiddleware:
                     # Redirect to password change
                     try:
                         password_change_url = reverse('accounts:password_change')
-                    except:
+                    except NoReverseMatch:
                         password_change_url = '/accounts/password/change/'
 
                     return redirect(password_change_url)

@@ -1,5 +1,6 @@
 import uuid
 import secrets
+import logging
 from io import BytesIO
 from django.conf import settings
 from django.db import models, connection
@@ -7,14 +8,20 @@ from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import math
 from encrypted_model_fields.fields import EncryptedCharField
 from .choices import Gender
 
+logger = logging.getLogger(__name__)
+
 
 # Maximum photo dimensions for profile pictures
 PHOTO_MAX_SIZE = (150, 150)
+
+# Allowed image types for photo uploads
+ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
+MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB
 
 class Person(models.Model):
     """
@@ -49,10 +56,28 @@ class Person(models.Model):
         return " ".join(filter(None, parts))
 
     def save(self, *args, **kwargs):
+        from django.core.exceptions import ValidationError
+
         # Resize photo if it's a new upload (has file attribute)
         if self.photo and hasattr(self.photo, 'file'):
+            # Validate file size
+            if hasattr(self.photo, 'size') and self.photo.size > MAX_PHOTO_SIZE:
+                logger.warning(f"Photo upload rejected: size {self.photo.size} exceeds limit")
+                raise ValidationError(f"Photo size must be less than {MAX_PHOTO_SIZE // (1024*1024)}MB")
+
+            # Validate content type if available
+            content_type = getattr(self.photo, 'content_type', None)
+            if content_type and content_type not in ALLOWED_IMAGE_TYPES:
+                logger.warning(f"Photo upload rejected: invalid type {content_type}")
+                raise ValidationError(f"Invalid image type. Allowed: JPEG, PNG, GIF, WebP")
+
             try:
                 img = Image.open(self.photo)
+
+                # Validate it's actually an image by checking format
+                if img.format and img.format.upper() not in ('JPEG', 'PNG', 'GIF', 'WEBP', 'JPG'):
+                    logger.warning(f"Photo rejected: unsupported format {img.format}")
+                    raise ValidationError("Unsupported image format")
 
                 # Convert to RGB if necessary (for PNG with transparency)
                 if img.mode in ('RGBA', 'P'):
@@ -73,9 +98,13 @@ class Person(models.Model):
 
                 # Replace the photo with resized version
                 self.photo.save(filename, ContentFile(buffer.read()), save=False)
-            except Exception:
-                # If image processing fails, continue with original
-                pass
+            except UnidentifiedImageError:
+                # Invalid image file - reject the upload
+                logger.warning(f"Could not process uploaded image: unidentified format")
+                raise ValidationError("Invalid image file. Please upload a valid image.")
+            except (IOError, OSError) as e:
+                # File I/O errors - log and continue with original
+                logger.warning(f"Image processing failed: {e}")
 
         super().save(*args, **kwargs)
 
@@ -160,16 +189,42 @@ class AcademicYear(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        """Validate academic year data."""
+        from django.core.exceptions import ValidationError
+
+        if self.start_date and self.end_date:
+            if self.start_date >= self.end_date:
+                raise ValidationError({
+                    'end_date': 'End date must be after start date.'
+                })
+            # Check for reasonable date range (max 2 years)
+            from datetime import timedelta
+            if (self.end_date - self.start_date) > timedelta(days=730):
+                raise ValidationError({
+                    'end_date': 'Academic year cannot span more than 2 years.'
+                })
+
     def save(self, *args, **kwargs):
+        self.full_clean()  # Run validation before saving
         # Ensure only one academic year is current
         if self.is_current:
             AcademicYear.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
         super().save(*args, **kwargs)
+        # Invalidate cache when academic year is saved
+        cache_key = f'current_academic_year_{connection.schema_name}'
+        cache.delete(cache_key)
 
     @classmethod
     def get_current(cls):
-        """Get the current academic year."""
-        return cls.objects.filter(is_current=True).first()
+        """Get the current academic year with tenant-aware caching."""
+        cache_key = f'current_academic_year_{connection.schema_name}'
+        academic_year = cache.get(cache_key)
+        if academic_year is None:
+            academic_year = cls.objects.filter(is_current=True).first()
+            if academic_year:
+                cache.set(cache_key, academic_year, 60 * 60)  # Cache for 1 hour
+        return academic_year
 
 
 class Term(models.Model):
@@ -236,16 +291,47 @@ class Term(models.Model):
     def __str__(self):
         return f"{self.name} - {self.academic_year.name}"
 
+    def clean(self):
+        """Validate term data."""
+        from django.core.exceptions import ValidationError
+
+        if self.start_date and self.end_date:
+            if self.start_date >= self.end_date:
+                raise ValidationError({
+                    'end_date': 'End date must be after start date.'
+                })
+
+        # Validate term dates are within academic year
+        if self.academic_year and self.start_date and self.end_date:
+            if self.start_date < self.academic_year.start_date:
+                raise ValidationError({
+                    'start_date': 'Term start date cannot be before academic year start.'
+                })
+            if self.end_date > self.academic_year.end_date:
+                raise ValidationError({
+                    'end_date': 'Term end date cannot be after academic year end.'
+                })
+
     def save(self, *args, **kwargs):
+        self.full_clean()  # Run validation before saving
         # Ensure only one term is current
         if self.is_current:
             Term.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
         super().save(*args, **kwargs)
+        # Invalidate cache when term is saved
+        cache_key = f'current_term_{connection.schema_name}'
+        cache.delete(cache_key)
 
     @classmethod
     def get_current(cls):
-        """Get the current term."""
-        return cls.objects.filter(is_current=True).select_related('academic_year').first()
+        """Get the current term with tenant-aware caching."""
+        cache_key = f'current_term_{connection.schema_name}'
+        term = cache.get(cache_key)
+        if term is None:
+            term = cls.objects.filter(is_current=True).select_related('academic_year').first()
+            if term:
+                cache.set(cache_key, term, 60 * 60)  # Cache for 1 hour
+        return term
 
     def lock_grades(self, user):
         """Lock grades for this term."""

@@ -1,3 +1,4 @@
+import logging
 from functools import wraps
 from decimal import Decimal
 from django.conf import settings
@@ -11,6 +12,8 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_GET
 from django.db import connection
 from .models import SchoolSettings, AcademicYear, Term
+
+logger = logging.getLogger(__name__)
 from .forms import (
     SchoolBasicInfoForm,
     SchoolBrandingForm,
@@ -88,7 +91,9 @@ def manifest(request):
                     'purpose': 'any'
                 }
             ]
-    except Exception:
+    except Exception as e:
+        # Log the error and use defaults - manifest should always return valid JSON
+        logger.warning(f"Could not load school settings for manifest: {e}")
         school_name = 'School Management'
         short_name = 'School'
         theme_color = '#570df8'
