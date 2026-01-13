@@ -1,0 +1,79 @@
+# PRODUCTION SSL CONFIG - Multi-tenant SaaS
+# Supports: ttek-sms.com, www.ttek-sms.com, *.ttek-sms.com (subdomains)
+# Custom domains require additional SSL setup (use Cloudflare or separate certs)
+
+upstream django {
+    server web:8000;
+}
+
+# HTTP - redirect to HTTPS (except certbot challenges)
+server {
+    listen 80 default_server;
+    server_name _;
+
+    # Certbot challenge - always allow for certificate renewal
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Redirect all other traffic to HTTPS
+    location / {
+        return 308 https://$host$request_uri;
+    }
+}
+
+# HTTPS - Main domain and all subdomains (tenants)
+server {
+    listen 443 ssl default_server;
+    http2 on;
+    server_name ttek-sms.com www.ttek-sms.com *.ttek-sms.com;
+
+    # SSL certificates (wildcard cert covers *.ttek-sms.com)
+    ssl_certificate /etc/letsencrypt/live/ttek-sms.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ttek-sms.com/privkey.pem;
+
+    # SSL settings - modern configuration
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # HSTS - enforce HTTPS
+    add_header Strict-Transport-Security "max-age=63072000" always;
+
+    # Static files - served by nginx for performance
+    location /static/ {
+        alias /var/www/static/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Media files - tenant uploads
+    location /media/ {
+        alias /var/www/media/;
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    # Django application - handles tenant routing via django-tenants
+    location / {
+        proxy_pass http://django;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+
+        # WebSocket support (for real-time features)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
