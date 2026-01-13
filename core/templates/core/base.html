@@ -20,7 +20,7 @@
     <!-- PWA Support (tenant-aware - each school gets their own installable app) -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="{{ school.primary_color|default:'#570df8' }}">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="{{ school.display_name|default:tenant.name|default:'School' }}">
     {% if school.logo %}

@@ -11,76 +11,76 @@
       class="space-y-4">
     {% csrf_token %}
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <!-- Name -->
         <div class="form-control md:col-span-2">
-            <label class="label">
-                <span class="label-text font-medium">Period Name</span>
+            <label class="label py-1">
+                <span class="label-text text-sm font-medium">Period Name</span>
             </label>
             <input type="text" name="name"
                    value="{{ form.name.value|default:'' }}"
                    placeholder="e.g., Period 1, Break, Assembly"
-                   class="input input-bordered w-full" required>
+                   class="input input-bordered input-sm w-full" required>
             {% if form.name.errors %}
-            <label class="label"><span class="label-text-alt text-error">{{ form.name.errors.0 }}</span></label>
+            <label class="label py-1"><span class="label-text-alt text-error">{{ form.name.errors.0 }}</span></label>
             {% endif %}
         </div>
 
         <!-- Start Time -->
         <div class="form-control">
-            <label class="label">
-                <span class="label-text font-medium">Start Time</span>
+            <label class="label py-1">
+                <span class="label-text text-sm font-medium">Start Time</span>
             </label>
             <input type="time" name="start_time"
                    value="{% if period %}{{ period.start_time|time:'H:i' }}{% elif form.start_time.value %}{{ form.start_time.value|time:'H:i' }}{% endif %}"
-                   class="input input-bordered w-full" required>
+                   class="input input-bordered input-sm w-full" required>
             {% if form.start_time.errors %}
-            <label class="label"><span class="label-text-alt text-error">{{ form.start_time.errors.0 }}</span></label>
+            <label class="label py-1"><span class="label-text-alt text-error">{{ form.start_time.errors.0 }}</span></label>
             {% endif %}
         </div>
 
         <!-- End Time -->
         <div class="form-control">
-            <label class="label">
-                <span class="label-text font-medium">End Time</span>
+            <label class="label py-1">
+                <span class="label-text text-sm font-medium">End Time</span>
             </label>
             <input type="time" name="end_time"
                    value="{% if period %}{{ period.end_time|time:'H:i' }}{% elif form.end_time.value %}{{ form.end_time.value|time:'H:i' }}{% endif %}"
-                   class="input input-bordered w-full" required>
+                   class="input input-bordered input-sm w-full" required>
             {% if form.end_time.errors %}
-            <label class="label"><span class="label-text-alt text-error">{{ form.end_time.errors.0 }}</span></label>
+            <label class="label py-1"><span class="label-text-alt text-error">{{ form.end_time.errors.0 }}</span></label>
             {% endif %}
         </div>
 
         <!-- Order -->
         <div class="form-control">
-            <label class="label">
-                <span class="label-text font-medium">Display Order</span>
+            <label class="label py-1">
+                <span class="label-text text-sm font-medium">Display Order</span>
             </label>
             <input type="number" name="order"
                    value="{{ form.order.value|default:'0' }}"
                    min="0" max="20"
-                   class="input input-bordered w-full">
+                   class="input input-bordered input-sm w-full">
             {% if form.order.errors %}
-            <label class="label"><span class="label-text-alt text-error">{{ form.order.errors.0 }}</span></label>
+            <label class="label py-1"><span class="label-text-alt text-error">{{ form.order.errors.0 }}</span></label>
             {% endif %}
         </div>
 
         <!-- Checkboxes -->
         <div class="form-control flex flex-col justify-end">
             <label class="label cursor-pointer justify-start gap-3">
-                <input type="checkbox" name="is_break" class="checkbox checkbox-warning"
+                <input type="checkbox" name="is_break" class="checkbox checkbox-sm checkbox-warning"
                        {% if form.is_break.value %}checked{% endif %}>
-                <span class="label-text">Break Period</span>
+                <span class="label-text text-sm">Break Period</span>
             </label>
         </div>
 
         <!-- Is Active -->
         <div class="form-control md:col-span-2">
             <label class="label cursor-pointer justify-start gap-3">
-                <input type="checkbox" name="is_active" class="checkbox checkbox-success"
+                <input type="checkbox" name="is_active" class="checkbox checkbox-sm checkbox-success"
                        {% if form.is_active.value or form.is_active.value == None %}checked{% endif %}>
-                <span class="label-text">Active (visible in timetable)</span>
+                <span class="label-text text-sm">Active (visible in timetable)</span>
             </label>
         </div>
     </div>
@@ -93,8 +93,8 @@
     {% endif %}
 
     <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="modal_form.close()">Cancel</button>
-        <button type="submit" class="btn btn-primary">
+        <button type="button" class="btn btn-sm btn-ghost" onclick="modal_form.close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
             <i class="fa-solid fa-save"></i>
             {{ action }} Period
         </button>

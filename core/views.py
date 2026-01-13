@@ -76,13 +76,13 @@ def manifest(request):
             # Default icons if no school logo
             icons = [
                 {
-                    'src': '/static/core/icons/icon-192.svg',
+                    'src': '/static/icons/icon-192.svg',
                     'sizes': '192x192',
                     'type': 'image/svg+xml',
                     'purpose': 'any'
                 },
                 {
-                    'src': '/static/core/icons/icon-512.svg',
+                    'src': '/static/icons/icon-512.svg',
                     'sizes': '512x512',
                     'type': 'image/svg+xml',
                     'purpose': 'any'
@@ -95,13 +95,13 @@ def manifest(request):
         background_color = '#f2f2f2'
         icons = [
             {
-                'src': '/static/core/icons/icon-192.svg',
+                'src': '/static/icons/icon-192.svg',
                 'sizes': '192x192',
                 'type': 'image/svg+xml',
                 'purpose': 'any'
             },
             {
-                'src': '/static/core/icons/icon-512.svg',
+                'src': '/static/icons/icon-512.svg',
                 'sizes': '512x512',
                 'type': 'image/svg+xml',
                 'purpose': 'any'
@@ -125,13 +125,13 @@ def manifest(request):
                 'name': 'Dashboard',
                 'short_name': 'Home',
                 'url': '/',
-                'icons': [{'src': '/static/core/icons/home.svg', 'sizes': '96x96', 'type': 'image/svg+xml'}]
+                'icons': [{'src': '/static/icons/home.svg', 'sizes': '96x96', 'type': 'image/svg+xml'}]
             },
             {
                 'name': 'Take Attendance',
                 'short_name': 'Attendance',
                 'url': '/my-attendance/',
-                'icons': [{'src': '/static/core/icons/attendance.svg', 'sizes': '96x96', 'type': 'image/svg+xml'}]
+                'icons': [{'src': '/static/icons/attendance.svg', 'sizes': '96x96', 'type': 'image/svg+xml'}]
             }
         ]
     }
@@ -168,6 +168,296 @@ def htmx_render(request, full_template, partial_template, context=None):
     context = context or {}
     template = partial_template if request.htmx else full_template
     return render(request, template, context)
+
+
+# ============================================
+# Setup Wizard Views
+# ============================================
+
+@admin_required
+def setup_wizard(request):
+    """
+    Setup wizard to guide new schools through initial configuration.
+    Steps: Academic Year -> Terms -> Classes -> Houses -> Seed Data
+    """
+    from academics.models import Programme, Subject, Period, Class
+    from students.models import House
+
+    school = SchoolSettings.load()
+    step = request.GET.get('step', '1')
+
+    # Check what's already set up
+    has_academic_year = AcademicYear.objects.exists()
+    has_terms = Term.objects.exists()
+    has_classes = Class.objects.exists()
+    has_houses = House.objects.exists()
+    has_subjects = Subject.objects.exists()
+
+    context = {
+        'school': school,
+        'step': step,
+        'has_academic_year': has_academic_year,
+        'has_terms': has_terms,
+        'has_classes': has_classes,
+        'has_houses': has_houses,
+        'has_subjects': has_subjects,
+        'academic_years': AcademicYear.objects.all(),
+        'terms': Term.objects.select_related('academic_year').all(),
+        'classes': Class.objects.select_related('programme').all(),
+        'houses': House.objects.all(),
+    }
+
+    return htmx_render(
+        request,
+        'core/setup_wizard.html',
+        'core/partials/setup_wizard_content.html',
+        context
+    )
+
+
+@admin_required
+def setup_wizard_academic_year(request):
+    """Create academic year in setup wizard."""
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+
+        if name and start_date and end_date:
+            AcademicYear.objects.create(
+                name=name,
+                start_date=start_date,
+                end_date=end_date,
+                is_current=True
+            )
+            messages.success(request, f'Academic year "{name}" created.')
+
+        return redirect('core:setup_wizard')
+
+    return redirect('core:setup_wizard')
+
+
+@admin_required
+def setup_wizard_terms(request):
+    """Create terms in setup wizard."""
+    if request.method == 'POST':
+        academic_year = AcademicYear.get_current()
+        if not academic_year:
+            messages.error(request, 'Please create an academic year first.')
+            return redirect('core:setup_wizard')
+
+        # Get term data from form
+        term_count = int(request.POST.get('term_count', 3))
+
+        for i in range(1, term_count + 1):
+            name = request.POST.get(f'term_{i}_name', f'Term {i}')
+            start_date = request.POST.get(f'term_{i}_start')
+            end_date = request.POST.get(f'term_{i}_end')
+
+            if start_date and end_date:
+                Term.objects.create(
+                    academic_year=academic_year,
+                    name=name,
+                    term_number=i,
+                    start_date=start_date,
+                    end_date=end_date,
+                    is_current=(i == 1)
+                )
+
+        messages.success(request, f'{term_count} terms created.')
+        return redirect('core:setup_wizard')
+
+    return redirect('core:setup_wizard')
+
+
+@admin_required
+def setup_wizard_classes(request):
+    """Create classes in setup wizard."""
+    from academics.models import Class as AcademicClass, Programme
+
+    if request.method == 'POST':
+        level_type = request.POST.get('level_type')
+        start_level = int(request.POST.get('start_level', 1))
+        end_level = int(request.POST.get('end_level', 1))
+        sections = request.POST.get('sections', 'A').upper().split(',')
+        programme_id = request.POST.get('programme')
+
+        programme = None
+        if programme_id and level_type == 'shs':
+            programme = Programme.objects.filter(pk=programme_id).first()
+
+        created = 0
+        for level in range(start_level, end_level + 1):
+            for section in sections:
+                section = section.strip()
+                if section:
+                    AcademicClass.objects.get_or_create(
+                        level_type=level_type,
+                        level_number=level,
+                        section=section,
+                        programme=programme,
+                        defaults={'capacity': 35}
+                    )
+                    created += 1
+
+        messages.success(request, f'{created} classes created.')
+        return redirect('core:setup_wizard')
+
+    return redirect('core:setup_wizard')
+
+
+@admin_required
+def setup_wizard_houses(request):
+    """Create houses in setup wizard."""
+    from students.models import House
+
+    if request.method == 'POST':
+        house_count = int(request.POST.get('house_count', 4))
+
+        for i in range(1, house_count + 1):
+            name = request.POST.get(f'house_{i}_name', '').strip()
+            color = request.POST.get(f'house_{i}_color', '').strip()
+            color_code = request.POST.get(f'house_{i}_color_code', '#000000')
+
+            if name:
+                House.objects.get_or_create(
+                    name=name,
+                    defaults={
+                        'color': color,
+                        'color_code': color_code,
+                        'is_active': True
+                    }
+                )
+
+        messages.success(request, 'Houses created.')
+        return redirect('core:setup_wizard')
+
+    return redirect('core:setup_wizard')
+
+
+@admin_required
+def setup_wizard_seed(request):
+    """Run seed commands in setup wizard."""
+    from django.core.management import call_command
+    from io import StringIO
+
+    if request.method == 'POST':
+        seed_type = request.POST.get('seed_type', 'all')
+        output = StringIO()
+
+        try:
+            if seed_type == 'academics' or seed_type == 'all':
+                call_command('seed_academics', stdout=output)
+
+            if seed_type == 'grading' or seed_type == 'all':
+                call_command('seed_grading_data', stdout=output)
+
+            messages.success(request, 'Seed data imported successfully.')
+        except Exception as e:
+            messages.error(request, f'Error importing seed data: {str(e)}')
+
+        return redirect('core:setup_wizard')
+
+    return redirect('core:setup_wizard')
+
+
+@admin_required
+def setup_wizard_complete(request):
+    """Mark setup as complete."""
+    if request.method == 'POST':
+        from .models import Notification
+
+        school = SchoolSettings.load()
+        school.setup_completed = True
+        school.setup_completed_at = timezone.now()
+        school.save()
+
+        # Create welcome notification
+        Notification.create_notification(
+            user=request.user,
+            title='Welcome to your School System!',
+            message='Setup is complete. You can now add students, teachers, and start managing your school.',
+            notification_type='success',
+            category='system',
+            icon='fa-solid fa-party-horn',
+        )
+
+        messages.success(request, 'Setup completed! Your school is ready to use.')
+        return redirect('core:index')
+
+    return redirect('core:setup_wizard')
+
+
+# ============================================
+# Notification Views
+# ============================================
+
+@login_required
+def notifications_dropdown(request):
+    """Get notifications for the dropdown menu."""
+    from .models import Notification
+
+    notifications = Notification.objects.filter(
+        user=request.user
+    ).order_by('-created_at')[:10]
+
+    unread_count = Notification.objects.filter(
+        user=request.user,
+        is_read=False
+    ).count()
+
+    context = {
+        'notifications': notifications,
+        'unread_count': unread_count,
+    }
+    return render(request, 'core/partials/notifications_dropdown.html', context)
+
+
+@login_required
+def notifications_badge(request):
+    """Get just the notification count badge (for polling)."""
+    from .models import Notification
+
+    unread_count = Notification.objects.filter(
+        user=request.user,
+        is_read=False
+    ).count()
+
+    return render(request, 'core/partials/notifications_badge.html', {
+        'unread_count': unread_count
+    })
+
+
+@login_required
+def notification_mark_read(request, pk):
+    """Mark a single notification as read."""
+    from .models import Notification
+
+    notification = get_object_or_404(Notification, pk=pk, user=request.user)
+    notification.mark_as_read()
+
+    # If there's a link, redirect to it
+    if notification.link and request.headers.get('HX-Request'):
+        return HttpResponse(
+            status=200,
+            headers={'HX-Redirect': notification.link}
+        )
+
+    return notifications_dropdown(request)
+
+
+@login_required
+def notifications_mark_all_read(request):
+    """Mark all notifications as read."""
+    from .models import Notification
+
+    if request.method == 'POST':
+        Notification.objects.filter(
+            user=request.user,
+            is_read=False
+        ).update(is_read=True, read_at=timezone.now())
+
+    return notifications_dropdown(request)
 
 
 @login_required
