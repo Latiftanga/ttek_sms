@@ -95,13 +95,13 @@
                 <li class="pointer-events-none">
                     <div class="school-gradient-subtle rounded-lg px-3 py-2 mb-1 flex items-center gap-2">
                         {% if school.logo %}
-                        <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="h-6 w-auto object-contain bg-white/20 rounded p-0.5">
+                        <img src="{{ school.logo.url }}" alt="{{ tenant.short_name|default:tenant.name }}" class="h-6 w-auto object-contain bg-white/20 rounded p-0.5">
                         {% else %}
                         <div class="w-6 h-6 rounded bg-white/20 flex items-center justify-center text-white font-bold text-xs">
                             {{ tenant.short_name|slice:":1"|default:"S" }}
                         </div>
                         {% endif %}
-                        <span class="text-white text-xs font-medium truncate">{{ school.display_name|default:tenant.name|default:"School" }}</span>
+                        <span class="text-white text-xs font-medium truncate max-w-[160px]">{{ tenant.short_name|default:tenant.name|default:"School" }}</span>
                     </div>
                 </li>
                 <li class="menu-title px-4 py-2">
