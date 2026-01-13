@@ -41,6 +41,9 @@ class GuardianForm(forms.ModelForm):
 class StudentForm(forms.ModelForm):
     """Form for creating/editing individual students (without guardian fields)."""
 
+    # Maximum photo size in bytes (5MB)
+    MAX_PHOTO_SIZE = 5 * 1024 * 1024
+
     class Meta:
         model = Student
         fields = [
@@ -76,6 +79,16 @@ class StudentForm(forms.ModelForm):
         # Only show active houses
         self.fields['house'].queryset = House.objects.filter(is_active=True)
         self.fields['house'].required = False
+
+    def clean_photo(self):
+        """Validate photo file size."""
+        photo = self.cleaned_data.get('photo')
+        if photo and hasattr(photo, 'size'):
+            if photo.size > self.MAX_PHOTO_SIZE:
+                raise forms.ValidationError(
+                    f"Photo size exceeds 5MB limit. Please upload a smaller image."
+                )
+        return photo
 
 
 class StudentGuardianForm(forms.Form):

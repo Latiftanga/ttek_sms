@@ -1,15 +1,19 @@
 import json
+import logging
 import secrets
 import string
 
 from django.shortcuts import redirect, get_object_or_404, render
 from django.http import HttpResponse, JsonResponse
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 from accounts.models import User
 from academics.models import Class
@@ -398,11 +402,12 @@ def student_detail_pdf(request, pk):
                         '.jpeg': 'image/jpeg',
                         '.png': 'image/png',
                         '.gif': 'image/gif',
+                        '.webp': 'image/webp',
                     }
                     mime = mime_types.get(ext, 'image/jpeg')
                     photo_base64 = f"data:{mime};base64,{base64.b64encode(photo_data).decode()}"
-        except Exception as e:
-            logger.debug(f"Could not encode student photo: {e}")
+        except (IOError, OSError, ValueError) as e:
+            logger.warning(f"Could not encode student photo for {student.admission_number}: {e}")
 
     # Create verification record and generate QR code
     from core.models import DocumentVerification
@@ -489,30 +494,29 @@ def student_create_account(request, pk):
                 'error': 'Email address is required.',
             })
 
-        # Check if email already exists
-        if User.objects.filter(email=email).exists():
+        # Generate temporary password
+        temp_password = generate_temp_password()
+
+        # Create user account with atomic transaction to prevent race conditions
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    email=email,
+                    password=temp_password,
+                    first_name=student.first_name,
+                    last_name=student.last_name,
+                    is_student=True,
+                    must_change_password=True,
+                )
+                # Link to student
+                student.user = user
+                student.save(update_fields=['user'])
+        except IntegrityError:
             return render(request, 'students/partials/modal_create_account.html', {
                 'student': student,
                 'guardian_email': guardian_email,
                 'error': f"An account with email '{email}' already exists.",
             })
-
-        # Generate temporary password
-        temp_password = generate_temp_password()
-
-        # Create user account
-        user = User.objects.create_user(
-            email=email,
-            password=temp_password,
-            first_name=student.first_name,
-            last_name=student.last_name,
-            is_student=True,
-            must_change_password=True,
-        )
-
-        # Link to student
-        student.user = user
-        student.save(update_fields=['user'])
 
         # Send credentials via email
         email_sent = send_student_credentials(user, temp_password, student)

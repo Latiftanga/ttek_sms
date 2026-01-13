@@ -153,10 +153,12 @@ class Subject(models.Model):
     """
     name = models.CharField(
         max_length=100,
+        unique=True,
         help_text="e.g., Mathematics, English Language, Integrated Science"
     )
     short_name = models.CharField(
         max_length=20,
+        unique=True,
         help_text="e.g., MATH, ENG, INT SCI"
     )
     code = models.CharField(
@@ -341,6 +343,7 @@ class Period(models.Model):
     """
     name = models.CharField(
         max_length=50,
+        unique=True,
         help_text="e.g., Period 1, Morning Assembly, Break"
     )
     start_time = models.TimeField()
@@ -385,6 +388,7 @@ class Classroom(models.Model):
 
     name = models.CharField(
         max_length=50,
+        unique=True,
         help_text="e.g., Room 101, Science Lab 1"
     )
     code = models.CharField(

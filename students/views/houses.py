@@ -1,5 +1,7 @@
 """House management views."""
-from django.db import models
+import logging
+
+from django.db.models import Count, Q, Sum
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -7,6 +9,8 @@ from django.http import HttpResponse
 
 from ..models import House, Student
 from ..forms import HouseForm
+
+logger = logging.getLogger(__name__)
 
 
 def is_school_admin(user):
@@ -32,17 +36,25 @@ def admin_required(view_func):
 @login_required
 @admin_required
 def house_index(request):
-    """List all houses."""
+    """List all houses with optimized queries."""
+    # Annotate houses with student counts in a single query
     houses = House.objects.annotate(
-        student_count_val=models.Count(
+        student_count_val=Count(
             'students',
-            filter=models.Q(students__status='active')
+            filter=Q(students__status='active')
         )
     ).order_by('name')
 
-    total_houses = houses.count()
-    active_houses = houses.filter(is_active=True).count()
-    total_students = sum(h.student_count_val for h in houses)
+    # Get aggregate stats in a single query instead of iterating
+    stats = House.objects.aggregate(
+        total_houses=Count('id'),
+        active_houses=Count('id', filter=Q(is_active=True)),
+        total_students=Count('students', filter=Q(students__status='active'))
+    )
+
+    total_houses = stats['total_houses'] or 0
+    active_houses = stats['active_houses'] or 0
+    total_students = stats['total_students'] or 0
     avg_per_house = round(total_students / active_houses) if active_houses > 0 else 0
 
     context = {

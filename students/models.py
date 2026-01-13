@@ -85,6 +85,9 @@ class Guardian(models.Model):
         verbose_name = _("Guardian")
         verbose_name_plural = _("Guardians")
         ordering = ['full_name']
+        indexes = [
+            models.Index(fields=['phone_number'], name='students_gdn_phone_idx'),
+        ]
 
     def __str__(self):
         return self.full_name
