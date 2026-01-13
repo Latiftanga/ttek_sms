@@ -38,6 +38,8 @@ Please log in and change your password immediately.
 
 This is an automated message. Please do not reply.
 """
+    from smtplib import SMTPException
+
     try:
         send_mail(
             subject,
@@ -47,7 +49,11 @@ This is an automated message. Please do not reply.
             fail_silently=False,
         )
         return True
-    except Exception:
+    except SMTPException as e:
+        logger.error(f"Failed to send teacher credentials email: {e}")
+        return False
+    except OSError as e:
+        logger.error(f"Network error sending teacher credentials: {e}")
         return False
 
 

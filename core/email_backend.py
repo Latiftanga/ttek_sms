@@ -5,9 +5,13 @@ This backend allows each tenant (school) to configure their own SMTP settings.
 When a school has email_enabled=True, it uses the school's SMTP configuration.
 Otherwise, it falls back to Django's global email settings.
 """
+import logging
+
 from django.conf import settings as django_settings
 from django.core.mail.backends.smtp import EmailBackend as DjangoSMTPBackend
 from django.core.mail.backends.console import EmailBackend as ConsoleBackend
+
+logger = logging.getLogger(__name__)
 
 
 class TenantEmailBackend:
@@ -48,8 +52,9 @@ class TenantEmailBackend:
                 use_ssl=school_settings.email_use_ssl,
                 fail_silently=self.fail_silently,
             )
-        except Exception:
-            # If anything goes wrong, fall back to global settings
+        except Exception as e:
+            # Log the error and fall back to global settings
+            logger.warning(f"Failed to load tenant email settings: {e}. Using global settings.")
             return self._get_global_backend()
 
     def _get_global_backend(self):

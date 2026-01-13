@@ -6,7 +6,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security
 DEBUG = os.getenv('DEBUG', '0') == '1'
-SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-CHANGE-IN-PRODUCTION')
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'dev-key-for-local-development-only-do-not-use-in-production'
+    else:
+        raise ValueError(
+            'SECRET_KEY environment variable is required in production. '
+            'Generate one with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"'
+        )
 
 # Parse ALLOWED_HOSTS from env (comma-separated)
 # In production, must explicitly set ALLOWED_HOSTS (no wildcard default)
@@ -192,6 +200,10 @@ WSGI_APPLICATION = 'config.wsgi.application'
 SESSION_COOKIE_DOMAIN = None  # Use exact subdomain, not shared across *.ttek-sms.com
 CSRF_COOKIE_DOMAIN = None     # Same for CSRF
 
+# SameSite cookie attribute - protects against CSRF attacks
+SESSION_COOKIE_SAMESITE = 'Lax'  # Allows top-level navigations
+CSRF_COOKIE_SAMESITE = 'Lax'
+
 if not DEBUG:
     # SSL redirect - set SECURE_SSL_REDIRECT=True after SSL certificates are configured
     SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
@@ -238,7 +250,17 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@schoolos.com')
 
 # Field encryption key (store securely, different from gateway keys)
 # Generate a key with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', 'WY8ynJza0bt1SqohG8vJZwiMGhWv1l3WxquzVpOMpos=')
+FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY')
+if not FIELD_ENCRYPTION_KEY:
+    if DEBUG:
+        # Development-only default key - DO NOT use in production
+        # This is a valid Fernet key for local development only
+        FIELD_ENCRYPTION_KEY = 'S-lCiLx0ym9wfNDS2JegDCDqzjocWksm_GLceVEMMWQ='
+    else:
+        raise ValueError(
+            'FIELD_ENCRYPTION_KEY environment variable is required in production. '
+            'Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
+        )
 
 # Optional: Platform-level default credentials (for schools that haven't set up their own)
 PLATFORM_PAYSTACK_SECRET_KEY = os.getenv('PLATFORM_PAYSTACK_SECRET_KEY', default='')
@@ -253,6 +275,27 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+# --- 7.1 CACHING ---
+# Use Redis for caching to ensure cache is shared across workers and Celery
+# Use database 1 for cache (database 0 is used by Celery)
+REDIS_CACHE_URL = os.getenv('REDIS_CACHE_URL', os.getenv('REDIS_URL', 'redis://redis:6379/0')).replace('/0', '/1')
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_CACHE_URL,
+        'KEY_PREFIX': 'ttek',
+        'OPTIONS': {
+            'socket_connect_timeout': 5,
+            'socket_timeout': 5,
+        }
+    }
+}
+
+# Session storage - use cache for better performance
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
 
 # --- 8. STATIC FILES ---
 STATIC_URL = '/static/'

@@ -317,7 +317,7 @@ def bulk_import_template(request):
                 try:
                     if len(str(cell.value)) > max_length:
                         max_length = len(str(cell.value))
-                except:
+                except (TypeError, ValueError):
                     pass
             adjusted_width = max_length + 2
             worksheet.column_dimensions[column_cells[0].column_letter].width = adjusted_width

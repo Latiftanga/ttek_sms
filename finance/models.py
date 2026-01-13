@@ -358,6 +358,18 @@ class Invoice(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            # Common queries: by student
+            models.Index(fields=['student']),
+            # Status filter (pending, paid, overdue)
+            models.Index(fields=['status']),
+            # Due date filter (overdue invoices)
+            models.Index(fields=['due_date']),
+            # Combined: student with status
+            models.Index(fields=['student', 'status']),
+            # Invoice number lookup
+            models.Index(fields=['invoice_number']),
+        ]
 
     def __str__(self):
         return f"{self.invoice_number} - {self.student.full_name}"
@@ -465,6 +477,18 @@ class Payment(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            # Status filter
+            models.Index(fields=['status']),
+            # Transaction date for reports
+            models.Index(fields=['transaction_date']),
+            # Combined: status and date for payment reports
+            models.Index(fields=['status', 'transaction_date']),
+            # Reference lookup (for webhooks)
+            models.Index(fields=['reference']),
+            # Receipt number lookup
+            models.Index(fields=['receipt_number']),
+        ]
 
     def __str__(self):
         return f"{self.receipt_number} - {self.amount}"

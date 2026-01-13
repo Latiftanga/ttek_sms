@@ -254,6 +254,12 @@ class Student(models.Model):
             models.Index(fields=['current_class']),
             # Common filter: active students in a class
             models.Index(fields=['current_class', 'status']),
+            # Common filter: is_active flag
+            models.Index(fields=['is_active']),
+            # Compound index for active students queries
+            models.Index(fields=['is_active', 'status']),
+            # Admission number lookups
+            models.Index(fields=['admission_number']),
         ]
 
     def __str__(self):
@@ -327,17 +333,37 @@ class Student(models.Model):
         return self.student_guardians.filter(guardian=guardian).delete()
 
     def save(self, *args, **kwargs):
-        """Override save to resize photo if uploaded."""
+        """Override save to resize and validate photo if uploaded."""
+        import logging
         from io import BytesIO
         from django.core.files.base import ContentFile
-        from PIL import Image
+        from django.core.exceptions import ValidationError
+        from PIL import Image, UnidentifiedImageError
 
+        logger = logging.getLogger(__name__)
         PHOTO_MAX_SIZE = (150, 150)
+        ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
+        MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB
 
-        # Resize photo if it's a new upload
+        # Validate and resize photo if it's a new upload
         if self.photo and hasattr(self.photo, 'file'):
+            # Validate file size
+            if hasattr(self.photo, 'size') and self.photo.size > MAX_PHOTO_SIZE:
+                logger.warning(f"Student photo rejected: size exceeds limit")
+                raise ValidationError("Photo size must be less than 5MB")
+
+            # Validate content type if available
+            content_type = getattr(self.photo, 'content_type', None)
+            if content_type and content_type not in ALLOWED_IMAGE_TYPES:
+                logger.warning(f"Student photo rejected: invalid type {content_type}")
+                raise ValidationError("Invalid image type. Allowed: JPEG, PNG, GIF, WebP")
+
             try:
                 img = Image.open(self.photo)
+
+                # Validate it's actually an image
+                if img.format and img.format.upper() not in ('JPEG', 'PNG', 'GIF', 'WEBP', 'JPG'):
+                    raise ValidationError("Unsupported image format")
 
                 # Convert to RGB if necessary (for PNG with transparency)
                 if img.mode in ('RGBA', 'P'):
@@ -358,9 +384,11 @@ class Student(models.Model):
 
                 # Replace the photo with resized version
                 self.photo.save(filename, ContentFile(buffer.read()), save=False)
-            except Exception:
-                # If image processing fails, continue with original
-                pass
+            except UnidentifiedImageError:
+                logger.warning(f"Could not process student photo: unidentified format")
+                raise ValidationError("Invalid image file. Please upload a valid image.")
+            except (IOError, OSError) as e:
+                logger.warning(f"Student photo processing failed: {e}")
 
         super().save(*args, **kwargs)
 

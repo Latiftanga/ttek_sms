@@ -211,7 +211,7 @@ class User(AbstractUser):
         try:
             School = get_tenant_model()
             return School.objects.get(schema_name=connection.schema_name)
-        except:
+        except School.DoesNotExist:
             return None
     
     def has_role(self, role):

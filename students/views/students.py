@@ -30,6 +30,8 @@ def generate_temp_password(length=10):
 
 def send_student_credentials(user, password, student):
     """Send login credentials to student's guardian email."""
+    from smtplib import SMTPException
+
     try:
         # Get primary guardian email
         guardian_email = None
@@ -56,7 +58,11 @@ def send_student_credentials(user, password, student):
             fail_silently=False,
         )
         return True
-    except Exception:
+    except SMTPException as e:
+        logger.error(f"Failed to send student credentials email: {e}")
+        return False
+    except OSError as e:
+        logger.error(f"Network error sending student credentials: {e}")
         return False
 
 
