@@ -63,8 +63,8 @@ RUN apt-get update && \
 RUN adduser --disabled-password --no-create-home app_user
 
 # Create dirs and set ownership
-RUN mkdir -p /vol/web/{media,static} && \
-    chown -R app_user:app_user /vol
+RUN mkdir -p /vol/web/{media,static} /app/staticfiles && \
+    chown -R app_user:app_user /vol /app/staticfiles
 
 # Copy virtual environment from builder
 COPY --from=builder --chown=app_user:app_user /opt/venv /opt/venv
@@ -75,9 +75,6 @@ COPY --chown=app_user:app_user . /app
 
 # Make scripts executable
 RUN chmod +x /app/docker-entrypoint.sh 2>/dev/null || true
-
-# Collect static files (Tailwind CSS is pre-built and committed to repo)
-RUN python manage.py collectstatic --noinput
 
 USER app_user
 
