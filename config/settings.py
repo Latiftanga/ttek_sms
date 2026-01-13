@@ -9,7 +9,17 @@ DEBUG = os.getenv('DEBUG', '0') == '1'
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-CHANGE-IN-PRODUCTION')
 
 # Parse ALLOWED_HOSTS from env (comma-separated)
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0,*').split(',')
+# In production, must explicitly set ALLOWED_HOSTS (no wildcard default)
+if DEBUG:
+    ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0,*').split(',')
+else:
+    _allowed_hosts = os.getenv('ALLOWED_HOSTS', '')
+    if not _allowed_hosts:
+        raise ValueError(
+            'ALLOWED_HOSTS environment variable is required in production. '
+            'Example: ALLOWED_HOSTS=.ttek-sms.com,your-server-ip'
+        )
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',')]
 
 # CSRF Trusted Origins for PaaS deployments (Railway, Render, Fly.io)
 CSRF_TRUSTED_ORIGINS = [
@@ -183,16 +193,29 @@ SESSION_COOKIE_DOMAIN = None  # Use exact subdomain, not shared across *.ttek-sm
 CSRF_COOKIE_DOMAIN = None     # Same for CSRF
 
 if not DEBUG:
-    # SSL redirect - disable until SSL certificate is set up
+    # SSL redirect - set SECURE_SSL_REDIRECT=True after SSL certificates are configured
     SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
-    SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
-    CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
+
+    # Always secure cookies in production (even before SSL redirect is enabled)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # Security headers
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+    # HSTS - only enable after SSL is fully working
     if SECURE_SSL_REDIRECT:
         SECURE_HSTS_SECONDS = 31536000
         SECURE_HSTS_INCLUDE_SUBDOMAINS = True
         SECURE_HSTS_PRELOAD = True
+    else:
+        import warnings
+        warnings.warn(
+            'SECURE_SSL_REDIRECT is disabled. Enable after SSL setup: SECURE_SSL_REDIRECT=True',
+            RuntimeWarning
+        )
 
 # --- 6. COMMUNICATION ---
 # Email - Tenant-aware backend that uses per-school SMTP settings when configured
@@ -235,8 +258,6 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
-
-MULTITENANT_RELATIVE_MEDIA_ROOT = 'schools/%s'
 
 STORAGES = {
     "default": {

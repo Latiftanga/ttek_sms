@@ -13,8 +13,14 @@ python manage.py setup_public_tenant
 echo "📦 Running migrations for tenant schemas..."
 python manage.py migrate_schemas --tenant
 
-echo "📁 Collecting static files..."
-python manage.py collectstatic --noinput
+# Only collect static files in production (when DEBUG is not true)
+# In development, Django's runserver serves static files directly
+if [ "$DEBUG" != "True" ] && [ "$DEBUG" != "true" ]; then
+    echo "📁 Collecting static files..."
+    python manage.py collectstatic --noinput
+else
+    echo "📁 Skipping collectstatic (DEBUG mode)"
+fi
 
 echo "🚀 Starting application..."
 exec "$@"
