@@ -1,19 +1,25 @@
 import json
+import logging
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.contrib import messages
 
 from students.models import Guardian
 from students.forms import GuardianForm
 from .utils import admin_required, htmx_render
 
+logger = logging.getLogger(__name__)
+
 
 @admin_required
 def guardian_index(request):
     """Guardian list page with search."""
-    guardians = Guardian.objects.all()
+    # Annotate ward_count to avoid N+1 queries in template
+    guardians = Guardian.objects.annotate(
+        ward_count=Count('wards', filter=Q(wards__status='active'))
+    )
 
     search = request.GET.get('search', '').strip()
     if search:
@@ -90,29 +96,44 @@ def guardian_delete(request, pk):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    guardian = get_object_or_404(Guardian, pk=pk)
+    # Use prefetch to avoid extra query for wards check
+    guardian = get_object_or_404(
+        Guardian.objects.prefetch_related('wards'),
+        pk=pk
+    )
+
     # Check if guardian is attached to any students
     if guardian.wards.exists():
         messages.error(request, "Cannot delete guardian with associated students. Remove them from students first.")
         if request.htmx:
+            guardians = Guardian.objects.annotate(
+                ward_count=Count('wards', filter=Q(wards__status='active'))
+            )
             return htmx_render(
                 request,
                 'students/guardian_index.html',
                 'students/partials/guardian_list.html',
-                {'guardians': Guardian.objects.all()}
+                {'guardians': guardians}
             )
         return redirect('students:guardian_index')
 
-    name = guardian.full_name
-    guardian.delete()
-    messages.success(request, f'Guardian "{name}" deleted.')
+    try:
+        name = guardian.full_name
+        guardian.delete()
+        messages.success(request, f'Guardian "{name}" deleted.')
+    except Exception as e:
+        logger.error(f"Failed to delete guardian {pk}: {e}")
+        messages.error(request, "An error occurred while deleting the guardian.")
 
     if request.htmx:
+        guardians = Guardian.objects.annotate(
+            ward_count=Count('wards', filter=Q(wards__status='active'))
+        )
         return htmx_render(
             request,
             'students/guardian_index.html',
             'students/partials/guardian_list.html',
-            {'guardians': Guardian.objects.all()}
+            {'guardians': guardians}
         )
     return redirect('students:guardian_index')
 
