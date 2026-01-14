@@ -355,7 +355,7 @@ class SchoolSettings(models.Model):
     Stores configuration specific to this School (Tenant).
     """
     PERIOD_TYPE_CHOICES = [
-        ('term', 'Terms (Primary/JHS)'),
+        ('term', 'Terms (Basic)'),
         ('semester', 'Semesters (SHS)'),
     ]
 
@@ -370,7 +370,7 @@ class SchoolSettings(models.Model):
         max_length=10,
         choices=PERIOD_TYPE_CHOICES,
         default='term',
-        help_text="Terms for Primary/JHS, Semesters for SHS"
+        help_text="Terms for Basic, Semesters for SHS"
     )
 
     # Visual Identity - Colors (stored as HEX)

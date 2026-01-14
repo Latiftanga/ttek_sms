@@ -6,9 +6,10 @@
         <div class="flex items-start gap-3">
             <!-- Level Badge -->
             <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
-                {% if cls.level_type == 'kg' %}bg-info/10 text-info
-                {% elif cls.level_type == 'primary' %}bg-success/10 text-success
-                {% elif cls.level_type == 'jhs' %}bg-warning/10 text-warning
+                {% if cls.level_type == 'creche' %}bg-secondary/10 text-secondary
+                {% elif cls.level_type == 'nursery' %}bg-accent/10 text-accent
+                {% elif cls.level_type == 'kg' %}bg-info/10 text-info
+                {% elif cls.level_type == 'basic' %}bg-success/10 text-success
                 {% else %}bg-primary/10 text-primary{% endif %}">
                 <span class="text-xs font-bold">{{ cls.level_number|default:"--" }}</span>
             </div>
@@ -29,9 +30,10 @@
                         {% endif %}
                     </div>
                     <span class="badge badge-xs flex-shrink-0
-                        {% if cls.level_type == 'kg' %}badge-info
-                        {% elif cls.level_type == 'primary' %}badge-success
-                        {% elif cls.level_type == 'jhs' %}badge-warning
+                        {% if cls.level_type == 'creche' %}badge-secondary
+                        {% elif cls.level_type == 'nursery' %}badge-accent
+                        {% elif cls.level_type == 'kg' %}badge-info
+                        {% elif cls.level_type == 'basic' %}badge-success
                         {% else %}badge-primary{% endif %}">
                         {{ cls.get_level_type_display }}
                     </span>

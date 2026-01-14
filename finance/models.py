@@ -144,10 +144,11 @@ class FeeStructure(models.Model):
     """Fee amounts for different classes/terms"""
     LEVEL_TYPE_CHOICES = [
         ('', 'All Levels'),
-        ('KG', 'Kindergarten'),
-        ('PRIMARY', 'Primary (B1-B6)'),
-        ('JHS', 'JHS (B7-B9)'),
-        ('SHS', 'SHS'),
+        ('creche', 'Creche'),
+        ('nursery', 'Nursery'),
+        ('kg', 'Kindergarten'),
+        ('basic', 'Basic (B1-B9)'),
+        ('shs', 'SHS'),
     ]
 
     # New: category directly on FeeStructure (replaces fee_type FK)

@@ -19,7 +19,7 @@ class ProgrammeForm(forms.ModelForm):
 class ClassForm(forms.ModelForm):
     """Form for creating/editing classes."""
 
-    LEVEL_NUMBER_CHOICES = [('', 'Select level')] + [(i, str(i)) for i in range(1, 7)]
+    LEVEL_NUMBER_CHOICES = [('', 'Select level')] + [(i, str(i)) for i in range(1, 10)]
 
     level_number = forms.ChoiceField(choices=LEVEL_NUMBER_CHOICES)
 
@@ -65,12 +65,14 @@ class ClassForm(forms.ModelForm):
         if level_type != Class.LevelType.SHS and programme:
             cleaned_data['programme'] = None
 
-        if level_type == Class.LevelType.KG and level_number and level_number > 2:
+        if level_type == Class.LevelType.CRECHE and level_number and level_number > 2:
+            self.add_error('level_number', 'Creche only has levels 1-2.')
+        elif level_type == Class.LevelType.NURSERY and level_number and level_number > 2:
+            self.add_error('level_number', 'Nursery only has levels 1-2.')
+        elif level_type == Class.LevelType.KG and level_number and level_number > 2:
             self.add_error('level_number', 'KG only has levels 1-2.')
-        elif level_type == Class.LevelType.PRIMARY and level_number and level_number > 6:
-            self.add_error('level_number', 'Primary only has levels 1-6.')
-        elif level_type == Class.LevelType.JHS and level_number and level_number > 3:
-            self.add_error('level_number', 'JHS only has levels 1-3.')
+        elif level_type == Class.LevelType.BASIC and level_number and level_number > 9:
+            self.add_error('level_number', 'Basic only has levels 1-9.')
         elif level_type == Class.LevelType.SHS and level_number and level_number > 3:
             self.add_error('level_number', 'SHS only has levels 1-3.')
 

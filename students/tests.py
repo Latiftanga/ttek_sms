@@ -123,7 +123,7 @@ class BulkImportTestCase(TenantTestCase):
             code='ART'
         )
         self.test_class = Class.objects.create(
-            level_type=Class.LevelType.PRIMARY,
+            level_type=Class.LevelType.BASIC,
             level_number=1,
             section='A',
             name='B1-A',
@@ -665,14 +665,14 @@ class PromotionTestCase(TenantTestCase):
 
         # Create classes
         self.class_b1 = Class.objects.create(
-            level_type=Class.LevelType.PRIMARY,
+            level_type=Class.LevelType.BASIC,
             level_number=1,
             section='A',
             name='B1-A',
             is_active=True
         )
         self.class_b2 = Class.objects.create(
-            level_type=Class.LevelType.PRIMARY,
+            level_type=Class.LevelType.BASIC,
             level_number=2,
             section='A',
             name='B2-A',

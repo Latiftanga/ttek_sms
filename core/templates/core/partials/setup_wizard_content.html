@@ -243,8 +243,8 @@
                             <tbody id="classes-list">
                                 {% for cls in classes %}
                                 <tr class="hover">
-                                    <td>{% if cls.level_type == 'primary' or cls.level_type == 'jhs' %}Basic{% else %}{{ cls.get_level_type_display }}{% endif %}</td>
-                                    <td>{% if cls.level_type == 'jhs' %}{{ cls.level_number|add:"6" }}{% else %}{{ cls.level_number }}{% endif %}</td>
+                                    <td>{{ cls.get_level_type_display }}</td>
+                                    <td>{{ cls.level_number }}</td>
                                     <td class="programme-cell {% if cls.level_type != 'shs' %}hidden{% endif %}">{{ cls.programme.code|default:"-" }}</td>
                                     <td>{{ cls.section|default:"-" }}</td>
                                     <td class="text-right">
