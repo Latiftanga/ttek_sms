@@ -44,6 +44,7 @@ class Class(models.Model):
         - Example: 1ART-A, 2BUS-B, 3SCI-A
     """
     class LevelType(models.TextChoices):
+        CRECHE = 'creche', _('Creche')
         KG = 'kg', _('Kindergarten')
         PRIMARY = 'primary', _('Primary')
         JHS = 'jhs', _('JHS')
@@ -59,8 +60,10 @@ class Class(models.Model):
         help_text="1, 2, 3, etc."
     )
     section = models.CharField(
-        max_length=5,
-        help_text="A, B, C, etc."
+        max_length=15,
+        blank=True,
+        default='',
+        help_text="A, B, C or Red, Blue, Green, etc. (Optional)"
     )
 
     # SHS specific
@@ -113,24 +116,30 @@ class Class(models.Model):
 
     def generate_name(self):
         """Generate class name based on level type."""
-        if self.level_type == self.LevelType.KG:
-            return f"KG{self.level_number}-{self.section}"
+        suffix = f"-{self.section}" if self.section else ""
+
+        if self.level_type == self.LevelType.CRECHE:
+            return f"Creche{self.level_number}{suffix}"
+        elif self.level_type == self.LevelType.KG:
+            return f"KG{self.level_number}{suffix}"
         elif self.level_type == self.LevelType.PRIMARY:
-            return f"B{self.level_number}-{self.section}"
+            return f"B{self.level_number}{suffix}"
         elif self.level_type == self.LevelType.JHS:
             # JHS is B7-B9, so add 6 to get actual Basic number
             basic_num = self.level_number + 6
-            return f"B{basic_num}-{self.section}"
+            return f"B{basic_num}{suffix}"
         elif self.level_type == self.LevelType.SHS:
             # SHS: 1ART-A, 2BUS-B format
             prog_code = self.programme.code if self.programme else "GEN"
-            return f"{self.level_number}{prog_code}-{self.section}"
-        return f"{self.level_type.upper()}{self.level_number}-{self.section}"
+            return f"{self.level_number}{prog_code}{suffix}"
+        return f"{self.level_type.upper()}{self.level_number}{suffix}"
 
     @property
     def level_display(self):
         """Human-readable level name."""
-        if self.level_type == self.LevelType.KG:
+        if self.level_type == self.LevelType.CRECHE:
+            return f"Creche {self.level_number}"
+        elif self.level_type == self.LevelType.KG:
             return f"KG {self.level_number}"
         elif self.level_type == self.LevelType.PRIMARY:
             return f"Basic {self.level_number}"

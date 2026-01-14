@@ -188,15 +188,62 @@ def setup_wizard(request):
     from academics.models import Programme, Subject, Period, Class
     from students.models import House
 
+    # Ensure programmes exist for SHS class creation (seed if needed)
+    programmes = Programme.objects.filter(is_active=True)
+    if not programmes.exists():
+        # Create default Ghana SHS programmes
+        default_programmes = [
+            ('General Arts', 'ART'),
+            ('General Science', 'SCI'),
+            ('Business', 'BUS'),
+            ('Visual Arts', 'VIS'),
+            ('Home Economics', 'HEC'),
+            ('Agricultural Science', 'AGR'),
+            ('Technical', 'TEC'),
+        ]
+        for name, code in default_programmes:
+            Programme.objects.get_or_create(code=code, defaults={'name': name, 'is_active': True})
+        programmes = Programme.objects.filter(is_active=True)
+
     school = SchoolSettings.load()
     step = request.GET.get('step', '1')
+
+    # Handle skip_houses parameter - store in session
+    if request.GET.get('skip_houses') == '1':
+        request.session['wizard_houses_skipped'] = True
 
     # Check what's already set up
     has_academic_year = AcademicYear.objects.exists()
     has_terms = Term.objects.exists()
     has_classes = Class.objects.exists()
-    has_houses = House.objects.exists()
+    # Houses are optional - check if skipped or if any exist
+    has_houses = House.objects.exists() or request.session.get('wizard_houses_skipped', False)
     has_subjects = Subject.objects.exists()
+
+    # Get period type from school settings
+    period_type = school.academic_period_type
+    period_label = school.period_label
+    period_count = 2 if period_type == 'semester' else 3
+
+    # Class level options for the select input
+    class_level_options = [
+        ('creche-1', 'Creche 1'),
+        ('creche-2', 'Creche 2'),
+        ('kg-1', 'KG 1'),
+        ('kg-2', 'KG 2'),
+        ('primary-1', 'Basic 1'),
+        ('primary-2', 'Basic 2'),
+        ('primary-3', 'Basic 3'),
+        ('primary-4', 'Basic 4'),
+        ('primary-5', 'Basic 5'),
+        ('primary-6', 'Basic 6'),
+        ('jhs-1', 'Basic 7'),
+        ('jhs-2', 'Basic 8'),
+        ('jhs-3', 'Basic 9'),
+        ('shs-1', 'SHS 1'),
+        ('shs-2', 'SHS 2'),
+        ('shs-3', 'SHS 3'),
+    ]
 
     context = {
         'school': school,
@@ -210,6 +257,11 @@ def setup_wizard(request):
         'terms': Term.objects.select_related('academic_year').all(),
         'classes': Class.objects.select_related('programme').all(),
         'houses': House.objects.all(),
+        'programmes': programmes,
+        'period_type': period_type,
+        'period_label': period_label,
+        'period_count': period_count,
+        'class_level_options': class_level_options,
     }
 
     return htmx_render(
@@ -229,15 +281,43 @@ def setup_wizard_academic_year(request):
         end_date = request.POST.get('end_date')
 
         if name and start_date and end_date:
-            AcademicYear.objects.create(
-                name=name,
-                start_date=start_date,
-                end_date=end_date,
-                is_current=True
-            )
-            messages.success(request, f'Academic year "{name}" created.')
+            try:
+                academic_year = AcademicYear(
+                    name=name,
+                    start_date=start_date,
+                    end_date=end_date,
+                    is_current=True
+                )
+                academic_year.full_clean()
+                academic_year.save()
+                messages.success(request, f'Academic year "{name}" created.')
+            except Exception as e:
+                # Extract validation error messages
+                if hasattr(e, 'message_dict'):
+                    for field, errors in e.message_dict.items():
+                        for error in errors:
+                            messages.error(request, f'{error}')
+                else:
+                    messages.error(request, str(e))
+        else:
+            messages.error(request, 'Please fill in all required fields.')
 
-        return redirect('core:setup_wizard')
+        return setup_wizard(request)
+
+    return redirect('core:setup_wizard')
+
+
+@admin_required
+def setup_wizard_session_type(request):
+    """Set session type (terms vs semesters) in setup wizard."""
+    if request.method == 'POST':
+        session_type = request.POST.get('session_type', 'term')
+        school = SchoolSettings.load()
+        school.academic_period_type = session_type
+        school.save()
+
+        # Return the wizard content via HTMX
+        return setup_wizard(request)
 
     return redirect('core:setup_wizard')
 
@@ -249,10 +329,12 @@ def setup_wizard_terms(request):
         academic_year = AcademicYear.get_current()
         if not academic_year:
             messages.error(request, 'Please create an academic year first.')
-            return redirect('core:setup_wizard')
+            return setup_wizard(request)
 
         # Get term data from form
         term_count = int(request.POST.get('term_count', 3))
+        created_count = 0
+        errors_occurred = False
 
         for i in range(1, term_count + 1):
             name = request.POST.get(f'term_{i}_name', f'Term {i}')
@@ -260,54 +342,300 @@ def setup_wizard_terms(request):
             end_date = request.POST.get(f'term_{i}_end')
 
             if start_date and end_date:
-                Term.objects.create(
-                    academic_year=academic_year,
-                    name=name,
-                    term_number=i,
-                    start_date=start_date,
-                    end_date=end_date,
-                    is_current=(i == 1)
-                )
+                try:
+                    term = Term(
+                        academic_year=academic_year,
+                        name=name,
+                        term_number=i,
+                        start_date=start_date,
+                        end_date=end_date,
+                        is_current=(i == 1)
+                    )
+                    term.full_clean()
+                    term.save()
+                    created_count += 1
+                except Exception as e:
+                    errors_occurred = True
+                    if hasattr(e, 'message_dict'):
+                        for field, field_errors in e.message_dict.items():
+                            for error in field_errors:
+                                messages.error(request, f'{name}: {error}')
+                    else:
+                        messages.error(request, f'{name}: {str(e)}')
+            else:
+                errors_occurred = True
+                messages.error(request, f'{name}: Please provide both start and end dates.')
 
-        messages.success(request, f'{term_count} terms created.')
-        return redirect('core:setup_wizard')
+        if created_count > 0:
+            messages.success(request, f'{created_count} term(s) created.')
+
+        return setup_wizard(request)
 
     return redirect('core:setup_wizard')
 
 
 @admin_required
-def setup_wizard_classes(request):
-    """Create classes in setup wizard."""
+def setup_wizard_clear_academic_year(request):
+    """Clear academic year to go back to step 1."""
+    if request.method == 'DELETE':
+        # Delete all academic years (and cascades to terms)
+        AcademicYear.objects.all().delete()
+        messages.info(request, 'Academic year cleared.')
+
+    return setup_wizard(request)
+
+
+@admin_required
+def setup_wizard_clear_terms(request):
+    """Clear terms to go back to step 2."""
+    if request.method == 'DELETE':
+        Term.objects.all().delete()
+        messages.info(request, 'Terms cleared.')
+
+    return setup_wizard(request)
+
+
+@admin_required
+def setup_wizard_clear_houses(request):
+    """Clear all houses via HTMX in setup wizard."""
+    from students.models import House
+
+    if request.method == 'DELETE':
+        House.objects.all().delete()
+        # Also clear houses skip flag
+        request.session.pop('wizard_houses_skipped', None)
+        messages.info(request, 'Houses cleared.')
+
+    return setup_wizard(request)
+
+
+@admin_required
+def setup_wizard_add_class(request):
+    """Add a single class via HTMX in setup wizard."""
     from academics.models import Class as AcademicClass, Programme
+    from django.http import HttpResponse
 
     if request.method == 'POST':
-        level_type = request.POST.get('level_type')
-        start_level = int(request.POST.get('start_level', 1))
-        end_level = int(request.POST.get('end_level', 1))
-        sections = request.POST.get('sections', 'A').upper().split(',')
-        programme_id = request.POST.get('programme')
+        # Get separate level_type and level_number fields
+        level_type = request.POST.get('level_type', 'basic')
+        level_number = int(request.POST.get('level_number', 1))
+        section = request.POST.get('section', '').strip()
+        programme_id = request.POST.get('programme', '').strip()
 
+        # Map "basic" to primary (1-6) or jhs (7-9) for database
+        db_level_type = level_type
+        db_level_number = level_number
+        if level_type == 'basic':
+            if level_number <= 6:
+                db_level_type = 'primary'
+                db_level_number = level_number
+            else:
+                db_level_type = 'jhs'
+                db_level_number = level_number - 6  # 7->1, 8->2, 9->3
+
+        # Section is optional - use empty string if not provided
+        section = section if section else ''
+
+        # Get programme for SHS classes
         programme = None
-        if programme_id and level_type == 'shs':
-            programme = Programme.objects.filter(pk=programme_id).first()
+        if level_type == 'shs' and programme_id:
+            try:
+                programme = Programme.objects.get(pk=programme_id)
+            except Programme.DoesNotExist:
+                return HttpResponse('<span class="text-error text-xs">Invalid programme selected</span>')
 
-        created = 0
-        for level in range(start_level, end_level + 1):
-            for section in sections:
-                section = section.strip()
-                if section:
-                    AcademicClass.objects.get_or_create(
-                        level_type=level_type,
-                        level_number=level,
-                        section=section,
-                        programme=programme,
-                        defaults={'capacity': 35}
-                    )
-                    created += 1
+        cls, created = AcademicClass.objects.get_or_create(
+            level_type=db_level_type,
+            level_number=db_level_number,
+            section=section,
+            programme=programme,
+            defaults={'capacity': 35}
+        )
 
-        messages.success(request, f'{created} classes created.')
-        return redirect('core:setup_wizard')
+        if created:
+            # Return the table row HTML for the new class
+            # Display user-friendly level type (Basic instead of Primary/JHS)
+            if level_type == 'basic':
+                display_type = 'Basic'
+                display_level = level_number  # Original 1-9
+            else:
+                display_type = cls.get_level_type_display()
+                display_level = cls.level_number
 
+            prog_code = cls.programme.code if cls.programme else '-'
+            prog_hidden = '' if level_type == 'shs' else 'hidden'
+            html = f'''<tr class="hover" data-level-type="{level_type}" data-level-number="{level_number}">
+                <td>{display_type}</td>
+                <td>{display_level}</td>
+                <td class="programme-cell {prog_hidden}">{prog_code}</td>
+                <td>{cls.section or '-'}</td>
+                <td class="text-center">
+                    <button hx-delete="{reverse('core:setup_wizard_remove_class', args=[cls.pk])}"
+                            hx-target="closest tr"
+                            hx-swap="outerHTML"
+                            class="btn btn-ghost btn-xs text-error">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </td>
+            </tr>'''
+            return HttpResponse(html)
+        else:
+            return HttpResponse(f'<tr><td colspan="5" class="text-warning text-center text-xs py-2">{cls.name} already exists</td></tr>')
+
+    return HttpResponse('')
+
+
+@admin_required
+def setup_wizard_remove_class(request, pk):
+    """Remove a class via HTMX in setup wizard."""
+    from academics.models import Class as AcademicClass
+    from django.http import HttpResponse
+
+    if request.method == 'DELETE':
+        try:
+            cls = AcademicClass.objects.get(pk=pk)
+            cls.delete()
+        except AcademicClass.DoesNotExist:
+            pass
+
+    return HttpResponse('')
+
+
+@admin_required
+def setup_wizard_bulk_classes(request):
+    """Bulk add classes via HTMX in setup wizard."""
+    from academics.models import Class as AcademicClass
+    from django.http import HttpResponse
+
+    if request.method == 'POST':
+        bulk_type = request.GET.get('type', '')
+
+        # Define level ranges for each type
+        level_configs = {
+            'creche': [('creche', 1, 2)],
+            'kg': [('kg', 1, 2)],
+            'basic': [('primary', 1, 6), ('jhs', 1, 3)],
+            'shs': [('shs', 1, 3)],
+        }
+
+        if bulk_type not in level_configs:
+            return HttpResponse('')
+
+        html_parts = []
+        for db_level_type, start, end in level_configs[bulk_type]:
+            for level in range(start, end + 1):
+                cls, created = AcademicClass.objects.get_or_create(
+                    level_type=db_level_type,
+                    level_number=level,
+                    section='',  # No section by default
+                    programme=None,
+                    defaults={'capacity': 35}
+                )
+                if created:
+                    # Display user-friendly level type
+                    if bulk_type == 'basic':
+                        display_type = 'Basic'
+                        # For JHS, add 6 to get Basic 7-9
+                        display_level = level if db_level_type == 'primary' else level + 6
+                    else:
+                        display_type = cls.get_level_type_display()
+                        display_level = cls.level_number
+
+                    prog_hidden = '' if bulk_type == 'shs' else 'hidden'
+                    html_parts.append(f'''<tr class="hover" data-level-type="{bulk_type}">
+                        <td>{display_type}</td>
+                        <td>{display_level}</td>
+                        <td class="programme-cell {prog_hidden}">-</td>
+                        <td>-</td>
+                        <td class="text-right">
+                            <button hx-delete="{reverse('core:setup_wizard_remove_class', args=[cls.pk])}"
+                                    hx-target="closest tr"
+                                    hx-swap="outerHTML"
+                                    class="btn btn-ghost btn-xs text-error">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>''')
+
+        return HttpResponse(''.join(html_parts))
+
+    return HttpResponse('')
+
+
+@admin_required
+def setup_wizard_clear_classes(request):
+    """Clear all classes via HTMX in setup wizard."""
+    from academics.models import Class as AcademicClass
+
+    if request.method == 'DELETE':
+        AcademicClass.objects.all().delete()
+        # Also clear houses skip flag since we're going back
+        request.session.pop('wizard_houses_skipped', None)
+        messages.info(request, 'Classes cleared.')
+
+    return setup_wizard(request)
+
+
+@admin_required
+def setup_wizard_add_house(request):
+    """Add a single house via HTMX in setup wizard."""
+    from students.models import House
+    from django.http import HttpResponse
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        color_code = request.POST.get('color_code', '#000000')
+
+        if name:
+            house, created = House.objects.get_or_create(
+                name=name,
+                defaults={
+                    'color_code': color_code,
+                    'is_active': True
+                }
+            )
+
+            if created:
+                html = f'''<tr class="hover">
+                    <td>
+                        <span class="w-6 h-6 rounded-full inline-block border border-base-300" style="background-color: {color_code};"></span>
+                    </td>
+                    <td>{house.name}</td>
+                    <td class="text-center">
+                        <button hx-delete="{reverse('core:setup_wizard_remove_house', args=[house.pk])}"
+                            hx-target="closest tr"
+                            hx-swap="outerHTML"
+                            class="btn btn-ghost btn-xs text-error">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                </tr>'''
+                return HttpResponse(html)
+            else:
+                return HttpResponse(f'<tr><td colspan="3" class="text-warning text-center text-xs py-2">{house.name} already exists</td></tr>')
+
+    return HttpResponse('')
+
+
+@admin_required
+def setup_wizard_remove_house(request, pk):
+    """Remove a house via HTMX in setup wizard."""
+    from students.models import House
+    from django.http import HttpResponse
+
+    if request.method == 'DELETE':
+        try:
+            house = House.objects.get(pk=pk)
+            house.delete()
+        except House.DoesNotExist:
+            pass
+
+    return HttpResponse('')
+
+
+@admin_required
+def setup_wizard_classes(request):
+    """Legacy view - redirects to wizard."""
     return redirect('core:setup_wizard')
 
 
@@ -335,7 +663,7 @@ def setup_wizard_houses(request):
                 )
 
         messages.success(request, 'Houses created.')
-        return redirect('core:setup_wizard')
+        return setup_wizard(request)
 
     return redirect('core:setup_wizard')
 
@@ -361,7 +689,7 @@ def setup_wizard_seed(request):
         except Exception as e:
             messages.error(request, f'Error importing seed data: {str(e)}')
 
-        return redirect('core:setup_wizard')
+        return setup_wizard(request)
 
     return redirect('core:setup_wizard')
 
@@ -388,7 +716,7 @@ def setup_wizard_complete(request):
         )
 
         messages.success(request, 'Setup completed! Your school is ready to use.')
-        return redirect('core:index')
+        return index(request)
 
     return redirect('core:setup_wizard')
 

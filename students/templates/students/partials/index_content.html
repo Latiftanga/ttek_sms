@@ -9,17 +9,17 @@
                 {% if search or class_filter or status_filter %}<span class="text-primary"> (filtered)</span>{% endif %}
             </p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-2">
             <a href="{% url 'students:promotion' %}"
                hx-get="{% url 'students:promotion' %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-square sm:btn-wide"
+               class="btn btn-ghost btn-sm"
                title="Promotion">
                 <i class="fa-solid fa-arrow-up-right-dots"></i>
                 <span class="hidden sm:inline">Promotion</span>
             </a>
-            <button class="btn btn-ghost btn-sm btn-square sm:btn-wide"
+            <button class="btn btn-ghost btn-sm"
                     hx-get="{% url 'students:bulk_import' %}"
                     hx-target="#modal-bulk-content"
                     hx-swap="innerHTML"
@@ -32,7 +32,8 @@
                hx-get="{% url 'students:student_create' %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-primary btn-sm">
+               class="btn btn-primary btn-sm"
+               title="Add Student">
                 <i class="fa-solid fa-plus"></i>
                 <span class="hidden sm:inline">Add Student</span>
             </a>

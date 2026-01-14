@@ -19,7 +19,7 @@
                        name="full_name"
                        value="{{ form.full_name.value|default:'' }}"
                        placeholder="Guardian's full name"
-                       class="input input-bordered w-full {% if form.full_name.errors %}input-error{% endif %}"
+                       class="input input-sm input-bordered w-full {% if form.full_name.errors %}input-error{% endif %}"
                        required />
                 {% if form.full_name.errors %}
                 <label class="label">
@@ -38,7 +38,7 @@
                            name="phone_number"
                            value="{{ form.phone_number.value|default:'' }}"
                            placeholder="e.g., 0244123456"
-                           class="input input-bordered w-full {% if form.phone_number.errors %}input-error{% endif %}"
+                           class="input input-sm input-bordered w-full {% if form.phone_number.errors %}input-error{% endif %}"
                            required />
                     {% if form.phone_number.errors %}
                     <label class="label">
@@ -55,7 +55,7 @@
                            name="email"
                            value="{{ form.email.value|default:'' }}"
                            placeholder="email@example.com"
-                           class="input input-bordered w-full" />
+                           class="input input-sm input-bordered w-full" />
                 </div>
             </div>
 
@@ -69,7 +69,7 @@
                        name="occupation"
                        value="{{ form.occupation.value|default:'' }}"
                        placeholder="e.g., Teacher, Engineer, Trader"
-                       class="input input-bordered w-full" />
+                       class="input input-sm input-bordered w-full" />
             </div>
 
             <!-- Address -->
@@ -81,7 +81,7 @@
                 <textarea name="address"
                           rows="2"
                           placeholder="Home address"
-                          class="textarea textarea-bordered w-full">{{ form.address.value|default:'' }}</textarea>
+                          class="textarea textarea-sm textarea-bordered w-full">{{ form.address.value|default:'' }}</textarea>
             </div>
         </div>
 

@@ -1,38 +1,38 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div class="flex items-center gap-4">
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-6">
+    <div class="flex items-center gap-3 md:gap-4">
         <a href="{% url 'gradebook:reports' %}?class={{ student.current_class.pk }}"
            hx-get="{% url 'gradebook:reports' %}?class={{ student.current_class.pk }}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-ghost btn-sm btn-circle">
+           class="btn btn-ghost btn-sm btn-circle flex-shrink-0">
             <i class="fa-solid fa-arrow-left"></i>
         </a>
-        <div>
-            <h1 class="text-xl font-bold">Report Card</h1>
-            <p class="text-sm text-base-content/60">
+        <div class="min-w-0">
+            <h1 class="text-lg md:text-xl font-bold">Report Card</h1>
+            <p class="text-sm text-base-content/60 truncate">
                 {{ student.first_name }} {{ student.last_name }} - {{ current_term.name }}
             </p>
         </div>
     </div>
-    <div class="flex gap-2">
+    <div class="flex gap-2 ml-11 md:ml-0">
         <a href="{% url 'gradebook:transcript' student.pk %}"
            hx-get="{% url 'gradebook:transcript' student.pk %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-sm btn-ghost"
+           class="btn btn-xs md:btn-sm btn-ghost"
            title="View Transcript">
             <i class="fa-solid fa-scroll"></i>
-            Transcript
+            <span class="hidden sm:inline">Transcript</span>
         </a>
         <a href="{% url 'gradebook:report_card_print' student.pk %}"
            target="_blank"
-           class="btn btn-sm btn-primary"
+           class="btn btn-xs md:btn-sm btn-primary"
            title="Print Report Card">
             <i class="fa-solid fa-print"></i>
-            Print
+            <span class="hidden sm:inline">Print</span>
         </a>
     </div>
 </div>
@@ -93,29 +93,37 @@
 
 <!-- Subject Grades -->
 <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
-    <div class="card-body p-4">
-        <h2 class="font-bold flex items-center gap-2 mb-4">
+    <div class="card-body p-3 md:p-4">
+        <h2 class="font-bold flex items-center gap-2 mb-3 md:mb-4">
             <i class="fa-solid fa-book text-primary"></i>
             Subject Grades
         </h2>
-        <div class="overflow-x-auto">
-            <table class="table table-sm">
+        <!-- Mobile scroll hint -->
+        <div class="md:hidden flex items-center justify-end gap-2 text-xs text-base-content/50 mb-2">
+            <i class="fa-solid fa-arrows-left-right"></i>
+            <span>Scroll for more</span>
+        </div>
+        <div class="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
+            <table class="table table-xs md:table-sm">
                 <thead>
                     <tr class="text-xs uppercase bg-base-200">
-                        <th>Subject</th>
+                        <th class="sticky left-0 bg-base-200 z-10 min-w-[100px]">Subject</th>
                         {% for cat in categories %}
-                        <th class="text-center" title="{{ cat.name }} ({{ cat.percentage }}%)">{{ cat.short_name }}</th>
+                        <th class="text-center min-w-[50px]" title="{{ cat.name }} ({{ cat.percentage }}%)">{{ cat.short_name }}</th>
                         {% endfor %}
-                        <th class="text-center">Total</th>
-                        <th class="text-center">Grade</th>
-                        <th class="text-center">Position</th>
-                        <th>Remark</th>
+                        <th class="text-center min-w-[50px]">Total</th>
+                        <th class="text-center min-w-[50px]">Grade</th>
+                        <th class="text-center min-w-[40px] hidden sm:table-cell">Pos</th>
+                        <th class="hidden md:table-cell">Remark</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for grade in subject_grades %}
                     <tr class="hover">
-                        <td class="font-medium">{{ grade.subject.name }}</td>
+                        <td class="font-medium sticky left-0 bg-base-100 z-10 text-sm">
+                            <span class="hidden sm:inline">{{ grade.subject.name }}</span>
+                            <span class="sm:hidden">{{ grade.subject.short_name|default:grade.subject.name }}</span>
+                        </td>
                         {% for cat in categories %}
                         <td class="text-center">
                             {% with score=grade|get_category_score:cat %}
@@ -126,15 +134,15 @@
                         <td class="text-center font-bold">{{ grade.total_score|default:'-' }}</td>
                         <td class="text-center">
                             {% if grade.grade %}
-                            <span class="badge {% if grade.is_passing %}badge-success{% else %}badge-error{% endif %}">
+                            <span class="badge badge-xs md:badge-sm {% if grade.is_passing %}badge-success{% else %}badge-error{% endif %}">
                                 {{ grade.grade }}
                             </span>
                             {% else %}
                             -
                             {% endif %}
                         </td>
-                        <td class="text-center">{{ grade.position|default:'-' }}</td>
-                        <td class="text-sm text-base-content/60">{{ grade.grade_remark }}</td>
+                        <td class="text-center hidden sm:table-cell">{{ grade.position|default:'-' }}</td>
+                        <td class="text-sm text-base-content/60 hidden md:table-cell max-w-[150px] truncate">{{ grade.grade_remark }}</td>
                     </tr>
                     {% empty %}
                     <tr>

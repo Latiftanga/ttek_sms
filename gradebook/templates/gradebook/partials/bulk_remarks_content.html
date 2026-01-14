@@ -1,45 +1,47 @@
 {% load core_tags %}
 
-<div class="space-y-6">
+<div class="space-y-4 md:space-y-6">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
-                <a href="{% url 'gradebook:reports' %}"
-                   hx-get="{% url 'gradebook:reports' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="hover:text-primary">Reports</a>
-                <i class="fa-solid fa-chevron-right text-xs"></i>
-                <span>Bulk Remarks</span>
-            </div>
-            <h1 class="text-2xl font-bold flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-comment-dots text-primary"></i>
+    <div class="flex flex-col gap-3 md:gap-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                    <a href="{% url 'gradebook:reports' %}"
+                       hx-get="{% url 'gradebook:reports' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="hover:text-primary">Reports</a>
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                    <span>Bulk Remarks</span>
                 </div>
-                {{ class_obj.name }} - Term Remarks
-            </h1>
-            <p class="text-base-content/60 text-sm mt-1">
-                {{ current_term.name }} | Enter remarks for all students
-            </p>
-        </div>
-
-        <div class="flex items-center gap-3">
-            <!-- Progress indicator -->
-            <div class="flex items-center gap-2 px-4 py-2 bg-base-200 rounded-lg">
-                <div class="text-sm">
-                    <div class="font-semibold">{{ completed_count }}/{{ total_count }}</div>
-                    <div class="text-xs text-base-content/60">Completed</div>
-                </div>
+                <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2 md:gap-3">
+                    <div class="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-comment-dots text-primary text-sm md:text-base"></i>
+                    </div>
+                    <span class="truncate">{{ class_obj.name }} - Term Remarks</span>
+                </h1>
+                <p class="text-base-content/60 text-sm mt-1 ml-10 md:ml-13">
+                    {{ current_term.name }} | Enter remarks for all students
+                </p>
             </div>
 
-            <!-- Sign Off Button -->
-            <button hx-post="{% url 'gradebook:bulk_remarks_sign' class_obj.pk %}"
-                    hx-confirm="Sign off all remarks for this class? This confirms all entries are complete."
-                    class="btn btn-primary gap-2">
-                <i class="fa-solid fa-signature"></i>
-                Sign Off
-            </button>
+            <div class="flex items-center gap-2 md:gap-3 ml-10 md:ml-0">
+                <!-- Progress indicator -->
+                <div class="flex items-center gap-2 px-3 md:px-4 py-2 bg-base-200 rounded-lg">
+                    <div class="text-sm">
+                        <div class="font-semibold">{{ completed_count }}/{{ total_count }}</div>
+                        <div class="text-xs text-base-content/60">Done</div>
+                    </div>
+                </div>
+
+                <!-- Sign Off Button -->
+                <button hx-post="{% url 'gradebook:bulk_remarks_sign' class_obj.pk %}"
+                        hx-confirm="Sign off all remarks for this class? This confirms all entries are complete."
+                        class="btn btn-sm md:btn-md btn-primary gap-1 md:gap-2">
+                    <i class="fa-solid fa-signature"></i>
+                    <span class="hidden sm:inline">Sign Off</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -251,28 +253,28 @@
     </div>
 
     <!-- Footer Actions -->
-    <div class="flex items-center justify-between p-4 bg-base-200/30 rounded-lg border border-base-200">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 md:p-4 bg-base-200/30 rounded-lg border border-base-200">
         <a href="{% url 'gradebook:reports' %}?class={{ class_obj.pk }}"
            hx-get="{% url 'gradebook:reports' %}?class={{ class_obj.pk }}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-ghost gap-2">
+           class="btn btn-ghost btn-sm md:btn-md gap-2">
             <i class="fa-solid fa-arrow-left"></i>
-            Back to Reports
+            <span class="hidden sm:inline">Back to</span> Reports
         </a>
 
-        <div class="flex items-center gap-4">
-            <span class="text-sm text-base-content/60">
+        <div class="flex items-center gap-2 md:gap-4 w-full sm:w-auto justify-between sm:justify-end">
+            <span class="text-xs md:text-sm text-base-content/60">
                 <i class="fa-solid fa-cloud-arrow-up mr-1"></i>
-                Auto-saved
+                <span class="hidden sm:inline">Auto-</span>saved
             </span>
             <a href="{% url 'gradebook:report_distribution' class_obj.pk %}"
                hx-get="{% url 'gradebook:report_distribution' class_obj.pk %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-secondary gap-2">
+               class="btn btn-secondary btn-sm md:btn-md gap-1 md:gap-2">
                 <i class="fa-solid fa-paper-plane"></i>
-                Distribute Reports
+                <span class="hidden sm:inline">Distribute</span> <span class="sm:hidden">Send</span>
             </a>
         </div>
     </div>

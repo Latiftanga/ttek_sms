@@ -1,99 +1,99 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <h1 class="text-2xl font-bold flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <i class="fa-solid fa-graduation-cap text-white"></i>
-            </div>
-            Gradebook
-        </h1>
-        <p class="text-sm text-base-content/60 mt-1">
-            {% if current_term %}
-            <i class="fa-solid fa-calendar-day mr-1"></i>
-            {{ current_term.name }} - {{ current_term.academic_year.name }}
-            {% else %}
-            <span class="text-warning"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No current term set</span>
-            {% endif %}
-        </p>
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-6">
+    <div class="flex items-center gap-3">
+        <div class="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-graduation-cap text-white text-sm md:text-base"></i>
+        </div>
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold">Gradebook</h1>
+            <p class="text-sm text-base-content/60">
+                {% if current_term %}
+                <i class="fa-solid fa-calendar-day mr-1"></i>
+                {{ current_term.name }} - {{ current_term.academic_year.name }}
+                {% else %}
+                <span class="text-warning"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No current term set</span>
+                {% endif %}
+            </p>
+        </div>
     </div>
-    <div class="flex gap-2">
+    <div class="flex gap-2 ml-12 md:ml-0">
         <a href="{% url 'gradebook:score_entry' %}"
            hx-get="{% url 'gradebook:score_entry' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-primary">
+           class="btn btn-primary btn-sm md:btn-md">
             <i class="fa-solid fa-pen-to-square"></i>
-            Enter Scores
+            <span class="hidden sm:inline">Enter</span> Scores
         </a>
         <a href="{% url 'gradebook:settings' %}"
            hx-get="{% url 'gradebook:settings' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-ghost">
+           class="btn btn-ghost btn-sm md:btn-md">
             <i class="fa-solid fa-cog"></i>
-            Settings
+            <span class="hidden sm:inline">Settings</span>
         </a>
     </div>
 </div>
 
 <!-- Stats Section -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-6">
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-chalkboard text-primary text-xl"></i>
+        <div class="card-body p-3 md:p-4">
+            <div class="flex items-center gap-2 md:gap-3">
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-chalkboard text-primary text-base md:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-primary">{{ stats.classes }}</div>
+                <div class="min-w-0">
+                    <div class="text-xl md:text-2xl font-bold text-primary">{{ stats.classes }}</div>
                     <div class="text-xs text-base-content/60">Classes</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-user-graduate text-secondary text-xl"></i>
+        <div class="card-body p-3 md:p-4">
+            <div class="flex items-center gap-2 md:gap-3">
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-user-graduate text-secondary text-base md:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-secondary">{{ stats.students }}</div>
+                <div class="min-w-0">
+                    <div class="text-xl md:text-2xl font-bold text-secondary">{{ stats.students }}</div>
                     <div class="text-xs text-base-content/60">Students</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                    <i class="fa-solid fa-clipboard-list text-accent text-xl"></i>
+        <div class="card-body p-3 md:p-4">
+            <div class="flex items-center gap-2 md:gap-3">
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-clipboard-list text-accent text-base md:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-accent">{{ stats.assignments }}</div>
-                    <div class="text-xs text-base-content/60">Assignments</div>
+                <div class="min-w-0">
+                    <div class="text-xl md:text-2xl font-bold text-accent">{{ stats.assignments }}</div>
+                    <div class="text-xs text-base-content/60 truncate">Assign.</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
-                    <div class="radial-progress text-info" style="--value:{{ stats.score_progress }};--size:2.5rem;--thickness:3px;" role="progressbar">
-                        <span class="text-[10px] font-bold">{{ stats.score_progress|floatformat:0 }}%</span>
+        <div class="card-body p-3 md:p-4">
+            <div class="flex items-center gap-2 md:gap-3">
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-info/10 flex items-center justify-center flex-shrink-0">
+                    <div class="radial-progress text-info" style="--value:{{ stats.score_progress }};--size:2rem;--thickness:3px;" role="progressbar">
+                        <span class="text-[8px] md:text-[10px] font-bold">{{ stats.score_progress|floatformat:0 }}%</span>
                     </div>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold">{{ stats.scores_entered }}</div>
+                <div class="min-w-0">
+                    <div class="text-xl md:text-2xl font-bold">{{ stats.scores_entered }}</div>
                     <div class="text-xs text-base-content/60">
                         {% if stats.score_progress < 50 %}
                         <span class="text-warning">In Progress</span>
                         {% elif stats.score_progress < 100 %}
-                        <span class="text-info">Almost Done</span>
+                        <span class="text-info">Almost</span>
                         {% else %}
                         <span class="text-success">Complete</span>
                         {% endif %}

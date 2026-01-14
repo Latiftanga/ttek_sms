@@ -71,10 +71,7 @@
 
         <!-- Notifications -->
         <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-ghost btn-circle"
-                 hx-get="{% url 'core:notifications_dropdown' %}"
-                 hx-target="#notifications-content"
-                 hx-trigger="click once">
+            <button tabindex="0" class="btn btn-ghost btn-circle">
                 <div class="indicator"
                      hx-get="{% url 'core:notifications_badge' %}"
                      hx-trigger="load, every 60s"
@@ -83,14 +80,16 @@
                     <i class="fa-regular fa-bell text-xl"></i>
                     <span class="badge badge-xs badge-ghost indicator-item opacity-0"></span>
                 </div>
+            </button>
+            <div tabindex="0" class="dropdown-content z-[1] mt-3 shadow-lg bg-base-100 rounded-box border border-base-200"
+                 style="width: 320px;"
+                 hx-get="{% url 'core:notifications_dropdown' %}"
+                 hx-trigger="intersect once"
+                 hx-swap="innerHTML">
+                <div class="flex justify-center items-center py-8">
+                    <span class="loading loading-spinner loading-sm"></span>
+                </div>
             </div>
-            <ul tabindex="0" class="menu dropdown-content mt-3 z-[1] p-0 shadow-lg bg-base-100 rounded-box w-80 border border-base-200">
-                <li id="notifications-content">
-                    <div class="flex justify-center py-8 hover:bg-transparent">
-                        <span class="loading loading-spinner loading-sm"></span>
-                    </div>
-                </li>
-            </ul>
         </div>
 
         <!-- User dropdown -->

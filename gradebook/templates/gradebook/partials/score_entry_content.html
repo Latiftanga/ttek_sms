@@ -1,9 +1,9 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-6">
     <div>
-        <h1 class="text-2xl font-bold">Score Entry</h1>
+        <h1 class="text-xl md:text-2xl font-bold">Score Entry</h1>
         <p class="text-sm text-base-content/60">
             {% if current_term %}
             {{ current_term.name }} - {{ current_term.academic_year.name }}
@@ -12,15 +12,15 @@
             {% endif %}
         </p>
     </div>
-    <div class="flex items-center gap-4">
+    <div class="flex items-center gap-2 md:gap-4">
         {% include 'gradebook/partials/grade_lock_status.html' %}
         <a href="{% url 'gradebook:index' %}"
            hx-get="{% url 'gradebook:index' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-sm btn-ghost">
+           class="btn btn-xs md:btn-sm btn-ghost">
             <i class="fa-solid fa-arrow-left"></i>
-            Back
+            <span class="hidden sm:inline">Back</span>
         </a>
     </div>
 </div>
@@ -41,18 +41,18 @@
 
 <!-- Class & Subject Selection -->
 <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
-    <div class="card-body p-4">
-        <h2 class="font-bold mb-4 flex items-center gap-2">
+    <div class="card-body p-3 md:p-4">
+        <h2 class="font-bold mb-3 md:mb-4 flex items-center gap-2 text-sm md:text-base">
             <i class="fa-solid fa-filter text-primary"></i>
             Select Class & Subject
         </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Class</span>
+                <label class="label py-1">
+                    <span class="label-text text-sm">Class</span>
                 </label>
-                <select id="class-select" class="select select-bordered w-full">
+                <select id="class-select" class="select select-bordered select-sm md:select-md w-full">
                     <option value="">Select a class...</option>
                     {% for class in classes %}
                     <option value="{{ class.pk }}">{{ class.name }}</option>
@@ -61,10 +61,10 @@
             </div>
 
             <div class="form-control">
-                <label class="label">
-                    <span class="label-text">Subject</span>
+                <label class="label py-1">
+                    <span class="label-text text-sm">Subject</span>
                 </label>
-                <select id="subject-select" class="select select-bordered w-full" disabled>
+                <select id="subject-select" class="select select-bordered select-sm md:select-md w-full" disabled>
                     <option value="">Select a class first...</option>
                 </select>
             </div>

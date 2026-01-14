@@ -86,26 +86,26 @@
        hx-get="{% url 'gradebook:bulk_remarks' selected_class.pk %}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-primary gap-2">
+       class="btn btn-primary btn-sm md:btn-md gap-2">
         <i class="fa-solid fa-comment-dots"></i>
-        Enter Remarks
+        <span class="hidden sm:inline">Enter</span> Remarks
     </a>
     <a href="{% url 'gradebook:report_distribution' selected_class.pk %}"
        hx-get="{% url 'gradebook:report_distribution' selected_class.pk %}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-secondary gap-2">
+       class="btn btn-secondary btn-sm md:btn-md gap-2">
         <i class="fa-solid fa-paper-plane"></i>
-        Distribute Reports
+        <span class="hidden sm:inline">Distribute</span><span class="sm:hidden">Send</span> <span class="hidden md:inline">Reports</span>
     </a>
     {% if is_admin %}
     <a href="{% url 'gradebook:remark_templates' %}"
        hx-get="{% url 'gradebook:remark_templates' %}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-ghost gap-2">
+       class="btn btn-ghost btn-sm md:btn-md gap-2">
         <i class="fa-solid fa-wand-magic-sparkles"></i>
-        Manage Templates
+        <span class="hidden sm:inline">Manage Templates</span>
     </a>
     {% endif %}
 </div>
@@ -128,15 +128,20 @@
         </div>
 
         {% if students %}
-        <div class="overflow-x-auto">
-            <table class="table">
+        <!-- Mobile scroll hint -->
+        <div class="md:hidden flex items-center justify-end gap-2 text-xs text-base-content/50 mb-2">
+            <i class="fa-solid fa-arrows-left-right"></i>
+            <span>Scroll for more</span>
+        </div>
+        <div class="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <table class="table table-sm md:table-md">
                 <thead>
                     <tr class="text-xs uppercase text-base-content/60">
-                        <th>Position</th>
+                        <th class="w-16">Pos</th>
                         <th>Student</th>
-                        <th>Average</th>
-                        <th>Subjects</th>
-                        <th></th>
+                        <th class="text-center">Avg</th>
+                        <th class="hidden sm:table-cell">Subjects</th>
+                        <th class="w-24"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -144,7 +149,7 @@
                     <tr class="hover">
                         <td>
                             {% if student.term_report %}
-                            <div class="font-bold text-lg">
+                            <div class="font-bold text-base md:text-lg">
                                 {% if student.term_report.position == 1 %}
                                 <span class="text-warning">{{ student.term_report.position }}</span>
                                 {% elif student.term_report.position == 2 %}
@@ -161,26 +166,35 @@
                             {% endif %}
                         </td>
                         <td>
-                            <div class="flex items-center gap-3">
-                                <div class="avatar placeholder">
-                                    <div class="bg-neutral text-neutral-content rounded-full w-10">
-                                        <span class="text-sm">{{ student.first_name.0 }}{{ student.last_name.0 }}</span>
+                            <div class="flex items-center gap-2 md:gap-3">
+                                <div class="avatar placeholder hidden sm:flex">
+                                    <div class="bg-neutral text-neutral-content rounded-full w-8 md:w-10">
+                                        <span class="text-xs md:text-sm">{{ student.first_name.0 }}{{ student.last_name.0 }}</span>
                                     </div>
                                 </div>
-                                <div>
-                                    <div class="font-medium">{{ student.last_name }}, {{ student.first_name }}</div>
+                                <div class="min-w-0">
+                                    <div class="font-medium text-sm md:text-base truncate">{{ student.last_name }}, {{ student.first_name }}</div>
                                     <div class="text-xs text-base-content/60">{{ student.admission_number }}</div>
+                                    <!-- Show subjects info on mobile below name -->
+                                    {% if student.term_report %}
+                                    <div class="text-xs sm:hidden mt-0.5">
+                                        <span class="text-success">{{ student.term_report.subjects_passed }}P</span>
+                                        {% if student.term_report.subjects_failed > 0 %}
+                                        <span class="text-error ml-1">{{ student.term_report.subjects_failed }}F</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </td>
-                        <td>
+                        <td class="text-center">
                             {% if student.term_report %}
-                            <div class="font-bold">{{ student.term_report.average }}%</div>
+                            <div class="font-bold text-sm md:text-base">{{ student.term_report.average }}%</div>
                             {% else %}
                             <span class="text-base-content/30">-</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="hidden sm:table-cell">
                             {% if student.term_report %}
                             <div class="text-sm">
                                 <span class="text-success">{{ student.term_report.subjects_passed }} passed</span>
@@ -193,27 +207,27 @@
                             {% endif %}
                         </td>
                         <td>
-                            <div class="flex gap-1">
+                            <div class="flex gap-0.5 md:gap-1">
                                 <a href="{% url 'gradebook:student_report' student.pk %}"
                                    hx-get="{% url 'gradebook:student_report' student.pk %}"
                                    hx-target="#main-content"
                                    hx-push-url="true"
-                                   class="btn btn-ghost btn-sm"
+                                   class="btn btn-ghost btn-xs md:btn-sm"
                                    title="View Report">
                                     <i class="fa-solid fa-eye"></i>
-                                    View
+                                    <span class="hidden md:inline">View</span>
                                 </a>
                                 <a href="{% url 'gradebook:transcript' student.pk %}"
                                    hx-get="{% url 'gradebook:transcript' student.pk %}"
                                    hx-target="#main-content"
                                    hx-push-url="true"
-                                   class="btn btn-ghost btn-sm"
+                                   class="btn btn-ghost btn-xs md:btn-sm"
                                    title="View Transcript">
                                     <i class="fa-solid fa-scroll"></i>
                                 </a>
                                 <a href="{% url 'gradebook:report_card_print' student.pk %}"
                                    target="_blank"
-                                   class="btn btn-ghost btn-sm"
+                                   class="btn btn-ghost btn-xs md:btn-sm"
                                    title="Print Report">
                                     <i class="fa-solid fa-print"></i>
                                 </a>
