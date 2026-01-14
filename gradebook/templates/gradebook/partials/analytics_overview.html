@@ -8,29 +8,29 @@
 {% else %}
 
 <!-- School-wide Stats -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-6">
     <div class="card bg-primary/10 border border-primary/20">
-        <div class="card-body p-4 text-center">
-            <div class="text-3xl font-bold text-primary">{{ school_stats.total_students }}</div>
-            <div class="text-xs text-base-content/60 uppercase">Total Students</div>
+        <div class="card-body p-3 md:p-4 text-center">
+            <div class="text-2xl md:text-3xl font-bold text-primary">{{ school_stats.total_students }}</div>
+            <div class="text-[10px] md:text-xs text-base-content/60 uppercase">Students</div>
         </div>
     </div>
     <div class="card bg-secondary/10 border border-secondary/20">
-        <div class="card-body p-4 text-center">
-            <div class="text-3xl font-bold text-secondary">{{ school_stats.average }}%</div>
-            <div class="text-xs text-base-content/60 uppercase">School Average</div>
+        <div class="card-body p-3 md:p-4 text-center">
+            <div class="text-2xl md:text-3xl font-bold text-secondary">{{ school_stats.average }}%</div>
+            <div class="text-[10px] md:text-xs text-base-content/60 uppercase">Average</div>
         </div>
     </div>
     <div class="card bg-success/10 border border-success/20">
-        <div class="card-body p-4 text-center">
-            <div class="text-3xl font-bold text-success">{{ school_stats.passed }}</div>
-            <div class="text-xs text-base-content/60 uppercase">All Subjects Passed</div>
+        <div class="card-body p-3 md:p-4 text-center">
+            <div class="text-2xl md:text-3xl font-bold text-success">{{ school_stats.passed }}</div>
+            <div class="text-[10px] md:text-xs text-base-content/60 uppercase">Passed</div>
         </div>
     </div>
     <div class="card bg-info/10 border border-info/20">
-        <div class="card-body p-4 text-center">
-            <div class="text-3xl font-bold text-info">{{ school_stats.pass_rate }}%</div>
-            <div class="text-xs text-base-content/60 uppercase">Pass Rate</div>
+        <div class="card-body p-3 md:p-4 text-center">
+            <div class="text-2xl md:text-3xl font-bold text-info">{{ school_stats.pass_rate }}%</div>
+            <div class="text-[10px] md:text-xs text-base-content/60 uppercase">Pass Rate</div>
         </div>
     </div>
 </div>
@@ -45,15 +45,15 @@
             </h2>
 
             {% if class_stats %}
-            <div class="overflow-x-auto">
-                <table class="table table-sm">
+            <div class="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+                <table class="table table-xs md:table-sm">
                     <thead>
                         <tr class="text-xs uppercase text-base-content/60">
-                            <th>Rank</th>
+                            <th class="w-12">#</th>
                             <th>Class</th>
                             <th class="text-center">Avg</th>
-                            <th class="text-center">Students</th>
-                            <th class="text-center">Pass Rate</th>
+                            <th class="text-center hidden sm:table-cell">Students</th>
+                            <th class="text-center">Pass</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -70,14 +70,14 @@
                                 {{ forloop.counter }}
                                 {% endif %}
                             </td>
-                            <td class="font-medium">{{ stat.class.name }}</td>
+                            <td class="font-medium text-sm">{{ stat.class.name }}</td>
                             <td class="text-center">
-                                <span class="badge {% if stat.average >= 60 %}badge-success{% elif stat.average >= 50 %}badge-warning{% else %}badge-error{% endif %}">
+                                <span class="badge badge-xs md:badge-sm {% if stat.average >= 60 %}badge-success{% elif stat.average >= 50 %}badge-warning{% else %}badge-error{% endif %}">
                                     {{ stat.average }}%
                                 </span>
                             </td>
-                            <td class="text-center">{{ stat.total_students }}</td>
-                            <td class="text-center">{{ stat.pass_rate }}%</td>
+                            <td class="text-center hidden sm:table-cell">{{ stat.total_students }}</td>
+                            <td class="text-center text-sm">{{ stat.pass_rate }}%</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -106,31 +106,31 @@
             </h2>
 
             {% if subject_stats %}
-            <div class="overflow-x-auto">
-                <table class="table table-sm">
+            <div class="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+                <table class="table table-xs md:table-sm">
                     <thead>
                         <tr class="text-xs uppercase text-base-content/60">
                             <th>Subject</th>
-                            <th class="text-center">Avg Score</th>
-                            <th class="text-center">Students</th>
+                            <th class="text-center">Avg</th>
+                            <th class="text-center hidden sm:table-cell">Students</th>
                             <th class="text-center">Passed</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for subj in subject_stats %}
                         <tr class="hover">
-                            <td class="font-medium">
+                            <td class="font-medium text-sm">
                                 {{ subj.subject__short_name|default:subj.subject__name }}
                             </td>
                             <td class="text-center">
-                                <div class="flex items-center gap-2 justify-center">
-                                    <progress class="progress progress-primary w-16 h-2"
+                                <div class="flex items-center gap-1 md:gap-2 justify-center">
+                                    <progress class="progress progress-primary w-10 md:w-16 h-2"
                                               value="{{ subj.avg_score|floatformat:0 }}"
                                               max="100"></progress>
-                                    <span class="text-xs">{{ subj.avg_score|floatformat:1 }}%</span>
+                                    <span class="text-xs">{{ subj.avg_score|floatformat:0 }}%</span>
                                 </div>
                             </td>
-                            <td class="text-center text-sm">{{ subj.students }}</td>
+                            <td class="text-center text-sm hidden sm:table-cell">{{ subj.students }}</td>
                             <td class="text-center">
                                 <span class="text-success text-sm">{{ subj.passed }}</span>
                             </td>

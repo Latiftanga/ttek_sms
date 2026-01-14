@@ -6,16 +6,16 @@
             <div>
                 <h2 class="font-bold flex items-center gap-2">
                     <i class="fa-solid fa-table text-primary"></i>
-                    {{ class_obj.name }} - {{ subject.name }}
+                    <span class="truncate">{{ class_obj.name }} - {{ subject.name }}</span>
                 </h2>
                 <p class="text-sm text-base-content/60">{{ students|length }} students</p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 {% if editing_allowed %}
                 <div class="dropdown dropdown-end">
                     <label tabindex="0" class="btn btn-sm btn-outline">
                         <i class="fa-solid fa-file-import"></i>
-                        Import/Export
+                        <span class="hidden sm:inline">Import/Export</span>
                         <i class="fa-solid fa-chevron-down text-xs"></i>
                     </label>
                     <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-20 w-52 p-2 shadow-lg border border-base-200">
@@ -39,14 +39,14 @@
                         hx-target="#assignments-container"
                         onclick="modal_assignments.showModal()">
                     <i class="fa-solid fa-list-check"></i>
-                    Manage Assignments
+                    <span class="hidden sm:inline">Manage</span> <span class="hidden md:inline">Assignments</span>
                 </button>
                 <button class="btn btn-sm btn-ghost"
                         hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
                         hx-target="#changes-container"
                         onclick="modal_changes.showModal()">
                     <i class="fa-solid fa-clock-rotate-left"></i>
-                    View Changes
+                    <span class="hidden sm:inline">View Changes</span>
                 </button>
             </div>
         </div>
@@ -66,15 +66,20 @@
         {% endif %}
 
         {% if students %}
-        <div class="overflow-x-auto">
+        <!-- Mobile scroll hint -->
+        <div class="md:hidden flex items-center justify-end gap-2 text-xs text-base-content/50 mb-2">
+            <i class="fa-solid fa-arrows-left-right"></i>
+            <span>Scroll for more</span>
+        </div>
+        <div class="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
             <table class="table table-sm table-pin-rows">
                 <thead>
                     <tr class="bg-base-200">
-                        <th class="sticky left-0 bg-base-200 z-10">Student</th>
+                        <th class="sticky left-0 bg-base-200 z-10 min-w-[140px]">Student</th>
                         {% for assign in assignments %}
-                        <th class="text-center min-w-20">
+                        <th class="text-center min-w-[70px] md:min-w-20">
                             <div class="text-xs">{{ assign.assessment_category.short_name }}</div>
-                            <div class="text-xs font-normal text-base-content/60">{{ assign.name }}</div>
+                            <div class="text-xs font-normal text-base-content/60 truncate max-w-[60px] md:max-w-none">{{ assign.name }}</div>
                             <div class="text-xs font-normal text-base-content/40">/ {{ assign.points_possible }}</div>
                         </th>
                         {% endfor %}
@@ -84,19 +89,20 @@
                     {% for student in students %}
                     <tr class="hover">
                         <td class="sticky left-0 bg-base-100 z-10">
-                            <div class="font-medium">{{ student.last_name }}, {{ student.first_name }}</div>
+                            <div class="font-medium text-sm">{{ student.last_name }}, {{ student.first_name }}</div>
                             <div class="text-xs text-base-content/60">{{ student.admission_number }}</div>
                         </td>
                         {% for assign in assignments %}
                         <td class="text-center p-1">
                             <input type="number"
-                                   class="input input-sm input-bordered w-16 text-center score-input {% if not editing_allowed %}input-disabled{% endif %}"
+                                   class="input input-sm input-bordered w-14 md:w-16 text-center score-input {% if not editing_allowed %}input-disabled{% endif %}"
                                    data-student="{{ student.pk }}"
                                    data-assignment="{{ assign.pk }}"
                                    data-max="{{ assign.points_possible }}"
                                    min="0"
                                    max="{{ assign.points_possible }}"
                                    step="0.5"
+                                   inputmode="decimal"
                                    value="{{ scores_dict|get_item:student.pk|get_item:assign.pk|default:'' }}"
                                    {% if editing_allowed %}
                                    hx-post="{% url 'gradebook:score_save' %}"

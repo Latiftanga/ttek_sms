@@ -32,22 +32,24 @@
 {% else %}
 
 <!-- Tab Navigation -->
-<div class="tabs tabs-boxed mb-6 bg-base-200 p-1">
-    <button class="tab tab-active" id="tab-overview"
-            onclick="switchTab('overview')">
-        <i class="fa-solid fa-chart-pie mr-2"></i>
-        School Overview
-    </button>
-    <button class="tab" id="tab-class"
-            onclick="switchTab('class')">
-        <i class="fa-solid fa-users mr-2"></i>
-        Class Analysis
-    </button>
-    <button class="tab" id="tab-terms"
-            onclick="switchTab('terms')">
-        <i class="fa-solid fa-calendar-alt mr-2"></i>
-        Term Comparison
-    </button>
+<div class="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 mb-6">
+    <div class="tabs tabs-boxed bg-base-200 p-1 min-w-max md:min-w-0 w-fit md:w-auto">
+        <button class="tab tab-active whitespace-nowrap" id="tab-overview"
+                onclick="switchTab('overview')">
+            <i class="fa-solid fa-chart-pie mr-1 md:mr-2"></i>
+            <span class="hidden sm:inline">School </span>Overview
+        </button>
+        <button class="tab whitespace-nowrap" id="tab-class"
+                onclick="switchTab('class')">
+            <i class="fa-solid fa-users mr-1 md:mr-2"></i>
+            Class<span class="hidden sm:inline"> Analysis</span>
+        </button>
+        <button class="tab whitespace-nowrap" id="tab-terms"
+                onclick="switchTab('terms')">
+            <i class="fa-solid fa-calendar-alt mr-1 md:mr-2"></i>
+            <span class="hidden sm:inline">Term </span>Compare
+        </button>
+    </div>
 </div>
 
 <!-- Tab Content -->
