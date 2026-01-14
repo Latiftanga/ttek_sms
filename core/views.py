@@ -513,8 +513,9 @@ def setup_wizard_bulk_classes(request):
         # Define level ranges for each type
         level_configs = {
             'creche': [('creche', 1, 2)],
+            'nursery': [('nursery', 1, 2)],
             'kg': [('kg', 1, 2)],
-            'basic': [('primary', 1, 6), ('jhs', 1, 3)],
+            'basic': [('basic', 1, 9)],
             'shs': [('shs', 1, 3)],
         }
 
@@ -533,13 +534,8 @@ def setup_wizard_bulk_classes(request):
                 )
                 if created:
                     # Display user-friendly level type
-                    if bulk_type == 'basic':
-                        display_type = 'Basic'
-                        # For JHS, add 6 to get Basic 7-9
-                        display_level = level if db_level_type == 'primary' else level + 6
-                    else:
-                        display_type = cls.get_level_type_display()
-                        display_level = cls.level_number
+                    display_type = cls.get_level_type_display()
+                    display_level = cls.level_number
 
                     prog_hidden = '' if bulk_type == 'shs' else 'hidden'
                     html_parts.append(f'''<tr class="hover" data-level-type="{bulk_type}">

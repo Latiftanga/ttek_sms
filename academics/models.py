@@ -45,16 +45,16 @@ class Class(models.Model):
     """
     class LevelType(models.TextChoices):
         CRECHE = 'creche', _('Creche')
+        NURSERY = 'nursery', _('Nursery')
         KG = 'kg', _('Kindergarten')
-        PRIMARY = 'primary', _('Primary')
-        JHS = 'jhs', _('JHS')
+        BASIC = 'basic', _('Basic')
         SHS = 'shs', _('SHS')
 
     # Level info
     level_type = models.CharField(
         max_length=10,
         choices=LevelType.choices,
-        default=LevelType.PRIMARY
+        default=LevelType.BASIC
     )
     level_number = models.PositiveSmallIntegerField(
         help_text="1, 2, 3, etc."
@@ -120,14 +120,12 @@ class Class(models.Model):
 
         if self.level_type == self.LevelType.CRECHE:
             return f"Creche{self.level_number}{suffix}"
+        elif self.level_type == self.LevelType.NURSERY:
+            return f"Nursery{self.level_number}{suffix}"
         elif self.level_type == self.LevelType.KG:
             return f"KG{self.level_number}{suffix}"
-        elif self.level_type == self.LevelType.PRIMARY:
+        elif self.level_type == self.LevelType.BASIC:
             return f"B{self.level_number}{suffix}"
-        elif self.level_type == self.LevelType.JHS:
-            # JHS is B7-B9, so add 6 to get actual Basic number
-            basic_num = self.level_number + 6
-            return f"B{basic_num}{suffix}"
         elif self.level_type == self.LevelType.SHS:
             # SHS: 1ART-A, 2BUS-B format
             prog_code = self.programme.code if self.programme else "GEN"
@@ -139,15 +137,25 @@ class Class(models.Model):
         """Human-readable level name."""
         if self.level_type == self.LevelType.CRECHE:
             return f"Creche {self.level_number}"
+        elif self.level_type == self.LevelType.NURSERY:
+            return f"Nursery {self.level_number}"
         elif self.level_type == self.LevelType.KG:
             return f"KG {self.level_number}"
-        elif self.level_type == self.LevelType.PRIMARY:
+        elif self.level_type == self.LevelType.BASIC:
             return f"Basic {self.level_number}"
-        elif self.level_type == self.LevelType.JHS:
-            return f"JHS {self.level_number}"
         elif self.level_type == self.LevelType.SHS:
             return f"SHS {self.level_number}"
         return str(self.level_number)
+
+    @property
+    def is_lower_basic(self):
+        """Check if class is Lower Basic (B1-B6, formerly Primary)."""
+        return self.level_type == self.LevelType.BASIC and self.level_number <= 6
+
+    @property
+    def is_upper_basic(self):
+        """Check if class is Upper Basic (B7-B9, formerly JHS)."""
+        return self.level_type == self.LevelType.BASIC and self.level_number >= 7
 
     @classmethod
     def get_by_level_type(cls, level_type):

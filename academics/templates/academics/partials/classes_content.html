@@ -43,9 +43,10 @@
                        class="input input-bordered input-sm flex-1 min-w-[200px]" />
                 <select name="level" class="select select-sm select-bordered w-auto">
                     <option value="">All Levels</option>
+                    <option value="creche" {% if level_filter == 'creche' %}selected{% endif %}>Creche</option>
+                    <option value="nursery" {% if level_filter == 'nursery' %}selected{% endif %}>Nursery</option>
                     <option value="kg" {% if level_filter == 'kg' %}selected{% endif %}>KG</option>
-                    <option value="primary" {% if level_filter == 'primary' %}selected{% endif %}>Primary</option>
-                    <option value="jhs" {% if level_filter == 'jhs' %}selected{% endif %}>JHS</option>
+                    <option value="basic" {% if level_filter == 'basic' %}selected{% endif %}>Basic</option>
                     <option value="shs" {% if level_filter == 'shs' %}selected{% endif %}>SHS</option>
                 </select>
                 <button type="submit" class="btn btn-sm btn-primary">
@@ -79,9 +80,10 @@
                         <!-- Class Icon -->
                         <div class="avatar placeholder shrink-0">
                             <div class="w-12 h-12 rounded-lg
-                                {% if cls.level_type == 'kg' %}bg-info/20 text-info
-                                {% elif cls.level_type == 'primary' %}bg-success/20 text-success
-                                {% elif cls.level_type == 'jhs' %}bg-warning/20 text-warning
+                                {% if cls.level_type == 'creche' %}bg-secondary/20 text-secondary
+                                {% elif cls.level_type == 'nursery' %}bg-accent/20 text-accent
+                                {% elif cls.level_type == 'kg' %}bg-info/20 text-info
+                                {% elif cls.level_type == 'basic' %}bg-success/20 text-success
                                 {% else %}bg-primary/20 text-primary{% endif %}
                                 flex items-center justify-center">
                                 <i class="fa-solid fa-chalkboard text-lg"></i>
@@ -100,9 +102,10 @@
                                         {{ cls.name }}
                                     </a>
                                     <span class="badge badge-sm ml-2
-                                        {% if cls.level_type == 'kg' %}badge-info
-                                        {% elif cls.level_type == 'primary' %}badge-success
-                                        {% elif cls.level_type == 'jhs' %}badge-warning
+                                        {% if cls.level_type == 'creche' %}badge-secondary
+                                        {% elif cls.level_type == 'nursery' %}badge-accent
+                                        {% elif cls.level_type == 'kg' %}badge-info
+                                        {% elif cls.level_type == 'basic' %}badge-success
                                         {% else %}badge-primary{% endif %}">
                                         {{ cls.get_level_type_display }}
                                     </span>
@@ -198,9 +201,10 @@
                                 <div class="flex items-center gap-3">
                                     <div class="avatar placeholder">
                                         <div class="w-10 h-10 rounded-lg
-                                            {% if cls.level_type == 'kg' %}bg-info/20 text-info
-                                            {% elif cls.level_type == 'primary' %}bg-success/20 text-success
-                                            {% elif cls.level_type == 'jhs' %}bg-warning/20 text-warning
+                                            {% if cls.level_type == 'creche' %}bg-secondary/20 text-secondary
+                                            {% elif cls.level_type == 'nursery' %}bg-accent/20 text-accent
+                                            {% elif cls.level_type == 'kg' %}bg-info/20 text-info
+                                            {% elif cls.level_type == 'basic' %}bg-success/20 text-success
                                             {% else %}bg-primary/20 text-primary{% endif %}
                                             flex items-center justify-center">
                                             <i class="fa-solid fa-chalkboard"></i>
@@ -247,9 +251,10 @@
                             </td>
                             <td>
                                 <span class="badge badge-sm
-                                    {% if cls.level_type == 'kg' %}badge-info
-                                    {% elif cls.level_type == 'primary' %}badge-success
-                                    {% elif cls.level_type == 'jhs' %}badge-warning
+                                    {% if cls.level_type == 'creche' %}badge-secondary
+                                    {% elif cls.level_type == 'nursery' %}badge-accent
+                                    {% elif cls.level_type == 'kg' %}badge-info
+                                    {% elif cls.level_type == 'basic' %}badge-success
                                     {% else %}badge-primary{% endif %}">
                                     {{ cls.get_level_type_display }}
                                 </span>

@@ -137,9 +137,10 @@ def index(request):
 
     # Group classes by level type with stats
     classes_by_level = {
+        'creche': {'label': 'Creche', 'classes': [], 'student_count': 0, 'icon': 'fa-baby-carriage', 'color': 'secondary'},
+        'nursery': {'label': 'Nursery', 'classes': [], 'student_count': 0, 'icon': 'fa-face-smile', 'color': 'accent'},
         'kg': {'label': 'KG', 'classes': [], 'student_count': 0, 'icon': 'fa-baby', 'color': 'info'},
-        'primary': {'label': 'Primary', 'classes': [], 'student_count': 0, 'icon': 'fa-child', 'color': 'success'},
-        'jhs': {'label': 'JHS', 'classes': [], 'student_count': 0, 'icon': 'fa-user-graduate', 'color': 'warning'},
+        'basic': {'label': 'Basic', 'classes': [], 'student_count': 0, 'icon': 'fa-child', 'color': 'success'},
         'shs': {'label': 'SHS', 'classes': [], 'student_count': 0, 'icon': 'fa-graduation-cap', 'color': 'primary'},
     }
     for cls in classes:
