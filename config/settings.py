@@ -314,7 +314,7 @@ STORAGES = {
 # 5. AUTH
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'core:index'
-LOGOUT_REDIRECT_URL = 'accounts:login'
+LOGOUT_REDIRECT_URL = '/admin/login/'  # For admin panel logout (tenant logout uses its own next_page)
 
 # --- 9. MEDIA FILES ---
 MEDIA_URL = '/media/'

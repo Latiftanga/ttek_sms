@@ -229,3 +229,6 @@ backups/*.gz
 
 # Local production testing
 .env.prod.local
+
+# Private documentation (contains server details)
+docs/CUSTOM_DOMAIN_SETUP.md
