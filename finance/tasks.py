@@ -324,8 +324,8 @@ def send_invoice_notification(self, invoice_id, notification_type, distribution_
                     recipient_name=context.get('guardian_name', ''),
                     student=student,
                     message=sms_text,
-                    message_type='FEE_REMINDER',
-                    status='PENDING',
+                    message_type=SMSMessage.MessageType.FEE_REMINDER,
+                    status=SMSMessage.Status.PENDING,
                     created_by=sent_by,
                 )
 
