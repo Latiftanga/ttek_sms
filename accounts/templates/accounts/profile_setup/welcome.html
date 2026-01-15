@@ -1,0 +1,63 @@
+{% extends 'accounts/profile_setup/base_wizard.html' %}
+{% load core_tags %}
+
+{% block content %}
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-6 sm:p-8 text-center">
+        <!-- Welcome Icon -->
+        <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center" style="background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);">
+            <i class="fa-solid fa-hand-wave text-white text-3xl"></i>
+        </div>
+
+        <h2 class="text-2xl font-bold mb-2">Welcome, {{ request.user.first_name|default:request.user.email }}!</h2>
+
+        <p class="text-base-content/60 mb-6 max-w-md mx-auto">
+            {% if is_teacher %}
+            We're excited to have you join our teaching team. Let's set up your profile to help students and parents connect with you.
+            {% else %}
+            Welcome to our school community! Let's set up your profile so you can stay connected with your child's education.
+            {% endif %}
+        </p>
+
+        <!-- What's Next -->
+        <div class="bg-base-200/50 rounded-xl p-4 mb-6 text-left max-w-sm mx-auto">
+            <h3 class="font-semibold text-sm mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-list-check" style="color: var(--school-primary);"></i>
+                What we'll set up:
+            </h3>
+            <ul class="space-y-2 text-sm">
+                <li class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-success text-xs"></i>
+                    <span>Personal information</span>
+                </li>
+                {% if is_teacher %}
+                <li class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle text-base-content/20 text-xs"></i>
+                    <span>Profile photo (optional)</span>
+                </li>
+                {% else %}
+                <li class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle text-base-content/20 text-xs"></i>
+                    <span>Communication preferences</span>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <!-- Estimated Time -->
+        <p class="text-xs text-base-content/50 mb-6">
+            <i class="fa-regular fa-clock mr-1"></i>
+            This will only take about 2 minutes
+        </p>
+
+        <!-- Action -->
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">
+                Let's Get Started
+                <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

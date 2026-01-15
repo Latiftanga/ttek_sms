@@ -149,6 +149,12 @@ class User(AbstractUser):
         help_text=_('User must change password on next login')
     )
 
+    # --- PROFILE SETUP ---
+    profile_setup_completed = models.BooleanField(
+        default=True,  # True for existing users, set False for new invited users
+        help_text=_('User has completed the profile setup wizard')
+    )
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
 

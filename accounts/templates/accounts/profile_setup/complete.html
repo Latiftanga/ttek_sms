@@ -1,0 +1,79 @@
+{% extends 'accounts/profile_setup/base_wizard.html' %}
+{% load core_tags %}
+
+{% block content %}
+<div class="card bg-base-100 shadow-sm border border-success/30">
+    <div class="card-body p-6 sm:p-8 text-center">
+        <!-- Success Icon -->
+        <div class="w-20 h-20 rounded-full bg-success/10 mx-auto mb-4 flex items-center justify-center">
+            <i class="fa-solid fa-circle-check text-success text-4xl"></i>
+        </div>
+
+        <h2 class="text-2xl font-bold text-success mb-2">You're All Set!</h2>
+
+        <p class="text-base-content/60 mb-6 max-w-md mx-auto">
+            {% if is_teacher %}
+            Your profile is ready. You can now access your teacher dashboard to manage classes, view student information, and more.
+            {% else %}
+            Your profile is ready. You can now access your parent dashboard to track your child's progress, view grades, and stay connected with the school.
+            {% endif %}
+        </p>
+
+        <!-- Profile Summary -->
+        <div class="bg-base-200/50 rounded-xl p-4 mb-6 max-w-sm mx-auto text-left">
+            <h3 class="font-semibold text-sm mb-3 text-center">Profile Summary</h3>
+
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-base-content/60">Name</span>
+                    <span class="font-medium">{{ request.user.first_name }} {{ request.user.last_name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-base-content/60">Email</span>
+                    <span class="font-medium truncate max-w-[180px]">{{ request.user.email }}</span>
+                </div>
+                {% if request.user.phone %}
+                <div class="flex justify-between">
+                    <span class="text-base-content/60">Phone</span>
+                    <span class="font-medium">{{ request.user.phone }}</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between">
+                    <span class="text-base-content/60">Role</span>
+                    <span class="badge badge-primary badge-sm">
+                        {% if is_teacher %}Teacher{% else %}Parent/Guardian{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Tips -->
+        <div class="bg-primary/5 rounded-xl p-4 mb-6 max-w-sm mx-auto text-left border border-primary/10">
+            <h3 class="font-semibold text-sm mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-lightbulb text-warning"></i>
+                Quick Tips
+            </h3>
+            <ul class="text-xs text-base-content/70 space-y-1">
+                {% if is_teacher %}
+                <li><i class="fa-solid fa-check text-success mr-1"></i> View your assigned classes from the dashboard</li>
+                <li><i class="fa-solid fa-check text-success mr-1"></i> Record attendance and enter grades easily</li>
+                <li><i class="fa-solid fa-check text-success mr-1"></i> Communicate with parents through the portal</li>
+                {% else %}
+                <li><i class="fa-solid fa-check text-success mr-1"></i> Check your child's attendance daily</li>
+                <li><i class="fa-solid fa-check text-success mr-1"></i> View grades and academic progress</li>
+                <li><i class="fa-solid fa-check text-success mr-1"></i> Stay updated with school announcements</li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <!-- Action -->
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fa-solid fa-rocket mr-2"></i>
+                Go to Dashboard
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

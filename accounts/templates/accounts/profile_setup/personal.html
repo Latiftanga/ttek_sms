@@ -1,0 +1,60 @@
+{% extends 'accounts/profile_setup/base_wizard.html' %}
+{% load core_tags %}
+
+{% block content %}
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-6 sm:p-8">
+        <!-- Header -->
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);">
+                <i class="fa-solid fa-user text-white"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold">Personal Information</h2>
+                <p class="text-sm text-base-content/60">Help us know you better</p>
+            </div>
+        </div>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            <!-- Name Display (Read-only) -->
+            <div class="bg-base-200/50 rounded-lg p-3 mb-4">
+                <div class="text-xs text-base-content/50 mb-1">Your Name</div>
+                <div class="font-medium">
+                    {{ request.user.first_name }} {{ request.user.last_name }}
+                    <span class="text-xs text-base-content/40 ml-2">(from your account)</span>
+                </div>
+            </div>
+
+            <!-- Phone Number -->
+            {% text_input "phone" label="Phone Number" placeholder="e.g., 0244123456" icon="fa-solid fa-phone" value=request.user.phone %}
+
+            <!-- Address -->
+            {% textarea_input "address" label="Address" placeholder="Enter your residential address" icon="fa-solid fa-location-dot" value=request.user.address rows=2 %}
+
+            {% if is_teacher %}
+            <!-- Date of Birth (Teachers) -->
+            {% date_input "date_of_birth" label="Date of Birth" icon="fa-solid fa-cake-candles" value=request.user.date_of_birth %}
+            {% endif %}
+
+            {% if is_parent %}
+            <!-- Occupation (Parents) -->
+            {% text_input "occupation" label="Occupation" placeholder="e.g., Engineer, Teacher, Business Owner" icon="fa-solid fa-briefcase" value=request.user.occupation %}
+            {% endif %}
+
+            <!-- Navigation -->
+            <div class="flex gap-3 pt-4">
+                <a href="{% url 'accounts:profile_setup_step' step='welcome' %}" class="btn btn-ghost">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    Back
+                </a>
+                <button type="submit" class="btn btn-primary flex-1">
+                    Continue
+                    <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

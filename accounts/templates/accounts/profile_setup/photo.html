@@ -1,0 +1,100 @@
+{% extends 'accounts/profile_setup/base_wizard.html' %}
+{% load core_tags %}
+
+{% block content %}
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-6 sm:p-8">
+        <!-- Header -->
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);">
+                <i class="fa-solid fa-camera text-white"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold">Profile Photo</h2>
+                <p class="text-sm text-base-content/60">Add a photo to personalize your profile</p>
+            </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Photo Preview Area -->
+            <div class="flex flex-col items-center">
+                <div class="relative">
+                    <!-- Current/Preview Photo -->
+                    <div id="photo-preview" class="w-32 h-32 rounded-full bg-base-200 flex items-center justify-center border-4 border-base-300 overflow-hidden">
+                        {% if request.user.photo %}
+                        <img src="{{ request.user.photo.url }}" alt="Current photo" class="w-full h-full object-cover" id="preview-img">
+                        {% else %}
+                        <div id="placeholder-icon" class="text-center">
+                            <i class="fa-solid fa-user text-4xl text-base-content/30"></i>
+                        </div>
+                        <img src="" alt="Preview" class="w-full h-full object-cover hidden" id="preview-img">
+                        {% endif %}
+                    </div>
+
+                    <!-- Upload Button Overlay -->
+                    <label for="photo-input" class="absolute bottom-0 right-0 w-10 h-10 rounded-full cursor-pointer flex items-center justify-center shadow-lg" style="background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);">
+                        <i class="fa-solid fa-camera text-white"></i>
+                    </label>
+                </div>
+
+                <!-- Hidden File Input -->
+                <input type="file"
+                       id="photo-input"
+                       name="photo"
+                       accept="image/*"
+                       class="hidden"
+                       onchange="previewPhoto(this)">
+
+                <!-- Instructions -->
+                <p class="text-sm text-base-content/60 mt-4 text-center">
+                    Click the camera icon to upload a photo<br>
+                    <span class="text-xs">(JPG, PNG - Max 5MB)</span>
+                </p>
+            </div>
+
+            <!-- Optional Note -->
+            <div class="bg-info/10 rounded-lg p-3 border border-info/30">
+                <p class="text-sm text-info flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info mt-0.5"></i>
+                    <span>This step is optional. You can add or change your photo later from your profile settings.</span>
+                </p>
+            </div>
+
+            <!-- Navigation -->
+            <div class="flex gap-3 pt-2">
+                <a href="{% url 'accounts:profile_setup_step' step='personal' %}" class="btn btn-ghost">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    Back
+                </a>
+                <button type="submit" class="btn btn-primary flex-1">
+                    Continue
+                    <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function previewPhoto(input) {
+    const preview = document.getElementById('preview-img');
+    const placeholder = document.getElementById('placeholder-icon');
+
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.classList.remove('hidden');
+            if (placeholder) {
+                placeholder.classList.add('hidden');
+            }
+        };
+
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+{% endblock %}

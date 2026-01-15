@@ -102,6 +102,7 @@ def create_account(request, pk):
                     last_name=teacher.last_name,
                     is_teacher=True,
                     must_change_password=True,
+                    profile_setup_completed=False,
                 )
 
                 # Link to teacher
@@ -451,6 +452,7 @@ def accept_invitation(request, token):
                     last_name=teacher.last_name,
                     is_teacher=True,
                     must_change_password=False,  # They just set it!
+                    profile_setup_completed=False,
                 )
 
                 # Link to teacher
