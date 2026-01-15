@@ -256,118 +256,114 @@
 
 <!-- SMS Settings Modal -->
 <dialog id="modal_sms_settings" class="modal modal-middle">
-    <div class="modal-box">
+    <div class="modal-box max-w-xl p-5">
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
         </form>
-        <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
-            <i class="fa-solid fa-message text-primary"></i>
+        <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-message text-primary text-sm"></i>
             SMS Configuration
         </h3>
-        <script>
-            function updateSmsProviderHelp() {
-                const select = document.getElementById('sms-backend-select');
-                const helpDiv = document.getElementById('api-key-help');
-                if (!select || !helpDiv) return;
-
-                const provider = select.value;
-                helpDiv.querySelectorAll('[data-provider]').forEach(el => {
-                    el.classList.toggle('hidden', el.dataset.provider !== provider);
-                });
-            }
-            document.addEventListener('DOMContentLoaded', function() {
-                const select = document.getElementById('sms-backend-select');
-                if (select) {
-                    select.addEventListener('change', updateSmsProviderHelp);
-                }
-            });
-        </script>
         <form method="post"
               action="{% url 'core:settings_update_sms' %}"
               hx-post="{% url 'core:settings_update_sms' %}"
               hx-target="#card-sms"
-              hx-swap="outerHTML"
-              hx-on::after-request="if(event.detail.successful) modal_sms_settings.close()">
+              hx-swap="outerHTML">
             {% csrf_token %}
-            <div class="space-y-4 pt-2">
+            <div class="space-y-3">
                 <!-- Enable Toggle -->
-                <div class="form-control">
-                    <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="sms_enabled" class="toggle toggle-primary"
-                               {% if school_settings.sms_enabled %}checked{% endif %} />
-                        <span class="label-text font-medium">Enable SMS Messaging</span>
-                    </label>
-                    <p class="text-xs text-base-content/60 ml-14">When disabled, no SMS will be sent</p>
-                </div>
+                {% toggle_input "sms_enabled" checked=school_settings.sms_enabled label="Enable SMS Messaging" help_text="When disabled, no SMS will be sent" %}
+                <script>
+                    document.querySelector('[name="sms_enabled"]').addEventListener('change', function() {
+                        toggleSmsFields(this.checked);
+                    });
+                </script>
 
-                <!-- Provider -->
-                <div class="form-control">
-                    <label class="label">
-                        <span class="label-text">SMS Provider</span>
-                    </label>
-                    <select name="sms_backend" class="select select-bordered w-full" id="sms-backend-select">
-                        <option value="console" {% if school_settings.sms_backend == 'console' %}selected{% endif %}>
-                            Console (Development)
-                        </option>
-                        <option value="arkesel" {% if school_settings.sms_backend == 'arkesel' %}selected{% endif %}>
-                            Arkesel
-                        </option>
-                        <option value="hubtel" {% if school_settings.sms_backend == 'hubtel' %}selected{% endif %}>
-                            Hubtel
-                        </option>
-                        <option value="africastalking" {% if school_settings.sms_backend == 'africastalking' %}selected{% endif %}>
-                            Africa's Talking
-                        </option>
-                    </select>
-                    <p class="text-xs text-base-content/60 mt-1">Console mode only logs messages (for testing)</p>
-                </div>
+                <div id="sms-config-fields" class="space-y-3 {% if not school_settings.sms_enabled %}opacity-50 pointer-events-none{% endif %}">
+                    <!-- Provider Selection -->
+                    <div class="form-control">
+                        <label class="label py-0.5">
+                            <span class="label-text text-xs">SMS Provider</span>
+                        </label>
+                        <select name="sms_backend" class="select select-bordered select-sm w-full" id="sms-backend-select" onchange="updateSmsProviderHelp()">
+                            <option value="console" {% if school_settings.sms_backend == 'console' %}selected{% endif %}>Console (Development)</option>
+                            <option value="arkesel" {% if school_settings.sms_backend == 'arkesel' %}selected{% endif %}>Arkesel</option>
+                            <option value="hubtel" {% if school_settings.sms_backend == 'hubtel' %}selected{% endif %}>Hubtel</option>
+                            <option value="africastalking" {% if school_settings.sms_backend == 'africastalking' %}selected{% endif %}>Africa's Talking</option>
+                        </select>
+                    </div>
 
-                <!-- API Key -->
-                <div class="form-control">
-                    <label class="label">
-                        <span class="label-text">API Key</span>
-                    </label>
-                    <input type="password"
-                           name="sms_api_key"
-                           id="sms-api-key-input"
-                           class="input input-bordered w-full font-mono text-sm"
-                           placeholder="{% if school_settings.sms_api_key %}••••••••••••{% else %}Enter your API key{% endif %}"
-                           autocomplete="off" />
-                    <div id="api-key-help" class="text-xs text-base-content/60 mt-1">
-                        <span data-provider="arkesel" {% if school_settings.sms_backend != 'arkesel' %}class="hidden"{% endif %}>
-                            Get your API key from <a href="https://sms.arkesel.com/user/sms-api/info" target="_blank" class="link link-primary">Arkesel Dashboard</a>
-                        </span>
-                        <span data-provider="hubtel" {% if school_settings.sms_backend != 'hubtel' %}class="hidden"{% endif %}>
-                            Format: <code class="bg-base-200 px-1 rounded">client_id:client_secret</code> from <a href="https://developers.hubtel.com/" target="_blank" class="link link-primary">Hubtel</a>
-                        </span>
-                        <span data-provider="africastalking" {% if school_settings.sms_backend != 'africastalking' %}class="hidden"{% endif %}>
-                            Format: <code class="bg-base-200 px-1 rounded">username:api_key</code> from <a href="https://account.africastalking.com/" target="_blank" class="link link-primary">Africa's Talking</a>
-                        </span>
-                        <span data-provider="console" {% if school_settings.sms_backend != 'console' %}class="hidden"{% endif %}>
-                            No API key needed for console mode
-                        </span>
+                    <!-- API Key -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="col-span-2">
+                            {% password_input "sms_api_key" label="API Key" placeholder="Enter your API key" icon="fa-solid fa-key" input_class="w-full" %}
+                        </div>
+                        <div>
+                            {% text_input "sms_sender_id" value=school_settings.sms_sender_id label="Sender ID" placeholder="SchoolSMS" input_class="w-full" %}
+                        </div>
+                    </div>
+
+                    <!-- Provider Help -->
+                    <div class="bg-base-200/50 border border-base-300 rounded-lg p-2.5" id="api-key-help">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex-1">
+                                <p class="text-xs font-medium flex items-center gap-1.5">
+                                    <i class="fa-solid fa-circle-info text-info"></i>
+                                    <span data-provider="arkesel" {% if school_settings.sms_backend != 'arkesel' %}class="hidden"{% endif %}>Arkesel API Key</span>
+                                    <span data-provider="hubtel" {% if school_settings.sms_backend != 'hubtel' %}class="hidden"{% endif %}>Hubtel Credentials</span>
+                                    <span data-provider="africastalking" {% if school_settings.sms_backend != 'africastalking' %}class="hidden"{% endif %}>Africa's Talking Credentials</span>
+                                    <span data-provider="console" {% if school_settings.sms_backend != 'console' %}class="hidden"{% endif %}>Console Mode</span>
+                                </p>
+                                <p class="text-[11px] text-base-content/60">
+                                    <span data-provider="arkesel" {% if school_settings.sms_backend != 'arkesel' %}class="hidden"{% endif %}>Get API key from your Arkesel dashboard</span>
+                                    <span data-provider="hubtel" {% if school_settings.sms_backend != 'hubtel' %}class="hidden"{% endif %}>Format: <code class="bg-base-300 px-1 rounded">client_id:client_secret</code></span>
+                                    <span data-provider="africastalking" {% if school_settings.sms_backend != 'africastalking' %}class="hidden"{% endif %}>Format: <code class="bg-base-300 px-1 rounded">username:api_key</code></span>
+                                    <span data-provider="console" {% if school_settings.sms_backend != 'console' %}class="hidden"{% endif %}>Messages are logged only, not sent</span>
+                                </p>
+                            </div>
+                            <div class="flex gap-1.5">
+                                <a href="https://sms.arkesel.com/user/sms-api/info" target="_blank" class="btn btn-xs btn-ghost" title="Arkesel Dashboard" data-provider="arkesel" {% if school_settings.sms_backend != 'arkesel' %}style="display:none"{% endif %}>
+                                    <i class="fa-solid fa-external-link"></i>
+                                </a>
+                                <a href="https://developers.hubtel.com/" target="_blank" class="btn btn-xs btn-ghost" title="Hubtel Developer Portal" data-provider="hubtel" {% if school_settings.sms_backend != 'hubtel' %}style="display:none"{% endif %}>
+                                    <i class="fa-solid fa-external-link"></i>
+                                </a>
+                                <a href="https://account.africastalking.com/" target="_blank" class="btn btn-xs btn-ghost" title="Africa's Talking Dashboard" data-provider="africastalking" {% if school_settings.sms_backend != 'africastalking' %}style="display:none"{% endif %}>
+                                    <i class="fa-solid fa-external-link"></i>
+                                </a>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-base-content/50 mt-1.5">
+                            <i class="fa-solid fa-circle-info"></i>
+                            Sender ID: Max 11 characters. Leave empty to use: <span class="font-mono">{{ derived_sender_id }}</span>
+                        </p>
                     </div>
                 </div>
 
-                <!-- Sender ID -->
-                <div class="form-control">
-                    <label class="label">
-                        <span class="label-text">Sender ID (Optional)</span>
-                    </label>
-                    <input type="text"
-                           name="sms_sender_id"
-                           class="input input-bordered w-full"
-                           maxlength="11"
-                           placeholder="Max 11 characters"
-                           value="{{ school_settings.sms_sender_id|default:'' }}" />
-                    <p class="text-xs text-base-content/60 mt-1">
-                        Leave empty to use school name: <span class="font-mono">{{ derived_sender_id }}</span>
-                    </p>
+                <!-- Test SMS Section -->
+                <div class="divider text-xs text-base-content/50 my-1">Test Configuration</div>
+                <div class="flex gap-2">
+                    <input type="tel"
+                           name="test_phone"
+                           id="test-sms-phone"
+                           class="input input-bordered input-sm flex-1"
+                           placeholder="0241234567" />
+                    <button type="button"
+                            class="btn btn-sm btn-outline gap-1"
+                            hx-post="{% url 'core:settings_test_sms' %}"
+                            hx-include="[name='sms_backend'], [name='sms_api_key'], [name='sms_sender_id'], #test-sms-phone"
+                            hx-target="#test-sms-result"
+                            hx-swap="innerHTML">
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                        Test
+                    </button>
                 </div>
+                <p class="text-xs text-base-content/60 mt-1">Enter API key and phone number, then click Test</p>
+                <div id="test-sms-result" class="mt-2"></div>
             </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_sms_settings.close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
+            <div class="modal-action pt-2">
+                <button type="button" class="btn btn-sm" onclick="modal_sms_settings.close()">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
             </div>
         </form>
     </div>
@@ -505,9 +501,12 @@
 </dialog>
 
 <script>
-// Listen for closeEmailModal trigger from server (HX-Trigger header)
+// Listen for modal close triggers from server (HX-Trigger header)
 document.body.addEventListener('closeEmailModal', function() {
     modal_email_settings.close();
+});
+document.body.addEventListener('closeSmsModal', function() {
+    modal_sms_settings.close();
 });
 
 function toggleEmailFields(enabled) {
@@ -517,6 +516,32 @@ function toggleEmailFields(enabled) {
     } else {
         fields.classList.add('opacity-50', 'pointer-events-none');
     }
+}
+
+// SMS field toggle
+function toggleSmsFields(enabled) {
+    const fields = document.getElementById('sms-config-fields');
+    if (enabled) {
+        fields.classList.remove('opacity-50', 'pointer-events-none');
+    } else {
+        fields.classList.add('opacity-50', 'pointer-events-none');
+    }
+}
+
+// SMS provider help toggle
+function updateSmsProviderHelp() {
+    const select = document.getElementById('sms-backend-select');
+    const helpDiv = document.getElementById('api-key-help');
+    if (!select || !helpDiv) return;
+
+    const provider = select.value;
+    helpDiv.querySelectorAll('[data-provider]').forEach(el => {
+        if (el.tagName === 'A') {
+            el.style.display = el.dataset.provider === provider ? '' : 'none';
+        } else {
+            el.classList.toggle('hidden', el.dataset.provider !== provider);
+        }
+    });
 }
 
 // Email provider presets

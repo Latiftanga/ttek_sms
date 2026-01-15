@@ -14,8 +14,23 @@
             </button>
         </div>
 
-        {% if success %}
-        {% include "core/partials/alert.html" with type="success" message=success %}
+        {% if errors %}
+        <div id="sms-alert" class="mb-3 p-2 bg-error/10 rounded-lg border border-error/30 transition-opacity duration-500">
+            <ul class="text-xs text-error space-y-1">
+                {% for error in errors %}
+                <li class="flex items-center gap-1">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    {{ error }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <script>setTimeout(() => { const el = document.getElementById('sms-alert'); if(el) { el.style.opacity = '0'; setTimeout(() => el.remove(), 500); } }, 5000);</script>
+        {% elif success %}
+        <div id="sms-alert" class="mb-3 transition-opacity duration-500">
+            {% include "core/partials/alert.html" with type="success" message=success %}
+        </div>
+        <script>setTimeout(() => { const el = document.getElementById('sms-alert'); if(el) { el.style.opacity = '0'; setTimeout(() => el.remove(), 500); } }, 3000);</script>
         {% endif %}
 
         <div class="space-y-2 text-sm">
