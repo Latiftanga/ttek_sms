@@ -73,6 +73,33 @@ def recalculate_subject_grade(student, subject, term):
         # Get active categories ordered by display order
         categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
 
+        # Prefetch all assignments for this subject/term (single query)
+        all_assignments = list(Assignment.objects.filter(
+            subject=subject,
+            term=term
+        ).select_related('assessment_category'))
+
+        # Get all assignment IDs for score lookup
+        assignment_ids = [a.pk for a in all_assignments]
+
+        # Prefetch all scores for this student and these assignments (single query)
+        scores_by_assignment = {}
+        if assignment_ids:
+            student_scores = Score.objects.filter(
+                student=student,
+                assignment_id__in=assignment_ids
+            )
+            for score in student_scores:
+                scores_by_assignment[score.assignment_id] = score
+
+        # Group assignments by category
+        assignments_by_category = {}
+        for assignment in all_assignments:
+            cat_id = assignment.assessment_category_id
+            if cat_id not in assignments_by_category:
+                assignments_by_category[cat_id] = []
+            assignments_by_category[cat_id].append(assignment)
+
         # Calculate scores
         category_totals = {}
         category_scores_json = {}
@@ -81,25 +108,18 @@ def recalculate_subject_grade(student, subject, term):
         exam_score_total = Decimal('0.0')
 
         for category in categories:
-            assignments = Assignment.objects.filter(
-                assessment_category=category,
-                subject=subject,
-                term=term
-            )
+            category_assignments = assignments_by_category.get(category.pk, [])
 
-            if not assignments.exists():
+            if not category_assignments:
                 continue
 
             # Calculate weight per assignment
-            assignment_count = assignments.count()
+            assignment_count = len(category_assignments)
             weight_per_assignment = Decimal(str(category.percentage)) / Decimal(str(assignment_count))
             category_total = Decimal('0.0')
 
-            for assignment in assignments:
-                score = Score.objects.filter(
-                    student=student,
-                    assignment=assignment
-                ).first()
+            for assignment in category_assignments:
+                score = scores_by_assignment.get(assignment.pk)
 
                 if score and score.points is not None:
                     score_pct = Decimal(str(score.points)) / Decimal(str(assignment.points_possible))

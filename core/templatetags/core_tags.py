@@ -835,12 +835,13 @@ def checkbox_input(name, checked=False, label=None, required=False,
 @register.inclusion_tag('core/partials/inputs/toggle_input.html')
 def toggle_input(name, checked=False, label=None, required=False,
                  disabled=False, help_text='', error='', input_class='',
-                 value='true', size='sm', color='primary'):
+                 value='true', size='sm', color='primary', onchange=''):
     """
     Render a toggle switch with DaisyUI styling.
 
     Usage:
         {% toggle_input "is_active" label="Active" checked=True %}
+        {% toggle_input "is_active" label="Active" onchange="handleToggle(this.checked)" %}
     """
     return {
         'name': name,
@@ -854,6 +855,7 @@ def toggle_input(name, checked=False, label=None, required=False,
         'value': value,
         'size': size,
         'color': color,
+        'onchange': onchange,
     }
 
 

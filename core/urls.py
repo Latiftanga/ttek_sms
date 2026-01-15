@@ -7,6 +7,7 @@ urlpatterns = [
     # Dashboard
     path('', views.index, name='index'),
     path('profile/', views.profile, name='profile'),
+    path('profile/edit/', views.profile_edit, name='profile_edit'),
     path('schedule/', views.schedule, name='schedule'),
 
     # Setup Wizard

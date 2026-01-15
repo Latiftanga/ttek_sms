@@ -842,6 +842,33 @@ def profile(request):
             context
         )
 
+    # Parent/Guardian profile
+    if getattr(user, 'is_parent', False):
+        from students.models import Guardian, Student
+
+        guardian = getattr(user, 'guardian_profile', None)
+        if not guardian:
+            messages.error(request, 'No guardian profile linked to your account.')
+            return redirect('core:index')
+
+        # Get all wards (students) for this guardian
+        wards = Student.objects.filter(
+            guardians__guardian=guardian,
+            status='active'
+        ).select_related('current_class').order_by('first_name')
+
+        context = {
+            'guardian': guardian,
+            'wards': wards,
+            'ward_count': wards.count(),
+        }
+        return htmx_render(
+            request,
+            'students/guardian_profile.html',
+            'students/partials/guardian_profile_content.html',
+            context
+        )
+
     # Admin profile (placeholder)
     if user.is_superuser or getattr(user, 'is_school_admin', False):
         context = {'user': user}
@@ -853,6 +880,105 @@ def profile(request):
         )
 
     # Default - redirect to index
+    return redirect('core:index')
+
+
+@login_required
+def profile_edit(request):
+    """Edit profile based on user role."""
+    user = request.user
+
+    # Teacher profile edit
+    if getattr(user, 'is_teacher', False):
+        from teachers.models import Teacher
+
+        teacher = getattr(user, 'teacher_profile', None)
+        if not teacher:
+            messages.error(request, 'No teacher profile linked to your account.')
+            return redirect('core:profile')
+
+        if request.method == 'POST':
+            # Update editable fields
+            teacher.phone_number = request.POST.get('phone_number', '').strip()
+            teacher.address = request.POST.get('address', '').strip()
+
+            dob = request.POST.get('date_of_birth', '').strip()
+            if dob:
+                from datetime import datetime
+                try:
+                    teacher.date_of_birth = datetime.strptime(dob, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+
+            # Handle photo upload
+            if 'photo' in request.FILES:
+                teacher.photo = request.FILES['photo']
+
+            try:
+                teacher.save()
+                messages.success(request, 'Profile updated successfully.')
+                return redirect('core:profile')
+            except Exception as e:
+                messages.error(request, f'Failed to update profile: {str(e)}')
+
+        context = {'teacher': teacher}
+        return htmx_render(
+            request,
+            'teachers/profile_edit.html',
+            'teachers/partials/profile_edit_content.html',
+            context
+        )
+
+    # Parent profile edit
+    if getattr(user, 'is_parent', False):
+        from students.models import Guardian
+
+        guardian = getattr(user, 'guardian_profile', None)
+        if not guardian:
+            messages.error(request, 'No guardian profile linked to your account.')
+            return redirect('core:index')
+
+        if request.method == 'POST':
+            guardian.phone_number = request.POST.get('phone_number', '').strip()
+            guardian.address = request.POST.get('address', '').strip()
+            guardian.occupation = request.POST.get('occupation', '').strip()
+
+            try:
+                guardian.save()
+                messages.success(request, 'Profile updated successfully.')
+                return redirect('core:profile')
+            except Exception as e:
+                messages.error(request, f'Failed to update profile: {str(e)}')
+
+        context = {'guardian': guardian}
+        return htmx_render(
+            request,
+            'students/guardian_profile_edit.html',
+            'students/partials/guardian_profile_edit_content.html',
+            context
+        )
+
+    # Admin profile edit
+    if user.is_superuser or getattr(user, 'is_school_admin', False):
+        if request.method == 'POST':
+            user.first_name = request.POST.get('first_name', '').strip()
+            user.last_name = request.POST.get('last_name', '').strip()
+
+            try:
+                user.save(update_fields=['first_name', 'last_name'])
+                messages.success(request, 'Profile updated successfully.')
+                return redirect('core:profile')
+            except Exception as e:
+                messages.error(request, f'Failed to update profile: {str(e)}')
+
+        context = {'user': user}
+        return htmx_render(
+            request,
+            'core/profile_edit.html',
+            'core/partials/profile_edit_content.html',
+            context
+        )
+
     return redirect('core:index')
 
 

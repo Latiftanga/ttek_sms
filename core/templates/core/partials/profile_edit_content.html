@@ -1,0 +1,114 @@
+{% load core_tags %}
+
+<!-- Back Button -->
+<div class="mb-4">
+    <a href="{% url 'core:profile' %}"
+       hx-get="{% url 'core:profile' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm gap-2">
+        <i class="fa-solid fa-arrow-left"></i>
+        Back to Profile
+    </a>
+</div>
+
+<!-- Page Header -->
+<div class="flex items-center gap-3 mb-6">
+    <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+        <i class="fa-solid fa-user-pen text-primary"></i>
+    </div>
+    <div>
+        <h1 class="text-xl font-bold">Edit Profile</h1>
+        <p class="text-sm text-base-content/60">Update your account information</p>
+    </div>
+</div>
+
+<!-- Messages -->
+{% if messages %}
+<div class="mb-4 space-y-2">
+    {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %} alert-sm">
+        <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% elif message.tags == 'success' %}fa-circle-check{% else %}fa-circle-info{% endif %}"></i>
+        <span>{{ message }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form hx-post="{% url 'core:profile_edit' %}" hx-target="#main-content">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Account Information -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-user text-primary"></i>
+                    Account Information
+                </h2>
+
+                <div class="space-y-3">
+                    {% text_input "first_name" label="First Name" value=user.first_name placeholder="Enter first name" icon="fa-solid fa-user" %}
+
+                    {% text_input "last_name" label="Last Name" value=user.last_name placeholder="Enter last name" icon="fa-solid fa-user" %}
+
+                    <!-- Email (Read-only) -->
+                    <div class="p-3 rounded-lg bg-base-200/30">
+                        <span class="text-xs text-base-content/50 block mb-1">Email Address</span>
+                        <p class="font-medium text-sm">{{ user.email }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Security -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved text-warning"></i>
+                    Account Security
+                </h2>
+
+                <div class="flex items-center justify-between p-3 bg-base-200/30 rounded-lg">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                            <i class="fa-solid fa-key text-warning"></i>
+                        </div>
+                        <div>
+                            <p class="font-medium text-sm">Password</p>
+                            <p class="text-xs text-base-content/50">Change your login password</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'accounts:password_change' %}" class="btn btn-ghost btn-sm">
+                        Change
+                    </a>
+                </div>
+
+                <div class="mt-4 p-3 rounded-lg bg-base-200/30">
+                    <span class="text-xs text-base-content/50 block mb-1">Role</span>
+                    <span class="badge badge-primary badge-sm">{{ user.role_label }}</span>
+                </div>
+
+                <div class="mt-3 p-3 rounded-lg bg-base-200/30">
+                    <span class="text-xs text-base-content/50 block mb-1">Last Login</span>
+                    <p class="font-medium text-sm">{{ user.last_login|date:"M j, Y g:i A"|default:"Never" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-3 mt-6">
+        <a href="{% url 'core:profile' %}"
+           hx-get="{% url 'core:profile' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost">
+            Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-check mr-1"></i>
+            Save Changes
+        </button>
+    </div>
+</form>

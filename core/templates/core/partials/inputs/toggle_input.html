@@ -10,6 +10,7 @@ Toggle Input Component
            {% if checked %}checked{% endif %}
            {% if required %}required{% endif %}
            {% if disabled %}disabled{% endif %}
+           {% if onchange %}onchange="{{ onchange }}"{% endif %}
            class="toggle toggle-sm toggle-{{ color|default:'primary' }} {% if error %}toggle-error{% endif %} {{ input_class }}" />
     {% if label %}
     <span class="label-text">{{ label }}{% if required %} *{% endif %}</span>

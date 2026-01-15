@@ -197,7 +197,10 @@
                 if (data.subjects && data.subjects.length > 0) {
                     subjectSelect.innerHTML = '<option value="">Select a subject...</option>';
                     data.subjects.forEach(subject => {
-                        subjectSelect.innerHTML += `<option value="${subject.id}">${subject.name}</option>`;
+                        const option = document.createElement('option');
+                        option.value = subject.id;
+                        option.textContent = subject.name;
+                        subjectSelect.appendChild(option);
                     });
                     subjectSelect.disabled = false;
                 } else {
