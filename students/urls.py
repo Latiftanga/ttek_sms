@@ -24,9 +24,18 @@ urlpatterns = [
     # Guardian CRUD
     path('guardians/', views.guardian_index, name='guardian_index'),
     path('guardians/create/', views.guardian_create, name='guardian_create'),
+    path('guardians/<int:pk>/', views.guardian_detail, name='guardian_detail'),
     path('guardians/<int:pk>/edit/', views.guardian_edit, name='guardian_edit'),
     path('guardians/<int:pk>/delete/', views.guardian_delete, name='guardian_delete'),
     path('guardians/search/', views.guardian_search, name='guardian_search'),
+
+    # Guardian Portal Invitations
+    path('guardians/<int:pk>/send-invitation/', views.guardian_send_invitation, name='guardian_send_invitation'),
+    path('guardians/<int:pk>/resend-invitation/', views.guardian_resend_invitation, name='guardian_resend_invitation'),
+    path('guardians/<int:pk>/cancel-invitation/', views.guardian_cancel_invitation, name='guardian_cancel_invitation'),
+    path('guardians/<int:pk>/deactivate-account/', views.guardian_deactivate_account, name='guardian_deactivate_account'),
+    path('guardians/<int:pk>/activate-account/', views.guardian_activate_account, name='guardian_activate_account'),
+    path('guardians/invite/<str:token>/', views.guardian_accept_invitation, name='guardian_accept_invitation'),
 
     # Bulk import
     path('import/', views.bulk_import, name='bulk_import'),

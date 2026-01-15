@@ -1,0 +1,90 @@
+<h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+    <i class="fa-solid fa-envelope text-primary"></i>
+    Send Invitation
+</h3>
+
+{% if pending_invitation %}
+<div class="alert alert-info mb-4 py-2 text-sm">
+    <i class="fa-solid fa-clock"></i>
+    <div>
+        <p class="font-medium">Pending invitation exists</p>
+        <p class="text-xs opacity-80">Sent to {{ pending_invitation.email }} on {{ pending_invitation.created_at|date:"M d, Y" }}</p>
+    </div>
+</div>
+{% endif %}
+
+<form hx-post="{% url 'teachers:send_invitation' teacher.pk %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML"
+      class="space-y-4">
+    {% csrf_token %}
+
+    <p class="text-sm text-base-content/70">
+        Send an invitation email to <strong>{{ teacher.full_name }}</strong>.
+        They will receive a secure link to create their account and set their own password.
+    </p>
+
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text">Email Address</span>
+        </label>
+        <input type="email"
+               name="email"
+               value="{{ teacher.email }}"
+               placeholder="Enter email address"
+               class="input input-sm input-bordered w-full"
+               {% if not teacher.email %}required{% endif %}>
+        <label class="label">
+            <span class="label-text-alt text-base-content/50">
+                {% if teacher.email %}
+                Leave empty to use existing email
+                {% else %}
+                Required - no email on file
+                {% endif %}
+            </span>
+        </label>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-error py-2 text-sm">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <div class="bg-base-200/50 rounded-lg p-3 text-sm space-y-2">
+        <p class="font-medium flex items-center gap-2">
+            <i class="fa-solid fa-info-circle text-info"></i>
+            What happens next:
+        </p>
+        <ul class="text-base-content/70 space-y-1 pl-6">
+            <li class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-success text-xs mt-1"></i>
+                Teacher receives email with secure link
+            </li>
+            <li class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-success text-xs mt-1"></i>
+                They click link and choose their password
+            </li>
+            <li class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-success text-xs mt-1"></i>
+                Link expires after 72 hours
+            </li>
+        </ul>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm btn-ghost" onclick="modal_form.close()">Cancel</button>
+        {% if pending_invitation %}
+        <button type="submit" class="btn btn-sm btn-warning">
+            <i class="fa-solid fa-rotate-right"></i>
+            Resend Invitation
+        </button>
+        {% else %}
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-paper-plane"></i>
+            Send Invitation
+        </button>
+        {% endif %}
+    </div>
+</form>

@@ -18,8 +18,9 @@
 
         {% floating_field form.class_teacher "Class Teacher" size="sm" %}
 
-        {% floating_field form.programme size="sm" %}
-        <p class="text-xs text-base-content/60">Programme is only required for SHS classes</p>
+        <div id="programme-field" class="hidden">
+            {% floating_field form.programme size="sm" %}
+        </div>
         <label class="label cursor-pointer justify-start gap-3">
             <input type="checkbox" name="is_active" class="checkbox checkbox-sm checkbox-primary" {% if form.is_active.value %}checked{% endif %}>
             <span class="label-text text-sm">Active</span>
@@ -36,3 +37,24 @@
         <button type="submit" class="btn btn-sm btn-primary">{% if is_create %}Create{% else %}Save Changes{% endif %}</button>
     </div>
 </form>
+
+<script>
+(function() {
+    const levelTypeSelect = document.querySelector('[name="level_type"]');
+    const programmeField = document.getElementById('programme-field');
+
+    function toggleProgramme() {
+        if (levelTypeSelect.value === 'shs') {
+            programmeField.classList.remove('hidden');
+        } else {
+            programmeField.classList.add('hidden');
+        }
+    }
+
+    // Initial state
+    toggleProgramme();
+
+    // On change
+    levelTypeSelect.addEventListener('change', toggleProgramme);
+})();
+</script>

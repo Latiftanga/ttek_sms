@@ -15,6 +15,13 @@ urlpatterns = [
     path('<uuid:pk>/create-account/', views.create_account, name='create_account'),
     path('<uuid:pk>/deactivate-account/', views.deactivate_account, name='deactivate_account'),
     path('<uuid:pk>/reset-password/', views.reset_password, name='reset_password'),
+
+    # Invitation routes
+    path('<uuid:pk>/send-invitation/', views.send_invitation, name='send_invitation'),
+    path('<uuid:pk>/resend-invitation/', views.resend_invitation, name='resend_invitation'),
+    path('<uuid:pk>/cancel-invitation/', views.cancel_invitation, name='cancel_invitation'),
+    path('invite/<str:token>/', views.accept_invitation, name='accept_invitation'),
+
     path('import/', views.bulk_import, name='bulk_import'),
     path('import/confirm/', views.bulk_import_confirm, name='bulk_import_confirm'),
     path('import/template/', views.bulk_import_template, name='bulk_import_template'),

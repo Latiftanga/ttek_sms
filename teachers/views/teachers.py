@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from django.db.models import Q
 from django.contrib import messages
 
-from teachers.models import Teacher
+from teachers.models import Teacher, TeacherInvitation
 from teachers.forms import TeacherForm
 from academics.models import Class, ClassSubject
 from students.models import Student
@@ -151,6 +151,14 @@ def teacher_detail(request, pk):
         'homeroom_students': homeroom_students,
     }
 
+    # Get pending invitation if teacher has no account
+    pending_invitation = None
+    if not teacher.user:
+        pending_invitation = TeacherInvitation.objects.filter(
+            teacher=teacher,
+            status=TeacherInvitation.Status.PENDING
+        ).first()
+
     return htmx_render(
         request,
         'teachers/teacher_detail.html',
@@ -160,6 +168,7 @@ def teacher_detail(request, pk):
             'homeroom_classes': homeroom_classes,
             'subject_assignments': subject_assignments,
             'workload': workload,
+            'pending_invitation': pending_invitation,
         }
     )
 

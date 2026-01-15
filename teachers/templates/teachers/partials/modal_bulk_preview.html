@@ -23,7 +23,7 @@
                     <th>Staff ID</th>
                     <th>Gender</th>
                     <th>Subject</th>
-                    <th>Account</th>
+                    <th>Invite</th>
                 </tr>
             </thead>
             <tbody>
@@ -35,8 +35,10 @@
                     <td>{{ row.gender }}</td>
                     <td>{{ row.subject_specialization }}</td>
                     <td>
-                        {% if row.create_account %}
-                        <span class="badge badge-success badge-xs" title="{{ row.email }}">Yes</span>
+                        {% if row.send_invitation %}
+                        <span class="badge badge-info badge-xs" title="{{ row.email }}">
+                            <i class="fa-solid fa-envelope text-[8px]"></i>
+                        </span>
                         {% else %}
                         <span class="text-base-content/30">-</span>
                         {% endif %}

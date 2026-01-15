@@ -17,3 +17,40 @@
 }
 
 @source "../../../**/*.{html,py,js}";
+
+/* Custom scrollbar styles - hidden until hover */
+@layer base {
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  *:hover {
+    scrollbar-color: oklch(0.7 0 0 / 0.4) transparent;
+  }
+
+  /* Chrome, Edge, Safari */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+
+  *:hover::-webkit-scrollbar-thumb {
+    background: oklch(0.7 0 0 / 0.4);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.6 0 0 / 0.6);
+  }
+}

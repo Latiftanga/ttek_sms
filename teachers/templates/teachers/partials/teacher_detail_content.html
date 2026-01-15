@@ -15,18 +15,18 @@
                 <p class="text-sm text-base-content/60 font-mono">{{ teacher.staff_id }}</p>
             </div>
         </div>
-        <div class="flex gap-2 pl-11 sm:pl-0">
+        <div class="flex flex-wrap gap-2 pl-11 sm:pl-0">
             <a href="{% url 'teachers:teacher_schedule' teacher.pk %}"
                hx-get="{% url 'teachers:teacher_schedule' teacher.pk %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-square sm:btn-wide"
+               class="btn btn-ghost btn-sm"
                title="Schedule">
                 <i class="fa-solid fa-calendar-days"></i>
                 <span class="hidden sm:inline">Schedule</span>
             </a>
             <a href="{% url 'teachers:teacher_detail_pdf' teacher.pk %}"
-               class="btn btn-ghost btn-sm btn-square sm:btn-wide"
+               class="btn btn-ghost btn-sm"
                title="Download PDF">
                 <i class="fa-solid fa-file-pdf"></i>
                 <span class="hidden sm:inline">PDF</span>
@@ -364,7 +364,7 @@
                     <div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
                         <div class="flex items-center gap-3 flex-1 min-w-0">
                             <div class="avatar placeholder flex-shrink-0">
-                                <div class="bg-success/20 text-success rounded-full w-10 sm:w-12">
+                                <div class="bg-success/20 text-success rounded-full w-10 sm:w-12 flex items-center justify-center">
                                     <i class="fa-solid fa-check"></i>
                                 </div>
                             </div>
@@ -404,10 +404,10 @@
                         {% endif %}
                     </div>
                     {% else %}
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                        <div class="flex items-center gap-3 flex-1">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-3">
                             <div class="avatar placeholder flex-shrink-0">
-                                <div class="bg-warning/20 text-warning rounded-full w-10 sm:w-12">
+                                <div class="bg-warning/20 text-warning rounded-full w-10 sm:w-12 flex items-center justify-center">
                                     <i class="fa-solid fa-user-slash"></i>
                                 </div>
                             </div>
@@ -416,13 +416,55 @@
                                 <p class="text-xs text-base-content/50">Teacher cannot log in to the system</p>
                             </div>
                         </div>
-                        <button class="btn btn-sm btn-primary w-full sm:w-auto"
-                                hx-get="{% url 'teachers:create_account' teacher.pk %}"
-                                hx-target="#create-account-container"
-                                onclick="modal_create_account.showModal()">
-                            <i class="fa-solid fa-user-plus"></i>
-                            Create Account
-                        </button>
+
+                        {% if pending_invitation %}
+                        <div class="alert alert-info py-3">
+                            <i class="fa-solid fa-clock"></i>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium">Invitation pending</p>
+                                <p class="text-xs opacity-80">Sent to {{ pending_invitation.email }} on {{ pending_invitation.created_at|date:"M d, Y" }}</p>
+                                <p class="text-xs opacity-60">Expires {{ pending_invitation.expires_at|date:"M d, Y g:i A" }}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <form hx-post="{% url 'teachers:resend_invitation' teacher.pk %}"
+                                      hx-confirm="Resend invitation to {{ teacher.full_name }}?">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-xs btn-ghost">
+                                        <i class="fa-solid fa-rotate-right"></i>
+                                        Resend
+                                    </button>
+                                </form>
+                                <form hx-post="{% url 'teachers:cancel_invitation' teacher.pk %}"
+                                      hx-confirm="Cancel invitation for {{ teacher.full_name }}?">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-xs btn-ghost text-error">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <button class="btn btn-sm btn-primary flex-1 sm:flex-none"
+                                    hx-get="{% url 'teachers:send_invitation' teacher.pk %}"
+                                    hx-target="#modal-container"
+                                    onclick="modal_form.showModal()">
+                                <i class="fa-solid fa-envelope"></i>
+                                Send Invite
+                            </button>
+                            <button class="btn btn-sm btn-outline flex-1 sm:flex-none"
+                                    hx-get="{% url 'teachers:create_account' teacher.pk %}"
+                                    hx-target="#modal-container"
+                                    onclick="modal_form.showModal()">
+                                <i class="fa-solid fa-user-plus"></i>
+                                Create Instant
+                            </button>
+                        </div>
+                        <p class="text-xs text-base-content/50">
+                            <strong>Send Invite:</strong> Teacher sets their own password (recommended)<br>
+                            <strong>Create Instant:</strong> System generates temporary password
+                        </p>
                     </div>
                     {% endif %}
                 </div>
@@ -431,20 +473,16 @@
         </div>
     </div>
 
-    <!-- Create Account Modal -->
-    <dialog id="modal_create_account" class="modal modal-bottom sm:modal-middle">
-        <div class="modal-box max-w-md">
-            <form method="dialog">
-                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </form>
-            <div id="create-account-container">
-                <div class="flex justify-center py-8">
-                    <span class="loading loading-spinner loading-lg"></span>
-                </div>
+    <!-- Modal Form Container -->
+    <dialog id="modal_form" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box max-w-md" id="modal-container">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
             </div>
         </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
     </dialog>
 
     <!-- Print Footer -->

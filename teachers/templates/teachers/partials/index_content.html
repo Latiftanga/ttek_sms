@@ -75,27 +75,24 @@
         {% for teacher in teachers %}
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3">
-                <div class="flex items-start gap-3">
+                <div class="flex items-center gap-3">
                     <!-- Avatar -->
                     <div class="avatar placeholder flex-shrink-0">
-                        <div class="w-12 h-12 rounded-full bg-base-300 text-base-content">
+                        <div class="w-10 h-10 rounded-full bg-base-300 text-base-content flex items-center justify-center">
                             {% if teacher.photo %}
-                            <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="w-full h-full object-cover" />
+                            <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="w-full h-full object-cover rounded-full" />
                             {% else %}
-                            <span class="text-sm">{{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}</span>
+                            <span class="text-sm font-medium">{{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}</span>
                             {% endif %}
                         </div>
                     </div>
 
                     <!-- Info -->
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                                <h3 class="font-semibold text-sm truncate">
-                                    {{ teacher.get_title_display }} {{ teacher.full_name }}
-                                </h3>
-                                <p class="text-xs text-base-content/60 font-mono">{{ teacher.staff_id }}</p>
-                            </div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-semibold text-sm truncate">
+                                {{ teacher.get_title_display }} {{ teacher.full_name }}
+                            </h3>
                             {% if teacher.status == 'active' %}
                             <span class="badge badge-success badge-xs flex-shrink-0">Active</span>
                             {% elif teacher.status == 'inactive' %}
@@ -104,49 +101,40 @@
                             <span class="badge badge-ghost badge-xs flex-shrink-0">{{ teacher.get_status_display }}</span>
                             {% endif %}
                         </div>
-
-                        <!-- Details -->
-                        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-base-content/70">
-                            <span class="flex items-center gap-1">
-                                <i class="fa-solid fa-book-open w-3"></i>
-                                {{ teacher.subject_specialization }}
-                            </span>
+                        <div class="flex flex-wrap gap-x-3 text-xs text-base-content/60">
+                            <span class="font-mono">{{ teacher.staff_id }}</span>
+                            <span>{{ teacher.subject_specialization }}</span>
                             {% if teacher.phone_number %}
-                            <span class="flex items-center gap-1">
-                                <i class="fa-solid fa-phone w-3"></i>
-                                {{ teacher.phone_number }}
-                            </span>
+                            <span class="hidden sm:inline">{{ teacher.phone_number }}</span>
                             {% endif %}
                         </div>
+                    </div>
 
-                        <!-- Actions -->
-                        <div class="mt-3 flex gap-2">
-                            <a href="{% url 'teachers:teacher_detail' teacher.pk %}"
-                               hx-get="{% url 'teachers:teacher_detail' teacher.pk %}"
-                               hx-target="#main-content"
-                               hx-push-url="true"
-                               class="btn btn-ghost btn-xs flex-1">
-                                <i class="fa-solid fa-eye"></i>
-                                View
-                            </a>
-                            <a href="{% url 'teachers:teacher_edit' teacher.pk %}"
-                               hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
-                               hx-target="#main-content"
-                               hx-push-url="true"
-                               class="btn btn-ghost btn-xs flex-1">
-                                <i class="fa-solid fa-pen"></i>
-                                Edit
-                            </a>
-                            <form hx-post="{% url 'teachers:teacher_delete' teacher.pk %}"
-                                  hx-confirm="Delete {{ teacher.full_name }}?"
-                                  class="flex-1">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-ghost btn-xs text-error w-full">
-                                    <i class="fa-solid fa-trash"></i>
-                                    Delete
-                                </button>
-                            </form>
-                        </div>
+                    <!-- Actions - Right aligned -->
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <a href="{% url 'teachers:teacher_detail' teacher.pk %}"
+                           hx-get="{% url 'teachers:teacher_detail' teacher.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-xs btn-square"
+                           title="View">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                        <a href="{% url 'teachers:teacher_edit' teacher.pk %}"
+                           hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-xs btn-square"
+                           title="Edit">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                        <form hx-post="{% url 'teachers:teacher_delete' teacher.pk %}"
+                              hx-confirm="Delete {{ teacher.full_name }}?">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Delete">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>

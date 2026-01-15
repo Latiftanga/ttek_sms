@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 @admin_required
 def guardian_index(request):
     """Guardian list page with search."""
-    # Annotate ward_count to avoid N+1 queries in template
-    guardians = Guardian.objects.annotate(
+    # Annotate ward_count and select user to avoid N+1 queries in template
+    guardians = Guardian.objects.select_related('user').annotate(
         ward_count=Count('wards', filter=Q(wards__status='active'))
     )
 

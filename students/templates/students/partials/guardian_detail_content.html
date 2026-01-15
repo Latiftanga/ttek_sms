@@ -1,0 +1,317 @@
+{% load core_tags %}
+<div>
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+            <a href="{% url 'students:guardian_index' %}"
+               hx-get="{% url 'students:guardian_index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle flex-shrink-0">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div class="min-w-0">
+                <h1 class="text-lg sm:text-xl font-bold truncate">{{ guardian.full_name }}</h1>
+                <p class="text-sm text-base-content/60">{{ guardian.phone_number }}</p>
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-2 pl-11 sm:pl-0">
+            <a href="{% url 'students:guardian_edit' guardian.pk %}"
+               hx-get="{% url 'students:guardian_edit' guardian.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-primary btn-sm"
+               title="Edit">
+                <i class="fa-solid fa-pen"></i>
+                <span class="hidden sm:inline">Edit</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left Column: Contact & Account -->
+        <div class="lg:col-span-1 space-y-4">
+            <!-- Contact Info Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-5 items-center text-center">
+                    <div class="avatar placeholder mb-4">
+                        <div class="w-24 h-24 rounded-full bg-success/20 text-success flex items-center justify-center">
+                            <i class="fa-solid fa-user-shield text-4xl"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-lg font-bold">{{ guardian.full_name }}</h2>
+                    <p class="text-sm text-base-content/60">{{ guardian.occupation|default:"Guardian" }}</p>
+
+                    <div class="mt-4 w-full space-y-2 text-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <i class="fa-solid fa-phone text-primary text-xs"></i>
+                            </div>
+                            <span>{{ guardian.phone_number }}</span>
+                        </div>
+                        {% if guardian.email %}
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                                <i class="fa-solid fa-envelope text-info text-xs"></i>
+                            </div>
+                            <span class="truncate">{{ guardian.email }}</span>
+                        </div>
+                        {% endif %}
+                        {% if guardian.address %}
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                                <i class="fa-solid fa-location-dot text-secondary text-xs"></i>
+                            </div>
+                            <span class="text-left">{{ guardian.address }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Account Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-user-shield text-success"></i>
+                        Portal Account
+                    </h3>
+
+                    {% if guardian.user %}
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="avatar placeholder flex-shrink-0">
+                            <div class="bg-success/20 text-success rounded-full w-10 flex items-center justify-center">
+                                <i class="fa-solid fa-check"></i>
+                            </div>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="font-medium truncate">{{ guardian.user.email }}</p>
+                            <p class="text-xs {% if guardian.user.is_active %}text-success{% else %}text-error{% endif %}">
+                                {% if guardian.user.is_active %}
+                                <i class="fa-solid fa-circle-check"></i> Active
+                                {% else %}
+                                <i class="fa-solid fa-circle-xmark"></i> Deactivated
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        {% if guardian.user.is_active %}
+                        <form hx-post="{% url 'students:guardian_deactivate_account' guardian.pk %}"
+                              hx-confirm="Deactivate account for {{ guardian.full_name }}? They will no longer be able to log in.">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline btn-error w-full">
+                                <i class="fa-solid fa-user-slash"></i>
+                                Deactivate Account
+                            </button>
+                        </form>
+                        {% else %}
+                        <form hx-post="{% url 'students:guardian_activate_account' guardian.pk %}"
+                              hx-confirm="Reactivate account for {{ guardian.full_name }}?">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-success w-full">
+                                <i class="fa-solid fa-user-check"></i>
+                                Reactivate Account
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3">
+                            <div class="avatar placeholder flex-shrink-0">
+                                <div class="bg-warning/20 text-warning rounded-full w-10 flex items-center justify-center">
+                                    <i class="fa-solid fa-user-slash"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="font-medium text-base-content/70">No account</p>
+                                <p class="text-xs text-base-content/50">Cannot access the guardian portal</p>
+                            </div>
+                        </div>
+
+                        {% if pending_invitation %}
+                        <div class="alert alert-info py-3">
+                            <i class="fa-solid fa-clock"></i>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium">Invitation pending</p>
+                                <p class="text-xs opacity-80">Sent to {{ pending_invitation.email }}</p>
+                                <p class="text-xs opacity-60">Expires {{ pending_invitation.expires_at|date:"M d, Y g:i A" }}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <form hx-post="{% url 'students:guardian_resend_invitation' guardian.pk %}"
+                                  hx-confirm="Resend invitation to {{ guardian.full_name }}?"
+                                  class="flex-1">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-xs btn-ghost w-full">
+                                    <i class="fa-solid fa-rotate-right"></i>
+                                    Resend
+                                </button>
+                            </form>
+                            <form hx-post="{% url 'students:guardian_cancel_invitation' guardian.pk %}"
+                                  hx-confirm="Cancel invitation for {{ guardian.full_name }}?"
+                                  class="flex-1">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-xs btn-ghost text-error w-full">
+                                    <i class="fa-solid fa-xmark"></i>
+                                    Cancel
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <button class="btn btn-sm btn-success w-full"
+                                hx-get="{% url 'students:guardian_send_invitation' guardian.pk %}"
+                                hx-target="#modal-container"
+                                onclick="modal_form.showModal()">
+                            <i class="fa-solid fa-envelope"></i>
+                            Send Portal Invite
+                        </button>
+                        <p class="text-xs text-base-content/50 text-center">
+                            Guardian will set their own password
+                        </p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- System Info -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm mb-3">System</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between text-xs text-base-content/50">
+                            <span>Created</span>
+                            <span>{{ guardian.created_at|date:"M j, Y" }}</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-base-content/50">
+                            <span>Updated</span>
+                            <span>{{ guardian.updated_at|date:"M j, Y" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="card bg-error/5 border border-error/20">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm text-error mb-2">Danger Zone</h3>
+                    <p class="text-xs text-base-content/60 mb-3">Remove this guardian from the system.</p>
+                    <form hx-post="{% url 'students:guardian_delete' guardian.pk %}"
+                          hx-confirm="Delete {{ guardian.full_name }}? This action cannot be undone.">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-error btn-sm btn-outline w-full">
+                            <i class="fa-solid fa-trash"></i>
+                            Delete Guardian
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Wards -->
+        <div class="lg:col-span-2 space-y-4">
+
+            <!-- Wards Section -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-children text-success"></i>
+                        Wards
+                        {% if wards %}
+                        <span class="badge badge-sm badge-ghost">{{ wards|length }}</span>
+                        {% endif %}
+                    </h2>
+
+                    {% if wards %}
+                    <div class="space-y-3">
+                        {% for sg in wards %}
+                        <div class="flex items-center gap-3 p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors">
+                            <!-- Student Avatar -->
+                            <div class="avatar placeholder flex-shrink-0">
+                                <div class="w-12 h-12 rounded-full bg-base-300 text-base-content flex items-center justify-center">
+                                    {% if sg.student.photo %}
+                                    <img src="{{ sg.student.photo.url }}" alt="{{ sg.student.full_name }}" class="w-full h-full object-cover rounded-full" />
+                                    {% else %}
+                                    <span class="text-sm font-medium">{{ sg.student.first_name|slice:":1" }}{{ sg.student.last_name|slice:":1" }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Student Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-medium text-sm truncate">{{ sg.student.full_name }}</h3>
+                                    {% if sg.is_primary %}
+                                    <span class="badge badge-success badge-xs">Primary</span>
+                                    {% endif %}
+                                </div>
+                                <div class="flex flex-wrap gap-x-3 text-xs text-base-content/60">
+                                    <span>{{ sg.get_relationship_display }}</span>
+                                    {% if sg.student.current_class %}
+                                    <span>{{ sg.student.current_class.name }}</span>
+                                    {% endif %}
+                                    <span class="font-mono">{{ sg.student.admission_number }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                <a href="{% url 'students:student_detail' sg.student.pk %}"
+                                   hx-get="{% url 'students:student_detail' sg.student.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-ghost btn-xs btn-square"
+                                   title="View Student">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-base-content/40">
+                        <i class="fa-solid fa-children text-4xl mb-3"></i>
+                        <p class="text-sm">No wards assigned</p>
+                        <p class="text-xs mt-1">Add students to assign this guardian</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Portal Access Info -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-5">
+                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                        <i class="fa-solid fa-info-circle text-info"></i>
+                        Guardian Portal Access
+                    </h2>
+                    <div class="prose prose-sm max-w-none text-base-content/70">
+                        <p>Once the guardian creates their account, they will be able to:</p>
+                        <ul class="mt-2 space-y-1">
+                            <li><i class="fa-solid fa-check text-success mr-2"></i>View their ward's academic progress and grades</li>
+                            <li><i class="fa-solid fa-check text-success mr-2"></i>Check attendance records</li>
+                            <li><i class="fa-solid fa-check text-success mr-2"></i>View fee statements and payment history</li>
+                            <li><i class="fa-solid fa-check text-success mr-2"></i>Receive important school notifications</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal Form Container -->
+    <dialog id="modal_form" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box max-w-md" id="modal-container">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+</div>
