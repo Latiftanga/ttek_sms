@@ -241,11 +241,29 @@ class User(AbstractUser):
         Get the associated profile (Teacher or Student) for this user.
         Returns None if no profile is linked.
         """
-        if self.is_teacher and hasattr(self, 'teacher_profile'):
+        from django.core.exceptions import ObjectDoesNotExist
+        # Try teacher profile first (school admins may also have teacher profiles)
+        try:
             return self.teacher_profile
-        if self.is_student and hasattr(self, 'student_profile'):
+        except ObjectDoesNotExist:
+            pass
+        # Try student profile
+        try:
             return self.student_profile
+        except ObjectDoesNotExist:
+            pass
         return None
+
+    @property
+    def display_name(self):
+        """
+        Get a display name for the user.
+        Returns first_name from profile if available, otherwise email.
+        """
+        profile = self.get_profile()
+        if profile and profile.first_name:
+            return profile.first_name
+        return self.email
     
     def save(self, *args, **kwargs):
         """
