@@ -57,6 +57,28 @@
                     <label class="label"><span class="label-text-alt">Your public API key (if applicable)</span></label>
                 </div>
 
+                <!-- Test Credentials Section -->
+                <div class="md:col-span-2">
+                    <div class="bg-base-200/50 rounded-lg p-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-vial text-info"></i>
+                                <span class="font-medium text-sm">Test Credentials</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline gap-1"
+                                    hx-post="{% url 'finance:gateway_test_credentials' pk=gateway.pk %}"
+                                    hx-include="[name='secret_key'], [name='public_key'], [name='is_test_mode']"
+                                    hx-target="#test-gateway-result"
+                                    hx-swap="innerHTML">
+                                <i class="fa-solid fa-check-circle text-xs"></i>
+                                Verify Now
+                            </button>
+                        </div>
+                        <p class="text-xs text-base-content/60 mt-1">Test your API credentials before saving</p>
+                        <div id="test-gateway-result" class="mt-3"></div>
+                    </div>
+                </div>
+
                 <div class="form-control">
                     <label class="label"><span class="label-text font-medium">Webhook Secret</span></label>
                     {{ form.webhook_secret }}

@@ -53,6 +53,7 @@ urlpatterns = [
     path('settings/', views.gateway_settings, name='gateway_settings'),
     path('settings/gateway/<int:pk>/configure/', views.gateway_configure, name='gateway_configure'),
     path('settings/gateway/<int:pk>/verify/', views.gateway_verify, name='gateway_verify'),
+    path('settings/gateway/<int:pk>/test/', views.gateway_test_credentials, name='gateway_test_credentials'),
 
     # API endpoints for AJAX/HTMX
     path('api/student/<uuid:student_id>/balance/', views.api_student_balance, name='api_student_balance'),

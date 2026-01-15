@@ -1202,6 +1202,91 @@ def gateway_verify(request, pk):
     return redirect('finance:gateway_settings')
 
 
+@admin_required
+def gateway_test_credentials(request, pk):
+    """Test gateway credentials using form values (without saving)."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    gateway = get_object_or_404(PaymentGateway, pk=pk)
+
+    # Auto-dismiss script for test results
+    auto_dismiss = '''<script>(() => {
+        const el = document.getElementById("test-gateway-result");
+        if(el) {
+            el.style.opacity = "1";
+            el.style.transition = "none";
+            setTimeout(() => {
+                el.style.transition = "opacity 0.5s";
+                el.style.opacity = "0";
+                setTimeout(() => el.innerHTML = "", 500);
+            }, 5000);
+        }
+    })();</script>'''
+
+    # Get credentials from form
+    secret_key = request.POST.get('secret_key', '').strip()
+    public_key = request.POST.get('public_key', '').strip()
+
+    if not secret_key:
+        return HttpResponse(
+            f'<div class="alert alert-error text-sm"><i class="fa-solid fa-times-circle"></i> '
+            f'Secret key is required.</div>{auto_dismiss}'
+        )
+
+    # Create a mock config object to test with
+    from .models import PaymentGatewayConfig
+
+    # Get or create a temporary config
+    config, _ = PaymentGatewayConfig.objects.get_or_create(
+        gateway=gateway,
+        defaults={'configured_by': request.user}
+    )
+
+    # Temporarily set credentials for testing
+    old_secret = config.secret_key
+    old_public = config.public_key
+    old_is_test = config.is_test_mode
+
+    config.secret_key = secret_key
+    config.public_key = public_key
+    config.is_test_mode = request.POST.get('is_test_mode') == 'on'
+
+    # Test the credentials
+    from .gateways import get_gateway_adapter
+
+    try:
+        adapter = get_gateway_adapter(config)
+        is_valid, message = adapter.verify_credentials()
+
+        if is_valid:
+            # Restore original values (don't save test values)
+            config.secret_key = old_secret
+            config.public_key = old_public
+            config.is_test_mode = old_is_test
+            return HttpResponse(
+                f'<div class="alert alert-success text-sm"><i class="fa-solid fa-check-circle"></i> '
+                f'Credentials verified successfully! You can now save the configuration.</div>{auto_dismiss}'
+            )
+        else:
+            config.secret_key = old_secret
+            config.public_key = old_public
+            config.is_test_mode = old_is_test
+            return HttpResponse(
+                f'<div class="alert alert-error text-sm"><i class="fa-solid fa-times-circle"></i> '
+                f'Verification failed: {message}</div>{auto_dismiss}'
+            )
+
+    except Exception as e:
+        config.secret_key = old_secret
+        config.public_key = old_public
+        config.is_test_mode = old_is_test
+        return HttpResponse(
+            f'<div class="alert alert-error text-sm"><i class="fa-solid fa-times-circle"></i> '
+            f'Error: {str(e)}</div>{auto_dismiss}'
+        )
+
+
 # =============================================================================
 # API ENDPOINTS
 # =============================================================================
