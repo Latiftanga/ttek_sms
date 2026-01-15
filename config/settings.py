@@ -4,6 +4,27 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# --- SENTRY ERROR TRACKING ---
+SENTRY_DSN = os.getenv('SENTRY_DSN', '')
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            RedisIntegration(),
+        ],
+        traces_sample_rate=float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.1')),
+        profiles_sample_rate=float(os.getenv('SENTRY_PROFILES_SAMPLE_RATE', '0.1')),
+        environment=os.getenv('ENVIRONMENT', 'production'),
+        send_default_pii=False,  # Don't send personally identifiable information
+    )
+
 # Security
 DEBUG = os.getenv('DEBUG', '0') == '1'
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -63,6 +84,7 @@ SHARED_APPS = (
     'tailwind',
     'theme',
     'storages',  # django-storages for handling file storage
+    'axes',  # Rate limiting for login attempts
 )
 
 TENANT_APPS = (
@@ -102,6 +124,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'axes.middleware.AxesMiddleware',  # Rate limiting for login - must be after AuthenticationMiddleware
     'accounts.middleware.ForcePasswordChangeMiddleware',
     'accounts.middleware.ProfileSetupMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -328,7 +351,11 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {message}',
             'style': '{',
         },
     },
@@ -348,6 +375,21 @@ LOGGING = {
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
             'propagate': False,
         },
+        'django.security': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'axes': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         'celery': {
             'handlers': ['console'],
             'level': 'INFO',
@@ -363,6 +405,32 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
+
+# Password reset token expiry (1 hour - more secure for school systems)
+PASSWORD_RESET_TIMEOUT = 3600
+
+# Authentication backends (axes must be first for rate limiting to work)
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# --- 11.1 RATE LIMITING (django-axes) ---
+# Protects against brute-force login attacks
+AXES_FAILURE_LIMIT = 5  # Lock after 5 failed attempts
+AXES_COOLOFF_TIME = 0.25  # Lock for 15 minutes (0.25 hours)
+AXES_LOCK_OUT_AT_FAILURE = True
+AXES_RESET_ON_SUCCESS = True  # Reset failure count on successful login
+AXES_LOCKOUT_CALLABLE = 'accounts.views.axes_lockout_response'  # Custom lockout response
+AXES_IPWARE_META_PRECEDENCE_ORDER = (  # Check these headers for IP (in order)
+    'HTTP_X_FORWARDED_FOR',
+    'HTTP_X_REAL_IP',
+    'REMOTE_ADDR',
+)
+# Use combination of IP and username for lockout (prevents username enumeration)
+AXES_LOCKOUT_PARAMETERS = ['ip_address', 'username']
+# Don't log sensitive credentials
+AXES_SENSITIVE_PARAMETERS = ['password', 'token', 'secret']
 
 # --- 12. INTERNATIONALIZATION ---
 LANGUAGE_CODE = 'en-us'

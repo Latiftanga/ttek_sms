@@ -56,9 +56,13 @@
                             <i class="fa-solid fa-calendar-days"></i>
                             View Schedule
                         </a>
-                        <a href="{% url 'accounts:password_change' %}" class="btn btn-outline btn-sm">
-                            <i class="fa-solid fa-key"></i>
-                            Change Password
+                        <a href="{% url 'core:profile_edit' %}"
+                           hx-get="{% url 'core:profile_edit' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            Edit Profile
                         </a>
                     </div>
                 </div>

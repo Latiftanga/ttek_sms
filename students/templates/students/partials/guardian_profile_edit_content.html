@@ -1,0 +1,127 @@
+{% load core_tags %}
+
+<!-- Back Button -->
+<div class="mb-4">
+    <a href="{% url 'core:profile' %}"
+       hx-get="{% url 'core:profile' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm gap-2">
+        <i class="fa-solid fa-arrow-left"></i>
+        Back to Profile
+    </a>
+</div>
+
+<!-- Page Header -->
+<div class="flex items-center gap-3 mb-6">
+    <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+        <i class="fa-solid fa-user-pen text-primary"></i>
+    </div>
+    <div>
+        <h1 class="text-xl font-bold">Edit Profile</h1>
+        <p class="text-sm text-base-content/60">Update your personal information</p>
+    </div>
+</div>
+
+<!-- Messages -->
+{% if messages %}
+<div class="mb-4 space-y-2">
+    {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %} alert-sm">
+        <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% elif message.tags == 'success' %}fa-circle-check{% else %}fa-circle-info{% endif %}"></i>
+        <span>{{ message }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form hx-post="{% url 'core:profile_edit' %}" hx-target="#main-content">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Personal Information (Read-only) -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-id-card text-secondary"></i>
+                    Personal Information
+                    <span class="badge badge-ghost badge-xs">Read-only</span>
+                </h2>
+
+                <div class="space-y-3">
+                    <div class="p-3 rounded-lg bg-base-200/30">
+                        <span class="text-xs text-base-content/50 block mb-1">Full Name</span>
+                        <p class="font-medium text-sm">{{ guardian.full_name }}</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-base-200/30">
+                        <span class="text-xs text-base-content/50 block mb-1">Email</span>
+                        <p class="font-medium text-sm">{{ guardian.email|default:request.user.email }}</p>
+                    </div>
+                </div>
+
+                <p class="text-xs text-base-content/50 mt-3">
+                    <i class="fa-solid fa-circle-info mr-1"></i>
+                    Contact the school to update your name or email.
+                </p>
+            </div>
+        </div>
+
+        <!-- Account Security -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved text-warning"></i>
+                    Account Security
+                </h2>
+
+                <div class="flex items-center justify-between p-3 bg-base-200/30 rounded-lg">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                            <i class="fa-solid fa-key text-warning"></i>
+                        </div>
+                        <div>
+                            <p class="font-medium text-sm">Password</p>
+                            <p class="text-xs text-base-content/50">Change your login password</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'accounts:password_change' %}" class="btn btn-ghost btn-sm">
+                        Change
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editable Information -->
+        <div class="card bg-base-100 shadow-sm border border-base-200 lg:col-span-2">
+            <div class="card-body p-4">
+                <h2 class="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-pen text-primary"></i>
+                    Contact Details
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {% text_input "phone_number" label="Phone Number" value=guardian.phone_number placeholder="e.g., 0244123456" icon="fa-solid fa-phone" %}
+
+                    {% text_input "occupation" label="Occupation" value=guardian.occupation placeholder="e.g., Engineer, Teacher" icon="fa-solid fa-briefcase" %}
+                </div>
+
+                {% textarea_input "address" label="Address" value=guardian.address placeholder="Enter your residential address" icon="fa-solid fa-location-dot" rows=2 %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-3 mt-6">
+        <a href="{% url 'core:profile' %}"
+           hx-get="{% url 'core:profile' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost">
+            Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-check mr-1"></i>
+            Save Changes
+        </button>
+    </div>
+</form>

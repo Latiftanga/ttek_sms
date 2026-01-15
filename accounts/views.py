@@ -3,8 +3,23 @@ from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy, reverse
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, HttpResponse
 from .forms import LoginForm
+
+
+def axes_lockout_response(request, credentials, *args, **kwargs):
+    """
+    Custom lockout response for django-axes.
+    Returns a user-friendly error page when account is locked.
+    """
+    return render(
+        request,
+        'accounts/lockout.html',
+        {
+            'cooloff_time': 15,  # minutes - matches AXES_COOLOFF_TIME (0.25 hours)
+        },
+        status=403
+    )
 
 
 # Profile setup wizard steps for different user types

@@ -15,6 +15,14 @@
             <p class="text-sm text-base-content/60">{{ user.role_label }}</p>
         </div>
     </div>
+    <a href="{% url 'core:profile_edit' %}"
+       hx-get="{% url 'core:profile_edit' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-pen-to-square"></i>
+        Edit Profile
+    </a>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

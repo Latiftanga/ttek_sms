@@ -1,0 +1,234 @@
+{% load core_tags %}
+
+<!-- Back Button -->
+<div class="mb-4">
+    <a href="{% url 'core:index' %}"
+       hx-get="{% url 'core:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm gap-2">
+        <i class="fa-solid fa-arrow-left"></i>
+        Back to Dashboard
+    </a>
+</div>
+
+<!-- Profile Header -->
+<div class="card bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/10 mb-6">
+    <div class="card-body p-6">
+        <div class="flex flex-col md:flex-row md:items-center gap-6">
+            <!-- Avatar -->
+            <div class="avatar placeholder">
+                <div class="w-24 h-24 rounded-full bg-primary text-primary-content ring-4 ring-primary/20 ring-offset-base-100 ring-offset-2">
+                    <span class="text-3xl font-bold">
+                        {{ guardian.full_name|slice:":1"|upper }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Info -->
+            <div class="flex-1">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold">{{ guardian.full_name }}</h1>
+                        <p class="text-base-content/60">{{ guardian.occupation|default:"Parent/Guardian" }}</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge badge-primary badge-sm gap-1">
+                                <i class="fa-solid fa-user-group text-xs"></i>
+                                {{ ward_count }} Ward{{ ward_count|pluralize }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <a href="{% url 'core:profile_edit' %}"
+                           hx-get="{% url 'core:profile_edit' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            Edit Profile
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column -->
+    <div class="lg:col-span-2 space-y-6">
+
+        <!-- Contact Information -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center gap-2 p-4 border-b border-base-200">
+                    <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <i class="fa-solid fa-address-book text-primary"></i>
+                    </div>
+                    <h2 class="font-bold">Contact Information</h2>
+                </div>
+
+                <div class="p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center gap-3 p-3 rounded-lg bg-base-200/30">
+                            <div class="w-10 h-10 rounded-full bg-base-100 flex items-center justify-center">
+                                <i class="fa-solid fa-envelope text-base-content/50"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs text-base-content/50 block">Email</span>
+                                <p class="font-medium text-sm">{{ guardian.email|default:request.user.email|default:"Not set" }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 rounded-lg bg-base-200/30">
+                            <div class="w-10 h-10 rounded-full bg-base-100 flex items-center justify-center">
+                                <i class="fa-solid fa-phone text-base-content/50"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs text-base-content/50 block">Phone</span>
+                                <p class="font-medium text-sm">{{ guardian.phone_number|default:"Not set" }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 rounded-lg bg-base-200/30 md:col-span-2">
+                            <div class="w-10 h-10 rounded-full bg-base-100 flex items-center justify-center">
+                                <i class="fa-solid fa-location-dot text-base-content/50"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs text-base-content/50 block">Address</span>
+                                <p class="font-medium text-sm">{{ guardian.address|default:"Not set" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Wards -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                            <i class="fa-solid fa-children text-accent"></i>
+                        </div>
+                        <h2 class="font-bold">My Wards</h2>
+                    </div>
+                    {% if wards %}
+                    <span class="badge badge-ghost">{{ ward_count }} student{{ ward_count|pluralize }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="p-4">
+                    {% if wards %}
+                    <div class="space-y-2">
+                        {% for ward in wards %}
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-base-200/30 hover:bg-base-200/50 transition-colors">
+                            <div class="flex items-center gap-3">
+                                <div class="avatar placeholder">
+                                    <div class="w-10 h-10 rounded-full bg-primary/10 text-primary">
+                                        {% if ward.photo %}
+                                        <img src="{{ ward.photo.url }}" alt="{{ ward.full_name }}" />
+                                        {% else %}
+                                        <span class="text-sm font-bold">{{ ward.first_name|slice:":1" }}{{ ward.last_name|slice:":1" }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">{{ ward.full_name }}</p>
+                                    <p class="text-xs text-base-content/50">{{ ward.current_class.name|default:"No class" }}</p>
+                                </div>
+                            </div>
+                            <a href="{% url 'core:ward_detail' ward.pk %}"
+                               hx-get="{% url 'core:ward_detail' ward.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-ghost btn-xs">
+                                <i class="fa-solid fa-eye"></i>
+                                View
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+                            <i class="fa-solid fa-children text-base-content/30 text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-base-content/70">No Wards</h3>
+                        <p class="text-sm text-base-content/50">No students linked to your account.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column -->
+    <div class="space-y-6">
+
+        <!-- Quick Actions -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center gap-2 p-4 border-b border-base-200">
+                    <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                        <i class="fa-solid fa-bolt text-info"></i>
+                    </div>
+                    <h2 class="font-bold">Quick Actions</h2>
+                </div>
+
+                <div class="p-4 space-y-2">
+                    <a href="{% url 'core:my_wards' %}"
+                       hx-get="{% url 'core:my_wards' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm btn-block justify-start">
+                        <i class="fa-solid fa-children text-accent"></i>
+                        View All Wards
+                    </a>
+                    <a href="{% url 'core:fee_payments' %}"
+                       hx-get="{% url 'core:fee_payments' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm btn-block justify-start">
+                        <i class="fa-solid fa-receipt text-success"></i>
+                        Fee Payments
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Security -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center gap-2 p-4 border-b border-base-200">
+                    <div class="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                        <i class="fa-solid fa-user-shield text-warning"></i>
+                    </div>
+                    <h2 class="font-bold">Account</h2>
+                </div>
+
+                <div class="p-4">
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-success/5 border border-success/10">
+                        <div class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                            <i class="fa-solid fa-check text-success"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-sm truncate">{{ request.user.email }}</p>
+                            <p class="text-xs text-success">
+                                <i class="fa-solid fa-circle-check mr-1"></i>
+                                Active Account
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-2">
+                        <a href="{% url 'accounts:password_change' %}" class="btn btn-ghost btn-sm btn-block justify-start">
+                            <i class="fa-solid fa-key"></i>
+                            Change Password
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

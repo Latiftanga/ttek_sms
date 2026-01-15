@@ -132,17 +132,6 @@
                         <i class="fa-regular fa-user mr-2"></i> My Profile
                     </a>
                 </li>
-                {% if user.is_superuser or user.is_school_admin %}
-                <li>
-                    <a href="{% url 'core:settings' %}"
-                       hx-get="{% url 'core:settings' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="py-2 text-sm">
-                        <i class="fa-solid fa-sliders mr-2"></i> Settings
-                    </a>
-                </li>
-                {% endif %}
                 <div class="divider my-1"></div>
                 <li>
                     <button hx-post="{% url 'accounts:logout' %}" 

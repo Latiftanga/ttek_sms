@@ -272,12 +272,7 @@
             {% csrf_token %}
             <div class="space-y-3">
                 <!-- Enable Toggle -->
-                {% toggle_input "sms_enabled" checked=school_settings.sms_enabled label="Enable SMS Messaging" help_text="When disabled, no SMS will be sent" %}
-                <script>
-                    document.querySelector('[name="sms_enabled"]').addEventListener('change', function() {
-                        toggleSmsFields(this.checked);
-                    });
-                </script>
+                {% toggle_input "sms_enabled" checked=school_settings.sms_enabled label="Enable SMS Messaging" help_text="When disabled, no SMS will be sent" onchange="toggleSmsFields(this.checked)" %}
 
                 <div id="sms-config-fields" class="space-y-3 {% if not school_settings.sms_enabled %}opacity-50 pointer-events-none{% endif %}">
                     <!-- Provider Selection -->
@@ -387,12 +382,7 @@
             {% csrf_token %}
             <div class="space-y-3">
                 <!-- Enable Toggle -->
-                {% toggle_input "email_enabled" checked=school_settings.email_enabled label="Enable Custom Email" help_text="When disabled, emails won't be sent" %}
-                <script>
-                    document.querySelector('[name="email_enabled"]').addEventListener('change', function() {
-                        toggleEmailFields(this.checked);
-                    });
-                </script>
+                {% toggle_input "email_enabled" checked=school_settings.email_enabled label="Enable Custom Email" help_text="When disabled, emails won't be sent" onchange="toggleEmailFields(this.checked)" %}
 
                 <div id="email-config-fields" class="space-y-3 {% if not school_settings.email_enabled %}opacity-50 pointer-events-none{% endif %}">
                     <!-- Quick Setup -->
@@ -501,70 +491,80 @@
 </dialog>
 
 <script>
-// Listen for modal close triggers from server (HX-Trigger header)
-document.body.addEventListener('closeEmailModal', function() {
-    modal_email_settings.close();
-});
-document.body.addEventListener('closeSmsModal', function() {
-    modal_sms_settings.close();
-});
-document.body.addEventListener('closePaymentModal', function() {
-    modal_payment_settings.close();
-});
+(function() {
+    // Listen for modal close triggers from server (HX-Trigger header)
+    document.body.addEventListener('closeEmailModal', function() {
+        if (typeof modal_email_settings !== 'undefined') modal_email_settings.close();
+    }, { once: true });
+    document.body.addEventListener('closeSmsModal', function() {
+        if (typeof modal_sms_settings !== 'undefined') modal_sms_settings.close();
+    }, { once: true });
+    document.body.addEventListener('closePaymentModal', function() {
+        if (typeof modal_payment_settings !== 'undefined') modal_payment_settings.close();
+    }, { once: true });
 
-function toggleEmailFields(enabled) {
-    const fields = document.getElementById('email-config-fields');
-    if (enabled) {
-        fields.classList.remove('opacity-50', 'pointer-events-none');
-    } else {
-        fields.classList.add('opacity-50', 'pointer-events-none');
-    }
-}
+    // Email provider presets
+    var emailPresets = {
+        gmail: { host: 'smtp.gmail.com', port: 587, tls: true, ssl: false },
+        outlook: { host: 'smtp.office365.com', port: 587, tls: true, ssl: false },
+        yahoo: { host: 'smtp.mail.yahoo.com', port: 587, tls: true, ssl: false },
+        zoho: { host: 'smtp.zoho.com', port: 587, tls: true, ssl: false },
+        custom: { host: '', port: 587, tls: true, ssl: false }
+    };
 
-// SMS field toggle
-function toggleSmsFields(enabled) {
-    const fields = document.getElementById('sms-config-fields');
-    if (enabled) {
-        fields.classList.remove('opacity-50', 'pointer-events-none');
-    } else {
-        fields.classList.add('opacity-50', 'pointer-events-none');
-    }
-}
-
-// SMS provider help toggle
-function updateSmsProviderHelp() {
-    const select = document.getElementById('sms-backend-select');
-    const helpDiv = document.getElementById('api-key-help');
-    if (!select || !helpDiv) return;
-
-    const provider = select.value;
-    helpDiv.querySelectorAll('[data-provider]').forEach(el => {
-        if (el.tagName === 'A') {
-            el.style.display = el.dataset.provider === provider ? '' : 'none';
-        } else {
-            el.classList.toggle('hidden', el.dataset.provider !== provider);
+    // Expose functions globally
+    window.toggleEmailFields = function(enabled) {
+        var fields = document.getElementById('email-config-fields');
+        if (fields) {
+            if (enabled) {
+                fields.classList.remove('opacity-50', 'pointer-events-none');
+            } else {
+                fields.classList.add('opacity-50', 'pointer-events-none');
+            }
         }
-    });
-}
+    };
 
-// Email provider presets
-const emailPresets = {
-    gmail: { host: 'smtp.gmail.com', port: 587, tls: true, ssl: false },
-    outlook: { host: 'smtp.office365.com', port: 587, tls: true, ssl: false },
-    yahoo: { host: 'smtp.mail.yahoo.com', port: 587, tls: true, ssl: false },
-    zoho: { host: 'smtp.zoho.com', port: 587, tls: true, ssl: false },
-    custom: { host: '', port: 587, tls: true, ssl: false }
-};
+    window.toggleSmsFields = function(enabled) {
+        var fields = document.getElementById('sms-config-fields');
+        if (fields) {
+            if (enabled) {
+                fields.classList.remove('opacity-50', 'pointer-events-none');
+            } else {
+                fields.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+    };
 
-function applyEmailPreset(provider) {
-    if (!provider || !emailPresets[provider]) return;
+    window.updateSmsProviderHelp = function() {
+        var select = document.getElementById('sms-backend-select');
+        var helpDiv = document.getElementById('api-key-help');
+        if (!select || !helpDiv) return;
 
-    const preset = emailPresets[provider];
-    document.querySelector('[name="email_host"]').value = preset.host;
-    document.querySelector('[name="email_port"]').value = preset.port;
-    document.querySelector('[name="email_use_tls"]').checked = preset.tls;
-    document.querySelector('[name="email_use_ssl"]').checked = preset.ssl;
-}
+        var provider = select.value;
+        helpDiv.querySelectorAll('[data-provider]').forEach(function(el) {
+            if (el.tagName === 'A') {
+                el.style.display = el.dataset.provider === provider ? '' : 'none';
+            } else {
+                el.classList.toggle('hidden', el.dataset.provider !== provider);
+            }
+        });
+    };
+
+    window.applyEmailPreset = function(provider) {
+        if (!provider || !emailPresets[provider]) return;
+
+        var preset = emailPresets[provider];
+        var hostEl = document.querySelector('[name="email_host"]');
+        var portEl = document.querySelector('[name="email_port"]');
+        var tlsEl = document.querySelector('[name="email_use_tls"]');
+        var sslEl = document.querySelector('[name="email_use_ssl"]');
+
+        if (hostEl) hostEl.value = preset.host;
+        if (portEl) portEl.value = preset.port;
+        if (tlsEl) tlsEl.checked = preset.tls;
+        if (sslEl) sslEl.checked = preset.ssl;
+    };
+})();
 </script>
 
 <!-- Payment Gateway Settings Modal -->
@@ -679,17 +679,17 @@ function applyEmailPreset(provider) {
         </form>
 
         <script>
-            function showGatewayForm(gatewayName) {
-                const encryptionField = document.getElementById('encryption_key_field');
-                const merchantAccountField = document.getElementById('merchant_account_field');
-                encryptionField.classList.add('hidden');
-                merchantAccountField.classList.add('hidden');
-                if (gatewayName === 'FLUTTERWAVE') {
-                    encryptionField.classList.remove('hidden');
-                } else if (gatewayName === 'HUBTEL') {
-                    merchantAccountField.classList.remove('hidden');
-                }
+        window.showGatewayForm = function(gatewayName) {
+            var encryptionField = document.getElementById('encryption_key_field');
+            var merchantAccountField = document.getElementById('merchant_account_field');
+            if (encryptionField) encryptionField.classList.add('hidden');
+            if (merchantAccountField) merchantAccountField.classList.add('hidden');
+            if (gatewayName === 'FLUTTERWAVE' && encryptionField) {
+                encryptionField.classList.remove('hidden');
+            } else if (gatewayName === 'HUBTEL' && merchantAccountField) {
+                merchantAccountField.classList.remove('hidden');
             }
+        };
         </script>
         {% else %}
         <div class="text-center py-6">

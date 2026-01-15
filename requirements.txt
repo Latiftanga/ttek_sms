@@ -33,3 +33,7 @@ boto3>=1.42.19
 #Payments
 cryptography>=46.0.3
 django-encrypted-model-fields>=0.6.5
+
+# Security
+django-axes>=7.0.0
+sentry-sdk[django,celery]>=2.0.0
