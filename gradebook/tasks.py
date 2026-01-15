@@ -13,6 +13,7 @@ from django.conf import settings
 
 from django_tenants.utils import schema_context
 
+from core.email_backend import get_from_email
 from . import config
 
 
@@ -354,7 +355,7 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
                 email = EmailMessage(
                     subject=subject,
                     body=html_message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    from_email=get_from_email(),
                     to=[guardian_email],
                 )
                 email.content_subtype = 'html'

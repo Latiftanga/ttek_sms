@@ -12,6 +12,7 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_GET
 from django.db import connection
 from .models import SchoolSettings, AcademicYear, Term
+from .email_backend import get_from_email
 
 logger = logging.getLogger(__name__)
 from .forms import (
@@ -3787,7 +3788,7 @@ def send_payment_receipt_email(payment, guardian):
         send_mail(
             subject,
             plain_message,
-            getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            get_from_email(),
             [recipient_email],
             html_message=html_message,
             fail_silently=False,

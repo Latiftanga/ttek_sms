@@ -11,11 +11,11 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 from accounts.models import User
+from core.email_backend import get_from_email
 from academics.models import Class
 from students.models import Student, Guardian, StudentGuardian
 from students.forms import StudentForm, GuardianForm, StudentGuardianForm
@@ -53,7 +53,7 @@ def send_student_credentials(user, password, student):
         send_mail(
             subject,
             message,
-            settings.DEFAULT_FROM_EMAIL,
+            get_from_email(),
             [recipient],
             fail_silently=False,
         )
