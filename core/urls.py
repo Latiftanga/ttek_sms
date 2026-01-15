@@ -47,6 +47,7 @@ urlpatterns = [
     path('settings/update/email/', views.settings_update_email, name='settings_update_email'),
     path('settings/test-email/', views.settings_test_email, name='settings_test_email'),
     path('settings/test-sms/', views.settings_test_sms, name='settings_test_sms'),
+    path('settings/test-payment/', views.settings_test_payment, name='settings_test_payment'),
     path('settings/update/payment/', views.settings_update_payment, name='settings_update_payment'),
 
     # Academic Year routes

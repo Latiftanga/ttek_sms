@@ -1635,6 +1635,108 @@ def settings_test_sms(request):
 
 
 @login_required
+def settings_test_payment(request):
+    """Test payment gateway credentials using form values (without saving)."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    # Auto-dismiss script
+    auto_dismiss = '''<script>(() => {
+        const el = document.getElementById("test-payment-result");
+        if(el) {
+            el.style.opacity = "1";
+            el.style.transition = "none";
+            setTimeout(() => {
+                el.style.transition = "opacity 0.5s";
+                el.style.opacity = "0";
+                setTimeout(() => el.innerHTML = "", 500);
+            }, 5000);
+        }
+    })();</script>'''
+
+    gateway_id = request.POST.get('gateway_id', '').strip()
+    secret_key = request.POST.get('secret_key', '').strip()
+    public_key = request.POST.get('public_key', '').strip()
+    is_test_mode = request.POST.get('is_test_mode') == 'on'
+
+    if not gateway_id:
+        return HttpResponse(
+            f'<div class="alert alert-error text-sm py-1">'
+            f'<i class="fa-solid fa-times-circle text-xs"></i> Select a gateway'
+            f'</div>{auto_dismiss}'
+        )
+
+    if not secret_key or secret_key.startswith('••'):
+        return HttpResponse(
+            f'<div class="alert alert-error text-sm py-1">'
+            f'<i class="fa-solid fa-times-circle text-xs"></i> Secret key required'
+            f'</div>{auto_dismiss}'
+        )
+
+    try:
+        gateway = PaymentGateway.objects.get(pk=gateway_id)
+    except PaymentGateway.DoesNotExist:
+        return HttpResponse(
+            f'<div class="alert alert-error text-sm py-1">'
+            f'<i class="fa-solid fa-times-circle text-xs"></i> Gateway not found'
+            f'</div>{auto_dismiss}'
+        )
+
+    # Get or create config to test with
+    config, _ = PaymentGatewayConfig.objects.get_or_create(
+        gateway=gateway,
+        defaults={'configured_by': request.user}
+    )
+
+    # Temporarily set credentials for testing
+    old_secret = config.secret_key
+    old_public = config.public_key
+    old_test_mode = config.is_test_mode
+
+    config.secret_key = secret_key
+    config.public_key = public_key if public_key and not public_key.startswith('••') else config.public_key
+    config.is_test_mode = is_test_mode
+
+    # Test credentials
+    from finance.gateways import get_gateway_adapter
+
+    try:
+        adapter = get_gateway_adapter(config)
+        is_valid, message = adapter.verify_credentials()
+
+        # Restore original values
+        config.secret_key = old_secret
+        config.public_key = old_public
+        config.is_test_mode = old_test_mode
+
+        if is_valid:
+            return HttpResponse(
+                f'<div class="alert alert-success text-sm py-1">'
+                f'<i class="fa-solid fa-check-circle text-xs"></i> Credentials verified!'
+                f'</div>{auto_dismiss}'
+            )
+        else:
+            return HttpResponse(
+                f'<div class="alert alert-error text-sm py-1">'
+                f'<i class="fa-solid fa-times-circle text-xs"></i> {message}'
+                f'</div>{auto_dismiss}'
+            )
+
+    except Exception as e:
+        # Restore original values
+        config.secret_key = old_secret
+        config.public_key = old_public
+        config.is_test_mode = old_test_mode
+
+        error_msg = str(e)[:80]
+        return HttpResponse(
+            f'<div class="alert alert-error text-sm py-1">'
+            f'<i class="fa-solid fa-times-circle text-xs"></i> {error_msg}'
+            f'</div>{auto_dismiss}'
+        )
+
+
+@login_required
 def settings_update_payment(request):
     """Update payment gateway configuration."""
     if request.method != 'POST':
@@ -1706,7 +1808,9 @@ def settings_update_payment(request):
         'primary_gateway': primary_gateway,
         'payment_success': f'{gateway.display_name} configured successfully',
     }
-    return render(request, 'core/settings/partials/card_payment.html', context)
+    response = render(request, 'core/settings/partials/card_payment.html', context)
+    response['HX-Trigger'] = 'closePaymentModal'
+    return response
 
 
 def get_academic_card_context(success=None, errors=None):
