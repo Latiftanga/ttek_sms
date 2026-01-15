@@ -7,11 +7,11 @@ from django.http import HttpResponse
 from django.db import IntegrityError, transaction
 from django.contrib import messages
 from django.core.mail import send_mail
-from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
 from accounts.models import User
+from core.email_backend import get_from_email
 from teachers.models import Teacher, TeacherInvitation
 from .utils import admin_required
 
@@ -46,7 +46,7 @@ This is an automated message. Please do not reply.
         send_mail(
             subject,
             message,
-            getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            get_from_email(),
             [user.email],
             fail_silently=False,
         )
@@ -230,7 +230,7 @@ def send_invitation_email(invitation, request):
         send_mail(
             subject,
             plain_message,
-            getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            get_from_email(),
             [invitation.email],
             html_message=html_message,
             fail_silently=False,

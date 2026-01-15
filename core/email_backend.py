@@ -14,6 +14,32 @@ from django.core.mail.backends.console import EmailBackend as ConsoleBackend
 logger = logging.getLogger(__name__)
 
 
+def get_from_email():
+    """
+    Get the appropriate 'from' email address for the current tenant.
+    Returns school's configured email if enabled, otherwise global default.
+    """
+    from django.db import connection
+
+    # Use global default for public schema
+    if connection.schema_name == 'public':
+        return django_settings.DEFAULT_FROM_EMAIL
+
+    try:
+        from core.models import SchoolSettings
+        school_settings = SchoolSettings.load()
+
+        if school_settings.email_enabled and school_settings.email_from_address:
+            # Format with display name if available
+            if school_settings.email_from_name:
+                return f'"{school_settings.email_from_name}" <{school_settings.email_from_address}>'
+            return school_settings.email_from_address
+    except Exception as e:
+        logger.warning(f"Failed to get tenant from email: {e}")
+
+    return django_settings.DEFAULT_FROM_EMAIL
+
+
 class TenantEmailBackend:
     """
     Tenant-aware email backend that uses per-school SMTP settings.

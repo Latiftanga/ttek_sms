@@ -11,6 +11,8 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.html import strip_tags
 
+from core.email_backend import get_from_email
+
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -270,7 +272,7 @@ def send_invoice_notification(self, invoice_id, notification_type, distribution_
                 email = EmailMessage(
                     subject=subject,
                     body=html_message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    from_email=get_from_email(),
                     to=[guardian_email],
                 )
                 email.content_subtype = 'html'

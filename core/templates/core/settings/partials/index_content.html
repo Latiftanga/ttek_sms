@@ -375,12 +375,12 @@
 
 <!-- Email Settings Modal -->
 <dialog id="modal_email_settings" class="modal modal-middle">
-    <div class="modal-box max-w-lg">
+    <div class="modal-box max-w-xl p-5">
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
         </form>
-        <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
-            <i class="fa-solid fa-envelope text-primary"></i>
+        <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-envelope text-primary text-sm"></i>
             Email Configuration
         </h3>
         <form method="post"
@@ -390,143 +390,116 @@
               hx-swap="outerHTML"
               hx-on::after-request="if(event.detail.successful) modal_email_settings.close()">
             {% csrf_token %}
-            <div class="space-y-4 pt-2">
+            <div class="space-y-3">
                 <!-- Enable Toggle -->
-                <div class="form-control">
-                    <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="email_enabled" class="toggle toggle-primary"
-                               {% if school_settings.email_enabled %}checked{% endif %}
-                               onchange="toggleEmailFields(this.checked)" />
-                        <span class="label-text font-medium">Enable Custom Email Settings</span>
-                    </label>
-                    <p class="text-xs text-base-content/60 ml-14">When disabled, uses global email configuration</p>
-                </div>
+                {% toggle_input "email_enabled" checked=school_settings.email_enabled label="Enable Custom Email" help_text="When disabled, emails won't be sent" %}
+                <script>
+                    document.querySelector('[name="email_enabled"]').addEventListener('change', function() {
+                        toggleEmailFields(this.checked);
+                    });
+                </script>
 
-                <div id="email-config-fields" class="{% if not school_settings.email_enabled %}opacity-50{% endif %}">
-                    <!-- Provider -->
-                    <div class="form-control mb-4">
-                        <label class="label">
-                            <span class="label-text">Email Provider</span>
+                <div id="email-config-fields" class="space-y-3 {% if not school_settings.email_enabled %}opacity-50 pointer-events-none{% endif %}">
+                    <!-- Quick Setup -->
+                    <div class="form-control">
+                        <label class="label py-0.5">
+                            <span class="label-text text-xs">Quick Setup</span>
                         </label>
-                        <select name="email_backend" class="select select-bordered w-full" id="email-backend-select"
-                                onchange="toggleSmtpFields(this.value)">
-                            <option value="console" {% if school_settings.email_backend == 'console' %}selected{% endif %}>
-                                Console (Development)
-                            </option>
-                            <option value="smtp" {% if school_settings.email_backend == 'smtp' %}selected{% endif %}>
-                                SMTP
-                            </option>
+                        <select class="select select-bordered select-sm w-full" id="email-provider-select" onchange="applyEmailPreset(this.value)">
+                            <option value="">Select your email provider...</option>
+                            <option value="gmail">Gmail / Google Workspace</option>
+                            <option value="outlook">Outlook / Microsoft 365</option>
+                            <option value="yahoo">Yahoo Mail</option>
+                            <option value="zoho">Zoho Mail</option>
+                            <option value="custom">Custom SMTP Server</option>
                         </select>
-                        <p class="text-xs text-base-content/60 mt-1">Console mode only logs emails (for testing)</p>
                     </div>
+
+                    <!-- Hidden field for backend type -->
+                    <input type="hidden" name="email_backend" value="smtp" />
 
                     <!-- SMTP Settings -->
-                    <div id="smtp-fields" class="{% if school_settings.email_backend != 'smtp' %}hidden{% endif %} space-y-4">
-                        <div class="divider text-xs text-base-content/60 my-2">SMTP SETTINGS</div>
-
-                        <div class="grid grid-cols-3 gap-3">
-                            <div class="col-span-2">
-                                <label class="floating-label w-full">
-                                    <span>SMTP Host</span>
-                                    <input type="text"
-                                           name="email_host"
-                                           class="input w-full"
-                                           placeholder="smtp.gmail.com"
-                                           value="{{ school_settings.email_host|default:'' }}" />
-                                </label>
-                            </div>
-                            <div>
-                                <label class="floating-label w-full">
-                                    <span>Port</span>
-                                    <input type="number"
-                                           name="email_port"
-                                           class="input w-full"
-                                           placeholder="587"
-                                           value="{{ school_settings.email_port|default:587 }}" />
-                                </label>
-                            </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="col-span-2">
+                            {% text_input "email_host" value=school_settings.email_host label="SMTP Host" placeholder="smtp.gmail.com" icon="fa-solid fa-server" input_class="w-full" %}
                         </div>
-
-                        <div class="flex gap-4">
-                            <label class="label cursor-pointer justify-start gap-2">
-                                <input type="checkbox" name="email_use_tls" class="checkbox checkbox-sm checkbox-primary"
-                                       {% if school_settings.email_use_tls %}checked{% endif %} />
-                                <span class="label-text">Use TLS</span>
-                            </label>
-                            <label class="label cursor-pointer justify-start gap-2">
-                                <input type="checkbox" name="email_use_ssl" class="checkbox checkbox-sm checkbox-primary"
-                                       {% if school_settings.email_use_ssl %}checked{% endif %} />
-                                <span class="label-text">Use SSL</span>
-                            </label>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-3">
-                            <label class="floating-label w-full">
-                                <span>Username</span>
-                                <input type="text"
-                                       name="email_host_user"
-                                       class="input w-full"
-                                       placeholder="your-email@gmail.com"
-                                       value="{{ school_settings.email_host_user|default:'' }}" />
-                            </label>
-                            <label class="floating-label w-full">
-                                <span>Password</span>
-                                <input type="password"
-                                       name="email_host_password"
-                                       class="input w-full"
-                                       placeholder="{% if school_settings.email_host_password %}••••••••••••{% else %}Enter password{% endif %}"
-                                       autocomplete="off" />
-                            </label>
+                        <div>
+                            {% number_input "email_port" value=school_settings.email_port|default:587 label="Port" placeholder="587" input_class="w-full" %}
                         </div>
                     </div>
 
-                    <!-- From Address -->
-                    <div class="divider text-xs text-base-content/60 my-2">SENDER INFO</div>
+                    <div class="flex gap-4">
+                        {% checkbox_input "email_use_tls" checked=school_settings.email_use_tls label="Use TLS" %}
+                        {% checkbox_input "email_use_ssl" checked=school_settings.email_use_ssl label="Use SSL" %}
+                    </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <label class="floating-label w-full">
-                            <span>From Email</span>
-                            <input type="email"
-                                   name="email_from_address"
-                                   class="input w-full"
-                                   placeholder="noreply@school.com"
-                                   value="{{ school_settings.email_from_address|default:'' }}" />
-                        </label>
-                        <label class="floating-label w-full">
-                            <span>From Name</span>
-                            <input type="text"
-                                   name="email_from_name"
-                                   class="input w-full"
-                                   placeholder="School Name"
-                                   value="{{ school_settings.email_from_name|default:'' }}" />
-                        </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        {% email_input "email_host_user" value=school_settings.email_host_user label="Email Address" placeholder="school@gmail.com" input_class="w-full" %}
+                        {% password_input "email_host_password" label="App Password" placeholder="Enter app password" input_class="w-full" %}
+                    </div>
+
+                    <!-- App Password Help -->
+                    <div class="bg-base-200/50 border border-base-300 rounded-lg p-2.5">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex-1">
+                                <p class="text-xs font-medium flex items-center gap-1.5">
+                                    <i class="fa-solid fa-key text-warning"></i>
+                                    App Password Required
+                                </p>
+                                <p class="text-[11px] text-base-content/60">
+                                    Use an app password, not your regular login password
+                                </p>
+                            </div>
+                            <div class="flex gap-1.5">
+                                <a href="https://myaccount.google.com/signinoptions/twosv" target="_blank" class="btn btn-xs btn-ghost" title="Gmail: Enable 2FA first, then App Password">
+                                    <i class="fa-brands fa-google"></i>
+                                </a>
+                                <a href="https://account.live.com/proofs/AppPassword" target="_blank" class="btn btn-xs btn-ghost" title="Get Outlook App Password">
+                                    <i class="fa-brands fa-microsoft"></i>
+                                </a>
+                                <a href="https://login.yahoo.com/account/security" target="_blank" class="btn btn-xs btn-ghost" title="Yahoo: Enable 2FA first, then App Password">
+                                    <i class="fa-brands fa-yahoo"></i>
+                                </a>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-base-content/50 mt-1.5">
+                            <i class="fa-solid fa-circle-info"></i>
+                            Gmail/Yahoo: Enable 2-Step Verification first, then create App Password
+                        </p>
+                    </div>
+
+                    <div class="divider text-xs text-base-content/50 my-1">Sender Details</div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        {% email_input "email_from_address" value=school_settings.email_from_address label="From Email" placeholder="noreply@school.com" input_class="w-full" %}
+                        {% text_input "email_from_name" value=school_settings.email_from_name label="From Name" placeholder="School Name" input_class="w-full" %}
                     </div>
                 </div>
 
                 <!-- Test Email Section -->
-                <div class="divider text-xs text-base-content/60 my-2">TEST</div>
+                <div class="divider text-xs text-base-content/50 my-1">Test Configuration</div>
                 <div class="flex gap-2">
                     <input type="email"
                            id="test-email-input"
                            name="test_email"
-                           class="input input-bordered flex-1 input-sm"
+                           class="input input-bordered input-sm flex-1"
                            placeholder="test@example.com"
                            value="{{ request.user.email|default:'' }}" />
                     <button type="button"
-                            class="btn btn-sm btn-outline"
+                            class="btn btn-sm btn-outline gap-1"
                             hx-post="{% url 'core:settings_test_email' %}"
                             hx-include="#test-email-input"
                             hx-target="#test-email-result"
                             hx-swap="innerHTML">
-                        <i class="fa-solid fa-paper-plane"></i>
-                        Send Test
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                        Test
                     </button>
                 </div>
                 <div id="test-email-result" class="mt-2"></div>
             </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_email_settings.close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
+            <div class="modal-action pt-2">
+                <button type="button" class="btn btn-sm" onclick="modal_email_settings.close()">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
             </div>
         </form>
     </div>
@@ -536,19 +509,29 @@
 function toggleEmailFields(enabled) {
     const fields = document.getElementById('email-config-fields');
     if (enabled) {
-        fields.classList.remove('opacity-50');
+        fields.classList.remove('opacity-50', 'pointer-events-none');
     } else {
-        fields.classList.add('opacity-50');
+        fields.classList.add('opacity-50', 'pointer-events-none');
     }
 }
 
-function toggleSmtpFields(backend) {
-    const smtpFields = document.getElementById('smtp-fields');
-    if (backend === 'smtp') {
-        smtpFields.classList.remove('hidden');
-    } else {
-        smtpFields.classList.add('hidden');
-    }
+// Email provider presets
+const emailPresets = {
+    gmail: { host: 'smtp.gmail.com', port: 587, tls: true, ssl: false },
+    outlook: { host: 'smtp.office365.com', port: 587, tls: true, ssl: false },
+    yahoo: { host: 'smtp.mail.yahoo.com', port: 587, tls: true, ssl: false },
+    zoho: { host: 'smtp.zoho.com', port: 587, tls: true, ssl: false },
+    custom: { host: '', port: 587, tls: true, ssl: false }
+};
+
+function applyEmailPreset(provider) {
+    if (!provider || !emailPresets[provider]) return;
+
+    const preset = emailPresets[provider];
+    document.querySelector('[name="email_host"]').value = preset.host;
+    document.querySelector('[name="email_port"]').value = preset.port;
+    document.querySelector('[name="email_use_tls"]').checked = preset.tls;
+    document.querySelector('[name="email_use_ssl"]').checked = preset.ssl;
 }
 </script>
 
