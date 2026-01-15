@@ -1391,11 +1391,38 @@ def settings_update_email(request):
         return HttpResponse(status=405)
 
     school_settings = SchoolSettings.load()
+    errors = []
+
+    # Checkboxes send 'on' (HTML default) or 'true' (input_tags) when checked
+    email_enabled = request.POST.get('email_enabled') in ('on', 'true')
+    email_host = request.POST.get('email_host', '').strip()
+    email_host_user = request.POST.get('email_host_user', '').strip()
+    password = request.POST.get('email_host_password', '').strip()
+
+    # Validate if email is enabled
+    if email_enabled:
+        if not email_host:
+            errors.append('SMTP Host is required')
+        if not email_host_user:
+            errors.append('Email address is required')
+        # Password required only if not already set
+        if not password and not school_settings.email_host_password:
+            errors.append('App Password is required')
+
+    if errors:
+        context = {
+            'school_settings': school_settings,
+            'errors': errors,
+        }
+        response = render(request, 'core/settings/partials/card_email.html', context)
+        response['HX-Retarget'] = '#card-email'
+        response['HX-Reswap'] = 'outerHTML'
+        return response
 
     # Update email settings
-    school_settings.email_enabled = request.POST.get('email_enabled') == 'on'
-    school_settings.email_backend = request.POST.get('email_backend', 'console')
-    school_settings.email_host = request.POST.get('email_host', '').strip()
+    school_settings.email_enabled = email_enabled
+    school_settings.email_backend = request.POST.get('email_backend', 'smtp')
+    school_settings.email_host = email_host
 
     # Handle port with default
     try:
@@ -1403,14 +1430,13 @@ def settings_update_email(request):
     except (ValueError, TypeError):
         school_settings.email_port = 587
 
-    school_settings.email_use_tls = request.POST.get('email_use_tls') == 'on'
-    school_settings.email_use_ssl = request.POST.get('email_use_ssl') == 'on'
-    school_settings.email_host_user = request.POST.get('email_host_user', '').strip()
+    school_settings.email_use_tls = request.POST.get('email_use_tls') in ('on', 'true')
+    school_settings.email_use_ssl = request.POST.get('email_use_ssl') in ('on', 'true')
+    school_settings.email_host_user = email_host_user
     school_settings.email_from_address = request.POST.get('email_from_address', '').strip()
     school_settings.email_from_name = request.POST.get('email_from_name', '').strip()
 
     # Only update password if a new one was provided (not placeholder)
-    password = request.POST.get('email_host_password', '').strip()
     if password and not password.startswith('••'):
         school_settings.email_host_password = password
 
@@ -1423,7 +1449,9 @@ def settings_update_email(request):
         'school_settings': school_settings,
         'success': 'Email settings updated successfully',
     }
-    return render(request, 'core/settings/partials/card_email.html', context)
+    response = render(request, 'core/settings/partials/card_email.html', context)
+    response['HX-Trigger'] = 'closeEmailModal'
+    return response
 
 
 @login_required

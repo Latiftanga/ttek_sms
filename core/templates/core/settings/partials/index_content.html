@@ -387,8 +387,7 @@
               action="{% url 'core:settings_update_email' %}"
               hx-post="{% url 'core:settings_update_email' %}"
               hx-target="#card-email"
-              hx-swap="outerHTML"
-              hx-on::after-request="if(event.detail.successful) modal_email_settings.close()">
+              hx-swap="outerHTML">
             {% csrf_token %}
             <div class="space-y-3">
                 <!-- Enable Toggle -->
@@ -506,6 +505,11 @@
 </dialog>
 
 <script>
+// Listen for closeEmailModal trigger from server (HX-Trigger header)
+document.body.addEventListener('closeEmailModal', function() {
+    modal_email_settings.close();
+});
+
 function toggleEmailFields(enabled) {
     const fields = document.getElementById('email-config-fields');
     if (enabled) {
