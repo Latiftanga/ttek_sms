@@ -14,7 +14,18 @@
             </button>
         </div>
 
-        {% if success %}
+        {% if errors %}
+        <div class="mb-3 p-2 bg-error/10 rounded-lg border border-error/30">
+            <ul class="text-xs text-error space-y-1">
+                {% for error in errors %}
+                <li class="flex items-center gap-1">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    {{ error }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% elif success %}
         {% include "core/partials/alert.html" with type="success" message=success %}
         {% endif %}
 
