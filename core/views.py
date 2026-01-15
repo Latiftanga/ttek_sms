@@ -1356,12 +1356,34 @@ def settings_update_sms(request):
         return HttpResponse(status=405)
 
     school_settings = SchoolSettings.load()
+    errors = []
 
-    # Handle checkbox - if not in POST, it's unchecked
-    sms_enabled = request.POST.get('sms_enabled') == 'on'
+    # Handle checkbox - 'on' (HTML default) or 'true' (input_tags)
+    sms_enabled = request.POST.get('sms_enabled') in ('on', 'true')
     sms_backend = request.POST.get('sms_backend', 'console')
     sms_api_key = request.POST.get('sms_api_key', '').strip()
     sms_sender_id = request.POST.get('sms_sender_id', '').strip()
+
+    # Validate if SMS is enabled and not console mode
+    if sms_enabled and sms_backend != 'console':
+        if not sms_api_key and not school_settings.sms_api_key:
+            errors.append('API key is required for SMS provider')
+
+        # Validate API key format for specific providers
+        if sms_api_key and sms_backend in ('hubtel', 'africastalking'):
+            if ':' not in sms_api_key:
+                provider_name = 'Hubtel' if sms_backend == 'hubtel' else "Africa's Talking"
+                errors.append(f'{provider_name} API key must be in format "id:secret"')
+
+    if errors:
+        context = {
+            'school_settings': school_settings,
+            'errors': errors,
+        }
+        response = render(request, 'core/settings/partials/card_sms.html', context)
+        response['HX-Retarget'] = '#card-sms'
+        response['HX-Reswap'] = 'outerHTML'
+        return response
 
     # Update settings
     school_settings.sms_enabled = sms_enabled
@@ -1381,7 +1403,9 @@ def settings_update_sms(request):
         'school_settings': school_settings,
         'success': 'SMS settings updated successfully',
     }
-    return render(request, 'core/settings/partials/card_sms.html', context)
+    response = render(request, 'core/settings/partials/card_sms.html', context)
+    response['HX-Trigger'] = 'closeSmsModal'
+    return response
 
 
 @login_required
@@ -1462,6 +1486,9 @@ def settings_test_email(request):
 
     from django.core.mail import send_mail
 
+    # Auto-dismiss script for alerts (resets opacity first, then fades out)
+    auto_dismiss = '<script>(() => { const el = document.getElementById("test-email-result"); if(el) { el.style.opacity = "1"; el.style.transition = "none"; setTimeout(() => { el.style.transition = "opacity 0.5s"; el.style.opacity = "0"; setTimeout(() => el.innerHTML = "", 500); }, 4000); } })();</script>'
+
     recipient = request.POST.get('test_email', '').strip()
     if not recipient:
         recipient = request.user.email
@@ -1470,7 +1497,7 @@ def settings_test_email(request):
         return HttpResponse(
             '<div class="alert alert-error text-sm py-2">'
             '<i class="fa-solid fa-circle-xmark"></i> No recipient email address'
-            '</div>'
+            '</div>' + auto_dismiss
         )
 
     school_settings = SchoolSettings.load()
@@ -1490,7 +1517,7 @@ def settings_test_email(request):
         return HttpResponse(
             '<div class="alert alert-success text-sm py-2">'
             f'<i class="fa-solid fa-circle-check"></i> Test email sent to {recipient}'
-            '</div>'
+            '</div>' + auto_dismiss
         )
     except Exception as e:
         error_msg = str(e)
@@ -1500,7 +1527,110 @@ def settings_test_email(request):
         return HttpResponse(
             f'<div class="alert alert-error text-sm py-2">'
             f'<i class="fa-solid fa-circle-xmark"></i> Failed: {error_msg}'
-            f'</div>'
+            f'</div>' + auto_dismiss
+        )
+
+
+@login_required
+def settings_test_sms(request):
+    """Send a test SMS to verify SMS configuration using form values."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    from communications.tasks import send_via_arkesel, send_via_hubtel, send_via_africastalking
+
+    # Auto-dismiss script for alerts (resets opacity first, then fades out)
+    auto_dismiss = '<script>(() => { const el = document.getElementById("test-sms-result"); if(el) { el.style.opacity = "1"; el.style.transition = "none"; setTimeout(() => { el.style.transition = "opacity 0.5s"; el.style.opacity = "0"; setTimeout(() => el.innerHTML = "", 500); }, 4000); } })();</script>'
+
+    recipient = request.POST.get('test_phone', '').strip()
+    if not recipient:
+        return HttpResponse(
+            '<div class="alert alert-error text-sm py-2">'
+            '<i class="fa-solid fa-circle-xmark"></i> Phone number is required'
+            '</div>' + auto_dismiss
+        )
+
+    # Get form values (allows testing before saving)
+    school_settings = SchoolSettings.load()
+    sms_backend = request.POST.get('sms_backend', school_settings.sms_backend or 'console')
+    sms_api_key = request.POST.get('sms_api_key', '').strip()
+    sms_sender_id = request.POST.get('sms_sender_id', '').strip()
+
+    # Use saved API key if form field is empty or placeholder
+    if not sms_api_key or sms_api_key.startswith('••'):
+        sms_api_key = school_settings.sms_api_key
+
+    # Use saved or derived sender ID
+    if not sms_sender_id:
+        sms_sender_id = school_settings.sms_sender_id
+    if not sms_sender_id and school_settings.display_name:
+        sms_sender_id = ''.join(c for c in school_settings.display_name if c.isalnum())[:11]
+    if not sms_sender_id:
+        sms_sender_id = 'SchoolSMS'
+
+    if sms_backend == 'console':
+        return HttpResponse(
+            '<div class="alert alert-info text-sm py-2">'
+            '<i class="fa-solid fa-circle-info"></i> Console mode: SMS would be logged only, not sent'
+            '</div>' + auto_dismiss
+        )
+
+    if not sms_api_key:
+        return HttpResponse(
+            '<div class="alert alert-warning text-sm py-2">'
+            '<i class="fa-solid fa-triangle-exclamation"></i> Enter API key to test'
+            '</div>' + auto_dismiss
+        )
+
+    # Normalize phone number
+    phone = recipient.strip()
+    if phone.startswith('0') and len(phone) == 10:
+        phone = '233' + phone[1:]
+    elif phone.startswith('+'):
+        phone = phone[1:]
+
+    message = f"Test SMS from {school_settings.display_name or 'School Management System'}. Your SMS configuration is working!"
+
+    try:
+        if sms_backend == 'arkesel':
+            result = send_via_arkesel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
+        elif sms_backend == 'hubtel':
+            if ':' not in sms_api_key:
+                return HttpResponse(
+                    '<div class="alert alert-error text-sm py-2">'
+                    '<i class="fa-solid fa-circle-xmark"></i> Hubtel API key must be in format "client_id:client_secret"'
+                    '</div>' + auto_dismiss
+                )
+            result = send_via_hubtel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
+        elif sms_backend == 'africastalking':
+            if ':' not in sms_api_key:
+                return HttpResponse(
+                    '<div class="alert alert-error text-sm py-2">'
+                    '<i class="fa-solid fa-circle-xmark"></i> Africa\'s Talking API key must be in format "username:api_key"'
+                    '</div>' + auto_dismiss
+                )
+            result = send_via_africastalking(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
+        else:
+            return HttpResponse(
+                '<div class="alert alert-warning text-sm py-2">'
+                '<i class="fa-solid fa-triangle-exclamation"></i> Unknown SMS provider'
+                '</div>' + auto_dismiss
+            )
+
+        return HttpResponse(
+            f'<div class="alert alert-success text-sm py-2">'
+            f'<i class="fa-solid fa-circle-check"></i> Test SMS sent to {recipient} via {sms_backend}'
+            f'</div>' + auto_dismiss
+        )
+
+    except Exception as e:
+        error_msg = str(e)
+        if len(error_msg) > 100:
+            error_msg = error_msg[:100] + '...'
+        return HttpResponse(
+            f'<div class="alert alert-error text-sm py-2">'
+            f'<i class="fa-solid fa-circle-xmark"></i> Failed: {error_msg}'
+            f'</div>' + auto_dismiss
         )
 
 
