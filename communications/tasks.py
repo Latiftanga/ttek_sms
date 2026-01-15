@@ -168,7 +168,7 @@ def get_school_sms_settings():
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, autoretry_for=(Exception,))
-def send_communication_task(self, schema_name, recipient, message):
+def send_communication_task(self, schema_name, recipient, message, sms_record_id=None):
     """
     Send SMS message with retry logic for transient failures.
 
@@ -176,8 +176,18 @@ def send_communication_task(self, schema_name, recipient, message):
         schema_name: The tenant schema to operate under
         recipient: Phone number in E.164 format
         message: SMS message content
+        sms_record_id: Optional UUID of SMSMessage record to update status
     """
     with schema_context(schema_name):
+        # Get SMSMessage record if ID provided
+        sms_record = None
+        if sms_record_id:
+            try:
+                from .models import SMSMessage
+                sms_record = SMSMessage.objects.get(pk=sms_record_id)
+            except Exception as e:
+                logger.warning(f"Could not load SMSMessage {sms_record_id}: {e}")
+
         try:
             # Get school-specific SMS settings
             sms_settings = get_school_sms_settings()
@@ -185,45 +195,59 @@ def send_communication_task(self, schema_name, recipient, message):
             # Check if SMS is enabled for this school
             if not sms_settings['enabled']:
                 logger.info(f"[SMS DISABLED] SMS not enabled for this school. Message to {recipient} not sent.")
+                if sms_record:
+                    sms_record.mark_failed("SMS not enabled for this school")
                 return {"status": "disabled", "message": "SMS not enabled for this school"}
 
             backend = sms_settings['backend']
             sender_id = sms_settings['sender_id']
-
             api_key = sms_settings['api_key']
+
+            response = None
 
             if backend == 'arkesel':
                 if not api_key:
                     raise ValueError("Arkesel API key not configured for this school")
                 response = send_via_arkesel(recipient, message, sender_id=sender_id, api_key=api_key)
                 logger.info(f"Arkesel SMS sent to {recipient}: {response}")
-                return {"status": "sent", "provider": "arkesel", "response": str(response)}
 
             elif backend == 'hubtel':
                 if not api_key:
                     raise ValueError("Hubtel API key not configured for this school")
                 response = send_via_hubtel(recipient, message, sender_id=sender_id, api_key=api_key)
                 logger.info(f"Hubtel SMS sent to {recipient}: {response}")
-                return {"status": "sent", "provider": "hubtel", "response": str(response)}
 
             elif backend == 'africastalking':
                 if not api_key:
                     raise ValueError("Africa's Talking API key not configured for this school")
                 response = send_via_africastalking(recipient, message, sender_id=sender_id, api_key=api_key)
                 logger.info(f"Africa's Talking SMS sent to {recipient}: {response}")
-                return {"status": "sent", "provider": "africastalking", "response": str(response)}
 
             else:
                 # Console backend for development
                 logger.info(f"[CONSOLE SMS] To: {recipient}")
                 logger.info(f"[CONSOLE SMS] From: {sender_id}")
                 logger.info(f"[CONSOLE SMS] Message: {message}")
+                if sms_record:
+                    sms_record.mark_sent("Console: logged only")
                 return {"status": "logged", "provider": "console"}
+
+            # Mark as sent if we have a record
+            if sms_record:
+                sms_record.mark_sent(str(response) if response else '')
+
+            return {"status": "sent", "provider": backend, "response": str(response)}
 
         except MaxRetriesExceededError:
             logger.error(f"SMS to {recipient} failed after {self.max_retries} retries")
+            if sms_record:
+                sms_record.mark_failed("Max retries exceeded")
             return {"status": "failed", "error": "Max retries exceeded"}
         except Exception as e:
             logger.error(f"SMS Error to {recipient}: {e}")
+            # On final retry, mark as failed
+            if self.request.retries >= self.max_retries - 1:
+                if sms_record:
+                    sms_record.mark_failed(str(e))
             # Re-raise to trigger retry (handled by autoretry_for)
             raise

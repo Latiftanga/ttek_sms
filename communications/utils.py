@@ -123,11 +123,12 @@ def send_sms(to_phone, message, student=None, message_type='general', created_by
             created_by=created_by,
         )
 
-        # Queue the Celery task
+        # Queue the Celery task with SMS record ID for status updates
         send_communication_task.delay(
             connection.schema_name,
             validated_phone,
-            message
+            message,
+            sms_record_id=str(sms_record.pk)
         )
 
         return {
