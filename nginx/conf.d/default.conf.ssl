@@ -43,11 +43,12 @@ server {
     # HSTS - enforce HTTPS
     add_header Strict-Transport-Security "max-age=63072000" always;
 
-    # Static files - served by nginx for performance
+    # Static files - long cache (WhiteNoise adds hashes for cache-busting)
     location /static/ {
         alias /var/www/static/;
-        expires 30d;
+        expires 1y;
         add_header Cache-Control "public, immutable";
+        access_log off;
     }
 
     # Media files - tenant uploads

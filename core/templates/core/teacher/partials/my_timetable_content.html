@@ -1,7 +1,7 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
     <div>
         <div class="flex items-center gap-3 mb-1">
             <a href="{% url 'core:index' %}"
@@ -23,48 +23,48 @@
             Your weekly teaching schedule
         </p>
     </div>
-    <button onclick="window.print()" class="btn btn-sm btn-ghost print:hidden">
+    <button onclick="window.print()" class="btn btn-sm btn-ghost print:hidden hidden sm:flex">
         <i class="fa-solid fa-print"></i>
         Print
     </button>
 </div>
 
-<!-- Stats Cards -->
-<div class="grid grid-cols-3 gap-4 mb-6">
+<!-- Stats Cards - Compact on mobile -->
+<div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-clock text-primary text-xl"></i>
+        <div class="card-body p-3 sm:p-4">
+            <div class="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-primary text-lg sm:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-primary">{{ total_lessons }}</div>
+                <div class="text-center sm:text-left">
+                    <div class="text-xl sm:text-2xl font-bold text-primary">{{ total_lessons }}</div>
                     <div class="text-xs text-base-content/60">Lessons/Week</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-chalkboard text-secondary text-xl"></i>
+        <div class="card-body p-3 sm:p-4">
+            <div class="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chalkboard text-secondary text-lg sm:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-secondary">{{ classes_taught }}</div>
+                <div class="text-center sm:text-left">
+                    <div class="text-xl sm:text-2xl font-bold text-secondary">{{ classes_taught }}</div>
                     <div class="text-xs text-base-content/60">Classes</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
-                    <i class="fa-solid fa-book text-success text-xl"></i>
+        <div class="card-body p-3 sm:p-4">
+            <div class="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-book text-success text-lg sm:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-success">{{ subjects_taught }}</div>
+                <div class="text-center sm:text-left">
+                    <div class="text-xl sm:text-2xl font-bold text-success">{{ subjects_taught }}</div>
                     <div class="text-xs text-base-content/60">Subjects</div>
                 </div>
             </div>
@@ -72,77 +72,166 @@
     </div>
 </div>
 
-<!-- Timetable Grid -->
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-0">
-        <div class="flex items-center justify-between p-4 border-b border-base-200">
-            <h2 class="font-bold flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
-                    <i class="fa-solid fa-table-cells text-info"></i>
-                </div>
-                Weekly Schedule
-            </h2>
+{% if periods %}
+<!-- Mobile View: Day Tabs + Card List -->
+<div class="lg:hidden">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <!-- Day Tabs -->
+        <div class="tabs tabs-boxed bg-base-200/50 p-1 m-2 gap-1" id="day-tabs">
+            {% for day_num, day_name in weekdays %}
+            <button type="button"
+                    class="tab tab-sm flex-1 {% if forloop.first %}tab-active{% endif %}"
+                    onclick="showDay({{ day_num }})"
+                    data-day="{{ day_num }}">
+                <span class="hidden xs:inline">{{ day_name|slice:":3" }}</span>
+                <span class="xs:hidden">{{ day_name|slice:":1" }}</span>
+            </button>
+            {% endfor %}
         </div>
 
-        {% if periods %}
-        <div class="overflow-x-auto">
-            <table class="table table-sm">
-                <thead>
-                    <tr class="bg-base-200/50">
-                        <th class="text-xs uppercase text-base-content/60 font-semibold w-24">Period</th>
-                        {% for day_num, day_name in weekdays %}
-                        <th class="text-xs uppercase text-base-content/60 font-semibold text-center">{{ day_name }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for period in periods %}
-                    <tr class="hover">
-                        <td class="bg-base-200/30">
-                            <div class="font-medium text-sm">{{ period.name }}</div>
-                            <div class="text-xs text-base-content/50">
-                                {{ period.start_time|time:"g:i A" }} - {{ period.end_time|time:"g:i A" }}
-                            </div>
-                        </td>
-                        {% for day_num, day_name in weekdays %}
-                        <td class="text-center p-2">
-                            {% with entry=timetable|get_item:day_num|get_item:period.id %}
-                            {% if entry %}
-                            <div class="p-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors">
-                                <div class="font-bold text-sm text-primary">
-                                    {{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}
-                                </div>
-                                <div class="text-xs text-base-content/60">
-                                    {{ entry.class_subject.class_assigned.name }}
-                                </div>
-                                {% if entry.is_double %}
-                                <span class="badge badge-xs badge-warning mt-1">Double</span>
-                                {% endif %}
-                            </div>
-                            {% else %}
-                            <div class="text-base-content/20 text-sm">-</div>
-                            {% endif %}
-                            {% endwith %}
-                        </td>
-                        {% endfor %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center py-16">
-            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
-                <i class="fa-solid fa-calendar-xmark text-base-content/30 text-3xl"></i>
+        <!-- Day Content Panels -->
+        {% for day_num, day_name in weekdays %}
+        <div class="day-panel p-3 space-y-2 {% if not forloop.first %}hidden{% endif %}" data-day="{{ day_num }}">
+            <h3 class="font-bold text-sm text-base-content/70 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-calendar-day text-primary"></i>
+                {{ day_name }}'s Schedule
+            </h3>
+
+            {% with day_has_lessons=False %}
+            {% for period in periods %}
+            {% if not period.is_break %}
+            {% with entry=timetable|get_item:day_num|get_item:period.id %}
+            {% if entry %}
+            <!-- Lesson Card -->
+            <div class="flex items-stretch gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <!-- Time Column -->
+                <div class="flex flex-col items-center justify-center px-2 border-r border-base-300 min-w-[60px]">
+                    <span class="text-xs font-bold text-primary">{{ period.start_time|time:"g:i" }}</span>
+                    <span class="text-[10px] text-base-content/40">to</span>
+                    <span class="text-xs font-bold text-primary">{{ period.end_time|time:"g:i" }}</span>
+                </div>
+                <!-- Lesson Details -->
+                <div class="flex-1 min-w-0">
+                    <div class="font-bold text-base text-primary truncate">
+                        {{ entry.class_subject.subject.name }}
+                    </div>
+                    <div class="text-sm text-base-content/70 flex items-center gap-1 mt-1">
+                        <i class="fa-solid fa-users text-xs"></i>
+                        {{ entry.class_subject.class_assigned.name }}
+                    </div>
+                    {% if entry.classroom %}
+                    <div class="text-xs text-base-content/50 flex items-center gap-1 mt-1">
+                        <i class="fa-solid fa-door-open text-xs"></i>
+                        {{ entry.classroom.name }}
+                    </div>
+                    {% endif %}
+                    {% if entry.is_double %}
+                    <span class="badge badge-xs badge-warning mt-2">Double Period</span>
+                    {% endif %}
+                </div>
             </div>
-            <h3 class="font-semibold text-base-content/70 mb-2">No Periods Defined</h3>
-            <p class="text-sm text-base-content/50">
-                School periods need to be set up before timetables can be displayed.
-            </p>
+            {% endif %}
+            {% endwith %}
+            {% endif %}
+            {% endfor %}
+            {% endwith %}
+
+            <!-- Check if day has no lessons -->
+            {% with day_entries=timetable|get_item:day_num %}
+            {% if not day_entries %}
+            <div class="text-center py-8">
+                <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-base-200 flex items-center justify-center">
+                    <i class="fa-solid fa-mug-hot text-base-content/30 text-xl"></i>
+                </div>
+                <p class="text-sm text-base-content/50">No lessons on {{ day_name }}</p>
+            </div>
+            {% endif %}
+            {% endwith %}
         </div>
-        {% endif %}
+        {% endfor %}
     </div>
 </div>
+
+<!-- Desktop View: Table Grid -->
+<div class="hidden lg:block">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            <div class="flex items-center justify-between p-4 border-b border-base-200">
+                <h2 class="font-bold flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                        <i class="fa-solid fa-table-cells text-info"></i>
+                    </div>
+                    Weekly Schedule
+                </h2>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th class="text-xs uppercase text-base-content/60 font-semibold w-28">Period</th>
+                            {% for day_num, day_name in weekdays %}
+                            <th class="text-xs uppercase text-base-content/60 font-semibold text-center min-w-[120px]">{{ day_name }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for period in periods %}
+                        <tr class="hover {% if period.is_break %}bg-base-200/30{% endif %}">
+                            <td class="bg-base-200/30">
+                                <div class="font-medium text-sm">{{ period.name }}</div>
+                                <div class="text-xs text-base-content/50">
+                                    {{ period.start_time|time:"g:i A" }} - {{ period.end_time|time:"g:i A" }}
+                                </div>
+                            </td>
+                            {% for day_num, day_name in weekdays %}
+                            <td class="text-center p-2">
+                                {% if period.is_break %}
+                                <span class="text-xs text-base-content/40 italic">Break</span>
+                                {% else %}
+                                {% with entry=timetable|get_item:day_num|get_item:period.id %}
+                                {% if entry %}
+                                <div class="p-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors">
+                                    <div class="font-bold text-sm text-primary">
+                                        {{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}
+                                    </div>
+                                    <div class="text-xs text-base-content/60">
+                                        {{ entry.class_subject.class_assigned.name }}
+                                    </div>
+                                    {% if entry.is_double %}
+                                    <span class="badge badge-xs badge-warning mt-1">Double</span>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <div class="text-base-content/20 text-sm">-</div>
+                                {% endif %}
+                                {% endwith %}
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- No Periods Defined -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body text-center py-16">
+        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+            <i class="fa-solid fa-calendar-xmark text-base-content/30 text-3xl"></i>
+        </div>
+        <h3 class="font-semibold text-base-content/70 mb-2">No Periods Defined</h3>
+        <p class="text-sm text-base-content/50">
+            School periods need to be set up before timetables can be displayed.
+        </p>
+    </div>
+</div>
+{% endif %}
 
 {% if not entries and periods %}
 <!-- No Lessons Assigned -->
@@ -160,35 +249,58 @@
 </div>
 {% endif %}
 
-<!-- Daily Summary (Below timetable) -->
+<!-- Today's Quick View (Mobile) -->
 {% if entries %}
-<div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-6">
-    {% for day_num, day_name in weekdays %}
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3">
-            <h3 class="font-bold text-xs mb-2 flex items-center gap-1">
-                <span class="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
-                    {{ day_name|slice:":1" }}
-                </span>
-                {{ day_name }}
+<div class="lg:hidden mt-4">
+    <div class="card bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20">
+        <div class="card-body p-4">
+            <h3 class="font-bold text-sm flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-bolt text-warning"></i>
+                Quick View: Today's Lessons
             </h3>
-            <div class="space-y-1">
+            <div class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
                 {% for entry in entries %}
-                {% if entry.weekday == day_num %}
-                <div class="text-xs">
-                    <span class="font-medium">{{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}</span>
-                    <span class="text-base-content/50">- {{ entry.class_subject.class_assigned.name }}</span>
+                {% if entry.weekday == today_weekday %}
+                <div class="flex-shrink-0 p-2 rounded-lg bg-base-100 border border-base-300 min-w-[100px]">
+                    <div class="text-xs font-bold text-primary truncate">{{ entry.class_subject.subject.short_name }}</div>
+                    <div class="text-[10px] text-base-content/60">{{ entry.class_subject.class_assigned.name }}</div>
+                    <div class="text-[10px] text-base-content/40 mt-1">{{ entry.period.start_time|time:"g:i A" }}</div>
                 </div>
                 {% endif %}
+                {% empty %}
+                <p class="text-xs text-base-content/50 italic">No lessons today</p>
                 {% endfor %}
-                {% with day_entries=timetable|get_item:day_num %}
-                {% if not day_entries %}
-                <p class="text-xs text-base-content/40 italic">No lessons</p>
-                {% endif %}
-                {% endwith %}
             </div>
         </div>
     </div>
-    {% endfor %}
 </div>
 {% endif %}
+
+<script>
+function showDay(dayNum) {
+    // Hide all panels
+    document.querySelectorAll('.day-panel').forEach(panel => {
+        panel.classList.add('hidden');
+    });
+    // Show selected panel
+    document.querySelector(`.day-panel[data-day="${dayNum}"]`).classList.remove('hidden');
+
+    // Update tab states
+    document.querySelectorAll('#day-tabs .tab').forEach(tab => {
+        tab.classList.remove('tab-active');
+        if (parseInt(tab.dataset.day) === dayNum) {
+            tab.classList.add('tab-active');
+        }
+    });
+}
+
+// Auto-select today's tab on mobile
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().getDay();
+    // Convert JS day (0=Sun) to Django day (1=Mon)
+    const djangoDay = today === 0 ? 5 : today; // Sunday shows Friday
+    if (djangoDay >= 1 && djangoDay <= 5) {
+        showDay(djangoDay);
+    }
+});
+</script>

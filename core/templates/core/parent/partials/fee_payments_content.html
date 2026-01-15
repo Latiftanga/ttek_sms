@@ -1,0 +1,389 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+    <div class="flex items-center gap-3 flex-1 min-w-0">
+        <a href="{% url 'core:index' %}"
+           hx-get="{% url 'core:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm btn-circle flex-shrink-0">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div class="min-w-0">
+            <h1 class="text-lg sm:text-xl font-bold flex items-center gap-2">
+                <i class="fa-solid fa-money-bill-wave text-success"></i>
+                Fee Payments
+            </h1>
+            <p class="text-sm text-base-content/60">
+                {% if current_term %}
+                {{ current_term.name }} - {{ current_year.name }}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+{% if not guardian %}
+<!-- No Guardian Profile -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body py-16 text-center">
+        <div class="w-20 h-20 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-user-slash text-warning text-3xl"></i>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">No Guardian Profile Found</h3>
+        <p class="text-base-content/60 max-w-md mx-auto">
+            Your account is not linked to a guardian profile. Please contact the school administration.
+        </p>
+    </div>
+</div>
+
+{% elif not wards_fees %}
+<!-- No Wards -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body py-16 text-center">
+        <div class="w-20 h-20 rounded-full bg-info/10 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-user-group text-info text-3xl"></i>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">No Wards Found</h3>
+        <p class="text-base-content/60 max-w-md mx-auto">
+            No students are linked to your account. Please contact the school administration.
+        </p>
+    </div>
+</div>
+
+{% else %}
+
+<!-- Total Outstanding Summary -->
+{% if total_outstanding > 0 %}
+<div class="alert alert-warning mb-6">
+    <i class="fa-solid fa-exclamation-triangle"></i>
+    <div>
+        <h3 class="font-bold">Outstanding Balance</h3>
+        <p class="text-sm">You have a total outstanding balance of <span class="font-bold">GHS {{ total_outstanding|floatformat:2 }}</span> across all wards.</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Ward Fee Summary Cards -->
+<div class="mb-6">
+    <h2 class="text-base font-semibold flex items-center gap-2 mb-4">
+        <i class="fa-solid fa-children text-success"></i>
+        Wards Fee Summary
+    </h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for ward_data in wards_fees %}
+        <div class="card bg-base-100 shadow-sm border border-base-200 {% if ward_data.balance > 0 %}border-l-4 border-l-warning{% else %}border-l-4 border-l-success{% endif %}">
+            <div class="card-body p-4">
+                <!-- Student Info -->
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="avatar placeholder">
+                        <div class="w-12 h-12 rounded-full bg-success/10 text-success flex items-center justify-center">
+                            {% if ward_data.student.photo %}
+                            <img src="{{ ward_data.student.photo.url }}" alt="{{ ward_data.student.full_name }}" class="rounded-full">
+                            {% else %}
+                            <span class="text-base font-medium">{{ ward_data.student.first_name.0 }}{{ ward_data.student.last_name.0 }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold truncate">{{ ward_data.student.full_name }}</h3>
+                        <p class="text-xs text-base-content/60">
+                            {% if ward_data.student.current_class %}
+                            {{ ward_data.student.current_class.name }}
+                            {% else %}
+                            No class
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Fee Stats -->
+                <div class="grid grid-cols-3 gap-2 text-center mb-4">
+                    <div class="bg-base-200/50 rounded-lg p-2">
+                        <div class="text-sm font-bold text-primary">GHS {{ ward_data.total_fees|floatformat:0 }}</div>
+                        <div class="text-[10px] text-base-content/60">Total Fees</div>
+                    </div>
+                    <div class="bg-base-200/50 rounded-lg p-2">
+                        <div class="text-sm font-bold text-success">GHS {{ ward_data.total_paid|floatformat:0 }}</div>
+                        <div class="text-[10px] text-base-content/60">Paid</div>
+                    </div>
+                    <div class="bg-base-200/50 rounded-lg p-2">
+                        <div class="text-sm font-bold {% if ward_data.balance > 0 %}text-error{% else %}text-success{% endif %}">
+                            GHS {{ ward_data.balance|floatformat:0 }}
+                        </div>
+                        <div class="text-[10px] text-base-content/60">Balance</div>
+                    </div>
+                </div>
+
+                <!-- Current Invoice Status -->
+                {% if ward_data.current_invoice %}
+                <div class="flex items-center justify-between text-sm mb-3 p-2 bg-base-200/30 rounded-lg">
+                    <span class="text-base-content/70">{{ current_term.name }}:</span>
+                    <span class="badge badge-sm {% if ward_data.current_invoice.status == 'PAID' %}badge-success{% elif ward_data.current_invoice.status == 'PARTIALLY_PAID' %}badge-warning{% elif ward_data.current_invoice.status == 'OVERDUE' %}badge-error{% else %}badge-ghost{% endif %}">
+                        {{ ward_data.current_invoice.get_status_display }}
+                    </span>
+                </div>
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="card-actions">
+                    <a href="{% url 'core:fee_payments' %}?ward={{ ward_data.student.pk }}"
+                       hx-get="{% url 'core:fee_payments' %}?ward={{ ward_data.student.pk }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm btn-block">
+                        <i class="fa-solid fa-file-invoice"></i>
+                        View Invoices
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Invoices Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Invoices List -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-5">
+            <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                <i class="fa-solid fa-file-invoice text-primary"></i>
+                {% if selected_ward_id %}
+                Invoices
+                {% else %}
+                Recent Invoices
+                {% endif %}
+                {% if selected_ward_id %}
+                <a href="{% url 'core:fee_payments' %}"
+                   hx-get="{% url 'core:fee_payments' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-xs ml-auto">
+                    <i class="fa-solid fa-times"></i>
+                    Clear Filter
+                </a>
+                {% endif %}
+            </h2>
+
+            {% if all_invoices %}
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Invoice</th>
+                            <th>Student</th>
+                            <th class="text-right">Amount</th>
+                            <th class="text-center">Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in all_invoices %}
+                        <tr class="hover">
+                            <td class="cursor-pointer" onclick="document.getElementById('invoice_modal_{{ invoice.id }}').showModal()">
+                                <div class="font-medium text-xs">{{ invoice.invoice_number }}</div>
+                                <div class="text-xs text-base-content/50">{{ invoice.term.name }}</div>
+                            </td>
+                            <td class="cursor-pointer" onclick="document.getElementById('invoice_modal_{{ invoice.id }}').showModal()">
+                                <div class="text-sm">{{ invoice.student.full_name }}</div>
+                            </td>
+                            <td class="text-right cursor-pointer" onclick="document.getElementById('invoice_modal_{{ invoice.id }}').showModal()">
+                                <div class="text-sm font-medium">GHS {{ invoice.total_amount|floatformat:2 }}</div>
+                                {% if invoice.balance > 0 %}
+                                <div class="text-xs text-error">Bal: GHS {{ invoice.balance|floatformat:2 }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="text-center cursor-pointer" onclick="document.getElementById('invoice_modal_{{ invoice.id }}').showModal()">
+                                <span class="badge badge-sm {% if invoice.status == 'PAID' %}badge-success{% elif invoice.status == 'PARTIALLY_PAID' %}badge-warning{% elif invoice.status == 'OVERDUE' %}badge-error{% elif invoice.status == 'ISSUED' %}badge-info{% else %}badge-ghost{% endif %}">
+                                    {{ invoice.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if invoice.balance > 0 and online_payments_enabled %}
+                                <a href="{% url 'core:guardian_pay_invoice' invoice.id %}"
+                                   class="btn btn-success btn-xs"
+                                   onclick="event.stopPropagation();">
+                                    <i class="fa-solid fa-credit-card"></i>
+                                    Pay
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-base-content/40">
+                <i class="fa-solid fa-file-invoice text-3xl mb-2"></i>
+                <p class="text-sm">No invoices found</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Payment History -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-5">
+            <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                <i class="fa-solid fa-receipt text-success"></i>
+                Payment History
+            </h2>
+
+            {% if all_payments %}
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Receipt</th>
+                            <th>Date</th>
+                            <th class="text-right">Amount</th>
+                            <th>Method</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in all_payments %}
+                        <tr class="hover">
+                            <td>
+                                <div class="font-medium text-xs">{{ payment.receipt_number }}</div>
+                                <div class="text-xs text-base-content/50">{{ payment.invoice.student.first_name }}</div>
+                            </td>
+                            <td class="text-sm">{{ payment.transaction_date|date:"M d, Y" }}</td>
+                            <td class="text-right font-medium text-success">GHS {{ payment.amount|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge badge-ghost badge-sm">
+                                    {% if payment.method == 'CASH' %}
+                                    <i class="fa-solid fa-money-bill mr-1"></i>
+                                    {% elif payment.method == 'MOBILE_MONEY' %}
+                                    <i class="fa-solid fa-mobile-screen mr-1"></i>
+                                    {% elif payment.method == 'BANK_TRANSFER' %}
+                                    <i class="fa-solid fa-building-columns mr-1"></i>
+                                    {% elif payment.method == 'CARD' %}
+                                    <i class="fa-solid fa-credit-card mr-1"></i>
+                                    {% else %}
+                                    <i class="fa-solid fa-circle-dollar-to-slot mr-1"></i>
+                                    {% endif %}
+                                    {{ payment.get_method_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-base-content/40">
+                <i class="fa-solid fa-receipt text-3xl mb-2"></i>
+                <p class="text-sm">No payment records found</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- Invoice Detail Modals -->
+{% for invoice in all_invoices %}
+<dialog id="invoice_modal_{{ invoice.id }}" class="modal">
+    <div class="modal-box max-w-lg">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+
+        <h3 class="font-bold text-lg flex items-center gap-2">
+            <i class="fa-solid fa-file-invoice text-primary"></i>
+            Invoice {{ invoice.invoice_number }}
+        </h3>
+
+        <div class="py-4">
+            <!-- Invoice Header -->
+            <div class="flex justify-between items-start mb-4 pb-4 border-b border-base-200">
+                <div>
+                    <p class="font-semibold">{{ invoice.student.full_name }}</p>
+                    <p class="text-sm text-base-content/60">{{ invoice.student.admission_number }}</p>
+                </div>
+                <div class="text-right">
+                    <span class="badge {% if invoice.status == 'PAID' %}badge-success{% elif invoice.status == 'PARTIALLY_PAID' %}badge-warning{% elif invoice.status == 'OVERDUE' %}badge-error{% else %}badge-info{% endif %}">
+                        {{ invoice.get_status_display }}
+                    </span>
+                    <p class="text-xs text-base-content/60 mt-1">{{ invoice.term.name }}</p>
+                </div>
+            </div>
+
+            <!-- Invoice Items -->
+            <div class="mb-4">
+                <h4 class="font-medium text-sm mb-2">Fee Breakdown</h4>
+                <div class="space-y-2">
+                    {% for item in invoice.items.all %}
+                    <div class="flex justify-between text-sm">
+                        <span class="text-base-content/70">{{ item.description }}</span>
+                        <span>GHS {{ item.amount|floatformat:2 }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-sm text-base-content/50">No line items</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Invoice Totals -->
+            <div class="bg-base-200/50 rounded-lg p-3 space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span>Subtotal</span>
+                    <span>GHS {{ invoice.subtotal|floatformat:2 }}</span>
+                </div>
+                {% if invoice.discount > 0 %}
+                <div class="flex justify-between text-sm text-success">
+                    <span>Discount</span>
+                    <span>- GHS {{ invoice.discount|floatformat:2 }}</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between font-semibold border-t border-base-300 pt-2">
+                    <span>Total</span>
+                    <span>GHS {{ invoice.total_amount|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between text-sm text-success">
+                    <span>Amount Paid</span>
+                    <span>GHS {{ invoice.amount_paid|floatformat:2 }}</span>
+                </div>
+                {% if invoice.balance > 0 %}
+                <div class="flex justify-between font-semibold text-error">
+                    <span>Balance Due</span>
+                    <span>GHS {{ invoice.balance|floatformat:2 }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Due Date -->
+            <div class="mt-4 text-sm text-base-content/60 flex justify-between">
+                <span>Issue Date: {{ invoice.issue_date|date:"M d, Y" }}</span>
+                <span>Due: {{ invoice.due_date|date:"M d, Y" }}</span>
+            </div>
+        </div>
+
+        <div class="modal-action">
+            <form method="dialog">
+                <button class="btn btn-ghost">Close</button>
+            </form>
+            {% if invoice.balance > 0 and online_payments_enabled %}
+            <a href="{% url 'core:guardian_pay_invoice' invoice.id %}" class="btn btn-success">
+                <i class="fa-solid fa-credit-card"></i>
+                Pay GHS {{ invoice.balance|floatformat:2 }}
+            </a>
+            {% elif invoice.balance > 0 %}
+            <span class="text-sm text-base-content/50 italic">Online payments not available</span>
+            {% endif %}
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+{% endfor %}
+
+{% endif %}

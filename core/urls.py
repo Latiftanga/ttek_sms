@@ -80,9 +80,14 @@ urlpatterns = [
     path('timetable/', views.timetable, name='timetable'),
     path('my-fees/', views.my_fees, name='my_fees'),
 
-    # Parent routes
+    # Parent/Guardian routes
     path('my-wards/', views.my_wards, name='my_wards'),
+    path('my-wards/<int:pk>/', views.ward_detail, name='ward_detail'),
     path('fee-payments/', views.fee_payments, name='fee_payments'),
+    path('fee-payments/pay/<uuid:invoice_id>/', views.guardian_pay_invoice, name='guardian_pay_invoice'),
+    path('fee-payments/callback/', views.guardian_payment_callback, name='guardian_payment_callback'),
+    path('fee-payments/success/<uuid:payment_id>/', views.guardian_payment_success, name='guardian_payment_success'),
+    path('fee-payments/failed/<uuid:payment_id>/', views.guardian_payment_failed, name='guardian_payment_failed'),
 
     # Document verification (public)
     path('verify/<str:code>/', views.verify_document, name='verify_document'),

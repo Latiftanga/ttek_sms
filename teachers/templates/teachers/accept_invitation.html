@@ -1,0 +1,128 @@
+{% load static tailwind_tags core_tags %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Create Your Account - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}">
+    <title>Create Your Account - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}</title>
+
+    {% if school.favicon.name %}
+    <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
+    {% endif %}
+
+    {% tailwind_css %}
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
+
+    <style>
+        :root {
+            --school-primary: {{ school.primary_color|default:'#6366f1' }};
+            --school-secondary: {{ school.secondary_color|default:'#8b5cf6' }};
+        }
+        body { margin: 0; padding: 0; }
+        .school-gradient {
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen school-gradient flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
+        <!-- Decorative Elements -->
+        <div class="hidden sm:block absolute -top-20 -right-20 w-64 h-64 rounded-full bg-white/5 pointer-events-none"></div>
+        <div class="hidden sm:block absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-white/5 pointer-events-none"></div>
+
+        <div class="w-full max-w-sm bg-base-100 rounded-2xl shadow-2xl p-4 sm:p-6 relative z-10">
+            <!-- Header -->
+            <div class="text-center mb-4">
+                <!-- School Logo/Icon -->
+                {% if school.logo.name %}
+                <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2 p-1.5 bg-white shadow-md border border-base-200">
+                    <img src="{{ school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
+                </div>
+                {% else %}
+                <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2" style="background-color: var(--school-primary);">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 640 512">
+                        <path d="M337.8 5.4C327-1.8 313-1.8 302.2 5.4L166.3 96 48 96C21.5 96 0 117.5 0 144L0 464c0 26.5 21.5 48 48 48l208 0 0-96c0-35.3 28.7-64 64-64s64 28.7 64 64l0 96 208 0c26.5 0 48-21.5 48-48l0-320c0-26.5-21.5-48-48-48L473.7 96 337.8 5.4zM96 192l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM96 320l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM232 176a88 88 0 1 1 176 0 88 88 0 1 1 -176 0zm88-48c-8.8 0-16 7.2-16 16l0 32 0 16-32 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0 16 0 0-16 0-64c0-8.8-7.2-16-16-16z"/>
+                    </svg>
+                </div>
+                {% endif %}
+
+                <!-- School Name -->
+                <h1 class="text-sm sm:text-base font-bold tracking-wide mb-0.5 line-clamp-2 px-2" style="color: var(--school-primary);">
+                    {% if school and school.display_name %}
+                        {{ school.display_name|upper|truncatechars:40 }}
+                    {% elif tenant and tenant.name %}
+                        {{ tenant.name|upper|truncatechars:40 }}
+                    {% else %}
+                        SCHOOL PORTAL
+                    {% endif %}
+                </h1>
+
+                {% if school and school.motto %}
+                <p class="text-[10px] text-base-content/50 italic mb-2">"{{ school.motto }}"</p>
+                {% endif %}
+
+                <h2 class="text-lg sm:text-xl font-bold text-base-content">Create Your Account</h2>
+                <p class="text-base-content/60 text-xs">
+                    Welcome, <strong>{{ teacher.get_title_display }} {{ teacher.full_name }}</strong>
+                </p>
+            </div>
+
+            <!-- Info Box -->
+            <div class="alert alert-info alert-sm py-2 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-xs">Create a password to access the staff portal and manage your classes.</span>
+            </div>
+
+            <!-- Error Messages -->
+            {% if errors %}
+            <div class="alert alert-error alert-sm py-2 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                    {% for error in errors %}
+                    <p class="text-xs">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Set Password Form -->
+            <form method="post" class="space-y-3">
+                {% csrf_token %}
+
+                {% email_input "email" value=invitation.email label="Email Address" disabled=True help_text="This will be your login email" icon="fa-solid fa-envelope" input_class="w-full" %}
+
+                {% password_input "password" label="Password" placeholder="Create a strong password" required=True help_text="Minimum 8 characters" icon="fa-solid fa-lock" input_class="w-full" %}
+
+                {% password_input "password_confirm" label="Confirm Password" placeholder="Confirm your password" required=True icon="fa-solid fa-lock" input_class="w-full" %}
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary btn-sm w-full mt-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Create Account
+                </button>
+            </form>
+
+            <!-- Footer -->
+            <div class="mt-4 pt-3 border-t border-base-200 text-center">
+                <p class="text-[10px] text-base-content/40">
+                    {% if tenant and tenant.phone or tenant and tenant.email %}
+                    <span class="block mb-0.5">
+                        {% if tenant.phone %}{{ tenant.phone }}{% endif %}
+                        {% if tenant.phone and tenant.email %} | {% endif %}
+                        {% if tenant.email %}{{ tenant.email }}{% endif %}
+                    </span>
+                    {% endif %}
+                    Powered by <span class="font-semibold">TTEK SMS</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

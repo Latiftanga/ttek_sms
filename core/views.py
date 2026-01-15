@@ -1049,6 +1049,10 @@ def index(request):
     if getattr(request.user, 'is_teacher', False):
         return teacher_dashboard(request)
 
+    # Check if user is a parent/guardian - show guardian dashboard
+    if getattr(request.user, 'is_parent', False):
+        return guardian_dashboard(request)
+
     # Admin/other roles - show admin dashboard
     # Get current academic year and term
     current_year = AcademicYear.get_current()
@@ -1985,7 +1989,12 @@ def my_attendance(request):
     homeroom_classes = Class.objects.filter(class_teacher=teacher, is_active=True)
     assigned_class_ids = ClassSubject.objects.filter(teacher=teacher).values_list('class_assigned_id', flat=True)
     all_class_ids = set(homeroom_classes.values_list('id', flat=True)) | set(assigned_class_ids)
-    classes = Class.objects.filter(id__in=all_class_ids, is_active=True).order_by('level_number', 'name')
+    homeroom_ids = set(homeroom_classes.values_list('id', flat=True))
+
+    # Get classes with student counts in single query (optimized)
+    classes = Class.objects.filter(id__in=all_class_ids, is_active=True).annotate(
+        active_student_count=Count('students', filter=Q(students__status='active'))
+    ).order_by('level_number', 'name')
 
     # Get filter parameters
     class_filter = request.GET.get('class', '')
@@ -1999,60 +2008,62 @@ def my_attendance(request):
     if not date_to:
         date_to = today.isoformat()
 
-    # Get attendance records for teacher's classes
-    records = AttendanceRecord.objects.filter(
+    # Base queryset for records (filtered by date/class later)
+    records_qs = AttendanceRecord.objects.filter(
         session__class_assigned_id__in=all_class_ids
-    ).select_related('session', 'student', 'session__class_assigned')
-
-    sessions = AttendanceSession.objects.filter(
-        class_assigned_id__in=all_class_ids
-    ).select_related('class_assigned')
+    )
 
     # Apply date filter
     if date_from:
-        sessions = sessions.filter(date__gte=date_from)
-        records = records.filter(session__date__gte=date_from)
+        records_qs = records_qs.filter(session__date__gte=date_from)
     if date_to:
-        sessions = sessions.filter(date__lte=date_to)
-        records = records.filter(session__date__lte=date_to)
+        records_qs = records_qs.filter(session__date__lte=date_to)
 
     # Apply class filter
     if class_filter:
-        sessions = sessions.filter(class_assigned_id=class_filter)
-        records = records.filter(session__class_assigned_id=class_filter)
+        records_qs = records_qs.filter(session__class_assigned_id=class_filter)
 
-    # Calculate summary stats
-    total_sessions = sessions.count()
-    total_records = records.count()
-    present_count = records.filter(status__in=['P', 'L']).count()
-    absent_count = records.filter(status='A').count()
-    late_count = records.filter(status='L').count()
+    # Calculate all summary stats in single aggregated query (optimized)
+    overall_stats = records_qs.aggregate(
+        total=Count('id'),
+        present=Count('id', filter=Q(status__in=['P', 'L'])),
+        absent=Count('id', filter=Q(status='A')),
+        late=Count('id', filter=Q(status='L'))
+    )
+
+    total_records = overall_stats['total']
+    present_count = overall_stats['present']
+    absent_count = overall_stats['absent']
+    late_count = overall_stats['late']
 
     attendance_rate = 0
     if total_records > 0:
         attendance_rate = round((present_count / total_records) * 100, 1)
 
-    # Summary by class
+    # Pre-compute class stats in one aggregated query (eliminates N+1)
+    class_stats = records_qs.values('session__class_assigned_id').annotate(
+        total=Count('id'),
+        present=Count('id', filter=Q(status__in=['P', 'L'])),
+        absent=Count('id', filter=Q(status='A'))
+    )
+    class_stats_dict = {item['session__class_assigned_id']: item for item in class_stats}
+
+    # Pre-compute which classes have today's attendance in one query
+    today_sessions = set(
+        AttendanceSession.objects.filter(
+            class_assigned_id__in=all_class_ids,
+            date=today
+        ).values_list('class_assigned_id', flat=True)
+    )
+
+    # Build class summary without additional queries
     class_summary = []
     for cls in classes:
-        cls_records = records.filter(session__class_assigned=cls)
-        cls_total = cls_records.count()
-        is_homeroom = cls in homeroom_classes
-
-        # Check if attendance taken today
-        has_today = AttendanceSession.objects.filter(
-            class_assigned=cls,
-            date=today
-        ).exists()
-
-        if cls_total > 0:
-            cls_present = cls_records.filter(status__in=['P', 'L']).count()
-            cls_absent = cls_records.filter(status='A').count()
-            cls_rate = round((cls_present / cls_total) * 100, 1)
-        else:
-            cls_present = 0
-            cls_absent = 0
-            cls_rate = 0
+        stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0})
+        cls_total = stats['total']
+        cls_present = stats['present']
+        cls_absent = stats['absent']
+        cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
 
         class_summary.append({
             'class': cls,
@@ -2060,25 +2071,40 @@ def my_attendance(request):
             'present': cls_present,
             'absent': cls_absent,
             'rate': cls_rate,
-            'is_homeroom': is_homeroom,
-            'has_today': has_today,
-            'student_count': cls.students.filter(status='active').count(),
+            'is_homeroom': cls.id in homeroom_ids,
+            'has_today': cls.id in today_sessions,
+            'student_count': cls.active_student_count,
         })
 
-    # Recent sessions (last 10)
-    recent_sessions = sessions.order_by('-date')[:10]
+    # Base sessions queryset with filters
+    sessions_qs = AttendanceSession.objects.filter(
+        class_assigned_id__in=all_class_ids
+    ).select_related('class_assigned')
+
+    if date_from:
+        sessions_qs = sessions_qs.filter(date__gte=date_from)
+    if date_to:
+        sessions_qs = sessions_qs.filter(date__lte=date_to)
+    if class_filter:
+        sessions_qs = sessions_qs.filter(class_assigned_id=class_filter)
+
+    total_sessions = sessions_qs.count()
+
+    # Recent sessions with annotated counts (eliminates N+1)
+    recent_sessions = sessions_qs.annotate(
+        total_records=Count('records'),
+        present_records=Count('records', filter=Q(records__status__in=['P', 'L'])),
+        absent_records=Count('records', filter=Q(records__status='A'))
+    ).order_by('-date')[:10]
+
     recent_data = []
     for session in recent_sessions:
-        session_records = session.records.all()
-        s_total = session_records.count()
-        s_present = session_records.filter(status__in=['P', 'L']).count()
-        s_absent = session_records.filter(status='A').count()
         recent_data.append({
             'session': session,
-            'total': s_total,
-            'present': s_present,
-            'absent': s_absent,
-            'rate': round((s_present / s_total) * 100, 1) if s_total > 0 else 0,
+            'total': session.total_records,
+            'present': session.present_records,
+            'absent': session.absent_records,
+            'rate': round((session.present_records / session.total_records) * 100, 1) if session.total_records > 0 else 0,
         })
 
     context = {
@@ -2186,6 +2212,7 @@ def take_attendance(request, class_id):
 @login_required
 def my_grading(request):
     """Teacher's grading dashboard - view and enter scores for assigned classes."""
+    from django.db.models import Count, Q
     from academics.models import Class, ClassSubject, Subject
     from gradebook.models import Assignment, Score, AssessmentCategory
     from teachers.models import Teacher
@@ -2200,49 +2227,70 @@ def my_grading(request):
     teacher = user.teacher_profile
     current_term = Term.get_current()
 
-    # Get teacher's class-subject assignments (only active classes)
+    # Get teacher's class-subject assignments with student counts (optimized - single query)
     assignments = ClassSubject.objects.filter(
         teacher=teacher,
         class_assigned__is_active=True
-    ).select_related('class_assigned', 'subject').order_by(
+    ).select_related('class_assigned', 'subject').annotate(
+        student_count=Count(
+            'class_assigned__students',
+            filter=Q(class_assigned__students__status='active')
+        )
+    ).order_by(
         'class_assigned__level_number', 'class_assigned__name', 'subject__name'
     )
 
-    # Build class data with progress info
+    # Pre-compute assignment and score counts efficiently (eliminates N+1 queries)
+    assignment_counts = {}
+    score_counts = {}
+
+    if current_term and assignments.exists():
+        subject_ids = list(assignments.values_list('subject_id', flat=True).distinct())
+        class_ids = list(assignments.values_list('class_assigned_id', flat=True).distinct())
+
+        # Get assignment counts per subject in one query
+        assignment_counts = dict(
+            Assignment.objects.filter(
+                subject_id__in=subject_ids,
+                term=current_term
+            ).values('subject_id').annotate(
+                count=Count('id')
+            ).values_list('subject_id', 'count')
+        )
+
+        # Get score counts per (class, subject) combination in one query
+        score_data = Score.objects.filter(
+            assignment__term=current_term,
+            assignment__subject_id__in=subject_ids,
+            student__current_class_id__in=class_ids
+        ).values(
+            'student__current_class_id',
+            'assignment__subject_id'
+        ).annotate(count=Count('id'))
+
+        for item in score_data:
+            key = (item['student__current_class_id'], item['assignment__subject_id'])
+            score_counts[key] = item['count']
+
+    # Build class data using pre-computed values (no additional queries)
     class_data = []
     for assignment in assignments:
-        cls = assignment.class_assigned
-        subject = assignment.subject
+        cls_id = assignment.class_assigned_id
+        subject_id = assignment.subject_id
+        student_count = assignment.student_count
 
-        # Count students
-        student_count = cls.students.filter(status='active').count()
+        term_assignments = assignment_counts.get(subject_id, 0)
+        scores_entered = score_counts.get((cls_id, subject_id), 0)
 
-        # Count assignments and scores entered
-        if current_term:
-            term_assignments = Assignment.objects.filter(
-                subject=subject,
-                term=current_term
-            ).count()
-
-            if term_assignments > 0 and student_count > 0:
-                total_possible = term_assignments * student_count
-                scores_entered = Score.objects.filter(
-                    assignment__subject=subject,
-                    assignment__term=current_term,
-                    student__current_class=cls
-                ).count()
-                progress = round((scores_entered / total_possible) * 100) if total_possible > 0 else 0
-            else:
-                scores_entered = 0
-                progress = 0
+        if term_assignments > 0 and student_count > 0:
+            total_possible = term_assignments * student_count
+            progress = round((scores_entered / total_possible) * 100)
         else:
-            term_assignments = 0
-            scores_entered = 0
             progress = 0
 
         class_data.append({
-            'class': cls,
-            'subject': subject,
+            'class': assignment.class_assigned,
+            'subject': assignment.subject,
             'student_count': student_count,
             'assignments': term_assignments,
             'scores_entered': scores_entered,
@@ -3207,40 +3255,148 @@ def my_fees(request):
     return htmx_render(request, 'core/student/my_fees.html', 'core/student/partials/my_fees_content.html', context)
 
 
-# Parent views
+# Parent/Guardian views
+@login_required
+def guardian_dashboard(request):
+    """Dashboard for logged-in guardians/parents showing their wards."""
+    from gradebook.models import SubjectTermGrade, TermReport
+    from students.models import Guardian, StudentGuardian
+    from academics.models import AttendanceSession, AttendanceRecord
+
+    user = request.user
+    current_term = Term.get_current()
+    current_year = AcademicYear.get_current()
+
+    # Get guardian profile linked to this user
+    guardian = getattr(user, 'guardian_profile', None)
+
+    if not guardian:
+        messages.warning(request, "No guardian profile linked to your account.")
+        context = {'guardian': None, 'wards': []}
+        return htmx_render(request, 'core/parent/dashboard.html', 'core/parent/partials/dashboard_content.html', context)
+
+    # Get wards (students) linked to this guardian
+    student_guardians = StudentGuardian.objects.filter(
+        guardian=guardian
+    ).select_related(
+        'student__current_class'
+    ).order_by('-is_primary', 'student__first_name')
+
+    # Build ward data with academic info
+    wards_data = []
+    total_average = 0
+    avg_count = 0
+
+    for sg in student_guardians:
+        student = sg.student
+        if student.status != 'active':
+            continue
+
+        ward_data = {
+            'student': student,
+            'relationship': sg.get_relationship_display(),
+            'is_primary': sg.is_primary,
+            'term_report': None,
+            'subject_count': 0,
+            'attendance_rate': None,
+        }
+
+        if current_term:
+            # Get term report
+            ward_data['term_report'] = TermReport.objects.filter(
+                student=student,
+                term=current_term
+            ).first()
+            ward_data['subject_count'] = SubjectTermGrade.objects.filter(
+                student=student,
+                term=current_term,
+                total_score__isnull=False
+            ).count()
+
+            if ward_data['term_report'] and ward_data['term_report'].average:
+                total_average += ward_data['term_report'].average
+                avg_count += 1
+
+            # Calculate attendance rate for current term
+            if student.current_class:
+                total_sessions = AttendanceSession.objects.filter(
+                    class_assigned=student.current_class,
+                    date__gte=current_term.start_date,
+                    date__lte=current_term.end_date
+                ).count()
+                if total_sessions > 0:
+                    present_count = AttendanceRecord.objects.filter(
+                        student=student,
+                        session__class_assigned=student.current_class,
+                        session__date__gte=current_term.start_date,
+                        session__date__lte=current_term.end_date,
+                        status__in=['P', 'L']
+                    ).count()
+                    ward_data['attendance_rate'] = round((present_count / total_sessions) * 100)
+
+        wards_data.append(ward_data)
+
+    # Calculate overall stats
+    stats = {
+        'total_wards': len(wards_data),
+        'average_score': round(total_average / avg_count, 1) if avg_count > 0 else None,
+    }
+
+    context = {
+        'guardian': guardian,
+        'wards': wards_data,
+        'current_term': current_term,
+        'current_year': current_year,
+        'stats': stats,
+    }
+    return htmx_render(request, 'core/parent/dashboard.html', 'core/parent/partials/dashboard_content.html', context)
+
+
 @login_required
 def my_wards(request):
     """Parent view of their children (wards) with grades summary."""
     from gradebook.models import SubjectTermGrade, TermReport
-    from students.models import Student
+    from students.models import Guardian, StudentGuardian
 
     user = request.user
     current_term = Term.get_current()
 
-    # Get children linked to this parent
-    # Assuming there's a parent_profile or guardian relationship
-    # For now, we'll check if the user email matches any student's guardian_email
-    wards = Student.objects.filter(
-        guardian_email=user.email,
-        status='active'
-    ).select_related('current_class').order_by('first_name')
+    # Get guardian profile linked to this user
+    guardian = getattr(user, 'guardian_profile', None)
+
+    if not guardian:
+        context = {'wards': [], 'current_term': current_term}
+        return htmx_render(request, 'core/parent/my_wards.html', 'core/parent/partials/my_wards_content.html', context)
+
+    # Get wards (students) linked to this guardian
+    student_guardians = StudentGuardian.objects.filter(
+        guardian=guardian
+    ).select_related(
+        'student__current_class'
+    ).order_by('-is_primary', 'student__first_name')
 
     # Get results for each ward
     wards_data = []
-    for ward in wards:
+    for sg in student_guardians:
+        student = sg.student
+        if student.status != 'active':
+            continue
+
         ward_data = {
-            'student': ward,
+            'student': student,
+            'relationship': sg.get_relationship_display(),
+            'is_primary': sg.is_primary,
             'term_report': None,
             'subject_count': 0,
         }
 
         if current_term:
             ward_data['term_report'] = TermReport.objects.filter(
-                student=ward,
+                student=student,
                 term=current_term
             ).first()
             ward_data['subject_count'] = SubjectTermGrade.objects.filter(
-                student=ward,
+                student=student,
                 term=current_term,
                 total_score__isnull=False
             ).count()
@@ -3248,6 +3404,7 @@ def my_wards(request):
         wards_data.append(ward_data)
 
     context = {
+        'guardian': guardian,
         'wards': wards_data,
         'current_term': current_term,
     }
@@ -3255,9 +3412,574 @@ def my_wards(request):
 
 
 @login_required
+def ward_detail(request, pk):
+    """Detailed view of a specific ward for guardians."""
+    from gradebook.models import SubjectTermGrade, TermReport
+    from students.models import Student, Guardian, StudentGuardian
+    from academics.models import AttendanceSession, AttendanceRecord
+
+    user = request.user
+    guardian = getattr(user, 'guardian_profile', None)
+
+    if not guardian:
+        messages.error(request, "No guardian profile linked to your account.")
+        return redirect('core:index')
+
+    # Verify this student is a ward of the logged-in guardian
+    student_guardian = StudentGuardian.objects.filter(
+        guardian=guardian,
+        student_id=pk
+    ).select_related('student__current_class').first()
+
+    if not student_guardian:
+        messages.error(request, "You are not authorized to view this student.")
+        return redirect('core:my_wards')
+
+    student = student_guardian.student
+    current_term = Term.get_current()
+    current_year = AcademicYear.get_current()
+
+    # Get term report and grades
+    term_report = None
+    subject_grades = []
+    if current_term:
+        term_report = TermReport.objects.filter(
+            student=student,
+            term=current_term
+        ).first()
+        subject_grades = SubjectTermGrade.objects.filter(
+            student=student,
+            term=current_term
+        ).select_related('subject').order_by('subject__name')
+
+    # Get attendance records for current term
+    attendance_records = []
+    attendance_stats = {'present': 0, 'absent': 0, 'late': 0, 'excused': 0, 'total': 0}
+    if current_term and student.current_class:
+        sessions = AttendanceSession.objects.filter(
+            class_assigned=student.current_class,
+            date__gte=current_term.start_date,
+            date__lte=current_term.end_date
+        ).order_by('-date')[:10]
+
+        for session in sessions:
+            record = AttendanceRecord.objects.filter(
+                student=student,
+                session=session
+            ).first()
+            attendance_records.append({
+                'date': session.date,
+                'status': record.status if record else None,
+                'status_display': record.get_status_display() if record else 'Not Recorded'
+            })
+
+        # Calculate attendance stats
+        all_records = AttendanceRecord.objects.filter(
+            student=student,
+            session__class_assigned=student.current_class,
+            session__date__gte=current_term.start_date,
+            session__date__lte=current_term.end_date
+        )
+        attendance_stats['present'] = all_records.filter(status='P').count()
+        attendance_stats['late'] = all_records.filter(status='L').count()
+        attendance_stats['absent'] = all_records.filter(status='A').count()
+        attendance_stats['excused'] = all_records.filter(status='E').count()
+        attendance_stats['total'] = all_records.count()
+
+    context = {
+        'student': student,
+        'relationship': student_guardian.get_relationship_display(),
+        'is_primary': student_guardian.is_primary,
+        'term_report': term_report,
+        'subject_grades': subject_grades,
+        'attendance_records': attendance_records,
+        'attendance_stats': attendance_stats,
+        'current_term': current_term,
+        'current_year': current_year,
+    }
+    return htmx_render(request, 'core/parent/ward_detail.html', 'core/parent/partials/ward_detail_content.html', context)
+
+
+@login_required
 def fee_payments(request):
-    context = {}
+    """Guardian view for viewing fee payments for their wards."""
+    from students.models import Guardian, StudentGuardian
+    from finance.models import Invoice, Payment, PaymentGatewayConfig
+    from django.db.models import Sum, Q
+
+    user = request.user
+    guardian = getattr(user, 'guardian_profile', None)
+    current_year = AcademicYear.get_current()
+    current_term = Term.get_current()
+
+    # Check if online payments are available
+    online_payments_enabled = PaymentGatewayConfig.objects.filter(
+        is_active=True,
+        is_primary=True,
+        verification_status='VERIFIED'
+    ).exists()
+
+    # Get selected ward filter from query params
+    selected_ward_id = request.GET.get('ward')
+
+    wards_fees = []
+    all_invoices = []
+    all_payments = []
+    total_outstanding = 0
+
+    if guardian:
+        student_guardians = StudentGuardian.objects.filter(
+            guardian=guardian
+        ).select_related('student', 'student__current_class')
+
+        ward_students = []
+        for sg in student_guardians:
+            student = sg.student
+            if student.status != 'active':
+                continue
+            ward_students.append(student)
+
+            # Get invoices for this student
+            invoices = Invoice.objects.filter(
+                student=student
+            ).exclude(status='CANCELLED').order_by('-created_at')
+
+            if current_year:
+                invoices = invoices.filter(academic_year=current_year)
+
+            # Calculate totals from invoices
+            totals = invoices.aggregate(
+                total_fees=Sum('total_amount'),
+                total_paid=Sum('amount_paid'),
+                total_balance=Sum('balance')
+            )
+            total_fees = totals['total_fees'] or 0
+            total_paid = totals['total_paid'] or 0
+            balance = totals['total_balance'] or 0
+
+            # Get current term invoice if exists
+            current_invoice = invoices.filter(term=current_term).first() if current_term else None
+
+            # Recent payments for this student
+            recent_payments = Payment.objects.filter(
+                invoice__student=student,
+                status='COMPLETED'
+            ).select_related('invoice').order_by('-transaction_date')[:5]
+
+            wards_fees.append({
+                'student': student,
+                'relationship': sg.get_relationship_display(),
+                'total_fees': total_fees,
+                'total_paid': total_paid,
+                'balance': balance,
+                'current_invoice': current_invoice,
+                'invoices': invoices[:3],  # Recent 3 invoices
+                'recent_payments': recent_payments,
+            })
+
+            total_outstanding += balance
+
+        # For detailed view - get all invoices and payments (optionally filtered by ward)
+        if selected_ward_id:
+            try:
+                selected_student = next(
+                    (s for s in ward_students if str(s.pk) == selected_ward_id),
+                    None
+                )
+                if selected_student:
+                    all_invoices = Invoice.objects.filter(
+                        student=selected_student
+                    ).exclude(status='CANCELLED').select_related(
+                        'student', 'term', 'academic_year'
+                    ).prefetch_related('items').order_by('-created_at')
+
+                    all_payments = Payment.objects.filter(
+                        invoice__student=selected_student,
+                        status='COMPLETED'
+                    ).select_related('invoice').order_by('-transaction_date')
+            except (ValueError, StopIteration):
+                pass
+        else:
+            # All wards' invoices and payments
+            all_invoices = Invoice.objects.filter(
+                student__in=ward_students
+            ).exclude(status='CANCELLED').select_related(
+                'student', 'term', 'academic_year'
+            ).prefetch_related('items').order_by('-created_at')[:20]
+
+            all_payments = Payment.objects.filter(
+                invoice__student__in=ward_students,
+                status='COMPLETED'
+            ).select_related('invoice', 'invoice__student').order_by('-transaction_date')[:10]
+
+    context = {
+        'guardian': guardian,
+        'wards_fees': wards_fees,
+        'all_invoices': all_invoices,
+        'all_payments': all_payments,
+        'total_outstanding': total_outstanding,
+        'selected_ward_id': selected_ward_id,
+        'current_year': current_year,
+        'current_term': current_term,
+        'online_payments_enabled': online_payments_enabled,
+    }
     return htmx_render(request, 'core/parent/fee_payments.html', 'core/parent/partials/fee_payments_content.html', context)
+
+
+@login_required
+def guardian_pay_invoice(request, invoice_id):
+    """
+    Guardian view to initiate online payment for an invoice.
+    Verifies the guardian has access to this invoice's student.
+    """
+    from students.models import StudentGuardian
+    from finance.models import Invoice, Payment, PaymentGatewayConfig, PaymentGatewayTransaction
+    from finance.gateways import get_gateway_adapter
+    import uuid as uuid_module
+
+    user = request.user
+    guardian = getattr(user, 'guardian_profile', None)
+
+    if not guardian:
+        messages.error(request, 'No guardian profile found.')
+        return redirect('core:fee_payments')
+
+    # Get the invoice
+    invoice = get_object_or_404(
+        Invoice.objects.select_related('student'),
+        pk=invoice_id
+    )
+
+    # Verify guardian has access to this student
+    has_access = StudentGuardian.objects.filter(
+        guardian=guardian,
+        student=invoice.student
+    ).exists()
+
+    if not has_access:
+        messages.error(request, 'You do not have access to this invoice.')
+        return redirect('core:fee_payments')
+
+    # Check invoice can be paid
+    if invoice.status in ['PAID', 'CANCELLED']:
+        messages.error(request, 'This invoice cannot be paid.')
+        return redirect('core:fee_payments')
+
+    if invoice.balance <= 0:
+        messages.error(request, 'This invoice has no outstanding balance.')
+        return redirect('core:fee_payments')
+
+    # Get primary gateway config
+    gateway_config = PaymentGatewayConfig.objects.filter(
+        is_active=True,
+        is_primary=True
+    ).select_related('gateway').first()
+
+    if not gateway_config:
+        messages.error(request, 'Online payments are not available. Please contact the school.')
+        return redirect('core:fee_payments')
+
+    if gateway_config.verification_status != 'VERIFIED':
+        messages.error(request, 'Payment gateway is not configured. Please contact the school.')
+        return redirect('core:fee_payments')
+
+    # Get gateway adapter
+    adapter = get_gateway_adapter(gateway_config)
+
+    # Generate unique reference
+    reference = f"GP-{invoice.invoice_number}-{uuid_module.uuid4().hex[:8].upper()}"
+
+    # Get payer email from guardian
+    payer_email = guardian.email or user.email or 'noreply@school.com'
+    payer_name = guardian.full_name
+    payer_phone = guardian.phone or ''
+
+    # Build callback URL - guardian specific
+    callback_url = request.build_absolute_uri(
+        reverse('core:guardian_payment_callback')
+    ) + f'?reference={reference}'
+
+    # Metadata for tracking
+    metadata = {
+        'invoice_id': str(invoice.pk),
+        'invoice_number': invoice.invoice_number,
+        'student_id': str(invoice.student.pk),
+        'student_name': invoice.student.full_name,
+        'guardian_id': str(guardian.pk),
+        'guardian_name': guardian.full_name,
+        'source': 'guardian_portal',
+    }
+
+    # Initialize payment with gateway
+    response = adapter.initialize_payment(
+        amount=invoice.balance,
+        email=payer_email,
+        reference=reference,
+        callback_url=callback_url,
+        metadata=metadata
+    )
+
+    if response.success:
+        # Create pending payment record
+        payment = Payment.objects.create(
+            invoice=invoice,
+            amount=invoice.balance,
+            method='ONLINE',
+            status='PENDING',
+            reference=reference,
+            payer_email=payer_email,
+            payer_name=payer_name,
+            payer_phone=payer_phone,
+        )
+
+        # Create gateway transaction record
+        PaymentGatewayTransaction.objects.create(
+            payment=payment,
+            gateway_config=gateway_config,
+            gateway_reference=response.gateway_reference or '',
+            amount_charged=invoice.balance,
+            net_amount=invoice.balance,
+            full_response=response.raw_response,
+        )
+
+        # Redirect to payment gateway
+        return redirect(response.authorization_url)
+    else:
+        messages.error(request, f'Could not initiate payment: {response.message}')
+        return redirect('core:fee_payments')
+
+
+def send_payment_receipt_email(payment, guardian):
+    """
+    Send payment receipt email to guardian.
+    Returns True if email was sent successfully, False otherwise.
+    """
+    from django.core.mail import send_mail
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+    from datetime import datetime
+
+    # Get recipient email
+    recipient_email = payment.payer_email or guardian.email
+    if not recipient_email:
+        logger.warning(f"No email address for payment receipt {payment.receipt_number}")
+        return False
+
+    # Get school settings
+    school = SchoolSettings.objects.first()
+
+    # Build context
+    context = {
+        'payment': payment,
+        'invoice': payment.invoice,
+        'student': payment.invoice.student,
+        'guardian': guardian,
+        'school': school,
+        'current_year': datetime.now().year,
+    }
+
+    # Render email
+    subject = f"Payment Receipt - {payment.receipt_number}"
+    html_message = render_to_string('core/emails/payment_receipt_email.html', context)
+    plain_message = strip_tags(html_message)
+
+    try:
+        send_mail(
+            subject,
+            plain_message,
+            getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            [recipient_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info(f"Payment receipt email sent for {payment.receipt_number} to {recipient_email}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send payment receipt email for {payment.receipt_number}: {str(e)}")
+        return False
+
+
+@login_required
+def guardian_payment_callback(request):
+    """
+    Handle return from payment gateway for guardian payments.
+    Verifies the payment and redirects to success page or fee payments.
+    """
+    from finance.models import Payment, PaymentGatewayTransaction
+    from finance.gateways import get_gateway_adapter
+
+    reference = request.GET.get('reference', '')
+
+    if not reference:
+        messages.error(request, 'Invalid payment callback.')
+        return redirect('core:fee_payments')
+
+    # Find the payment
+    try:
+        payment = Payment.objects.select_related(
+            'invoice__student'
+        ).get(reference=reference)
+    except Payment.DoesNotExist:
+        messages.error(request, 'Payment not found.')
+        return redirect('core:fee_payments')
+
+    # If already processed, redirect to appropriate page
+    if payment.status == 'COMPLETED':
+        return redirect('core:guardian_payment_success', payment_id=payment.pk)
+    elif payment.status in ['FAILED', 'CANCELLED']:
+        return redirect('core:guardian_payment_failed', payment_id=payment.pk)
+
+    # Get gateway transaction
+    try:
+        gateway_tx = payment.gateway_transaction
+        gateway_config = gateway_tx.gateway_config
+    except PaymentGatewayTransaction.DoesNotExist:
+        messages.error(request, 'Payment configuration error.')
+        return redirect('core:fee_payments')
+
+    # Verify with gateway
+    adapter = get_gateway_adapter(gateway_config)
+    response = adapter.verify_payment(reference)
+
+    if response.success:
+        # Update payment
+        payment.status = 'COMPLETED'
+        payment.transaction_date = timezone.now()
+        payment.save()
+
+        # Update gateway transaction
+        gateway_tx.gateway_transaction_id = response.transaction_id or ''
+        gateway_tx.gateway_fee = response.gateway_fee or 0
+        gateway_tx.net_amount = response.amount - (response.gateway_fee or 0)
+        gateway_tx.full_response = response.raw_response
+        gateway_tx.save()
+
+        # Invoice totals are updated automatically via Payment.save()
+
+        # Send receipt email to guardian
+        guardian = getattr(request.user, 'guardian_profile', None)
+        if guardian:
+            # Refresh payment with updated invoice data
+            payment.refresh_from_db()
+            payment.invoice.refresh_from_db()
+            send_payment_receipt_email(payment, guardian)
+
+        # Redirect to success page
+        return redirect('core:guardian_payment_success', payment_id=payment.pk)
+    else:
+        payment.status = 'FAILED'
+        payment.save()
+        # Store error message in session for display on failed page
+        request.session['payment_error_message'] = response.message
+        return redirect('core:guardian_payment_failed', payment_id=payment.pk)
+
+
+@login_required
+def guardian_payment_success(request, payment_id):
+    """
+    Display payment success confirmation page for guardians.
+    Shows receipt details and allows printing.
+    """
+    from students.models import StudentGuardian
+    from finance.models import Payment
+
+    user = request.user
+    guardian = getattr(user, 'guardian_profile', None)
+
+    if not guardian:
+        messages.error(request, 'No guardian profile found.')
+        return redirect('core:fee_payments')
+
+    # Get the payment with related data
+    payment = get_object_or_404(
+        Payment.objects.select_related(
+            'invoice__student',
+            'invoice__term',
+            'invoice__academic_year'
+        ).prefetch_related('invoice__items'),
+        pk=payment_id,
+        status='COMPLETED'
+    )
+
+    # Verify guardian has access to this student
+    has_access = StudentGuardian.objects.filter(
+        guardian=guardian,
+        student=payment.invoice.student
+    ).exists()
+
+    if not has_access:
+        messages.error(request, 'You do not have access to this payment.')
+        return redirect('core:fee_payments')
+
+    # Get school settings for receipt
+    from .models import SchoolSettings
+    school = SchoolSettings.objects.first()
+
+    context = {
+        'payment': payment,
+        'invoice': payment.invoice,
+        'student': payment.invoice.student,
+        'school': school,
+        'guardian': guardian,
+    }
+
+    # For HTMX requests, return partial content
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/parent/partials/payment_success_content.html', context)
+    return render(request, 'core/parent/payment_success.html', context)
+
+
+@login_required
+def guardian_payment_failed(request, payment_id):
+    """
+    Display payment failed page for guardians.
+    Shows error details and allows retry.
+    """
+    from students.models import StudentGuardian
+    from finance.models import Payment
+
+    user = request.user
+    guardian = getattr(user, 'guardian_profile', None)
+
+    if not guardian:
+        messages.error(request, 'No guardian profile found.')
+        return redirect('core:fee_payments')
+
+    # Get the payment with related data
+    payment = get_object_or_404(
+        Payment.objects.select_related(
+            'invoice__student',
+            'invoice__term',
+            'invoice__academic_year'
+        ),
+        pk=payment_id
+    )
+
+    # Verify guardian has access to this student
+    has_access = StudentGuardian.objects.filter(
+        guardian=guardian,
+        student=payment.invoice.student
+    ).exists()
+
+    if not has_access:
+        messages.error(request, 'You do not have access to this payment.')
+        return redirect('core:fee_payments')
+
+    # Get error message from session if available
+    error_message = request.session.pop('payment_error_message', None)
+
+    context = {
+        'payment': payment,
+        'invoice': payment.invoice,
+        'student': payment.invoice.student,
+        'guardian': guardian,
+        'error_message': error_message,
+    }
+
+    # For HTMX requests, return partial content
+    if request.headers.get('HX-Request'):
+        return render(request, 'core/parent/partials/payment_failed_content.html', context)
+    return render(request, 'core/parent/payment_failed.html', context)
 
 
 def verify_document(request, code):

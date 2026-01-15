@@ -1,0 +1,269 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+    <div class="flex items-center gap-3 flex-1 min-w-0">
+        <a href="{% url 'core:index' %}"
+           hx-get="{% url 'core:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm btn-circle flex-shrink-0">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div class="min-w-0">
+            <h1 class="text-lg sm:text-xl font-bold truncate">{{ student.full_name }}</h1>
+            <p class="text-sm text-base-content/60">
+                {{ relationship }}
+                {% if is_primary %}
+                <span class="badge badge-success badge-xs ml-1">Primary Guardian</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    <div class="flex gap-2 pl-11 sm:pl-0">
+        {% if current_term %}
+        <a href="{% url 'gradebook:student_report' student.pk %}"
+           hx-get="{% url 'gradebook:student_report' student.pk %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-success btn-sm">
+            <i class="fa-solid fa-file-lines"></i>
+            <span class="hidden sm:inline">Full Report</span>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left Column: Student Info -->
+    <div class="lg:col-span-1 space-y-4">
+        <!-- Student Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-5 items-center text-center">
+                <div class="avatar placeholder mb-3">
+                    <div class="w-24 h-24 rounded-full bg-success/10 text-success flex items-center justify-center ring ring-success ring-offset-base-100 ring-offset-2">
+                        {% if student.photo %}
+                        <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="rounded-full">
+                        {% else %}
+                        <span class="text-3xl font-bold">{{ student.first_name.0 }}{{ student.last_name.0 }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <h2 class="text-lg font-bold">{{ student.full_name }}</h2>
+                <p class="text-sm text-base-content/60 font-mono">{{ student.admission_number }}</p>
+                <p class="text-sm text-base-content/60">
+                    {% if student.current_class %}
+                    {{ student.current_class.name }}
+                    {% else %}
+                    No class assigned
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- Term Summary -->
+        {% if term_report %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm mb-3">Term Summary</h3>
+                <div class="grid grid-cols-2 gap-3 text-center">
+                    <div class="bg-primary/10 rounded-lg p-3">
+                        <div class="text-2xl font-bold text-primary">{{ term_report.average|floatformat:0 }}%</div>
+                        <div class="text-xs text-base-content/60">Average</div>
+                    </div>
+                    <div class="bg-secondary/10 rounded-lg p-3">
+                        <div class="text-2xl font-bold text-secondary">
+                            {% if term_report.position %}
+                            {{ term_report.position }}<span class="text-sm font-normal">/{{ term_report.out_of }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </div>
+                        <div class="text-xs text-base-content/60">Position</div>
+                    </div>
+                    <div class="bg-success/10 rounded-lg p-3">
+                        <div class="text-2xl font-bold text-success">{{ term_report.subjects_passed }}</div>
+                        <div class="text-xs text-base-content/60">Passed</div>
+                    </div>
+                    <div class="bg-error/10 rounded-lg p-3">
+                        <div class="text-2xl font-bold text-error">{{ term_report.subjects_failed }}</div>
+                        <div class="text-xs text-base-content/60">Failed</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Attendance Summary -->
+        {% if attendance_stats.total > 0 %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm mb-3">Attendance Summary</h3>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-base-content/70">Present</span>
+                        <span class="font-medium text-success">{{ attendance_stats.present }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-base-content/70">Late</span>
+                        <span class="font-medium text-warning">{{ attendance_stats.late }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-base-content/70">Absent</span>
+                        <span class="font-medium text-error">{{ attendance_stats.absent }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-base-content/70">Excused</span>
+                        <span class="font-medium text-info">{{ attendance_stats.excused }}</span>
+                    </div>
+                    <div class="divider my-2"></div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="font-medium">Attendance Rate</span>
+                        {% with rate=attendance_stats.present|add:attendance_stats.late %}
+                        {% widthratio rate attendance_stats.total 100 as pct %}
+                        <span class="font-bold {% if pct >= 80 %}text-success{% elif pct >= 60 %}text-warning{% else %}text-error{% endif %}">
+                            {{ pct }}%
+                        </span>
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column: Details -->
+    <div class="lg:col-span-2 space-y-4">
+
+        <!-- Subject Grades -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-5">
+                <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                    <i class="fa-solid fa-book text-success"></i>
+                    Subject Grades
+                    {% if current_term %}
+                    <span class="badge badge-ghost badge-sm">{{ current_term.name }}</span>
+                    {% endif %}
+                </h2>
+
+                {% if subject_grades %}
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th class="text-center">Class</th>
+                                <th class="text-center">Exam</th>
+                                <th class="text-center">Total</th>
+                                <th class="text-center">Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grade in subject_grades %}
+                            <tr class="hover">
+                                <td>{{ grade.subject.name }}</td>
+                                <td class="text-center">{{ grade.class_score|default:"-" }}</td>
+                                <td class="text-center">{{ grade.exam_score|default:"-" }}</td>
+                                <td class="text-center font-medium">{{ grade.total_score|floatformat:0|default:"-" }}</td>
+                                <td class="text-center">
+                                    {% if grade.grade %}
+                                    <span class="badge badge-sm {% if grade.grade == 'A1' or grade.grade == 'A' %}badge-success{% elif grade.grade == 'B2' or grade.grade == 'B3' or grade.grade == 'B' %}badge-info{% elif grade.grade == 'C4' or grade.grade == 'C5' or grade.grade == 'C6' or grade.grade == 'C' %}badge-warning{% else %}badge-error{% endif %}">
+                                        {{ grade.grade }}
+                                    </span>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-8 text-base-content/40">
+                    <i class="fa-solid fa-clipboard-list text-3xl mb-2"></i>
+                    <p class="text-sm">No grades recorded yet</p>
+                    <p class="text-xs mt-1">Check back later for updated scores</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recent Attendance -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-5">
+                <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                    <i class="fa-solid fa-calendar-check text-success"></i>
+                    Recent Attendance
+                </h2>
+
+                {% if attendance_records %}
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in attendance_records %}
+                            <tr class="hover">
+                                <td>{{ record.date|date:"D, M d, Y" }}</td>
+                                <td class="text-center">
+                                    {% if record.status == 'P' %}
+                                    <span class="badge badge-success badge-sm">Present</span>
+                                    {% elif record.status == 'L' %}
+                                    <span class="badge badge-warning badge-sm">Late</span>
+                                    {% elif record.status == 'A' %}
+                                    <span class="badge badge-error badge-sm">Absent</span>
+                                    {% elif record.status == 'E' %}
+                                    <span class="badge badge-info badge-sm">Excused</span>
+                                    {% else %}
+                                    <span class="badge badge-ghost badge-sm">{{ record.status_display }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-8 text-base-content/40">
+                    <i class="fa-solid fa-calendar-xmark text-3xl mb-2"></i>
+                    <p class="text-sm">No attendance records yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm mb-3">Actions</h3>
+                <div class="flex flex-wrap gap-2">
+                    {% if term_report %}
+                    <a href="{% url 'gradebook:student_report' student.pk %}"
+                       hx-get="{% url 'gradebook:student_report' student.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-sm btn-outline btn-success">
+                        <i class="fa-solid fa-file-lines"></i>
+                        View Full Report
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'core:fee_payments' %}"
+                       hx-get="{% url 'core:fee_payments' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-sm btn-outline">
+                        <i class="fa-solid fa-money-bill"></i>
+                        Fee Payments
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

@@ -21,6 +21,10 @@ from .accounts import (
     create_account,
     deactivate_account,
     reset_password,
+    send_invitation,
+    resend_invitation,
+    cancel_invitation,
+    accept_invitation,
 )
 
 # Bulk import views
@@ -47,6 +51,10 @@ __all__ = [
     'create_account',
     'deactivate_account',
     'reset_password',
+    'send_invitation',
+    'resend_invitation',
+    'cancel_invitation',
+    'accept_invitation',
     # Bulk import
     'bulk_import',
     'bulk_import_confirm',

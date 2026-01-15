@@ -16,7 +16,7 @@
 {% endif %}
 
 <form hx-post="{% url 'teachers:create_account' teacher.pk %}"
-      hx-target="#create-account-container"
+      hx-target="#modal-container"
       hx-swap="innerHTML">
     {% csrf_token %}
 
@@ -68,8 +68,8 @@
     </div>
 
     <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="modal_create_account.close()">Cancel</button>
-        <button type="submit" class="btn btn-primary">
+        <button type="button" class="btn btn-sm btn-ghost" onclick="modal_form.close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
             <i class="fa-solid fa-user-plus"></i>
             Create Account
         </button>

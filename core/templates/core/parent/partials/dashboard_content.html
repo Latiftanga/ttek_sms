@@ -1,0 +1,205 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-emerald-600 flex items-center justify-center">
+                <i class="fa-solid fa-house-user text-white"></i>
+            </div>
+            Guardian Portal
+        </h1>
+        <p class="text-sm text-base-content/60 mt-1">
+            {% if guardian %}
+            Welcome, {{ guardian.full_name }}
+            {% endif %}
+            {% if current_term %}
+            <span class="mx-2">|</span>
+            <i class="fa-solid fa-calendar-day mr-1"></i>
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+{% if not guardian %}
+<!-- No Profile -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body py-16 text-center">
+        <div class="w-20 h-20 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-user-slash text-warning text-3xl"></i>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">No Guardian Profile Found</h3>
+        <p class="text-base-content/60 max-w-md mx-auto">
+            Your account is not linked to a guardian profile. Please contact the school administration
+            to link your account.
+        </p>
+    </div>
+</div>
+
+{% elif not wards %}
+<!-- No Wards -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body py-16 text-center">
+        <div class="w-20 h-20 rounded-full bg-info/10 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-user-group text-info text-3xl"></i>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">No Wards Found</h3>
+        <p class="text-base-content/60 max-w-md mx-auto">
+            No students are linked to your guardian profile. Please contact the school administration
+            to link your children to your account.
+        </p>
+    </div>
+</div>
+
+{% else %}
+
+<!-- Quick Stats -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4 flex flex-row items-center gap-3">
+            <div class="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center">
+                <i class="fa-solid fa-children text-success text-xl"></i>
+            </div>
+            <div>
+                <p class="text-2xl font-bold">{{ stats.total_wards }}</p>
+                <p class="text-xs text-base-content/60">Ward{{ stats.total_wards|pluralize }}</p>
+            </div>
+        </div>
+    </div>
+
+    {% if stats.average_score %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4 flex flex-row items-center gap-3">
+            <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <i class="fa-solid fa-chart-line text-primary text-xl"></i>
+            </div>
+            <div>
+                <p class="text-2xl font-bold">{{ stats.average_score }}%</p>
+                <p class="text-xs text-base-content/60">Avg. Score</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Wards Section -->
+<div class="mb-6">
+    <h2 class="text-lg font-semibold flex items-center gap-2 mb-4">
+        <i class="fa-solid fa-user-graduate text-success"></i>
+        My Wards
+    </h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for ward_data in wards %}
+        <div class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md transition-shadow">
+            <div class="card-body p-4">
+                <!-- Student Info -->
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="avatar placeholder">
+                        <div class="w-14 h-14 rounded-full bg-success/10 text-success flex items-center justify-center">
+                            {% if ward_data.student.photo %}
+                            <img src="{{ ward_data.student.photo.url }}" alt="{{ ward_data.student.full_name }}" class="rounded-full">
+                            {% else %}
+                            <span class="text-lg font-medium">{{ ward_data.student.first_name.0 }}{{ ward_data.student.last_name.0 }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold truncate">{{ ward_data.student.full_name }}</h3>
+                        <p class="text-xs text-base-content/60">
+                            {{ ward_data.relationship }}
+                            {% if ward_data.is_primary %}
+                            <span class="badge badge-success badge-xs ml-1">Primary</span>
+                            {% endif %}
+                        </p>
+                        <p class="text-xs text-base-content/40">
+                            {% if ward_data.student.current_class %}
+                            {{ ward_data.student.current_class.name }}
+                            {% else %}
+                            No class
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Quick Stats Row -->
+                <div class="grid grid-cols-3 gap-2 mb-4">
+                    <!-- Average -->
+                    <div class="text-center p-2 rounded-lg bg-base-200/50">
+                        <div class="text-lg font-bold text-primary">
+                            {% if ward_data.term_report and ward_data.term_report.average %}
+                            {{ ward_data.term_report.average|floatformat:0 }}%
+                            {% else %}
+                            -
+                            {% endif %}
+                        </div>
+                        <div class="text-[10px] text-base-content/60">Average</div>
+                    </div>
+                    <!-- Position -->
+                    <div class="text-center p-2 rounded-lg bg-base-200/50">
+                        <div class="text-lg font-bold text-secondary">
+                            {% if ward_data.term_report and ward_data.term_report.position %}
+                            {{ ward_data.term_report.position }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </div>
+                        <div class="text-[10px] text-base-content/60">Position</div>
+                    </div>
+                    <!-- Attendance -->
+                    <div class="text-center p-2 rounded-lg bg-base-200/50">
+                        <div class="text-lg font-bold {% if ward_data.attendance_rate and ward_data.attendance_rate >= 80 %}text-success{% elif ward_data.attendance_rate %}text-warning{% else %}text-base-content/40{% endif %}">
+                            {% if ward_data.attendance_rate %}
+                            {{ ward_data.attendance_rate }}%
+                            {% else %}
+                            -
+                            {% endif %}
+                        </div>
+                        <div class="text-[10px] text-base-content/60">Attendance</div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="card-actions">
+                    <a href="{% url 'core:ward_detail' ward_data.student.pk %}"
+                       hx-get="{% url 'core:ward_detail' ward_data.student.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-success btn-sm btn-block">
+                        <i class="fa-solid fa-eye"></i>
+                        View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4">
+        <h2 class="font-semibold mb-3">Quick Actions</h2>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'core:my_wards' %}"
+               hx-get="{% url 'core:my_wards' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm">
+                <i class="fa-solid fa-file-lines"></i>
+                View Reports
+            </a>
+            <a href="{% url 'core:fee_payments' %}"
+               hx-get="{% url 'core:fee_payments' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm">
+                <i class="fa-solid fa-money-bill"></i>
+                Fee Payments
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endif %}

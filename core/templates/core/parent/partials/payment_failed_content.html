@@ -1,0 +1,133 @@
+{% load core_tags %}
+
+<div class="max-w-2xl mx-auto">
+    <!-- Failed Header -->
+    <div class="text-center mb-8">
+        <div class="w-20 h-20 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-circle-xmark text-error text-4xl"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-error mb-2">Payment Failed</h1>
+        <p class="text-base-content/60">We couldn't process your payment. Please try again.</p>
+    </div>
+
+    <!-- Error Details Card -->
+    <div class="card bg-base-100 shadow-lg border border-error/20 mb-6">
+        <div class="card-body p-6">
+            <!-- Error Message -->
+            {% if error_message %}
+            <div class="alert alert-error mb-6">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div>
+                    <h3 class="font-bold">Error Details</h3>
+                    <p class="text-sm">{{ error_message }}</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-error mb-6">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div>
+                    <h3 class="font-bold">Payment Not Completed</h3>
+                    <p class="text-sm">The payment could not be verified with the payment provider.</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Payment Attempt Details -->
+            <div class="mb-6">
+                <h3 class="text-sm font-semibold text-base-content/50 uppercase tracking-wide mb-3">Payment Attempt Details</h3>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Student Info -->
+                    <div class="bg-base-200/30 rounded-lg p-3">
+                        <p class="text-xs text-base-content/50 mb-1">Student</p>
+                        <p class="font-semibold">{{ student.full_name }}</p>
+                        <p class="text-sm text-base-content/60">{{ student.admission_number }}</p>
+                    </div>
+
+                    <!-- Invoice Info -->
+                    <div class="bg-base-200/30 rounded-lg p-3">
+                        <p class="text-xs text-base-content/50 mb-1">Invoice</p>
+                        <p class="font-semibold">{{ invoice.invoice_number }}</p>
+                        <p class="text-sm text-base-content/60">{{ invoice.term.name }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Amount Details -->
+            <div class="flex items-center justify-between p-4 bg-base-200/50 rounded-lg mb-6">
+                <div>
+                    <p class="text-sm text-base-content/60">Attempted Amount</p>
+                    <p class="text-2xl font-bold">GHS {{ payment.amount|floatformat:2 }}</p>
+                </div>
+                <div class="text-right">
+                    <span class="badge badge-error badge-lg">
+                        <i class="fa-solid fa-xmark mr-1"></i>
+                        Failed
+                    </span>
+                    <p class="text-xs text-base-content/50 mt-1">{{ payment.created_at|date:"M d, Y H:i" }}</p>
+                </div>
+            </div>
+
+            <!-- Reference -->
+            <div class="text-sm">
+                <p class="text-base-content/50">Reference Number</p>
+                <p class="font-mono text-xs">{{ payment.reference }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Common Issues -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+        <div class="card-body p-5">
+            <h3 class="font-semibold flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-lightbulb text-warning"></i>
+                Common Reasons for Failed Payments
+            </h3>
+            <ul class="space-y-2 text-sm text-base-content/70">
+                <li class="flex items-start gap-2">
+                    <i class="fa-solid fa-circle text-[6px] mt-2 text-base-content/40"></i>
+                    <span>Insufficient funds in your account or on your mobile money wallet</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <i class="fa-solid fa-circle text-[6px] mt-2 text-base-content/40"></i>
+                    <span>Payment was cancelled before completion</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <i class="fa-solid fa-circle text-[6px] mt-2 text-base-content/40"></i>
+                    <span>Network or connection issues during payment</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <i class="fa-solid fa-circle text-[6px] mt-2 text-base-content/40"></i>
+                    <span>Incorrect PIN or authentication failure</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <i class="fa-solid fa-circle text-[6px] mt-2 text-base-content/40"></i>
+                    <span>Daily transaction limit exceeded</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <a href="{% url 'core:guardian_pay_invoice' invoice.id %}"
+           class="btn btn-success">
+            <i class="fa-solid fa-rotate-right"></i>
+            Try Again
+        </a>
+        <a href="{% url 'core:fee_payments' %}"
+           hx-get="{% url 'core:fee_payments' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-outline">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back to Fee Payments
+        </a>
+    </div>
+
+    <!-- Help Note -->
+    <div class="mt-6 text-center text-sm text-base-content/50">
+        <p>If you continue to experience issues, please contact the school administration.</p>
+        <p class="mt-1">You can also try a different payment method.</p>
+    </div>
+</div>

@@ -22,6 +22,17 @@ from .guardians import (
     guardian_search,
 )
 
+# Guardian account views
+from .accounts import (
+    guardian_detail,
+    send_invitation as guardian_send_invitation,
+    resend_invitation as guardian_resend_invitation,
+    cancel_invitation as guardian_cancel_invitation,
+    accept_invitation as guardian_accept_invitation,
+    deactivate_account as guardian_deactivate_account,
+    activate_account as guardian_activate_account,
+)
+
 # Bulk import views
 from .bulk_import import (
     bulk_import,
@@ -62,6 +73,13 @@ __all__ = [
     'guardian_edit',
     'guardian_delete',
     'guardian_search',
+    'guardian_detail',
+    'guardian_send_invitation',
+    'guardian_resend_invitation',
+    'guardian_cancel_invitation',
+    'guardian_accept_invitation',
+    'guardian_deactivate_account',
+    'guardian_activate_account',
     # Bulk import
     'bulk_import',
     'bulk_import_confirm',

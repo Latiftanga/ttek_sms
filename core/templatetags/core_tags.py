@@ -370,7 +370,7 @@ def user_is_role(context, role):
 
 
 @register.inclusion_tag('core/partials/floating_field.html')
-def floating_field(field, label=None, help_text=None, size=None):
+def floating_field(field, label=None, help_text=None, size='sm'):
     """
     Render a form field with DaisyUI floating label.
 
@@ -530,7 +530,7 @@ def get_category_score(grade, category):
 @register.inclusion_tag('core/partials/inputs/text_input.html')
 def text_input(name, value='', label=None, placeholder='', required=False,
                disabled=False, readonly=False, help_text='', error='',
-               input_class='', icon=None, size='md'):
+               input_class='', icon=None, size='sm'):
     """
     Render a text input field with DaisyUI styling.
 
@@ -558,7 +558,7 @@ def text_input(name, value='', label=None, placeholder='', required=False,
 @register.inclusion_tag('core/partials/inputs/text_input.html')
 def email_input(name, value='', label=None, placeholder='', required=False,
                 disabled=False, readonly=False, help_text='', error='',
-                input_class='', icon='fa-solid fa-envelope', size='md'):
+                input_class='', icon='fa-solid fa-envelope', size='sm'):
     """Render an email input field."""
     return {
         'name': name,
@@ -580,7 +580,7 @@ def email_input(name, value='', label=None, placeholder='', required=False,
 @register.inclusion_tag('core/partials/inputs/text_input.html')
 def password_input(name, value='', label=None, placeholder='', required=False,
                    disabled=False, help_text='', error='', input_class='',
-                   icon='fa-solid fa-lock', size='md'):
+                   icon='fa-solid fa-lock', size='sm'):
     """Render a password input field."""
     return {
         'name': name,
@@ -602,7 +602,7 @@ def password_input(name, value='', label=None, placeholder='', required=False,
 @register.inclusion_tag('core/partials/inputs/text_input.html')
 def number_input(name, value='', label=None, placeholder='', required=False,
                  disabled=False, readonly=False, help_text='', error='',
-                 input_class='', icon=None, size='md', min=None, max=None, step=None):
+                 input_class='', icon=None, size='sm', min=None, max=None, step=None):
     """Render a number input field."""
     return {
         'name': name,
@@ -627,7 +627,7 @@ def number_input(name, value='', label=None, placeholder='', required=False,
 @register.inclusion_tag('core/partials/inputs/text_input.html')
 def phone_input(name, value='', label=None, placeholder='', required=False,
                 disabled=False, readonly=False, help_text='', error='',
-                input_class='', icon='fa-solid fa-phone', size='md'):
+                input_class='', icon='fa-solid fa-phone', size='sm'):
     """Render a phone input field."""
     return {
         'name': name,
@@ -649,7 +649,7 @@ def phone_input(name, value='', label=None, placeholder='', required=False,
 @register.inclusion_tag('core/partials/inputs/textarea_input.html')
 def textarea_input(name, value='', label=None, placeholder='', required=False,
                    disabled=False, readonly=False, help_text='', error='',
-                   input_class='', rows=4, size='md'):
+                   input_class='', rows=4, size='sm'):
     """
     Render a textarea field with DaisyUI styling.
 
@@ -675,7 +675,7 @@ def textarea_input(name, value='', label=None, placeholder='', required=False,
 @register.inclusion_tag('core/partials/inputs/select_input.html')
 def select_input(name, options, value='', label=None, required=False,
                  disabled=False, help_text='', error='', input_class='',
-                 placeholder='Select an option', size='md', icon=None):
+                 placeholder='Select an option', size='sm', icon=None):
     """
     Render a select dropdown with DaisyUI styling.
 
@@ -714,7 +714,7 @@ def select_input(name, options, value='', label=None, required=False,
 @register.inclusion_tag('core/partials/inputs/date_input.html')
 def date_input(name, value='', label=None, required=False, disabled=False,
                readonly=False, help_text='', error='', input_class='',
-               min=None, max=None, size='md'):
+               min=None, max=None, size='sm'):
     """
     Render a date input field with DaisyUI styling.
 
@@ -741,7 +741,7 @@ def date_input(name, value='', label=None, required=False, disabled=False,
 @register.inclusion_tag('core/partials/inputs/date_input.html')
 def time_input(name, value='', label=None, required=False, disabled=False,
                readonly=False, help_text='', error='', input_class='',
-               min=None, max=None, size='md'):
+               min=None, max=None, size='sm'):
     """Render a time input field with DaisyUI styling."""
     return {
         'name': name,
@@ -763,7 +763,7 @@ def time_input(name, value='', label=None, required=False, disabled=False,
 @register.inclusion_tag('core/partials/inputs/date_input.html')
 def datetime_input(name, value='', label=None, required=False, disabled=False,
                    readonly=False, help_text='', error='', input_class='',
-                   min=None, max=None, size='md'):
+                   min=None, max=None, size='sm'):
     """Render a datetime input field with DaisyUI styling."""
     return {
         'name': name,
@@ -785,7 +785,7 @@ def datetime_input(name, value='', label=None, required=False, disabled=False,
 @register.inclusion_tag('core/partials/inputs/file_input.html')
 def file_input(name, label=None, required=False, disabled=False,
                help_text='', error='', input_class='', accept='',
-               multiple=False, size='md'):
+               multiple=False, size='sm'):
     """
     Render a file input field with DaisyUI styling.
 
@@ -810,7 +810,7 @@ def file_input(name, label=None, required=False, disabled=False,
 @register.inclusion_tag('core/partials/inputs/checkbox_input.html')
 def checkbox_input(name, checked=False, label=None, required=False,
                    disabled=False, help_text='', error='', input_class='',
-                   value='true', size='md', color='primary'):
+                   value='true', size='sm', color='primary'):
     """
     Render a checkbox input with DaisyUI styling.
 
@@ -835,7 +835,7 @@ def checkbox_input(name, checked=False, label=None, required=False,
 @register.inclusion_tag('core/partials/inputs/toggle_input.html')
 def toggle_input(name, checked=False, label=None, required=False,
                  disabled=False, help_text='', error='', input_class='',
-                 value='true', size='md', color='primary'):
+                 value='true', size='sm', color='primary'):
     """
     Render a toggle switch with DaisyUI styling.
 
@@ -860,7 +860,7 @@ def toggle_input(name, checked=False, label=None, required=False,
 @register.inclusion_tag('core/partials/inputs/radio_group.html')
 def radio_group(name, options, value='', label=None, required=False,
                 disabled=False, help_text='', error='', inline=False,
-                size='md', color='primary'):
+                size='sm', color='primary'):
     """
     Render a group of radio buttons with DaisyUI styling.
 
@@ -893,7 +893,7 @@ def radio_group(name, options, value='', label=None, required=False,
 
 @register.inclusion_tag('core/partials/inputs/search_input.html')
 def search_input(name='search', value='', placeholder='Search...',
-                 input_class='', size='md', autofocus=False):
+                 input_class='', size='sm', autofocus=False):
     """
     Render a search input with DaisyUI styling.
 
@@ -915,7 +915,7 @@ def search_input(name='search', value='', placeholder='Search...',
 # =============================================================================
 
 @register.inclusion_tag('core/partials/inputs/form_field.html')
-def form_field(field, label=None, help_text=None, icon=None, size='md'):
+def form_field(field, label=None, help_text=None, icon=None, size='sm'):
     """
     Render a Django form field with consistent DaisyUI styling.
 

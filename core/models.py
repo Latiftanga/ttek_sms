@@ -16,8 +16,10 @@ from .choices import Gender
 logger = logging.getLogger(__name__)
 
 
-# Maximum photo dimensions for profile pictures
-PHOTO_MAX_SIZE = (150, 150)
+# Maximum image dimensions
+PHOTO_MAX_SIZE = (128, 128)  # For student/teacher profile photos
+LOGO_MAX_SIZE = (128, 128)   # For school logos
+FAVICON_MAX_SIZE = (64, 64)  # For favicons (typically smaller)
 
 # Allowed image types for photo uploads
 ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
@@ -488,8 +490,44 @@ class SchoolSettings(models.Model):
         """Return 'Terms' or 'Semesters' based on setting."""
         return 'Semesters' if self.academic_period_type == 'semester' else 'Terms'
 
+    def _resize_image(self, image_field, max_size, preserve_transparency=False):
+        """Resize an image field to max dimensions, converting to WebP."""
+        if not image_field or not hasattr(image_field, 'file'):
+            return
+
+        try:
+            img = Image.open(image_field)
+
+            # Handle RGBA/transparency for logos/favicons
+            if img.mode in ('RGBA', 'LA', 'P'):
+                if preserve_transparency:
+                    # Keep as PNG for transparency
+                    img.thumbnail(max_size, Image.Resampling.LANCZOS)
+                    buffer = BytesIO()
+                    img.save(buffer, format='PNG', optimize=True)
+                    buffer.seek(0)
+                    filename = image_field.name.rsplit('.', 1)[0] + '.png'
+                    image_field.save(filename, ContentFile(buffer.read()), save=False)
+                    return
+                else:
+                    img = img.convert('RGB')
+
+            img.thumbnail(max_size, Image.Resampling.LANCZOS)
+            buffer = BytesIO()
+            img.save(buffer, format='WEBP', quality=85, optimize=True)
+            buffer.seek(0)
+            filename = image_field.name.rsplit('.', 1)[0] + '.webp'
+            image_field.save(filename, ContentFile(buffer.read()), save=False)
+        except (UnidentifiedImageError, Exception) as e:
+            logger.warning(f"Could not process image: {e}")
+
     def save(self, *args, **kwargs):
         self.pk = 1
+
+        # Resize logo and favicon if uploaded
+        self._resize_image(self.logo, LOGO_MAX_SIZE, preserve_transparency=True)
+        self._resize_image(self.favicon, FAVICON_MAX_SIZE, preserve_transparency=True)
+
         # Convert HEX colors to OKLCH for DaisyUI theming
         if self.primary_color:
             self.primary_color_oklch = hex_to_oklch_values(self.primary_color)
