@@ -300,6 +300,7 @@ def accept_invitation(request, token):
                     last_name=last_name,
                     is_parent=True,
                     must_change_password=False,  # They just set it!
+                    profile_setup_completed=False,
                 )
 
                 # Link to guardian

@@ -1,0 +1,115 @@
+{% load static tailwind_tags core_tags %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Setup - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}</title>
+
+    {% if school.favicon.name %}
+    <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
+    {% endif %}
+
+    {% tailwind_css %}
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
+
+    <style>
+        :root {
+            --school-primary: {{ school.primary_color|default:'#570df8' }};
+            --school-secondary: {{ school.secondary_color|default:'#7c3aed' }};
+        }
+        body { margin: 0; padding: 0; }
+        .school-gradient {
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+        }
+        .school-gradient-subtle {
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+            opacity: 0.1;
+        }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <div class="school-gradient text-white py-4 px-4">
+            <div class="max-w-2xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    {% if school.logo.name %}
+                    <div class="w-10 h-10 rounded-full bg-white p-1 flex items-center justify-center">
+                        <img src="{{ school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
+                    </div>
+                    {% else %}
+                    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                        <i class="fa-solid fa-school text-white"></i>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <h1 class="font-bold text-sm">
+                            {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}
+                        </h1>
+                        <p class="text-white/70 text-xs">Profile Setup</p>
+                    </div>
+                </div>
+                <a href="{% url 'accounts:logout' %}" class="btn btn-ghost btn-sm text-white/80 hover:text-white">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span class="hidden sm:inline ml-1">Exit</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="bg-base-100 border-b border-base-200 py-3 px-4">
+            <div class="max-w-2xl mx-auto">
+                <div class="flex items-center justify-between text-xs mb-2">
+                    <span class="text-base-content/60">Step {{ current_index|add:1 }} of {{ steps|length }}</span>
+                    <span class="font-medium">{{ progress }}% Complete</span>
+                </div>
+                <div class="w-full bg-base-200 rounded-full h-2">
+                    <div class="h-2 rounded-full transition-all duration-500" style="width: {{ progress }}%; background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 py-6 px-4">
+            <div class="max-w-2xl mx-auto">
+                <!-- Messages -->
+                {% if messages %}
+                <div class="mb-4 space-y-2" id="wizard-alerts">
+                    {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %} alert-sm">
+                        <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% elif message.tags == 'success' %}fa-circle-check{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+                        <span class="text-sm">{{ message }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <script>
+                setTimeout(() => {
+                    const alerts = document.getElementById('wizard-alerts');
+                    if (alerts) {
+                        alerts.style.opacity = '0';
+                        alerts.style.transition = 'opacity 0.3s';
+                        setTimeout(() => alerts.remove(), 300);
+                    }
+                }, 4000);
+                </script>
+                {% endif %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="py-3 px-4 text-center">
+            <p class="text-xs text-base-content/40">
+                Powered by <span class="font-semibold">TTEK SMS</span>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+    </script>
+</body>
+</html>
