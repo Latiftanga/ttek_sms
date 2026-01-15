@@ -562,7 +562,7 @@ def email_input(name, value='', label=None, placeholder='', required=False,
     """Render an email input field."""
     return {
         'name': name,
-        'value': value,
+        'value': value or '',
         'label': label,
         'placeholder': placeholder or 'Enter email address',
         'required': required,
