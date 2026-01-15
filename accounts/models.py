@@ -223,7 +223,7 @@ class User(AbstractUser):
     def has_role(self, role):
         """
         Check if user has a specific role.
-        
+
         Args:
             role (str): One of 'platform_admin', 'school_admin', 'teacher', 'student', 'parent'
         """
@@ -235,6 +235,17 @@ class User(AbstractUser):
             'parent': self.is_parent,
         }
         return role_map.get(role, False)
+
+    def get_profile(self):
+        """
+        Get the associated profile (Teacher or Student) for this user.
+        Returns None if no profile is linked.
+        """
+        if self.is_teacher and hasattr(self, 'teacher_profile'):
+            return self.teacher_profile
+        if self.is_student and hasattr(self, 'student_profile'):
+            return self.student_profile
+        return None
     
     def save(self, *args, **kwargs):
         """

@@ -41,7 +41,7 @@
             <!-- Welcome Message -->
             <div class="bg-white/10 rounded-full px-6 py-2 mb-4">
                 <p class="text-white text-sm">
-                    Welcome back, <span class="font-semibold">{{ user.first_name|default:user.username }}</span>!
+                    Welcome back, <span class="font-semibold">{{ user.get_profile.first_name|default:user.email }}</span>!
                 </p>
             </div>
 
