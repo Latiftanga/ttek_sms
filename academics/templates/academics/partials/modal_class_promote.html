@@ -21,7 +21,7 @@
     <span>{{ error }}</span>
 </div>
 <div class="modal-action">
-    <button type="button" class="btn" onclick="modal_edit.close()">Close</button>
+    <button type="button" class="btn" onclick="document.getElementById('modal_edit')?.close() || history.back()">Close</button>
 </div>
 {% elif not students %}
 <div class="alert alert-info">
@@ -32,7 +32,7 @@
     </div>
 </div>
 <div class="modal-action">
-    <button type="button" class="btn" onclick="modal_edit.close()">Close</button>
+    <button type="button" class="btn" onclick="document.getElementById('modal_edit')?.close() || history.back()">Close</button>
 </div>
 {% else %}
 
@@ -139,7 +139,7 @@
     </div>
 
     <div class="modal-action border-t border-base-200 pt-4 mt-4">
-        <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+        <button type="button" class="btn" onclick="document.getElementById('modal_edit')?.close() || history.back()">Cancel</button>
         <button type="submit" class="btn {% if is_final_year %}btn-success{% else %}btn-primary{% endif %}">
             {% if is_final_year %}
             <i class="fa-solid fa-graduation-cap"></i>
