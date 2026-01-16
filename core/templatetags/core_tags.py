@@ -21,11 +21,6 @@ NAVIGATION_CONFIG = [
         'roles': ['school_admin', 'superuser'],
         'children': [
             {
-                'label': 'All Students',
-                'icon': 'fa-solid fa-users',
-                'url_name': 'students:index',
-            },
-            {
                 'label': 'Guardians',
                 'icon': 'fa-solid fa-user-shield',
                 'url_name': 'students:guardian_index',

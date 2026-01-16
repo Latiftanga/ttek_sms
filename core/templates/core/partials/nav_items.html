@@ -9,12 +9,21 @@ Parameters:
 
 {% for item in nav_items %}
     {% if item.children %}
-        {# Menu item with submenu - summary toggles dropdown only #}
+        {# Menu item with submenu - parent is clickable link, arrow toggles dropdown #}
         <li>
             <details {% if item.is_active %}open{% endif %}>
-                <summary>
-                    <i class="{{ item.icon }} w-5 text-center"></i>
-                    <span class="sidebar-text">{{ item.label }}</span>
+                <summary class="flex items-center">
+                    <a href="{{ item.url }}"
+                       hx-get="{{ item.url }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       hx-swap="innerHTML show:window:top"
+                       {% if is_mobile %}hx-on::after-request="if(event.detail.successful) document.getElementById('mobile-drawer').checked = false"{% endif %}
+                       class="flex items-center gap-2 flex-1"
+                       onclick="event.stopPropagation()">
+                        <i class="{{ item.icon }} w-5 text-center"></i>
+                        <span class="sidebar-text">{{ item.label }}</span>
+                    </a>
                 </summary>
                 <ul>
                     {% for child in item.children %}
