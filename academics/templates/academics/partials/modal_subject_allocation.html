@@ -37,7 +37,7 @@
     {% endif %}
 
     <div class="modal-action">
-        <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+        <button type="button" class="btn" onclick="document.getElementById('modal_edit')?.close() || history.back()">Cancel</button>
         {% if form.subject.field.queryset.count > 0 %}
         <button type="submit" class="btn btn-primary">Assign Subject</button>
         {% endif %}

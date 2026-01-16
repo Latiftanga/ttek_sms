@@ -95,7 +95,7 @@
     {% endif %}
 
     <div class="modal-action border-t border-base-200 pt-4 mt-4">
-        <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+        <button type="button" class="btn" onclick="document.getElementById('modal_edit')?.close() || history.back()">Cancel</button>
         {% if form.students.field.queryset.count > 0 %}
         <button type="submit" class="btn btn-primary px-8">
             Enroll Selected
