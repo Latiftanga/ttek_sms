@@ -449,8 +449,8 @@
         htmx.config.historyCacheSize = 20;  // Cache more pages for back/forward
         htmx.config.refreshOnHistoryMiss = true;  // Refresh if history cache miss
 
-        // Network state management
-        const NetworkManager = {
+        // Network state management (use window to avoid redeclaration on HTMX swaps)
+        window.NetworkManager = window.NetworkManager || {
             isOnline: navigator.onLine,
             retryQueue: [],
             maxRetries: 3,
@@ -579,196 +579,208 @@
             }
         };
 
-        // Initialize network manager
-        NetworkManager.init();
+        // Initialize network manager (only once)
+        if (!window.NetworkManager._initialized) {
+            window.NetworkManager._initialized = true;
+            NetworkManager.init();
+        }
 
         // ========================================
-        // HTMX Event Handlers
+        // HTMX Event Handlers (only attach once)
         // ========================================
+        if (!window._htmxHandlersAttached) {
+            window._htmxHandlersAttached = true;
 
-        // Handle send errors (network failures)
-        document.body.addEventListener('htmx:sendError', function(e) {
-            console.warn('HTMX send error:', e.detail);
-            e.detail.elt.classList.add('htmx-request-failed');
-            NetworkManager.showRetryToast(e.detail.elt, 'Network error');
-        });
+            // Handle send errors (network failures)
+            document.body.addEventListener('htmx:sendError', function(e) {
+                console.warn('HTMX send error:', e.detail);
+                e.detail.elt.classList.add('htmx-request-failed');
+                NetworkManager.showRetryToast(e.detail.elt, 'Network error');
+            });
 
-        // Handle timeout
-        document.body.addEventListener('htmx:timeout', function(e) {
-            console.warn('HTMX timeout:', e.detail);
-            e.detail.elt.classList.add('htmx-request-failed');
-            NetworkManager.showToast('warning', 'Request Timeout', 'The server is taking too long. Please try again.', 5000);
-        });
+            // Handle timeout
+            document.body.addEventListener('htmx:timeout', function(e) {
+                console.warn('HTMX timeout:', e.detail);
+                e.detail.elt.classList.add('htmx-request-failed');
+                NetworkManager.showToast('warning', 'Request Timeout', 'The server is taking too long. Please try again.', 5000);
+            });
 
-        // Handle server errors (5xx)
-        document.body.addEventListener('htmx:responseError', function(e) {
-            const status = e.detail.xhr?.status;
-            if (status >= 500) {
-                console.error('Server error:', status);
-                NetworkManager.showToast('error', 'Server Error', 'Something went wrong. Please try again later.');
-            } else if (status === 0) {
-                // Network error
-                NetworkManager.showRetryToast(e.detail.elt, 'Connection failed');
-            }
-        });
-
-        // Clear failed state on successful request
-        document.body.addEventListener('htmx:afterRequest', function(e) {
-            if (e.detail.successful) {
-                e.detail.elt.classList.remove('htmx-request-failed');
-                NetworkManager.hideToast();
-            }
-        });
-
-        // Show warning before request if offline (but don't block - let it fail naturally)
-        document.body.addEventListener('htmx:beforeRequest', function(e) {
-            // If offline, show warning but let request proceed (it will fail and show retry option)
-            if (!navigator.onLine) {
-                NetworkManager.showToast('warning', 'You appear to be offline', 'Request may fail.', 2000);
-            }
-        });
-
-        // ========================================
-        // Theme Management
-        // ========================================
-        const themeCtrl = document.querySelector('.theme-controller');
-        if (themeCtrl) themeCtrl.checked = localStorage.getItem('theme') === 'dark';
-
-        // ========================================
-        // HTMX Content Handlers
-        // ========================================
-
-        // Initialize Alpine.js on HTMX swapped content and update page title
-        document.body.addEventListener('htmx:afterSwap', (event) => {
-            if (window.Alpine) {
-                Alpine.initTree(event.detail.target);
-            }
-
-            // Update page title from swapped content
-            if (event.detail.target.id === 'main-content') {
-                const h1 = event.detail.target.querySelector('h1');
-                const schoolName = '{{ school.display_name|default:tenant.short_name|default:tenant.name|default:"School" }}';
-                if (h1) {
-                    document.title = h1.textContent.trim() + ' - ' + schoolName;
-                }
-            }
-        });
-
-        // ========================================
-        // Sidebar Navigation
-        // ========================================
-        function updateSidebarActive() {
-            const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('.desktop-sidebar a[href], .drawer-side a[href]');
-
-            let bestMatches = [];
-            let bestMatchLength = 0;
-
-            navLinks.forEach(link => {
-                const href = link.getAttribute('href');
-                if (!href || href === '#') return;
-
-                const hrefBase = href.replace(/\/$/, '');
-                const currentPathBase = currentPath.replace(/\/$/, '');
-                let isMatch = false;
-
-                if (href === '/' || currentPath === '/') {
-                    isMatch = currentPathBase === hrefBase;
-                } else {
-                    isMatch = currentPathBase === hrefBase ||
-                              currentPath.startsWith(hrefBase + '/');
-                }
-
-                if (isMatch) {
-                    if (href.length > bestMatchLength) {
-                        bestMatches = [link];
-                        bestMatchLength = href.length;
-                    } else if (href.length === bestMatchLength) {
-                        bestMatches.push(link);
-                    }
+            // Handle server errors (5xx)
+            document.body.addEventListener('htmx:responseError', function(e) {
+                const status = e.detail.xhr?.status;
+                if (status >= 500) {
+                    console.error('Server error:', status);
+                    NetworkManager.showToast('error', 'Server Error', 'Something went wrong. Please try again later.');
+                } else if (status === 0) {
+                    // Network error
+                    NetworkManager.showRetryToast(e.detail.elt, 'Connection failed');
                 }
             });
 
-            navLinks.forEach(link => link.classList.remove('active'));
+            // Clear failed state on successful request
+            document.body.addEventListener('htmx:afterRequest', function(e) {
+                if (e.detail.successful) {
+                    e.detail.elt.classList.remove('htmx-request-failed');
+                    NetworkManager.hideToast();
+                }
+            });
 
-            bestMatches.forEach(match => {
-                match.classList.add('active');
-                const parentDetails = match.closest('details');
-                if (parentDetails) {
-                    parentDetails.setAttribute('open', '');
+            // Show warning before request if offline (but don't block - let it fail naturally)
+            document.body.addEventListener('htmx:beforeRequest', function(e) {
+                // If offline, show warning but let request proceed (it will fail and show retry option)
+                if (!navigator.onLine) {
+                    NetworkManager.showToast('warning', 'You appear to be offline', 'Request may fail.', 2000);
                 }
             });
         }
 
-        document.body.addEventListener('htmx:pushedIntoHistory', updateSidebarActive);
-        document.addEventListener('DOMContentLoaded', updateSidebarActive);
+        // ========================================
+        // Theme Management
+        // ========================================
+        {
+            const themeCtrl = document.querySelector('.theme-controller');
+            if (themeCtrl) themeCtrl.checked = localStorage.getItem('theme') === 'dark';
+        }
 
         // ========================================
-        // Custom Confirm Dialog
+        // HTMX Content Handlers & Other Listeners (only attach once)
         // ========================================
-        const confirmDialog = document.getElementById('confirm-dialog');
-        const confirmMessage = document.getElementById('confirm-message');
+        if (!window._contentHandlersAttached) {
+            window._contentHandlersAttached = true;
 
-        document.body.addEventListener('htmx:confirm', function(e) {
-            if (!e.detail.question) return;
+            // Initialize Alpine.js on HTMX swapped content and update page title
+            document.body.addEventListener('htmx:afterSwap', (event) => {
+                if (window.Alpine) {
+                    Alpine.initTree(event.detail.target);
+                }
 
-            e.preventDefault();
-
-            confirmMessage.textContent = e.detail.question;
-            confirmDialog.showModal();
-
-            const confirmOk = document.getElementById('confirm-ok');
-            const confirmCancel = document.getElementById('confirm-cancel');
-
-            const newOk = confirmOk.cloneNode(true);
-            const newCancel = confirmCancel.cloneNode(true);
-            confirmOk.replaceWith(newOk);
-            confirmCancel.replaceWith(newCancel);
-
-            newOk.addEventListener('click', function() {
-                confirmDialog.close();
-                e.detail.issueRequest(true);
+                // Update page title from swapped content
+                if (event.detail.target.id === 'main-content') {
+                    const h1 = event.detail.target.querySelector('h1');
+                    const schoolName = '{{ school.display_name|default:tenant.short_name|default:tenant.name|default:"School" }}';
+                    if (h1) {
+                        document.title = h1.textContent.trim() + ' - ' + schoolName;
+                    }
+                }
             });
 
-            newCancel.addEventListener('click', function() {
-                confirmDialog.close();
+            // ========================================
+            // Sidebar Navigation
+            // ========================================
+            window.updateSidebarActive = function() {
+                const currentPath = window.location.pathname;
+                const navLinks = document.querySelectorAll('.desktop-sidebar a[href], .drawer-side a[href]');
+
+                let bestMatches = [];
+                let bestMatchLength = 0;
+
+                navLinks.forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (!href || href === '#') return;
+
+                    const hrefBase = href.replace(/\/$/, '');
+                    const currentPathBase = currentPath.replace(/\/$/, '');
+                    let isMatch = false;
+
+                    if (href === '/' || currentPath === '/') {
+                        isMatch = currentPathBase === hrefBase;
+                    } else {
+                        isMatch = currentPathBase === hrefBase ||
+                                  currentPath.startsWith(hrefBase + '/');
+                    }
+
+                    if (isMatch) {
+                        if (href.length > bestMatchLength) {
+                            bestMatches = [link];
+                            bestMatchLength = href.length;
+                        } else if (href.length === bestMatchLength) {
+                            bestMatches.push(link);
+                        }
+                    }
+                });
+
+                navLinks.forEach(link => link.classList.remove('active'));
+
+                bestMatches.forEach(match => {
+                    match.classList.add('active');
+                    const parentDetails = match.closest('details');
+                    if (parentDetails) {
+                        parentDetails.setAttribute('open', '');
+                    }
+                });
+            };
+
+            document.body.addEventListener('htmx:pushedIntoHistory', window.updateSidebarActive);
+            document.addEventListener('DOMContentLoaded', window.updateSidebarActive);
+
+            // ========================================
+            // Custom Confirm Dialog
+            // ========================================
+            document.body.addEventListener('htmx:confirm', function(e) {
+                if (!e.detail.question) return;
+
+                const confirmDialog = document.getElementById('confirm-dialog');
+                const confirmMessage = document.getElementById('confirm-message');
+                if (!confirmDialog || !confirmMessage) return;
+
+                e.preventDefault();
+
+                confirmMessage.textContent = e.detail.question;
+                confirmDialog.showModal();
+
+                const confirmOk = document.getElementById('confirm-ok');
+                const confirmCancel = document.getElementById('confirm-cancel');
+
+                const newOk = confirmOk.cloneNode(true);
+                const newCancel = confirmCancel.cloneNode(true);
+                confirmOk.replaceWith(newOk);
+                confirmCancel.replaceWith(newCancel);
+
+                newOk.addEventListener('click', function() {
+                    confirmDialog.close();
+                    e.detail.issueRequest(true);
+                });
+
+                newCancel.addEventListener('click', function() {
+                    confirmDialog.close();
+                });
             });
-        });
 
-        // ========================================
-        // Service Worker Registration
-        // ========================================
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then((registration) => {
-                        console.log('[SW] Registered with scope:', registration.scope);
+            // ========================================
+            // Service Worker Registration
+            // ========================================
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                        .then((registration) => {
+                            console.log('[SW] Registered with scope:', registration.scope);
 
-                        // Check for updates periodically
-                        setInterval(() => {
-                            registration.update();
-                        }, 60 * 60 * 1000); // Check every hour
+                            // Check for updates periodically
+                            setInterval(() => {
+                                registration.update();
+                            }, 60 * 60 * 1000); // Check every hour
 
-                        // Handle updates
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // New version available
-                                    NetworkManager.showToast(
-                                        'info',
-                                        'Update Available',
-                                        'A new version is available. Refresh to update.',
-                                        0 // Don't auto-hide
-                                    );
-                                }
+                            // Handle updates
+                            registration.addEventListener('updatefound', () => {
+                                const newWorker = registration.installing;
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        // New version available
+                                        NetworkManager.showToast(
+                                            'info',
+                                            'Update Available',
+                                            'A new version is available. Refresh to update.',
+                                            0 // Don't auto-hide
+                                        );
+                                    }
+                                });
                             });
+                        })
+                        .catch((error) => {
+                            console.error('[SW] Registration failed:', error);
                         });
-                    })
-                    .catch((error) => {
-                        console.error('[SW] Registration failed:', error);
-                    });
-            });
+                });
+            }
         }
     </script>
     {% block extra_js %}{% endblock %}

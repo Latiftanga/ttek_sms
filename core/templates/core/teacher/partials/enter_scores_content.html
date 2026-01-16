@@ -277,13 +277,16 @@
 </div>
 
 <script>
-// Assignment navigation for mobile
-let currentAssignmentIndex = 0;
-const assignments = [{% for a in assignments %}{ id: {{ a.id }}, max: {{ a.points_possible }}, name: "{{ a.name }}" }{% if not forloop.last %},{% endif %}{% endfor %}];
+(function() {
+    // Assignment navigation for mobile - use window to avoid redeclaration
+    window.currentAssignmentIndex = 0;
+    window.scoreAssignments = [{% for a in assignments %}{ id: {{ a.id }}, max: {{ a.points_possible }}, name: "{{ a.name }}" }{% if not forloop.last %},{% endif %}{% endfor %}];
+})();
 
 function showAssignment(assignmentId) {
+    const assignments = window.scoreAssignments;
     assignmentId = parseInt(assignmentId);
-    currentAssignmentIndex = assignments.findIndex(a => a.id === assignmentId);
+    window.currentAssignmentIndex = assignments.findIndex(a => a.id === assignmentId);
 
     // Hide all inputs, show selected
     document.querySelectorAll('#mobile-score-view .score-input').forEach(input => {
@@ -294,7 +297,7 @@ function showAssignment(assignmentId) {
     });
 
     // Update max display
-    const maxPoints = assignments[currentAssignmentIndex].max;
+    const maxPoints = assignments[window.currentAssignmentIndex].max;
     document.querySelectorAll('[id^="max-display-"]').forEach(span => {
         span.textContent = '/ ' + maxPoints;
     });
@@ -304,28 +307,31 @@ function showAssignment(assignmentId) {
 }
 
 function prevAssignment() {
-    if (currentAssignmentIndex > 0) {
-        document.getElementById('assignment-selector').selectedIndex = currentAssignmentIndex - 1;
-        showAssignment(assignments[currentAssignmentIndex - 1].id);
+    const assignments = window.scoreAssignments;
+    if (window.currentAssignmentIndex > 0) {
+        document.getElementById('assignment-selector').selectedIndex = window.currentAssignmentIndex - 1;
+        showAssignment(assignments[window.currentAssignmentIndex - 1].id);
     }
 }
 
 function nextAssignment() {
-    if (currentAssignmentIndex < assignments.length - 1) {
-        document.getElementById('assignment-selector').selectedIndex = currentAssignmentIndex + 1;
-        showAssignment(assignments[currentAssignmentIndex + 1].id);
+    const assignments = window.scoreAssignments;
+    if (window.currentAssignmentIndex < assignments.length - 1) {
+        document.getElementById('assignment-selector').selectedIndex = window.currentAssignmentIndex + 1;
+        showAssignment(assignments[window.currentAssignmentIndex + 1].id);
     }
 }
 
 function updateNavigation() {
+    const assignments = window.scoreAssignments;
     document.getElementById('assignment-counter').textContent =
-        (currentAssignmentIndex + 1) + ' of ' + assignments.length;
+        (window.currentAssignmentIndex + 1) + ' of ' + assignments.length;
 
-    document.getElementById('prev-btn').disabled = currentAssignmentIndex === 0;
-    document.getElementById('next-btn').disabled = currentAssignmentIndex === assignments.length - 1;
+    document.getElementById('prev-btn').disabled = window.currentAssignmentIndex === 0;
+    document.getElementById('next-btn').disabled = window.currentAssignmentIndex === assignments.length - 1;
 
-    document.getElementById('prev-btn').classList.toggle('opacity-30', currentAssignmentIndex === 0);
-    document.getElementById('next-btn').classList.toggle('opacity-30', currentAssignmentIndex === assignments.length - 1);
+    document.getElementById('prev-btn').classList.toggle('opacity-30', window.currentAssignmentIndex === 0);
+    document.getElementById('next-btn').classList.toggle('opacity-30', window.currentAssignmentIndex === assignments.length - 1);
 }
 
 // Calculate totals for desktop

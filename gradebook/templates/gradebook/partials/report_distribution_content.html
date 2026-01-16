@@ -353,24 +353,30 @@
 </dialog>
 
 <script>
-const smsTemplates = {
-    basic: "Dear Parent, {student_name}'s {term} results: Position {position}/{out_of}, Average {average}%.",
-    detailed: "Dear Parent, {student_name} is {position}/{out_of} with {average}% avg. Conduct: {conduct}. Attendance: {attendance}%.",
-    encouraging: "Great news! {student_name} achieved Position {position} with {average}%. Keep encouraging them!",
-    custom: ""
-};
+(function() {
+    // Avoid redeclaration on HTMX swaps
+    if (window._reportDistributionInitialized) return;
+    window._reportDistributionInitialized = true;
 
-const sampleContext = {
-    student_name: "John",
-    class_name: "{{ class_obj.name }}",
-    term: "{{ current_term.name }}",
-    position: "5",
-    out_of: "{{ stats.total }}",
-    average: "78.5",
-    conduct: "Very Good",
-    attendance: "95",
-    remark: "Keep up the good work"
-};
+    window.smsTemplates = {
+        basic: "Dear Parent, {student_name}'s {term} results: Position {position}/{out_of}, Average {average}%.",
+        detailed: "Dear Parent, {student_name} is {position}/{out_of} with {average}% avg. Conduct: {conduct}. Attendance: {attendance}%.",
+        encouraging: "Great news! {student_name} achieved Position {position} with {average}%. Keep encouraging them!",
+        custom: ""
+    };
+
+    window.sampleContext = {
+        student_name: "John",
+        class_name: "{{ class_obj.name }}",
+        term: "{{ current_term.name }}",
+        position: "5",
+        out_of: "{{ stats.total }}",
+        average: "78.5",
+        conduct: "Very Good",
+        attendance: "95",
+        remark: "Keep up the good work"
+    };
+})();
 
 function updateSmsPreview() {
     const templateChoice = document.querySelector('input[name="template_choice"]:checked').value;
