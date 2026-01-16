@@ -378,9 +378,17 @@ def class_create(request):
     if form.is_valid():
         form.save()
         if request.htmx:
-            # Refresh the classes page
-            response = HttpResponse(status=204)
-            response['HX-Redirect'] = '/academics/classes/'
+            # Return updated classes content and close modal
+            context = get_classes_list_context()
+            context['stats'] = {
+                'total_classes': Class.objects.count(),
+                'total_students': Student.objects.filter(status='active').count(),
+            }
+            context['class_form'] = ClassForm()
+            response = render(request, 'academics/partials/classes_content.html', context)
+            response['HX-Trigger'] = 'closeModal'
+            response['HX-Retarget'] = '#main-content'
+            response['HX-Reswap'] = 'innerHTML'
             return response
         return redirect('academics:classes')
 
@@ -419,9 +427,17 @@ def class_edit(request, pk):
     if form.is_valid():
         form.save()
         if request.htmx:
-            # Always refresh the page to show updated data
-            response = HttpResponse(status=204)
-            response['HX-Refresh'] = 'true'
+            # Return updated classes content and close modal
+            context = get_classes_list_context()
+            context['stats'] = {
+                'total_classes': Class.objects.count(),
+                'total_students': Student.objects.filter(status='active').count(),
+            }
+            context['class_form'] = ClassForm()
+            response = render(request, 'academics/partials/classes_content.html', context)
+            response['HX-Trigger'] = 'closeModal'
+            response['HX-Retarget'] = '#main-content'
+            response['HX-Reswap'] = 'innerHTML'
             return response
         return redirect('academics:classes')
 
