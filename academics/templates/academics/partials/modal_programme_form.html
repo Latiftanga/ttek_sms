@@ -8,7 +8,7 @@
 <form method="post"
       action="{% if programme %}{% url 'academics:programme_edit' programme.pk %}{% else %}{% url 'academics:programme_create' %}{% endif %}"
       hx-post="{% if programme %}{% url 'academics:programme_edit' programme.pk %}{% else %}{% url 'academics:programme_create' %}{% endif %}"
-      hx-target="{% if is_create %}#modal_programme .modal-box{% else %}#modal_programme_edit .modal-box{% endif %}"
+      hx-target="{% if is_create %}#modal-programme-content{% else %}#modal-programme-edit-content{% endif %}"
       hx-swap="innerHTML">
     {% csrf_token %}
     <div class="space-y-3">

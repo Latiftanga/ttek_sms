@@ -219,6 +219,7 @@ def index(request):
 def classes_list(request):
     """Classes list page with search and filters."""
     from django.db.models import Count, Q
+    from django.core.paginator import Paginator
 
     # Get filter parameters
     search = request.GET.get('search', '').strip()
@@ -242,8 +243,24 @@ def classes_list(request):
     if level_filter:
         classes = classes.filter(level_type=level_filter)
 
+    # Pagination
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in [25, 50, 100]:
+            per_page = 25
+    except ValueError:
+        per_page = 25
+
+    paginator = Paginator(classes, per_page)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'classes': classes,
+        'classes': page_obj,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'per_page': per_page,
         'search': search,
         'level_filter': level_filter,
         'stats': {
@@ -281,6 +298,14 @@ def get_programmes_list_context():
 @admin_required
 def programme_create(request):
     """Create a new programme."""
+    if request.method == 'GET':
+        # Return fresh form for modal
+        form = ProgrammeForm()
+        return render(request, 'academics/partials/modal_programme_form.html', {
+            'form': form,
+            'is_create': True,
+        })
+
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -495,6 +520,14 @@ def get_subjects_list_context():
 @admin_required
 def subject_create(request):
     """Create a new subject."""
+    if request.method == 'GET':
+        # Return fresh form for modal
+        form = SubjectForm()
+        return render(request, 'academics/partials/modal_subject_form.html', {
+            'form': form,
+            'is_create': True,
+        })
+
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -1247,6 +1280,82 @@ def class_export(request, pk):
 
     wb.save(response)
     return response
+
+
+@admin_required
+def classes_bulk_export(request):
+    """Export all classes to Excel with current filters applied."""
+    import io
+    from datetime import datetime
+    from django.db.models import Count, Q
+    from django.http import FileResponse
+    import pandas as pd
+
+    # Get filter parameters (same as classes_list view)
+    search = request.GET.get('search', '').strip()
+    level_filter = request.GET.get('level', '')
+
+    # Get classes with student counts
+    classes = Class.objects.select_related('programme', 'class_teacher').annotate(
+        student_count=Count('students', filter=models.Q(students__status='active'))
+    ).order_by('level_number', 'section')
+
+    # Apply search filter
+    if search:
+        classes = classes.filter(
+            Q(name__icontains=search) |
+            Q(class_teacher__first_name__icontains=search) |
+            Q(class_teacher__last_name__icontains=search) |
+            Q(programme__name__icontains=search)
+        )
+
+    # Apply level filter
+    if level_filter:
+        classes = classes.filter(level_type=level_filter)
+
+    # Build export data
+    export_data = []
+    for cls in classes:
+        export_data.append({
+            'Class Name': cls.name,
+            'Level Type': cls.get_level_type_display(),
+            'Level Number': cls.level_number,
+            'Section': cls.section or '',
+            'Programme': cls.programme.name if cls.programme else '',
+            'Class Teacher': f"{cls.class_teacher.get_title_display()} {cls.class_teacher.full_name}" if cls.class_teacher else '',
+            'Capacity': cls.capacity,
+            'Current Students': cls.student_count,
+            'Available Seats': cls.capacity - cls.student_count,
+            'Status': 'Active' if cls.is_active else 'Inactive',
+        })
+
+    # Create Excel file
+    df = pd.DataFrame(export_data)
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Classes')
+
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Classes']
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).map(len).max() if len(df) > 0 else 0,
+                len(col)
+            ) + 2
+            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+
+    output.seek(0)
+
+    # Generate filename with date
+    filename = f"classes_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    return FileResponse(
+        output,
+        as_attachment=True,
+        filename=filename,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
 
 
 # ============ ATTENDANCE REPORTS ============

@@ -8,7 +8,7 @@
 <form method="post"
       action="{% if subject %}{% url 'academics:subject_edit' subject.pk %}{% else %}{% url 'academics:subject_create' %}{% endif %}"
       hx-post="{% if subject %}{% url 'academics:subject_edit' subject.pk %}{% else %}{% url 'academics:subject_create' %}{% endif %}"
-      hx-target="{% if is_create %}#modal_subject .modal-box{% else %}#modal_subject_edit .modal-box{% endif %}"
+      hx-target="{% if is_create %}#modal-subject-content{% else %}#modal-subject-edit-content{% endif %}"
       hx-swap="innerHTML">
     {% csrf_token %}
     <div class="space-y-3">

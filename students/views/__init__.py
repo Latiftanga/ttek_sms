@@ -33,11 +33,12 @@ from .accounts import (
     activate_account as guardian_activate_account,
 )
 
-# Bulk import views
+# Bulk import/export views
 from .bulk_import import (
     bulk_import,
     bulk_import_confirm,
     bulk_import_template,
+    bulk_export,
 )
 
 # Promotion views
@@ -80,10 +81,11 @@ __all__ = [
     'guardian_accept_invitation',
     'guardian_deactivate_account',
     'guardian_activate_account',
-    # Bulk import
+    # Bulk import/export
     'bulk_import',
     'bulk_import_confirm',
     'bulk_import_template',
+    'bulk_export',
     # Promotion
     'promotion',
     'promotion_process',

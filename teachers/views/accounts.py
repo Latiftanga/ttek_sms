@@ -6,6 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 from django.db import IntegrityError, transaction
 from django.contrib import messages
+from django.contrib.auth import login
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -474,11 +475,12 @@ def accept_invitation(request, token):
                 'errors': [f"An account with email '{invitation.email}' already exists."],
             })
 
-        # Success - redirect to login
+        # Auto-login and redirect to profile setup
+        login(request, user)
         messages.success(
             request,
-            "Your account has been created successfully! Please log in."
+            "Your account has been created successfully! Let's complete your profile."
         )
-        return redirect('accounts:login')
+        return redirect('accounts:profile_setup')
 
     return HttpResponse(status=405)

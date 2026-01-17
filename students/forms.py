@@ -1,7 +1,42 @@
+import re
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from academics.models import Class
 from .models import Student, Guardian, House
+
+
+def validate_phone_number(phone):
+    """
+    Validate and normalize phone number.
+    Accepts formats like: 0241234567, +233241234567, 233241234567
+    Returns normalized phone number or raises ValidationError.
+    """
+    if not phone:
+        return phone
+
+    # Remove all non-digit characters except +
+    cleaned = re.sub(r'[^\d+]', '', phone)
+
+    # Remove leading + if present
+    if cleaned.startswith('+'):
+        cleaned = cleaned[1:]
+
+    # Handle Ghana numbers (can be extended for other countries)
+    # Ghana: +233XXXXXXXXX (10 digits after country code) or 0XXXXXXXXX (10 digits)
+    if cleaned.startswith('233'):
+        cleaned = '0' + cleaned[3:]  # Convert to local format
+
+    # Validate length (most phone numbers are 10-15 digits)
+    if len(cleaned) < 10:
+        raise forms.ValidationError(_("Phone number too short (minimum 10 digits)"))
+    if len(cleaned) > 15:
+        raise forms.ValidationError(_("Phone number too long (maximum 15 digits)"))
+
+    # Validate it contains only digits
+    if not cleaned.isdigit():
+        raise forms.ValidationError(_("Phone number should contain only digits"))
+
+    return cleaned
 
 
 class BulkImportForm(forms.Form):
@@ -36,6 +71,20 @@ class GuardianForm(forms.ModelForm):
             'occupation': forms.TextInput(attrs={'placeholder': 'Occupation (optional)'}),
             'address': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Address (optional)'}),
         }
+
+    def clean_phone_number(self):
+        """Validate and normalize phone number."""
+        phone = self.cleaned_data.get('phone_number')
+        normalized = validate_phone_number(phone)
+
+        # Check for uniqueness (excluding current instance if editing)
+        qs = Guardian.objects.filter(phone_number=normalized)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(_("A guardian with this phone number already exists."))
+
+        return normalized
 
 
 class StudentForm(forms.ModelForm):
@@ -89,6 +138,13 @@ class StudentForm(forms.ModelForm):
                     f"Photo size exceeds 5MB limit. Please upload a smaller image."
                 )
         return photo
+
+    def clean_phone(self):
+        """Validate and normalize student phone number (optional field)."""
+        phone = self.cleaned_data.get('phone')
+        if phone:
+            return validate_phone_number(phone)
+        return phone
 
 
 class StudentGuardianForm(forms.Form):

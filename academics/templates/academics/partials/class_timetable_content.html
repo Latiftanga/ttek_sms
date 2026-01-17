@@ -309,13 +309,13 @@
                         </thead>
                         <tbody>
                             {% for period in periods %}
-                            <tr class="{% if period.is_break %}bg-amber-50/50 break-row{% else %}hover:bg-base-200/30{% endif %}">
+                            <tr class="{% if period.is_break %}bg-warning/10 break-row{% else %}hover:bg-base-200/30{% endif %}">
                                 <!-- Period Info -->
-                                <td class="sticky left-0 z-10 period-cell {% if period.is_break %}bg-amber-50/50{% else %}bg-base-100{% endif %}">
+                                <td class="sticky left-0 z-10 period-cell {% if period.is_break %}bg-warning/10{% else %}bg-base-100{% endif %}">
                                     <div>
                                         <div class="font-semibold text-sm flex items-center gap-1.5 print:block">
                                             {% if period.is_break %}
-                                            <i class="fa-solid fa-mug-hot text-amber-500 text-xs print:hidden"></i>
+                                            <i class="fa-solid fa-mug-hot text-warning text-xs print:hidden"></i>
                                             {% endif %}
                                             {{ period.name }}
                                         </div>
@@ -327,10 +327,10 @@
 
                                 <!-- Days -->
                                 {% for day_num, day_name in weekdays %}
-                                <td class="{% if period.is_break %}bg-amber-50/50{% endif %}">
+                                <td class="{% if period.is_break %}bg-warning/10{% endif %}">
                                     {% if period.is_break %}
                                     <!-- Break period -->
-                                    <div class="h-14 flex items-center justify-center text-amber-500/40 print:text-amber-700">
+                                    <div class="h-14 flex items-center justify-center text-warning print:text-amber-700">
                                         <span class="hidden print:inline text-xs font-medium">BREAK</span>
                                         <i class="fa-solid fa-mug-hot print:hidden"></i>
                                     </div>

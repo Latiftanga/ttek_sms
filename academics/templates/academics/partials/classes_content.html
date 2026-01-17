@@ -21,10 +21,17 @@
                 </h1>
             </div>
             <p class="text-sm text-base-content/60 ml-12">
-                {{ stats.total_classes }} class{{ stats.total_classes|pluralize:"es" }} &bull; {{ stats.total_students }} student{{ stats.total_students|pluralize }}
+                {% if paginator.count %}{{ paginator.count }} class{{ paginator.count|pluralize:"es" }}{% else %}No classes{% endif %} &bull; {{ stats.total_students }} student{{ stats.total_students|pluralize }}
+                {% if search or level_filter %}<span class="text-primary"> (filtered)</span>{% endif %}
             </p>
         </div>
         <div class="flex gap-2">
+            <a href="{% url 'academics:classes_bulk_export' %}{% if search or level_filter %}?{% if search %}search={{ search }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}"
+               class="btn btn-ghost btn-sm"
+               title="Export to Excel">
+                <i class="fa-solid fa-file-export"></i>
+                <span class="hidden sm:inline">Export</span>
+            </a>
             <button onclick="document.getElementById('modal_class').showModal()" class="btn btn-primary btn-sm">
                 <i class="fa-solid fa-plus"></i>
                 Add Class
@@ -318,6 +325,80 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <!-- Page info -->
+                <div class="text-sm text-base-content/60">
+                    Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }}
+                </div>
+
+                <!-- Pagination controls -->
+                <div class="join">
+                    {% if page_obj.has_previous %}
+                    <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'academics:classes' %}?page=1{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-angles-left"></i>
+                    </a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'academics:classes' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-left"></i></button>
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-left"></i></button>
+                    {% endif %}
+
+                    <button class="join-item btn btn-sm btn-active">{{ page_obj.number }} / {{ paginator.num_pages }}</button>
+
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'academics:classes' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                    <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'academics:classes' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-angles-right"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-right"></i></button>
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-right"></i></button>
+                    {% endif %}
+                </div>
+
+                <!-- Per page selector -->
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-base-content/60">Per page:</span>
+                    <select class="select select-sm select-bordered w-20"
+                            hx-get="{% url 'academics:classes' %}"
+                            hx-target="#main-content"
+                            hx-push-url="true"
+                            hx-include="[name='search'], [name='level']"
+                            name="per_page">
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- ============ MODALS ============ -->

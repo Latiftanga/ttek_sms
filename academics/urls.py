@@ -14,6 +14,7 @@ urlpatterns = [
 
     # Class routes
     path('classes/', views.classes_list, name='classes'),
+    path('classes/export/', views.classes_bulk_export, name='classes_bulk_export'),
     path('classes/create/', views.class_create, name='class_create'),
     path('classes/<int:pk>/', views.class_detail, name='class_detail'),
     path('classes/<int:pk>/edit/', views.class_edit, name='class_edit'),

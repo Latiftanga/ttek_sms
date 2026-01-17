@@ -37,10 +37,11 @@ urlpatterns = [
     path('guardians/<int:pk>/activate-account/', views.guardian_activate_account, name='guardian_activate_account'),
     path('guardians/invite/<str:token>/', views.guardian_accept_invitation, name='guardian_accept_invitation'),
 
-    # Bulk import
+    # Bulk import/export
     path('import/', views.bulk_import, name='bulk_import'),
     path('import/confirm/', views.bulk_import_confirm, name='bulk_import_confirm'),
     path('import/template/', views.bulk_import_template, name='bulk_import_template'),
+    path('export/', views.bulk_export, name='bulk_export'),
 
     # Promotion
     path('promotion/', views.promotion, name='promotion'),

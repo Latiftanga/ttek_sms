@@ -145,6 +145,9 @@
                         Subjects
                     </h2>
                     <button class="btn btn-sm btn-ghost"
+                            hx-get="{% url 'academics:subject_create' %}"
+                            hx-target="#modal-subject-content"
+                            hx-swap="innerHTML"
                             onclick="document.getElementById('modal_subject').showModal()">
                         <i class="fa-solid fa-plus text-xs"></i>
                         Add
@@ -165,6 +168,9 @@
                         Programmes
                     </h2>
                     <button class="btn btn-sm btn-ghost"
+                            hx-get="{% url 'academics:programme_create' %}"
+                            hx-target="#modal-programme-content"
+                            hx-swap="innerHTML"
                             onclick="document.getElementById('modal_programme').showModal()">
                         <i class="fa-solid fa-plus text-xs"></i>
                         Add
@@ -277,32 +283,11 @@
 <!-- Add Programme Modal -->
 <dialog id="modal_programme" class="modal modal-middle">
     <div class="modal-box">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </form>
-        <h3 class="text-lg font-bold mb-6">Add Programme</h3>
-        <form method="post"
-              action="{% url 'academics:programme_create' %}"
-              hx-post="{% url 'academics:programme_create' %}"
-              hx-target="#modal_programme .modal-box"
-              hx-swap="innerHTML">
-            {% csrf_token %}
-            <div class="space-y-4">
-                {% floating_field programme_form.name %}
-                {% floating_field programme_form.code %}
-                {% floating_field programme_form.description %}
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="is_active" class="checkbox checkbox-primary" checked>
-                    <span class="label-text">Active</span>
-                </label>
+        <div id="modal-programme-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
             </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="document.getElementById('modal_programme').close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create</button>
-            </div>
-        </form>
+        </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
@@ -327,40 +312,11 @@
 <!-- Add Subject Modal -->
 <dialog id="modal_subject" class="modal modal-middle">
     <div class="modal-box max-w-xl">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </form>
-        <h3 class="text-lg font-bold mb-6">Add Subject</h3>
-        <form method="post"
-              action="{% url 'academics:subject_create' %}"
-              hx-post="{% url 'academics:subject_create' %}"
-              hx-target="#modal_subject .modal-box"
-              hx-swap="innerHTML">
-            {% csrf_token %}
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    {% floating_field subject_form.name %}
-                    {% floating_field subject_form.short_name %}
-                </div>
-                {% floating_field subject_form.code %}
-                <div class="flex items-center gap-4">
-                    <label class="label cursor-pointer gap-2">
-                        <input type="checkbox" name="is_core" class="checkbox checkbox-primary checkbox-sm" {% if subject_form.is_core.value %}checked{% endif %}>
-                        <span class="label-text">Core Subject</span>
-                    </label>
-                </div>
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="is_active" class="checkbox checkbox-primary" checked>
-                    <span class="label-text">Active</span>
-                </label>
+        <div id="modal-subject-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
             </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="document.getElementById('modal_subject').close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create</button>
-            </div>
-        </form>
+        </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>

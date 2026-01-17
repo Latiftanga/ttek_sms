@@ -19,16 +19,25 @@
         </div>
         <p class="text-sm text-base-content/60 ml-12">
             Manage student fee invoices
+            {% if search or status_filter or class_filter %}<span class="text-primary"> (filtered)</span>{% endif %}
         </p>
     </div>
-    <button hx-get="{% url 'finance:invoice_generate' %}"
-            hx-target="#invoice-modal-content"
-            hx-swap="innerHTML"
-            onclick="document.getElementById('invoice-modal').showModal()"
-            class="btn btn-primary btn-sm">
-        <i class="fa-solid fa-plus"></i>
-        Generate Invoices
-    </button>
+    <div class="flex gap-2">
+        <a href="{% url 'finance:invoices_export' %}{% if search or status_filter or class_filter %}?{% if search %}search={{ search }}{% endif %}{% if status_filter %}{% if search %}&{% endif %}status={{ status_filter }}{% endif %}{% if class_filter %}{% if search or status_filter %}&{% endif %}class={{ class_filter }}{% endif %}{% endif %}"
+           class="btn btn-ghost btn-sm"
+           title="Export to Excel">
+            <i class="fa-solid fa-file-export"></i>
+            <span class="hidden sm:inline">Export</span>
+        </a>
+        <button hx-get="{% url 'finance:invoice_generate' %}"
+                hx-target="#invoice-modal-content"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('invoice-modal').showModal()"
+                class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-plus"></i>
+            Generate Invoices
+        </button>
+    </div>
 </div>
 
 <!-- Invoice Modal -->
@@ -193,30 +202,64 @@
                     </div>
 
                     <!-- Pagination -->
-                    {% if invoices.has_other_pages %}
-                    <div class="flex justify-center mt-4 pt-4 border-t border-base-200">
+                    {% if page_obj.paginator.num_pages > 1 %}
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-base-200">
+                        <div class="text-sm text-base-content/60">
+                            Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }}
+                        </div>
                         <div class="join">
-                            {% if invoices.has_previous %}
-                            <a href="?page={{ invoices.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
-                               hx-get="?page={{ invoices.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
+                            {% if page_obj.has_previous %}
+                            <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}&per_page={{ per_page }}"
+                               hx-get="{% url 'finance:invoices' %}?page=1{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}&per_page={{ per_page }}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="join-item btn btn-sm">
+                                <i class="fa-solid fa-angles-left"></i>
+                            </a>
+                            <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}&per_page={{ per_page }}"
+                               hx-get="{% url 'finance:invoices' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}&per_page={{ per_page }}"
                                hx-target="#main-content"
                                hx-push-url="true"
                                class="join-item btn btn-sm">
                                 <i class="fa-solid fa-chevron-left"></i>
                             </a>
+                            {% else %}
+                            <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-left"></i></button>
+                            <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-left"></i></button>
                             {% endif %}
-                            <button class="join-item btn btn-sm btn-active">
-                                Page {{ invoices.number }} of {{ invoices.paginator.num_pages }}
-                            </button>
-                            {% if invoices.has_next %}
-                            <a href="?page={{ invoices.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
-                               hx-get="?page={{ invoices.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}"
+                            <button class="join-item btn btn-sm btn-active">{{ page_obj.number }} / {{ paginator.num_pages }}</button>
+                            {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}&per_page={{ per_page }}"
+                               hx-get="{% url 'finance:invoices' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}&per_page={{ per_page }}"
                                hx-target="#main-content"
                                hx-push-url="true"
                                class="join-item btn btn-sm">
                                 <i class="fa-solid fa-chevron-right"></i>
                             </a>
+                            <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}&per_page={{ per_page }}"
+                               hx-get="{% url 'finance:invoices' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}&per_page={{ per_page }}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="join-item btn btn-sm">
+                                <i class="fa-solid fa-angles-right"></i>
+                            </a>
+                            {% else %}
+                            <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-right"></i></button>
+                            <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-right"></i></button>
                             {% endif %}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-base-content/60">Per page:</span>
+                            <select class="select select-sm select-bordered w-20"
+                                    hx-get="{% url 'finance:invoices' %}"
+                                    hx-target="#main-content"
+                                    hx-push-url="true"
+                                    hx-include="[name='search'], [name='status'], [name='class']"
+                                    name="per_page">
+                                <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                            </select>
                         </div>
                     </div>
                     {% endif %}

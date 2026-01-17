@@ -419,8 +419,16 @@ def invoices(request):
             Q(student__admission_number__icontains=search)
         )
 
-    # Pagination
-    paginator = Paginator(invoices_list, 25)
+    # Pagination with selectable page size
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in [25, 50, 100]:
+            per_page = 25
+    except ValueError:
+        per_page = 25
+
+    paginator = Paginator(invoices_list, per_page)
     page = request.GET.get('page', 1)
     invoices_page = paginator.get_page(page)
 
@@ -433,6 +441,9 @@ def invoices(request):
 
     context = {
         'invoices': invoices_page,
+        'page_obj': invoices_page,
+        'paginator': paginator,
+        'per_page': per_page,
         'current_year': current_year,
         'status_choices': Invoice.STATUS_CHOICES,
         'classes': Class.objects.filter(is_active=True),
@@ -732,8 +743,16 @@ def payments(request):
     if date_to:
         payments_list = payments_list.filter(transaction_date__date__lte=date_to)
 
-    # Pagination
-    paginator = Paginator(payments_list, 25)
+    # Pagination with selectable page size
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in [25, 50, 100]:
+            per_page = 25
+    except ValueError:
+        per_page = 25
+
+    paginator = Paginator(payments_list, per_page)
     page = request.GET.get('page', 1)
     payments_page = paginator.get_page(page)
 
@@ -746,11 +765,16 @@ def payments(request):
 
     context = {
         'payments': payments_page,
+        'page_obj': payments_page,
+        'paginator': paginator,
+        'per_page': per_page,
         'status_choices': Payment.STATUS_CHOICES,
         'method_choices': Payment.METHOD_CHOICES,
         'status_filter': status_filter,
         'method_filter': method_filter,
         'search': search,
+        'date_from': date_from or '',
+        'date_to': date_to or '',
         'total_count': total_count,
         'total_amount': total_amount,
         'momo_count': momo_count,
@@ -1106,6 +1130,159 @@ def export_report(request):
         return response
 
     return redirect('finance:reports')
+
+
+@admin_required
+def invoices_export(request):
+    """Export invoices to Excel with current filters applied."""
+    import io
+    from datetime import datetime
+    from django.http import FileResponse
+    import pandas as pd
+
+    # Get filter parameters (same as invoices view)
+    status_filter = request.GET.get('status')
+    class_filter = request.GET.get('class')
+    search = request.GET.get('search', '').strip()
+
+    invoices_list = Invoice.objects.select_related(
+        'student', 'student__current_class', 'academic_year', 'term'
+    ).order_by('-created_at')
+
+    if status_filter:
+        invoices_list = invoices_list.filter(status=status_filter)
+    if class_filter:
+        invoices_list = invoices_list.filter(student__current_class_id=class_filter)
+    if search:
+        invoices_list = invoices_list.filter(
+            Q(invoice_number__icontains=search) |
+            Q(student__first_name__icontains=search) |
+            Q(student__last_name__icontains=search) |
+            Q(student__admission_number__icontains=search)
+        )
+
+    # Build export data
+    export_data = []
+    for inv in invoices_list:
+        export_data.append({
+            'Invoice Number': inv.invoice_number,
+            'Student Name': inv.student.full_name,
+            'Admission Number': inv.student.admission_number,
+            'Class': inv.student.current_class.name if inv.student.current_class else '',
+            'Academic Year': inv.academic_year.name if inv.academic_year else '',
+            'Term': inv.term.name if inv.term else '',
+            'Issue Date': inv.issue_date.strftime('%Y-%m-%d') if inv.issue_date else '',
+            'Due Date': inv.due_date.strftime('%Y-%m-%d') if inv.due_date else '',
+            'Subtotal': float(inv.subtotal),
+            'Discount': float(inv.discount),
+            'Total Amount': float(inv.total_amount),
+            'Amount Paid': float(inv.amount_paid),
+            'Balance': float(inv.balance),
+            'Status': inv.get_status_display(),
+        })
+
+    df = pd.DataFrame(export_data)
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Invoices')
+
+        worksheet = writer.sheets['Invoices']
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).map(len).max() if len(df) > 0 else 0,
+                len(col)
+            ) + 2
+            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+
+    output.seek(0)
+    filename = f"invoices_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    return FileResponse(
+        output,
+        as_attachment=True,
+        filename=filename,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+
+@admin_required
+def payments_export(request):
+    """Export payments to Excel with current filters applied."""
+    import io
+    from datetime import datetime
+    from django.http import FileResponse
+    import pandas as pd
+
+    # Get filter parameters (same as payments view)
+    status_filter = request.GET.get('status')
+    method_filter = request.GET.get('method')
+    search = request.GET.get('search', '').strip()
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+
+    payments_list = Payment.objects.select_related(
+        'invoice__student', 'invoice__student__current_class', 'received_by'
+    ).order_by('-created_at')
+
+    if status_filter:
+        payments_list = payments_list.filter(status=status_filter)
+    if method_filter:
+        payments_list = payments_list.filter(method=method_filter)
+    if search:
+        payments_list = payments_list.filter(
+            Q(receipt_number__icontains=search) |
+            Q(invoice__invoice_number__icontains=search) |
+            Q(invoice__student__first_name__icontains=search) |
+            Q(invoice__student__last_name__icontains=search)
+        )
+    if date_from:
+        payments_list = payments_list.filter(transaction_date__date__gte=date_from)
+    if date_to:
+        payments_list = payments_list.filter(transaction_date__date__lte=date_to)
+
+    # Build export data
+    export_data = []
+    for pmt in payments_list:
+        export_data.append({
+            'Receipt Number': pmt.receipt_number,
+            'Invoice Number': pmt.invoice.invoice_number,
+            'Student Name': pmt.invoice.student.full_name,
+            'Admission Number': pmt.invoice.student.admission_number,
+            'Class': pmt.invoice.student.current_class.name if pmt.invoice.student.current_class else '',
+            'Amount': float(pmt.amount),
+            'Payment Method': pmt.get_method_display(),
+            'Status': pmt.get_status_display(),
+            'Transaction Date': pmt.transaction_date.strftime('%Y-%m-%d %H:%M') if pmt.transaction_date else '',
+            'Reference': pmt.reference or '',
+            'Payer Name': pmt.payer_name or '',
+            'Payer Phone': pmt.payer_phone or '',
+            'Received By': pmt.received_by.get_full_name() if pmt.received_by else '',
+        })
+
+    df = pd.DataFrame(export_data)
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Payments')
+
+        worksheet = writer.sheets['Payments']
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).map(len).max() if len(df) > 0 else 0,
+                len(col)
+            ) + 2
+            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+
+    output.seek(0)
+    filename = f"payments_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    return FileResponse(
+        output,
+        as_attachment=True,
+        filename=filename,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
 
 
 # =============================================================================

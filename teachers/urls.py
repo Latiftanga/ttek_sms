@@ -25,4 +25,5 @@ urlpatterns = [
     path('import/', views.bulk_import, name='bulk_import'),
     path('import/confirm/', views.bulk_import_confirm, name='bulk_import_confirm'),
     path('import/template/', views.bulk_import_template, name='bulk_import_template'),
+    path('export/', views.bulk_export, name='bulk_export'),
 ]
