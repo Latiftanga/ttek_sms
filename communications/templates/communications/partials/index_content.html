@@ -47,8 +47,8 @@
             </p>
         </div>
         {% if request.user.is_superuser or request.user.is_school_admin %}
-        <a href="{% url 'core:school_settings' %}"
-           hx-get="{% url 'core:school_settings' %}"
+        <a href="{% url 'core:settings' %}"
+           hx-get="{% url 'core:settings' %}"
            hx-target="#main-content"
            hx-push-url="true"
            class="btn btn-sm">
