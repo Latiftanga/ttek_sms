@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
+from django.core.paginator import Paginator
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +92,24 @@ def index(request):
     if status_filter:
         students = students.filter(status=status_filter)
 
+    # Pagination
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in [25, 50, 100]:
+            per_page = 25
+    except ValueError:
+        per_page = 25
+
+    paginator = Paginator(students.order_by('-created_at'), per_page)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'students': students,
+        'students': page_obj,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'per_page': per_page,
         'classes': Class.objects.filter(is_active=True),
         'status_choices': Student.Status.choices,
         'search': search,

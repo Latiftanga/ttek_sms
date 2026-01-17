@@ -419,3 +419,100 @@ def bulk_import_template(request):
         filename='student_import_template.xlsx',
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
+
+@admin_required
+def bulk_export(request):
+    """Export students to Excel with current filters applied."""
+    from django.db.models import Q, Prefetch
+
+    # Get filter parameters (same as index view)
+    search = request.GET.get('search', '').strip()
+    class_filter = request.GET.get('class', '')
+    status_filter = request.GET.get('status', '')
+
+    # Build queryset with optimized prefetching
+    students = Student.objects.select_related(
+        'current_class', 'house'
+    ).prefetch_related(
+        Prefetch(
+            'student_guardians',
+            queryset=StudentGuardian.objects.filter(is_primary=True).select_related('guardian'),
+            to_attr='primary_guardian_list'
+        )
+    )
+
+    # Apply filters
+    if search:
+        students = students.filter(
+            Q(first_name__icontains=search) |
+            Q(last_name__icontains=search) |
+            Q(other_names__icontains=search) |
+            Q(admission_number__icontains=search)
+        )
+
+    if class_filter:
+        students = students.filter(current_class_id=class_filter)
+
+    if status_filter:
+        students = students.filter(status=status_filter)
+
+    students = students.order_by('last_name', 'first_name')
+
+    # Build export data
+    export_data = []
+    for student in students:
+        # Get primary guardian info
+        primary_guardian = None
+        guardian_relationship = ''
+        if hasattr(student, 'primary_guardian_list') and student.primary_guardian_list:
+            sg = student.primary_guardian_list[0]
+            primary_guardian = sg.guardian
+            guardian_relationship = sg.get_relationship_display()
+
+        export_data.append({
+            'Admission Number': student.admission_number,
+            'First Name': student.first_name,
+            'Last Name': student.last_name,
+            'Other Names': student.other_names or '',
+            'Date of Birth': student.date_of_birth.strftime('%Y-%m-%d') if student.date_of_birth else '',
+            'Gender': student.get_gender_display() if student.gender else '',
+            'Phone': student.phone or '',
+            'Address': student.address or '',
+            'Current Class': student.current_class.name if student.current_class else '',
+            'House': student.house.name if student.house else '',
+            'Status': student.get_status_display(),
+            'Admission Date': student.admission_date.strftime('%Y-%m-%d') if student.admission_date else '',
+            'Guardian Name': primary_guardian.full_name if primary_guardian else '',
+            'Guardian Phone': primary_guardian.phone_number if primary_guardian else '',
+            'Guardian Email': primary_guardian.email or '' if primary_guardian else '',
+            'Guardian Relationship': guardian_relationship,
+        })
+
+    # Create Excel file
+    df = pd.DataFrame(export_data)
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Students')
+
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Students']
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).map(len).max() if len(df) > 0 else 0,
+                len(col)
+            ) + 2
+            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+
+    output.seek(0)
+
+    # Generate filename with date
+    filename = f"students_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    return FileResponse(
+        output,
+        as_attachment=True,
+        filename=filename,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )

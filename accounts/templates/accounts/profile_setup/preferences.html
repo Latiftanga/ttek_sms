@@ -30,7 +30,7 @@
                             <div class="text-xs text-base-content/50">Receive updates via email</div>
                         </div>
                     </div>
-                    <input type="checkbox" name="email_notifications" class="toggle toggle-primary toggle-sm" checked>
+                    <input type="checkbox" name="email_notifications" class="toggle toggle-primary toggle-sm" {% if guardian.email_notifications %}checked{% endif %}>
                 </label>
 
                 <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
@@ -41,7 +41,7 @@
                             <div class="text-xs text-base-content/50">Receive urgent updates via SMS</div>
                         </div>
                     </div>
-                    <input type="checkbox" name="sms_notifications" class="toggle toggle-primary toggle-sm" checked>
+                    <input type="checkbox" name="sms_notifications" class="toggle toggle-primary toggle-sm" {% if guardian.sms_notifications %}checked{% endif %}>
                 </label>
             </div>
 
@@ -57,7 +57,7 @@
                             <div class="text-xs text-base-content/50">Grades, assessments, report cards</div>
                         </div>
                     </div>
-                    <input type="checkbox" name="academic_alerts" class="toggle toggle-primary toggle-sm" checked>
+                    <input type="checkbox" name="academic_alerts" class="toggle toggle-primary toggle-sm" {% if guardian.academic_alerts %}checked{% endif %}>
                 </label>
 
                 <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
@@ -68,7 +68,7 @@
                             <div class="text-xs text-base-content/50">Daily attendance notifications</div>
                         </div>
                     </div>
-                    <input type="checkbox" name="attendance_alerts" class="toggle toggle-primary toggle-sm" checked>
+                    <input type="checkbox" name="attendance_alerts" class="toggle toggle-primary toggle-sm" {% if guardian.attendance_alerts %}checked{% endif %}>
                 </label>
 
                 <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
@@ -79,7 +79,7 @@
                             <div class="text-xs text-base-content/50">Payment due dates and receipts</div>
                         </div>
                     </div>
-                    <input type="checkbox" name="fee_alerts" class="toggle toggle-primary toggle-sm" checked>
+                    <input type="checkbox" name="fee_alerts" class="toggle toggle-primary toggle-sm" {% if guardian.fee_alerts %}checked{% endif %}>
                 </label>
 
                 <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
@@ -90,7 +90,7 @@
                             <div class="text-xs text-base-content/50">Events, holidays, general news</div>
                         </div>
                     </div>
-                    <input type="checkbox" name="announcement_alerts" class="toggle toggle-primary toggle-sm" checked>
+                    <input type="checkbox" name="announcement_alerts" class="toggle toggle-primary toggle-sm" {% if guardian.announcement_alerts %}checked{% endif %}>
                 </label>
             </div>
 

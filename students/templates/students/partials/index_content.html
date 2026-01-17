@@ -5,7 +5,7 @@
         <div>
             <h1 class="text-xl font-bold">Students</h1>
             <p class="text-sm text-base-content/60">
-                {% if students %}{{ students|length }} student{{ students|length|pluralize }}{% else %}No students{% endif %}
+                {% if paginator.count %}{{ paginator.count }} student{{ paginator.count|pluralize }}{% else %}No students{% endif %}
                 {% if search or class_filter or status_filter %}<span class="text-primary"> (filtered)</span>{% endif %}
             </p>
         </div>
@@ -18,6 +18,12 @@
                title="Promotion">
                 <i class="fa-solid fa-arrow-up-right-dots"></i>
                 <span class="hidden sm:inline">Promotion</span>
+            </a>
+            <a href="{% url 'students:bulk_export' %}{% if search or class_filter or status_filter %}?{% if search %}search={{ search }}{% endif %}{% if class_filter %}{% if search %}&{% endif %}class={{ class_filter }}{% endif %}{% if status_filter %}{% if search or class_filter %}&{% endif %}status={{ status_filter }}{% endif %}{% endif %}"
+               class="btn btn-ghost btn-sm"
+               title="Export to Excel">
+                <i class="fa-solid fa-file-export"></i>
+                <span class="hidden sm:inline">Export</span>
             </a>
             <button class="btn btn-ghost btn-sm"
                     hx-get="{% url 'students:bulk_import' %}"
@@ -105,7 +111,7 @@
                     <div class="avatar placeholder flex-shrink-0">
                         <div class="w-10 h-10 rounded-full bg-base-300 text-base-content flex items-center justify-center">
                             {% if student.photo %}
-                            <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover rounded-full" />
+                            <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
                             {% else %}
                             <span class="text-sm font-medium">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                             {% endif %}
@@ -170,6 +176,80 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <!-- Page info -->
+                <div class="text-sm text-base-content/60">
+                    Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }}
+                </div>
+
+                <!-- Pagination controls -->
+                <div class="join">
+                    {% if page_obj.has_previous %}
+                    <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:index' %}?page=1{% if search %}&search={{ search }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-angles-left"></i>
+                    </a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:index' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-left"></i></button>
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-left"></i></button>
+                    {% endif %}
+
+                    <button class="join-item btn btn-sm btn-active">{{ page_obj.number }} / {{ paginator.num_pages }}</button>
+
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:index' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                    <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:index' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if class_filter %}&class={{ class_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-angles-right"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-right"></i></button>
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-right"></i></button>
+                    {% endif %}
+                </div>
+
+                <!-- Per page selector -->
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-base-content/60">Per page:</span>
+                    <select class="select select-sm select-bordered w-20"
+                            hx-get="{% url 'students:index' %}"
+                            hx-target="#main-content"
+                            hx-push-url="true"
+                            hx-include="[name='search'], [name='class'], [name='status']"
+                            name="per_page">
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     {% else %}
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body">

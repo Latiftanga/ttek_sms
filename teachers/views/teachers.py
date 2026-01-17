@@ -2,6 +2,7 @@ from django.shortcuts import redirect, get_object_or_404
 from django.http import HttpResponse
 from django.db.models import Q
 from django.contrib import messages
+from django.core.paginator import Paginator
 
 from teachers.models import Teacher, TeacherInvitation
 from teachers.forms import TeacherForm
@@ -13,7 +14,7 @@ from .utils import admin_required, htmx_render
 @admin_required
 def index(request):
     """Teacher list page with search and filter."""
-    teachers = Teacher.objects.select_related('user').order_by('first_name')
+    teachers = Teacher.objects.select_related('user')
 
     # Search
     search = request.GET.get('search', '').strip()
@@ -30,8 +31,24 @@ def index(request):
     if status_filter:
         teachers = teachers.filter(status=status_filter)
 
+    # Pagination
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in [25, 50, 100]:
+            per_page = 25
+    except ValueError:
+        per_page = 25
+
+    paginator = Paginator(teachers.order_by('first_name', 'last_name'), per_page)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'teachers': teachers,
+        'teachers': page_obj,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'per_page': per_page,
         'status_choices': Teacher.Status.choices,
         'search': search,
         'status_filter': status_filter,

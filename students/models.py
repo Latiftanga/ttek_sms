@@ -91,6 +91,14 @@ class Guardian(models.Model):
     occupation = models.CharField(_("occupation"), max_length=100, blank=True)
     address = models.TextField(_("address"), blank=True)
 
+    # Notification Preferences
+    email_notifications = models.BooleanField(_("email notifications"), default=True)
+    sms_notifications = models.BooleanField(_("SMS notifications"), default=True)
+    academic_alerts = models.BooleanField(_("academic alerts"), default=True)
+    attendance_alerts = models.BooleanField(_("attendance alerts"), default=True)
+    fee_alerts = models.BooleanField(_("fee alerts"), default=True)
+    announcement_alerts = models.BooleanField(_("announcement alerts"), default=True)
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

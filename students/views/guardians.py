@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 from django.db.models import Q, Count
 from django.contrib import messages
+from django.core.paginator import Paginator
 
 from students.models import Guardian
 from students.forms import GuardianForm
@@ -29,8 +30,25 @@ def guardian_index(request):
             Q(email__icontains=search)
         )
 
+    # Pagination
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in [25, 50, 100]:
+            per_page = 25
+    except ValueError:
+        per_page = 25
+
+    paginator = Paginator(guardians.order_by('full_name'), per_page)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'guardians': guardians,
+        'guardians': page_obj,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'per_page': per_page,
+        'search': search,
         'form': GuardianForm()
     }
 

@@ -82,6 +82,7 @@ def profile_setup_step(request, step):
         'progress': progress,
         'is_teacher': getattr(user, 'is_teacher', False),
         'is_parent': getattr(user, 'is_parent', False),
+        'guardian': getattr(user, 'guardian_profile', None),
     }
 
     if request.method == 'POST':
@@ -159,8 +160,20 @@ def handle_step_post(request, step, steps, context):
 
     elif step == 'preferences':
         # Handle notification preferences (parents only)
-        # These would be stored in a related preferences model
-        # For now, just advance to next step
+        guardian = getattr(user, 'guardian_profile', None)
+        if guardian:
+            guardian.email_notifications = 'email_notifications' in request.POST
+            guardian.sms_notifications = 'sms_notifications' in request.POST
+            guardian.academic_alerts = 'academic_alerts' in request.POST
+            guardian.attendance_alerts = 'attendance_alerts' in request.POST
+            guardian.fee_alerts = 'fee_alerts' in request.POST
+            guardian.announcement_alerts = 'announcement_alerts' in request.POST
+            guardian.save(update_fields=[
+                'email_notifications', 'sms_notifications', 'academic_alerts',
+                'attendance_alerts', 'fee_alerts', 'announcement_alerts'
+            ])
+            messages.success(request, 'Notification preferences saved.')
+
         next_step = steps[current_index + 1]
         request.session['profile_setup_step'] = next_step
         return redirect('accounts:profile_setup_step', step=next_step)

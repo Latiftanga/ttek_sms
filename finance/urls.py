@@ -22,6 +22,7 @@ urlpatterns = [
 
     # Invoices
     path('invoices/', views.invoices, name='invoices'),
+    path('invoices/export/', views.invoices_export, name='invoices_export'),
     path('invoices/generate/', views.invoice_generate, name='invoice_generate'),
     path('invoices/<uuid:pk>/', views.invoice_detail, name='invoice_detail'),
     path('invoices/<uuid:pk>/edit/', views.invoice_edit, name='invoice_edit'),
@@ -30,6 +31,7 @@ urlpatterns = [
 
     # Payments
     path('payments/', views.payments, name='payments'),
+    path('payments/export/', views.payments_export, name='payments_export'),
     path('payments/record/', views.payment_record, name='payment_record'),
     path('payments/<uuid:pk>/', views.payment_detail, name='payment_detail'),
     path('payments/<uuid:pk>/receipt/', views.payment_receipt, name='payment_receipt'),

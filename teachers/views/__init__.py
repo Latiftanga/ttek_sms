@@ -27,11 +27,12 @@ from .accounts import (
     accept_invitation,
 )
 
-# Bulk import views
+# Bulk import/export views
 from .bulk_import import (
     bulk_import,
     bulk_import_confirm,
     bulk_import_template,
+    bulk_export,
 )
 
 __all__ = [
@@ -55,8 +56,9 @@ __all__ = [
     'resend_invitation',
     'cancel_invitation',
     'accept_invitation',
-    # Bulk import
+    # Bulk import/export
     'bulk_import',
     'bulk_import_confirm',
     'bulk_import_template',
+    'bulk_export',
 ]

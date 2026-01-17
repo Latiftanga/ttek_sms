@@ -318,3 +318,79 @@ def bulk_import_template(request):
         filename='teacher_import_template.xlsx',
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
+
+@admin_required
+def bulk_export(request):
+    """Export teachers to Excel with current filters applied."""
+    from django.db.models import Q
+
+    # Get filter parameters (same as index view)
+    search = request.GET.get('search', '').strip()
+    status_filter = request.GET.get('status', '')
+
+    # Build queryset
+    teachers = Teacher.objects.select_related('user')
+
+    # Apply filters
+    if search:
+        teachers = teachers.filter(
+            Q(first_name__icontains=search) |
+            Q(last_name__icontains=search) |
+            Q(staff_id__icontains=search) |
+            Q(subject_specialization__icontains=search)
+        )
+
+    if status_filter:
+        teachers = teachers.filter(status=status_filter)
+
+    teachers = teachers.order_by('first_name', 'last_name')
+
+    # Build export data
+    export_data = []
+    for teacher in teachers:
+        export_data.append({
+            'Staff ID': teacher.staff_id,
+            'Title': teacher.get_title_display() if teacher.title else '',
+            'First Name': teacher.first_name,
+            'Middle Name': teacher.middle_name or '',
+            'Last Name': teacher.last_name,
+            'Gender': teacher.get_gender_display() if teacher.gender else '',
+            'Date of Birth': teacher.date_of_birth.strftime('%Y-%m-%d') if teacher.date_of_birth else '',
+            'Phone Number': teacher.phone_number or '',
+            'Email': teacher.email or '',
+            'Subject Specialization': teacher.subject_specialization or '',
+            'Employment Date': teacher.employment_date.strftime('%Y-%m-%d') if teacher.employment_date else '',
+            'Address': teacher.address or '',
+            'Nationality': teacher.nationality or '',
+            'Status': teacher.get_status_display(),
+            'Has Portal Account': 'Yes' if teacher.user else 'No',
+        })
+
+    # Create Excel file
+    df = pd.DataFrame(export_data)
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Teachers')
+
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Teachers']
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).map(len).max() if len(df) > 0 else 0,
+                len(col)
+            ) + 2
+            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+
+    output.seek(0)
+
+    # Generate filename with date
+    filename = f"teachers_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    return FileResponse(
+        output,
+        as_attachment=True,
+        filename=filename,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
