@@ -118,6 +118,7 @@ def manifest(request):
         'name': school_name,
         'short_name': short_name,
         'description': f'{school_name} - School Management System',
+        'id': '/',
         'start_url': '/',
         'scope': '/',
         'display': 'standalone',
@@ -126,6 +127,22 @@ def manifest(request):
         'background_color': background_color,
         'icons': icons,
         'categories': ['education', 'productivity'],
+        'screenshots': [
+            {
+                'src': '/static/screenshots/dashboard-wide.png',
+                'sizes': '1280x720',
+                'type': 'image/png',
+                'form_factor': 'wide',
+                'label': 'Dashboard overview'
+            },
+            {
+                'src': '/static/screenshots/dashboard-mobile.png',
+                'sizes': '390x844',
+                'type': 'image/png',
+                'form_factor': 'narrow',
+                'label': 'Mobile dashboard'
+            }
+        ],
         'shortcuts': [
             {
                 'name': 'Dashboard',
@@ -139,7 +156,9 @@ def manifest(request):
                 'url': '/my-attendance/',
                 'icons': [{'src': '/static/icons/attendance.svg', 'sizes': '96x96', 'type': 'image/svg+xml'}]
             }
-        ]
+        ],
+        'prefer_related_applications': False,
+        'handle_links': 'preferred'
     }
 
     return JsonResponse(manifest_data, content_type='application/manifest+json')

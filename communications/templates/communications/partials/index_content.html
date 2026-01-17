@@ -32,6 +32,33 @@
         </div>
     </div>
 
+    <!-- SMS Gateway Status Alert -->
+    {% if not sms_gateway.ready %}
+    <div class="alert {% if sms_gateway.enabled %}alert-warning{% else %}alert-info{% endif %}">
+        <i class="fa-solid {% if sms_gateway.enabled %}fa-triangle-exclamation{% else %}fa-info-circle{% endif %}"></i>
+        <div>
+            <h3 class="font-bold">{{ sms_gateway.message }}</h3>
+            <p class="text-sm">
+                {% if not sms_gateway.enabled %}
+                SMS messaging is currently disabled. Enable it in School Settings to send messages.
+                {% elif not sms_gateway.configured %}
+                Please configure the API key in School Settings to start sending SMS messages.
+                {% endif %}
+            </p>
+        </div>
+        {% if request.user.is_superuser or request.user.is_school_admin %}
+        <a href="{% url 'core:school_settings' %}"
+           hx-get="{% url 'core:school_settings' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm">
+            <i class="fa-solid fa-gear"></i>
+            Configure
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Stats Row -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -90,6 +117,7 @@
                         Quick Actions
                     </h2>
                     <div class="space-y-1">
+                        {% if sms_gateway.ready %}
                         <a href="#"
                            hx-get="{% url 'communications:send_single' %}"
                            hx-target="#modal-sms-content"
@@ -123,6 +151,29 @@
                                 <div class="text-xs text-base-content/50">Today's absentees</div>
                             </div>
                         </a>
+                        {% else %}
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-base-200/50 opacity-50 cursor-not-allowed">
+                            <i class="fa-solid fa-user text-base-content/30 w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm text-base-content/50">Send to Individual</div>
+                                <div class="text-xs text-base-content/30">SMS not configured</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-base-200/50 opacity-50 cursor-not-allowed">
+                            <i class="fa-solid fa-users text-base-content/30 w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm text-base-content/50">Send to Class</div>
+                                <div class="text-xs text-base-content/30">SMS not configured</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-base-200/50 opacity-50 cursor-not-allowed">
+                            <i class="fa-solid fa-user-xmark text-base-content/30 w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm text-base-content/50">Notify Absent Parents</div>
+                                <div class="text-xs text-base-content/30">SMS not configured</div>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

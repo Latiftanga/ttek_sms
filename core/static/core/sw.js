@@ -1,7 +1,10 @@
 // Service Worker for School Management System
 // Provides offline support and caching for better performance on slow networks
+//
+// IMPORTANT: Increment CACHE_VERSION when deploying updates to force cache refresh
+// Format: 'v{major}.{minor}' - bump minor for small changes, major for breaking changes
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v1.1';
 const CACHE_NAME = `sms-cache-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline/';
 

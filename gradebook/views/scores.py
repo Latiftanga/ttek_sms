@@ -66,6 +66,7 @@ def score_entry_form(request, class_id, subject_id):
     """Score entry form for a specific class/subject.
 
     OPTIMIZED: Uses select_related and builds lookup dict for O(1) score access.
+    Supports both table view (desktop) and card view (mobile).
     """
     current_term = Term.get_current()
     class_obj = get_object_or_404(Class, pk=class_id)
@@ -106,6 +107,9 @@ def score_entry_form(request, class_id, subject_id):
     # Determine if editing is allowed (not locked AND authorized)
     editing_allowed = can_edit and not grades_locked
 
+    # Check view mode preference (table or card)
+    view_mode = request.GET.get('view', 'auto')  # auto, table, or card
+
     context = {
         'class_obj': class_obj,
         'subject': subject,
@@ -117,9 +121,76 @@ def score_entry_form(request, class_id, subject_id):
         'grades_locked': grades_locked,
         'can_edit': can_edit,
         'editing_allowed': editing_allowed,
+        'view_mode': view_mode,
     }
 
     return render(request, 'gradebook/partials/score_form.html', context)
+
+
+@login_required
+@teacher_or_admin_required
+def score_entry_student(request, class_id, subject_id, student_id):
+    """Mobile-optimized score entry for a single student.
+
+    Shows all assignments for one student in a vertical card layout,
+    optimized for touch input on mobile devices.
+    """
+    current_term = Term.get_current()
+    class_obj = get_object_or_404(Class, pk=class_id)
+    subject = get_object_or_404(Subject, pk=subject_id)
+    student = get_object_or_404(Student, pk=student_id, current_class=class_obj)
+    grades_locked = current_term.grades_locked if current_term else False
+
+    # Check if user can edit scores for this subject/class
+    can_edit = can_edit_scores(request.user, class_obj, subject)
+    editing_allowed = can_edit and not grades_locked
+
+    # Get all students for navigation
+    students = list(Student.objects.filter(
+        current_class=class_obj
+    ).only('id', 'first_name', 'last_name').order_by('last_name', 'first_name'))
+
+    # Find current student index for prev/next navigation
+    current_index = next((i for i, s in enumerate(students) if s.id == student.id), 0)
+    prev_student = students[current_index - 1] if current_index > 0 else None
+    next_student = students[current_index + 1] if current_index < len(students) - 1 else None
+
+    # Get assignments grouped by category
+    assignments = Assignment.objects.filter(
+        subject=subject,
+        term=current_term
+    ).select_related('assessment_category').order_by('assessment_category__order', 'name')
+
+    # Get existing scores for this student
+    scores_dict = {}
+    for score in Score.objects.filter(
+        student=student,
+        assignment__in=assignments
+    ).only('assignment_id', 'points'):
+        scores_dict[score.assignment_id] = score.points
+
+    # Group assignments by category for better mobile display
+    assignments_by_category = defaultdict(list)
+    for assignment in assignments:
+        assignments_by_category[assignment.assessment_category].append(assignment)
+
+    context = {
+        'class_obj': class_obj,
+        'subject': subject,
+        'current_term': current_term,
+        'student': student,
+        'students': students,
+        'current_index': current_index,
+        'prev_student': prev_student,
+        'next_student': next_student,
+        'assignments_by_category': dict(assignments_by_category),
+        'scores_dict': scores_dict,
+        'grades_locked': grades_locked,
+        'can_edit': can_edit,
+        'editing_allowed': editing_allowed,
+    }
+
+    return render(request, 'gradebook/partials/score_form_student.html', context)
 
 
 @login_required

@@ -5,6 +5,75 @@ from django.core.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
+
+def get_sms_gateway_status():
+    """
+    Check if SMS gateway is properly configured and enabled.
+
+    Returns:
+        dict: Status with keys:
+            - enabled: bool - Whether SMS is enabled in settings
+            - configured: bool - Whether API key is set (for non-console backends)
+            - backend: str - The SMS backend being used
+            - sender_id: str - The configured sender ID
+            - message: str - Human-readable status message
+    """
+    try:
+        from core.models import SchoolSettings
+        school = SchoolSettings.load()
+
+        if not school:
+            return {
+                'enabled': False,
+                'configured': False,
+                'backend': 'none',
+                'sender_id': '',
+                'message': 'School settings not configured',
+            }
+
+        backend = school.sms_backend or 'console'
+        sender_id = school.sms_sender_id or ''
+        api_key = school.sms_api_key or ''
+        sms_enabled = school.sms_enabled
+
+        # Check if properly configured
+        if backend == 'console':
+            # Console backend is always "configured" (for testing)
+            configured = True
+            if sms_enabled:
+                message = 'SMS is in test mode (console)'
+            else:
+                message = 'SMS is disabled'
+        else:
+            # Real backends need API key
+            configured = bool(api_key)
+            if not sms_enabled:
+                message = 'SMS is disabled'
+            elif not configured:
+                message = f'{backend.title()} API key not configured'
+            else:
+                message = f'SMS enabled via {backend.title()}'
+
+        return {
+            'enabled': sms_enabled,
+            'configured': configured,
+            'backend': backend,
+            'sender_id': sender_id,
+            'message': message,
+            'ready': sms_enabled and configured,
+        }
+
+    except Exception as e:
+        logger.warning(f"Could not check SMS gateway status: {e}")
+        return {
+            'enabled': False,
+            'configured': False,
+            'backend': 'none',
+            'sender_id': '',
+            'message': 'Error checking SMS configuration',
+            'ready': False,
+        }
+
 # E.164 phone number pattern (international format)
 E164_PATTERN = re.compile(r'^\+[1-9]\d{1,14}$')
 
