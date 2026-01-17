@@ -28,6 +28,7 @@ urlpatterns = [
     # Score Entry
     path('scores/', views.score_entry, name='score_entry'),
     path('scores/<int:class_id>/<int:subject_id>/', views.score_entry_form, name='score_entry_form'),
+    path('scores/<int:class_id>/<int:subject_id>/student/<int:student_id>/', views.score_entry_student, name='score_entry_student'),
     path('scores/save/', views.score_save, name='score_save'),
     path('scores/audit/<int:student_id>/<uuid:assignment_id>/', views.score_audit_history, name='score_audit'),
     path('scores/<int:class_id>/<int:subject_id>/changes/', views.score_changes_list, name='score_changes'),

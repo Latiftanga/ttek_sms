@@ -1,0 +1,251 @@
+{% load core_tags %}
+
+<!-- Student Score Entry - Mobile Optimized -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-3 md:p-4">
+        <!-- Header with student info and navigation -->
+        <div class="flex items-center justify-between gap-2 mb-4">
+            <!-- Prev button -->
+            {% if prev_student %}
+            <button class="btn btn-circle btn-sm btn-ghost"
+                    hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk prev_student.pk %}"
+                    hx-target="#score-form-container"
+                    hx-swap="innerHTML">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            {% else %}
+            <button class="btn btn-circle btn-sm btn-ghost btn-disabled">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            {% endif %}
+
+            <!-- Student info -->
+            <div class="flex-1 text-center">
+                <div class="avatar placeholder mb-1">
+                    <div class="bg-primary text-primary-content rounded-full w-12">
+                        <span class="text-lg">{{ student.first_name.0 }}{{ student.last_name.0 }}</span>
+                    </div>
+                </div>
+                <h3 class="font-bold text-lg">{{ student.full_name }}</h3>
+                <p class="text-sm text-base-content/60">
+                    {{ current_index|add:1 }} of {{ students|length }}
+                    <span class="mx-1">|</span>
+                    {{ student.admission_number }}
+                </p>
+            </div>
+
+            <!-- Next button -->
+            {% if next_student %}
+            <button class="btn btn-circle btn-sm btn-ghost"
+                    hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk next_student.pk %}"
+                    hx-target="#score-form-container"
+                    hx-swap="innerHTML">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+            {% else %}
+            <button class="btn btn-circle btn-sm btn-ghost btn-disabled">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Subject badge -->
+        <div class="flex items-center justify-center gap-2 mb-4">
+            <span class="badge badge-primary badge-lg">{{ subject.name }}</span>
+            <a href="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
+               hx-get="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
+               hx-target="#score-form-container"
+               hx-swap="innerHTML"
+               class="btn btn-xs btn-ghost">
+                <i class="fa-solid fa-table-cells"></i>
+                Table View
+            </a>
+        </div>
+
+        {% if not can_edit %}
+        <div class="alert alert-warning mb-4 py-2">
+            <i class="fa-solid fa-user-lock text-sm"></i>
+            <span class="text-sm">Read-only: You are not assigned to teach this subject.</span>
+        </div>
+        {% endif %}
+
+        {% if grades_locked %}
+        <div class="alert alert-warning mb-4 py-2">
+            <i class="fa-solid fa-lock text-sm"></i>
+            <span class="text-sm">Grades are locked for this term.</span>
+        </div>
+        {% endif %}
+
+        <!-- Score Entry Cards by Category -->
+        {% if assignments_by_category %}
+        <div class="space-y-4">
+            {% for category, category_assignments in assignments_by_category.items %}
+            <div class="bg-base-200/50 rounded-xl p-3">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-bold text-sm flex items-center gap-2">
+                        <span class="badge badge-ghost badge-sm">{{ category.short_name }}</span>
+                        {{ category.name }}
+                    </h4>
+                    <span class="text-xs text-base-content/60">{{ category.percentage }}%</span>
+                </div>
+
+                <div class="space-y-2">
+                    {% for assignment in category_assignments %}
+                    <div class="bg-base-100 rounded-lg p-3 flex items-center gap-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium text-sm truncate">{{ assignment.name }}</div>
+                            <div class="text-xs text-base-content/60">Max: {{ assignment.points_possible }}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number"
+                                   class="input input-bordered w-20 h-12 text-center text-lg font-bold score-input-mobile {% if not editing_allowed %}input-disabled{% endif %}"
+                                   data-student="{{ student.pk }}"
+                                   data-assignment="{{ assignment.pk }}"
+                                   data-max="{{ assignment.points_possible }}"
+                                   min="0"
+                                   max="{{ assignment.points_possible }}"
+                                   step="0.5"
+                                   inputmode="decimal"
+                                   pattern="[0-9]*\.?[0-9]*"
+                                   value="{{ scores_dict|get_item:assignment.pk|default:'' }}"
+                                   {% if editing_allowed %}
+                                   hx-post="{% url 'gradebook:score_save' %}"
+                                   hx-trigger="change, blur"
+                                   hx-vals='{"student_id": "{{ student.pk }}", "assignment_id": "{{ assignment.pk }}"}'
+                                   hx-include="this"
+                                   hx-swap="none"
+                                   {% endif %}
+                                   {% if not editing_allowed %}disabled{% endif %}
+                                   name="points">
+                            <span class="text-base-content/40 text-sm">/ {{ assignment.points_possible }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Quick Student Selector -->
+        <div class="divider my-4">Jump to Student</div>
+        <div class="form-control">
+            <select class="select select-bordered w-full"
+                    onchange="if(this.value) htmx.ajax('GET', this.value, {target:'#score-form-container', swap:'innerHTML'})">
+                <option value="">Select a student...</option>
+                {% for s in students %}
+                <option value="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk s.pk %}"
+                        {% if s.pk == student.pk %}selected{% endif %}>
+                    {{ s.last_name }}, {{ s.first_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-base-content/40">
+            <i class="fa-solid fa-clipboard text-4xl mb-3"></i>
+            <p>No assignments for this subject</p>
+            <a href="#"
+               hx-get="{% url 'gradebook:assignments' subject.pk %}"
+               hx-target="#assignments-container"
+               onclick="modal_assignments.showModal()"
+               class="btn btn-sm btn-primary mt-3">
+                <i class="fa-solid fa-plus"></i>
+                Add Assignments
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Auto-save indicator -->
+        <div class="mt-4 text-center text-sm text-base-content/60">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            Scores save automatically
+        </div>
+    </div>
+</div>
+
+<!-- Toast container -->
+<div id="score-toast-mobile" class="toast toast-top toast-center z-50 hidden">
+    <div class="alert py-2">
+        <span id="score-toast-message-mobile" class="text-sm"></span>
+    </div>
+</div>
+
+<style>
+.score-input-mobile {
+    font-variant-numeric: tabular-nums;
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+}
+.score-input-mobile::-webkit-inner-spin-button,
+.score-input-mobile::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.score-input-mobile:focus {
+    outline: 2px solid oklch(var(--p));
+    outline-offset: 0;
+}
+.score-input-mobile.htmx-request {
+    background-color: oklch(var(--wa) / 0.2);
+}
+.score-input-mobile.input-success {
+    border-color: oklch(var(--su));
+    animation: pulse-success 0.3s ease-out;
+}
+@keyframes pulse-success {
+    0% { box-shadow: 0 0 0 0 oklch(var(--su) / 0.4); }
+    100% { box-shadow: 0 0 0 8px oklch(var(--su) / 0); }
+}
+</style>
+
+<script>
+// Handle toast display for mobile view
+document.body.addEventListener('showToast', function(e) {
+    const toast = document.getElementById('score-toast-mobile');
+    const message = document.getElementById('score-toast-message-mobile');
+    if (!toast || !message) return;
+
+    const alert = toast.querySelector('.alert');
+    message.textContent = e.detail.message;
+    alert.className = 'alert py-2 alert-' + (e.detail.type === 'error' ? 'error' : 'success');
+
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 2000);
+});
+
+// Handle score revert on validation error
+document.body.addEventListener('revertScore', function(e) {
+    const input = document.querySelector(
+        `.score-input-mobile[data-student="${e.detail.student}"][data-assignment="${e.detail.assignment}"]`
+    );
+    if (input) {
+        input.value = e.detail.value;
+        input.classList.add('input-error');
+        setTimeout(() => input.classList.remove('input-error'), 1000);
+    }
+});
+
+// Visual feedback on successful save
+document.querySelectorAll('.score-input-mobile').forEach(input => {
+    input.addEventListener('htmx:afterRequest', function(e) {
+        if (e.detail.successful) {
+            this.classList.add('input-success');
+            setTimeout(() => this.classList.remove('input-success'), 500);
+        }
+    });
+});
+
+// Keyboard navigation between inputs
+document.querySelectorAll('.score-input-mobile').forEach((input, index, inputs) => {
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const nextInput = inputs[index + 1];
+            if (nextInput) {
+                nextInput.focus();
+                nextInput.select();
+            }
+        }
+    });
+});
+</script>

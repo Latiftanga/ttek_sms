@@ -10,6 +10,7 @@ urlpatterns = [
     path('send/class/recipients/', views.class_recipients, name='class_recipients'),
     path('notify-absent/', views.notify_absent, name='notify_absent'),
     path('history/', views.message_history, name='history'),
+    path('history/export/', views.message_history_export, name='history_export'),
     path('templates/', views.templates_list, name='templates'),
     path('templates/create/', views.template_create, name='template_create'),
     path('templates/<int:pk>/delete/', views.template_delete, name='template_delete'),

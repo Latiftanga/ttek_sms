@@ -23,9 +23,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="{{ school.display_name|default:tenant.name|default:'School' }}">
-    {% if school.logo %}
-    <link rel="apple-touch-icon" href="{{ school.logo.url }}">
-    {% endif %}
+    <link rel="apple-touch-icon" href="{% if school.logo %}{{ school.logo.url }}{% else %}{% static 'icons/icon-192.svg' %}{% endif %}">
 
     {% tailwind_css %}
     <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">

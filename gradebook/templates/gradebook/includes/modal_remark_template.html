@@ -1,94 +1,47 @@
+{% load core_tags %}
+
 <div class="modal modal-open">
     <div class="modal-box max-w-lg">
         <form hx-post="{% if mode == 'edit' %}{% url 'gradebook:remark_template_edit' template.pk %}{% else %}{% url 'gradebook:remark_template_create' %}{% endif %}"
               hx-swap="innerHTML"
               hx-target="#modal-container">
-            <h3 class="font-bold text-lg flex items-center gap-2">
+            <h3 class="font-bold text-lg flex items-center gap-2 mb-4">
                 <i class="fa-solid fa-wand-magic-sparkles text-secondary"></i>
                 {% if mode == 'edit' %}Edit Template{% else %}New Template{% endif %}
             </h3>
 
             {% if error %}
-            <div class="alert alert-error mt-4">
+            <div class="alert alert-error py-2 text-sm mb-4">
                 <i class="fa-solid fa-exclamation-circle"></i>
                 <span>{{ error }}</span>
             </div>
             {% endif %}
 
-            <div class="form-control mt-4">
-                <label class="label">
-                    <span class="label-text font-medium">Category</span>
-                </label>
-                <select name="category" class="select select-bordered w-full">
-                    {% for value, label in categories %}
-                    <option value="{{ value }}"
-                            {% if mode == 'edit' and template.category == value %}selected{% endif %}
-                            {% if form_data.category == value %}selected{% endif %}>
-                        {{ label }}
-                    </option>
-                    {% endfor %}
-                </select>
-                <label class="label">
-                    <span class="label-text-alt text-base-content/50">
-                        Templates are grouped by performance category
-                    </span>
-                </label>
-            </div>
+            <div class="space-y-3">
+                {% with current_category=template.category|default:form_data.category %}
+                {% select_input "category" options=categories value=current_category label="Category" size="sm" help_text="Templates are grouped by performance category" %}
+                {% endwith %}
 
-            <div class="form-control mt-4">
-                <label class="label">
-                    <span class="label-text font-medium">Remark Content</span>
-                </label>
-                <textarea name="content"
-                          class="textarea textarea-bordered h-32"
-                          placeholder="Enter the remark template text..."
-                          required>{% if mode == 'edit' %}{{ template.content }}{% elif form_data %}{{ form_data.content }}{% endif %}</textarea>
-                <label class="label">
-                    <span class="label-text-alt text-base-content/50">
-                        Placeholders: {student_name}, {average}, {position}
-                    </span>
-                </label>
-            </div>
+                {% with current_content=template.content|default:form_data.content %}
+                {% textarea_input "content" value=current_content label="Remark Content" placeholder="Enter the remark template text..." rows=4 required=True size="sm" help_text="Placeholders: {student_name}, {average}, {position}" %}
+                {% endwith %}
 
-            <div class="form-control mt-4">
-                <label class="label">
-                    <span class="label-text font-medium">Display Order</span>
-                </label>
-                <input type="number"
-                       name="order"
-                       class="input input-bordered w-24"
-                       value="{% if mode == 'edit' %}{{ template.order }}{% elif form_data %}{{ form_data.order }}{% else %}0{% endif %}"
-                       min="0">
-                <label class="label">
-                    <span class="label-text-alt text-base-content/50">
-                        Lower numbers appear first within category
-                    </span>
-                </label>
-            </div>
+                {% with current_order=template.order|default:form_data.order|default:"0" %}
+                {% number_input "order" value=current_order label="Display Order" min=0 size="sm" help_text="Lower numbers appear first" %}
+                {% endwith %}
 
-            {% if mode == 'edit' %}
-            <div class="form-control mt-4">
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox"
-                           name="is_active"
-                           class="checkbox checkbox-primary"
-                           {% if template.is_active %}checked{% endif %}>
-                    <span class="label-text font-medium">Active</span>
-                </label>
-                <span class="text-xs text-base-content/50 ml-10">
-                    Inactive templates won't appear for teachers
-                </span>
+                {% if mode == 'edit' %}
+                {% checkbox_input "is_active" checked=template.is_active label="Active" size="sm" help_text="Inactive templates won't appear for teachers" %}
+                {% endif %}
             </div>
-            {% endif %}
 
             <div class="modal-action">
                 <button type="button"
                         onclick="document.getElementById('modal-container').innerHTML = ''"
-                        class="btn btn-ghost">
+                        class="btn btn-sm btn-ghost">
                     Cancel
                 </button>
-                <button type="submit" class="btn btn-primary gap-2">
-                    <i class="fa-solid fa-check"></i>
+                <button type="submit" class="btn btn-sm btn-primary">
                     {% if mode == 'edit' %}Update{% else %}Create{% endif %}
                 </button>
             </div>

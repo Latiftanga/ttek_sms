@@ -1,15 +1,19 @@
 from functools import wraps
+from io import BytesIO
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages as django_messages
+from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseForbidden
 from django.utils import timezone
 from django.utils.html import escape
 from django.db.models import Q
 
+import pandas as pd
+
 from .models import SMSMessage, SMSTemplate
-from .utils import send_sms, validate_phone_number, normalize_phone_number
+from .utils import send_sms, validate_phone_number, normalize_phone_number, get_sms_gateway_status
 from students.models import Student
 from academics.models import Class, AttendanceSession, AttendanceRecord
 from core.models import SchoolSettings
@@ -80,10 +84,14 @@ def index(request):
         'pending': SMSMessage.objects.filter(status='pending').count(),
     }
 
+    # SMS Gateway status
+    sms_gateway = get_sms_gateway_status()
+
     context = {
         'messages': messages,
         'templates': templates,
         'stats': stats,
+        'sms_gateway': sms_gateway,
     }
 
     return htmx_render(
@@ -503,10 +511,24 @@ def message_history(request):
             Q(message__icontains=search)
         )
 
-    messages = messages[:100]
+    # Pagination with selectable page size
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in [25, 50, 100]:
+            per_page = 25
+    except ValueError:
+        per_page = 25
+
+    paginator = Paginator(messages, per_page)
+    page_number = request.GET.get('page', 1)
+    messages_page = paginator.get_page(page_number)
 
     context = {
-        'messages': messages,
+        'messages': messages_page,
+        'page_obj': messages_page,
+        'paginator': paginator,
+        'per_page': per_page,
         'status_filter': status_filter,
         'type_filter': type_filter,
         'search': search,
@@ -520,6 +542,75 @@ def message_history(request):
         'communications/partials/history_content.html',
         context
     )
+
+
+@login_required
+@teacher_or_admin_required
+def message_history_export(request):
+    """Export message history to Excel."""
+    messages = SMSMessage.objects.select_related('student', 'created_by')
+
+    # Apply filters
+    status_filter = request.GET.get('status', '')
+    type_filter = request.GET.get('type', '')
+    search = request.GET.get('search', '').strip()
+
+    if status_filter:
+        messages = messages.filter(status=status_filter)
+    if type_filter:
+        messages = messages.filter(message_type=type_filter)
+    if search:
+        messages = messages.filter(
+            Q(recipient_phone__icontains=search) |
+            Q(recipient_name__icontains=search) |
+            Q(message__icontains=search)
+        )
+
+    # Prepare data for export
+    data = []
+    for msg in messages:
+        data.append({
+            'Recipient Name': msg.recipient_name or '-',
+            'Phone': msg.recipient_phone,
+            'Student': msg.student.full_name if msg.student else '-',
+            'Message': msg.message,
+            'Type': msg.get_message_type_display(),
+            'Status': msg.get_status_display(),
+            'Error': msg.error_message or '-',
+            'Sent By': msg.created_by.get_full_name() if msg.created_by else '-',
+            'Created': msg.created_at.strftime('%Y-%m-%d %H:%M') if msg.created_at else '-',
+            'Sent At': msg.sent_at.strftime('%Y-%m-%d %H:%M') if msg.sent_at else '-',
+        })
+
+    df = pd.DataFrame(data)
+
+    # Create Excel file
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Messages')
+
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Messages']
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).map(len).max() if len(df) > 0 else 0,
+                len(col)
+            )
+            # Limit max width to prevent very wide columns
+            adjusted_width = min(max_length + 2, 50)
+            worksheet.column_dimensions[chr(65 + idx)].width = adjusted_width
+
+    output.seek(0)
+
+    timestamp = timezone.now().strftime('%Y%m%d_%H%M')
+    filename = f'sms_history_{timestamp}.xlsx'
+
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 @login_required
