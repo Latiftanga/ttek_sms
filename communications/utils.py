@@ -74,6 +74,87 @@ def get_sms_gateway_status():
             'ready': False,
         }
 
+
+def get_email_gateway_status():
+    """
+    Check if email gateway is properly configured and enabled.
+
+    Returns:
+        dict: Status with keys:
+            - enabled: bool - Whether email is enabled in settings
+            - configured: bool - Whether SMTP credentials are set
+            - backend: str - The email backend being used
+            - from_address: str - The configured from address
+            - message: str - Human-readable status message
+            - ready: bool - Whether email can be sent
+    """
+    try:
+        from core.models import SchoolSettings
+        school = SchoolSettings.load()
+
+        if not school:
+            return {
+                'enabled': False,
+                'configured': False,
+                'backend': 'none',
+                'from_address': '',
+                'message': 'School settings not configured',
+                'ready': False,
+            }
+
+        backend = school.email_backend or 'console'
+        email_enabled = school.email_enabled
+        email_host = school.email_host or ''
+        email_user = school.email_host_user or ''
+        email_password = school.email_host_password or ''
+        from_address = school.email_from_address or ''
+
+        # Check if properly configured
+        if backend == 'console':
+            # Console backend is always "configured" (for testing)
+            configured = True
+            if email_enabled:
+                message = 'Email is in test mode (console)'
+            else:
+                message = 'Email is disabled'
+        else:
+            # Real backends need SMTP credentials
+            configured = bool(email_host and email_user and email_password)
+            if not email_enabled:
+                message = 'Email is disabled'
+            elif not configured:
+                missing = []
+                if not email_host:
+                    missing.append('host')
+                if not email_user:
+                    missing.append('username')
+                if not email_password:
+                    missing.append('password')
+                message = f'Email not configured (missing: {", ".join(missing)})'
+            else:
+                message = f'Email enabled via {backend.upper()}'
+
+        return {
+            'enabled': email_enabled,
+            'configured': configured,
+            'backend': backend,
+            'from_address': from_address,
+            'message': message,
+            'ready': email_enabled and configured,
+        }
+
+    except Exception as e:
+        logger.warning(f"Could not check email gateway status: {e}")
+        return {
+            'enabled': False,
+            'configured': False,
+            'backend': 'none',
+            'from_address': '',
+            'message': 'Error checking email configuration',
+            'ready': False,
+        }
+
+
 # E.164 phone number pattern (international format)
 E164_PATTERN = re.compile(r'^\+[1-9]\d{1,14}$')
 
