@@ -32,31 +32,57 @@
         </div>
     </div>
 
-    <!-- SMS Gateway Status Alert -->
-    {% if not sms_gateway.ready %}
-    <div class="alert {% if sms_gateway.enabled %}alert-warning{% else %}alert-info{% endif %}">
-        <i class="fa-solid {% if sms_gateway.enabled %}fa-triangle-exclamation{% else %}fa-info-circle{% endif %}"></i>
-        <div>
-            <h3 class="font-bold">{{ sms_gateway.message }}</h3>
-            <p class="text-sm">
-                {% if not sms_gateway.enabled %}
-                SMS messaging is currently disabled. Enable it in School Settings to send messages.
-                {% elif not sms_gateway.configured %}
-                Please configure the API key in School Settings to start sending SMS messages.
+    <!-- Gateway Status Alerts -->
+    {% if not sms_gateway.ready or not email_gateway.ready %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- SMS Status -->
+        <div class="alert {% if sms_gateway.ready %}alert-success{% elif sms_gateway.enabled %}alert-warning{% else %}alert-info{% endif %} py-3">
+            <i class="fa-solid {% if sms_gateway.ready %}fa-check-circle{% elif sms_gateway.enabled %}fa-triangle-exclamation{% else %}fa-comment-sms{% endif %}"></i>
+            <div class="flex-1">
+                <h3 class="font-bold text-sm">SMS: {{ sms_gateway.message }}</h3>
+                {% if not sms_gateway.ready %}
+                <p class="text-xs">
+                    {% if not sms_gateway.enabled %}
+                    Enable in Settings to send SMS.
+                    {% elif not sms_gateway.configured %}
+                    Configure API key in Settings.
+                    {% endif %}
+                </p>
                 {% endif %}
-            </p>
+            </div>
         </div>
-        {% if request.user.is_superuser or request.user.is_school_admin %}
+
+        <!-- Email Status -->
+        <div class="alert {% if email_gateway.ready %}alert-success{% elif email_gateway.enabled %}alert-warning{% else %}alert-info{% endif %} py-3">
+            <i class="fa-solid {% if email_gateway.ready %}fa-check-circle{% elif email_gateway.enabled %}fa-triangle-exclamation{% else %}fa-envelope{% endif %}"></i>
+            <div class="flex-1">
+                <h3 class="font-bold text-sm">Email: {{ email_gateway.message }}</h3>
+                {% if not email_gateway.ready %}
+                <p class="text-xs">
+                    {% if not email_gateway.enabled %}
+                    Enable in Settings to send emails.
+                    {% elif not email_gateway.configured %}
+                    Configure SMTP in Settings.
+                    {% endif %}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% if request.user.is_superuser or request.user.is_school_admin %}
+    {% if not sms_gateway.ready or not email_gateway.ready %}
+    <div class="text-center">
         <a href="{% url 'core:settings' %}"
            hx-get="{% url 'core:settings' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-sm">
+           class="btn btn-sm btn-outline">
             <i class="fa-solid fa-gear"></i>
-            Configure
+            Configure in Settings
         </a>
-        {% endif %}
     </div>
+    {% endif %}
+    {% endif %}
     {% endif %}
 
     <!-- Stats Row -->

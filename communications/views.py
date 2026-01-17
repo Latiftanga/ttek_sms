@@ -13,7 +13,7 @@ from django.db.models import Q
 import pandas as pd
 
 from .models import SMSMessage, SMSTemplate
-from .utils import send_sms, validate_phone_number, normalize_phone_number, get_sms_gateway_status
+from .utils import send_sms, validate_phone_number, normalize_phone_number, get_sms_gateway_status, get_email_gateway_status
 from students.models import Student
 from academics.models import Class, AttendanceSession, AttendanceRecord
 from core.models import SchoolSettings
@@ -84,14 +84,16 @@ def index(request):
         'pending': SMSMessage.objects.filter(status='pending').count(),
     }
 
-    # SMS Gateway status
+    # Gateway status
     sms_gateway = get_sms_gateway_status()
+    email_gateway = get_email_gateway_status()
 
     context = {
         'messages': messages,
         'templates': templates,
         'stats': stats,
         'sms_gateway': sms_gateway,
+        'email_gateway': email_gateway,
     }
 
     return htmx_render(
