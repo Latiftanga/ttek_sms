@@ -48,7 +48,7 @@
                         <div class="avatar mb-3">
                             <div class="w-32 h-32 rounded-full bg-base-200 flex items-center justify-center ring ring-primary ring-offset-base-100 ring-offset-2">
                                 {% if teacher.photo %}
-                                <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="rounded-full" />
+                                <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="rounded-full" loading="lazy" />
                                 {% else %}
                                 <i class="fa-solid fa-user text-4xl text-base-content/30"></i>
                                 {% endif %}

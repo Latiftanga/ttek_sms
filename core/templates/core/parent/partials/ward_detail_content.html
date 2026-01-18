@@ -44,7 +44,7 @@
                 <div class="avatar placeholder mb-3">
                     <div class="w-24 h-24 rounded-full bg-success/10 text-success flex items-center justify-center ring ring-success ring-offset-base-100 ring-offset-2">
                         {% if student.photo %}
-                        <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="rounded-full">
+                        <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="rounded-full" loading="lazy">
                         {% else %}
                         <span class="text-3xl font-bold">{{ student.first_name.0 }}{{ student.last_name.0 }}</span>
                         {% endif %}

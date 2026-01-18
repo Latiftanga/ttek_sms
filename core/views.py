@@ -1205,11 +1205,24 @@ def index(request):
     current_term = Term.get_current()
     today = timezone.now().date()
 
-    # Get counts
-    active_students = Student.objects.filter(status='active')
-    student_count = active_students.count()
-    male_count = active_students.filter(gender='M').count()
-    female_count = active_students.filter(gender='F').count()
+    # Get counts using aggregation (single query instead of multiple)
+    from django.db.models import Count, Q
+
+    # Student counts - single query with aggregation
+    student_stats = Student.objects.filter(status='active').aggregate(
+        total=Count('id'),
+        male=Count('id', filter=Q(gender='M')),
+        female=Count('id', filter=Q(gender='F')),
+        kg=Count('id', filter=Q(current_class__level_type='kg')),
+        primary=Count('id', filter=Q(current_class__level_type='primary')),
+        jhs=Count('id', filter=Q(current_class__level_type='jhs')),
+        shs=Count('id', filter=Q(current_class__level_type='shs')),
+        unassigned=Count('id', filter=Q(current_class__isnull=True)),
+    )
+
+    student_count = student_stats['total']
+    male_count = student_stats['male']
+    female_count = student_stats['female']
 
     teacher_count = Teacher.objects.filter(status='active').count()
     class_count = Class.objects.filter(is_active=True).count()
@@ -1225,26 +1238,28 @@ def index(request):
             status='active'
         ).count()
 
-    # Students by level
+    # Students by level (from aggregated stats)
     students_by_level = {
-        'kg': active_students.filter(current_class__level_type='kg').count(),
-        'primary': active_students.filter(current_class__level_type='primary').count(),
-        'jhs': active_students.filter(current_class__level_type='jhs').count(),
-        'shs': active_students.filter(current_class__level_type='shs').count(),
-        'unassigned': active_students.filter(current_class__isnull=True).count(),
+        'kg': student_stats['kg'],
+        'primary': student_stats['primary'],
+        'jhs': student_stats['jhs'],
+        'shs': student_stats['shs'],
+        'unassigned': student_stats['unassigned'],
     }
 
-    # Today's attendance summary
-    today_sessions = AttendanceSession.objects.filter(date=today)
+    # Today's attendance summary - optimized with single aggregation
+    attendance_stats = AttendanceRecord.objects.filter(
+        session__date=today
+    ).aggregate(
+        present=Count('id', filter=Q(status__in=['P', 'L'])),
+        absent=Count('id', filter=Q(status='A')),
+    )
+
     today_attendance = {
-        'sessions_taken': today_sessions.count(),
+        'sessions_taken': AttendanceSession.objects.filter(date=today).count(),
         'total_classes': class_count,
-        'present': AttendanceRecord.objects.filter(
-            session__date=today, status__in=['P', 'L']
-        ).count(),
-        'absent': AttendanceRecord.objects.filter(
-            session__date=today, status='A'
-        ).count(),
+        'present': attendance_stats['present'],
+        'absent': attendance_stats['absent'],
     }
 
     # Classes needing attention (no attendance today)
@@ -2597,7 +2612,7 @@ def take_attendance(request, class_id):
 
     # GET: Prepare form data
     students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name', 'last_name')
-    records = {r.student_id: r.status for r in session.records.all()}
+    records = {r.student_id: r.status for r in session.records.only('student_id', 'status')}
 
     student_list = []
     for student in students:

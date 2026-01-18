@@ -6,7 +6,7 @@
         <div class="avatar">
             <div class="w-14 h-14 rounded-full bg-primary text-primary-content ring ring-primary/20 ring-offset-base-100 ring-offset-2">
                 {% if teacher.photo %}
-                <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" />
+                <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" loading="lazy" />
                 {% else %}
                 <div class="flex items-center justify-center h-full text-xl font-bold">
                     {{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}
@@ -433,7 +433,7 @@
                     <div class="avatar">
                         <div class="w-12 h-12 rounded-full bg-primary text-primary-content">
                             {% if teacher.photo %}
-                            <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" />
+                            <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" loading="lazy" />
                             {% else %}
                             <div class="flex items-center justify-center h-full font-bold">
                                 {{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}

@@ -118,6 +118,7 @@ TENANT_DOMAIN_MODEL = "schools.Domain"
 MIDDLEWARE = [
     'core.middleware.HealthCheckMiddleware',  # Must be before TenantNotFoundMiddleware
     'core.middleware.TenantNotFoundMiddleware',  # Custom middleware for friendly error page
+    'django.middleware.gzip.GZipMiddleware',  # Compress responses (reduces ~75% for CSS/JS)
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -334,6 +335,9 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
+# WhiteNoise configuration for optimal caching
+WHITENOISE_MAX_AGE = 31536000  # 1 year for versioned static files
 
 # 5. AUTH
 LOGIN_URL = 'accounts:login'

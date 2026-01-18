@@ -131,7 +131,7 @@
         <div class="avatar placeholder shrink-0">
             <div class="w-11 h-11 rounded-full bg-base-300 text-base-content">
                 {% if student.photo %}
-                <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="object-cover" />
+                <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="object-cover" loading="lazy" />
                 {% else %}
                 <span class="text-sm font-medium">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                 {% endif %}
@@ -208,7 +208,7 @@
                                     <div class="avatar placeholder">
                                         <div class="w-7 h-7 rounded-full bg-base-300 text-base-content">
                                             {% if student.photo %}
-                                            <img src="{{ student.photo.url }}" alt="" />
+                                            <img src="{{ student.photo.url }}" alt="" loading="lazy" />
                                             {% else %}
                                             <span class="text-[10px]">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                                             {% endif %}

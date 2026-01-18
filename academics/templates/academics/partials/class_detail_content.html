@@ -126,7 +126,7 @@
                         <div class="avatar placeholder">
                             <div class="w-12 h-12 rounded-full bg-primary/10 text-primary ring-2 ring-primary/20 flex items-center justify-center">
                                 {% if class.class_teacher.photo %}
-                                <img src="{{ class.class_teacher.photo.url }}" alt="" class="rounded-full" />
+                                <img src="{{ class.class_teacher.photo.url }}" alt="" class="rounded-full" loading="lazy" />
                                 {% else %}
                                 <span class="text-sm font-bold">
                                     {{ class.class_teacher.first_name|slice:":1" }}{{ class.class_teacher.last_name|slice:":1" }}

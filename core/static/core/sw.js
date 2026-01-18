@@ -4,14 +4,17 @@
 // IMPORTANT: Increment CACHE_VERSION when deploying updates to force cache refresh
 // Format: 'v{major}.{minor}' - bump minor for small changes, major for breaking changes
 
-const CACHE_VERSION = 'v1.1';
+const CACHE_VERSION = 'v1.2';
 const CACHE_NAME = `sms-cache-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline/';
 
-// Assets to cache immediately on install
+// Assets to cache immediately on install (critical for slow connections)
 const PRECACHE_ASSETS = [
     OFFLINE_URL,
     '/static/css/dist/styles.css',
+    '/static/fontawesome/css/all.min.css',
+    '/static/fontawesome/webfonts/fa-solid-900.woff2',
+    '/static/fontawesome/webfonts/fa-regular-400.woff2',
 ];
 
 // Install event - cache critical assets
@@ -131,32 +134,36 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // For HTMX partial requests - network first with cache fallback
+    // For HTMX partial requests - stale-while-revalidate for slow connections
+    // Returns cached content immediately while updating in background
     if (request.headers.get('HX-Request')) {
         event.respondWith(
-            fetch(request)
-                .then((response) => {
-                    if (response.ok) {
-                        const responseClone = response.clone();
-                        caches.open(CACHE_NAME).then((cache) => {
-                            cache.put(request, responseClone);
-                        });
-                    }
-                    return response;
-                })
-                .catch(() => {
-                    return caches.match(request)
-                        .then((cachedResponse) => {
-                            if (cachedResponse) {
-                                return cachedResponse;
-                            }
-                            // Return a minimal error response for HTMX
-                            return new Response(
-                                '<div class="alert alert-warning"><i class="fa-solid fa-wifi-slash mr-2"></i>You\'re offline. This content is unavailable.</div>',
-                                { headers: { 'Content-Type': 'text/html' } }
-                            );
-                        });
-                })
+            caches.match(request).then((cachedResponse) => {
+                // Start network fetch immediately (for background update)
+                const fetchPromise = fetch(request)
+                    .then((response) => {
+                        if (response.ok) {
+                            const responseClone = response.clone();
+                            caches.open(CACHE_NAME).then((cache) => {
+                                cache.put(request, responseClone);
+                            });
+                        }
+                        return response;
+                    })
+                    .catch(() => {
+                        // Network failed - return cached or offline message
+                        if (cachedResponse) {
+                            return cachedResponse;
+                        }
+                        return new Response(
+                            '<div class="alert alert-warning"><i class="fa-solid fa-wifi-slash mr-2"></i>You\'re offline. This content is unavailable.</div>',
+                            { headers: { 'Content-Type': 'text/html' } }
+                        );
+                    });
+
+                // Return cached immediately if available, otherwise wait for network
+                return cachedResponse || fetchPromise;
+            })
         );
         return;
     }
