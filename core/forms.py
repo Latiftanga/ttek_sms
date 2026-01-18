@@ -115,6 +115,19 @@ class AcademicSettingsForm(forms.ModelForm):
         }
 
 
+class EducationSystemForm(forms.ModelForm):
+    """Form for education system configuration (Basic, SHS, or Both)."""
+    class Meta:
+        model = SchoolSettings
+        fields = ['education_system']
+        labels = {
+            'education_system': 'Education System',
+        }
+        widgets = {
+            'education_system': forms.RadioSelect(attrs={'class': 'radio radio-primary'}),
+        }
+
+
 class SMSSettingsForm(forms.ModelForm):
     """Form for SMS configuration settings."""
     class Meta:

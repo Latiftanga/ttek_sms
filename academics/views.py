@@ -52,7 +52,8 @@ def teacher_or_admin_required(view_func):
 def htmx_render(request, full_template, partial_template, context=None):
     """Render full template for regular requests, partial for HTMX requests."""
     context = context or {}
-    template = partial_template if request.htmx else full_template
+    is_htmx = bool(getattr(request, 'htmx', False)) or request.headers.get('HX-Request') == 'true'
+    template = partial_template if is_htmx else full_template
     return render(request, template, context)
 
 
@@ -1998,9 +1999,7 @@ def periods(request):
         'active_tab': 'periods',
     }
 
-    if request.headers.get('HX-Request'):
-        return render(request, 'academics/partials/periods_content.html', context)
-    return render(request, 'academics/periods.html', context)
+    return htmx_render(request, 'academics/periods.html', 'academics/partials/periods_content.html', context)
 
 
 @login_required

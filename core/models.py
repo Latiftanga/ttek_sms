@@ -361,6 +361,12 @@ class SchoolSettings(models.Model):
         ('semester', 'Semesters (SHS)'),
     ]
 
+    EDUCATION_SYSTEM_CHOICES = [
+        ('basic', 'Basic Only (Creche - Basic 9)'),
+        ('shs', 'SHS Only'),
+        ('both', 'Both Basic and SHS'),
+    ]
+
     # Branding
     logo = models.ImageField(upload_to='school_logos/', blank=True, null=True)
     favicon = models.ImageField(upload_to='school_favicons/', blank=True, null=True)
@@ -373,6 +379,12 @@ class SchoolSettings(models.Model):
         choices=PERIOD_TYPE_CHOICES,
         default='term',
         help_text="Terms for Basic, Semesters for SHS"
+    )
+    education_system = models.CharField(
+        max_length=10,
+        choices=EDUCATION_SYSTEM_CHOICES,
+        default='both',
+        help_text="Which educational levels this school supports"
     )
 
     # Visual Identity - Colors (stored as HEX)
@@ -489,6 +501,40 @@ class SchoolSettings(models.Model):
     def period_label_plural(self):
         """Return 'Terms' or 'Semesters' based on setting."""
         return 'Semesters' if self.academic_period_type == 'semester' else 'Terms'
+
+    def get_allowed_level_types(self):
+        """
+        Return list of allowed level types based on tenant's education_system.
+        Delegates to the School (tenant) model for the actual configuration.
+        Returns tuples of (value, display_name) matching Class.LevelType choices.
+        """
+        from django.db import connection
+        from schools.models import School
+
+        try:
+            tenant = School.objects.get(schema_name=connection.schema_name)
+            return tenant.get_allowed_level_types()
+        except School.DoesNotExist:
+            # Fallback to 'both' if tenant not found
+            return [
+                ('creche', 'Creche'),
+                ('nursery', 'Nursery'),
+                ('kg', 'Kindergarten'),
+                ('basic', 'Basic'),
+                ('shs', 'SHS'),
+            ]
+
+    @property
+    def education_system_display(self):
+        """Return the display name for the education system from tenant."""
+        from django.db import connection
+        from schools.models import School
+
+        try:
+            tenant = School.objects.get(schema_name=connection.schema_name)
+            return tenant.education_system_display
+        except School.DoesNotExist:
+            return 'Both Basic and SHS'
 
     def _resize_image(self, image_field, max_size, preserve_transparency=False):
         """Resize an image field to max dimensions, converting to WebP."""

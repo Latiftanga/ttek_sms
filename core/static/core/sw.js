@@ -4,7 +4,7 @@
 // IMPORTANT: Increment CACHE_VERSION when deploying updates to force cache refresh
 // Format: 'v{major}.{minor}' - bump minor for small changes, major for breaking changes
 
-const CACHE_VERSION = 'v1.2';
+const CACHE_VERSION = 'v1.3';
 const CACHE_NAME = `sms-cache-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline/';
 
@@ -134,36 +134,34 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // For HTMX partial requests - stale-while-revalidate for slow connections
-    // Returns cached content immediately while updating in background
+    // For HTMX partial requests - network first, fallback to cache
+    // Always try to get fresh content, only use cache when offline
     if (request.headers.get('HX-Request')) {
         event.respondWith(
-            caches.match(request).then((cachedResponse) => {
-                // Start network fetch immediately (for background update)
-                const fetchPromise = fetch(request)
-                    .then((response) => {
-                        if (response.ok) {
-                            const responseClone = response.clone();
-                            caches.open(CACHE_NAME).then((cache) => {
-                                cache.put(request, responseClone);
-                            });
-                        }
-                        return response;
-                    })
-                    .catch(() => {
-                        // Network failed - return cached or offline message
-                        if (cachedResponse) {
-                            return cachedResponse;
-                        }
-                        return new Response(
-                            '<div class="alert alert-warning"><i class="fa-solid fa-wifi-slash mr-2"></i>You\'re offline. This content is unavailable.</div>',
-                            { headers: { 'Content-Type': 'text/html' } }
-                        );
-                    });
-
-                // Return cached immediately if available, otherwise wait for network
-                return cachedResponse || fetchPromise;
-            })
+            fetch(request)
+                .then((response) => {
+                    // Cache successful responses for offline fallback
+                    if (response.ok) {
+                        const responseClone = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(request, responseClone);
+                        });
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    // Network failed - try cache, then show offline message
+                    return caches.match(request)
+                        .then((cachedResponse) => {
+                            if (cachedResponse) {
+                                return cachedResponse;
+                            }
+                            return new Response(
+                                '<div class="alert alert-warning"><i class="fa-solid fa-wifi-slash mr-2"></i>You\'re offline. This content is unavailable.</div>',
+                                { headers: { 'Content-Type': 'text/html' } }
+                            );
+                        });
+                })
         );
         return;
     }

@@ -36,15 +36,31 @@ class ClassForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         self.fields['programme'].queryset = Programme.objects.filter(is_active=True)
         self.fields['programme'].required = False
-        
+
         try:
             from teachers.models import Teacher
             self.fields['class_teacher'].queryset = Teacher.objects.filter(status='active').order_by('first_name')
             self.fields['class_teacher'].label = "Form Tutor / Class Teacher"
         except ImportError:
+            pass
+
+        # Filter level_type choices based on school's education system setting
+        try:
+            from core.models import SchoolSettings
+            school_settings = SchoolSettings.load()
+            allowed_level_types = school_settings.get_allowed_level_types()
+            allowed_values = [lt[0] for lt in allowed_level_types]
+
+            # Filter level_type choices to only include allowed types
+            original_choices = self.fields['level_type'].choices
+            self.fields['level_type'].choices = [
+                (value, label) for value, label in original_choices
+                if value in allowed_values
+            ]
+        except Exception:
             pass
 
     def clean_level_number(self):

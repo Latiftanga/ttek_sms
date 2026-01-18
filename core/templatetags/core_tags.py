@@ -6,6 +6,7 @@ register = template.Library()
 
 # Navigation config with role-based access
 # roles: 'all', 'school_admin', 'teacher', 'student', 'parent', 'superuser'
+# requires: optional tenant property check (e.g., 'has_houses', 'has_programmes')
 NAVIGATION_CONFIG = [
     {
         'label': 'Dashboard',
@@ -29,6 +30,7 @@ NAVIGATION_CONFIG = [
                 'label': 'Houses',
                 'icon': 'fa-solid fa-flag',
                 'url_name': 'students:houses',
+                'requires': 'has_houses',  # Only show for basic schools
             },
         ]
     },
@@ -242,7 +244,23 @@ def is_url_active(request, url, url_name, exact=False):
     return current_path == url or current_path.startswith(url.rstrip('/') + '/')
 
 
-def process_nav_item(item, request):
+def check_nav_requirements(item, tenant):
+    """
+    Check if a navigation item's requirements are met by the tenant.
+    Returns True if the item should be shown, False otherwise.
+    """
+    requires = item.get('requires')
+    if not requires:
+        return True  # No requirements, always show
+
+    if not tenant:
+        return True  # No tenant context, show all (fallback)
+
+    # Check if the tenant has the required property and it's truthy
+    return getattr(tenant, requires, True)
+
+
+def process_nav_item(item, request, tenant=None):
     """Process a navigation item and its children."""
     url = resolve_url(item['url_name'])
     is_active = is_url_active(request, url, item['url_name'])
@@ -258,9 +276,15 @@ def process_nav_item(item, request):
         children = []
         current_path = request.path
 
+        # Filter children based on tenant requirements
+        visible_children = [
+            child for child in item['children']
+            if check_nav_requirements(child, tenant)
+        ]
+
         # First pass: check for startswith matches and find best match
         child_matches = []
-        for child in item['children']:
+        for child in visible_children:
             child_url = resolve_url(child['url_name'])
             if child_url != '#':
                 url_base = child_url.rstrip('/')
@@ -274,7 +298,7 @@ def process_nav_item(item, request):
             best_match_url = best_match[1]
 
         # Second pass: build children list with correct active state
-        for child in item['children']:
+        for child in visible_children:
             child_url = resolve_url(child['url_name'])
             child_is_active = (child_url == best_match_url) if best_match_url else False
             children.append({
@@ -293,8 +317,9 @@ def process_nav_item(item, request):
 @register.simple_tag(takes_context=True)
 def get_navigation_items(context):
     """
-    Returns the navigation items for the sidebar based on user role.
+    Returns the navigation items for the sidebar based on user role and tenant settings.
     Marks the current page as active based on the request path.
+    Filters items based on education system (e.g., hide Houses for SHS-only schools).
     """
     request = context.get('request')
     if not request:
@@ -302,12 +327,14 @@ def get_navigation_items(context):
 
     user = getattr(request, 'user', None)
     user_roles = get_user_roles(user)
+    tenant = context.get('tenant')  # School model with education_system properties
 
     nav_items = []
     for item in NAVIGATION_CONFIG:
         item_roles = item.get('roles', ['all'])
-        if user_has_access(user_roles, item_roles):
-            nav_items.append(process_nav_item(item, request))
+        # Check both role access and tenant requirements
+        if user_has_access(user_roles, item_roles) and check_nav_requirements(item, tenant):
+            nav_items.append(process_nav_item(item, request, tenant))
 
     return nav_items
 
