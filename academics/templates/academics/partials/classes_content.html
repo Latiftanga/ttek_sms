@@ -427,8 +427,10 @@
                     {% floating_field class_form.capacity %}
                 </div>
                 {% floating_field class_form.class_teacher "Class Teacher" %}
+                {% if tenant.has_programmes %}
                 {% floating_field class_form.programme %}
                 <p class="text-xs text-base-content/60">Programme is only required for SHS classes</p>
+                {% endif %}
             </div>
             <div class="modal-action">
                 <button type="button" class="btn" onclick="document.getElementById('modal_class').close()">Cancel</button>

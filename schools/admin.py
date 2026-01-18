@@ -1,4 +1,5 @@
 import re
+import json
 from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
@@ -8,6 +9,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.http import JsonResponse
+from django.urls import path
 import logging
 
 from .models import School, Domain, Region, District
@@ -139,14 +142,16 @@ class SchoolAdmin(admin.ModelAdmin):
         'name',
         'schema_name',
         'get_domain_link',
+        'education_system',
         'city',
-        'region',
+        'location_region',
+        'location_district',
         'headmaster_name',
         'get_status_badge',
         'created_on'
     )
     list_display_links = ('name',)
-    list_filter = ('region', 'created_on')
+    list_filter = ('education_system', 'location_region', 'created_on')
     search_fields = ('name', 'short_name', 'schema_name', 'city', 'headmaster_name', 'email')
     date_hierarchy = 'created_on'
     ordering = ('-created_on',)
@@ -154,12 +159,16 @@ class SchoolAdmin(admin.ModelAdmin):
     # Form Configuration
     fieldsets = (
         ('School Identity', {
-            'fields': ('name', 'short_name', 'schema_name'),
+            'fields': ('name', 'short_name', 'schema_name', 'education_system'),
             'description': 'Basic identification for the school tenant.'
         }),
         ('Contact Information', {
-            'fields': ('email', 'phone', 'address', 'digital_address', 'city', 'region'),
+            'fields': ('email', 'phone', 'address', 'digital_address', 'city'),
             'classes': ('collapse',),
+        }),
+        ('Location', {
+            'fields': ('location_region', 'location_district'),
+            'description': 'Select region first, then district will be filtered.',
         }),
         ('Administration', {
             'fields': ('headmaster_title', 'headmaster_name'),
@@ -177,6 +186,9 @@ class SchoolAdmin(admin.ModelAdmin):
     )
 
     readonly_fields = ('created_on', 'updated_at')
+
+    class Media:
+        js = ('admin/js/district_filter.js',)
 
     # Custom Methods for List Display
     def get_domain_link(self, obj):
@@ -250,6 +262,23 @@ class SchoolAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         with schema_context(get_public_schema_name()):
             return super().get_queryset(request).prefetch_related('domains')
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'get-districts/<int:region_id>/',
+                self.admin_site.admin_view(self.get_districts_for_region),
+                name='schools_school_get_districts',
+            ),
+        ]
+        return custom_urls + urls
+
+    def get_districts_for_region(self, request, region_id):
+        """API endpoint to get districts for a given region."""
+        districts = District.objects.filter(region_id=region_id).order_by('name')
+        data = [{'id': d.id, 'name': d.name} for d in districts]
+        return JsonResponse(data, safe=False)
 
 
 # =============================================================================

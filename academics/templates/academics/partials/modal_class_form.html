@@ -18,9 +18,11 @@
 
         {% floating_field form.class_teacher "Class Teacher" size="sm" %}
 
+        {% if tenant.has_programmes %}
         <div id="programme-field" class="hidden">
             {% floating_field form.programme size="sm" %}
         </div>
+        {% endif %}
         <label class="label cursor-pointer justify-start gap-3">
             <input type="checkbox" name="is_active" class="checkbox checkbox-sm checkbox-primary" {% if form.is_active.value %}checked{% endif %}>
             <span class="label-text text-sm">Active</span>
@@ -38,10 +40,13 @@
     </div>
 </form>
 
+{% if tenant.has_programmes %}
 <script>
 (function() {
     const levelTypeSelect = document.querySelector('[name="level_type"]');
     const programmeField = document.getElementById('programme-field');
+
+    if (!programmeField) return;
 
     function toggleProgramme() {
         if (levelTypeSelect.value === 'shs') {
@@ -58,3 +63,4 @@
     levelTypeSelect.addEventListener('change', toggleProgramme);
 })();
 </script>
+{% endif %}

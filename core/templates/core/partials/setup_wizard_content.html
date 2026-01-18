@@ -31,7 +31,7 @@
             </div>
             <div>
                 <h1 class="text-xl font-bold">Setup Wizard</h1>
-                <p class="text-sm text-base-content/60">Configure your school in 5 steps</p>
+                <p class="text-sm text-base-content/60">Configure your school in {% if tenant and tenant and tenant.has_houses %}5{% else %}4{% endif %} steps</p>
             </div>
         </div>
         <a href="{% url 'core:index' %}" hx-get="{% url 'core:index' %}" hx-target="#main-content" hx-push-url="true"
@@ -59,14 +59,21 @@
                             data-content="{% if has_classes %}✓{% else %}3{% endif %}">
                             <span class="text-left">Classes</span>
                         </li>
+                        {% if tenant and tenant.has_houses %}
                         <li class="step {% if has_houses %}step-success{% elif has_classes %}step-primary{% endif %}"
                             data-content="{% if has_houses %}✓{% else %}4{% endif %}">
                             <span class="text-left">Houses</span>
                         </li>
-                        <li class="step {% if has_subjects %}step-success{% elif has_classes %}step-primary{% endif %}"
+                        <li class="step {% if has_subjects %}step-success{% elif has_houses %}step-primary{% endif %}"
                             data-content="{% if has_subjects %}✓{% else %}5{% endif %}">
                             <span class="text-left">Curriculum</span>
                         </li>
+                        {% else %}
+                        <li class="step {% if has_subjects %}step-success{% elif has_classes %}step-primary{% endif %}"
+                            data-content="{% if has_subjects %}✓{% else %}4{% endif %}">
+                            <span class="text-left">Curriculum</span>
+                        </li>
+                        {% endif %}
                     </ul>
 
                     <!-- Progress -->
@@ -74,12 +81,16 @@
                         <div class="flex items-center justify-between text-xs mb-1">
                             <span class="text-base-content/60">Progress</span>
                             <span class="font-medium">
+                                {% if tenant and tenant.has_houses %}
                                 {% if has_subjects %}100{% elif has_houses %}80{% elif has_classes %}60{% elif has_terms %}40{% elif has_academic_year %}20{% else %}0{% endif %}%
+                                {% else %}
+                                {% if has_subjects %}100{% elif has_classes %}75{% elif has_terms %}50{% elif has_academic_year %}25{% else %}0{% endif %}%
+                                {% endif %}
                             </span>
                         </div>
                         <div class="w-full bg-base-200 rounded-full h-1.5">
                             <div class="bg-primary h-1.5 rounded-full transition-all"
-                                 style="width: {% if has_subjects %}100{% elif has_houses %}80{% elif has_classes %}60{% elif has_terms %}40{% elif has_academic_year %}20{% else %}0{% endif %}%"></div>
+                                 style="width: {% if tenant and tenant.has_houses %}{% if has_subjects %}100{% elif has_houses %}80{% elif has_classes %}60{% elif has_terms %}40{% elif has_academic_year %}20{% else %}0{% endif %}{% else %}{% if has_subjects %}100{% elif has_classes %}75{% elif has_terms %}50{% elif has_academic_year %}25{% else %}0{% endif %}{% endif %}%"></div>
                         </div>
                     </div>
                 </div>
@@ -137,7 +148,8 @@
                     <h2 class="text-lg font-bold mb-1">Configure {{ period_label }}s</h2>
                     <p class="text-sm text-base-content/60 mb-5">Set up your academic periods.</p>
 
-                    <!-- Session Type -->
+                    {% if education_system == 'both' %}
+                    <!-- Session Type - only show for "both" education system -->
                     <div class="flex items-center gap-4 mb-5">
                         <span class="text-sm font-medium">Session Type:</span>
                         <label class="flex items-center gap-1.5 cursor-pointer">
@@ -155,6 +167,7 @@
                             <span class="text-sm">Semesters</span>
                         </label>
                     </div>
+                    {% endif %}
 
                     <!-- Terms Form -->
                     <form hx-post="{% url 'core:setup_wizard_terms' %}" hx-target="#main-content">
@@ -273,10 +286,9 @@
                                             {% csrf_token %}
                                             <select name="level_type" id="level_type" class="select select-bordered select-xs flex-1 min-w-[70px]" required
                                                     onchange="updateLevelNumbers()">
-                                                <option value="creche">Creche</option>
-                                                <option value="kg">KG</option>
-                                                <option value="basic" selected>Basic</option>
-                                                <option value="shs">SHS</option>
+                                                {% for value, label in allowed_level_types %}
+                                                <option value="{{ value }}" {% if value == 'basic' or forloop.first %}selected{% endif %}>{{ label }}</option>
+                                                {% endfor %}
                                             </select>
                                             <select name="level_number" id="level_number" class="select select-bordered select-xs w-14" required>
                                                 <option value="1">1</option>
@@ -343,26 +355,39 @@
                     <!-- Quick Add Buttons -->
                     <div class="flex flex-wrap items-center gap-2 mb-4">
                         <span class="text-xs text-base-content/50">Quick add:</span>
+                        {% for value, label in allowed_level_types %}
+                        {% if value == 'creche' %}
                         <button hx-post="{% url 'core:setup_wizard_bulk_classes' %}?type=creche"
                                 hx-target="#classes-list"
                                 hx-swap="beforeend"
                                 hx-on::after-request="document.getElementById('no-classes-row')?.remove()"
                                 class="btn btn-xs btn-outline">Creche 1-2</button>
+                        {% elif value == 'nursery' %}
+                        <button hx-post="{% url 'core:setup_wizard_bulk_classes' %}?type=nursery"
+                                hx-target="#classes-list"
+                                hx-swap="beforeend"
+                                hx-on::after-request="document.getElementById('no-classes-row')?.remove()"
+                                class="btn btn-xs btn-outline">Nursery 1-2</button>
+                        {% elif value == 'kg' %}
                         <button hx-post="{% url 'core:setup_wizard_bulk_classes' %}?type=kg"
                                 hx-target="#classes-list"
                                 hx-swap="beforeend"
                                 hx-on::after-request="document.getElementById('no-classes-row')?.remove()"
                                 class="btn btn-xs btn-outline">KG 1-2</button>
+                        {% elif value == 'basic' %}
                         <button hx-post="{% url 'core:setup_wizard_bulk_classes' %}?type=basic"
                                 hx-target="#classes-list"
                                 hx-swap="beforeend"
                                 hx-on::after-request="document.getElementById('no-classes-row')?.remove()"
                                 class="btn btn-xs btn-outline">Basic 1-9</button>
+                        {% elif value == 'shs' %}
                         <button hx-post="{% url 'core:setup_wizard_bulk_classes' %}?type=shs"
                                 hx-target="#classes-list"
                                 hx-swap="beforeend"
                                 hx-on::after-request="document.getElementById('no-classes-row')?.remove()"
                                 class="btn btn-xs btn-outline">SHS 1-3</button>
+                        {% endif %}
+                        {% endfor %}
                         <span class="text-base-content/30">|</span>
                         <button hx-delete="{% url 'core:setup_wizard_clear_classes' %}"
                                 hx-target="#main-content"
@@ -383,8 +408,8 @@
                 </div>
             </div>
 
-            {% elif not has_houses %}
-            <!-- Step 4: Houses -->
+            {% elif not has_houses and tenant and tenant.has_houses %}
+            <!-- Step 4: Houses (only for basic schools) -->
             <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-6">
                     <div class="flex items-center gap-2 mb-1">
@@ -471,20 +496,22 @@
             </div>
 
             {% elif not has_subjects %}
-            <!-- Step 5: Import Curriculum -->
+            <!-- Step 4/5: Import Curriculum -->
             <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-6">
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="badge badge-primary badge-sm">Step 5</span>
+                        <span class="badge badge-primary badge-sm">Step {% if tenant and tenant.has_houses %}5{% else %}4{% endif %}</span>
                     </div>
                     <h2 class="text-lg font-bold mb-1">Import Curriculum</h2>
                     <p class="text-sm text-base-content/60 mb-5">Import Ghana's standard curriculum data.</p>
 
-                    <div class="grid grid-cols-4 gap-3 mb-5">
+                    <div class="grid grid-cols-{% if tenant and tenant.has_programmes %}4{% else %}3{% endif %} gap-3 mb-5">
+                        {% if tenant and tenant.has_programmes %}
                         <div class="p-3 bg-base-200/50 rounded-lg text-center">
                             <div class="text-xl font-bold text-primary">7</div>
                             <div class="text-xs text-base-content/60">Programmes</div>
                         </div>
+                        {% endif %}
                         <div class="p-3 bg-base-200/50 rounded-lg text-center">
                             <div class="text-xl font-bold text-primary">47</div>
                             <div class="text-xs text-base-content/60">Subjects</div>
@@ -503,10 +530,17 @@
                         {% csrf_token %}
                         <input type="hidden" name="seed_type" value="all">
                         <div class="flex gap-2">
+                            {% if tenant and tenant.has_houses %}
                             <button hx-delete="{% url 'core:setup_wizard_clear_houses' %}" hx-target="#main-content"
                                     hx-confirm="This will delete houses and return to Step 4. Continue?" type="button" class="btn btn-ghost">
                                 <i class="fa-solid fa-arrow-left"></i> Back
                             </button>
+                            {% else %}
+                            <button hx-delete="{% url 'core:setup_wizard_clear_classes' %}" hx-target="#main-content"
+                                    hx-confirm="This will delete classes and return to Step 3. Continue?" type="button" class="btn btn-ghost">
+                                <i class="fa-solid fa-arrow-left"></i> Back
+                            </button>
+                            {% endif %}
                             <button type="submit" class="btn btn-primary flex-1">
                                 <i class="fa-solid fa-download mr-1"></i> Import Curriculum
                             </button>

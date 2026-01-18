@@ -11,6 +11,26 @@
                     </div>
                     Academic Years & {{ period_label_plural|default:"Terms" }}
                 </h3>
+            </div>
+            <div class="flex gap-1">
+                <button class="btn btn-ghost btn-xs" onclick="modal_academic_year.showModal()">
+                    <i class="fa-solid fa-plus text-xs"></i> Year
+                </button>
+                <button class="btn btn-ghost btn-xs" onclick="modal_term.showModal()" {% if not academic_years %}disabled{% endif %}>
+                    <i class="fa-solid fa-plus text-xs"></i> {{ period_label|default:"Term" }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Education System & Period Type Settings -->
+        <div class="flex flex-wrap gap-4 mb-4 p-3 bg-base-200/50 rounded-lg">
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-base-content/70">School Type:</span>
+                <span class="badge badge-sm badge-primary">{{ education_system_display }}</span>
+                <span class="text-xs text-base-content/50">(set by administrator)</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-base-content/70">Period Type:</span>
                 <form hx-post="{% url 'core:settings_update_academic' %}"
                       hx-target="#card-academic"
                       hx-swap="outerHTML"
@@ -21,14 +41,6 @@
                         <option value="semester" {% if period_type == "semester" %}selected{% endif %}>Semesters</option>
                     </select>
                 </form>
-            </div>
-            <div class="flex gap-1">
-                <button class="btn btn-ghost btn-xs" onclick="modal_academic_year.showModal()">
-                    <i class="fa-solid fa-plus text-xs"></i> Year
-                </button>
-                <button class="btn btn-ghost btn-xs" onclick="modal_term.showModal()" {% if not academic_years %}disabled{% endif %}>
-                    <i class="fa-solid fa-plus text-xs"></i> {{ period_label|default:"Term" }}
-                </button>
             </div>
         </div>
 

@@ -266,7 +266,8 @@
                     </a>
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div class="grid grid-cols-2 md:grid-cols-{% if tenant.has_basic_levels and tenant.has_shs_levels %}5{% elif tenant.has_basic_levels %}4{% else %}2{% endif %} gap-3">
+                    {% if tenant.has_basic_levels %}
                     <div class="text-center p-3 rounded-lg bg-pink-500/10 border border-pink-500/20">
                         <div class="text-xl font-bold text-pink-600">{{ students_by_level.kg }}</div>
                         <div class="text-xs font-medium text-pink-600/80">KG</div>
@@ -279,10 +280,13 @@
                         <div class="text-xl font-bold text-green-600">{{ students_by_level.jhs }}</div>
                         <div class="text-xs font-medium text-green-600/80">JHS</div>
                     </div>
+                    {% endif %}
+                    {% if tenant.has_shs_levels %}
                     <div class="text-center p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
                         <div class="text-xl font-bold text-purple-600">{{ students_by_level.shs }}</div>
                         <div class="text-xs font-medium text-purple-600/80">SHS</div>
                     </div>
+                    {% endif %}
                     <div class="text-center p-3 rounded-lg bg-base-200/50 border border-base-300">
                         <div class="text-xl font-bold text-base-content/50">{{ students_by_level.unassigned }}</div>
                         <div class="text-xs font-medium text-base-content/50">Unassigned</div>

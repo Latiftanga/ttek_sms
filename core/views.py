@@ -191,7 +191,11 @@ def htmx_render(request, full_template, partial_template, context=None):
     Progressive enhancement: works with or without JavaScript.
     """
     context = context or {}
-    template = partial_template if request.htmx else full_template
+
+    # Check for HTMX request - middleware sets request.htmx, fallback to header check
+    is_htmx = bool(getattr(request, 'htmx', False)) or request.headers.get('HX-Request') == 'true'
+
+    template = partial_template if is_htmx else full_template
     return render(request, template, context)
 
 
@@ -204,26 +208,32 @@ def setup_wizard(request):
     """
     Setup wizard to guide new schools through initial configuration.
     Steps: Academic Year -> Terms -> Classes -> Houses -> Seed Data
+    Education system is configured at tenant level by superadmin.
     """
     from academics.models import Programme, Subject, Period, Class
     from students.models import House
 
-    # Ensure programmes exist for SHS class creation (seed if needed)
-    programmes = Programme.objects.filter(is_active=True)
-    if not programmes.exists():
-        # Create default Ghana SHS programmes
-        default_programmes = [
-            ('General Arts', 'ART'),
-            ('General Science', 'SCI'),
-            ('Business', 'BUS'),
-            ('Visual Arts', 'VIS'),
-            ('Home Economics', 'HEC'),
-            ('Agricultural Science', 'AGR'),
-            ('Technical', 'TEC'),
-        ]
-        for name, code in default_programmes:
-            Programme.objects.get_or_create(code=code, defaults={'name': name, 'is_active': True})
+    # Get tenant for education system configuration
+    tenant = request.tenant
+
+    # Ensure programmes exist for SHS class creation (seed if needed) - only if SHS is enabled
+    programmes = Programme.objects.none()
+    if tenant.has_programmes:
         programmes = Programme.objects.filter(is_active=True)
+        if not programmes.exists():
+            # Create default Ghana SHS programmes
+            default_programmes = [
+                ('General Arts', 'ART'),
+                ('General Science', 'SCI'),
+                ('Business', 'BUS'),
+                ('Visual Arts', 'VIS'),
+                ('Home Economics', 'HEC'),
+                ('Agricultural Science', 'AGR'),
+                ('Technical', 'TEC'),
+            ]
+            for name, code in default_programmes:
+                Programme.objects.get_or_create(code=code, defaults={'name': name, 'is_active': True})
+            programmes = Programme.objects.filter(is_active=True)
 
     school = SchoolSettings.load()
     step = request.GET.get('step', '1')
@@ -236,37 +246,51 @@ def setup_wizard(request):
     has_academic_year = AcademicYear.objects.exists()
     has_terms = Term.objects.exists()
     has_classes = Class.objects.exists()
-    # Houses are optional - check if skipped or if any exist
-    has_houses = House.objects.exists() or request.session.get('wizard_houses_skipped', False)
+    # Houses are optional - check if skipped, if any exist, or if not applicable for this school type
+    has_houses = House.objects.exists() or request.session.get('wizard_houses_skipped', False) or not tenant.has_houses
     has_subjects = Subject.objects.exists()
+
+    # Get education system and allowed level types from tenant
+    education_system = tenant.education_system
+    allowed_level_types = tenant.get_allowed_level_types()
+    allowed_level_type_values = [lt[0] for lt in allowed_level_types]
 
     # Get period type from school settings
     period_type = school.academic_period_type
     period_label = school.period_label
     period_count = 2 if period_type == 'semester' else 3
 
-    # Class level options for the select input
+    # Class level options for the select input (filtered by education system)
+    all_class_level_options = [
+        ('creche-1', 'Creche 1', 'creche'),
+        ('creche-2', 'Creche 2', 'creche'),
+        ('nursery-1', 'Nursery 1', 'nursery'),
+        ('nursery-2', 'Nursery 2', 'nursery'),
+        ('kg-1', 'KG 1', 'kg'),
+        ('kg-2', 'KG 2', 'kg'),
+        ('primary-1', 'Basic 1', 'basic'),
+        ('primary-2', 'Basic 2', 'basic'),
+        ('primary-3', 'Basic 3', 'basic'),
+        ('primary-4', 'Basic 4', 'basic'),
+        ('primary-5', 'Basic 5', 'basic'),
+        ('primary-6', 'Basic 6', 'basic'),
+        ('jhs-1', 'Basic 7', 'basic'),
+        ('jhs-2', 'Basic 8', 'basic'),
+        ('jhs-3', 'Basic 9', 'basic'),
+        ('shs-1', 'SHS 1', 'shs'),
+        ('shs-2', 'SHS 2', 'shs'),
+        ('shs-3', 'SHS 3', 'shs'),
+    ]
+
+    # Filter class level options based on allowed level types
     class_level_options = [
-        ('creche-1', 'Creche 1'),
-        ('creche-2', 'Creche 2'),
-        ('kg-1', 'KG 1'),
-        ('kg-2', 'KG 2'),
-        ('primary-1', 'Basic 1'),
-        ('primary-2', 'Basic 2'),
-        ('primary-3', 'Basic 3'),
-        ('primary-4', 'Basic 4'),
-        ('primary-5', 'Basic 5'),
-        ('primary-6', 'Basic 6'),
-        ('jhs-1', 'Basic 7'),
-        ('jhs-2', 'Basic 8'),
-        ('jhs-3', 'Basic 9'),
-        ('shs-1', 'SHS 1'),
-        ('shs-2', 'SHS 2'),
-        ('shs-3', 'SHS 3'),
+        (value, label) for value, label, level_type in all_class_level_options
+        if level_type in allowed_level_type_values
     ]
 
     context = {
         'school': school,
+        'tenant': tenant,
         'step': step,
         'has_academic_year': has_academic_year,
         'has_terms': has_terms,
@@ -282,6 +306,8 @@ def setup_wizard(request):
         'period_label': period_label,
         'period_count': period_count,
         'class_level_options': class_level_options,
+        'education_system': education_system,
+        'allowed_level_types': allowed_level_types,
     }
 
     return htmx_render(
@@ -322,6 +348,32 @@ def setup_wizard_academic_year(request):
         else:
             messages.error(request, 'Please fill in all required fields.')
 
+        return setup_wizard(request)
+
+    return redirect('core:setup_wizard')
+
+
+@admin_required
+def setup_wizard_education_system(request):
+    """Set education system (basic, shs, or both) in setup wizard."""
+    if request.method == 'POST':
+        education_system = request.POST.get('education_system', 'both')
+        school = SchoolSettings.load()
+        school.education_system = education_system
+
+        # Auto-set academic period type based on education system
+        if education_system == 'basic':
+            school.academic_period_type = 'term'
+        elif education_system == 'shs':
+            school.academic_period_type = 'semester'
+        # For 'both', keep existing or default to 'term'
+
+        school.save()
+
+        # Mark education system as explicitly set in session
+        request.session['wizard_education_system_set'] = True
+
+        # Return the wizard content via HTMX
         return setup_wizard(request)
 
     return redirect('core:setup_wizard')
@@ -400,7 +452,24 @@ def setup_wizard_clear_academic_year(request):
     if request.method == 'DELETE':
         # Delete all academic years (and cascades to terms)
         AcademicYear.objects.all().delete()
+        # Also clear education system session flag since we're going back
+        request.session.pop('wizard_education_system_set', None)
         messages.info(request, 'Academic year cleared.')
+
+    return setup_wizard(request)
+
+
+@admin_required
+def setup_wizard_clear_education_system(request):
+    """Clear education system setting to go back to step 2."""
+    if request.method == 'DELETE':
+        # Reset education system to default
+        school = SchoolSettings.load()
+        school.education_system = 'both'
+        school.save()
+        # Clear the session flag
+        request.session.pop('wizard_education_system_set', None)
+        messages.info(request, 'Education system reset.')
 
     return setup_wizard(request)
 
@@ -441,6 +510,12 @@ def setup_wizard_add_class(request):
         level_number = int(request.POST.get('level_number', 1))
         section = request.POST.get('section', '').strip()
         programme_id = request.POST.get('programme', '').strip()
+
+        # Validate level type is allowed based on tenant's education system
+        tenant = request.tenant
+        allowed_level_types = [lt[0] for lt in tenant.get_allowed_level_types()]
+        if level_type not in allowed_level_types:
+            return HttpResponse(f'<tr><td colspan="5" class="text-error text-center text-xs py-2">{level_type.upper()} is not allowed for this school</td></tr>')
 
         # Map "basic" to primary (1-6) or jhs (7-9) for database
         db_level_type = level_type
@@ -541,6 +616,12 @@ def setup_wizard_bulk_classes(request):
 
         if bulk_type not in level_configs:
             return HttpResponse('')
+
+        # Validate level type is allowed based on tenant's education system
+        tenant = request.tenant
+        allowed_level_types = [lt[0] for lt in tenant.get_allowed_level_types()]
+        if bulk_type not in allowed_level_types:
+            return HttpResponse(f'<tr><td colspan="5" class="text-error text-center text-xs py-2">{bulk_type.upper()} is not allowed for this school</td></tr>')
 
         html_parts = []
         for db_level_type, start, end in level_configs[bulk_type]:
@@ -1393,6 +1474,8 @@ def settings_page(request):
         'period_label': school_settings.period_label,
         'period_label_plural': school_settings.period_label_plural,
         'derived_sender_id': derived_sender_id,
+        # Education system context (read from tenant)
+        'education_system_display': tenant.education_system_display,
         # Payment gateway context
         'available_gateways': available_gateways,
         'gateway_configs': gateway_configs,
@@ -1973,10 +2056,21 @@ def settings_update_payment(request):
     return response
 
 
-def get_academic_card_context(success=None, errors=None):
+def get_academic_card_context(request=None, success=None, errors=None):
     """Helper to get common context for academic card."""
+    from django.db import connection
+    from schools.models import School
+
     school_settings = SchoolSettings.load()
     period_type = school_settings.academic_period_type
+
+    # Get education system from tenant
+    try:
+        tenant = School.objects.get(schema_name=connection.schema_name)
+        education_system_display = tenant.education_system_display
+    except School.DoesNotExist:
+        education_system_display = 'Both Basic and SHS'
+
     return {
         'academic_years': AcademicYear.objects.prefetch_related('terms').all(),
         'academic_year_form': AcademicYearForm(),
@@ -1985,6 +2079,7 @@ def get_academic_card_context(success=None, errors=None):
         'period_label': school_settings.period_label,
         'period_label_plural': school_settings.period_label_plural,
         'school_settings': school_settings,
+        'education_system_display': education_system_display,
         'success': success,
         'errors': errors,
     }
@@ -2008,6 +2103,38 @@ def settings_update_academic(request):
 
     return render(request, 'core/settings/partials/card_academic.html',
                   get_academic_card_context(errors=form.errors))
+
+
+@login_required
+def settings_update_education_system(request):
+    """Update education system setting."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    school_settings = SchoolSettings.load()
+    education_system = request.POST.get('education_system', 'both')
+
+    # Validate the choice
+    valid_choices = [choice[0] for choice in SchoolSettings.EDUCATION_SYSTEM_CHOICES]
+    if education_system in valid_choices:
+        school_settings.education_system = education_system
+
+        # Auto-update academic period type based on education system
+        if education_system == 'basic':
+            school_settings.academic_period_type = 'term'
+        elif education_system == 'shs':
+            school_settings.academic_period_type = 'semester'
+        # For 'both', keep existing period type
+
+        school_settings.save()
+
+        if not request.htmx:
+            return redirect('core:settings')
+        return render(request, 'core/settings/partials/card_academic.html',
+                      get_academic_card_context(success='Education system updated.'))
+
+    return render(request, 'core/settings/partials/card_academic.html',
+                  get_academic_card_context(errors={'education_system': ['Invalid choice']}))
 
 
 # Academic Year views

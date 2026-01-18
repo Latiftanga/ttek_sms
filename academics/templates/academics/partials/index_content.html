@@ -159,6 +159,7 @@
             </div>
         </div>
 
+        {% if tenant.has_programmes %}
         <!-- Programmes Card -->
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-4">
@@ -181,6 +182,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Setup Status -->
         <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -280,6 +282,7 @@
 
 <!-- ============ MODALS ============ -->
 
+{% if tenant.has_programmes %}
 <!-- Add Programme Modal -->
 <dialog id="modal_programme" class="modal modal-middle">
     <div class="modal-box">
@@ -308,6 +311,7 @@
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
+{% endif %}
 
 <!-- Add Subject Modal -->
 <dialog id="modal_subject" class="modal modal-middle">
