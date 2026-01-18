@@ -233,7 +233,7 @@
                             <div class="avatar placeholder flex-shrink-0">
                                 <div class="w-12 h-12 rounded-full bg-base-300 text-base-content flex items-center justify-center">
                                     {% if sg.student.photo %}
-                                    <img src="{{ sg.student.photo.url }}" alt="{{ sg.student.full_name }}" class="w-full h-full object-cover rounded-full" />
+                                    <img src="{{ sg.student.photo.url }}" alt="{{ sg.student.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
                                     {% else %}
                                     <span class="text-sm font-medium">{{ sg.student.first_name|slice:":1" }}{{ sg.student.last_name|slice:":1" }}</span>
                                     {% endif %}

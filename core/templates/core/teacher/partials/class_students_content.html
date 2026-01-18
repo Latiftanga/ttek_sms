@@ -141,7 +141,7 @@
                                 <div class="avatar placeholder">
                                     <div class="w-10 h-10 rounded-full bg-base-300 text-base-content">
                                         {% if item.student.photo %}
-                                        <img src="{{ item.student.photo.url }}" alt="{{ item.student.full_name }}" />
+                                        <img src="{{ item.student.photo.url }}" alt="{{ item.student.full_name }}" loading="lazy" />
                                         {% else %}
                                         <span class="text-sm">{{ item.student.first_name|slice:":1" }}{{ item.student.last_name|slice:":1" }}</span>
                                         {% endif %}

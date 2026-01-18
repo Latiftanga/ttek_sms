@@ -54,7 +54,7 @@
                         <div class="avatar mb-3">
                             <div class="w-28 h-28 rounded-full bg-primary text-primary-content ring-4 ring-primary/20">
                                 {% if teacher.photo %}
-                                <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" />
+                                <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" loading="lazy" />
                                 {% else %}
                                 <div class="flex items-center justify-center h-full text-3xl font-bold">
                                     {{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}
