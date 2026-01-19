@@ -106,6 +106,9 @@ class Class(models.Model):
         verbose_name = "Class"
         verbose_name_plural = "Classes"
         unique_together = ['level_type', 'level_number', 'programme', 'section']
+        indexes = [
+            models.Index(fields=['class_teacher'], name='class_teacher_idx'),
+        ]
 
     def __str__(self):
         return self.name
@@ -239,6 +242,9 @@ class ClassSubject(models.Model):
         unique_together = ['class_assigned', 'subject']
         verbose_name = "Subject Allocation"
         verbose_name_plural = "Subject Allocations"
+        indexes = [
+            models.Index(fields=['teacher'], name='classsub_teacher_idx'),
+        ]
 
     def __str__(self):
         return f"{self.subject.name} - {self.class_assigned.name}"
@@ -279,6 +285,9 @@ class StudentSubjectEnrollment(models.Model):
         verbose_name = "Student Subject Enrollment"
         verbose_name_plural = "Student Subject Enrollments"
         ordering = ['student__last_name', 'class_subject__subject__name']
+        indexes = [
+            models.Index(fields=['student', 'is_active'], name='sse_student_active_idx'),
+        ]
 
     def __str__(self):
         return f"{self.student} - {self.class_subject.subject.name}"
@@ -332,6 +341,10 @@ class AttendanceSession(models.Model):
     class Meta:
         unique_together = ['class_assigned', 'date', 'session_type']
         ordering = ['-date']
+        indexes = [
+            models.Index(fields=['class_assigned', 'date'], name='attsess_class_date_idx'),
+            models.Index(fields=['date'], name='attsess_date_idx'),
+        ]
 
     def __str__(self):
         return f"{self.class_assigned} - {self.date}"
@@ -351,6 +364,10 @@ class AttendanceRecord(models.Model):
 
     class Meta:
         unique_together = ['session', 'student']
+        indexes = [
+            models.Index(fields=['session', 'student'], name='attrec_sess_stud_idx'),
+            models.Index(fields=['student', 'status'], name='attrec_stud_status_idx'),
+        ]
 
 
 class Period(models.Model):

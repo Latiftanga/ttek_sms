@@ -9,7 +9,7 @@ from django.db import models, transaction
 
 from .base import (
     teacher_or_admin_required, htmx_render, is_school_admin,
-    can_edit_scores, get_client_ip, admin_required
+    can_edit_scores, get_client_ip, admin_required, ratelimit
 )
 from ..models import (
     AssessmentCategory, Assignment, Score, ScoreAuditLog
@@ -195,8 +195,9 @@ def score_entry_student(request, class_id, subject_id, student_id):
 
 @login_required
 @teacher_or_admin_required
+@ratelimit(key='user', rate='200/h')
 def score_save(request):
-    """Save scores via HTMX with audit logging."""
+    """Save scores via HTMX with audit logging. Rate limited to 200 requests/hour."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
