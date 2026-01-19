@@ -178,6 +178,7 @@ class AcademicYear(models.Model):
     end_date = models.DateField()
     is_current = models.BooleanField(
         default=False,
+        db_index=True,
         help_text="Only one academic year can be current at a time"
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -259,6 +260,7 @@ class Term(models.Model):
     end_date = models.DateField()
     is_current = models.BooleanField(
         default=False,
+        db_index=True,
         help_text="Only one term can be current at a time"
     )
 
