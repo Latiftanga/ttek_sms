@@ -627,10 +627,23 @@ def get_register_tab_context(class_obj):
     }
 
 def get_teachers_tab_context(class_obj):
-    """Context for the Teachers/Subjects tab."""
+    """Context for the Teachers/Subjects tab with periods calculated from timetable."""
+    from django.db.models import Count, Case, When, IntegerField, Sum
+
+    # Get subject allocations with period counts from timetable
     subject_allocations = ClassSubject.objects.filter(
         class_assigned=class_obj
-    ).select_related('subject', 'teacher').order_by('subject__name')
+    ).select_related('subject', 'teacher').annotate(
+        # Count periods: single = 1, double = 2
+        timetable_periods=Sum(
+            Case(
+                When(timetable_entries__is_double=True, then=2),
+                default=1,
+                output_field=IntegerField()
+            )
+        )
+    ).order_by('subject__name')
+
     return {
         'class': class_obj,
         'subject_allocations': subject_allocations
@@ -792,11 +805,13 @@ def class_subject_create(request, pk):
 @admin_required
 def class_subject_delete(request, class_pk, pk):
     allocation = get_object_or_404(ClassSubject, pk=pk, class_assigned_id=class_pk)
+    class_obj = allocation.class_assigned
     allocation.delete()
 
     if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
+        # Return updated subjects list
+        response = render(request, 'academics/includes/tab_teachers_content.html',
+                          get_teachers_tab_context(class_obj))
         return response
 
     return redirect('academics:class_detail', pk=class_pk)
