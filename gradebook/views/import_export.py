@@ -317,6 +317,48 @@ def score_import_confirm(request, class_id, subject_id):
             'error': 'Invalid import data. Please upload the file again.'
         })
 
+    # Ownership validation: Verify all students and assignments belong to this class/subject
+    valid_student_ids = set(
+        Student.objects.filter(
+            current_class=class_obj,
+            status='active'
+        ).values_list('pk', flat=True)
+    )
+    valid_assignment_ids = set(
+        Assignment.objects.filter(
+            subject=subject,
+            term=current_term
+        ).values_list('pk', flat=True)
+    )
+
+    # Validate each item in import data
+    invalid_items = []
+    for idx, item in enumerate(import_data):
+        student_id = item.get('student_id')
+        assignment_id = item.get('assignment_id')
+
+        # Convert to appropriate types for comparison
+        try:
+            # Handle both string and int IDs
+            if isinstance(student_id, str) and student_id.isdigit():
+                student_id = int(student_id)
+            if isinstance(assignment_id, str) and assignment_id.isdigit():
+                assignment_id = int(assignment_id)
+        except (ValueError, TypeError):
+            pass
+
+        if student_id not in valid_student_ids:
+            invalid_items.append(f"Row {idx + 1}: Student ID {student_id} not in this class")
+        if assignment_id not in valid_assignment_ids:
+            invalid_items.append(f"Row {idx + 1}: Assignment ID {assignment_id} not for this subject/term")
+
+    if invalid_items:
+        logger.warning(f"Bulk import validation failed: {invalid_items[:5]}")
+        return render(request, 'gradebook/partials/import_error.html', {
+            'error': f'Data validation failed. {len(invalid_items)} items have invalid student or assignment references.',
+            'details': invalid_items[:10]  # Show first 10 errors
+        })
+
     # Get audit context
     client_ip = get_client_ip(request)
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:255]

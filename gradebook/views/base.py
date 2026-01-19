@@ -1,11 +1,68 @@
 
 import logging
+from functools import wraps
+
 from django.shortcuts import render
 from django.contrib.auth.decorators import user_passes_test
+from django.core.cache import cache
+from django.http import JsonResponse
+
 from academics.models import Class, Subject, ClassSubject
 from students.models import Student
 
 logger = logging.getLogger(__name__)
+
+
+def ratelimit(key='user', rate='100/h', block=True):
+    """
+    Simple cache-based rate limiter decorator.
+
+    Args:
+        key: 'user' for user-based, 'ip' for IP-based limiting
+        rate: Format "number/period" where period is s/m/h/d (second/minute/hour/day)
+        block: If True, return 429 error; if False, just log warning
+
+    Usage:
+        @ratelimit(key='user', rate='100/h')
+        def my_view(request):
+            ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            # Parse rate limit
+            try:
+                limit, period = rate.split('/')
+                limit = int(limit)
+                period_seconds = {
+                    's': 1, 'm': 60, 'h': 3600, 'd': 86400
+                }.get(period, 3600)
+            except (ValueError, AttributeError):
+                limit, period_seconds = 100, 3600  # Default: 100/hour
+
+            # Build cache key
+            if key == 'user' and request.user.is_authenticated:
+                cache_key = f"ratelimit:{view_func.__name__}:user:{request.user.pk}"
+            else:
+                cache_key = f"ratelimit:{view_func.__name__}:ip:{get_client_ip(request)}"
+
+            # Check current count
+            current = cache.get(cache_key, 0)
+
+            if current >= limit:
+                logger.warning(f"Rate limit exceeded for {cache_key}")
+                if block:
+                    return JsonResponse(
+                        {'error': 'Too many requests. Please try again later.'},
+                        status=429
+                    )
+
+            # Increment counter
+            cache.set(cache_key, current + 1, period_seconds)
+
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def get_client_ip(request):

@@ -50,6 +50,8 @@ class Teacher(Person):
     class Meta:
         indexes = [
             models.Index(fields=['status'], name='teachers_status_idx'),
+            models.Index(fields=['email'], name='teacher_email_idx'),
+            models.Index(fields=['user'], name='teacher_user_idx'),
         ]
 
     @property
@@ -108,6 +110,9 @@ class TeacherInvitation(models.Model):
         indexes = [
             models.Index(fields=['token'], name='teacher_inv_token_idx'),
             models.Index(fields=['status'], name='teacher_inv_status_idx'),
+            models.Index(fields=['teacher'], name='teacher_inv_teacher_idx'),
+            models.Index(fields=['email'], name='teacher_inv_email_idx'),
+            models.Index(fields=['teacher', 'status'], name='teacher_inv_teacher_stat_idx'),
         ]
 
     def __str__(self):

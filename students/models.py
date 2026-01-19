@@ -109,6 +109,8 @@ class Guardian(models.Model):
         ordering = ['full_name']
         indexes = [
             models.Index(fields=['phone_number'], name='students_gdn_phone_idx'),
+            models.Index(fields=['email'], name='guardian_email_idx'),
+            models.Index(fields=['user'], name='guardian_user_idx'),
         ]
 
     def __str__(self):
@@ -168,6 +170,10 @@ class StudentGuardian(models.Model):
         verbose_name_plural = _("Student Guardians")
         unique_together = ['student', 'guardian']
         ordering = ['-is_primary', 'guardian__full_name']
+        indexes = [
+            models.Index(fields=['student', 'is_primary'], name='sg_student_primary_idx'),
+            models.Index(fields=['guardian'], name='sg_guardian_idx'),
+        ]
 
     def __str__(self):
         return f"{self.guardian.full_name} ({self.get_relationship_display()}) - {self.student.full_name}"
@@ -535,6 +541,9 @@ class GuardianInvitation(models.Model):
         indexes = [
             models.Index(fields=['token'], name='guardian_inv_token_idx'),
             models.Index(fields=['status'], name='guardian_inv_status_idx'),
+            models.Index(fields=['guardian'], name='guardian_inv_guardian_idx'),
+            models.Index(fields=['guardian', 'status'], name='guardian_inv_gdn_status_idx'),
+            models.Index(fields=['email'], name='guardian_inv_email_idx'),
         ]
 
     def __str__(self):

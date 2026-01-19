@@ -103,20 +103,25 @@ def generate_report_pdf(term_report, tenant_schema):
 
             # Encode logo as base64 for PDF by reading directly from filesystem
             if school_settings and school_settings.logo:
-                logo_path = os.path.join(
-                    settings.MEDIA_ROOT,
-                    'schools',
-                    tenant_schema,
-                    school_settings.logo.name
-                )
-                if os.path.exists(logo_path):
+                from pathlib import Path
+
+                # Build and validate logo path to prevent path traversal attacks
+                media_root = Path(settings.MEDIA_ROOT).resolve()
+                logo_path = (media_root / 'schools' / tenant_schema / school_settings.logo.name).resolve()
+
+                # Security check: ensure path is within MEDIA_ROOT
+                if not str(logo_path).startswith(str(media_root)):
+                    logger.warning(f"Potential path traversal attempt blocked: {school_settings.logo.name}")
+                    logo_path = None
+
+                if logo_path and logo_path.exists():
                     with open(logo_path, 'rb') as f:
                         logo_data = f.read()
                     logo_base64 = base64.b64encode(logo_data).decode('utf-8')
                     # Detect image type
-                    if logo_path.lower().endswith('.png'):
+                    if str(logo_path).lower().endswith('.png'):
                         logo_base64 = f"data:image/png;base64,{logo_base64}"
-                    elif logo_path.lower().endswith('.gif'):
+                    elif str(logo_path).lower().endswith('.gif'):
                         logo_base64 = f"data:image/gif;base64,{logo_base64}"
                     else:
                         logo_base64 = f"data:image/jpeg;base64,{logo_base64}"
