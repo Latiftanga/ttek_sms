@@ -143,16 +143,12 @@ class SchoolAdmin(admin.ModelAdmin):
         'schema_name',
         'get_domain_link',
         'education_system',
-        'city',
         'location_region',
-        'location_district',
-        'headmaster_name',
-        'get_status_badge',
         'created_on'
     )
     list_display_links = ('name',)
-    list_filter = ('education_system', 'location_region', 'created_on')
-    search_fields = ('name', 'short_name', 'schema_name', 'city', 'headmaster_name', 'email')
+    list_filter = ('education_system', 'location_region')
+    search_fields = ('name', 'short_name', 'schema_name', 'email')
     date_hierarchy = 'created_on'
     ordering = ('-created_on',)
 
