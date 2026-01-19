@@ -5,10 +5,83 @@ from io import BytesIO
 
 from django.shortcuts import redirect
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.conf import settings as django_settings
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Rate Limiting
+# =============================================================================
+
+def get_client_ip(request):
+    """Get client IP address from request."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
+
+def ratelimit(key='user', rate='10/h', block=True):
+    """
+    Simple cache-based rate limiter decorator.
+
+    Args:
+        key: 'user' for user-based, 'ip' for IP-based limiting
+        rate: Format "number/period" where period is s/m/h/d (second/minute/hour/day)
+        block: If True, return 429 error; if False, just log warning
+
+    Usage:
+        @ratelimit(key='user', rate='10/h')
+        def my_view(request):
+            ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            # Parse rate limit
+            try:
+                limit, period = rate.split('/')
+                limit = int(limit)
+                period_seconds = {
+                    's': 1, 'm': 60, 'h': 3600, 'd': 86400
+                }.get(period, 3600)
+            except (ValueError, AttributeError):
+                limit, period_seconds = 10, 3600  # Default: 10/hour
+
+            # Build cache key
+            if key == 'user' and request.user.is_authenticated:
+                cache_key = f"ratelimit:{view_func.__name__}:user:{request.user.pk}"
+            else:
+                cache_key = f"ratelimit:{view_func.__name__}:ip:{get_client_ip(request)}"
+
+            # Check current count
+            current = cache.get(cache_key, 0)
+
+            if current >= limit:
+                logger.warning(f"Rate limit exceeded for {cache_key}")
+                if block:
+                    # Return HTML for HTMX requests, JSON for API requests
+                    if request.headers.get('HX-Request'):
+                        return HttpResponse(
+                            '<div class="alert alert-error text-sm py-2">'
+                            '<i class="fa-solid fa-circle-xmark"></i> Too many requests. Please try again later.'
+                            '</div>',
+                            status=429
+                        )
+                    return JsonResponse(
+                        {'error': 'Too many requests. Please try again later.'},
+                        status=429
+                    )
+
+            # Increment counter
+            cache.set(cache_key, current + 1, period_seconds)
+
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
 
 
 # =============================================================================

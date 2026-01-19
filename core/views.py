@@ -1,3 +1,4 @@
+import html
 import logging
 from functools import wraps
 from decimal import Decimal
@@ -13,6 +14,7 @@ from django.views.decorators.http import require_GET
 from django.db import connection
 from .models import SchoolSettings, AcademicYear, Term
 from .email_backend import get_from_email
+from .utils import ratelimit
 
 logger = logging.getLogger(__name__)
 from .forms import (
@@ -1722,8 +1724,9 @@ def settings_update_email(request):
 
 
 @login_required
+@ratelimit(key='user', rate='5/h')
 def settings_test_email(request):
-    """Send a test email to verify email configuration."""
+    """Send a test email to verify email configuration. Rate limited to 5/hour."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -1775,8 +1778,9 @@ def settings_test_email(request):
 
 
 @login_required
+@ratelimit(key='user', rate='5/h')
 def settings_test_sms(request):
-    """Send a test SMS to verify SMS configuration using form values."""
+    """Send a test SMS to verify SMS configuration using form values. Rate limited to 5/hour."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -1878,8 +1882,9 @@ def settings_test_sms(request):
 
 
 @login_required
+@ratelimit(key='user', rate='5/h')
 def settings_test_payment(request):
-    """Test payment gateway credentials using form values (without saving)."""
+    """Test payment gateway credentials using form values (without saving). Rate limited to 5/hour."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -3117,6 +3122,13 @@ def import_scores(request, class_id, subject_id):
     if not uploaded_file:
         return HttpResponse('<div class="alert alert-error">No file uploaded.</div>')
 
+    # File size validation (max 5MB)
+    MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5MB
+    if uploaded_file.size > MAX_UPLOAD_SIZE:
+        return HttpResponse(
+            '<div class="alert alert-error">File too large. Maximum size is 5MB.</div>'
+        )
+
     # Get assignments for validation
     assignments = list(Assignment.objects.filter(
         subject=subject,
@@ -3240,7 +3252,7 @@ def import_scores(request, class_id, subject_id):
     from django.middleware.csrf import get_token
     csrf_token = get_token(request)
 
-    html = f'''
+    html_content = f'''
     <div class="space-y-4">
         <div class="flex gap-4">
             <div class="stat bg-success/10 rounded-lg p-3">
@@ -3271,21 +3283,26 @@ def import_scores(request, class_id, subject_id):
         status_icon = 'fa-check' if row['student'] and not row['errors'] else 'fa-xmark'
         status_text = 'Valid' if row['student'] and not row['errors'] else (row['errors'][0] if row['errors'] else 'Has errors')
 
-        html += f'''
+        # Escape user-supplied data to prevent XSS
+        escaped_admission_no = html.escape(str(row['admission_no']))
+        escaped_student_name = html.escape(str(row['student_name']))
+        escaped_status_text = html.escape(str(status_text))
+
+        html_content += f'''
             <tr>
                 <td>{row['row_num']}</td>
-                <td class="font-mono">{row['admission_no']}</td>
-                <td>{row['student_name']}</td>
+                <td class="font-mono">{escaped_admission_no}</td>
+                <td>{escaped_student_name}</td>
                 <td class="{status_class}">
-                    <i class="fa-solid {status_icon} mr-1"></i>{status_text}
+                    <i class="fa-solid {status_icon} mr-1"></i>{escaped_status_text}
                 </td>
             </tr>
         '''
 
     if len(preview_data) > 20:
-        html += f'<tr><td colspan="4" class="text-center text-base-content/60">... and {len(preview_data) - 20} more rows</td></tr>'
+        html_content += f'<tr><td colspan="4" class="text-center text-base-content/60">... and {len(preview_data) - 20} more rows</td></tr>'
 
-    html += '''
+    html_content += '''
                 </tbody>
             </table>
         </div>
@@ -3295,7 +3312,7 @@ def import_scores(request, class_id, subject_id):
     confirm_url = reverse('core:import_scores_confirm', args=[class_id, subject_id])
 
     if valid_count > 0:
-        html += f'''
+        html_content += f'''
         <form hx-post="{confirm_url}"
               hx-target="#import-content"
               hx-swap="innerHTML">
@@ -3310,15 +3327,15 @@ def import_scores(request, class_id, subject_id):
         </form>
         '''
     else:
-        html += '''
+        html_content += '''
         <div class="modal-action">
             <button type="button" class="btn btn-ghost" onclick="modal_import.close()">Close</button>
         </div>
         '''
 
-    html += '</div>'
+    html_content += '</div>'
 
-    return HttpResponse(html)
+    return HttpResponse(html_content)
 
 
 @login_required

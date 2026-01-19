@@ -161,6 +161,13 @@ def score_import_upload(request, class_id, subject_id):
             'error': 'No file uploaded.'
         })
 
+    # File size validation (max 5MB)
+    MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5MB
+    if file.size > MAX_UPLOAD_SIZE:
+        return render(request, 'gradebook/partials/import_error.html', {
+            'error': 'File too large. Maximum size is 5MB.'
+        })
+
     if not file.name.endswith('.xlsx'):
         return render(request, 'gradebook/partials/import_error.html', {
             'error': 'Please upload an Excel file (.xlsx).'
