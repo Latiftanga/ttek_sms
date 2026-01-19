@@ -6,8 +6,23 @@ from io import BytesIO
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.http import HttpResponse
+from django.conf import settings as django_settings
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Unfold Admin Environment Callback
+# =============================================================================
+
+def environment_callback(request):
+    """
+    Returns environment badge for Unfold admin header.
+    Shows Development/Production mode indicator.
+    """
+    if django_settings.DEBUG:
+        return ["Development", "warning"]
+    return ["Production", "danger"]
 
 
 # =============================================================================

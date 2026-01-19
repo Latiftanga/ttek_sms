@@ -13,6 +13,8 @@ from django.http import JsonResponse
 from django.urls import path
 import logging
 
+from unfold.admin import ModelAdmin, TabularInline
+
 from .models import School, Domain, Region, District
 
 User = get_user_model()
@@ -23,14 +25,14 @@ logger = logging.getLogger(__name__)
 # Region & District Admin
 # =============================================================================
 
-class DistrictInline(admin.TabularInline):
+class DistrictInline(TabularInline):
     model = District
     extra = 1
     fields = ('name',)
 
 
 @admin.register(Region)
-class RegionAdmin(admin.ModelAdmin):
+class RegionAdmin(ModelAdmin):
     list_display = ('name', 'code', 'district_count')
     search_fields = ('name', 'code')
     ordering = ('name',)
@@ -42,7 +44,7 @@ class RegionAdmin(admin.ModelAdmin):
 
 
 @admin.register(District)
-class DistrictAdmin(admin.ModelAdmin):
+class DistrictAdmin(ModelAdmin):
     list_display = ('name', 'region', 'region_code')
     list_filter = ('region',)
     search_fields = ('name', 'region__name')
@@ -122,7 +124,7 @@ class SchoolCreationForm(forms.ModelForm):
         return password
 
 
-class DomainInline(admin.TabularInline):
+class DomainInline(TabularInline):
     model = Domain
     extra = 0
     max_num = 3
@@ -133,7 +135,7 @@ class DomainInline(admin.TabularInline):
 
 
 @admin.register(School)
-class SchoolAdmin(admin.ModelAdmin):
+class SchoolAdmin(ModelAdmin):
     form = SchoolCreationForm
     inlines = [DomainInline]
 
@@ -277,10 +279,3 @@ class SchoolAdmin(admin.ModelAdmin):
         return JsonResponse(data, safe=False)
 
 
-# =============================================================================
-# Admin Site Customization
-# =============================================================================
-
-admin.site.site_header = "TTEK SMS Platform Admin"
-admin.site.site_title = "TTEK SMS Admin"
-admin.site.index_title = "School Management Dashboard"
