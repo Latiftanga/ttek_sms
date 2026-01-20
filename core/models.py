@@ -538,6 +538,30 @@ class SchoolSettings(models.Model):
         except School.DoesNotExist:
             return 'Both Basic and SHS'
 
+    @property
+    def has_houses(self):
+        """Check if school has houses support. Delegates to tenant."""
+        from django.db import connection
+        from schools.models import School
+
+        try:
+            tenant = School.objects.get(schema_name=connection.schema_name)
+            return tenant.has_houses
+        except School.DoesNotExist:
+            return True  # Default to True if tenant not found
+
+    @property
+    def has_programmes(self):
+        """Check if school has programmes support. Delegates to tenant."""
+        from django.db import connection
+        from schools.models import School
+
+        try:
+            tenant = School.objects.get(schema_name=connection.schema_name)
+            return tenant.has_programmes
+        except School.DoesNotExist:
+            return True  # Default to True if tenant not found
+
     def _resize_image(self, image_field, max_size, preserve_transparency=False):
         """Resize an image field to max dimensions, converting to WebP."""
         if not image_field or not hasattr(image_field, 'file'):
