@@ -125,9 +125,15 @@ class StudentForm(forms.ModelForm):
         # Only show active classes
         self.fields['current_class'].queryset = Class.objects.filter(is_active=True)
         self.fields['current_class'].required = False
-        # Only show active houses
-        self.fields['house'].queryset = House.objects.filter(is_active=True)
-        self.fields['house'].required = False
+
+        # Hide house field for schools without houses support
+        from core.models import SchoolSettings
+        school_settings = SchoolSettings.load()
+        if school_settings.has_houses:
+            self.fields['house'].queryset = House.objects.filter(is_active=True)
+            self.fields['house'].required = False
+        else:
+            del self.fields['house']
 
     def clean_photo(self):
         """Validate photo file size."""

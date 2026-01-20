@@ -55,7 +55,7 @@
                         {% if student.current_class %}
                         <span class="badge badge-primary">{{ student.current_class.name }}</span>
                         {% endif %}
-                        {% if student.house %}
+                        {% if tenant.has_houses and student.house %}
                         <span class="badge badge-outline" {% if student.house.color_code %}style="border-color: {{ student.house.color_code }}; color: {{ student.house.color_code }};"{% endif %}>
                             {{ student.house.name }}
                         </span>
@@ -292,6 +292,7 @@
                             <p class="text-xs text-base-content/60 mb-1">Current Class</p>
                             <p>{{ student.current_class.name|default:"Not Assigned" }}</p>
                         </div>
+                        {% if tenant.has_houses %}
                         <div>
                             <p class="text-xs text-base-content/60 mb-1">House</p>
                             {% if student.house %}
@@ -305,6 +306,7 @@
                             <p class="text-base-content/50">Not Assigned</p>
                             {% endif %}
                         </div>
+                        {% endif %}
                         <div>
                             <p class="text-xs text-base-content/60 mb-1">Status</p>
                             <p>{{ student.get_status_display }}</p>
