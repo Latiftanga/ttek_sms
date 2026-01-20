@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
 
+from core.utils import requires_houses
 from ..models import House, Student
 from ..forms import HouseForm
 
@@ -35,6 +36,7 @@ def admin_required(view_func):
 
 @login_required
 @admin_required
+@requires_houses
 def house_index(request):
     """List all houses with optimized queries."""
     # Annotate houses with student counts in a single query
@@ -72,6 +74,7 @@ def house_index(request):
 
 @login_required
 @admin_required
+@requires_houses
 def house_create(request):
     """Create a new house."""
     if request.method == 'POST':
@@ -100,6 +103,7 @@ def house_create(request):
 
 @login_required
 @admin_required
+@requires_houses
 def house_edit(request, pk):
     """Edit an existing house."""
     house = get_object_or_404(House, pk=pk)
@@ -131,6 +135,7 @@ def house_edit(request, pk):
 
 @login_required
 @admin_required
+@requires_houses
 def house_delete(request, pk):
     """Delete a house."""
     house = get_object_or_404(House, pk=pk)

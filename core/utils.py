@@ -139,6 +139,72 @@ def cache_page_per_tenant(timeout=300):
 
 
 # =============================================================================
+# Education System Feature Gating
+# =============================================================================
+
+def get_current_tenant():
+    """Get the current tenant (School) based on database connection schema."""
+    from django.db import connection
+    from schools.models import School
+    try:
+        return School.objects.get(schema_name=connection.schema_name)
+    except School.DoesNotExist:
+        return None
+
+
+def requires_feature(feature_name, error_message=None):
+    """
+    Decorator to require a specific tenant feature for a view.
+
+    Args:
+        feature_name: Tenant property to check (e.g., 'has_programmes', 'has_houses', 'has_shs_levels')
+        error_message: Custom error message
+
+    Usage:
+        @requires_feature('has_programmes')
+        def programme_create(request):
+            ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            from django.contrib import messages as django_messages
+
+            tenant = get_current_tenant()
+            if tenant and not getattr(tenant, feature_name, False):
+                msg = error_message or f"This feature is not available for your school's education system."
+
+                # Handle HTMX requests
+                if request.headers.get('HX-Request'):
+                    return HttpResponse(
+                        f'<div class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation"></i> {msg}</div>',
+                        status=403
+                    )
+
+                django_messages.warning(request, msg)
+                return redirect('core:index')
+
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def requires_shs(view_func):
+    """Decorator to require SHS education system."""
+    return requires_feature('has_shs_levels', 'This feature is only available for SHS schools.')(view_func)
+
+
+def requires_programmes(view_func):
+    """Decorator to require programmes support (SHS or Both)."""
+    return requires_feature('has_programmes', 'Programmes are only available for SHS schools.')(view_func)
+
+
+def requires_houses(view_func):
+    """Decorator to require houses support (SHS or Both)."""
+    return requires_feature('has_houses', 'Houses are only available for SHS schools.')(view_func)
+
+
+# =============================================================================
 # Unfold Admin Environment Callback
 # =============================================================================
 

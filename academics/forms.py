@@ -60,6 +60,10 @@ class ClassForm(forms.ModelForm):
                 (value, label) for value, label in original_choices
                 if value in allowed_values
             ]
+
+            # Hide programme field for basic-only schools
+            if not school_settings.has_programmes:
+                del self.fields['programme']
         except Exception:
             pass
 
@@ -75,11 +79,13 @@ class ClassForm(forms.ModelForm):
         programme = cleaned_data.get('programme')
         level_number = cleaned_data.get('level_number')
 
-        if level_type == Class.LevelType.SHS and not programme:
-            self.add_error('programme', 'Programme is required for SHS classes.')
+        # Only validate programme if the field exists (SHS or Both schools)
+        if 'programme' in self.fields:
+            if level_type == Class.LevelType.SHS and not programme:
+                self.add_error('programme', 'Programme is required for SHS classes.')
 
-        if level_type != Class.LevelType.SHS and programme:
-            cleaned_data['programme'] = None
+            if level_type != Class.LevelType.SHS and programme:
+                cleaned_data['programme'] = None
 
         if level_type == Class.LevelType.CRECHE and level_number and level_number > 2:
             self.add_error('level_number', 'Creche only has levels 1-2.')
@@ -115,6 +121,15 @@ class SubjectForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['programmes'].queryset = Programme.objects.filter(is_active=True)
         self.fields['programmes'].required = False
+
+        # Hide programmes field for basic-only schools
+        try:
+            from core.models import SchoolSettings
+            school_settings = SchoolSettings.load()
+            if not school_settings.has_programmes:
+                del self.fields['programmes']
+        except Exception:
+            pass
 
 
 class ClassSubjectForm(forms.ModelForm):

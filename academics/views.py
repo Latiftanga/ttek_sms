@@ -5,7 +5,7 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db import models, transaction
 from django.contrib import messages
-from core.utils import cache_page_per_tenant
+from core.utils import cache_page_per_tenant, requires_programmes, requires_houses
 
 from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, AttendanceRecord, Period, TimetableEntry
 from .forms import ProgrammeForm, ClassForm, SubjectForm, StudentEnrollmentForm, ClassSubjectForm
@@ -299,6 +299,7 @@ def get_programmes_list_context():
 
 
 @admin_required
+@requires_programmes
 def programme_create(request):
     """Create a new programme."""
     if request.method == 'GET':
@@ -335,6 +336,7 @@ def programme_create(request):
 
 
 @admin_required
+@requires_programmes
 def programme_edit(request, pk):
     """Edit a programme."""
     programme = get_object_or_404(Programme, pk=pk)
@@ -372,6 +374,7 @@ def programme_edit(request, pk):
 
 
 @admin_required
+@requires_programmes
 def programme_delete(request, pk):
     """Delete a programme."""
     if request.method != 'POST':
