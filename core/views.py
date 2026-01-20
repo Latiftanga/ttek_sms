@@ -1288,6 +1288,16 @@ def index(request):
     current_term = Term.get_current()
     today = timezone.now().date()
 
+    # Get tenant's enabled levels for filtering dashboard display
+    from django.db import connection
+    from schools.models import School
+    try:
+        tenant = School.objects.get(schema_name=connection.schema_name)
+        enabled_levels = tenant.get_allowed_level_types()
+        enabled_level_values = [lt[0] for lt in enabled_levels]
+    except School.DoesNotExist:
+        enabled_level_values = ['creche', 'nursery', 'kg', 'basic', 'shs']
+
     # Get counts using aggregation (single query instead of multiple)
     from django.db.models import Count, Q
 
@@ -1296,6 +1306,8 @@ def index(request):
         total=Count('id'),
         male=Count('id', filter=Q(gender='M')),
         female=Count('id', filter=Q(gender='F')),
+        creche=Count('id', filter=Q(current_class__level_type='creche')),
+        nursery=Count('id', filter=Q(current_class__level_type='nursery')),
         kg=Count('id', filter=Q(current_class__level_type='kg')),
         primary=Count('id', filter=Q(current_class__level_type='primary')),
         jhs=Count('id', filter=Q(current_class__level_type='jhs')),
@@ -1321,14 +1333,29 @@ def index(request):
             status='active'
         ).count()
 
-    # Students by level (from aggregated stats)
-    students_by_level = {
-        'kg': student_stats['kg'],
-        'primary': student_stats['primary'],
-        'jhs': student_stats['jhs'],
-        'shs': student_stats['shs'],
-        'unassigned': student_stats['unassigned'],
+    # Students by level (filtered by enabled levels)
+    # Map enabled level codes to their display names and database keys
+    level_display_map = {
+        'creche': ('Creche', 'creche'),
+        'nursery': ('Nursery', 'nursery'),
+        'kg': ('KG', 'kg'),
+        'basic': ('Basic', ['primary', 'jhs']),  # Basic combines Primary and JHS
+        'shs': ('SHS', 'shs'),
     }
+
+    students_by_level = {}
+    for level_code in enabled_level_values:
+        if level_code in level_display_map:
+            display_name, db_keys = level_display_map[level_code]
+            if isinstance(db_keys, list):
+                # For 'basic', combine primary and jhs counts
+                count = sum(student_stats.get(k, 0) for k in db_keys)
+            else:
+                count = student_stats.get(db_keys, 0)
+            students_by_level[display_name] = count
+
+    # Always show unassigned
+    students_by_level['Unassigned'] = student_stats['unassigned']
 
     # Today's attendance summary - optimized with single aggregation
     attendance_stats = AttendanceRecord.objects.filter(
@@ -1372,6 +1399,7 @@ def index(request):
         'active_enrollments': active_enrollments,
         'recent_students': recent_students,
         'students_by_level': students_by_level,
+        'enabled_level_values': enabled_level_values,
         'today_attendance': today_attendance,
         'classes_without_attendance': classes_without_attendance,
         'recent_enrollments': recent_enrollments,
