@@ -3,8 +3,18 @@
     <!-- Page Header -->
     <div class="flex items-center justify-between gap-2">
         <div>
-            <h1 class="text-xl font-bold">Students</h1>
-            <p class="text-sm text-base-content/60">
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-users text-white"></i>
+                </div>
+                Students
+            </h1>
+            <p class="text-sm text-base-content/60 ml-12">
                 {% if paginator.count %}{{ paginator.count }} student{{ paginator.count|pluralize }}{% else %}No students{% endif %}
                 {% if search or class_filter or status_filter %}<span class="text-primary"> (filtered)</span>{% endif %}
             </p>

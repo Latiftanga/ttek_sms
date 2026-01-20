@@ -2,17 +2,25 @@
 <div class="print:max-w-none">
     <!-- Page Header -->
     <div class="flex items-center justify-between mb-6 print:!hidden">
-        <div class="flex items-center gap-4">
-            <a href="{% url 'students:index' %}"
-               hx-get="{% url 'students:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div>
-                <h1 class="text-xl font-bold">{{ student.full_name }}</h1>
-                <p class="text-sm text-base-content/60 font-mono">{{ student.admission_number }}</p>
+        <div>
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <div class="flex items-center gap-3">
+                <a href="{{ back_url|default:'/students/' }}"
+                   hx-get="{{ back_url|default:'/students/' }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm btn-circle"
+                   title="Back to Students">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="text-xl font-bold">{{ student.full_name }}</h1>
+                    <p class="text-sm text-base-content/60 font-mono">{{ student.admission_number }}</p>
+                </div>
             </div>
         </div>
         <div class="flex gap-2">

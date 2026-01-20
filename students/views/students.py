@@ -117,6 +117,11 @@ def index(request):
         'status_filter': status_filter,
         'form': StudentForm(),
         'guardian_form': GuardianForm(),
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Students'},
+        ],
     }
 
     return htmx_render(
@@ -130,6 +135,12 @@ def index(request):
 @admin_required
 def student_create(request):
     """Create a new student."""
+    breadcrumbs = [
+        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+        {'label': 'Students', 'url': '/students/'},
+        {'label': 'Add Student'},
+    ]
+
     if request.method == 'GET':
         form = StudentForm()
         return htmx_render(
@@ -140,6 +151,8 @@ def student_create(request):
                 'form': form,
                 'guardian_form': GuardianForm(),
                 'relationship_choices': Guardian.Relationship.choices,
+                'breadcrumbs': breadcrumbs,
+                'back_url': '/students/',
             }
         )
 
@@ -165,6 +178,8 @@ def student_create(request):
             'form': form,
             'guardian_form': GuardianForm(),
             'relationship_choices': Guardian.Relationship.choices,
+            'breadcrumbs': breadcrumbs,
+            'back_url': '/students/',
         }
     )
 
@@ -174,6 +189,14 @@ def student_edit(request, pk):
     """Edit a student."""
     student = get_object_or_404(Student, pk=pk)
     student_guardians = student.get_guardians_with_relationships()
+
+    breadcrumbs = [
+        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+        {'label': 'Students', 'url': '/students/'},
+        {'label': student.full_name, 'url': f'/students/{pk}/'},
+        {'label': 'Edit'},
+    ]
+    back_url = f'/students/{pk}/'
 
     if request.method == 'GET':
         form = StudentForm(instance=student)
@@ -187,6 +210,8 @@ def student_edit(request, pk):
                 'student_guardians': student_guardians,
                 'guardian_form': GuardianForm(),
                 'relationship_choices': Guardian.Relationship.choices,
+                'breadcrumbs': breadcrumbs,
+                'back_url': back_url,
             }
         )
 
@@ -213,6 +238,8 @@ def student_edit(request, pk):
             'student_guardians': student_guardians,
             'guardian_form': GuardianForm(),
             'relationship_choices': Guardian.Relationship.choices,
+            'breadcrumbs': breadcrumbs,
+            'back_url': back_url,
         }
     )
 
@@ -244,6 +271,13 @@ def student_detail(request, pk):
     )
     enrollments = student.get_enrollment_history()
     student_guardians = student.get_guardians_with_relationships()
+
+    breadcrumbs = [
+        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+        {'label': 'Students', 'url': '/students/'},
+        {'label': student.full_name},
+    ]
+
     return htmx_render(
         request,
         'students/student_detail.html',
@@ -252,6 +286,8 @@ def student_detail(request, pk):
             'student': student,
             'enrollments': enrollments,
             'student_guardians': student_guardians,
+            'breadcrumbs': breadcrumbs,
+            'back_url': '/students/',
         }
     )
 

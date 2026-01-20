@@ -4,19 +4,7 @@
     <!-- Page Header -->
     <div class="flex items-center justify-between mb-6 print:!hidden">
         <div class="flex items-center gap-4">
-            <a href="{% url 'academics:classes' %}"
-               hx-get="{% url 'academics:classes' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div>
-                <h1 class="text-2xl font-bold">{{ class.name }}</h1>
-                <p class="text-sm text-base-content/60">
-                    {{ class.level_display }}{% if class.programme %} &bull; {{ class.programme.name }}{% endif %}
-                </p>
-            </div>
+            {% include "core/partials/page_header.html" with title=class.name subtitle=class.level_display back_url=back_url breadcrumbs=breadcrumbs icon="fa-solid fa-chalkboard" only %}
             <span class="badge {{ class.is_active|yesno:'badge-success,badge-ghost' }}">
                 {{ class.is_active|yesno:'Active,Inactive' }}
             </span>

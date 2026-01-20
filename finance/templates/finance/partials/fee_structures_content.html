@@ -1,25 +1,32 @@
 <!-- Page Header -->
 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
     <div>
-        <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'finance:index' %}"
-               hx-get="{% url 'finance:index' %}"
+        {% if breadcrumbs %}
+        <div class="mb-2">
+            {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+        </div>
+        {% endif %}
+        <div class="flex items-center gap-3">
+            <a href="{{ back_url|default:'/finance/' }}"
+               hx-get="{{ back_url|default:'/finance/' }}"
                hx-target="#main-content"
                hx-push-url="true"
                class="btn btn-ghost btn-sm btn-circle"
                title="Back to Finance">
                 <i class="fa-solid fa-arrow-left"></i>
             </a>
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
-                    <i class="fa-solid fa-layer-group text-white"></i>
-                </div>
-                Fee Structures
-            </h1>
+            <div>
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-secondary to-primary flex items-center justify-center">
+                        <i class="fa-solid fa-layer-group text-white"></i>
+                    </div>
+                    Fee Structures
+                </h1>
+                <p class="text-sm text-base-content/60 ml-12">
+                    Define fee amounts for classes and terms
+                </p>
+            </div>
         </div>
-        <p class="text-sm text-base-content/60 ml-12">
-            Define fee amounts for classes and terms
-        </p>
     </div>
     <button hx-get="{% url 'finance:fee_structure_create' %}"
             hx-target="#fee-structure-modal-content"

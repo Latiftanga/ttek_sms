@@ -65,6 +65,13 @@ def house_index(request):
         'active_houses': active_houses,
         'total_students': total_students,
         'avg_per_house': avg_per_house,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Students', 'url': '/students/'},
+            {'label': 'Houses'},
+        ],
+        'back_url': '/students/',
     }
 
     if request.headers.get('HX-Request'):

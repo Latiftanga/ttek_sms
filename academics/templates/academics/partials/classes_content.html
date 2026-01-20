@@ -4,26 +4,7 @@
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <div class="flex items-center gap-3 mb-1">
-                <a href="{% url 'academics:index' %}"
-                   hx-get="{% url 'academics:index' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-ghost btn-sm btn-circle"
-                   title="Back to Academics">
-                    <i class="fa-solid fa-arrow-left"></i>
-                </a>
-                <h1 class="text-xl font-bold flex items-center gap-2">
-                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                        <i class="fa-solid fa-chalkboard text-white"></i>
-                    </div>
-                    Classes
-                </h1>
-            </div>
-            <p class="text-sm text-base-content/60 ml-12">
-                {% if paginator.count %}{{ paginator.count }} class{{ paginator.count|pluralize:"es" }}{% else %}No classes{% endif %} &bull; {{ stats.total_students }} student{{ stats.total_students|pluralize }}
-                {% if search or level_filter %}<span class="text-primary"> (filtered)</span>{% endif %}
-            </p>
+            {% include "core/partials/page_header.html" with title="Classes" subtitle=subtitle icon="fa-solid fa-chalkboard" back_url=back_url breadcrumbs=breadcrumbs only %}
         </div>
         <div class="flex gap-2">
             <a href="{% url 'academics:classes_bulk_export' %}{% if search or level_filter %}?{% if search %}search={{ search }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}"

@@ -1,25 +1,29 @@
 {% load core_tags %}
 
-<!-- Back Button -->
+{% if breadcrumbs %}
 <div class="mb-4">
-    <a href="{% url 'core:profile' %}"
-       hx-get="{% url 'core:profile' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="btn btn-ghost btn-sm gap-2">
-        <i class="fa-solid fa-arrow-left"></i>
-        Back to Profile
-    </a>
+    {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
 </div>
+{% endif %}
 
 <!-- Page Header -->
 <div class="flex items-center gap-3 mb-6">
-    <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-        <i class="fa-solid fa-user-pen text-primary"></i>
-    </div>
-    <div>
-        <h1 class="text-xl font-bold">Edit Profile</h1>
-        <p class="text-sm text-base-content/60">Update your account information</p>
+    <a href="{{ back_url|default:'/profile/' }}"
+       hx-get="{{ back_url|default:'/profile/' }}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm btn-circle"
+       title="Back to Profile">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <i class="fa-solid fa-user-pen text-primary"></i>
+        </div>
+        <div>
+            <h1 class="text-xl font-bold">Edit Profile</h1>
+            <p class="text-sm text-base-content/60">Update your account information</p>
+        </div>
     </div>
 </div>
 
