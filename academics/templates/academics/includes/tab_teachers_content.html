@@ -16,10 +16,12 @@
             <tr class="hover:bg-base-200/50 group">
                 <td>
                     <div class="flex items-center gap-2">
+                        {% if tenant.has_programmes %}
                         {% if alloc.subject.is_core %}
                         <span class="badge badge-xs badge-primary" title="Core Subject">C</span>
                         {% else %}
                         <span class="badge badge-xs badge-ghost" title="Elective">E</span>
+                        {% endif %}
                         {% endif %}
                         <span class="font-medium">{{ alloc.subject.name }}</span>
                     </div>

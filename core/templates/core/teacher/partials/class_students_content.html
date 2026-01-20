@@ -68,6 +68,8 @@
 {% else %}
 
 <!-- Subject Summary -->
+{% if tenant.has_programmes %}
+<!-- SHS: Core and Elective Subjects in two columns -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
     <!-- Core Subjects -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -117,6 +119,31 @@
         </div>
     </div>
 </div>
+{% else %}
+<!-- Basic: All subjects in one card -->
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+    <div class="card-body p-4">
+        <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+            <i class="fa-solid fa-book text-primary"></i>
+            Class Subjects
+            <span class="badge badge-primary badge-sm">{{ core_subjects|length }}</span>
+        </h3>
+        {% if core_subjects %}
+        <div class="flex flex-wrap gap-2">
+            {% for cs in core_subjects %}
+            <span class="badge badge-outline badge-sm">{{ cs.subject.short_name|default:cs.subject.name }}</span>
+            {% endfor %}
+        </div>
+        <p class="text-xs text-base-content/60 mt-2">
+            <i class="fa-solid fa-circle-info mr-1"></i>
+            All students are enrolled in these subjects.
+        </p>
+        {% else %}
+        <p class="text-sm text-base-content/60">No subjects assigned to this class yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 <!-- Students Table -->
 <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -129,7 +156,7 @@
                         <th class="text-center">Admission No</th>
                         <th class="text-center">Gender</th>
                         <th class="text-center">Subjects</th>
-                        <th class="min-w-[150px]">Electives</th>
+                        {% if tenant.has_programmes %}<th class="min-w-[150px]">Electives</th>{% endif %}
                         <th class="text-center">Actions</th>
                     </tr>
                 </thead>
@@ -168,6 +195,7 @@
                         <td class="text-center">
                             <span class="badge badge-outline">{{ item.enrolled_subjects_count }}</span>
                         </td>
+                        {% if tenant.has_programmes %}
                         <td>
                             {% if item.enrolled_electives %}
                             <div class="flex flex-wrap gap-1">
@@ -181,9 +209,10 @@
                             <span class="text-xs text-base-content/50">-</span>
                             {% endif %}
                         </td>
+                        {% endif %}
                         <td class="text-center">
                             <div class="flex items-center justify-center gap-1">
-                                {% if elective_subjects %}
+                                {% if tenant.has_programmes and elective_subjects %}
                                 <button class="btn btn-ghost btn-xs"
                                         onclick="openElectivesModal({{ item.student.pk }}, '{{ item.student.full_name }}')"
                                         title="Manage Electives">
@@ -253,8 +282,8 @@
                     <p class="font-medium">What happens when you enroll:</p>
                     <ul class="list-disc list-inside text-sm mt-1">
                         <li>Student is added to {{ class_obj.name }}</li>
-                        <li>Student is auto-enrolled in {{ core_subjects|length }} core subject{{ core_subjects|length|pluralize }}</li>
-                        {% if elective_subjects %}
+                        <li>Student is auto-enrolled in {{ core_subjects|length }} subject{{ core_subjects|length|pluralize }}</li>
+                        {% if tenant.has_programmes and elective_subjects %}
                         <li>You can then assign elective subjects</li>
                         {% endif %}
                     </ul>
@@ -288,6 +317,7 @@
     </form>
 </dialog>
 
+{% if tenant.has_programmes %}
 <!-- Electives Modal -->
 <dialog id="modal_electives" class="modal modal-middle">
     <div class="modal-box max-w-md">
@@ -381,3 +411,4 @@ function openElectivesModal(studentId, studentName) {
     modal_electives.showModal();
 }
 </script>
+{% endif %}

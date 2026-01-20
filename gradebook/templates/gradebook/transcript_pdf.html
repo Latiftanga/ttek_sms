@@ -343,11 +343,11 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 35%">Subject</th>
-                    <th class="text-center" style="width: 10%">Type</th>
+                    <th style="width: {% if school.has_programmes %}35{% else %}40{% endif %}%">Subject</th>
+                    {% if school.has_programmes %}<th class="text-center" style="width: 10%">Type</th>{% endif %}
                     <th class="text-center" style="width: 12%">Score</th>
                     <th class="text-center" style="width: 10%">Grade</th>
-                    <th class="text-center" style="width: 18%">Interpretation</th>
+                    <th class="text-center" style="width: {% if school.has_programmes %}18{% else %}23{% endif %}%">Interpretation</th>
                     <th class="text-center" style="width: 10%">Position</th>
                 </tr>
             </thead>
@@ -355,7 +355,7 @@
                 {% for grade in term_data.core_grades %}
                 <tr>
                     <td>{{ grade.subject.name }}</td>
-                    <td class="text-center"><span class="badge badge-core">Core</span></td>
+                    {% if school.has_programmes %}<td class="text-center"><span class="badge badge-core">Core</span></td>{% endif %}
                     <td class="text-center">{{ grade.total_score|floatformat:1 }}</td>
                     <td class="text-center {% if grade.is_passing %}grade-pass{% else %}grade-fail{% endif %}">{{ grade.grade }}</td>
                     <td class="text-center">{{ grade.grade_remark|default:"-" }}</td>
@@ -365,7 +365,7 @@
                 {% for grade in term_data.elective_grades %}
                 <tr>
                     <td>{{ grade.subject.name }}</td>
-                    <td class="text-center"><span class="badge badge-elective">Elective</span></td>
+                    {% if school.has_programmes %}<td class="text-center"><span class="badge badge-elective">Elective</span></td>{% endif %}
                     <td class="text-center">{{ grade.total_score|floatformat:1 }}</td>
                     <td class="text-center {% if grade.is_passing %}grade-pass{% else %}grade-fail{% endif %}">{{ grade.grade }}</td>
                     <td class="text-center">{{ grade.grade_remark|default:"-" }}</td>
