@@ -244,7 +244,7 @@
         .verification-info .title {
             font-size: 8pt;
             font-weight: bold;
-            color: #1a365d;
+            color: {{ school_settings.primary_color|default:'#1a365d' }};
             margin-bottom: 2px;
         }
         .verification-info .code {
