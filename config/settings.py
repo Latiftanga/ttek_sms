@@ -501,7 +501,7 @@ UNFOLD = {
                     {
                         "title": "Users",
                         "icon": "people",
-                        "link": "/admin/accounts/customuser/",
+                        "link": "/admin/accounts/user/",
                     },
                 ],
             },
