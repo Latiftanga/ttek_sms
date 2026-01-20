@@ -5,6 +5,7 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db import models, transaction
 from django.contrib import messages
+from core.utils import cache_page_per_tenant
 
 from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, AttendanceRecord, Period, TimetableEntry
 from .forms import ProgrammeForm, ClassForm, SubjectForm, StudentEnrollmentForm, ClassSubjectForm
@@ -124,8 +125,9 @@ def get_academics_context():
 
 
 @admin_required
+@cache_page_per_tenant(timeout=300)  # Cache for 5 minutes
 def index(request):
-    """Academics dashboard page - Admin only."""
+    """Academics dashboard page - Admin only. Cached for 5 minutes."""
     from django.db.models import Count, Q, Avg
     from core.models import Term
 

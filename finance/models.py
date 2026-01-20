@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Sum
 from django.core.validators import MinValueValidator
 from decimal import Decimal
 from encrypted_model_fields.fields import EncryptedCharField  # pip install django-encrypted-model-fields
@@ -406,10 +407,12 @@ class Invoice(models.Model):
         super().save(*args, **kwargs)
 
     def update_totals(self):
-        """Recalculate totals from line items"""
-        self.subtotal = sum(item.amount for item in self.items.all())
+        """Recalculate totals from line items using efficient aggregate queries."""
+        self.subtotal = self.items.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         self.total_amount = self.subtotal - self.discount
-        self.amount_paid = sum(p.amount for p in self.payments.filter(status='COMPLETED'))
+        self.amount_paid = self.payments.filter(status='COMPLETED').aggregate(
+            total=Sum('amount')
+        )['total'] or Decimal('0.00')
         self.save()
 
 

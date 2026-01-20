@@ -18,6 +18,7 @@ Parameters:
                        hx-target="#main-content"
                        hx-push-url="true"
                        hx-swap="innerHTML show:window:top"
+                       preload="mouseover"
                        {% if is_mobile %}hx-on::after-request="if(event.detail.successful) document.getElementById('mobile-drawer').checked = false"{% endif %}
                        class="flex items-center gap-2 flex-1"
                        onclick="event.stopPropagation()">
@@ -33,6 +34,7 @@ Parameters:
                                hx-target="#main-content"
                                hx-push-url="true"
                                hx-swap="innerHTML show:window:top"
+                               preload="mouseover"
                                {% if is_mobile %}hx-on::after-request="if(event.detail.successful) document.getElementById('mobile-drawer').checked = false"{% endif %}
                                class="{% if child.is_active %}active{% endif %}">
                                 <i class="{{ child.icon }} w-4 text-center"></i>
@@ -51,6 +53,7 @@ Parameters:
                hx-target="#main-content"
                hx-push-url="true"
                hx-swap="innerHTML show:window:top"
+               preload="mouseover"
                {% if is_mobile %}hx-on::after-request="if(event.detail.successful) document.getElementById('mobile-drawer').checked = false"{% endif %}
                class="{% if item.is_active %}active{% endif %}">
                 <i class="{{ item.icon }} w-5 text-center"></i>
