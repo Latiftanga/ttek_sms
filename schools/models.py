@@ -32,6 +32,15 @@ class School(TenantMixin):
         ('both', 'Both Basic and SHS'),
     ]
 
+    # All available level types that can be enabled
+    ALL_LEVEL_TYPES = [
+        ('creche', 'Creche'),
+        ('nursery', 'Nursery'),
+        ('kg', 'Kindergarten'),
+        ('basic', 'Basic (Primary & JHS)'),
+        ('shs', 'SHS'),
+    ]
+
     # Basic Info
     name = models.CharField(max_length=100)
     short_name = models.CharField(max_length=20, blank=True, help_text="Short name for sidebar display")
@@ -40,6 +49,11 @@ class School(TenantMixin):
         choices=EDUCATION_SYSTEM_CHOICES,
         default='both',
         help_text="Determines which educational levels and features are available"
+    )
+    enabled_levels = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Specific levels offered (e.g., ['basic', 'shs']). If empty, defaults based on education_system."
     )
 
     # Contact & Address
@@ -117,18 +131,33 @@ class School(TenantMixin):
     @property
     def has_houses(self):
         """Houses/dormitories are used in SHS boarding schools."""
+        if self.enabled_levels:
+            return 'shs' in self.enabled_levels
         return self.education_system in ('shs', 'both')
 
     @property
     def has_programmes(self):
         """Programmes are used in SHS schools."""
+        if self.enabled_levels:
+            return 'shs' in self.enabled_levels
         return self.education_system in ('shs', 'both')
 
     def get_allowed_level_types(self):
         """
-        Return list of allowed level types based on education_system.
+        Return list of allowed level types based on enabled_levels or education_system.
+        If enabled_levels is configured, use that. Otherwise fall back to education_system.
         Returns tuples of (value, display_name).
         """
+        # If specific levels are configured, use them
+        if self.enabled_levels:
+            level_map = dict(self.ALL_LEVEL_TYPES)
+            return [
+                (level, level_map.get(level, level.title()))
+                for level in self.enabled_levels
+                if level in level_map
+            ]
+
+        # Fall back to education_system-based defaults
         basic_levels = [
             ('creche', 'Creche'),
             ('nursery', 'Nursery'),

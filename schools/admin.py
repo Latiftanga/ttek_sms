@@ -59,6 +59,11 @@ class DistrictAdmin(ModelAdmin):
 # School Admin
 # =============================================================================
 
+class EnabledLevelsWidget(forms.CheckboxSelectMultiple):
+    """Custom widget for enabled_levels field."""
+    template_name = 'django/forms/widgets/checkbox_select.html'
+
+
 class SchoolCreationForm(forms.ModelForm):
     """Custom form for creating schools with admin user"""
 
@@ -74,6 +79,13 @@ class SchoolCreationForm(forms.ModelForm):
         help_text="Initial password (min 8 characters)",
         widget=forms.PasswordInput(attrs={'placeholder': '••••••••', 'class': 'vTextField'})
     )
+    enabled_levels = forms.MultipleChoiceField(
+        choices=School.ALL_LEVEL_TYPES,
+        widget=EnabledLevelsWidget,
+        required=False,
+        label="Levels Offered",
+        help_text="Select which educational levels this school offers. If none selected, defaults based on education system."
+    )
 
     class Meta:
         model = School
@@ -84,6 +96,13 @@ class SchoolCreationForm(forms.ModelForm):
         if not self.instance.pk:
             self.fields['admin_email'].required = True
             self.fields['admin_password'].required = True
+        # Pre-populate enabled_levels from instance
+        if self.instance.pk and self.instance.enabled_levels:
+            self.fields['enabled_levels'].initial = self.instance.enabled_levels
+
+    def clean_enabled_levels(self):
+        """Return as list for JSONField storage."""
+        return self.cleaned_data.get('enabled_levels', [])
 
     def clean_schema_name(self):
         """
@@ -157,8 +176,8 @@ class SchoolAdmin(ModelAdmin):
     # Form Configuration
     fieldsets = (
         ('School Identity', {
-            'fields': ('name', 'short_name', 'schema_name', 'education_system'),
-            'description': 'Basic identification for the school tenant.'
+            'fields': ('name', 'short_name', 'schema_name', 'education_system', 'enabled_levels'),
+            'description': 'Basic identification for the school tenant. Select enabled levels to specify exactly which levels this school offers.'
         }),
         ('Contact Information', {
             'fields': ('email', 'phone', 'address', 'digital_address', 'city'),
