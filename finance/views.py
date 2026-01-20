@@ -113,6 +113,11 @@ def index(request):
         'overdue_invoices': overdue_invoices,
         'collection_by_method': collection_by_method,
         'students_with_balance': students_with_balance,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Finance'},
+        ],
     }
 
     return htmx_render(
@@ -163,6 +168,13 @@ def fee_structures(request):
         'active_count': active_count,
         'mandatory_count': mandatory_count,
         'category_count': category_count,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Finance', 'url': '/finance/'},
+            {'label': 'Fee Structures'},
+        ],
+        'back_url': '/finance/',
     }
 
     return htmx_render(
@@ -456,6 +468,13 @@ def invoices(request):
         'paid_count': paid_count,
         'pending_count': pending_count,
         'overdue_count': overdue_count,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Finance', 'url': '/finance/'},
+            {'label': 'Invoices'},
+        ],
+        'back_url': '/finance/',
     }
 
     return htmx_render(
@@ -781,6 +800,13 @@ def payments(request):
         'total_amount': total_amount,
         'momo_count': momo_count,
         'cash_count': cash_count,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Finance', 'url': '/finance/'},
+            {'label': 'Payments'},
+        ],
+        'back_url': '/finance/',
     }
 
     return htmx_render(

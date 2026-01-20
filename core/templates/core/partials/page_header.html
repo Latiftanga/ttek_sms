@@ -1,0 +1,53 @@
+{% comment %}
+Page Header Component with Breadcrumbs and Back Link
+
+Usage:
+{% include "core/partials/page_header.html" with title="Classes" subtitle="24 classes" icon="fa-solid fa-chalkboard" back_url="/academics/" breadcrumbs=breadcrumbs only %}
+
+Parameters:
+- title: Page title (required)
+- subtitle: Optional subtitle/description
+- icon: FontAwesome icon class (optional)
+- icon_gradient: Use gradient background for icon (default: true)
+- back_url: URL for back button (optional, shown if provided)
+- back_title: Tooltip for back button (optional)
+- breadcrumbs: List of breadcrumb items (optional)
+{% endcomment %}
+
+<div class="mb-1">
+    {# Breadcrumbs #}
+    {% if breadcrumbs %}
+    <div class="mb-2">
+        {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+    </div>
+    {% endif %}
+
+    {# Title row with back button #}
+    <div class="flex items-center gap-3">
+        {% if back_url %}
+        <a href="{{ back_url }}"
+           hx-get="{{ back_url }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm btn-circle"
+           title="{{ back_title|default:'Go back' }}">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        {% endif %}
+
+        <h1 class="text-xl font-bold flex items-center gap-2">
+            {% if icon %}
+            <div class="w-10 h-10 rounded-lg {% if icon_gradient|default:True %}bg-gradient-to-br from-primary to-secondary{% else %}bg-base-200{% endif %} flex items-center justify-center">
+                <i class="{{ icon }} {% if icon_gradient|default:True %}text-white{% else %}text-primary{% endif %}"></i>
+            </div>
+            {% endif %}
+            {{ title }}
+        </h1>
+    </div>
+
+    {% if subtitle %}
+    <p class="text-sm text-base-content/60 {% if back_url or icon %}ml-12{% endif %}">
+        {{ subtitle }}
+    </p>
+    {% endif %}
+</div>

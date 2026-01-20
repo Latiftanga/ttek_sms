@@ -208,6 +208,11 @@ def index(request):
         },
         'programme_form': ProgrammeForm(),
         'subject_form': SubjectForm(),
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Academics'},
+        ],
     }
 
     return htmx_render(
@@ -259,6 +264,13 @@ def classes_list(request):
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
+    # Build subtitle
+    total_classes = paginator.count
+    total_students = Student.objects.filter(status='active').count()
+    subtitle = f"{total_classes} class{'es' if total_classes != 1 else ''} • {total_students} student{'s' if total_students != 1 else ''}"
+    if search or level_filter:
+        subtitle += " (filtered)"
+
     context = {
         'classes': page_obj,
         'page_obj': page_obj,
@@ -268,9 +280,17 @@ def classes_list(request):
         'level_filter': level_filter,
         'stats': {
             'total_classes': Class.objects.count(),
-            'total_students': Student.objects.filter(status='active').count(),
+            'total_students': total_students,
         },
         'class_form': ClassForm(),
+        # Navigation
+        'back_url': '/academics/',
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Academics', 'url': '/academics/'},
+            {'label': 'Classes'},
+        ],
+        'subtitle': subtitle,
     }
 
     return htmx_render(
@@ -766,6 +786,14 @@ def class_detail(request, pk):
     context = {
         'class': class_obj,
         'timetable_stats': timetable_stats,
+        # Navigation
+        'back_url': '/academics/classes/',
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Academics', 'url': '/academics/'},
+            {'label': 'Classes', 'url': '/academics/classes/'},
+            {'label': class_obj.name},
+        ],
     }
 
     # Combine all tab contexts for the initial page load

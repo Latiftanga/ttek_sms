@@ -1,0 +1,45 @@
+{% comment %}
+Breadcrumb Navigation Component
+
+Usage:
+{% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+
+Pass a list of breadcrumb items:
+breadcrumbs = [
+    {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+    {'label': 'Academics', 'url': '/academics/'},
+    {'label': 'Classes', 'url': '/academics/classes/'},
+    {'label': 'Form 2A'},  # Last item (current page) - no URL needed
+]
+
+The last item is automatically styled as the current page (no link).
+{% endcomment %}
+
+{% if breadcrumbs %}
+<nav class="text-sm breadcrumbs py-0 overflow-x-auto">
+    <ul class="flex items-center flex-nowrap">
+        {% for crumb in breadcrumbs %}
+            <li class="flex items-center whitespace-nowrap">
+                {% if forloop.last %}
+                    {# Current page - no link #}
+                    <span class="text-base-content/70 font-medium truncate max-w-[200px]" title="{{ crumb.label }}">
+                        {% if crumb.icon %}<i class="{{ crumb.icon }} mr-1"></i>{% endif %}
+                        {{ crumb.label }}
+                    </span>
+                {% else %}
+                    {# Clickable breadcrumb with HTMX #}
+                    <a href="{{ crumb.url }}"
+                       hx-get="{{ crumb.url }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="link link-hover text-base-content/50 hover:text-primary truncate max-w-[150px]"
+                       title="{{ crumb.label }}">
+                        {% if crumb.icon %}<i class="{{ crumb.icon }} mr-1"></i>{% endif %}
+                        {{ crumb.label }}
+                    </a>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}

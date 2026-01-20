@@ -82,6 +82,13 @@ def guardian_detail(request, pk):
         'guardian': guardian,
         'wards': wards,
         'pending_invitation': pending_invitation,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Guardians', 'url': '/students/guardians/'},
+            {'label': guardian.full_name},
+        ],
+        'back_url': '/students/guardians/',
     }
 
     if request.htmx:

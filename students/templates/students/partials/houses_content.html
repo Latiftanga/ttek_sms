@@ -2,19 +2,32 @@
 <div class="space-y-4" hx-target="this" hx-swap="outerHTML">
     <!-- Page Header -->
     <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <a href="{% url 'students:index' %}"
-               hx-get="{% url 'students:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div>
-                <h1 class="text-xl font-bold">Houses</h1>
-                <p class="text-sm text-base-content/60">
-                    Manage student houses
-                </p>
+        <div>
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <div class="flex items-center gap-3">
+                <a href="{{ back_url|default:'/students/' }}"
+                   hx-get="{{ back_url|default:'/students/' }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm btn-circle"
+                   title="Back to Students">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="text-xl font-bold flex items-center gap-2">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                            <i class="fa-solid fa-flag text-white"></i>
+                        </div>
+                        Houses
+                    </h1>
+                    <p class="text-sm text-base-content/60 ml-12">
+                        Manage student houses
+                    </p>
+                </div>
             </div>
         </div>
         <button class="btn btn-primary btn-sm"

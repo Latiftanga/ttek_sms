@@ -973,7 +973,14 @@ def profile(request):
 
     # Admin profile (placeholder)
     if user.is_superuser or getattr(user, 'is_school_admin', False):
-        context = {'user': user}
+        context = {
+            'user': user,
+            # Navigation
+            'breadcrumbs': [
+                {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+                {'label': 'Profile'},
+            ],
+        }
         return htmx_render(
             request,
             'core/profile.html',
@@ -1073,7 +1080,16 @@ def profile_edit(request):
             except Exception as e:
                 messages.error(request, f'Failed to update profile: {str(e)}')
 
-        context = {'user': user}
+        context = {
+            'user': user,
+            # Navigation
+            'breadcrumbs': [
+                {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+                {'label': 'Profile', 'url': '/profile/'},
+                {'label': 'Edit'},
+            ],
+            'back_url': '/profile/',
+        }
         return htmx_render(
             request,
             'core/profile_edit.html',
@@ -1510,6 +1526,11 @@ def settings_page(request):
         'available_gateways': available_gateways,
         'gateway_configs': gateway_configs,
         'primary_gateway': primary_gateway,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Settings'},
+        ],
     }
     return htmx_render(request, 'core/settings/index.html', 'core/settings/partials/index_content.html', context)
 

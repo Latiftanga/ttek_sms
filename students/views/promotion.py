@@ -14,10 +14,18 @@ from .utils import admin_required, htmx_render
 @admin_required
 def promotion(request):
     """Show students grouped by class for promotion."""
+    breadcrumbs = [
+        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+        {'label': 'Students', 'url': '/students/'},
+        {'label': 'Promotion'},
+    ]
+
     current_year = AcademicYear.get_current()
     if not current_year:
         return render(request, 'students/promotion.html', {
             'error': 'No current academic year set. Please configure the academic year first.',
+            'breadcrumbs': breadcrumbs,
+            'back_url': '/students/',
         })
 
     # Get next academic year
@@ -68,6 +76,9 @@ def promotion(request):
             'next_year': next_year,
             'class_students': class_students,
             'all_classes': all_classes,
+            # Navigation
+            'breadcrumbs': breadcrumbs,
+            'back_url': '/students/',
         }
     )
 

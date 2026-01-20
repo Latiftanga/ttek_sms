@@ -1,4 +1,11 @@
 {% load core_tags %}
+
+{% if breadcrumbs %}
+<div class="mb-4">
+    {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+</div>
+{% endif %}
+
 <!-- School Branding Header -->
 <div class="card bg-base-100 shadow-sm border border-base-200 mb-6 overflow-hidden">
     <div class="school-gradient p-6 relative">
