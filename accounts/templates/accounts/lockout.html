@@ -1,4 +1,4 @@
-{% load static tailwind_tags %}
+{% load static tailwind_tags core_tags %}
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
@@ -31,15 +31,43 @@
         <div class="hidden sm:block absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-white/5 pointer-events-none"></div>
 
         <div class="w-full max-w-sm bg-base-100 rounded-2xl shadow-2xl p-4 sm:p-6 relative z-10">
-            <!-- Header -->
+            <!-- Header with School Branding -->
             <div class="text-center mb-4">
+                <!-- School Logo/Icon -->
+                {% if school.logo.name %}
+                <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2 p-1.5 bg-white shadow-md border border-base-200">
+                    <img src="{{ school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
+                </div>
+                {% else %}
+                <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2" style="background-color: var(--school-primary);">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 640 512">
+                        <path d="M337.8 5.4C327-1.8 313-1.8 302.2 5.4L166.3 96 48 96C21.5 96 0 117.5 0 144L0 464c0 26.5 21.5 48 48 48l208 0 0-96c0-35.3 28.7-64 64-64s64 28.7 64 64l0 96 208 0c26.5 0 48-21.5 48-48l0-320c0-26.5-21.5-48-48-48L473.7 96 337.8 5.4zM96 192l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM96 320l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM232 176a88 88 0 1 1 176 0 88 88 0 1 1 -176 0zm88-48c-8.8 0-16 7.2-16 16l0 32 0 16-32 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0 16 0 0-16 0-64c0-8.8-7.2-16-16-16z"/>
+                    </svg>
+                </div>
+                {% endif %}
+
+                <!-- School Name -->
+                <h1 class="text-sm sm:text-base font-bold tracking-wide mb-0.5 line-clamp-2 px-2" style="color: var(--school-primary);">
+                    {% if school and school.display_name %}
+                        {{ school.display_name|upper|truncatechars:40 }}
+                    {% elif tenant and tenant.name %}
+                        {{ tenant.name|upper|truncatechars:40 }}
+                    {% else %}
+                        SCHOOL PORTAL
+                    {% endif %}
+                </h1>
+
+                {% if school and school.motto %}
+                <p class="text-[10px] text-base-content/50 italic mb-2">"{{ school.motto }}"</p>
+                {% endif %}
+
                 <!-- Lock Icon -->
-                <div class="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full mb-3 bg-error/10">
-                    <i class="fa-solid fa-lock text-3xl sm:text-4xl text-error"></i>
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full my-3 bg-error/10">
+                    <i class="fa-solid fa-lock text-xl text-error"></i>
                 </div>
 
-                <h1 class="text-xl sm:text-2xl font-bold text-error mb-2">Account Temporarily Locked</h1>
-                <p class="text-base-content/60 text-sm">Too many failed login attempts</p>
+                <h2 class="text-lg sm:text-xl font-bold text-error mb-1">Account Temporarily Locked</h2>
+                <p class="text-base-content/60 text-xs">Too many failed login attempts</p>
             </div>
 
             <!-- Message -->
@@ -81,7 +109,14 @@
             <!-- Footer -->
             <div class="mt-4 pt-3 border-t border-base-200 text-center">
                 <p class="text-[10px] text-base-content/40">
-                    This security measure helps protect your account.
+                    {% if tenant and tenant.phone or tenant and tenant.email %}
+                    <span class="block mb-0.5">
+                        {% if tenant.phone %}{{ tenant.phone }}{% endif %}
+                        {% if tenant.phone and tenant.email %} | {% endif %}
+                        {% if tenant.email %}{{ tenant.email }}{% endif %}
+                    </span>
+                    {% endif %}
+                    Powered by <span class="font-semibold">TTEK SMS</span>
                 </p>
             </div>
         </div>
