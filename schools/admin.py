@@ -185,6 +185,13 @@ class SchoolAdmin(ModelAdmin):
 
     readonly_fields = ('created_on', 'updated_at')
 
+    def get_readonly_fields(self, request, obj=None):
+        """Make schema_name readonly when editing existing schools."""
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj:  # Editing existing school
+            readonly.append('schema_name')
+        return readonly
+
     class Media:
         js = ('admin/js/district_filter.js',)
 
