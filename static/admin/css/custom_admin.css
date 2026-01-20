@@ -1,0 +1,114 @@
+/* Fixed sidebar and topnav for Django Daisy */
+
+/* Make the body not scroll */
+body {
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* Main flex container */
+body > .flex {
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Fix the sidebar - w-56 = 14rem = 224px */
+#sidebar,
+.sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh !important;
+    width: 14rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 40;
+    transition: transform 0.2s ease-in-out;
+}
+
+/* Hide horizontal scrollbar in sidebar menu */
+#sidebar ul,
+#sidebar .menu,
+.sidebar ul,
+.sidebar .menu {
+    overflow-x: hidden;
+}
+
+/* When sidebar is hidden */
+#sidebar.\!hidden,
+.sidebar.\!hidden {
+    transform: translateX(-100%);
+}
+
+/* Content wrapper takes remaining space with left margin for sidebar */
+#content,
+.content-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    margin-left: 14rem;
+    width: calc(100% - 14rem);
+    transition: margin-left 0.2s ease-in-out, width 0.2s ease-in-out;
+}
+
+/* When sidebar is hidden, content fills full width */
+body:has(#sidebar.\!hidden) #content,
+body:has(#sidebar.\!hidden) .content-wrapper,
+body:has(.sidebar.\!hidden) #content,
+body:has(.sidebar.\!hidden) .content-wrapper {
+    margin-left: 0;
+    width: 100%;
+}
+
+/* On mobile/tablet where sidebar is hidden by default */
+@media (max-width: 1023px) {
+    #sidebar,
+    .sidebar {
+        transform: translateX(-100%);
+    }
+
+    #sidebar.\!block,
+    .sidebar.\!block {
+        transform: translateX(0);
+    }
+
+    #content,
+    .content-wrapper {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    /* When sidebar is shown on mobile */
+    body:has(#sidebar.\!block) #content,
+    body:has(.sidebar.\!block) #content {
+        margin-left: 14rem;
+        width: calc(100% - 14rem);
+    }
+}
+
+/* Fix the navbar at top of content area */
+#content > nav,
+#content > header,
+.content-wrapper > nav,
+.content-wrapper > header,
+.navbar {
+    position: sticky !important;
+    top: 0;
+    z-index: 30;
+    flex-shrink: 0;
+    background: inherit;
+}
+
+/* Make the main content area scrollable */
+.main-content {
+    flex: 1;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+}
+
+/* Breadcrumb area should not shrink */
+#content > .flex.items-center,
+.content-wrapper > .flex.items-center {
+    flex-shrink: 0;
+}

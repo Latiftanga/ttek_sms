@@ -69,7 +69,7 @@ if not DEBUG:
 # --- 2. APPS ---
 SHARED_APPS = (
     'django_tenants',
-    'unfold',  # Django Unfold admin theme - must be before django.contrib.admin
+    'django_daisy',  # Django Daisy admin theme - must be before django.contrib.admin
     'schools',
     'accounts',
     'django.contrib.admin',
@@ -78,6 +78,7 @@ SHARED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'django_celery_beat',
 
     #Third_party Apps
@@ -446,76 +447,38 @@ USE_TZ = True
 # --- 13. DEFAULT PRIMARY KEY ---
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# --- 14. UNFOLD ADMIN THEME ---
-UNFOLD = {
-    "SITE_TITLE": "TTEK SMS",
-    "SITE_HEADER": "TTEK SMS Platform",
-    "SITE_SYMBOL": "school",
-    "SHOW_HISTORY": True,
-    "SHOW_VIEW_ON_SITE": True,
-    "ENVIRONMENT": "core.utils.environment_callback",
-    "COLORS": {
-        "primary": {
-            "50": "250 245 255",
-            "100": "243 232 255",
-            "200": "233 213 255",
-            "300": "216 180 254",
-            "400": "192 132 252",
-            "500": "168 85 247",
-            "600": "147 51 234",
-            "700": "126 34 206",
-            "800": "107 33 168",
-            "900": "88 28 135",
-            "950": "59 7 100",
+# --- 14. DJANGO DAISY ADMIN THEME ---
+DAISY_SETTINGS = {
+    'SITE_TITLE': 'TTEK SMS',
+    'SITE_HEADER': 'TTEK SMS Admin',
+    'INDEX_TITLE': 'Dashboard',
+    'DONT_SUPPORT_ME': True,
+    'EXTRA_STYLES': [
+        '/static/admin/css/custom_admin.css',
+    ],
+    'APPS_REORDER': {
+        'schools': {
+            'name': 'School Management',
+            'icon': 'fa fa-school',
+            'priority': 100,
+            'divider_title': 'Schools',
+        },
+        'accounts': {
+            'name': 'Users',
+            'icon': 'fa fa-users',
+            'priority': 90,
+        },
+        'django_celery_beat': {
+            'name': 'Scheduled Tasks',
+            'icon': 'fa fa-clock',
+            'priority': 10,
+            'divider_title': 'System',
+        },
+        'auth': {
+            'name': 'Authentication',
+            'icon': 'fa fa-lock',
+            'priority': 80,
         },
     },
-    "SIDEBAR": {
-        "show_search": True,
-        "show_all_applications": True,
-        "navigation": [
-            {
-                "title": "Schools",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Schools",
-                        "icon": "school",
-                        "link": "/admin/schools/school/",
-                    },
-                    {
-                        "title": "Regions",
-                        "icon": "map",
-                        "link": "/admin/schools/region/",
-                    },
-                    {
-                        "title": "Districts",
-                        "icon": "location_city",
-                        "link": "/admin/schools/district/",
-                    },
-                ],
-            },
-            {
-                "title": "Users & Auth",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Users",
-                        "icon": "people",
-                        "link": "/admin/accounts/user/",
-                    },
-                ],
-            },
-            {
-                "title": "Tasks",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Periodic Tasks",
-                        "icon": "schedule",
-                        "link": "/admin/django_celery_beat/periodictask/",
-                    },
-                ],
-            },
-        ],
-    },
 }
+

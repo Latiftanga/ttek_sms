@@ -205,20 +205,6 @@ def requires_houses(view_func):
 
 
 # =============================================================================
-# Unfold Admin Environment Callback
-# =============================================================================
-
-def environment_callback(request):
-    """
-    Returns environment badge for Unfold admin header.
-    Shows Development/Production mode indicator.
-    """
-    if django_settings.DEBUG:
-        return ["Development", "warning"]
-    return ["Production", "danger"]
-
-
-# =============================================================================
 # Teacher Utility Functions and Decorators
 # =============================================================================
 
