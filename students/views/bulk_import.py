@@ -106,9 +106,9 @@ def bulk_import(request):
         # Normalize column names
         df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
 
-        # Build lookups
+        # Build lookups - use values_list for memory efficiency
         class_map = {c.name: c.pk for c in Class.objects.filter(is_active=True)}
-        guardian_map = {g.phone_number: g.pk for g in Guardian.objects.all()}
+        guardian_map = dict(Guardian.objects.values_list('phone_number', 'pk'))
         existing_admissions = set(Student.objects.values_list('admission_number', flat=True))
         existing_emails = set(User.objects.values_list('email', flat=True))
 

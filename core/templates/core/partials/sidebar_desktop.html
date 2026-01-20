@@ -40,7 +40,8 @@
                    hx-get="{% url 'core:settings' %}"
                    hx-target="#main-content"
                    hx-push-url="true"
-                   hx-swap="innerHTML show:window:top">
+                   hx-swap="innerHTML show:window:top"
+                   preload="mouseover">
                     <i class="fa-solid fa-gear w-5 text-center"></i>
                     <span class="sidebar-text">Settings</span>
                 </a>

@@ -9,6 +9,7 @@ from django.db.models import Sum, Count, Q, F
 from django.db.models.functions import TruncDate
 from django.contrib import messages
 from django.core.paginator import Paginator
+from core.utils import cache_page_per_tenant
 
 from .models import (
     PaymentGateway, PaymentGatewayConfig, FeeStructure, CATEGORY_CHOICES,
@@ -53,8 +54,9 @@ def htmx_render(request, full_template, partial_template, context=None):
 # =============================================================================
 
 @admin_required
+@cache_page_per_tenant(timeout=300)  # Cache for 5 minutes
 def index(request):
-    """Finance dashboard with summary statistics."""
+    """Finance dashboard with summary statistics. Cached for 5 minutes."""
     current_year = AcademicYear.get_current()
     current_term = Term.get_current() if hasattr(Term, 'get_current') else None
 

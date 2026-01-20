@@ -9,6 +9,7 @@ from django.http import HttpResponse, HttpResponseForbidden
 from django.utils import timezone
 from django.utils.html import escape
 from django.db.models import Q
+from core.utils import cache_page_per_tenant
 
 import pandas as pd
 
@@ -70,8 +71,9 @@ def htmx_render(request, full_template, partial_template, context=None):
 
 @login_required
 @teacher_or_admin_required
+@cache_page_per_tenant(timeout=60)  # Cache for 1 minute (SMS stats change frequently)
 def index(request):
-    """SMS dashboard with recent messages and quick actions."""
+    """SMS dashboard with recent messages and quick actions. Cached for 1 minute."""
     messages = SMSMessage.objects.select_related('student', 'created_by')[:50]
     templates = SMSTemplate.objects.filter(is_active=True)
 

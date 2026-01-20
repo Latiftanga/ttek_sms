@@ -84,6 +84,60 @@ def ratelimit(key='user', rate='10/h', block=True):
     return decorator
 
 
+def cache_page_per_tenant(timeout=300):
+    """
+    Tenant-aware page caching decorator for multi-tenant Django apps.
+
+    Caches the response per tenant schema to avoid cross-tenant data leakage.
+    Works with HTMX by caching partial and full responses separately.
+
+    Args:
+        timeout: Cache timeout in seconds (default 5 minutes)
+
+    Usage:
+        @cache_page_per_tenant(timeout=300)
+        def my_dashboard(request):
+            ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            from django.db import connection
+
+            # Build tenant-aware cache key
+            schema = getattr(connection, 'schema_name', 'public')
+            is_htmx = request.headers.get('HX-Request', '')
+            path = request.get_full_path()
+
+            cache_key = f"page:{schema}:{view_func.__name__}:{path}:htmx={is_htmx}"
+
+            # Try to get cached response
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return HttpResponse(
+                    cached['content'],
+                    content_type=cached.get('content_type', 'text/html'),
+                    status=cached.get('status', 200)
+                )
+
+            # Generate response
+            response = view_func(request, *args, **kwargs)
+
+            # Only cache successful GET responses
+            if request.method == 'GET' and response.status_code == 200:
+                # Don't cache responses with Set-Cookie
+                if not response.cookies:
+                    cache.set(cache_key, {
+                        'content': response.content,
+                        'content_type': response.get('Content-Type', 'text/html'),
+                        'status': response.status_code,
+                    }, timeout)
+
+            return response
+        return wrapper
+    return decorator
+
+
 # =============================================================================
 # Unfold Admin Environment Callback
 # =============================================================================
