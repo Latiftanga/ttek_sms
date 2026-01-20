@@ -18,12 +18,14 @@
         </div>
         {% floating_field form.code size="sm" %}
 
+        {% if form.is_core %}
         <div class="flex items-center gap-4">
             <label class="label cursor-pointer gap-2">
                 <input type="checkbox" name="is_core" class="checkbox checkbox-primary checkbox-sm" {% if form.is_core.value %}checked{% endif %}>
                 <span class="label-text text-sm">Core Subject</span>
             </label>
         </div>
+        {% endif %}
 
         <label class="label cursor-pointer justify-start gap-3">
             <input type="checkbox" name="is_active" class="checkbox checkbox-sm checkbox-primary" {% if form.is_active.value %}checked{% endif %}>

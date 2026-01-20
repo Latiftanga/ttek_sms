@@ -122,12 +122,14 @@ class SubjectForm(forms.ModelForm):
         self.fields['programmes'].queryset = Programme.objects.filter(is_active=True)
         self.fields['programmes'].required = False
 
-        # Hide programmes field for basic-only schools
+        # Hide programmes and is_core fields for basic-only schools
         try:
             from core.models import SchoolSettings
             school_settings = SchoolSettings.load()
             if not school_settings.has_programmes:
                 del self.fields['programmes']
+                # Basic schools don't have core/elective distinction
+                del self.fields['is_core']
         except Exception:
             pass
 
