@@ -1,0 +1,182 @@
+{% extends "admin/base_site.html" %}
+{% load humanize %}
+{% load i18n %}
+
+{% block content_title %}
+    {{ index_title|default:"Dashboard" }}
+{% endblock %}
+
+{% block content %}
+<div class="mt-3 grid gap-6">
+    <!-- Quick Access Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Schools Card -->
+        <a href="{% url 'admin:schools_school_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
+            <div class="card-body">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <i class="fa fa-school text-primary text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="card-title text-base">Schools</h3>
+                        <p class="text-sm text-base-content/60">Manage registered schools</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <!-- Regions Card -->
+        <a href="{% url 'admin:schools_region_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
+            <div class="card-body">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-info/10 rounded-lg flex items-center justify-center">
+                        <i class="fa fa-map text-info text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="card-title text-base">Regions</h3>
+                        <p class="text-sm text-base-content/60">Manage geographical regions</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <!-- Districts Card -->
+        <a href="{% url 'admin:schools_district_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
+            <div class="card-body">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-success/10 rounded-lg flex items-center justify-center">
+                        <i class="fa fa-city text-success text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="card-title text-base">Districts</h3>
+                        <p class="text-sm text-base-content/60">Manage districts</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <!-- Users Card -->
+        <a href="{% url 'admin:accounts_user_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
+            <div class="card-body">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-warning/10 rounded-lg flex items-center justify-center">
+                        <i class="fa fa-users text-warning text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="card-title text-base">Users</h3>
+                        <p class="text-sm text-base-content/60">Manage platform users</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <!-- Scheduled Tasks Card -->
+        <a href="{% url 'admin:django_celery_beat_periodictask_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
+            <div class="card-body">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-error/10 rounded-lg flex items-center justify-center">
+                        <i class="fa fa-clock text-error text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="card-title text-base">Scheduled Tasks</h3>
+                        <p class="text-sm text-base-content/60">Manage background jobs</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- App List Section -->
+    {% if app_list %}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {% for app in app_list %}
+        <div class="card bg-base-100 card-bordered">
+            <div class="card-body">
+                <h2 class="card-title text-lg border-b pb-2 mb-3">
+                    <i class="fa fa-folder text-primary"></i>
+                    {{ app.name }}
+                </h2>
+                <div class="space-y-2">
+                    {% for model in app.models %}
+                    <div class="flex items-center justify-between py-2 border-b border-base-200 last:border-0">
+                        <div>
+                            {% if model.admin_url %}
+                            <a href="{{ model.admin_url }}" class="font-medium hover:text-primary">
+                                {{ model.name }}
+                            </a>
+                            {% else %}
+                            <span class="text-base-content/50">{{ model.name }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex gap-2">
+                            {% if model.add_url %}
+                            <a href="{{ model.add_url }}" class="btn btn-xs btn-primary btn-outline" title="Add">
+                                <i class="fa fa-plus"></i> Add
+                            </a>
+                            {% endif %}
+                            {% if model.admin_url %}
+                            <a href="{{ model.admin_url }}" class="btn btn-xs btn-ghost" title="View all">
+                                <i class="fa fa-list"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Recent History -->
+    <div class="card bg-base-100 card-bordered">
+        <div class="card-body">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="card-title">
+                    <i class="fa fa-history text-primary"></i>
+                    {% trans "Recent Actions" %}
+                </h2>
+            </div>
+            {% if admin_log %}
+            <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                    <thead>
+                        <tr>
+                            <th>{% trans "Action" %}</th>
+                            <th>{% trans "Object" %}</th>
+                            <th>{% trans "Time" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in admin_log %}
+                        <tr>
+                            <td>
+                                {% if entry.is_addition %}
+                                <span class="badge badge-success badge-sm">Added</span>
+                                {% elif entry.is_change %}
+                                <span class="badge badge-info badge-sm">Changed</span>
+                                {% elif entry.is_deletion %}
+                                <span class="badge badge-error badge-sm">Deleted</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if entry.get_admin_url %}
+                                <a href="{{ entry.get_admin_url }}" class="link link-primary">{{ entry.object_repr }}</a>
+                                {% else %}
+                                {{ entry.object_repr }}
+                                {% endif %}
+                            </td>
+                            <td class="text-base-content/60">{{ entry.action_time|timesince }} ago</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-base-content/50">{% trans "No recent actions." %}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
