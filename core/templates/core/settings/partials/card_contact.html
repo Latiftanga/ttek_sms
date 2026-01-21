@@ -34,8 +34,8 @@
             <div class="flex justify-between">
                 <span class="text-base-content/60">Location</span>
                 <span class="font-medium">
-                    {% if tenant.city or tenant.region %}
-                        {{ tenant.city }}{% if tenant.city and tenant.region %}, {% endif %}{{ tenant.region }}
+                    {% if tenant.city or tenant.location_region %}
+                        {{ tenant.city }}{% if tenant.city and tenant.location_region %}, {% endif %}{{ tenant.location_region }}
                     {% else %}
                         -
                     {% endif %}

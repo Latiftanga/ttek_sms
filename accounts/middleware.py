@@ -77,7 +77,7 @@ class ProfileSetupMiddleware:
     ALLOWED_PATH_PREFIXES = [
         '/static/',
         '/media/',
-        '/accounts/profile-setup/',
+        '/profile-setup/',
     ]
 
     def __init__(self, get_response):

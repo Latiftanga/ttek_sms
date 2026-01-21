@@ -1478,7 +1478,7 @@ def settings_page(request):
         'address': tenant.address,
         'digital_address': tenant.digital_address,
         'city': tenant.city,
-        'region': tenant.region,
+        'region': tenant.location_region,
     })
 
     admin_form = SchoolAdminForm(initial={
@@ -1606,7 +1606,7 @@ def settings_update_contact(request):
         tenant.address = form.cleaned_data['address']
         tenant.digital_address = form.cleaned_data['digital_address']
         tenant.city = form.cleaned_data['city']
-        tenant.region = form.cleaned_data['region']
+        tenant.location_region = form.cleaned_data['region']
         tenant.save()
 
         if not request.htmx:
