@@ -63,8 +63,8 @@ RUN apt-get update && \
 RUN adduser --disabled-password --no-create-home app_user
 
 # Create dirs and set ownership
-RUN mkdir -p /vol/web/{media,static} /app/staticfiles && \
-    chown -R app_user:app_user /vol /app/staticfiles
+RUN mkdir -p /vol/web/{media,static} /app/staticfiles /var/log/app && \
+    chown -R app_user:app_user /vol /app/staticfiles /var/log/app
 
 # Copy virtual environment from builder
 COPY --from=builder --chown=app_user:app_user /opt/venv /opt/venv

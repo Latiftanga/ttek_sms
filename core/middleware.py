@@ -125,14 +125,111 @@ class HealthCheckMiddleware:
 
     This must be placed BEFORE TenantMainMiddleware in MIDDLEWARE settings
     to allow health checks to pass without requiring a valid tenant domain.
+
+    Endpoints:
+    - /health/ - Basic health check (for load balancers)
+    - /health/ready/ - Readiness check (includes DB, Redis)
+    - /health/live/ - Liveness check (basic)
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # Handle health check before tenant middleware processes the request
-        if request.path == '/health/' or request.path == '/health':
+        # Basic health check (fast, for load balancers)
+        if request.path in ['/health/', '/health', '/health/live/', '/health/live']:
             return JsonResponse({'status': 'healthy'})
 
+        # Detailed readiness check
+        if request.path in ['/health/ready/', '/health/ready']:
+            return self._readiness_check()
+
+        # Full status check (with details)
+        if request.path in ['/health/status/', '/health/status']:
+            return self._status_check()
+
         return self.get_response(request)
+
+    def _readiness_check(self):
+        """Check if the app is ready to serve requests."""
+        checks = {
+            'database': self._check_database(),
+            'redis': self._check_redis(),
+        }
+
+        all_healthy = all(c['status'] == 'healthy' for c in checks.values())
+        status_code = 200 if all_healthy else 503
+
+        return JsonResponse({
+            'status': 'ready' if all_healthy else 'not_ready',
+            'checks': checks,
+        }, status=status_code)
+
+    def _status_check(self):
+        """Detailed status check with timing info."""
+        import time
+
+        checks = {}
+
+        # Database check with timing
+        start = time.time()
+        checks['database'] = self._check_database()
+        checks['database']['response_time_ms'] = round((time.time() - start) * 1000, 2)
+
+        # Redis check with timing
+        start = time.time()
+        checks['redis'] = self._check_redis()
+        checks['redis']['response_time_ms'] = round((time.time() - start) * 1000, 2)
+
+        # Celery check
+        checks['celery'] = self._check_celery()
+
+        all_healthy = all(c['status'] == 'healthy' for c in checks.values())
+
+        return JsonResponse({
+            'status': 'healthy' if all_healthy else 'degraded',
+            'checks': checks,
+            'version': self._get_version(),
+        }, status=200 if all_healthy else 503)
+
+    def _check_database(self):
+        """Check database connectivity."""
+        try:
+            from django.db import connection
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT 1')
+            return {'status': 'healthy'}
+        except Exception as e:
+            return {'status': 'unhealthy', 'error': str(e)}
+
+    def _check_redis(self):
+        """Check Redis connectivity."""
+        try:
+            from django.core.cache import cache
+            cache.set('health_check', 'ok', 10)
+            if cache.get('health_check') == 'ok':
+                return {'status': 'healthy'}
+            return {'status': 'unhealthy', 'error': 'Cache read/write failed'}
+        except Exception as e:
+            return {'status': 'unhealthy', 'error': str(e)}
+
+    def _check_celery(self):
+        """Check Celery worker status."""
+        try:
+            from config.celery import app
+            inspect = app.control.inspect()
+            stats = inspect.stats()
+            if stats:
+                worker_count = len(stats)
+                return {'status': 'healthy', 'workers': worker_count}
+            return {'status': 'unhealthy', 'error': 'No workers responding'}
+        except Exception as e:
+            return {'status': 'unknown', 'error': str(e)}
+
+    def _get_version(self):
+        """Get app version info."""
+        import os
+        return {
+            'app': os.getenv('APP_VERSION', 'unknown'),
+            'commit': os.getenv('GIT_COMMIT', 'unknown')[:8] if os.getenv('GIT_COMMIT') else 'unknown',
+        }
