@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import ObjectDoesNotExist
 from django.urls import reverse_lazy, reverse
 from django.http import HttpResponseRedirect, HttpResponse
 from .forms import LoginForm
@@ -75,6 +76,23 @@ def profile_setup_step(request, step):
     current_index = steps.index(step)
     progress = int((current_index / (len(steps) - 1)) * 100) if len(steps) > 1 else 0
 
+    # Get the actual profile for pre-filling forms
+    # Use try/except because OneToOneField raises ObjectDoesNotExist, not AttributeError
+    teacher_profile = None
+    guardian_profile = None
+
+    if getattr(user, 'is_teacher', False):
+        try:
+            teacher_profile = user.teacher_profile
+        except Exception:
+            pass
+
+    if getattr(user, 'is_parent', False):
+        try:
+            guardian_profile = user.guardian_profile
+        except Exception:
+            pass
+
     context = {
         'step': step,
         'steps': steps,
@@ -82,7 +100,9 @@ def profile_setup_step(request, step):
         'progress': progress,
         'is_teacher': getattr(user, 'is_teacher', False),
         'is_parent': getattr(user, 'is_parent', False),
-        'guardian': getattr(user, 'guardian_profile', None),
+        'guardian': guardian_profile,
+        'teacher': teacher_profile,
+        'profile': teacher_profile or guardian_profile,
     }
 
     if request.method == 'POST':
@@ -106,53 +126,67 @@ def handle_step_post(request, step, steps, context):
         return redirect('accounts:profile_setup_step', step=next_step)
 
     elif step == 'personal':
-        # Save personal info
+        # Save personal info to the correct profile model
         phone = request.POST.get('phone', '').strip()
         address = request.POST.get('address', '').strip()
 
-        # Update user profile fields if they exist
-        if hasattr(user, 'phone'):
-            user.phone = phone
-        if hasattr(user, 'address'):
-            user.address = address
-
-        # For teachers, also get date of birth
+        # For teachers, save to teacher_profile
         if getattr(user, 'is_teacher', False):
-            dob = request.POST.get('date_of_birth', '').strip()
-            if hasattr(user, 'date_of_birth') and dob:
-                from datetime import datetime
-                try:
-                    user.date_of_birth = datetime.strptime(dob, '%Y-%m-%d').date()
-                except ValueError:
-                    pass
+            try:
+                teacher = user.teacher_profile
+                if phone:
+                    teacher.phone_number = phone
+                if address:
+                    teacher.address = address
+                dob = request.POST.get('date_of_birth', '').strip()
+                if dob:
+                    from datetime import datetime
+                    try:
+                        teacher.date_of_birth = datetime.strptime(dob, '%Y-%m-%d').date()
+                    except ValueError:
+                        pass
+                teacher.save()
+                messages.success(request, 'Personal information saved.')
+            except ObjectDoesNotExist:
+                messages.error(request, 'Teacher profile not found.')
+            except Exception:
+                messages.error(request, 'Failed to save personal information.')
 
-        # For parents, also get occupation
-        if getattr(user, 'is_parent', False):
-            occupation = request.POST.get('occupation', '').strip()
-            if hasattr(user, 'occupation'):
-                user.occupation = occupation
-
-        try:
-            user.save()
-            messages.success(request, 'Personal information saved.')
-        except Exception:
-            messages.error(request, 'Failed to save personal information.')
+        # For parents, save to guardian_profile
+        elif getattr(user, 'is_parent', False):
+            try:
+                guardian = user.guardian_profile
+                if phone:
+                    guardian.phone_number = phone
+                if address:
+                    guardian.address = address
+                occupation = request.POST.get('occupation', '').strip()
+                if occupation:
+                    guardian.occupation = occupation
+                guardian.save()
+                messages.success(request, 'Personal information saved.')
+            except ObjectDoesNotExist:
+                messages.error(request, 'Guardian profile not found.')
+            except Exception:
+                messages.error(request, 'Failed to save personal information.')
 
         next_step = steps[current_index + 1]
         request.session['profile_setup_step'] = next_step
         return redirect('accounts:profile_setup_step', step=next_step)
 
     elif step == 'photo':
-        # Handle photo upload (teachers only)
+        # Handle photo upload (teachers only) - save to teacher_profile
         if 'photo' in request.FILES:
             photo = request.FILES['photo']
-            if hasattr(user, 'photo'):
-                user.photo = photo
-                try:
-                    user.save()
-                    messages.success(request, 'Profile photo uploaded.')
-                except Exception:
-                    messages.error(request, 'Failed to upload photo.')
+            try:
+                teacher = user.teacher_profile
+                teacher.photo = photo
+                teacher.save()
+                messages.success(request, 'Profile photo uploaded.')
+            except ObjectDoesNotExist:
+                messages.error(request, 'Teacher profile not found.')
+            except Exception:
+                messages.error(request, 'Failed to upload photo.')
 
         next_step = steps[current_index + 1]
         request.session['profile_setup_step'] = next_step
@@ -160,8 +194,8 @@ def handle_step_post(request, step, steps, context):
 
     elif step == 'preferences':
         # Handle notification preferences (parents only)
-        guardian = getattr(user, 'guardian_profile', None)
-        if guardian:
+        try:
+            guardian = user.guardian_profile
             guardian.email_notifications = 'email_notifications' in request.POST
             guardian.sms_notifications = 'sms_notifications' in request.POST
             guardian.academic_alerts = 'academic_alerts' in request.POST
@@ -173,6 +207,10 @@ def handle_step_post(request, step, steps, context):
                 'attendance_alerts', 'fee_alerts', 'announcement_alerts'
             ])
             messages.success(request, 'Notification preferences saved.')
+        except ObjectDoesNotExist:
+            messages.error(request, 'Guardian profile not found.')
+        except Exception:
+            messages.error(request, 'Failed to save preferences.')
 
         next_step = steps[current_index + 1]
         request.session['profile_setup_step'] = next_step

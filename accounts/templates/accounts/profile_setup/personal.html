@@ -22,25 +22,31 @@
             <div class="bg-base-200/50 rounded-lg p-3 mb-4">
                 <div class="text-xs text-base-content/50 mb-1">Your Name</div>
                 <div class="font-medium">
-                    {{ request.user.first_name }} {{ request.user.last_name }}
-                    <span class="text-xs text-base-content/40 ml-2">(from your account)</span>
+                    {% if is_teacher and teacher %}
+                        {{ teacher.full_name }}
+                    {% elif is_parent and guardian %}
+                        {{ guardian.full_name }}
+                    {% else %}
+                        {{ request.user.email }}
+                    {% endif %}
+                    <span class="text-xs text-base-content/40 ml-2">(from your profile)</span>
                 </div>
             </div>
 
             <!-- Phone Number -->
-            {% text_input "phone" label="Phone Number" placeholder="e.g., 0244123456" icon="fa-solid fa-phone" value=request.user.phone %}
+            {% text_input "phone" label="Phone Number" placeholder="e.g., 0244123456" icon="fa-solid fa-phone" value=profile.phone_number %}
 
             <!-- Address -->
-            {% textarea_input "address" label="Address" placeholder="Enter your residential address" icon="fa-solid fa-location-dot" value=request.user.address rows=2 %}
+            {% textarea_input "address" label="Address" placeholder="Enter your residential address" icon="fa-solid fa-location-dot" value=profile.address rows=2 %}
 
             {% if is_teacher %}
             <!-- Date of Birth (Teachers) -->
-            {% date_input "date_of_birth" label="Date of Birth" icon="fa-solid fa-cake-candles" value=request.user.date_of_birth %}
+            {% date_input "date_of_birth" label="Date of Birth" icon="fa-solid fa-cake-candles" value=profile.date_of_birth %}
             {% endif %}
 
             {% if is_parent %}
             <!-- Occupation (Parents) -->
-            {% text_input "occupation" label="Occupation" placeholder="e.g., Engineer, Teacher, Business Owner" icon="fa-solid fa-briefcase" value=request.user.occupation %}
+            {% text_input "occupation" label="Occupation" placeholder="e.g., Engineer, Teacher, Business Owner" icon="fa-solid fa-briefcase" value=profile.occupation %}
             {% endif %}
 
             <!-- Navigation -->
