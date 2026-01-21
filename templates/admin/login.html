@@ -1,0 +1,190 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    body {
+        overflow: auto !important;
+        height: auto !important;
+        min-height: 100vh;
+        background: oklch(var(--b2)) !important;
+    }
+
+    #sidebar, .sidebar, aside { display: none !important; }
+    #content, .content-wrapper { margin-left: 0 !important; width: 100% !important; background: transparent !important; }
+    .navbar, #content > nav { display: none !important; }
+
+    .login-wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .login-card {
+        background: oklch(var(--b1));
+        border-radius: 16px;
+        border: 1px solid oklch(var(--b3));
+        width: 100%;
+        max-width: 400px;
+        padding: 40px;
+    }
+
+    .login-logo {
+        text-align: center;
+        margin-bottom: 32px;
+    }
+
+    .login-logo img {
+        max-width: 140px;
+        max-height: 45px;
+    }
+
+    .login-logo-fallback {
+        width: 56px;
+        height: 56px;
+        background: oklch(var(--p));
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+    }
+
+    .login-logo-fallback i {
+        font-size: 1.5rem;
+        color: oklch(var(--pc));
+    }
+
+    .login-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: oklch(var(--bc));
+        margin: 0;
+    }
+
+    .login-subtitle {
+        font-size: 0.875rem;
+        color: oklch(var(--bc) / 0.6);
+        margin-top: 4px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: oklch(var(--bc));
+        margin-bottom: 8px;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid oklch(var(--b3));
+        border-radius: 8px;
+        font-size: 1rem;
+        background: oklch(var(--b1));
+        color: oklch(var(--bc));
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: oklch(var(--p));
+        box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
+    }
+
+    .login-btn {
+        width: 100%;
+        padding: 12px;
+        background: oklch(var(--p));
+        color: oklch(var(--pc));
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.15s ease;
+    }
+
+    .login-btn:hover {
+        opacity: 0.9;
+    }
+
+    .errornote {
+        background: oklch(var(--er) / 0.1);
+        color: oklch(var(--er));
+        border: 1px solid oklch(var(--er) / 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 20px;
+        font-size: 0.875rem;
+    }
+
+    .login-footer {
+        text-align: center;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid oklch(var(--b3));
+    }
+
+    .login-footer p {
+        font-size: 0.75rem;
+        color: oklch(var(--bc) / 0.5);
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block bodyclass %}login-page{% endblock %}
+{% block content_title %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-logo">
+            <img src="{% static 'admin/img/logo.png' %}" alt="TTEK SMS"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+            <div class="login-logo-fallback" style="display: none;">
+                <i class="fa fa-graduation-cap"></i>
+            </div>
+            <h1 class="login-title">TTEK SMS</h1>
+            <p class="login-subtitle">School Management System</p>
+        </div>
+
+        {% if form.errors %}
+        <div class="errornote">
+            {% if form.non_field_errors %}
+                {{ form.non_field_errors|first }}
+            {% else %}
+                {% trans "Please correct the errors below." %}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <form action="{{ app_path }}" method="post" id="login-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="id_username">{% trans "Username" %}</label>
+                <input type="text" name="username" id="id_username" autofocus autocomplete="username" required>
+            </div>
+            <div class="form-group">
+                <label for="id_password">{% trans "Password" %}</label>
+                <input type="password" name="password" id="id_password" autocomplete="current-password" required>
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <button type="submit" class="login-btn">{% trans "Sign In" %}</button>
+        </form>
+
+        <div class="login-footer">
+            <p>&copy; {% now "Y" %} TTEK SMS</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
