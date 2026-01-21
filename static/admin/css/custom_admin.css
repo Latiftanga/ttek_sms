@@ -300,3 +300,46 @@ a.link-primary,
         box-shadow: 4px 0 16px oklch(var(--bc) / 0.1);
     }
 }
+
+/* ============================================
+   Loading States
+   ============================================ */
+
+/* Button loading state */
+button.htmx-request,
+.btn.htmx-request,
+input[type="submit"].htmx-request {
+    pointer-events: none;
+    opacity: 0.7;
+    position: relative;
+}
+
+button.htmx-request::after,
+.btn.htmx-request::after,
+input[type="submit"].htmx-request::after {
+    content: '';
+    width: 1em;
+    height: 1em;
+    margin-left: 0.5em;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: admin-btn-spin 0.6s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+@keyframes admin-btn-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Form submission loading */
+form.htmx-request {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Page loading indicator */
+.htmx-request .main-content {
+    opacity: 0.5;
+}

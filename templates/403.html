@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied - TTEK SMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css"/>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, oklch(var(--b2)) 0%, oklch(var(--b3)) 100%);
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="gradient-bg flex flex-col items-center justify-center p-4">
+    <div class="card bg-base-100 shadow-2xl max-w-lg w-full">
+        <div class="card-body items-center text-center py-12">
+            <div class="w-24 h-24 rounded-full bg-error/10 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+            </div>
+
+            <h1 class="text-3xl font-bold text-base-content mb-2">403</h1>
+            <h2 class="text-xl font-semibold text-base-content/80 mb-4">Access Denied</h2>
+
+            <p class="text-base-content/60 mb-6 max-w-sm">
+                You don't have permission to access this page. Please contact your administrator if you believe this is an error.
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+                <a href="/" class="btn btn-primary flex-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    Go Home
+                </a>
+                <button onclick="history.back()" class="btn btn-ghost flex-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Go Back
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="mt-8 text-center">
+        <p class="text-base-content/40 text-sm">
+            Powered by <span class="font-semibold">TTEK SMS</span>
+        </p>
+    </footer>
+</body>
+</html>

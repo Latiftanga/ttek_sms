@@ -352,6 +352,38 @@ MEDIA_ROOT = BASE_DIR / 'media'
 MULTITENANT_RELATIVE_MEDIA_ROOT = 'schools/%s/media'
 
 # --- 10. LOGGING ---
+LOG_DIR = os.getenv('LOG_DIR', '/var/log/app')
+
+# Build handlers dict - only add file handlers in production
+_handlers = {
+    'console': {
+        'class': 'logging.StreamHandler',
+        'formatter': 'verbose',
+    },
+}
+
+# Add file handlers only in production and if log directory exists
+if not DEBUG and os.path.isdir(LOG_DIR):
+    _handlers['file'] = {
+        'class': 'logging.handlers.RotatingFileHandler',
+        'filename': os.path.join(LOG_DIR, 'django.log'),
+        'maxBytes': 10 * 1024 * 1024,  # 10 MB
+        'backupCount': 5,
+        'formatter': 'verbose',
+    }
+    _handlers['security_file'] = {
+        'class': 'logging.handlers.RotatingFileHandler',
+        'filename': os.path.join(LOG_DIR, 'security.log'),
+        'maxBytes': 10 * 1024 * 1024,  # 10 MB
+        'backupCount': 10,
+        'formatter': 'json',
+    }
+    _log_handlers = ['console', 'file']
+    _security_handlers = ['console', 'security_file']
+else:
+    _log_handlers = ['console']
+    _security_handlers = ['console']
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -364,40 +396,38 @@ LOGGING = {
             'format': '{levelname} {asctime} {message}',
             'style': '{',
         },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+        'json': {
+            'format': '{"time": "%(asctime)s", "level": "%(levelname)s", "module": "%(module)s", "message": "%(message)s"}',
         },
     },
+    'handlers': _handlers,
     'root': {
-        'handlers': ['console'],
+        'handlers': _log_handlers,
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': _log_handlers,
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
             'propagate': False,
         },
         'django.security': {
-            'handlers': ['console'],
+            'handlers': _security_handlers,
             'level': 'WARNING',
             'propagate': False,
         },
         'django.request': {
-            'handlers': ['console'],
+            'handlers': _log_handlers,
             'level': 'WARNING',
             'propagate': False,
         },
         'axes': {
-            'handlers': ['console'],
+            'handlers': _security_handlers,
             'level': 'INFO',
             'propagate': False,
         },
         'celery': {
-            'handlers': ['console'],
+            'handlers': _log_handlers,
             'level': 'INFO',
             'propagate': False,
         },
