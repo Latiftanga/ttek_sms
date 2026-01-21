@@ -37,11 +37,11 @@
             {% text_input "phone" label="Phone Number" placeholder="e.g., 0244123456" icon="fa-solid fa-phone" value=profile.phone_number %}
 
             <!-- Address -->
-            {% textarea_input "address" label="Address" placeholder="Enter your residential address" icon="fa-solid fa-location-dot" value=profile.address rows=2 %}
+            {% textarea_input "address" label="Address" placeholder="Enter your residential address" value=profile.address rows=2 %}
 
             {% if is_teacher %}
             <!-- Date of Birth (Teachers) -->
-            {% date_input "date_of_birth" label="Date of Birth" icon="fa-solid fa-cake-candles" value=profile.date_of_birth %}
+            {% date_input "date_of_birth" label="Date of Birth" value=profile.date_of_birth %}
             {% endif %}
 
             {% if is_parent %}
