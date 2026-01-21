@@ -331,7 +331,7 @@ def accept_invitation(request, token):
             })
 
         # Auto-login and redirect to profile setup
-        login(request, user)
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
         messages.success(
             request,
             "Your account has been created successfully! Let's complete your profile."
