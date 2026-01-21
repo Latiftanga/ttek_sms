@@ -112,3 +112,191 @@ body:has(.sidebar.\!hidden) .content-wrapper {
 .content-wrapper > .flex.items-center {
     flex-shrink: 0;
 }
+
+/* ============================================
+   TTEK SMS - Gemini Inspired Theme
+   Clean, minimal design using DaisyUI colors
+   ============================================ */
+
+/* Sidebar - Light gray background */
+#sidebar,
+.sidebar,
+aside.bg-base-200 {
+    background: oklch(var(--b2)) !important;
+    border-right: 1px solid oklch(var(--b3));
+}
+
+/* Sidebar menu items */
+#sidebar .menu a,
+.sidebar .menu a {
+    color: oklch(var(--bc)) !important;
+    border-radius: 24px;
+    margin: 2px 8px;
+    font-weight: 400;
+    transition: background 0.15s ease;
+}
+
+#sidebar .menu a:hover,
+.sidebar .menu a:hover {
+    background: oklch(var(--b3)) !important;
+}
+
+#sidebar .menu a.active,
+.sidebar .menu a.active,
+#sidebar .menu a[aria-current="page"],
+.sidebar .menu a[aria-current="page"] {
+    background: oklch(var(--p) / 0.15) !important;
+    color: oklch(var(--p)) !important;
+    font-weight: 500;
+}
+
+#sidebar .menu a.active i,
+.sidebar .menu a.active i,
+#sidebar .menu a[aria-current="page"] i {
+    color: oklch(var(--p)) !important;
+}
+
+#sidebar .menu i,
+.sidebar .menu i {
+    color: oklch(var(--bc) / 0.6) !important;
+}
+
+#sidebar .menu-title,
+.sidebar .menu-title {
+    color: oklch(var(--bc) / 0.5) !important;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+
+#sidebar hr,
+.sidebar hr {
+    border-color: oklch(var(--b3));
+}
+
+/* Navbar - Clean white/base */
+.navbar,
+#content > nav,
+header.navbar {
+    background: oklch(var(--b1)) !important;
+    border-bottom: 1px solid oklch(var(--b3));
+}
+
+.navbar .btn,
+#content > nav .btn {
+    background: oklch(var(--b2)) !important;
+    border: 1px solid oklch(var(--b3)) !important;
+    color: oklch(var(--bc)) !important;
+}
+
+.navbar .btn:hover,
+#content > nav .btn:hover {
+    background: oklch(var(--b3)) !important;
+}
+
+/* Cards - Subtle styling */
+.card {
+    border-radius: 12px;
+    border: 1px solid oklch(var(--b3));
+    box-shadow: none;
+}
+
+.card:hover {
+    box-shadow: 0 1px 3px oklch(var(--bc) / 0.08);
+}
+
+/* Tables */
+.table thead th {
+    background: oklch(var(--b2));
+    font-weight: 500;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.table tbody tr:hover {
+    background: oklch(var(--b2) / 0.5);
+}
+
+/* Forms */
+.input,
+.select,
+.textarea {
+    border-radius: 8px;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+    border-color: oklch(var(--p)) !important;
+    box-shadow: 0 0 0 2px oklch(var(--p) / 0.1) !important;
+    outline: none !important;
+}
+
+/* Buttons - Use DaisyUI defaults, just refine */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.btn-primary {
+    box-shadow: none;
+}
+
+/* Links */
+a.link-primary,
+.link-primary {
+    color: oklch(var(--p)) !important;
+}
+
+/* Breadcrumbs */
+.breadcrumbs {
+    font-size: 0.875rem;
+}
+
+.breadcrumbs a {
+    color: oklch(var(--bc) / 0.6);
+}
+
+.breadcrumbs a:hover {
+    color: oklch(var(--p));
+}
+
+/* Scrollbar - Minimal */
+#sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+    background: oklch(var(--bc) / 0.15);
+    border-radius: 2px;
+}
+
+#sidebar::-webkit-scrollbar-thumb:hover {
+    background: oklch(var(--bc) / 0.25);
+}
+
+/* Dropdown */
+.dropdown-content {
+    border-radius: 12px;
+    border: 1px solid oklch(var(--b3));
+    box-shadow: 0 4px 16px oklch(var(--bc) / 0.1);
+}
+
+/* Alerts - Subtle */
+.alert {
+    border-radius: 12px;
+}
+
+/* Mobile */
+@media (max-width: 1023px) {
+    #sidebar,
+    .sidebar {
+        box-shadow: 4px 0 16px oklch(var(--bc) / 0.1);
+    }
+}

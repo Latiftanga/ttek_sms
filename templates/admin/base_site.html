@@ -1,0 +1,33 @@
+{% extends "admin/base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ title }} | TTEK SMS{% endblock %}
+
+{% block branding %}
+<a href="{% url 'admin:index' %}" class="flex items-center gap-3 no-underline">
+    <div class="logo-container">
+        <img src="{% static 'admin/img/logo.png' %}" alt="TTEK SMS" class="logo-image"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <div class="logo-fallback" style="display: none;">
+            <i class="fa fa-graduation-cap"></i>
+        </div>
+    </div>
+    <span class="brand-title">TTEK SMS</span>
+</a>
+
+<style>
+    .logo-container { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+    .logo-image { max-width: 32px; max-height: 32px; object-fit: contain; }
+    .logo-fallback { width: 32px; height: 32px; background: oklch(var(--p)); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .logo-fallback i { color: oklch(var(--pc)); font-size: 1rem; }
+    .brand-title { font-size: 1rem; font-weight: 600; color: oklch(var(--bc)) !important; }
+    @media (max-width: 640px) { .brand-title { display: none; } }
+</style>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="icon" type="image/png" href="{% static 'admin/img/favicon.png' %}" onerror="this.remove()">
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
