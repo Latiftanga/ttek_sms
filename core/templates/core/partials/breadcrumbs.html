@@ -16,14 +16,14 @@ The last item is automatically styled as the current page (no link).
 {% endcomment %}
 
 {% if breadcrumbs %}
-<nav class="text-sm breadcrumbs py-0 overflow-x-auto">
-    <ul class="flex items-center flex-nowrap">
+<nav class="text-sm breadcrumbs py-0 overflow-x-auto" aria-label="Breadcrumb" role="navigation">
+    <ol class="flex items-center flex-nowrap">
         {% for crumb in breadcrumbs %}
             <li class="flex items-center whitespace-nowrap">
                 {% if forloop.last %}
                     {# Current page - no link #}
-                    <span class="text-base-content/70 font-medium truncate max-w-[200px]" title="{{ crumb.label }}">
-                        {% if crumb.icon %}<i class="{{ crumb.icon }} mr-1"></i>{% endif %}
+                    <span class="text-base-content/70 font-medium truncate max-w-[200px]" title="{{ crumb.label }}" aria-current="page">
+                        {% if crumb.icon %}<i class="{{ crumb.icon }} mr-1" aria-hidden="true"></i>{% endif %}
                         {{ crumb.label }}
                     </span>
                 {% else %}
@@ -34,12 +34,12 @@ The last item is automatically styled as the current page (no link).
                        hx-push-url="true"
                        class="link link-hover text-base-content/50 hover:text-primary truncate max-w-[150px]"
                        title="{{ crumb.label }}">
-                        {% if crumb.icon %}<i class="{{ crumb.icon }} mr-1"></i>{% endif %}
+                        {% if crumb.icon %}<i class="{{ crumb.icon }} mr-1" aria-hidden="true"></i>{% endif %}
                         {{ crumb.label }}
                     </a>
                 {% endif %}
             </li>
         {% endfor %}
-    </ul>
+    </ol>
 </nav>
 {% endif %}

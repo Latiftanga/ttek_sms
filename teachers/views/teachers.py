@@ -52,6 +52,11 @@ def index(request):
         'status_choices': Teacher.Status.choices,
         'search': search,
         'status_filter': status_filter,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Teachers'},
+        ],
     }
 
     return htmx_render(
@@ -65,13 +70,19 @@ def index(request):
 @admin_required
 def teacher_create(request):
     """Create a new teacher."""
+    breadcrumbs = [
+        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+        {'label': 'Teachers', 'url': '/teachers/'},
+        {'label': 'Add Teacher'},
+    ]
+
     if request.method == 'GET':
         form = TeacherForm()
         return htmx_render(
             request,
             'teachers/teacher_form.html',
             'teachers/partials/teacher_form_content.html',
-            {'form': form}
+            {'form': form, 'breadcrumbs': breadcrumbs, 'back_url': '/teachers/'}
         )
 
     if request.method != 'POST':
@@ -87,7 +98,7 @@ def teacher_create(request):
         request,
         'teachers/teacher_form.html',
         'teachers/partials/teacher_form_content.html',
-        {'form': form}
+        {'form': form, 'breadcrumbs': breadcrumbs, 'back_url': '/teachers/'}
     )
 
 
@@ -96,13 +107,21 @@ def teacher_edit(request, pk):
     """Edit an existing teacher."""
     teacher = get_object_or_404(Teacher, pk=pk)
 
+    breadcrumbs = [
+        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+        {'label': 'Teachers', 'url': '/teachers/'},
+        {'label': teacher.full_name, 'url': f'/teachers/{pk}/'},
+        {'label': 'Edit'},
+    ]
+    back_url = f'/teachers/{pk}/'
+
     if request.method == 'GET':
         form = TeacherForm(instance=teacher)
         return htmx_render(
             request,
             'teachers/teacher_form.html',
             'teachers/partials/teacher_form_content.html',
-            {'form': form, 'teacher': teacher}
+            {'form': form, 'teacher': teacher, 'breadcrumbs': breadcrumbs, 'back_url': back_url}
         )
 
     if request.method != 'POST':
@@ -118,7 +137,7 @@ def teacher_edit(request, pk):
         request,
         'teachers/teacher_form.html',
         'teachers/partials/teacher_form_content.html',
-        {'form': form, 'teacher': teacher}
+        {'form': form, 'teacher': teacher, 'breadcrumbs': breadcrumbs, 'back_url': back_url}
     )
 
 
@@ -186,6 +205,13 @@ def teacher_detail(request, pk):
             'subject_assignments': subject_assignments,
             'workload': workload,
             'pending_invitation': pending_invitation,
+            # Navigation
+            'breadcrumbs': [
+                {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+                {'label': 'Teachers', 'url': '/teachers/'},
+                {'label': teacher.full_name},
+            ],
+            'back_url': '/teachers/',
         }
     )
 

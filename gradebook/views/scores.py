@@ -50,6 +50,12 @@ def score_entry(request):
         'current_term': current_term,
         'classes': classes,
         'is_admin': is_school_admin(request.user),
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook', 'url': '/gradebook/'},
+            {'label': 'Score Entry'},
+        ],
     }
 
     return htmx_render(

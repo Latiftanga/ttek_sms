@@ -4,24 +4,30 @@
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <div class="flex items-center gap-3">
                 <a href="{% url 'gradebook:reports' %}"
                    hx-get="{% url 'gradebook:reports' %}"
                    hx-target="#main-content"
                    hx-push-url="true"
-                   class="hover:text-primary">Reports</a>
-                <i class="fa-solid fa-chevron-right text-xs"></i>
-                <span>Distribute Reports</span>
-            </div>
-            <h1 class="text-2xl font-bold flex items-center gap-3">
+                   class="btn btn-ghost btn-sm btn-circle"
+                   title="Back to Reports">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
                 <div class="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
                     <i class="fa-solid fa-paper-plane text-secondary"></i>
                 </div>
-                {{ class_obj.name }} - Report Distribution
-            </h1>
-            <p class="text-base-content/60 text-sm mt-1">
-                {{ current_term.name }} | Send reports to parents/guardians
-            </p>
+                <div>
+                    <h1 class="text-xl font-bold">{{ class_obj.name }} - Report Distribution</h1>
+                    <p class="text-base-content/60 text-sm">
+                        {{ current_term.name }} | Send reports to parents/guardians
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
 

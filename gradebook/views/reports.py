@@ -48,6 +48,12 @@ def calculate_grades(request):
         'current_term': current_term,
         'classes': classes,
         'grading_systems': grading_systems,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook', 'url': '/gradebook/'},
+            {'label': 'Calculate Grades'},
+        ],
     }
 
     return htmx_render(
@@ -563,6 +569,12 @@ def report_cards(request):
         'is_admin': is_admin,
         'status_choices': Student.Status.choices if is_admin else [],
         'status_filter': status_filter,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook', 'url': '/gradebook/'},
+            {'label': 'Report Cards'},
+        ],
     }
 
     return htmx_render(
@@ -865,6 +877,12 @@ def analytics(request):
         'current_term': current_term,
         'classes': classes,
         'selected_class': selected_class,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook', 'url': '/gradebook/'},
+            {'label': 'Analytics'},
+        ],
     }
 
     return htmx_render(
@@ -1226,6 +1244,13 @@ def bulk_remarks_entry(request, class_id):
         'completed_count': completed_count,
         'total_count': len(students),
         'is_admin': is_school_admin(user),
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook', 'url': '/gradebook/'},
+            {'label': 'Reports', 'url': '/gradebook/reports/'},
+            {'label': f'{class_obj.name} Remarks'},
+        ],
     }
 
     return htmx_render(
@@ -1350,6 +1375,12 @@ def remark_templates(request):
         'templates': templates,
         'templates_by_category': templates_by_category,
         'categories': RemarkTemplate.PERFORMANCE_CATEGORY,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook', 'url': '/gradebook/'},
+            {'label': 'Remark Templates'},
+        ],
     }
 
     return htmx_render(
@@ -1553,6 +1584,13 @@ def report_distribution(request, class_id):
             ('EMAIL', 'Email with PDF'),
             ('SMS', 'SMS Summary'),
             ('BOTH', 'Email and SMS'),
+        ],
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook', 'url': '/gradebook/'},
+            {'label': 'Reports', 'url': '/gradebook/reports/'},
+            {'label': f'{class_obj.name} Distribution'},
         ],
     }
 
@@ -1760,6 +1798,13 @@ def transcript(request, student_id):
         'promotion_history': list(promotion_history),
         'school': school_ctx['school'],
         'school_settings': school_ctx['school_settings'],
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook', 'url': '/gradebook/'},
+            {'label': 'Reports', 'url': '/gradebook/reports/'},
+            {'label': f'{student.full_name} Transcript'},
+        ],
     }
 
     return htmx_render(
