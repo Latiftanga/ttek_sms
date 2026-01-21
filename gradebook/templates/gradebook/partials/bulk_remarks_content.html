@@ -5,24 +5,30 @@
     <div class="flex flex-col gap-3 md:gap-4">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
             <div class="min-w-0">
-                <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
+                {% if breadcrumbs %}
+                <div class="mb-2">
+                    {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+                </div>
+                {% endif %}
+                <div class="flex items-center gap-3">
                     <a href="{% url 'gradebook:reports' %}"
                        hx-get="{% url 'gradebook:reports' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="hover:text-primary">Reports</a>
-                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                    <span>Bulk Remarks</span>
-                </div>
-                <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2 md:gap-3">
+                       class="btn btn-ghost btn-sm btn-circle"
+                       title="Back to Reports">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </a>
                     <div class="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <i class="fa-solid fa-comment-dots text-primary text-sm md:text-base"></i>
                     </div>
-                    <span class="truncate">{{ class_obj.name }} - Term Remarks</span>
-                </h1>
-                <p class="text-base-content/60 text-sm mt-1 ml-10 md:ml-13">
-                    {{ current_term.name }} | Enter remarks for all students
-                </p>
+                    <div>
+                        <h1 class="text-xl font-bold truncate">{{ class_obj.name }} - Term Remarks</h1>
+                        <p class="text-base-content/60 text-sm">
+                            {{ current_term.name }} | Enter remarks for all students
+                        </p>
+                    </div>
+                </div>
             </div>
 
             <div class="flex items-center gap-2 md:gap-3 ml-10 md:ml-0">

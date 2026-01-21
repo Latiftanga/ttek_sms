@@ -23,6 +23,12 @@ def settings(request):
         'grading_systems': grading_systems,
         'categories': categories,
         'total_percentage': total_percentage,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook', 'url': '/gradebook/'},
+            {'label': 'Settings'},
+        ],
     }
 
     return htmx_render(

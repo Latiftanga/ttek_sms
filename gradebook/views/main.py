@@ -60,6 +60,11 @@ def index(request):
         'stats': stats,
         'recent_scores': recent_scores,
         'classes_needing_scores': classes_needing_scores,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Gradebook'},
+        ],
     }
 
     return htmx_render(

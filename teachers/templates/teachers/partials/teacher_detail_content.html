@@ -2,17 +2,25 @@
 <div class="print:max-w-none">
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 print:!hidden">
-        <div class="flex items-center gap-3 flex-1 min-w-0">
-            <a href="{% url 'teachers:index' %}"
-               hx-get="{% url 'teachers:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle flex-shrink-0">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div class="min-w-0">
-                <h1 class="text-lg sm:text-xl font-bold truncate">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
-                <p class="text-sm text-base-content/60 font-mono">{{ teacher.staff_id }}</p>
+        <div class="flex-1 min-w-0">
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <div class="flex items-center gap-3">
+                <a href="{{ back_url|default:'/teachers/' }}"
+                   hx-get="{{ back_url|default:'/teachers/' }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm btn-circle flex-shrink-0"
+                   title="Back to Teachers">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div class="min-w-0">
+                    <h1 class="text-lg sm:text-xl font-bold truncate">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
+                    <p class="text-sm text-base-content/60 font-mono">{{ teacher.staff_id }}</p>
+                </div>
             </div>
         </div>
         <div class="flex flex-wrap gap-2 pl-11 sm:pl-0">

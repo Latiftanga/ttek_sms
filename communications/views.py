@@ -96,6 +96,11 @@ def index(request):
         'stats': stats,
         'sms_gateway': sms_gateway,
         'email_gateway': email_gateway,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Communications'},
+        ],
     }
 
     return htmx_render(
@@ -538,6 +543,13 @@ def message_history(request):
         'search': search,
         'status_choices': SMSMessage.Status.choices,
         'type_choices': SMSMessage.MessageType.choices,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Communications', 'url': '/communications/'},
+            {'label': 'History'},
+        ],
+        'back_url': '/communications/',
     }
 
     return htmx_render(
@@ -623,11 +635,22 @@ def templates_list(request):
     """Manage SMS templates."""
     templates = SMSTemplate.objects.all()
 
+    context = {
+        'templates': templates,
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Communications', 'url': '/communications/'},
+            {'label': 'Templates'},
+        ],
+        'back_url': '/communications/',
+    }
+
     return htmx_render(
         request,
         'communications/templates.html',
         'communications/partials/templates_content.html',
-        {'templates': templates}
+        context
     )
 
 
