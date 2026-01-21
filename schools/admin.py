@@ -50,6 +50,13 @@ class SchoolCreationForm(forms.ModelForm):
         label="Principal Password",
         widget=forms.PasswordInput()
     )
+    enabled_levels = forms.MultipleChoiceField(
+        choices=School.ALL_LEVEL_TYPES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Levels Offered",
+        help_text="Select which educational levels this school offers."
+    )
 
     class Meta:
         model = School
@@ -60,6 +67,13 @@ class SchoolCreationForm(forms.ModelForm):
         if not self.instance.pk:
             self.fields['admin_email'].required = True
             self.fields['admin_password'].required = True
+        # Pre-populate enabled_levels from instance
+        if self.instance.pk and self.instance.enabled_levels:
+            self.fields['enabled_levels'].initial = self.instance.enabled_levels
+
+    def clean_enabled_levels(self):
+        """Return as list for JSONField storage."""
+        return self.cleaned_data.get('enabled_levels', [])
 
     def clean_schema_name(self):
         schema_name = self.cleaned_data.get('schema_name')
@@ -98,6 +112,9 @@ class SchoolAdmin(admin.ModelAdmin):
     list_display = ('name', 'schema_name', 'education_system', 'created_on')
     list_filter = ('education_system',)
     search_fields = ('name', 'schema_name')
+
+    class Media:
+        js = ('admin/js/school_form.js',)
 
     def get_fieldsets(self, request, obj=None):
         if obj:
