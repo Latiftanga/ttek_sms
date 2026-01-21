@@ -13,15 +13,15 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '1.0'
+          memory: 512M
+          cpus: '0.5'
         reservations:
-          memory: 256M
+          memory: 128M
 
   redis:
     image: redis:7-alpine
     restart: always
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     healthcheck:
@@ -32,10 +32,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.5'
+          memory: 192M
+          cpus: '0.25'
         reservations:
-          memory: 128M
+          memory: 64M
 
   web:
     build:
@@ -47,7 +47,7 @@ services:
     command: >
       gunicorn config.wsgi:application
       --bind 0.0.0.0:8000
-      --workers 3
+      --workers 2
       --threads 2
       --worker-class gthread
       --timeout 120
@@ -71,10 +71,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '2.0'
-        reservations:
           memory: 512M
+          cpus: '0.75'
+        reservations:
+          memory: 256M
 
   celery:
     build:
@@ -82,7 +82,7 @@ services:
       args:
         DEV: "false"
     restart: always
-    command: celery -A config worker -l info --concurrency=2
+    command: celery -A config worker -l info --concurrency=1
     env_file: .env.prod
     volumes:
       - ./media:/app/media
@@ -97,10 +97,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '1.0'
+          memory: 384M
+          cpus: '0.5'
         reservations:
-          memory: 256M
+          memory: 128M
 
   celery-beat:
     build:
@@ -120,10 +120,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: '0.25'
+          memory: 128M
+          cpus: '0.15'
         reservations:
-          memory: 64M
+          memory: 48M
 
   nginx:
     image: nginx:alpine
@@ -143,10 +143,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: '0.5'
+          memory: 128M
+          cpus: '0.25'
         reservations:
-          memory: 64M
+          memory: 32M
 
   certbot:
     image: certbot/certbot
@@ -158,8 +158,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
-          cpus: '0.25'
+          memory: 64M
+          cpus: '0.10'
 
   # Database backup service - runs daily at 2 AM
   backup:
@@ -182,8 +182,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: '0.5'
+          memory: 128M
+          cpus: '0.25'
 
 volumes:
   postgres_data:
