@@ -24,8 +24,9 @@ def axes_lockout_response(request, credentials, *args, **kwargs):
 
 
 # Profile setup wizard steps for different user types
-TEACHER_STEPS = ['welcome', 'personal', 'photo', 'complete']
-PARENT_STEPS = ['welcome', 'personal', 'preferences', 'complete']
+# Personal info is already filled by admin, so skip to optional photo/preferences
+TEACHER_STEPS = ['welcome', 'photo', 'complete']
+PARENT_STEPS = ['welcome', 'preferences', 'complete']
 
 
 def get_wizard_steps(user):
