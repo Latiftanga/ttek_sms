@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ house.name }} - Student List</title>
+    <style>
+        .logo-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .logo-header img {
+            max-height: 60px;
+            max-width: 200px;
+        }
+        .school-name {
+            font-size: 18pt;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .school-motto {
+            font-size: 9pt;
+            font-style: italic;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .report-title {
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 10px 0 5px 0;
+            padding-top: 10px;
+            border-top: 2px solid #333;
+        }
+        .report-subtitle {
+            font-size: 10pt;
+            color: #666;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header with Logo -->
+    <div class="logo-header">
+        {% if logo_url %}
+        <img src="{{ logo_url }}" alt="School Logo">
+        {% endif %}
+        <div class="school-name">{{ school.display_name|default:tenant.name|default:"School" }}</div>
+        <div class="report-title">{{ house.name }} - Student List</div>
+        <div class="report-subtitle">
+            {% if housemaster %}Housemaster: {{ housemaster.full_name }} | {% endif %}
+            Total Students: {{ total_students }}
+            {% if current_year %} | Academic Year: {{ current_year.name }}{% endif %}
+        </div>
+    </div>
+
+    <!-- Students Table -->
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 30px;">S/N</th>
+                <th style="width: 80px;">Adm. No</th>
+                <th>Student Name</th>
+                <th style="width: 50px;">Gender</th>
+                <th style="width: 80px;">Class</th>
+                <th>Guardian</th>
+                <th style="width: 100px;">Phone</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ student.admission_number }}</td>
+                <td>{{ student.full_name }}</td>
+                <td>{{ student.get_gender_display|default:"-" }}</td>
+                <td>{{ student.current_class.name|default:"-" }}</td>
+                {% with guardian=student.get_primary_guardian %}
+                <td>{{ guardian.full_name|default:"-" }}</td>
+                <td>{{ guardian.phone_number|default:"-" }}</td>
+                {% endwith %}
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 20px;">No students in this house</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="footer">
+        {% if school.motto %}<p class="school-motto">"{{ school.motto }}"</p>{% endif %}
+        <p>Generated on {{ generated_at|date:"d M Y, H:i" }}{% if generated_by %} by {{ generated_by.get_full_name|default:generated_by.email }}{% endif %}</p>
+        <p>{{ school.display_name|default:tenant.name|default:"School Management System" }}</p>
+    </div>
+</body>
+</html>

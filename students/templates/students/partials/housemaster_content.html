@@ -60,7 +60,7 @@
                     <!-- Actions -->
                     <div class="flex-shrink-0">
                         <form hx-post="{% url 'students:housemaster_remove' assignment.pk %}"
-                              hx-confirm="Remove {{ assignment.teacher.full_name }} as housemaster for {{ assignment.house.name }}?"
+                              hx-confirm="Remove {{ assignment.teacher.full_name|escapejs }} as housemaster for {{ assignment.house.name|escapejs }}?"
                               hx-target="#main-content"
                               hx-swap="innerHTML">
                             {% csrf_token %}

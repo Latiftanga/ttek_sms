@@ -50,10 +50,13 @@ urlpatterns = [
     # Houses
     path('houses/', views.house_index, name='houses'),
     path('houses/create/', views.house_create, name='house_create'),
+    path('houses/<int:pk>/', views.house_students, name='house_students'),
     path('houses/<int:pk>/edit/', views.house_edit, name='house_edit'),
     path('houses/<int:pk>/delete/', views.house_delete, name='house_delete'),
     path('houses/<int:pk>/assign-master/', views.house_assign_master, name='house_assign_master'),
     path('houses/<int:pk>/remove-master/', views.house_remove_master, name='house_remove_master'),
+    path('houses/<int:pk>/students/pdf/', views.house_students_pdf, name='house_students_pdf'),
+    path('houses/<int:pk>/students/excel/', views.house_students_excel, name='house_students_excel'),
 
     # Exeats
     path('exeats/', views.exeat_index, name='exeat_index'),

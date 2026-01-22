@@ -1,0 +1,160 @@
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <div class="flex items-center gap-3">
+                <a href="{% url 'students:houses' %}"
+                   hx-get="{% url 'students:houses' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm btn-circle"
+                   title="Back to Houses">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
+                         style="background-color: {{ house.color_code|default:'#6b7280' }}">
+                        {{ house.name|slice:":1"|upper }}
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">{{ house.name }}</h1>
+                        <p class="text-sm text-base-content/60">
+                            {{ students|length }} student{{ students|length|pluralize }}
+                            {% if housemaster %}&middot; {{ housemaster.full_name }}{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Buttons -->
+        <div class="flex gap-2">
+            <a href="{% url 'students:house_students_pdf' house.pk %}"
+               class="btn btn-sm btn-outline">
+                <i class="fa-solid fa-file-pdf text-error"></i>
+                <span class="hidden sm:inline">PDF</span>
+            </a>
+            <a href="{% url 'students:house_students_excel' house.pk %}"
+               class="btn btn-sm btn-outline">
+                <i class="fa-solid fa-file-excel text-success"></i>
+                <span class="hidden sm:inline">Excel</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- House Info Card -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex flex-wrap gap-4 text-sm">
+                <div>
+                    <span class="text-base-content/50">Total Students:</span>
+                    <span class="font-semibold ml-1">{{ students|length }}</span>
+                </div>
+                {% if housemaster %}
+                <div>
+                    <span class="text-base-content/50">Housemaster:</span>
+                    <span class="font-semibold ml-1">{{ housemaster.full_name }}</span>
+                </div>
+                {% endif %}
+                {% if house.motto %}
+                <div>
+                    <span class="text-base-content/50">Motto:</span>
+                    <span class="italic ml-1">"{{ house.motto }}"</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Students List -->
+    {% if students %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>S/N</th>
+                            <th>Admission No</th>
+                            <th>Name</th>
+                            <th>Gender</th>
+                            <th>Class</th>
+                            <th>Guardian</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr class="hover">
+                            <td class="text-base-content/50">{{ forloop.counter }}</td>
+                            <td class="font-mono text-xs">{{ student.admission_number }}</td>
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div class="avatar placeholder">
+                                        <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center">
+                                            {% if student.photo %}
+                                            <img src="{{ student.photo.url }}" alt="" class="rounded-full" />
+                                            {% else %}
+                                            <span class="text-xs font-medium">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <span class="font-medium">{{ student.full_name }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                {% if student.gender == 'M' %}
+                                <span class="badge badge-info badge-xs">Male</span>
+                                {% elif student.gender == 'F' %}
+                                <span class="badge badge-secondary badge-xs">Female</span>
+                                {% else %}
+                                <span class="text-base-content/30">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ student.current_class.name|default:"-" }}</td>
+                            <td class="text-xs">
+                                {% with guardian=student.get_primary_guardian %}
+                                {% if guardian %}
+                                {{ guardian.full_name }}
+                                {% if guardian.phone_number %}
+                                <br><span class="text-base-content/50">{{ guardian.phone_number }}</span>
+                                {% endif %}
+                                {% else %}
+                                <span class="text-base-content/30">-</span>
+                                {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <a href="{% url 'students:student_detail' student.pk %}"
+                                   hx-get="{% url 'students:student_detail' student.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-ghost btn-xs">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <div class="text-center py-8 text-base-content/40">
+                <i class="fa-solid fa-users text-4xl mb-3"></i>
+                <p class="text-sm">No students in this house</p>
+                <p class="text-xs">Assign students to {{ house.name }} to see them here</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

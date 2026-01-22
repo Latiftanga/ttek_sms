@@ -47,7 +47,7 @@
             {% if current_assignment %}
             <button type="button" class="btn btn-ghost btn-sm text-error"
                     hx-post="{% url 'students:house_remove_master' house.pk %}"
-                    hx-confirm="Remove {{ current_assignment.teacher.full_name }} as housemaster?">
+                    hx-confirm="Remove {{ current_assignment.teacher.full_name|escapejs }} as housemaster?">
                 <i class="fa-solid fa-user-minus"></i>
                 Remove
             </button>

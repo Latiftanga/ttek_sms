@@ -107,7 +107,7 @@
                     <div class="space-y-2">
                         {% if guardian.user.is_active %}
                         <form hx-post="{% url 'students:guardian_deactivate_account' guardian.pk %}"
-                              hx-confirm="Deactivate account for {{ guardian.full_name }}? They will no longer be able to log in.">
+                              hx-confirm="Deactivate account for {{ guardian.full_name|escapejs }}? They will no longer be able to log in.">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-sm btn-outline btn-error w-full">
                                 <i class="fa-solid fa-user-slash"></i>
@@ -116,7 +116,7 @@
                         </form>
                         {% else %}
                         <form hx-post="{% url 'students:guardian_activate_account' guardian.pk %}"
-                              hx-confirm="Reactivate account for {{ guardian.full_name }}?">
+                              hx-confirm="Reactivate account for {{ guardian.full_name|escapejs }}?">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-sm btn-success w-full">
                                 <i class="fa-solid fa-user-check"></i>
@@ -150,7 +150,7 @@
                         </div>
                         <div class="flex gap-2">
                             <form hx-post="{% url 'students:guardian_resend_invitation' guardian.pk %}"
-                                  hx-confirm="Resend invitation to {{ guardian.full_name }}?"
+                                  hx-confirm="Resend invitation to {{ guardian.full_name|escapejs }}?"
                                   class="flex-1">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-xs btn-ghost w-full">
@@ -159,7 +159,7 @@
                                 </button>
                             </form>
                             <form hx-post="{% url 'students:guardian_cancel_invitation' guardian.pk %}"
-                                  hx-confirm="Cancel invitation for {{ guardian.full_name }}?"
+                                  hx-confirm="Cancel invitation for {{ guardian.full_name|escapejs }}?"
                                   class="flex-1">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-xs btn-ghost text-error w-full">
@@ -208,7 +208,7 @@
                     <h3 class="font-semibold text-sm text-error mb-2">Danger Zone</h3>
                     <p class="text-xs text-base-content/60 mb-3">Remove this guardian from the system.</p>
                     <form hx-post="{% url 'students:guardian_delete' guardian.pk %}"
-                          hx-confirm="Delete {{ guardian.full_name }}? This action cannot be undone.">
+                          hx-confirm="Delete {{ guardian.full_name|escapejs }}? This action cannot be undone.">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-error btn-sm btn-outline w-full">
                             <i class="fa-solid fa-trash"></i>

@@ -49,7 +49,14 @@ def guardian_index(request):
         'paginator': paginator,
         'per_page': per_page,
         'search': search,
-        'form': GuardianForm()
+        'form': GuardianForm(),
+        # Navigation
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Students', 'url': '/students/'},
+            {'label': 'Guardians'},
+        ],
+        'back_url': '/students/',
     }
 
     return htmx_render(
