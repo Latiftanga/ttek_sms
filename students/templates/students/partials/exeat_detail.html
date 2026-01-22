@@ -222,27 +222,27 @@
                 </div>
             </div>
 
-            <!-- Contact Information -->
+            <!-- Guardian Contact -->
             {% if exeat.contact_phone or exeat.contact_person %}
             <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-4">
                     <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
-                        <i class="fa-solid fa-phone text-primary"></i>
-                        Emergency Contact
+                        <i class="fa-solid fa-user-shield text-primary"></i>
+                        Guardian Contact
                     </h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {% if exeat.contact_person %}
+                        <div>
+                            <p class="text-xs text-base-content/50">Guardian</p>
+                            <p class="text-sm font-medium">{{ exeat.contact_person }}</p>
+                        </div>
+                        {% endif %}
                         {% if exeat.contact_phone %}
                         <div>
                             <p class="text-xs text-base-content/50">Phone</p>
                             <p class="text-sm font-medium">
                                 <a href="tel:{{ exeat.contact_phone }}" class="link link-primary">{{ exeat.contact_phone }}</a>
                             </p>
-                        </div>
-                        {% endif %}
-                        {% if exeat.contact_person %}
-                        <div>
-                            <p class="text-xs text-base-content/50">Contact Person</p>
-                            <p class="text-sm font-medium">{{ exeat.contact_person }}</p>
                         </div>
                         {% endif %}
                     </div>

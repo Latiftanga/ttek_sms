@@ -192,7 +192,6 @@ class ExeatForm(forms.ModelForm):
             'student', 'exeat_type', 'reason', 'destination',
             'departure_date', 'departure_time',
             'expected_return_date', 'expected_return_time',
-            'contact_phone', 'contact_person'
         ]
         widgets = {
             'reason': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Reason for exeat'}),
@@ -201,14 +200,26 @@ class ExeatForm(forms.ModelForm):
             'departure_time': forms.TimeInput(attrs={'type': 'time'}),
             'expected_return_date': forms.DateInput(attrs={'type': 'date'}),
             'expected_return_time': forms.TimeInput(attrs={'type': 'time'}),
-            'contact_phone': forms.TextInput(attrs={'placeholder': 'Emergency contact phone'}),
-            'contact_person': forms.TextInput(attrs={'placeholder': 'Contact person name (optional)'}),
         }
 
     def __init__(self, *args, students=None, **kwargs):
         super().__init__(*args, **kwargs)
         if students is not None:
             self.fields['student'].queryset = students
+
+    def clean_student(self):
+        student = self.cleaned_data.get('student')
+        if student:
+            guardian = student.get_primary_guardian()
+            if not guardian:
+                raise forms.ValidationError(
+                    _("This student has no primary guardian. Please assign a guardian before creating an exeat.")
+                )
+            if not guardian.phone_number:
+                raise forms.ValidationError(
+                    _("The student's guardian has no phone number. Please update guardian contact information.")
+                )
+        return student
 
     def clean(self):
         cleaned_data = super().clean()

@@ -88,6 +88,17 @@
                         </select>
                     </label>
                 </div>
+
+                <!-- Guardian Contact (loaded when student selected via HTMX) -->
+                <div id="guardian-section" class="hidden mt-3 pt-3 border-t border-base-200">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa-solid fa-user-shield text-primary text-sm"></i>
+                        <span class="font-medium text-sm">Guardian</span>
+                    </div>
+                    <div id="guardian-content">
+                        <!-- Content loaded via HTMX -->
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -156,36 +167,6 @@
             </div>
         </div>
 
-        <!-- Contact Information -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-4">
-                <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
-                    <i class="fa-solid fa-phone text-primary"></i>
-                    Emergency Contact
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <label class="floating-label block">
-                        <span>Contact Phone</span>
-                        <div class="input input-bordered input-sm w-full flex items-center gap-2">
-                            <i class="fa-solid fa-phone text-base-content/50"></i>
-                            <input type="tel" name="contact_phone" value="{{ form.contact_phone.value|default:'' }}"
-                                   placeholder="Emergency contact number"
-                                   class="grow bg-transparent border-none focus:outline-none" />
-                        </div>
-                    </label>
-                    <label class="floating-label block">
-                        <span>Contact Person</span>
-                        <div class="input input-bordered input-sm w-full flex items-center gap-2">
-                            <i class="fa-solid fa-user text-base-content/50"></i>
-                            <input type="text" name="contact_person" value="{{ form.contact_person.value|default:'' }}"
-                                   placeholder="Name of contact person"
-                                   class="grow bg-transparent border-none focus:outline-none" />
-                        </div>
-                    </label>
-                </div>
-            </div>
-        </div>
-
         {% if form.non_field_errors %}
         <div class="alert alert-error py-2">
             <i class="fa-solid fa-exclamation-circle"></i>
@@ -206,5 +187,8 @@ function selectStudent(id, name, house) {
         container.__x.$data.open = false;
         container.__x.$data.selectedId = id;
     }
+    // Show guardian section and fetch info via HTMX
+    document.getElementById('guardian-section').classList.remove('hidden');
+    htmx.ajax('GET', '/students/exeats/student/' + id + '/guardian/', {target: '#guardian-content'});
 }
 </script>
