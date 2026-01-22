@@ -30,7 +30,13 @@ NAVIGATION_CONFIG = [
                 'label': 'Houses',
                 'icon': 'fa-solid fa-flag',
                 'url_name': 'students:houses',
-                'requires': 'has_houses',  # Only show for basic schools
+                'requires': 'has_houses',
+            },
+            {
+                'label': 'Exeats',
+                'icon': 'fa-solid fa-ticket',
+                'url_name': 'students:exeat_index',
+                'requires': 'has_houses',
             },
         ]
     },
@@ -160,6 +166,14 @@ NAVIGATION_CONFIG = [
         'url_name': 'core:my_grading',
         'roles': ['teacher'],
     },
+    {
+        'label': 'Exeats',
+        'icon': 'fa-solid fa-ticket',
+        'url_name': 'students:exeat_index',
+        'roles': ['teacher'],
+        'requires': 'has_houses',
+        'user_requires': 'is_housemaster',
+    },
     # Student navigation
     {
         'label': 'My Results',
@@ -244,23 +258,47 @@ def is_url_active(request, url, url_name, exact=False):
     return current_path == url or current_path.startswith(url.rstrip('/') + '/')
 
 
-def check_nav_requirements(item, tenant):
+def check_nav_requirements(item, tenant, user=None):
     """
-    Check if a navigation item's requirements are met by the tenant.
+    Check if a navigation item's requirements are met by the tenant and user.
     Returns True if the item should be shown, False otherwise.
     """
+    # Check tenant requirements
     requires = item.get('requires')
-    if not requires:
-        return True  # No requirements, always show
+    if requires:
+        if not tenant:
+            return True  # No tenant context, show all (fallback)
+        if not getattr(tenant, requires, True):
+            return False
 
-    if not tenant:
-        return True  # No tenant context, show all (fallback)
+    # Check user requirements
+    user_requires = item.get('user_requires')
+    if user_requires and user and user.is_authenticated:
+        if user_requires == 'is_housemaster':
+            # Check if teacher is assigned as housemaster
+            if not getattr(user, 'is_teacher', False):
+                return False
+            try:
+                from students.models import HouseMaster
+                from core.models import AcademicYear
+                teacher = getattr(user, 'teacher_profile', None)
+                if not teacher:
+                    return False
+                current_year = AcademicYear.get_current()
+                if not current_year:
+                    return False
+                return HouseMaster.objects.filter(
+                    teacher=teacher,
+                    academic_year=current_year,
+                    is_active=True
+                ).exists()
+            except Exception:
+                return False
 
-    # Check if the tenant has the required property and it's truthy
-    return getattr(tenant, requires, True)
+    return True
 
 
-def process_nav_item(item, request, tenant=None):
+def process_nav_item(item, request, tenant=None, user=None):
     """Process a navigation item and its children."""
     url = resolve_url(item['url_name'])
     is_active = is_url_active(request, url, item['url_name'])
@@ -276,10 +314,10 @@ def process_nav_item(item, request, tenant=None):
         children = []
         current_path = request.path
 
-        # Filter children based on tenant requirements
+        # Filter children based on tenant and user requirements
         visible_children = [
             child for child in item['children']
-            if check_nav_requirements(child, tenant)
+            if check_nav_requirements(child, tenant, user)
         ]
 
         # First pass: check for startswith matches and find best match
@@ -332,9 +370,9 @@ def get_navigation_items(context):
     nav_items = []
     for item in NAVIGATION_CONFIG:
         item_roles = item.get('roles', ['all'])
-        # Check both role access and tenant requirements
-        if user_has_access(user_roles, item_roles) and check_nav_requirements(item, tenant):
-            nav_items.append(process_nav_item(item, request, tenant))
+        # Check both role access and tenant/user requirements
+        if user_has_access(user_roles, item_roles) and check_nav_requirements(item, tenant, user):
+            nav_items.append(process_nav_item(item, request, tenant, user))
 
     return nav_items
 

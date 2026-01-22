@@ -53,6 +53,26 @@ from .houses import (
     house_create,
     house_edit,
     house_delete,
+    house_assign_master,
+    house_remove_master,
+)
+
+# Exeat views
+from .exeat import (
+    exeat_index,
+    exeat_create,
+    exeat_detail,
+    exeat_approve,
+    exeat_reject,
+    exeat_depart,
+    exeat_return,
+    exeat_student_search,
+    exeat_report,
+    exeat_report_pdf,
+    exeat_report_excel,
+    housemaster_index,
+    housemaster_assign,
+    housemaster_remove,
 )
 
 __all__ = [
@@ -94,4 +114,21 @@ __all__ = [
     'house_create',
     'house_edit',
     'house_delete',
+    'house_assign_master',
+    'house_remove_master',
+    # Exeats
+    'exeat_index',
+    'exeat_create',
+    'exeat_detail',
+    'exeat_approve',
+    'exeat_reject',
+    'exeat_depart',
+    'exeat_return',
+    'exeat_student_search',
+    'exeat_report',
+    'exeat_report_pdf',
+    'exeat_report_excel',
+    'housemaster_index',
+    'housemaster_assign',
+    'housemaster_remove',
 ]

@@ -1,0 +1,62 @@
+{% load core_tags %}
+<div>
+    <h3 class="font-bold text-lg mb-1">Assign House Master</h3>
+    <p class="text-sm text-base-content/60 mb-4">{{ house.name }} - {{ current_year.name }}</p>
+
+    {% if current_assignment %}
+    <div class="alert alert-info py-2 mb-4">
+        <i class="fa-solid fa-user-tie"></i>
+        <div class="text-sm">
+            <span class="font-medium">Current:</span> {{ current_assignment.teacher.full_name }}
+            {% if current_assignment.is_senior %}<span class="badge badge-primary badge-xs ml-1">Senior</span>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="post"
+          action="{% url 'students:house_assign_master' house.pk %}"
+          hx-post="{% url 'students:house_assign_master' house.pk %}">
+        {% csrf_token %}
+
+        <div class="space-y-3">
+            <div class="form-control">
+                <label class="label py-1">
+                    <span class="label-text text-xs font-medium">Select Teacher</span>
+                </label>
+                <select name="teacher" class="select select-bordered select-sm w-full" required>
+                    <option value="">Choose a teacher...</option>
+                    {% for teacher in teachers %}
+                    <option value="{{ teacher.pk }}" {% if current_assignment and current_assignment.teacher_id == teacher.pk %}selected{% endif %}>
+                        {{ teacher.get_title_display }} {{ teacher.full_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <label class="label cursor-pointer justify-start gap-3 bg-base-200 rounded-lg px-3 py-2">
+                <input type="checkbox" name="is_senior" value="true" class="checkbox checkbox-primary checkbox-sm"
+                       {% if current_assignment and current_assignment.is_senior %}checked{% endif %} />
+                <div>
+                    <span class="label-text font-medium text-sm">Senior House Master</span>
+                    <p class="text-xs text-base-content/50">Approves external exeats for all houses</p>
+                </div>
+            </label>
+        </div>
+
+        <div class="modal-action">
+            {% if current_assignment %}
+            <button type="button" class="btn btn-ghost btn-sm text-error"
+                    hx-post="{% url 'students:house_remove_master' house.pk %}"
+                    hx-confirm="Remove {{ current_assignment.teacher.full_name }} as housemaster?">
+                <i class="fa-solid fa-user-minus"></i>
+                Remove
+            </button>
+            {% endif %}
+            <button type="button" class="btn btn-ghost btn-sm" onclick="modal_housemaster.close()">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-check"></i>
+                Assign
+            </button>
+        </div>
+    </form>
+</div>

@@ -9,95 +9,92 @@
           hx-target="#modal-house-content">
         {% csrf_token %}
 
-        <div class="space-y-4">
-            <!-- Name -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text font-medium">House Name <span class="text-error">*</span></span>
-                </label>
-                <input type="text"
-                       name="name"
-                       value="{{ form.name.value|default:'' }}"
-                       placeholder="e.g., Blue House, Nkrumah House"
-                       class="input input-bordered w-full {% if form.name.errors %}input-error{% endif %}"
-                       required />
-                {% if form.name.errors %}
-                <label class="label">
-                    <span class="label-text-alt text-error">{{ form.name.errors.0 }}</span>
-                </label>
-                {% endif %}
-            </div>
+        <div class="space-y-3">
+            <!-- House Name -->
+            <label class="floating-label block">
+                <span>House Name *</span>
+                <div class="input input-bordered input-sm w-full flex items-center gap-2">
+                    <i class="fa-solid fa-flag text-base-content/50"></i>
+                    <input type="text"
+                           name="name"
+                           value="{{ form.name.value|default:'' }}"
+                           placeholder="e.g., Blue House, Nkrumah House"
+                           required
+                           class="grow bg-transparent border-none focus:outline-none" />
+                </div>
+            </label>
+            {% if form.name.errors %}
+            <p class="text-error text-xs -mt-2">{{ form.name.errors.0 }}</p>
+            {% endif %}
 
-            <!-- Color Row -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="form-control">
-                    <label class="label">
-                        <span class="label-text font-medium">Color Name</span>
-                    </label>
+            <!-- Color Name + Picker -->
+            <label class="floating-label block">
+                <span>Color</span>
+                <div class="input input-bordered input-sm w-full flex items-center gap-2">
+                    <i class="fa-solid fa-palette text-base-content/50"></i>
                     <input type="text"
                            name="color"
                            value="{{ form.color.value|default:'' }}"
                            placeholder="e.g., Blue, Red"
-                           class="input input-bordered w-full" />
-                </div>
-                <div class="form-control">
-                    <label class="label">
-                        <span class="label-text font-medium">Color Code</span>
-                    </label>
+                           class="grow bg-transparent border-none focus:outline-none" />
                     <input type="color"
                            name="color_code"
                            value="{{ form.color_code.value|default:'#3b82f6' }}"
-                           class="input input-bordered w-full h-10 p-1 cursor-pointer" />
+                           class="w-6 h-6 p-0 border-none cursor-pointer rounded"
+                           title="Pick color" />
                 </div>
-            </div>
+            </label>
 
             <!-- Motto -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text font-medium">Motto</span>
-                    <span class="label-text-alt text-base-content/50">Optional</span>
-                </label>
-                <input type="text"
-                       name="motto"
-                       value="{{ form.motto.value|default:'' }}"
-                       placeholder="House motto"
-                       class="input input-bordered w-full" />
-            </div>
+            <label class="floating-label block">
+                <span>Motto</span>
+                <div class="input input-bordered input-sm w-full flex items-center gap-2">
+                    <i class="fa-solid fa-quote-left text-base-content/50"></i>
+                    <input type="text"
+                           name="motto"
+                           value="{{ form.motto.value|default:'' }}"
+                           placeholder="House motto"
+                           class="grow bg-transparent border-none focus:outline-none" />
+                </div>
+            </label>
+            <p class="text-base-content/60 text-xs -mt-2">Optional</p>
 
             <!-- Description -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text font-medium">Description</span>
-                    <span class="label-text-alt text-base-content/50">Optional</span>
-                </label>
+            <label class="floating-label block">
+                <span>Description</span>
                 <textarea name="description"
                           rows="2"
                           placeholder="Brief description of the house"
-                          class="textarea textarea-bordered w-full">{{ form.description.value|default:'' }}</textarea>
-            </div>
+                          class="textarea textarea-bordered textarea-sm w-full">{{ form.description.value|default:'' }}</textarea>
+            </label>
+            <p class="text-base-content/60 text-xs -mt-2">Optional</p>
 
             <!-- Active Status -->
-            <label class="label cursor-pointer justify-start gap-3">
+            <label class="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox"
                        name="is_active"
-                       class="checkbox checkbox-primary"
+                       value="true"
+                       class="checkbox checkbox-primary checkbox-sm"
                        {% if form.is_active.value or not house %}checked{% endif %} />
-                <span class="label-text">Active House</span>
+                <div>
+                    <span class="label-text font-medium">Active House</span>
+                    <p class="text-xs text-base-content/50">Inactive houses won't be available for assignment</p>
+                </div>
             </label>
         </div>
 
         {% if form.non_field_errors %}
-        <div class="alert alert-error mt-4">
+        <div class="alert alert-error py-2 mt-3">
             <i class="fa-solid fa-exclamation-circle"></i>
-            <span>{{ form.non_field_errors.0 }}</span>
+            <span class="text-sm">{{ form.non_field_errors.0 }}</span>
         </div>
         {% endif %}
 
         <div class="modal-action">
-            <button type="button" class="btn btn-ghost" onclick="modal_house.close()">Cancel</button>
-            <button type="submit" class="btn btn-primary">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="modal_house.close()">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fa-solid fa-save"></i>
-                {{ action }} House
+                {{ action }}
             </button>
         </div>
     </form>

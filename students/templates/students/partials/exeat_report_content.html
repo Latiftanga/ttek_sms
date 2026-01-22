@@ -1,0 +1,300 @@
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <div class="flex items-center gap-3">
+                <a href="{% url 'students:exeat_index' %}"
+                   hx-get="{% url 'students:exeat_index' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm btn-circle"
+                   title="Back to Exeats">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="text-xl font-bold">Exeat Reports</h1>
+                    <p class="text-sm text-base-content/60">
+                        {{ start_date|date:"M j, Y" }} - {{ end_date|date:"M j, Y" }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Buttons -->
+        <div class="flex gap-2">
+            <a href="{% url 'students:exeat_report_pdf' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}{% if house_filter %}&house={{ house_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}"
+               class="btn btn-sm btn-outline">
+                <i class="fa-solid fa-file-pdf text-error"></i>
+                <span class="hidden sm:inline">PDF</span>
+            </a>
+            <a href="{% url 'students:exeat_report_excel' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}{% if house_filter %}&house={{ house_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}"
+               class="btn btn-sm btn-outline">
+                <i class="fa-solid fa-file-excel text-success"></i>
+                <span class="hidden sm:inline">Excel</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <form hx-get="{% url 'students:exeat_report' %}"
+                  hx-target="#main-content"
+                  hx-push-url="true"
+                  class="flex flex-wrap gap-3 items-end">
+                <div class="form-control">
+                    <label class="label py-1">
+                        <span class="label-text text-xs">Start Date</span>
+                    </label>
+                    <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}"
+                           class="input input-bordered input-sm w-40" />
+                </div>
+                <div class="form-control">
+                    <label class="label py-1">
+                        <span class="label-text text-xs">End Date</span>
+                    </label>
+                    <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}"
+                           class="input input-bordered input-sm w-40" />
+                </div>
+                <div class="form-control">
+                    <label class="label py-1">
+                        <span class="label-text text-xs">House</span>
+                    </label>
+                    <select name="house" class="select select-bordered select-sm w-40">
+                        <option value="">All Houses</option>
+                        {% for house in houses %}
+                        <option value="{{ house.pk }}" {% if house_filter == house.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ house.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label class="label py-1">
+                        <span class="label-text text-xs">Type</span>
+                    </label>
+                    <select name="type" class="select select-bordered select-sm w-40">
+                        <option value="">All Types</option>
+                        {% for value, label in type_choices %}
+                        <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-filter"></i>
+                    Apply
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="flex flex-wrap gap-2">
+        <div class="card bg-base-100 shadow-sm border border-base-200 flex-1 min-w-[80px]">
+            <div class="card-body p-2 text-center">
+                <div class="text-lg font-bold text-primary">{{ total }}</div>
+                <div class="text-xs text-base-content/60">Total</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200 flex-1 min-w-[80px]">
+            <div class="card-body p-2 text-center">
+                <div class="text-lg font-bold text-info">{{ by_type.internal|default:0 }}</div>
+                <div class="text-xs text-base-content/60">Internal</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200 flex-1 min-w-[80px]">
+            <div class="card-body p-2 text-center">
+                <div class="text-lg font-bold text-secondary">{{ by_type.external|default:0 }}</div>
+                <div class="text-xs text-base-content/60">External</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200 flex-1 min-w-[80px]">
+            <div class="card-body p-2 text-center">
+                <div class="text-lg font-bold text-success">{{ approved_count }}</div>
+                <div class="text-xs text-base-content/60">Approved</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200 flex-1 min-w-[80px]">
+            <div class="card-body p-2 text-center">
+                <div class="text-lg font-bold text-error">{{ rejected_count }}</div>
+                <div class="text-xs text-base-content/60">Rejected</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200 flex-1 min-w-[80px]">
+            <div class="card-body p-2 text-center">
+                <div class="text-lg font-bold {% if approval_rate >= 80 %}text-success{% elif approval_rate >= 50 %}text-warning{% else %}text-error{% endif %}">
+                    {{ approval_rate }}%
+                </div>
+                <div class="text-xs text-base-content/60">Rate</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- By House -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-building text-primary"></i>
+                    Exeats by House
+                </h3>
+                {% if by_house %}
+                <div class="space-y-2">
+                    {% for item in by_house %}
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm">{{ item.student__house__name|default:"No House" }}</span>
+                        <span class="badge badge-primary badge-sm">{{ item.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-base-content/50">No data</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- By Approver -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-user-check text-primary"></i>
+                    Approvals by Housemaster
+                </h3>
+                {% if by_approver %}
+                <div class="space-y-2">
+                    {% for item in by_approver %}
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm">{{ item.approved_by__first_name }} {{ item.approved_by__last_name }}</span>
+                        <span class="badge badge-success badge-sm">{{ item.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-base-content/50">No approvals</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Frequent Students -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-user-graduate text-primary"></i>
+                    Most Frequent Students
+                </h3>
+                {% if by_student %}
+                <div class="space-y-2">
+                    {% for item in by_student %}
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="text-sm">{{ item.student__first_name }} {{ item.student__last_name }}</span>
+                            <span class="text-xs text-base-content/50 block">{{ item.student__house__name|default:"No House" }}</span>
+                        </div>
+                        <span class="badge {% if item.count >= 5 %}badge-error{% elif item.count >= 3 %}badge-warning{% else %}badge-ghost{% endif %} badge-sm">
+                            {{ item.count }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-base-content/50">No data</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Exeat List -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-list text-primary"></i>
+                Exeat Details ({{ total }})
+            </h3>
+
+            {% if exeats %}
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Student</th>
+                            <th>House</th>
+                            <th>Type</th>
+                            <th>Destination</th>
+                            <th>Status</th>
+                            <th>Approved By</th>
+                            <th>SMS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exeat in exeats|slice:":50" %}
+                        <tr class="hover">
+                            <td class="text-xs">{{ exeat.created_at|date:"M j" }}</td>
+                            <td>
+                                <a href="{% url 'students:exeat_detail' exeat.pk %}"
+                                   hx-get="{% url 'students:exeat_detail' exeat.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="link link-hover text-sm">
+                                    {{ exeat.student.full_name }}
+                                </a>
+                            </td>
+                            <td class="text-xs">{{ exeat.student.house.name|default:"-" }}</td>
+                            <td>
+                                {% if exeat.exeat_type == 'internal' %}
+                                <span class="badge badge-ghost badge-xs">Internal</span>
+                                {% else %}
+                                <span class="badge badge-primary badge-xs">External</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-xs max-w-32 truncate">{{ exeat.destination }}</td>
+                            <td>
+                                {% if exeat.status == 'approved' %}
+                                <span class="badge badge-success badge-xs">Approved</span>
+                                {% elif exeat.status == 'completed' %}
+                                <span class="badge badge-ghost badge-xs">Completed</span>
+                                {% elif exeat.status == 'rejected' %}
+                                <span class="badge badge-error badge-xs">Rejected</span>
+                                {% elif exeat.status == 'pending' %}
+                                <span class="badge badge-warning badge-xs">Pending</span>
+                                {% elif exeat.status == 'recommended' %}
+                                <span class="badge badge-info badge-xs">Recommended</span>
+                                {% elif exeat.status == 'active' %}
+                                <span class="badge badge-accent badge-xs">Active</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-xs">{{ exeat.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-xs">{{ exeat.approved_by.full_name|default:"-" }}</td>
+                            <td>
+                                {% if exeat.guardian_notified_approval %}
+                                <i class="fa-solid fa-check-circle text-success text-xs" title="SMS Sent"></i>
+                                {% else %}
+                                <i class="fa-solid fa-times-circle text-base-content/30 text-xs" title="No SMS"></i>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if total > 50 %}
+            <p class="text-xs text-base-content/50 mt-2">Showing first 50 of {{ total }} exeats. Export to see all.</p>
+            {% endif %}
+            {% else %}
+            <div class="text-center py-8 text-base-content/50">
+                <i class="fa-solid fa-inbox text-4xl mb-2"></i>
+                <p>No exeats found for the selected period</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

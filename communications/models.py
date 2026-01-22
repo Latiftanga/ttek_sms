@@ -17,6 +17,7 @@ class SMSMessage(models.Model):
         FEE_REMINDER = 'fee', 'Fee Reminder'
         ANNOUNCEMENT = 'announcement', 'Announcement'
         REPORT_FEEDBACK = 'report', 'Report Feedback'
+        EXEAT = 'exeat', 'Exeat Notification'
 
     recipient_phone = models.CharField(max_length=20)
     recipient_name = models.CharField(max_length=100, blank=True)

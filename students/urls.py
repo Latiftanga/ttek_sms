@@ -52,4 +52,24 @@ urlpatterns = [
     path('houses/create/', views.house_create, name='house_create'),
     path('houses/<int:pk>/edit/', views.house_edit, name='house_edit'),
     path('houses/<int:pk>/delete/', views.house_delete, name='house_delete'),
+    path('houses/<int:pk>/assign-master/', views.house_assign_master, name='house_assign_master'),
+    path('houses/<int:pk>/remove-master/', views.house_remove_master, name='house_remove_master'),
+
+    # Exeats
+    path('exeats/', views.exeat_index, name='exeat_index'),
+    path('exeats/create/', views.exeat_create, name='exeat_create'),
+    path('exeats/student-search/', views.exeat_student_search, name='exeat_student_search'),
+    path('exeats/report/', views.exeat_report, name='exeat_report'),
+    path('exeats/report/pdf/', views.exeat_report_pdf, name='exeat_report_pdf'),
+    path('exeats/report/excel/', views.exeat_report_excel, name='exeat_report_excel'),
+    path('exeats/<uuid:pk>/', views.exeat_detail, name='exeat_detail'),
+    path('exeats/<uuid:pk>/approve/', views.exeat_approve, name='exeat_approve'),
+    path('exeats/<uuid:pk>/reject/', views.exeat_reject, name='exeat_reject'),
+    path('exeats/<uuid:pk>/depart/', views.exeat_depart, name='exeat_depart'),
+    path('exeats/<uuid:pk>/return/', views.exeat_return, name='exeat_return'),
+
+    # Housemasters (Admin)
+    path('housemasters/', views.housemaster_index, name='housemaster_index'),
+    path('housemasters/assign/', views.housemaster_assign, name='housemaster_assign'),
+    path('housemasters/<int:pk>/remove/', views.housemaster_remove, name='housemaster_remove'),
 ]

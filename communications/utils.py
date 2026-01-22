@@ -263,9 +263,19 @@ def send_sms(to_phone, message, student=None, message_type='general', created_by
             )
 
         # Create SMSMessage record for tracking
+        # Get recipient name from student's primary guardian if available
+        recipient_name = ''
+        if student:
+            try:
+                guardian = student.get_primary_guardian()
+                if guardian:
+                    recipient_name = guardian.full_name
+            except Exception:
+                pass
+
         sms_record = SMSMessage.objects.create(
             recipient_phone=validated_phone,
-            recipient_name=student.guardian_name if student else '',
+            recipient_name=recipient_name,
             student=student,
             message=message,
             message_type=message_type,
