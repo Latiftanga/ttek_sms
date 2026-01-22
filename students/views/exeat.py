@@ -290,8 +290,15 @@ def housemaster_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
+            if getattr(request, 'htmx', None):
+                return HttpResponse(status=401)
             return redirect('accounts:login')
         if not (is_school_admin(request.user) or is_housemaster(request.user)):
+            if getattr(request, 'htmx', None):
+                return HttpResponse(
+                    '<div class="text-error text-sm p-2">Access denied. Housemaster role required.</div>',
+                    status=403
+                )
             messages.error(request, "You don't have permission to access this page.")
             return redirect('core:index')
         return view_func(request, *args, **kwargs)
@@ -303,8 +310,15 @@ def admin_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
+            if getattr(request, 'htmx', None):
+                return HttpResponse(status=401)
             return redirect('accounts:login')
         if not is_school_admin(request.user):
+            if getattr(request, 'htmx', None):
+                return HttpResponse(
+                    '<div class="text-error text-sm p-2">Access denied. Admin role required.</div>',
+                    status=403
+                )
             messages.error(request, "You don't have permission to access this page.")
             return redirect('core:index')
         return view_func(request, *args, **kwargs)
@@ -316,8 +330,15 @@ def admin_or_senior_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
+            if getattr(request, 'htmx', None):
+                return HttpResponse(status=401)
             return redirect('accounts:login')
         if not (is_school_admin(request.user) or is_senior_housemaster(request.user)):
+            if getattr(request, 'htmx', None):
+                return HttpResponse(
+                    '<div class="text-error text-sm p-2">Access denied. Admin or Senior Housemaster role required.</div>',
+                    status=403
+                )
             messages.error(request, "You don't have permission to access this page.")
             return redirect('core:index')
         return view_func(request, *args, **kwargs)
