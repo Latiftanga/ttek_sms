@@ -1,16 +1,18 @@
 """House management views."""
 import logging
+from io import BytesIO
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
+from django.utils import timezone
 
 from core.utils import requires_houses
-from core.models import AcademicYear
+from core.models import AcademicYear, SchoolSettings
 from ..models import House, Student, HouseMaster
-from ..forms import HouseForm, HouseMasterForm
+from ..forms import HouseForm
 
 logger = logging.getLogger(__name__)
 
@@ -324,3 +326,178 @@ def house_remove_master(request, pk):
         return redirect('students:houses')
 
     return HttpResponse(status=405)
+
+
+@login_required
+@admin_required
+@requires_houses
+def house_students(request, pk):
+    """View all students in a house."""
+    house = get_object_or_404(House, pk=pk)
+
+    students = Student.objects.filter(
+        house=house,
+        status='active'
+    ).select_related('current_class').order_by('last_name', 'first_name')
+
+    # Get housemaster
+    current_year = AcademicYear.get_current()
+    housemaster = None
+    if current_year:
+        assignment = HouseMaster.objects.filter(
+            house=house,
+            academic_year=current_year,
+            is_active=True
+        ).select_related('teacher').first()
+        if assignment:
+            housemaster = assignment.teacher
+
+    context = {
+        'house': house,
+        'students': students,
+        'housemaster': housemaster,
+        'current_year': current_year,
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Students', 'url': '/students/'},
+            {'label': 'Houses', 'url': '/students/houses/'},
+            {'label': house.name},
+        ],
+    }
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'students/partials/house_students_content.html', context)
+    return render(request, 'students/house_students.html', context)
+
+
+@login_required
+@admin_required
+@requires_houses
+def house_students_pdf(request, pk):
+    """Export house students list as PDF."""
+    from django.template.loader import render_to_string
+    from django.db import connection
+    from weasyprint import HTML, CSS
+
+    house = get_object_or_404(House, pk=pk)
+
+    students = Student.objects.filter(
+        house=house,
+        status='active'
+    ).select_related('current_class').order_by('last_name', 'first_name')
+
+    # Get school settings and tenant info
+    school = SchoolSettings.load()
+    tenant = getattr(connection, 'tenant', None)
+    current_year = AcademicYear.get_current()
+
+    housemaster = None
+    if current_year:
+        assignment = HouseMaster.objects.filter(
+            house=house,
+            academic_year=current_year,
+            is_active=True
+        ).select_related('teacher').first()
+        if assignment:
+            housemaster = assignment.teacher
+
+    # Build absolute URL for logo
+    logo_url = None
+    if school and school.logo:
+        logo_url = request.build_absolute_uri(school.logo.url)
+
+    context = {
+        'house': house,
+        'students': students,
+        'school': school,
+        'tenant': tenant,
+        'logo_url': logo_url,
+        'housemaster': housemaster,
+        'current_year': current_year,
+        'generated_at': timezone.now(),
+        'generated_by': request.user,
+        'total_students': students.count(),
+    }
+
+    html_string = render_to_string('students/reports/house_students_pdf.html', context)
+    html = HTML(string=html_string)
+
+    pdf_buffer = BytesIO()
+    css = CSS(string='''
+        @page { size: A4; margin: 1.5cm; }
+        body { font-family: Arial, sans-serif; font-size: 10pt; }
+        h1 { font-size: 16pt; margin-bottom: 5px; }
+        h2 { font-size: 12pt; color: #666; margin-bottom: 15px; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .info-row { margin-bottom: 10px; font-size: 9pt; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th { background-color: #f5f5f5; font-weight: bold; font-size: 9pt; }
+        td { font-size: 9pt; }
+        tr:nth-child(even) { background-color: #fafafa; }
+        .footer { margin-top: 20px; font-size: 8pt; color: #666; text-align: center; }
+        .badge { padding: 2px 6px; border-radius: 3px; font-size: 8pt; background: #e5e7eb; }
+    ''')
+
+    html.write_pdf(pdf_buffer, stylesheets=[css])
+    pdf_buffer.seek(0)
+
+    filename = f"{house.name.replace(' ', '_')}_students_{timezone.now().strftime('%Y%m%d')}.pdf"
+
+    response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@admin_required
+@requires_houses
+def house_students_excel(request, pk):
+    """Export house students list as Excel."""
+    import pandas as pd
+
+    house = get_object_or_404(House, pk=pk)
+
+    students = Student.objects.filter(
+        house=house,
+        status='active'
+    ).select_related('current_class').order_by('last_name', 'first_name')
+
+    # Build data for Excel
+    data = []
+    for i, student in enumerate(students, 1):
+        guardian = student.get_primary_guardian()
+        data.append({
+            'S/N': i,
+            'Admission No': student.admission_number,
+            'Name': student.full_name,
+            'Gender': student.get_gender_display() if student.gender else '',
+            'Class': student.current_class.name if student.current_class else '',
+            'Date of Birth': student.date_of_birth.strftime('%Y-%m-%d') if student.date_of_birth else '',
+            'Guardian': guardian.full_name if guardian else '',
+            'Guardian Phone': guardian.phone_number if guardian else '',
+        })
+
+    df = pd.DataFrame(data)
+
+    # Create Excel file
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name=f'{house.name} Students', index=False)
+
+        # Auto-adjust column widths
+        worksheet = writer.sheets[f'{house.name} Students']
+        for idx, col in enumerate(df.columns):
+            max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            worksheet.column_dimensions[chr(65 + idx)].width = min(max_len, 40)
+
+    buffer.seek(0)
+
+    filename = f"{house.name.replace(' ', '_')}_students_{timezone.now().strftime('%Y%m%d')}.xlsx"
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response

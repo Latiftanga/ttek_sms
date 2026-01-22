@@ -54,7 +54,7 @@
                     hx-post="{% url 'students:student_remove_guardian' student.pk sg.guardian.pk %}"
                     hx-target="#guardian-list"
                     hx-swap="innerHTML"
-                    hx-confirm="Remove {{ sg.guardian.full_name }} as guardian?">
+                    hx-confirm="Remove {{ sg.guardian.full_name|escapejs }} as guardian?">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>

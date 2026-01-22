@@ -174,7 +174,7 @@
                             <i class="fa-solid fa-pen"></i>
                         </a>
                         <form hx-post="{% url 'students:student_delete' student.pk %}"
-                              hx-confirm="Delete {{ student.full_name }}?">
+                              hx-confirm="Delete {{ student.full_name|escapejs }}?">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Delete">
                                 <i class="fa-solid fa-trash"></i>

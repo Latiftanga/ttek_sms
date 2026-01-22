@@ -98,6 +98,14 @@
 
                     <!-- Actions -->
                     <div class="flex items-center gap-1 flex-shrink-0">
+                        <a href="{% url 'students:house_students' house.pk %}"
+                           hx-get="{% url 'students:house_students' house.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-xs btn-square"
+                           title="View Students">
+                            <i class="fa-solid fa-users"></i>
+                        </a>
                         <button class="btn btn-ghost btn-xs btn-square"
                                 hx-get="{% url 'students:house_assign_master' house.pk %}"
                                 hx-target="#modal-housemaster-content"
@@ -116,7 +124,7 @@
                         </button>
                         <button class="btn btn-ghost btn-xs btn-square text-error"
                                 hx-post="{% url 'students:house_delete' house.pk %}"
-                                hx-confirm="Delete house '{{ house.name }}'? This cannot be undone."
+                                hx-confirm="Delete house '{{ house.name|escapejs }}'? This cannot be undone."
                                 hx-target="#main-content"
                                 hx-swap="innerHTML"
                                 title="Delete">

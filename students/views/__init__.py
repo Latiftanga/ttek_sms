@@ -55,6 +55,9 @@ from .houses import (
     house_delete,
     house_assign_master,
     house_remove_master,
+    house_students,
+    house_students_pdf,
+    house_students_excel,
 )
 
 # Exeat views
@@ -117,6 +120,9 @@ __all__ = [
     'house_delete',
     'house_assign_master',
     'house_remove_master',
+    'house_students',
+    'house_students_pdf',
+    'house_students_excel',
     # Exeats
     'exeat_index',
     'exeat_create',

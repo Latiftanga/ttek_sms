@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from academics.models import Class
@@ -226,11 +227,16 @@ class ExeatForm(forms.ModelForm):
         departure_date = cleaned_data.get('departure_date')
         expected_return_date = cleaned_data.get('expected_return_date')
 
+        # Validate departure date is not in the past (only for new exeats)
+        if departure_date and not self.instance.pk:
+            if departure_date < date.today():
+                self.add_error('departure_date', _("Departure date cannot be in the past."))
+
+        # Validate return date is after departure date
         if departure_date and expected_return_date:
             if expected_return_date < departure_date:
-                raise forms.ValidationError(
-                    _("Return date cannot be before departure date.")
-                )
+                self.add_error('expected_return_date', _("Return date cannot be before departure date."))
+
         return cleaned_data
 
 

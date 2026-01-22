@@ -38,6 +38,20 @@
             height: 100%;
         }
 
+        /* Fix mobile viewport height issues - use dvh where supported */
+        @supports (height: 100dvh) {
+            .h-screen {
+                height: 100dvh !important;
+            }
+        }
+
+        /* Mobile bottom padding for browser UI */
+        @media (max-width: 1023px) {
+            #main-content {
+                padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px) + 60px);
+            }
+        }
+
         /* Prevent modal backdrop from causing reflow */
         .modal::backdrop {
             background: transparent;
@@ -424,7 +438,7 @@
         <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
         <input id="desktop-toggle" type="checkbox" class="hidden" />
 
-        <div class="drawer-content flex flex-col h-screen overflow-hidden">
+        <div class="drawer-content flex flex-col h-screen overflow-hidden" style="height: 100vh; height: 100dvh;">
             <div class="flex flex-1 h-full overflow-hidden">
                 {% include "core/partials/sidebar_desktop.html" %}
 

@@ -2,20 +2,28 @@
 <div class="space-y-4" hx-target="this" hx-swap="outerHTML">
     <!-- Page Header -->
     <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-3">
-            <a href="{% url 'students:index' %}"
-               hx-get="{% url 'students:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div>
-                <h1 class="text-xl font-bold">Guardians</h1>
-                <p class="text-sm text-base-content/60">
-                    {% if paginator.count %}{{ paginator.count }} guardian{{ paginator.count|pluralize }}{% else %}No guardians{% endif %}
-                    {% if search %}<span class="text-primary"> (filtered)</span>{% endif %}
-                </p>
+        <div>
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <div class="flex items-center gap-3">
+                <a href="{{ back_url|default:'/students/' }}"
+                   hx-get="{{ back_url|default:'/students/' }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm btn-circle"
+                   title="Back to Students">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="text-xl font-bold">Guardians</h1>
+                    <p class="text-sm text-base-content/60">
+                        {% if paginator.count %}{{ paginator.count }} guardian{{ paginator.count|pluralize }}{% else %}No guardians{% endif %}
+                        {% if search %}<span class="text-primary"> (filtered)</span>{% endif %}
+                    </p>
+                </div>
             </div>
         </div>
         <button class="btn btn-primary btn-sm"
@@ -114,7 +122,7 @@
                         </button>
                         <button class="btn btn-ghost btn-xs btn-square text-error"
                                 hx-post="{% url 'students:guardian_delete' guardian.pk %}"
-                                hx-confirm="Delete {{ guardian.full_name }}?"
+                                hx-confirm="Delete {{ guardian.full_name|escapejs }}?"
                                 hx-target="#main-content"
                                 hx-swap="innerHTML"
                                 title="Delete">

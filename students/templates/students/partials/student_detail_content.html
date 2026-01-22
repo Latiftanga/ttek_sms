@@ -175,7 +175,7 @@
                     <h3 class="font-semibold text-sm text-error mb-2">Danger Zone</h3>
                     <p class="text-xs text-base-content/60 mb-3">Permanently delete this student record.</p>
                     <form hx-post="{% url 'students:student_delete' student.pk %}"
-                          hx-confirm="Delete {{ student.full_name }}? This action cannot be undone.">
+                          hx-confirm="Delete {{ student.full_name|escapejs }}? This action cannot be undone.">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-error btn-sm btn-outline w-full">
                             <i class="fa-solid fa-trash"></i>

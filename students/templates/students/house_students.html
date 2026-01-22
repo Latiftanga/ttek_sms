@@ -1,0 +1,7 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ house.name }} Students - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "students/partials/house_students_content.html" %}
+{% endblock %}
