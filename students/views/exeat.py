@@ -354,12 +354,16 @@ def exeat_index(request):
     # Apply filters
     status_filter = request.GET.get('status', '')
     type_filter = request.GET.get('type', '')
+    house_filter = request.GET.get('house', '')
     search = request.GET.get('search', '').strip()
 
     if status_filter:
         exeats = exeats.filter(status=status_filter)
     if type_filter:
         exeats = exeats.filter(exeat_type=type_filter)
+    # House filter only for admin/senior
+    if house_filter and (is_school_admin(user) or (assignment and assignment.is_senior)):
+        exeats = exeats.filter(student__house_id=house_filter)
     if search:
         exeats = exeats.filter(
             Q(student__first_name__icontains=search) |
@@ -368,26 +372,38 @@ def exeat_index(request):
             Q(destination__icontains=search)
         )
 
-    # Stats
+    # Stats - filtered by house for regular housemasters
     today = timezone.now().date()
+    stats_qs = Exeat.objects.all()
+    if assignment and not assignment.is_senior and not is_school_admin(user):
+        stats_qs = stats_qs.filter(student__house=assignment.house)
+
     stats = {
-        'pending': Exeat.objects.filter(status='pending').count(),
-        'recommended': Exeat.objects.filter(status='recommended').count(),
-        'active': Exeat.objects.filter(status='active').count(),
-        'today_departures': Exeat.objects.filter(
+        'pending': stats_qs.filter(status='pending').count(),
+        'recommended': stats_qs.filter(status='recommended').count(),
+        'active': stats_qs.filter(status='active').count(),
+        'today_departures': stats_qs.filter(
             status__in=['approved', 'active'],
             departure_date=today
         ).count(),
     }
+
+    # Get houses for filter dropdown (admin/senior only)
+    from ..models import House
+    houses = House.objects.filter(is_active=True).order_by('name') if (
+        is_school_admin(user) or (assignment and assignment.is_senior)
+    ) else []
 
     context = {
         'exeats': exeats[:50],  # Limit for performance
         'stats': stats,
         'status_filter': status_filter,
         'type_filter': type_filter,
+        'house_filter': house_filter,
         'search': search,
         'status_choices': Exeat.Status.choices,
         'type_choices': Exeat.ExeatType.choices,
+        'houses': houses,
         'is_senior': is_senior_housemaster(user) or is_school_admin(user),
         'assignment': assignment,
         'breadcrumbs': [
@@ -434,6 +450,12 @@ def exeat_create(request):
             hm_assignment = HouseMaster.get_for_house(student.house)
             if hm_assignment:
                 exeat.housemaster = hm_assignment.teacher
+
+            # Auto-populate emergency contact from primary guardian
+            guardian = student.get_primary_guardian()
+            if guardian:
+                exeat.contact_person = guardian.full_name
+                exeat.contact_phone = guardian.phone_number or ''
 
             exeat.save()
             messages.success(request, f'Exeat request created for {student.full_name}.')
@@ -498,6 +520,22 @@ def exeat_student_search(request):
     return render(request, 'students/partials/exeat_student_search_results.html', {
         'students': students
     })
+
+
+@login_required
+@housemaster_required
+def exeat_student_guardian(request, pk):
+    """Get student's guardian info for exeat form (HTMX endpoint)."""
+    student = get_object_or_404(Student, pk=pk)
+    guardian = student.get_primary_guardian()
+
+    context = {
+        'student': student,
+        'guardian': guardian,
+        'has_guardian': guardian is not None,
+        'has_phone': bool(guardian.phone_number) if guardian else False,
+    }
+    return render(request, 'students/partials/exeat_guardian_info.html', context)
 
 
 @login_required
@@ -904,10 +942,14 @@ def get_exeat_report_data(start_date, end_date, house_filter=None, type_filter=N
 
 
 @login_required
-@admin_or_senior_required
+@housemaster_required
 def exeat_report(request):
     """Exeat report with statistics and export options."""
     from datetime import datetime, timedelta
+
+    user = request.user
+    assignment = get_housemaster_assignment(user)
+    is_admin_or_senior = is_school_admin(user) or (assignment and assignment.is_senior)
 
     # Get date range from request or default to current month
     today = timezone.now().date()
@@ -933,6 +975,10 @@ def exeat_report(request):
     if start_date > end_date:
         start_date, end_date = end_date, start_date
 
+    # For regular housemasters, force filter to their house only
+    if not is_admin_or_senior and assignment:
+        house_filter = str(assignment.house.pk)
+
     # Get report data
     report_data = get_exeat_report_data(
         start_date, end_date,
@@ -946,6 +992,8 @@ def exeat_report(request):
         'type_filter': type_filter,
         'type_choices': Exeat.ExeatType.choices,
         'status_choices': Exeat.Status.choices,
+        'is_admin_or_senior': is_admin_or_senior,
+        'assignment': assignment,
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
             {'label': 'Exeats', 'url': '/students/exeats/'},
@@ -959,7 +1007,7 @@ def exeat_report(request):
 
 
 @login_required
-@admin_or_senior_required
+@housemaster_required
 def exeat_report_pdf(request):
     """Export exeat report as PDF."""
     from datetime import datetime
@@ -968,11 +1016,19 @@ def exeat_report_pdf(request):
     from django.conf import settings as django_settings
     from weasyprint import HTML, CSS
 
+    user = request.user
+    assignment = get_housemaster_assignment(user)
+    is_admin_or_senior = is_school_admin(user) or (assignment and assignment.is_senior)
+
     # Get date range and filters
     start_date_str = request.GET.get('start_date', '')
     end_date_str = request.GET.get('end_date', '')
     house_filter = request.GET.get('house', '')
     type_filter = request.GET.get('type', '')
+
+    # For regular housemasters, force filter to their house only
+    if not is_admin_or_senior and assignment:
+        house_filter = str(assignment.house.pk)
 
     today = timezone.now().date()
     default_start = today.replace(day=1)
@@ -1112,7 +1168,7 @@ def exeat_report_pdf(request):
 
 
 @login_required
-@admin_or_senior_required
+@housemaster_required
 def exeat_report_excel(request):
     """Export exeat report as Excel."""
     from datetime import datetime
@@ -1120,11 +1176,19 @@ def exeat_report_excel(request):
     import pandas as pd
     from django.http import FileResponse
 
+    user = request.user
+    assignment = get_housemaster_assignment(user)
+    is_admin_or_senior = is_school_admin(user) or (assignment and assignment.is_senior)
+
     # Get date range and filters
     start_date_str = request.GET.get('start_date', '')
     end_date_str = request.GET.get('end_date', '')
     house_filter = request.GET.get('house', '')
     type_filter = request.GET.get('type', '')
+
+    # For regular housemasters, force filter to their house only
+    if not is_admin_or_senior and assignment:
+        house_filter = str(assignment.house.pk)
 
     today = timezone.now().date()
     default_start = today.replace(day=1)

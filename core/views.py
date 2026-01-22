@@ -58,8 +58,9 @@ def manifest(request):
     # Get school settings for current tenant
     try:
         school = SchoolSettings.objects.first()
-        school_name = school.display_name if school else connection.tenant.name
-        short_name = school.short_name if school and school.short_name else school_name[:12]
+        tenant = connection.tenant
+        school_name = school.display_name if school else tenant.name
+        short_name = getattr(tenant, 'short_name', None) or school_name[:12]
         theme_color = school.primary_color if school and school.primary_color else '#570df8'
         background_color = '#f2f2f2'
 

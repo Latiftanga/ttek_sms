@@ -59,6 +59,7 @@ urlpatterns = [
     path('exeats/', views.exeat_index, name='exeat_index'),
     path('exeats/create/', views.exeat_create, name='exeat_create'),
     path('exeats/student-search/', views.exeat_student_search, name='exeat_student_search'),
+    path('exeats/student/<int:pk>/guardian/', views.exeat_student_guardian, name='exeat_student_guardian'),
     path('exeats/report/', views.exeat_report, name='exeat_report'),
     path('exeats/report/pdf/', views.exeat_report_pdf, name='exeat_report_pdf'),
     path('exeats/report/excel/', views.exeat_report_excel, name='exeat_report_excel'),

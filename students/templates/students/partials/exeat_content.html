@@ -95,7 +95,15 @@
                                hx-include="closest form" />
                     </div>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-wrap">
+                    {% if is_senior and houses %}
+                    <select name="house" class="select select-sm select-bordered flex-1 sm:flex-none sm:w-auto">
+                        <option value="">All Houses</option>
+                        {% for house in houses %}
+                        <option value="{{ house.pk }}" {% if house_filter == house.pk|stringformat:"s" %}selected{% endif %}>{{ house.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
                     <select name="status" class="select select-sm select-bordered flex-1 sm:flex-none sm:w-auto">
                         <option value="">All Status</option>
                         {% for value, label in status_choices %}
@@ -108,7 +116,7 @@
                         <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
-                    {% if search or status_filter or type_filter %}
+                    {% if search or status_filter or type_filter or house_filter %}
                     <a href="{% url 'students:exeat_index' %}"
                        hx-get="{% url 'students:exeat_index' %}"
                        hx-target="#main-content"

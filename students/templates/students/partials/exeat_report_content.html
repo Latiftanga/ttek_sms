@@ -62,6 +62,7 @@
                     <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}"
                            class="input input-bordered input-sm w-40" />
                 </div>
+                {% if is_admin_or_senior %}
                 <div class="form-control">
                     <label class="label py-1">
                         <span class="label-text text-xs">House</span>
@@ -75,6 +76,16 @@
                         {% endfor %}
                     </select>
                 </div>
+                {% elif assignment %}
+                <div class="form-control">
+                    <label class="label py-1">
+                        <span class="label-text text-xs">House</span>
+                    </label>
+                    <input type="text" value="{{ assignment.house.name }}" disabled
+                           class="input input-bordered input-sm w-40 bg-base-200" />
+                    <input type="hidden" name="house" value="{{ assignment.house.pk }}" />
+                </div>
+                {% endif %}
                 <div class="form-control">
                     <label class="label py-1">
                         <span class="label-text text-xs">Type</span>
