@@ -519,19 +519,22 @@ def exeat_student_search(request):
 
     students = Student.objects.none()
     if len(query) >= 2:
-        # Base filter: active students with houses
-        if is_school_admin(user):
-            students = Student.objects.filter(
-                status='active',
-                house__isnull=False
-            )
-        elif assignment:
-            students = Student.objects.filter(
-                status='active',
-                house=assignment.house
-            )
+        # Base queryset - active students (house assignment optional for search)
+        base_qs = Student.objects.filter(status='active')
 
-        # Apply search
+        # Filter by house based on user role
+        if is_school_admin(user):
+            # Admin can search all active students
+            students = base_qs
+        elif assignment:
+            # Housemaster can only search students in their house
+            students = base_qs.filter(house=assignment.house)
+        else:
+            # Fallback: if user passed housemaster_required but has no assignment
+            # (e.g., no current academic year), allow search for students with houses
+            students = base_qs.filter(house__isnull=False)
+
+        # Apply search filter
         students = students.filter(
             Q(first_name__icontains=query) |
             Q(last_name__icontains=query) |
