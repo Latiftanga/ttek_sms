@@ -1,0 +1,210 @@
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between gap-2">
+        <div>
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <div class="flex items-center gap-3">
+                <a href="{% url 'students:exeat_index' %}"
+                   hx-get="{% url 'students:exeat_index' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm btn-circle"
+                   title="Go back">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="text-xl font-bold">New Exeat Request</h1>
+                    <p class="text-sm text-base-content/60">Request permission for a student to leave campus</p>
+                </div>
+            </div>
+        </div>
+        <button type="submit" form="exeat-form" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span class="hidden sm:inline">Submit</span>
+        </button>
+    </div>
+
+    <!-- Form -->
+    <form id="exeat-form"
+          method="post"
+          action="{% url 'students:exeat_create' %}"
+          class="space-y-4">
+        {% csrf_token %}
+
+        <!-- Student & Type -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-user-graduate text-primary"></i>
+                    Student & Type
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- Student Search -->
+                    <div x-data="{ open: false, selectedId: '{{ form.student.value|default:'' }}', selectedName: '' }"
+                         @click.away="open = false"
+                         class="relative">
+                        <label class="floating-label block">
+                            <span>Student *</span>
+                            <div class="input input-bordered input-sm w-full flex items-center gap-2">
+                                <i class="fa-solid fa-user-graduate text-base-content/50"></i>
+                                <input type="text"
+                                       id="student_search"
+                                       x-on:focus="open = true"
+                                       x-on:input="open = true"
+                                       placeholder="Search by name or admission #..."
+                                       hx-get="{% url 'students:exeat_student_search' %}"
+                                       hx-trigger="keyup changed delay:300ms"
+                                       hx-target="#student_search_results"
+                                       name="q"
+                                       autocomplete="off"
+                                       class="grow bg-transparent border-none focus:outline-none" />
+                            </div>
+                        </label>
+                        <input type="hidden" name="student" id="student_id" x-bind:value="selectedId" required />
+                        <div id="student_search_results"
+                             x-show="open"
+                             class="absolute z-20 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        </div>
+                        {% if form.student.errors %}
+                        <p class="text-error text-xs mt-1">{{ form.student.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Exeat Type -->
+                    <label class="floating-label block">
+                        <span>Exeat Type *</span>
+                        <select name="exeat_type" class="select select-bordered select-sm w-full" required>
+                            <option value="internal" {% if form.exeat_type.value == 'internal' %}selected{% endif %}>
+                                Internal (Same day, within town)
+                            </option>
+                            <option value="external" {% if form.exeat_type.value == 'external' %}selected{% endif %}>
+                                External (Outside school location)
+                            </option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Destination & Reason -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-location-dot text-primary"></i>
+                    Destination & Reason
+                </h2>
+                <div class="space-y-3">
+                    <label class="floating-label block">
+                        <span>Destination *</span>
+                        <div class="input input-bordered input-sm w-full flex items-center gap-2">
+                            <i class="fa-solid fa-location-dot text-base-content/50"></i>
+                            <input type="text" name="destination" value="{{ form.destination.value|default:'' }}"
+                                   placeholder="Where student is going" required
+                                   class="grow bg-transparent border-none focus:outline-none" />
+                        </div>
+                    </label>
+                    {% if form.destination.errors %}
+                    <p class="text-error text-xs -mt-2">{{ form.destination.errors.0 }}</p>
+                    {% endif %}
+
+                    <label class="floating-label block">
+                        <span>Reason *</span>
+                        <textarea name="reason" rows="2" placeholder="Reason for exeat" required
+                                  class="textarea textarea-bordered textarea-sm w-full">{{ form.reason.value|default:'' }}</textarea>
+                    </label>
+                    {% if form.reason.errors %}
+                    <p class="text-error text-xs -mt-2">{{ form.reason.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Dates & Times -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-clock text-primary"></i>
+                    Schedule
+                </h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <label class="floating-label block">
+                        <span>Departure Date *</span>
+                        <input type="date" name="departure_date" value="{{ form.departure_date.value|default:'' }}"
+                               class="input input-bordered input-sm w-full" required />
+                    </label>
+                    <label class="floating-label block">
+                        <span>Departure Time *</span>
+                        <input type="time" name="departure_time" value="{{ form.departure_time.value|default:'' }}"
+                               class="input input-bordered input-sm w-full" required />
+                    </label>
+                    <label class="floating-label block">
+                        <span>Return Date *</span>
+                        <input type="date" name="expected_return_date" value="{{ form.expected_return_date.value|default:'' }}"
+                               class="input input-bordered input-sm w-full" required />
+                    </label>
+                    <label class="floating-label block">
+                        <span>Return Time *</span>
+                        <input type="time" name="expected_return_time" value="{{ form.expected_return_time.value|default:'' }}"
+                               class="input input-bordered input-sm w-full" required />
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-phone text-primary"></i>
+                    Emergency Contact
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <label class="floating-label block">
+                        <span>Contact Phone</span>
+                        <div class="input input-bordered input-sm w-full flex items-center gap-2">
+                            <i class="fa-solid fa-phone text-base-content/50"></i>
+                            <input type="tel" name="contact_phone" value="{{ form.contact_phone.value|default:'' }}"
+                                   placeholder="Emergency contact number"
+                                   class="grow bg-transparent border-none focus:outline-none" />
+                        </div>
+                    </label>
+                    <label class="floating-label block">
+                        <span>Contact Person</span>
+                        <div class="input input-bordered input-sm w-full flex items-center gap-2">
+                            <i class="fa-solid fa-user text-base-content/50"></i>
+                            <input type="text" name="contact_person" value="{{ form.contact_person.value|default:'' }}"
+                                   placeholder="Name of contact person"
+                                   class="grow bg-transparent border-none focus:outline-none" />
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error py-2">
+            <i class="fa-solid fa-exclamation-circle"></i>
+            <span class="text-sm">{{ form.non_field_errors.0 }}</span>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<script>
+function selectStudent(id, name, house) {
+    document.getElementById('student_id').value = id;
+    document.getElementById('student_search').value = name + ' (' + house + ')';
+    document.getElementById('student_search_results').innerHTML = '';
+    // Close the Alpine.js dropdown
+    const container = document.getElementById('student_search').closest('[x-data]');
+    if (container && container.__x) {
+        container.__x.$data.open = false;
+        container.__x.$data.selectedId = id;
+    }
+}
+</script>

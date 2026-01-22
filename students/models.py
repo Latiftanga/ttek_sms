@@ -622,3 +622,246 @@ class GuardianInvitation(models.Model):
             return invitation if invitation.is_valid else None
         except cls.DoesNotExist:
             return None
+
+
+class HouseMaster(models.Model):
+    """
+    Assigns a teacher as housemaster for a house in a specific academic year.
+    One teacher can be marked as Senior Housemaster (Discipline Master) per year.
+    """
+    teacher = models.ForeignKey(
+        'teachers.Teacher',
+        on_delete=models.CASCADE,
+        related_name='housemaster_assignments'
+    )
+    house = models.ForeignKey(
+        House,
+        on_delete=models.CASCADE,
+        related_name='housemaster_assignments'
+    )
+    academic_year = models.ForeignKey(
+        'core.AcademicYear',
+        on_delete=models.CASCADE,
+        related_name='housemaster_assignments'
+    )
+    is_senior = models.BooleanField(
+        default=False,
+        help_text="Senior Housemaster (Discipline Master) - approves external exeats"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-academic_year__start_date', 'house__name']
+        unique_together = ['house', 'academic_year']  # One housemaster per house per year
+        verbose_name = "House Master"
+        verbose_name_plural = "House Masters"
+
+    def __str__(self):
+        senior = " (Senior)" if self.is_senior else ""
+        return f"{self.teacher.full_name} - {self.house.name}{senior} ({self.academic_year})"
+
+    @classmethod
+    def get_senior_housemaster(cls, academic_year=None):
+        """Get the senior housemaster for the given or current academic year."""
+        from core.models import AcademicYear
+        if not academic_year:
+            academic_year = AcademicYear.get_current()
+        if not academic_year:
+            return None
+        return cls.objects.filter(
+            academic_year=academic_year,
+            is_senior=True,
+            is_active=True
+        ).select_related('teacher').first()
+
+    @classmethod
+    def get_for_house(cls, house, academic_year=None):
+        """Get the housemaster for a specific house."""
+        from core.models import AcademicYear
+        if not academic_year:
+            academic_year = AcademicYear.get_current()
+        if not academic_year:
+            return None
+        return cls.objects.filter(
+            house=house,
+            academic_year=academic_year,
+            is_active=True
+        ).select_related('teacher').first()
+
+
+class Exeat(models.Model):
+    """
+    Tracks student exeat (permission to leave campus) requests.
+    Internal exeats are approved by housemaster.
+    External exeats require housemaster recommendation + senior housemaster approval.
+    """
+    class ExeatType(models.TextChoices):
+        INTERNAL = 'internal', _('Internal (Within town, same day return)')
+        EXTERNAL = 'external', _('External (Outside school location)')
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', _('Pending')
+        RECOMMENDED = 'recommended', _('Recommended')  # For external - awaiting senior approval
+        APPROVED = 'approved', _('Approved')
+        REJECTED = 'rejected', _('Rejected')
+        ACTIVE = 'active', _('Active (Student out)')
+        COMPLETED = 'completed', _('Completed (Returned)')
+        OVERDUE = 'overdue', _('Overdue')
+        CANCELLED = 'cancelled', _('Cancelled')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='exeats'
+    )
+    exeat_type = models.CharField(
+        max_length=10,
+        choices=ExeatType.choices,
+        default=ExeatType.INTERNAL
+    )
+    reason = models.TextField(help_text="Reason for the exeat request")
+    destination = models.CharField(max_length=255, help_text="Where the student is going")
+
+    # Departure details
+    departure_date = models.DateField()
+    departure_time = models.TimeField()
+    expected_return_date = models.DateField()
+    expected_return_time = models.TimeField()
+
+    # Actual departure/return (filled when student departs/returns)
+    actual_departure = models.DateTimeField(null=True, blank=True)
+    actual_return = models.DateTimeField(null=True, blank=True)
+
+    # Contact information (for emergency)
+    contact_phone = models.CharField(max_length=20, blank=True, help_text="Emergency contact phone")
+    contact_person = models.CharField(max_length=100, blank=True, help_text="Emergency contact person name")
+
+    # Status tracking
+    status = models.CharField(
+        max_length=15,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+
+    # Request tracking
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='exeat_requests'
+    )
+    housemaster = models.ForeignKey(
+        'teachers.Teacher',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='exeats_as_housemaster',
+        help_text="The student's housemaster handling this request"
+    )
+
+    # Recommendation (for external exeats)
+    recommended_by = models.ForeignKey(
+        'teachers.Teacher',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='exeats_recommended',
+        help_text="Housemaster who recommended (external exeats)"
+    )
+    recommended_at = models.DateTimeField(null=True, blank=True)
+
+    # Approval
+    approved_by = models.ForeignKey(
+        'teachers.Teacher',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='exeats_approved'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    # Notifications
+    guardian_notified_approval = models.BooleanField(default=False)
+    guardian_notified_return = models.BooleanField(default=False)
+    guardian_notified_overdue = models.BooleanField(default=False)
+
+    # SMS audit trail - links to actual SMS messages for tracking delivery
+    approval_sms = models.ForeignKey(
+        'communications.SMSMessage',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='exeat_approvals',
+        help_text="SMS sent when exeat was approved"
+    )
+    return_sms = models.ForeignKey(
+        'communications.SMSMessage',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='exeat_returns',
+        help_text="SMS sent when student returned"
+    )
+
+    notes = models.TextField(blank=True, help_text="Additional notes")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Exeat"
+        verbose_name_plural = "Exeats"
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['student', 'status']),
+            models.Index(fields=['exeat_type', 'status']),
+            models.Index(fields=['departure_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.student.full_name} - {self.get_exeat_type_display()} ({self.status})"
+
+    @property
+    def is_overdue(self):
+        """Check if the exeat is overdue."""
+        if self.status not in [self.Status.ACTIVE, self.Status.APPROVED]:
+            return False
+        from datetime import datetime
+        expected = datetime.combine(self.expected_return_date, self.expected_return_time)
+        return timezone.now() > timezone.make_aware(expected) if timezone.is_naive(expected) else timezone.now() > expected
+
+    def mark_departed(self):
+        """Mark student as departed."""
+        if self.status == self.Status.APPROVED:
+            self.actual_departure = timezone.now()
+            self.status = self.Status.ACTIVE
+            self.save(update_fields=['actual_departure', 'status', 'updated_at'])
+
+    def mark_returned(self):
+        """Mark student as returned."""
+        self.actual_return = timezone.now()
+        self.status = self.Status.COMPLETED
+        self.save(update_fields=['actual_return', 'status', 'updated_at'])
+
+    def recommend(self, teacher):
+        """Housemaster recommends external exeat for senior approval."""
+        self.recommended_by = teacher
+        self.recommended_at = timezone.now()
+        self.status = self.Status.RECOMMENDED
+        self.save(update_fields=['recommended_by', 'recommended_at', 'status', 'updated_at'])
+
+    def approve(self, teacher):
+        """Approve the exeat."""
+        self.approved_by = teacher
+        self.approved_at = timezone.now()
+        self.status = self.Status.APPROVED
+        self.save(update_fields=['approved_by', 'approved_at', 'status', 'updated_at'])
+
+    def reject(self, reason=''):
+        """Reject the exeat."""
+        self.status = self.Status.REJECTED
+        self.rejection_reason = reason
+        self.save(update_fields=['status', 'rejection_reason', 'updated_at'])

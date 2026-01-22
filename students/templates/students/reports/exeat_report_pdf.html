@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Exeat Report</title>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>{{ school.display_name|default:"School" }}</h1>
+        <h2>Exeat Report</h2>
+        <p>Period: {{ start_date|date:"d M Y" }} - {{ end_date|date:"d M Y" }}</p>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="section-title">Summary Statistics</div>
+    <table style="width: 60%; margin-bottom: 20px;">
+        <tr>
+            <th>Metric</th>
+            <th>Value</th>
+        </tr>
+        <tr>
+            <td>Total Exeats</td>
+            <td><strong>{{ total }}</strong></td>
+        </tr>
+        <tr>
+            <td>Internal Exeats</td>
+            <td>{{ by_type.internal|default:0 }}</td>
+        </tr>
+        <tr>
+            <td>External Exeats</td>
+            <td>{{ by_type.external|default:0 }}</td>
+        </tr>
+        <tr>
+            <td>Approved</td>
+            <td>{{ approved_count }}</td>
+        </tr>
+        <tr>
+            <td>Rejected</td>
+            <td>{{ rejected_count }}</td>
+        </tr>
+        <tr>
+            <td>Pending</td>
+            <td>{{ pending_count }}</td>
+        </tr>
+        <tr>
+            <td>Approval Rate</td>
+            <td><strong>{{ approval_rate }}%</strong></td>
+        </tr>
+        <tr>
+            <td>Overdue</td>
+            <td>{{ overdue_count }}</td>
+        </tr>
+    </table>
+
+    <!-- Exeats by House -->
+    {% if by_house %}
+    <div class="section-title">Exeats by House</div>
+    <table style="width: 40%; margin-bottom: 20px;">
+        <tr>
+            <th>House</th>
+            <th>Count</th>
+        </tr>
+        {% for item in by_house %}
+        <tr>
+            <td>{{ item.student__house__name|default:"No House" }}</td>
+            <td>{{ item.count }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    <!-- Approvals by Housemaster -->
+    {% if by_approver %}
+    <div class="section-title">Approvals by Housemaster</div>
+    <table style="width: 50%; margin-bottom: 20px;">
+        <tr>
+            <th>Housemaster</th>
+            <th>Approvals</th>
+        </tr>
+        {% for item in by_approver %}
+        <tr>
+            <td>{{ item.approved_by__first_name }} {{ item.approved_by__last_name }}</td>
+            <td>{{ item.count }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    <!-- Frequent Students -->
+    {% if by_student %}
+    <div class="section-title">Most Frequent Students (Top 10)</div>
+    <table style="width: 60%; margin-bottom: 20px;">
+        <tr>
+            <th>Student</th>
+            <th>Admission #</th>
+            <th>House</th>
+            <th>Count</th>
+        </tr>
+        {% for item in by_student %}
+        <tr>
+            <td>{{ item.student__first_name }} {{ item.student__last_name }}</td>
+            <td>{{ item.student__admission_number }}</td>
+            <td>{{ item.student__house__name|default:"No House" }}</td>
+            <td>{{ item.count }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    <!-- Exeat Details -->
+    <div class="section-title">Exeat Details</div>
+    <table>
+        <tr>
+            <th>Date</th>
+            <th>Student</th>
+            <th>Class</th>
+            <th>House</th>
+            <th>Type</th>
+            <th>Destination</th>
+            <th>Status</th>
+            <th>Approved By</th>
+        </tr>
+        {% for exeat in exeats %}
+        <tr>
+            <td>{{ exeat.created_at|date:"d/m/Y" }}</td>
+            <td>{{ exeat.student.full_name }}</td>
+            <td>{{ exeat.student.current_class.name|default:"-" }}</td>
+            <td>{{ exeat.student.house.name|default:"-" }}</td>
+            <td>
+                {% if exeat.exeat_type == 'internal' %}Internal{% else %}External{% endif %}
+            </td>
+            <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">{{ exeat.destination }}</td>
+            <td>
+                <span class="badge {% if exeat.status == 'approved' or exeat.status == 'completed' %}badge-success{% elif exeat.status == 'rejected' %}badge-error{% elif exeat.status == 'pending' %}badge-warning{% else %}badge-info{% endif %}">
+                    {{ exeat.get_status_display }}
+                </span>
+            </td>
+            <td>{{ exeat.approved_by.full_name|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="8" style="text-align: center; padding: 20px;">No exeats found for this period</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Generated on {{ generated_at|date:"d M Y, H:i" }}{% if generated_by %} by {{ generated_by.get_full_name }}{% endif %}</p>
+        <p>{{ school.display_name|default:"School Management System" }}</p>
+    </div>
+</body>
+</html>

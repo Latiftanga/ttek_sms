@@ -2,7 +2,8 @@ import re
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from academics.models import Class
-from .models import Student, Guardian, House
+from core.models import AcademicYear
+from .models import Student, Guardian, House, Exeat, HouseMaster
 
 
 def validate_phone_number(phone):
@@ -180,3 +181,130 @@ class HouseForm(forms.ModelForm):
             'motto': forms.TextInput(attrs={'placeholder': 'House motto (optional)'}),
             'description': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Description (optional)'}),
         }
+
+
+class ExeatForm(forms.ModelForm):
+    """Form for creating/editing exeat requests."""
+
+    class Meta:
+        model = Exeat
+        fields = [
+            'student', 'exeat_type', 'reason', 'destination',
+            'departure_date', 'departure_time',
+            'expected_return_date', 'expected_return_time',
+            'contact_phone', 'contact_person'
+        ]
+        widgets = {
+            'reason': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Reason for exeat'}),
+            'destination': forms.TextInput(attrs={'placeholder': 'Where student is going'}),
+            'departure_date': forms.DateInput(attrs={'type': 'date'}),
+            'departure_time': forms.TimeInput(attrs={'type': 'time'}),
+            'expected_return_date': forms.DateInput(attrs={'type': 'date'}),
+            'expected_return_time': forms.TimeInput(attrs={'type': 'time'}),
+            'contact_phone': forms.TextInput(attrs={'placeholder': 'Emergency contact phone'}),
+            'contact_person': forms.TextInput(attrs={'placeholder': 'Contact person name (optional)'}),
+        }
+
+    def __init__(self, *args, students=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if students is not None:
+            self.fields['student'].queryset = students
+
+    def clean(self):
+        cleaned_data = super().clean()
+        departure_date = cleaned_data.get('departure_date')
+        expected_return_date = cleaned_data.get('expected_return_date')
+
+        if departure_date and expected_return_date:
+            if expected_return_date < departure_date:
+                raise forms.ValidationError(
+                    _("Return date cannot be before departure date.")
+                )
+        return cleaned_data
+
+
+class ExeatApprovalForm(forms.Form):
+    """Form for approving/rejecting exeat."""
+    action = forms.ChoiceField(choices=[
+        ('approve', _('Approve')),
+        ('recommend', _('Recommend')),
+        ('reject', _('Reject')),
+    ])
+    reason = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 2, 'placeholder': 'Reason for rejection'})
+    )
+
+
+class HouseMasterForm(forms.ModelForm):
+    """Form for assigning a teacher as housemaster."""
+
+    class Meta:
+        model = HouseMaster
+        fields = ['teacher', 'house', 'academic_year', 'is_senior']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Default to current academic year
+        current_year = AcademicYear.get_current()
+        if current_year:
+            self.fields['academic_year'].initial = current_year
+
+        # Only show active houses
+        self.fields['house'].queryset = House.objects.filter(is_active=True)
+
+        # Get teachers
+        from teachers.models import Teacher
+        self.fields['teacher'].queryset = Teacher.objects.filter(
+            status='active'
+        ).select_related('user').order_by('last_name', 'first_name')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        teacher = cleaned_data.get('teacher')
+        house = cleaned_data.get('house')
+        academic_year = cleaned_data.get('academic_year')
+        is_senior = cleaned_data.get('is_senior')
+
+        if teacher and house and academic_year:
+            # Check for existing assignment for this house/year
+            existing = HouseMaster.objects.filter(
+                house=house,
+                academic_year=academic_year,
+                is_active=True
+            )
+            if self.instance.pk:
+                existing = existing.exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise forms.ValidationError(
+                    _("This house already has a housemaster for this academic year.")
+                )
+
+            # Check if teacher already assigned to another house
+            teacher_assignment = HouseMaster.objects.filter(
+                teacher=teacher,
+                academic_year=academic_year,
+                is_active=True
+            )
+            if self.instance.pk:
+                teacher_assignment = teacher_assignment.exclude(pk=self.instance.pk)
+            if teacher_assignment.exists():
+                raise forms.ValidationError(
+                    _("This teacher is already assigned to another house.")
+                )
+
+            # If marking as senior, check there isn't another senior
+            if is_senior:
+                senior_exists = HouseMaster.objects.filter(
+                    academic_year=academic_year,
+                    is_senior=True,
+                    is_active=True
+                )
+                if self.instance.pk:
+                    senior_exists = senior_exists.exclude(pk=self.instance.pk)
+                if senior_exists.exists():
+                    raise forms.ValidationError(
+                        _("There is already a senior housemaster for this academic year.")
+                    )
+
+        return cleaned_data

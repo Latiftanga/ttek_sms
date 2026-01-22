@@ -1,0 +1,7 @@
+{% extends "core/base.html" %}
+
+{% block title %}{% if exeat %}Edit{% else %}New{% endif %} Exeat - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "students/partials/exeat_form.html" %}
+{% endblock %}

@@ -1,0 +1,426 @@
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between gap-2">
+        <div>
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <div class="flex items-center gap-3">
+                <a href="{% url 'students:exeat_index' %}"
+                   hx-get="{% url 'students:exeat_index' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm btn-circle"
+                   title="Go back">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="text-xl font-bold">{{ exeat.student.full_name }}</h1>
+                    <p class="text-sm text-base-content/60">
+                        {% if exeat.exeat_type == 'internal' %}Internal{% else %}External{% endif %} Exeat
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Badge -->
+        <div>
+            {% if exeat.status == 'pending' %}
+            <span class="badge badge-warning badge-lg">Pending</span>
+            {% elif exeat.status == 'recommended' %}
+            <span class="badge badge-info badge-lg">Awaiting Senior Approval</span>
+            {% elif exeat.status == 'approved' %}
+            <span class="badge badge-success badge-lg">Approved</span>
+            {% elif exeat.status == 'active' %}
+            <span class="badge badge-accent badge-lg">Student Out</span>
+            {% elif exeat.status == 'completed' %}
+            <span class="badge badge-ghost badge-lg">Completed</span>
+            {% elif exeat.status == 'rejected' %}
+            <span class="badge badge-error badge-lg">Rejected</span>
+            {% elif exeat.status == 'overdue' %}
+            <span class="badge badge-error badge-lg animate-pulse">Overdue</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Left Column: Student Info -->
+        <div class="space-y-4">
+            <!-- Student Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="avatar placeholder">
+                            <div class="w-14 h-14 rounded-full bg-base-300 text-base-content flex items-center justify-center ring ring-primary ring-offset-2">
+                                {% if exeat.student.photo %}
+                                <img src="{{ exeat.student.photo.url }}" alt="" class="rounded-full" loading="lazy" />
+                                {% else %}
+                                <span class="text-lg font-medium">{{ exeat.student.first_name|slice:":1" }}{{ exeat.student.last_name|slice:":1" }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold">{{ exeat.student.full_name }}</h3>
+                            <p class="text-sm text-base-content/60">
+                                {{ exeat.student.current_class.name|default:"No class" }}
+                            </p>
+                            {% if exeat.student.house %}
+                            <p class="text-xs text-base-content/50">{{ exeat.student.house.name }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            {% if can_approve_internal or can_recommend or can_approve_external or can_mark_departed or can_mark_returned %}
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm mb-3">Actions</h3>
+                    <div class="space-y-2">
+                        {% if can_approve_internal %}
+                        <form hx-post="{% url 'students:exeat_approve' exeat.pk %}"
+                              hx-confirm="Approve this internal exeat?">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-sm w-full">
+                                <i class="fa-solid fa-check"></i> Approve
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if can_recommend %}
+                        <form hx-post="{% url 'students:exeat_approve' exeat.pk %}"
+                              hx-confirm="Recommend this exeat for senior housemaster approval?">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-info btn-sm w-full">
+                                <i class="fa-solid fa-thumbs-up"></i> Recommend
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if can_approve_external %}
+                        <form hx-post="{% url 'students:exeat_approve' exeat.pk %}"
+                              hx-confirm="Give final approval for this external exeat?">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-sm w-full">
+                                <i class="fa-solid fa-check-double"></i> Final Approve
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if can_mark_departed %}
+                        <form hx-post="{% url 'students:exeat_depart' exeat.pk %}"
+                              hx-confirm="Mark student as departed?">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-accent btn-sm w-full">
+                                <i class="fa-solid fa-door-open"></i> Mark Departed
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if can_mark_returned %}
+                        <form hx-post="{% url 'students:exeat_return' exeat.pk %}"
+                              hx-confirm="Mark student as returned?">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary btn-sm w-full">
+                                <i class="fa-solid fa-door-closed"></i> Mark Returned
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if exeat.status == 'pending' or exeat.status == 'recommended' %}
+                        <button type="button" class="btn btn-error btn-sm btn-outline w-full"
+                                onclick="document.getElementById('reject_modal').showModal()">
+                            <i class="fa-solid fa-times"></i> Reject
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Right Column: Details -->
+        <div class="lg:col-span-2 space-y-4">
+            <!-- Exeat Details -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-info-circle text-primary"></i>
+                        Exeat Details
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-base-content/50">Type</p>
+                            <p class="text-sm font-medium">
+                                {% if exeat.exeat_type == 'internal' %}
+                                <span class="badge badge-ghost badge-sm">Internal</span>
+                                (Same day, within town)
+                                {% else %}
+                                <span class="badge badge-primary badge-sm">External</span>
+                                (Outside school location)
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/50">Destination</p>
+                            <p class="text-sm font-medium">{{ exeat.destination }}</p>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <p class="text-xs text-base-content/50">Reason</p>
+                            <p class="text-sm">{{ exeat.reason }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-clock text-primary"></i>
+                        Schedule
+                    </h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div>
+                            <p class="text-xs text-base-content/50">Departure Date</p>
+                            <p class="text-sm font-medium">{{ exeat.departure_date|date:"M j, Y" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/50">Departure Time</p>
+                            <p class="text-sm font-medium">{{ exeat.departure_time|time:"g:i A" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/50">Expected Return</p>
+                            <p class="text-sm font-medium">{{ exeat.expected_return_date|date:"M j, Y" }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/50">Return Time</p>
+                            <p class="text-sm font-medium">{{ exeat.expected_return_time|time:"g:i A" }}</p>
+                        </div>
+                    </div>
+
+                    {% if exeat.actual_return %}
+                    <div class="divider my-2"></div>
+                    <div class="flex items-center gap-2 text-success">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <span class="text-sm">Returned: {{ exeat.actual_return|date:"M j, Y g:i A" }}</span>
+                    </div>
+                    {% endif %}
+
+                    {% if exeat.actual_departure %}
+                    <div class="mt-2">
+                        <span class="text-sm text-base-content/60">
+                            <i class="fa-solid fa-door-open mr-1"></i>
+                            Departed: {{ exeat.actual_departure|date:"M j, Y g:i A" }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Contact Information -->
+            {% if exeat.contact_phone or exeat.contact_person %}
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-phone text-primary"></i>
+                        Emergency Contact
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {% if exeat.contact_phone %}
+                        <div>
+                            <p class="text-xs text-base-content/50">Phone</p>
+                            <p class="text-sm font-medium">
+                                <a href="tel:{{ exeat.contact_phone }}" class="link link-primary">{{ exeat.contact_phone }}</a>
+                            </p>
+                        </div>
+                        {% endif %}
+                        {% if exeat.contact_person %}
+                        <div>
+                            <p class="text-xs text-base-content/50">Contact Person</p>
+                            <p class="text-sm font-medium">{{ exeat.contact_person }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Approval Trail -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-history text-primary"></i>
+                        Approval Trail
+                    </h2>
+                    <ul class="steps steps-vertical text-xs">
+                        <li class="step step-primary" data-content="1">
+                            <div class="text-left ml-2">
+                                <p class="font-medium">Requested</p>
+                                <p class="text-base-content/50">{{ exeat.created_at|date:"M j, Y g:i A" }}{% if exeat.requested_by %} by {{ exeat.requested_by.get_full_name }}{% endif %}</p>
+                            </div>
+                        </li>
+
+                        {% if exeat.exeat_type == 'external' %}
+                        <li class="step {% if exeat.recommended_at %}step-primary{% endif %}" data-content="2">
+                            <div class="text-left ml-2">
+                                <p class="font-medium">Recommended</p>
+                                {% if exeat.recommended_at %}
+                                <p class="text-base-content/50">{{ exeat.recommended_at|date:"M j, Y g:i A" }}{% if exeat.recommended_by %} by {{ exeat.recommended_by.full_name }}{% endif %}</p>
+                                {% else %}
+                                <p class="text-base-content/50">Pending housemaster recommendation</p>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endif %}
+
+                        <li class="step {% if exeat.approved_at %}step-primary{% endif %}" data-content="{% if exeat.exeat_type == 'external' %}3{% else %}2{% endif %}">
+                            <div class="text-left ml-2">
+                                <p class="font-medium">{% if exeat.exeat_type == 'external' %}Final Approval{% else %}Approved{% endif %}</p>
+                                {% if exeat.approved_at %}
+                                <p class="text-base-content/50">{{ exeat.approved_at|date:"M j, Y g:i A" }}{% if exeat.approved_by %} by {{ exeat.approved_by.full_name }}{% endif %}</p>
+                                {% elif exeat.status == 'rejected' %}
+                                <p class="text-error">Rejected{% if exeat.rejection_reason %}: {{ exeat.rejection_reason }}{% endif %}</p>
+                                {% else %}
+                                <p class="text-base-content/50">Pending</p>
+                                {% endif %}
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SMS Notifications -->
+            {% if exeat.status in 'approved,active,completed' or exeat.approval_sms or exeat.return_sms %}
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h2 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-comment-sms text-primary"></i>
+                        Guardian SMS Notifications
+                    </h2>
+                    <div class="space-y-3">
+                        <!-- Approval SMS -->
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 mt-1">
+                                {% if exeat.approval_sms %}
+                                    {% if exeat.approval_sms.status == 'sent' or exeat.approval_sms.status == 'delivered' %}
+                                    <i class="fa-solid fa-circle-check text-success"></i>
+                                    {% elif exeat.approval_sms.status == 'pending' %}
+                                    <i class="fa-solid fa-clock text-warning"></i>
+                                    {% else %}
+                                    <i class="fa-solid fa-circle-xmark text-error"></i>
+                                    {% endif %}
+                                {% elif exeat.guardian_notified_approval %}
+                                    <i class="fa-solid fa-circle-check text-success"></i>
+                                {% elif exeat.approved_at %}
+                                    <i class="fa-solid fa-circle-xmark text-base-content/30"></i>
+                                {% else %}
+                                    <i class="fa-solid fa-circle text-base-content/20"></i>
+                                {% endif %}
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium">Approval Notification</p>
+                                {% if exeat.approval_sms %}
+                                    <p class="text-xs text-base-content/60">
+                                        {{ exeat.approval_sms.get_status_display }} to {{ exeat.approval_sms.recipient_phone }}
+                                        {% if exeat.approval_sms.sent_at %}
+                                        <span class="ml-1">{{ exeat.approval_sms.sent_at|date:"M j, g:i A" }}</span>
+                                        {% endif %}
+                                    </p>
+                                    {% if exeat.approval_sms.status == 'failed' and exeat.approval_sms.error_message %}
+                                    <p class="text-xs text-error mt-1">{{ exeat.approval_sms.error_message }}</p>
+                                    {% endif %}
+                                {% elif exeat.guardian_notified_approval %}
+                                    <p class="text-xs text-success">Guardian notified</p>
+                                {% elif exeat.approved_at %}
+                                    <p class="text-xs text-base-content/50">Not sent (no guardian phone or SMS disabled)</p>
+                                {% else %}
+                                    <p class="text-xs text-base-content/50">Pending approval</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Return SMS (only show if student has departed or returned) -->
+                        {% if exeat.actual_departure or exeat.status == 'completed' %}
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 mt-1">
+                                {% if exeat.return_sms %}
+                                    {% if exeat.return_sms.status == 'sent' or exeat.return_sms.status == 'delivered' %}
+                                    <i class="fa-solid fa-circle-check text-success"></i>
+                                    {% elif exeat.return_sms.status == 'pending' %}
+                                    <i class="fa-solid fa-clock text-warning"></i>
+                                    {% else %}
+                                    <i class="fa-solid fa-circle-xmark text-error"></i>
+                                    {% endif %}
+                                {% elif exeat.guardian_notified_return %}
+                                    <i class="fa-solid fa-circle-check text-success"></i>
+                                {% elif exeat.actual_return %}
+                                    <i class="fa-solid fa-circle-xmark text-base-content/30"></i>
+                                {% else %}
+                                    <i class="fa-solid fa-circle text-base-content/20"></i>
+                                {% endif %}
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium">Return Notification</p>
+                                {% if exeat.return_sms %}
+                                    <p class="text-xs text-base-content/60">
+                                        {{ exeat.return_sms.get_status_display }} to {{ exeat.return_sms.recipient_phone }}
+                                        {% if exeat.return_sms.sent_at %}
+                                        <span class="ml-1">{{ exeat.return_sms.sent_at|date:"M j, g:i A" }}</span>
+                                        {% endif %}
+                                    </p>
+                                    {% if exeat.return_sms.status == 'failed' and exeat.return_sms.error_message %}
+                                    <p class="text-xs text-error mt-1">{{ exeat.return_sms.error_message }}</p>
+                                    {% endif %}
+                                {% elif exeat.guardian_notified_return %}
+                                    <p class="text-xs text-success">Guardian notified</p>
+                                {% elif exeat.actual_return %}
+                                    <p class="text-xs text-base-content/50">Not sent</p>
+                                {% else %}
+                                    <p class="text-xs text-base-content/50">Awaiting student return</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<dialog id="reject_modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <h3 class="font-bold text-lg">Reject Exeat</h3>
+        <form hx-post="{% url 'students:exeat_reject' exeat.pk %}" class="mt-4">
+            {% csrf_token %}
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Reason for rejection</span>
+                </label>
+                <textarea name="reason" class="textarea textarea-bordered" rows="2"
+                          placeholder="Enter reason for rejection..."></textarea>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="reject_modal.close()">Cancel</button>
+                <button type="submit" class="btn btn-error">
+                    <i class="fa-solid fa-times"></i> Reject
+                </button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>

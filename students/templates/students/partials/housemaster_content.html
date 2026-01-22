@@ -1,0 +1,124 @@
+{% load core_tags %}
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between gap-2">
+        <div>
+            {% if breadcrumbs %}
+            <div class="mb-2">
+                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+            </div>
+            {% endif %}
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa-solid fa-user-tie text-white"></i>
+                </div>
+                House Masters
+            </h1>
+            <p class="text-sm text-base-content/60 ml-12">
+                {{ current_year.name|default:"Current Year" }}
+            </p>
+        </div>
+        <button class="btn btn-primary btn-sm"
+                hx-get="{% url 'students:housemaster_assign' %}"
+                hx-target="#modal-housemaster-content"
+                hx-swap="innerHTML"
+                onclick="modal_housemaster.showModal()">
+            <i class="fa-solid fa-plus"></i>
+            <span class="hidden sm:inline">Assign</span>
+        </button>
+    </div>
+
+    <!-- Assignments List -->
+    {% if assignments %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {% for assignment in assignments %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center gap-3">
+                    <!-- House Color Indicator -->
+                    <div class="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                         style="background-color: {{ assignment.house.color_code|default:'#6366f1' }}20;">
+                        <i class="fa-solid fa-home text-xl" style="color: {{ assignment.house.color_code|default:'#6366f1' }};"></i>
+                    </div>
+
+                    <!-- Info -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-semibold text-sm truncate">{{ assignment.house.name }}</h3>
+                            {% if assignment.is_senior %}
+                            <span class="badge badge-primary badge-xs">Senior</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-sm text-base-content/70">{{ assignment.teacher.full_name }}</p>
+                        {% if assignment.teacher.phone_number %}
+                        <p class="text-xs text-base-content/50">
+                            <i class="fa-solid fa-phone mr-1"></i>{{ assignment.teacher.phone_number }}
+                        </p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex-shrink-0">
+                        <form hx-post="{% url 'students:housemaster_remove' assignment.pk %}"
+                              hx-confirm="Remove {{ assignment.teacher.full_name }} as housemaster for {{ assignment.house.name }}?"
+                              hx-target="#main-content"
+                              hx-swap="innerHTML">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Remove">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <div class="text-center py-8 text-base-content/40">
+                <i class="fa-solid fa-user-tie text-4xl mb-3"></i>
+                <p class="text-sm">No housemasters assigned</p>
+                <p class="text-xs">Assign teachers to houses to manage exeats</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Info Card -->
+    <div class="card bg-info/10 border border-info/20">
+        <div class="card-body p-4">
+            <div class="flex gap-3">
+                <i class="fa-solid fa-info-circle text-info mt-0.5"></i>
+                <div class="text-sm">
+                    <p class="font-medium text-info">About House Masters</p>
+                    <ul class="text-xs text-base-content/70 mt-1 space-y-1">
+                        <li>House masters can create and approve internal exeats for their house</li>
+                        <li>For external exeats, house masters recommend and the <strong>Senior House Master</strong> gives final approval</li>
+                        <li>Only one Senior House Master (Discipline Master) can be assigned per academic year</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Modal -->
+<dialog id="modal_housemaster" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-housemaster-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
