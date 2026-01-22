@@ -106,6 +106,9 @@ class Command(BaseCommand):
         if existing:
             if force:
                 self.stdout.write(f"  Deleting existing school: {existing.name}")
+                # Delete users in the tenant schema first
+                with schema_context(schema_name):
+                    User.objects.all().delete()
                 existing.delete()  # This also drops the schema
             else:
                 self.stdout.write(
@@ -144,12 +147,16 @@ class Command(BaseCommand):
 
         # Create school admin user within the tenant schema
         with schema_context(schema_name):
-            admin_user = User.objects.create_user(
+            admin_user, created = User.objects.get_or_create(
                 email=school_data['admin_email'],
-                password=school_data['admin_password'],
-                first_name=school_data['headmaster_name'].split()[-1],
-                last_name=school_data['headmaster_name'].split()[0].replace('Mr.', '').replace('Mrs.', '').replace('Dr.', '').strip(),
-                is_school_admin=True,
-                is_staff=True,
+                defaults={
+                    'first_name': school_data['headmaster_name'].split()[-1],
+                    'last_name': school_data['headmaster_name'].split()[0].replace('Mr.', '').replace('Mrs.', '').replace('Dr.', '').strip(),
+                    'is_school_admin': True,
+                    'is_staff': True,
+                }
             )
+            if created:
+                admin_user.set_password(school_data['admin_password'])
+                admin_user.save()
             self.stdout.write(f"    ✓ Admin user: {school_data['admin_email']}")
