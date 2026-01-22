@@ -222,6 +222,7 @@ class Command(BaseCommand):
                 first_name=first_name,
                 last_name=last_name,
                 gender=gender,
+                date_of_birth=date.today() - timedelta(days=random.randint(9000, 18000)),  # 25-50 years old
                 staff_id=f"TCH{str(i+1).zfill(4)}",
                 phone_number=f"+23324{random.randint(1000000, 9999999)}",
                 email=email,
