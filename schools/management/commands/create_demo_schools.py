@@ -7,8 +7,8 @@ from django.core.management.base import BaseCommand
 from django.db import connection
 from django_tenants.utils import schema_context
 
-from schools.models import School, Domain
-from accounts.models import User, Region, District
+from schools.models import School, Domain, Region, District
+from accounts.models import User
 
 
 class Command(BaseCommand):
