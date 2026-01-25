@@ -7,7 +7,7 @@ from django.db import models, transaction
 from django.contrib import messages
 from core.utils import cache_page_per_tenant, requires_programmes, requires_houses
 
-from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, AttendanceRecord, Period, TimetableEntry
+from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, AttendanceRecord, Period, TimetableEntry, StudentSubjectEnrollment
 from .forms import ProgrammeForm, ClassForm, SubjectForm, StudentEnrollmentForm, ClassSubjectForm
 from students.models import Student
 
@@ -476,20 +476,54 @@ def class_edit(request, pk):
 
     form = ClassForm(request.POST, instance=cls)
     if form.is_valid():
-        form.save()
+        cls = form.save()
         if request.htmx:
-            # Return updated classes content and close modal
-            context = get_classes_list_context()
-            context['stats'] = {
-                'total_classes': Class.objects.count(),
-                'total_students': Student.objects.filter(status='active').count(),
-            }
-            context['class_form'] = ClassForm()
-            response = render(request, 'academics/partials/classes_content.html', context)
-            response['HX-Trigger'] = 'closeModal'
-            response['HX-Retarget'] = '#main-content'
-            response['HX-Reswap'] = 'innerHTML'
-            return response
+            if is_detail_page:
+                # Return updated class detail content
+                context = {
+                    'class': cls,
+                    'back_url': '/academics/classes/',
+                    'breadcrumbs': [
+                        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+                        {'label': 'Academics', 'url': '/academics/'},
+                        {'label': 'Classes', 'url': '/academics/classes/'},
+                        {'label': cls.name},
+                    ],
+                }
+                # Get timetable stats
+                timetable_entries = TimetableEntry.objects.filter(
+                    class_subject__class_assigned=cls
+                )
+                context['timetable_stats'] = {
+                    'total_entries': timetable_entries.count(),
+                    'subjects_count': timetable_entries.values('class_subject__subject').distinct().count(),
+                    'teachers_count': timetable_entries.exclude(
+                        class_subject__teacher__isnull=True
+                    ).values('class_subject__teacher').distinct().count(),
+                }
+                context.update(get_register_tab_context(cls))
+                context.update(get_teachers_tab_context(cls))
+                context.update(get_attendance_tab_context(cls))
+                context.update(get_promotion_history_context(cls))
+
+                response = render(request, 'academics/partials/class_detail_content.html', context)
+                response['HX-Trigger'] = 'closeModal'
+                response['HX-Retarget'] = '#main-content'
+                response['HX-Reswap'] = 'innerHTML'
+                return response
+            else:
+                # Return updated classes list content
+                context = get_classes_list_context()
+                context['stats'] = {
+                    'total_classes': Class.objects.count(),
+                    'total_students': Student.objects.filter(status='active').count(),
+                }
+                context['class_form'] = ClassForm()
+                response = render(request, 'academics/partials/classes_content.html', context)
+                response['HX-Trigger'] = 'closeModal'
+                response['HX-Retarget'] = '#main-content'
+                response['HX-Reswap'] = 'innerHTML'
+                return response
         return redirect('academics:classes')
 
     # Validation error (422 keeps modal open)
@@ -631,24 +665,121 @@ def subject_delete(request, pk):
 
 
 
-def get_register_tab_context(class_obj):
-    """Context for the Students/Register tab."""
+def get_register_tab_context(class_obj, request=None, page=1, search='', gender='', sort='name'):
+    """Context for the Students/Register tab with pagination, search, filter and sort."""
+    from django.core.paginator import Paginator
+    from django.db.models import Q
+
     students = Student.objects.filter(
         current_class=class_obj,
         status='active'
-    ).order_by('first_name')
+    )
 
-    # Gender breakdown
+    # Gender breakdown (before filtering)
     male_count = students.filter(gender='M').count()
     female_count = students.filter(gender='F').count()
+    total_students = students.count()
+
+    # Apply gender filter if provided
+    if gender in ('M', 'F'):
+        students = students.filter(gender=gender)
+
+    # Apply search filter if provided
+    if search:
+        students = students.filter(
+            Q(first_name__icontains=search) |
+            Q(last_name__icontains=search) |
+            Q(other_names__icontains=search) |
+            Q(admission_number__icontains=search) |
+            Q(guardian_name__icontains=search)
+        )
+
+    # Apply sorting
+    sort_options = {
+        'name': ('first_name', 'last_name'),
+        '-name': ('-first_name', '-last_name'),
+        'admission': ('admission_number',),
+        '-admission': ('-admission_number',),
+        'gender': ('gender', 'first_name'),
+    }
+    order_by = sort_options.get(sort, ('first_name', 'last_name'))
+    students = students.order_by(*order_by)
+
+    # Paginate
+    paginator = Paginator(students, 20)  # 20 students per page
+    students_page = paginator.get_page(page)
+
+    # Get elective data for SHS classes
+    elective_subjects = []
+    required_electives = 0
+    students_missing_electives = 0
+    student_electives = {}  # {student_id: {'electives': [...], 'count': n, 'complete': bool}}
+
+    # Check if this is an SHS class with electives
+    if class_obj.programme:
+        # Get elective class subjects filtered by programme
+        programme_subject_ids = set(
+            class_obj.programme.subjects.values_list('id', flat=True)
+        )
+        elective_subjects = list(ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject__is_core=False
+        ).filter(
+            models.Q(subject_id__in=programme_subject_ids) |
+            models.Q(subject__programmes__isnull=True)
+        ).select_related('subject', 'teacher').distinct())
+
+        required_electives = class_obj.programme.required_electives
+
+        if elective_subjects:
+            # Get all active enrollments for students in this class
+            all_enrollments = StudentSubjectEnrollment.objects.filter(
+                student__current_class=class_obj,
+                class_subject__class_assigned=class_obj,
+                class_subject__subject__is_core=False,
+                is_active=True
+            ).select_related('student', 'class_subject__subject')
+
+            # Build student elective map
+            for enrollment in all_enrollments:
+                sid = enrollment.student_id
+                if sid not in student_electives:
+                    student_electives[sid] = {
+                        'electives': [],
+                        'elective_ids': [],
+                        'count': 0,
+                        'complete': False,
+                    }
+                student_electives[sid]['electives'].append(enrollment.class_subject.subject)
+                student_electives[sid]['elective_ids'].append(enrollment.class_subject_id)
+                student_electives[sid]['count'] += 1
+
+            # Calculate completion status
+            for sid, data in student_electives.items():
+                data['complete'] = data['count'] >= required_electives
+
+            # Count students missing electives
+            all_student_ids = students.values_list('id', flat=True)
+            for sid in all_student_ids:
+                if sid not in student_electives or not student_electives[sid]['complete']:
+                    students_missing_electives += 1
 
     return {
         'class': class_obj,
-        'students': students,
+        'students': students_page,
+        'total_students': total_students,
+        'search_query': search,
+        'gender_filter': gender,
+        'sort_by': sort,
         'gender_stats': {
             'male': male_count,
             'female': female_count,
-        }
+        },
+        # Elective data for SHS
+        'elective_subjects': elective_subjects,
+        'required_electives': required_electives,
+        'students_missing_electives': students_missing_electives,
+        'student_electives': student_electives,
     }
 
 def get_teachers_tab_context(class_obj):
@@ -797,7 +928,11 @@ def class_detail(request, pk):
     }
 
     # Combine all tab contexts for the initial page load
-    context.update(get_register_tab_context(class_obj))
+    page = request.GET.get('page', 1)
+    search = request.GET.get('q', '')
+    gender = request.GET.get('gender', '')
+    sort = request.GET.get('sort', 'name')
+    context.update(get_register_tab_context(class_obj, request=request, page=page, search=search, gender=gender, sort=sort))
     context.update(get_teachers_tab_context(class_obj))
     context.update(get_attendance_tab_context(class_obj))
     context.update(get_promotion_history_context(class_obj))
@@ -814,24 +949,40 @@ def class_detail(request, pk):
 def class_subject_create(request, pk):
     class_obj = get_object_or_404(Class, pk=pk)
 
+    # Check if editing existing allocation
+    subject_id = request.GET.get('subject_id') or request.POST.get('subject_id')
+    allocation = None
+    if subject_id:
+        allocation = get_object_or_404(ClassSubject, pk=subject_id, class_assigned=class_obj)
+
     if request.method == 'POST':
-        form = ClassSubjectForm(request.POST, class_instance=class_obj)
+        form = ClassSubjectForm(request.POST, instance=allocation, class_instance=class_obj)
         if form.is_valid():
-            allocation = form.save(commit=False)
-            allocation.class_assigned = class_obj
-            allocation.save()
+            obj = form.save(commit=False)
+            obj.class_assigned = class_obj
+            obj.save()
 
             if request.htmx:
-                response = HttpResponse(status=204)
-                response['HX-Refresh'] = 'true'
-                return response
+                # Return back to subjects modal
+                subject_allocations = ClassSubject.objects.filter(
+                    class_assigned=class_obj
+                ).select_related('subject', 'teacher').order_by('subject__name')
+
+                context = {
+                    'class': class_obj,
+                    'subject_allocations': subject_allocations,
+                }
+                return render(request, 'academics/includes/modal_subjects_content.html', context)
 
             return redirect('academics:class_detail', pk=pk)
     else:
-        form = ClassSubjectForm(class_instance=class_obj)
+        form = ClassSubjectForm(instance=allocation, class_instance=class_obj)
 
     return render(request, 'academics/partials/modal_subject_allocation.html', {
-        'form': form, 'class': class_obj
+        'form': form,
+        'class': class_obj,
+        'allocation': allocation,
+        'subject_id': subject_id,
     })
 
 
@@ -842,10 +993,16 @@ def class_subject_delete(request, class_pk, pk):
     allocation.delete()
 
     if request.htmx:
-        # Return updated subjects list
-        response = render(request, 'academics/includes/tab_teachers_content.html',
-                          get_teachers_tab_context(class_obj))
-        return response
+        # Return updated subjects modal
+        subject_allocations = ClassSubject.objects.filter(
+            class_assigned=class_obj
+        ).select_related('subject', 'teacher').order_by('subject__name')
+
+        context = {
+            'class': class_obj,
+            'subject_allocations': subject_allocations,
+        }
+        return render(request, 'academics/includes/modal_subjects_content.html', context)
 
     return redirect('academics:class_detail', pk=class_pk)
 
@@ -864,8 +1021,12 @@ def class_student_enroll(request, pk):
                 student.save()
 
             if request.htmx:
-                response = HttpResponse(status=204)
-                response['HX-Refresh'] = 'true'
+                # Return updated register tab content
+                context = get_register_tab_context(class_obj)
+                response = render(request, 'academics/includes/tab_register_content.html', context)
+                response['HX-Trigger'] = 'closeModal'
+                response['HX-Retarget'] = '#tab-register'
+                response['HX-Reswap'] = 'innerHTML'
                 return response
 
             return redirect('academics:class_detail', pk=pk)
@@ -883,16 +1044,198 @@ def class_student_remove(request, class_pk, student_pk):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    class_obj = get_object_or_404(Class, pk=class_pk)
     student = get_object_or_404(Student, pk=student_pk, current_class_id=class_pk)
     student.current_class = None
     student.save()
 
     if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
+        # Return updated register tab content
+        context = get_register_tab_context(class_obj)
+        return render(request, 'academics/includes/tab_register_content.html', context)
 
     return redirect('academics:class_detail', pk=class_pk)
+
+
+@admin_required
+def class_student_electives(request, class_pk, student_pk):
+    """Manage elective subject enrollments for a student (Admin only)."""
+    class_obj = get_object_or_404(Class, pk=class_pk)
+    student = get_object_or_404(Student, pk=student_pk, current_class=class_obj)
+
+    # Get elective subjects for this class (filtered by programme if applicable)
+    if class_obj.programme:
+        programme_subject_ids = set(
+            class_obj.programme.subjects.values_list('id', flat=True)
+        )
+        elective_subjects = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject__is_core=False
+        ).filter(
+            models.Q(subject_id__in=programme_subject_ids) |
+            models.Q(subject__programmes__isnull=True)
+        ).select_related('subject', 'teacher').distinct()
+        required_electives = class_obj.programme.required_electives
+    else:
+        elective_subjects = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject__is_core=False
+        ).select_related('subject', 'teacher')
+        required_electives = 3
+
+    # Get current enrollments
+    enrolled_ids = list(StudentSubjectEnrollment.objects.filter(
+        student=student,
+        class_subject__class_assigned=class_obj,
+        class_subject__subject__is_core=False,
+        is_active=True
+    ).values_list('class_subject_id', flat=True))
+
+    context = {
+        'class': class_obj,
+        'student': student,
+        'elective_subjects': elective_subjects,
+        'enrolled_ids': enrolled_ids,
+        'required_electives': required_electives,
+    }
+
+    if request.method == 'POST':
+        # Get selected elective IDs
+        selected_ids = request.POST.getlist('electives')
+
+        # Get all elective class subjects for this class
+        elective_class_subjects = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject__is_core=False
+        )
+
+        # Update enrollments
+        for class_subject in elective_class_subjects:
+            should_be_enrolled = str(class_subject.id) in selected_ids
+
+            if should_be_enrolled:
+                enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
+                    student=student,
+                    class_subject=class_subject,
+                    defaults={'is_active': True}
+                )
+                if not created and not enrollment.is_active:
+                    enrollment.is_active = True
+                    enrollment.save()
+            else:
+                StudentSubjectEnrollment.objects.filter(
+                    student=student,
+                    class_subject=class_subject
+                ).update(is_active=False)
+
+        # Return success message with OOB swap for tab content
+        tab_context = get_register_tab_context(class_obj)
+        tab_context['student'] = student
+        tab_context['elective_success'] = True
+        # Don't auto-close modal - let user see success message and click Close
+        return render(request, 'academics/includes/modal_student_electives_success.html', tab_context)
+
+    return render(request, 'academics/includes/modal_student_electives.html', context)
+
+
+@admin_required
+def class_bulk_electives(request, pk):
+    """Bulk assign elective subjects to students (Admin only)."""
+    class_obj = get_object_or_404(Class, pk=pk)
+
+    # Get elective subjects filtered by programme
+    if class_obj.programme:
+        programme_subject_ids = set(
+            class_obj.programme.subjects.values_list('id', flat=True)
+        )
+        elective_subjects = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject__is_core=False
+        ).filter(
+            models.Q(subject_id__in=programme_subject_ids) |
+            models.Q(subject__programmes__isnull=True)
+        ).select_related('subject', 'teacher').distinct()
+        required_electives = class_obj.programme.required_electives
+    else:
+        elective_subjects = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject__is_core=False
+        ).select_related('subject', 'teacher')
+        required_electives = 3
+
+    # Find students needing electives
+    students = Student.objects.filter(current_class=class_obj, status='active')
+    students_needing_electives = []
+
+    for student in students:
+        count = StudentSubjectEnrollment.objects.filter(
+            student=student,
+            class_subject__class_assigned=class_obj,
+            class_subject__subject__is_core=False,
+            is_active=True
+        ).count()
+
+        if count < required_electives:
+            students_needing_electives.append({
+                'student': student,
+                'current_count': count,
+                'needed': required_electives - count
+            })
+
+    context = {
+        'class': class_obj,
+        'elective_subjects': elective_subjects,
+        'students_needing_electives': students_needing_electives,
+        'required_electives': required_electives,
+    }
+
+    if request.method == 'POST':
+        # Get selected electives and students
+        selected_ids = request.POST.getlist('electives')
+        student_ids = request.POST.getlist('students')
+
+        if not selected_ids:
+            context['error'] = 'Please select at least one elective subject.'
+            return render(request, 'academics/includes/modal_bulk_electives.html', context)
+
+        if not student_ids:
+            context['error'] = 'Please select at least one student.'
+            return render(request, 'academics/includes/modal_bulk_electives.html', context)
+
+        # Get students
+        students_to_update = Student.objects.filter(pk__in=student_ids, current_class=class_obj)
+
+        # Get class subjects
+        class_subjects = ClassSubject.objects.filter(
+            id__in=selected_ids,
+            class_assigned=class_obj,
+            subject__is_core=False
+        )
+
+        # Apply enrollments
+        enrolled_count = 0
+        for student in students_to_update:
+            for class_subject in class_subjects:
+                enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
+                    student=student,
+                    class_subject=class_subject,
+                    defaults={'is_active': True}
+                )
+                if created:
+                    enrolled_count += 1
+                elif not enrollment.is_active:
+                    enrollment.is_active = True
+                    enrollment.save()
+                    enrolled_count += 1
+
+        # Return success message in modal + OOB swap for tab content
+        tab_context = get_register_tab_context(class_obj)
+        tab_context['enrolled_count'] = enrolled_count
+        tab_context['bulk_success'] = True
+        # Don't auto-close modal - let user see success message and click Close
+        return render(request, 'academics/includes/modal_bulk_electives_success.html', tab_context)
+
+    return render(request, 'academics/includes/modal_bulk_electives.html', context)
 
 
 # --- 2. Take Attendance Action ---
@@ -975,9 +1318,10 @@ def class_attendance_take(request, pk):
         if records_to_update:
             AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
 
-        # HTMX Success: Refresh page to show updated data
+        # HTMX Success: Close modal and refresh page to update all stats
         if request.htmx:
             response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'closeModal'
             response['HX-Refresh'] = 'true'
             return response
 
@@ -1126,9 +1470,10 @@ def class_promote(request, pk):
                     except Exception as e:
                         errors.append(f'Error: {str(e)}')
 
-        # HTMX Response: Refresh page to show updated data
+        # HTMX Response: Close modal and refresh page
         if request.htmx:
             response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'closeModal'
             response['HX-Refresh'] = 'true'
             return response
 
@@ -1195,6 +1540,7 @@ def class_attendance_edit(request, pk, session_pk):
 
         if request.htmx:
             response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'closeModal'
             response['HX-Refresh'] = 'true'
             return response
 
@@ -2531,6 +2877,132 @@ def classroom_delete(request, pk):
             response = HttpResponse(status=204)
             response['HX-Trigger'] = 'classroomChanged'
             return response
-        return redirect('academics:classrooms')
-
     return HttpResponse(status=405)
+
+
+@login_required
+@teacher_or_admin_required
+def class_detail_pdf(request, pk):
+    """Generate a branded PDF class register."""
+    import logging
+    from io import BytesIO
+    from django.template.loader import render_to_string
+    from django.conf import settings as django_settings
+    
+    logger = logging.getLogger(__name__)
+    
+    class_obj = get_object_or_404(Class, pk=pk)
+    
+    # Get students (ordered)
+    students = Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('last_name', 'first_name')
+    
+    # Get subjects
+    subjects = ClassSubject.objects.filter(
+        class_assigned=class_obj
+    ).select_related('subject', 'teacher').order_by('subject__name')
+    
+    # Get school context with logo
+    try:
+        from gradebook.utils import get_school_context
+        school_ctx = get_school_context(include_logo_base64=True)
+    except ImportError:
+        # Fallback if utils not found
+        from core.models import SchoolSettings
+        school_ctx = {
+            'school_settings': SchoolSettings.load(),
+            'logo_base64': None
+        }
+
+    # Generate PDF using WeasyPrint
+    try:
+        from weasyprint import HTML, CSS
+        
+        context = {
+            'class': class_obj,
+            'students': students,
+            'subjects': subjects,
+            'school_settings': school_ctx.get('school_settings'),
+            'logo_base64': school_ctx.get('logo_base64'),
+            'generated_at': timezone.now(),
+            'generated_by': request.user,
+        }
+
+        html_string = render_to_string('academics/class_detail_pdf.html', context)
+        html = HTML(string=html_string, base_url=str(django_settings.BASE_DIR))
+        pdf_buffer = BytesIO()
+        html.write_pdf(pdf_buffer)
+        pdf_buffer.seek(0)
+
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        filename = f"{class_obj.name.replace(' ', '_')}_Register.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    except ImportError:
+        logger.error("WeasyPrint not installed")
+        messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
+        return redirect('academics:class_detail', pk=pk)
+    except Exception as e:
+        import traceback
+        logger.error(f"Failed to generate class PDF: {str(e)}")
+        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        return redirect('academics:class_detail', pk=pk)
+
+
+@login_required
+@teacher_or_admin_required
+def class_register(request, pk):
+    """Paginated student register for a class (HTMX endpoint)."""
+    class_obj = get_object_or_404(Class, pk=pk)
+    page = request.GET.get('page', 1)
+    search = request.GET.get('q', '')
+    gender = request.GET.get('gender', '')
+    sort = request.GET.get('sort', 'name')
+
+    context = get_register_tab_context(class_obj, request=request, page=page, search=search, gender=gender, sort=sort)
+
+    return render(request, 'academics/includes/tab_register_content.html', context)
+
+
+@admin_required
+def class_subjects_modal(request, pk):
+    """Show class subjects in a modal."""
+    class_obj = get_object_or_404(Class, pk=pk)
+
+    subject_allocations = ClassSubject.objects.filter(
+        class_assigned=class_obj
+    ).select_related('subject', 'teacher').order_by('subject__name')
+
+    context = {
+        'class': class_obj,
+        'subject_allocations': subject_allocations,
+    }
+
+    return render(request, 'academics/includes/modal_subjects_content.html', context)
+
+
+@admin_required
+def class_attendance_history(request, pk):
+    """Show class attendance history in a modal."""
+    class_obj = get_object_or_404(Class, pk=pk)
+
+    from .models import AttendanceSession
+    attendance_sessions = AttendanceSession.objects.filter(
+        class_assigned=class_obj
+    ).order_by('-date')[:20]
+
+    # Add counts
+    for session in attendance_sessions:
+        session.present_count = session.records.filter(status='present').count()
+        session.absent_count = session.records.filter(status='absent').count()
+        session.total_count = session.present_count + session.absent_count
+
+    context = {
+        'class': class_obj,
+        'attendance_sessions': attendance_sessions,
+    }
+
+    return render(request, 'academics/includes/modal_attendance_history.html', context)

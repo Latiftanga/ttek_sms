@@ -1,48 +1,164 @@
 {% load core_tags %}
 
-<div class="print:max-w-none">
-    <!-- Page Header -->
-    <div class="flex items-center justify-between mb-6 print:!hidden">
-        <div class="flex items-center gap-4">
-            {% include "core/partials/page_header.html" with title=class.name subtitle=class.level_display back_url=back_url breadcrumbs=breadcrumbs icon="fa-solid fa-chalkboard" only %}
-            <span class="badge {{ class.is_active|yesno:'badge-success,badge-ghost' }}">
-                {{ class.is_active|yesno:'Active,Inactive' }}
-            </span>
-        </div>
-        <div class="flex gap-2">
-            <!-- Export Dropdown -->
-            <div class="dropdown dropdown-end">
-                <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
-                    <i class="fa-solid fa-download"></i>
-                    <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
-                </div>
-                <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-44 border border-base-200">
-                    <li>
-                        <a href="{% url 'academics:class_export' class.pk %}">
-                            <i class="fa-solid fa-file-excel text-success w-4"></i> Export Excel
-                        </a>
-                    </li>
-                    <li>
-                        <button onclick="window.print()">
-                            <i class="fa-solid fa-file-pdf text-error w-4"></i> Print / PDF
-                        </button>
-                    </li>
-                </ul>
+<div class="print:max-w-none"
+     x-data="{
+        showFilters: false,
+        gender: '{{ gender_filter|default:'' }}',
+        sort: '{{ sort_by|default:'name' }}'
+     }">
+
+    <!-- Compact Header -->
+    <div class="flex flex-col gap-3 mb-4 print:!hidden w-full">
+        <!-- Top row: Title + Actions -->
+        <div class="flex items-center gap-2 sm:gap-3 w-full">
+            <a href="{{ back_url|default:'javascript:history.back()' }}"
+               class="btn btn-ghost btn-sm btn-square shrink-0">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div class="flex-1 min-w-0">
+                <h1 class="text-lg sm:text-xl font-bold truncate flex items-center gap-2">
+                    {{ class.name }}
+                    <span class="badge badge-xs sm:badge-sm {{ class.is_active|yesno:'badge-success,badge-ghost' }}">
+                        {{ class.is_active|yesno:'Active,Inactive' }}
+                    </span>
+                </h1>
+                <p class="text-xs text-base-content/60 truncate">
+                    {{ class.level_display }}{% if class.programme %} &bull; {{ class.programme.name }}{% endif %}{% if class.class_teacher %} &bull; {{ class.class_teacher.get_title_display }} {{ class.class_teacher.last_name }}{% endif %}
+                </p>
             </div>
-            <button class="btn btn-sm btn-outline btn-success"
-                    hx-get="{% url 'academics:class_promote' class.pk %}"
+
+            <!-- Quick Actions -->
+            <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+                <button class="btn btn-sm btn-primary"
+                        hx-get="{% url 'academics:class_student_enroll' class.pk %}"
+                        hx-target="#modal-edit-content"
+                        onclick="modal_edit.showModal()">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span class="hidden sm:inline">Enroll</span>
+                </button>
+                <button class="btn btn-sm btn-secondary"
+                        hx-get="{% url 'academics:class_attendance_take' class.pk %}"
+                        hx-target="#modal-edit-content"
+                        onclick="modal_edit.showModal()">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    <span class="hidden sm:inline">Attendance</span>
+                </button>
+                <div class="dropdown dropdown-end">
+                    <div tabindex="0" role="button" class="btn btn-sm btn-ghost">
+                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </div>
+                    <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-200">
+                        <li class="menu-title text-xs">View</li>
+                        <li>
+                            <button hx-get="{% url 'academics:class_subjects_modal' class.pk %}"
+                                    hx-target="#modal-edit-content"
+                                    onclick="modal_edit.showModal()">
+                                <i class="fa-solid fa-book w-4"></i> Subjects ({{ subject_allocations.count }})
+                            </button>
+                        </li>
+                        <li>
+                            <button hx-get="{% url 'academics:class_attendance_history' class.pk %}"
+                                    hx-target="#modal-edit-content"
+                                    onclick="modal_edit.showModal()">
+                                <i class="fa-solid fa-calendar-days w-4"></i> Attendance History
+                            </button>
+                        </li>
+                        <li>
+                            <a href="{% url 'academics:class_timetable' class.pk %}"
+                               hx-get="{% url 'academics:class_timetable' class.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true">
+                                <i class="fa-solid fa-table-cells w-4"></i> Timetable
+                            </a>
+                        </li>
+                        <li class="menu-title text-xs mt-2">Manage</li>
+                        <li>
+                            <button hx-get="{% url 'academics:class_edit' class.pk %}"
+                                    hx-target="#modal-edit-content"
+                                    onclick="modal_edit.showModal()">
+                                <i class="fa-solid fa-gear w-4"></i> Class Settings
+                            </button>
+                        </li>
+                        <li>
+                            <button hx-get="{% url 'academics:class_promote' class.pk %}"
+                                    hx-target="#modal-edit-content"
+                                    onclick="modal_edit.showModal()">
+                                <i class="fa-solid fa-arrow-up-right-dots w-4 text-success"></i> Promote Students
+                            </button>
+                        </li>
+                        <li class="menu-title text-xs mt-2">Export</li>
+                        <li>
+                            <a href="{% url 'academics:class_export' class.pk %}">
+                                <i class="fa-solid fa-file-excel w-4 text-success"></i> Export Excel
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'academics:class_detail_pdf' class.pk %}">
+                                <i class="fa-solid fa-file-pdf w-4 text-error"></i> Download PDF
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compact Stats Bar -->
+        <div class="flex items-center text-xs sm:text-sm bg-base-200/50 rounded-lg px-2 sm:px-3 py-2 w-full">
+            <!-- Enrollment -->
+            <div class="flex-1 flex items-center justify-center gap-1.5 px-1">
+                <i class="fa-solid fa-users text-primary"></i>
+                <span class="font-bold">{{ total_students }}</span>
+                <span class="text-base-content/50 hidden sm:inline">({{ gender_stats.male }}m/{{ gender_stats.female }}f)</span>
+            </div>
+
+            <div class="w-px h-4 bg-base-300"></div>
+
+            <!-- Attendance (clickable) -->
+            <button class="flex-1 flex items-center justify-center gap-1.5 px-1 hover:text-success transition-colors cursor-pointer"
+                    hx-get="{% url 'academics:class_attendance_history' class.pk %}"
                     hx-target="#modal-edit-content"
-                    onclick="modal_edit.showModal()">
-                <i class="fa-solid fa-arrow-up-right-dots"></i>
-                Promote
+                    onclick="modal_edit.showModal()"
+                    title="View attendance history">
+                <i class="fa-solid fa-clipboard-user text-success"></i>
+                <span class="font-bold">{{ attendance_percentage|default:0 }}%</span>
             </button>
-            <button class="btn btn-sm btn-primary"
-                    hx-get="{% url 'academics:class_edit' class.pk %}"
+
+            <div class="w-px h-4 bg-base-300"></div>
+
+            <!-- Subjects (clickable) -->
+            <button class="flex-1 flex items-center justify-center gap-1.5 px-1 hover:text-secondary transition-colors cursor-pointer"
+                    hx-get="{% url 'academics:class_subjects_modal' class.pk %}"
                     hx-target="#modal-edit-content"
-                    onclick="modal_edit.showModal()">
-                <i class="fa-solid fa-gear"></i>
-                Settings
+                    onclick="modal_edit.showModal()"
+                    title="Manage subjects">
+                <i class="fa-solid fa-book text-secondary"></i>
+                <span class="font-bold">{{ subject_allocations.count }}</span>
+                <span class="hidden sm:inline text-base-content/60">subjects</span>
             </button>
+
+            {% if class.class_teacher %}
+            <div class="w-px h-4 bg-base-300 hidden sm:block"></div>
+
+            <!-- Teacher (hidden on mobile) -->
+            <div class="hidden sm:flex flex-1 items-center justify-center gap-2 px-1">
+                <div class="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center overflow-hidden">
+                    {% if class.class_teacher.photo %}
+                    <img src="{{ class.class_teacher.photo.url }}" alt="" class="w-full h-full object-cover" />
+                    {% else %}
+                    {{ class.class_teacher.first_name|slice:":1" }}
+                    {% endif %}
+                </div>
+                <span class="text-base-content/70 text-xs">{{ class.class_teacher.last_name }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Capacity indicator - desktop only -->
+            <div class="hidden lg:flex flex-1 items-center justify-center gap-2 px-1">
+                <div class="w-16 h-1.5 bg-base-300 rounded-full overflow-hidden">
+                    <div class="h-full bg-primary rounded-full" style="width: {% widthratio total_students class.capacity 100 %}%;"></div>
+                </div>
+                <span class="text-xs text-base-content/50">{{ total_students }}/{{ class.capacity }}</span>
+            </div>
         </div>
     </div>
 
@@ -55,336 +171,127 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Elective Warning Banner (if applicable) -->
+    {% if students_missing_electives > 0 %}
+    <div class="alert alert-warning mb-4 py-2 print:!hidden">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span class="flex-1">
+            <span class="font-medium">{{ students_missing_electives }} student{{ students_missing_electives|pluralize }}</span>
+            need{{ students_missing_electives|pluralize:"s," }} electives assigned
+        </span>
+        <button class="btn btn-xs btn-warning"
+                hx-get="{% url 'academics:class_bulk_electives' class.pk %}"
+                hx-target="#modal-edit-content"
+                onclick="modal_edit.showModal()">
+            <i class="fa-solid fa-users-gear"></i> Assign Now
+        </button>
+    </div>
+    {% endif %}
 
-        <!-- Left Column: Class Info & Stats -->
-        <div class="lg:col-span-1 space-y-4">
+    <!-- Main Content Card: Students List -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
 
-            <!-- Class Info Card -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-5 items-center text-center">
-                    <!-- Class Icon -->
-                    <div class="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
-                        <span class="text-2xl font-bold text-primary">{{ class.name }}</span>
+        <!-- Search Bar -->
+        <div class="p-2 sm:p-3 border-b border-base-200 print:!hidden">
+            <div class="flex items-center gap-2">
+                <!-- Search Input -->
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-xs"></i>
+                    <input type="search"
+                           name="q"
+                           placeholder="Search students..."
+                           value="{{ search_query|default:'' }}"
+                           class="input input-sm input-bordered pl-9 w-full"
+                           hx-get="{% url 'academics:class_register' class.pk %}"
+                           hx-trigger="input changed delay:300ms, search"
+                           hx-target="#tab-register"
+                           hx-swap="innerHTML"
+                           hx-include="[name='gender'], [name='sort']" />
+                </div>
+
+                <!-- Filter Toggle Button (mobile) -->
+                <button type="button"
+                        class="btn btn-sm btn-ghost sm:hidden"
+                        :class="{ 'btn-active': showFilters || gender || sort !== 'name' }"
+                        @click="showFilters = !showFilters">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+
+                <!-- Desktop Filters -->
+                <div class="hidden sm:flex items-center gap-2">
+                    <div class="join">
+                        <input type="radio" name="gender" value="" class="join-item btn btn-sm"
+                               aria-label="All" :checked="gender === ''"
+                               @change="gender = ''"
+                               hx-get="{% url 'academics:class_register' class.pk %}"
+                               hx-target="#tab-register"
+                               hx-include="[name='q'], [name='sort']" />
+                        <input type="radio" name="gender" value="M" class="join-item btn btn-sm"
+                               aria-label="Boys" :checked="gender === 'M'"
+                               @change="gender = 'M'"
+                               hx-get="{% url 'academics:class_register' class.pk %}"
+                               hx-target="#tab-register"
+                               hx-include="[name='q'], [name='sort']" />
+                        <input type="radio" name="gender" value="F" class="join-item btn btn-sm"
+                               aria-label="Girls" :checked="gender === 'F'"
+                               @change="gender = 'F'"
+                               hx-get="{% url 'academics:class_register' class.pk %}"
+                               hx-target="#tab-register"
+                               hx-include="[name='q'], [name='sort']" />
                     </div>
-
-                    <h2 class="text-lg font-bold">{{ class.level_display }}</h2>
-                    {% if class.programme %}
-                    <p class="text-sm text-base-content/60">{{ class.programme.name }}</p>
-                    {% endif %}
-
-                    <!-- Quick Stats -->
-                    <div class="grid grid-cols-3 gap-2 w-full mt-4 print:!hidden">
-                        <div class="text-center p-2 rounded-lg bg-primary/10">
-                            <div class="text-xl font-bold text-primary">{{ students.count }}</div>
-                            <div class="text-xs text-base-content/60">Students</div>
-                        </div>
-                        <div class="text-center p-2 rounded-lg bg-info/10">
-                            <div class="text-xl font-bold text-info">{{ gender_stats.male }}</div>
-                            <div class="text-xs text-base-content/60">Male</div>
-                        </div>
-                        <div class="text-center p-2 rounded-lg bg-secondary/10">
-                            <div class="text-xl font-bold text-secondary">{{ gender_stats.female }}</div>
-                            <div class="text-xs text-base-content/60">Female</div>
-                        </div>
-                    </div>
-
-                    <!-- Print Stats -->
-                    <p class="hidden print:!block text-sm mt-2">
-                        {{ students.count }} Students ({{ gender_stats.male }} Male, {{ gender_stats.female }} Female)
-                    </p>
-
-                    <!-- Capacity Bar -->
-                    <div class="w-full mt-3">
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-base-content/60">Capacity</span>
-                            <span class="font-medium">{{ students.count }}/{{ class.capacity }}</span>
-                        </div>
-                        <progress class="progress progress-primary w-full h-2" value="{{ students.count }}" max="{{ class.capacity }}"></progress>
-                    </div>
+                    <select name="sort" class="select select-sm select-bordered"
+                            x-model="sort"
+                            hx-get="{% url 'academics:class_register' class.pk %}"
+                            hx-trigger="change"
+                            hx-target="#tab-register"
+                            hx-include="[name='q'], [name='gender']">
+                        <option value="name">Name A-Z</option>
+                        <option value="-name">Name Z-A</option>
+                        <option value="admission">Admission #</option>
+                    </select>
                 </div>
             </div>
 
-            <!-- Form Tutor Card -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-4">
-                    <h3 class="font-semibold text-sm mb-3">Form Tutor</h3>
-                    {% if class.class_teacher %}
-                    <div class="flex items-center gap-3">
-                        <div class="avatar placeholder">
-                            <div class="w-12 h-12 rounded-full bg-primary/10 text-primary ring-2 ring-primary/20 flex items-center justify-center">
-                                {% if class.class_teacher.photo %}
-                                <img src="{{ class.class_teacher.photo.url }}" alt="" class="rounded-full" loading="lazy" />
-                                {% else %}
-                                <span class="text-sm font-bold">
-                                    {{ class.class_teacher.first_name|slice:":1" }}{{ class.class_teacher.last_name|slice:":1" }}
-                                </span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-medium">{{ class.class_teacher.get_title_display }} {{ class.class_teacher.full_name }}</p>
-                            <p class="text-xs text-base-content/60">{{ class.class_teacher.phone_number|default:"No phone" }}</p>
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="flex items-center gap-3 text-base-content/50">
-                        <div class="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center">
-                            <i class="fa-solid fa-user-slash"></i>
-                        </div>
-                        <div>
-                            <p class="font-medium">Not Assigned</p>
-                            <p class="text-xs">Assign a teacher in settings</p>
-                        </div>
-                    </div>
-                    {% endif %}
+            <!-- Mobile Filters (collapsible) -->
+            <div class="sm:hidden mt-2 flex items-center gap-2" x-show="showFilters" x-collapse>
+                <div class="join flex-1">
+                    <input type="radio" name="gender" value="" class="join-item btn btn-sm flex-1"
+                           aria-label="All" :checked="gender === ''"
+                           @change="gender = ''"
+                           hx-get="{% url 'academics:class_register' class.pk %}"
+                           hx-target="#tab-register"
+                           hx-include="[name='q'], [name='sort']" />
+                    <input type="radio" name="gender" value="M" class="join-item btn btn-sm flex-1"
+                           aria-label="Boys" :checked="gender === 'M'"
+                           @change="gender = 'M'"
+                           hx-get="{% url 'academics:class_register' class.pk %}"
+                           hx-target="#tab-register"
+                           hx-include="[name='q'], [name='sort']" />
+                    <input type="radio" name="gender" value="F" class="join-item btn btn-sm flex-1"
+                           aria-label="Girls" :checked="gender === 'F'"
+                           @change="gender = 'F'"
+                           hx-get="{% url 'academics:class_register' class.pk %}"
+                           hx-target="#tab-register"
+                           hx-include="[name='q'], [name='sort']" />
                 </div>
+                <select name="sort" class="select select-sm select-bordered"
+                        x-model="sort"
+                        hx-get="{% url 'academics:class_register' class.pk %}"
+                        hx-trigger="change"
+                        hx-target="#tab-register"
+                        hx-include="[name='q'], [name='gender']">
+                    <option value="name">A-Z</option>
+                    <option value="-name">Z-A</option>
+                    <option value="admission">Adm #</option>
+                </select>
             </div>
-
-            <!-- Attendance Card -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
-                <div class="card-body p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-semibold text-sm">Attendance</h3>
-                        <button class="btn btn-xs btn-primary"
-                                hx-get="{% url 'academics:class_attendance_take' class.pk %}"
-                                hx-target="#modal-edit-content"
-                                onclick="modal_edit.showModal()">
-                            <i class="fa-solid fa-clipboard-check"></i> Take
-                        </button>
-                    </div>
-
-                    <!-- Attendance Rate -->
-                    <div class="flex items-center gap-3 mb-3">
-                        <div class="radial-progress text-success text-sm" style="--value:{{ attendance_percentage|default:0 }}; --size:3.5rem; --thickness:4px;" role="progressbar">
-                            {{ attendance_percentage }}%
-                        </div>
-                        <div>
-                            <p class="font-medium">Overall Rate</p>
-                            <p class="text-xs text-base-content/60">This term</p>
-                        </div>
-                    </div>
-
-                    {% if attendance_sessions %}
-                    <div class="divider my-2 text-xs">Recent</div>
-                    <div class="space-y-2">
-                        {% for session in attendance_sessions|slice:":3" %}
-                        <div class="flex items-center justify-between text-sm">
-                            <span class="text-base-content/70">{{ session.date|date:"D, M d" }}</span>
-                            <div class="flex items-center gap-2">
-                                <span class="text-success text-xs"><i class="fa-solid fa-check"></i> {{ session.present_count }}</span>
-                                <span class="text-error text-xs"><i class="fa-solid fa-xmark"></i> {{ session.absent_count }}</span>
-                                <button class="btn btn-ghost btn-xs btn-square"
-                                        hx-get="{% url 'academics:class_attendance_edit' class.pk session.pk %}"
-                                        hx-target="#modal-edit-content"
-                                        onclick="modal_edit.showModal()">
-                                    <i class="fa-solid fa-pen text-xs"></i>
-                                </button>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="text-sm text-base-content/50 text-center py-2">No records yet</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Timetable Card -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
-                <div class="card-body p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-semibold text-sm">Timetable</h3>
-                        <a href="{% url 'academics:class_timetable' class.pk %}"
-                           hx-get="{% url 'academics:class_timetable' class.pk %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-xs btn-primary">
-                            <i class="fa-solid fa-calendar-days"></i> View
-                        </a>
-                    </div>
-
-                    <!-- Timetable Stats -->
-                    <div class="grid grid-cols-2 gap-2 mb-3">
-                        <div class="text-center p-2 rounded-lg bg-info/10">
-                            <div class="text-lg font-bold text-info">{{ timetable_stats.total_entries }}</div>
-                            <div class="text-xs text-base-content/60">Lessons/Week</div>
-                        </div>
-                        <div class="text-center p-2 rounded-lg bg-accent/10">
-                            <div class="text-lg font-bold text-accent">{{ timetable_stats.subjects_count }}</div>
-                            <div class="text-xs text-base-content/60">Subjects</div>
-                        </div>
-                    </div>
-
-                    <!-- Empty state or summary -->
-                    {% if timetable_stats.total_entries == 0 %}
-                    <div class="text-center py-2">
-                        <p class="text-sm text-base-content/50 mb-2">No timetable yet</p>
-                        <a href="{% url 'academics:class_timetable' class.pk %}"
-                           hx-get="{% url 'academics:class_timetable' class.pk %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-primary btn-sm">
-                            <i class="fa-solid fa-plus"></i> Build Timetable
-                        </a>
-                    </div>
-                    {% else %}
-                    <div class="text-xs text-base-content/50 text-center">
-                        {{ timetable_stats.teachers_count }} teacher{{ timetable_stats.teachers_count|pluralize }} assigned
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Subjects Card -->
-            {% if subject_allocations %}
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
-                <div class="card-body p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-semibold text-sm">Assigned Subjects</h3>
-                        <button class="btn btn-xs btn-ghost"
-                                onclick="document.getElementById('modal_subjects').showModal()">
-                            <i class="fa-solid fa-list"></i>
-                        </button>
-                    </div>
-                    <div class="space-y-2">
-                        {% for alloc in subject_allocations|slice:":4" %}
-                        <div class="flex items-center justify-between py-1">
-                            <div class="flex items-center gap-2 min-w-0">
-                                {% if alloc.subject.is_core %}
-                                <span class="badge badge-xs badge-primary">C</span>
-                                {% else %}
-                                <span class="badge badge-xs badge-ghost">E</span>
-                                {% endif %}
-                                <span class="text-sm truncate">{{ alloc.subject.name }}</span>
-                            </div>
-                            <span class="text-xs text-base-content/60 truncate max-w-20">
-                                {% if alloc.teacher %}{{ alloc.teacher.last_name }}{% else %}<span class="text-warning">TBA</span>{% endif %}
-                            </span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% if subject_allocations.count > 4 %}
-                    <button class="btn btn-ghost btn-xs btn-block mt-2"
-                            onclick="document.getElementById('modal_subjects').showModal()">
-                        +{{ subject_allocations.count|add:"-4" }} more
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-
         </div>
 
-        <!-- Right Column: Student Register -->
-        <div class="lg:col-span-2 space-y-4">
-
-            <!-- Student Register Card -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-0">
-                    <!-- Card Header -->
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-base-200 print:border-gray-300">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center print:!hidden">
-                                <i class="fa-solid fa-users text-primary"></i>
-                            </div>
-                            <div>
-                                <h2 class="font-bold">Student Register</h2>
-                                <p class="text-xs text-base-content/60">{{ students.count }} of {{ class.capacity }} enrolled</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2 print:!hidden">
-                            <!-- Search Input -->
-                            <div class="relative">
-                                <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40 text-xs"></i>
-                                <input type="text"
-                                       id="register-search"
-                                       placeholder="Search..."
-                                       class="input input-sm input-bordered pl-8 w-32 sm:w-40"
-                                       onkeyup="filterRegister(this.value)" />
-                            </div>
-                            <button class="btn btn-sm btn-primary"
-                                    hx-get="{% url 'academics:class_student_enroll' class.pk %}"
-                                    hx-target="#modal-edit-content"
-                                    onclick="modal_edit.showModal()">
-                                <i class="fa-solid fa-user-plus"></i>
-                                <span class="hidden sm:inline">Enroll</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Student List -->
-                    <div id="tab-register" class="p-4 print:p-0">
-                        {% include "academics/includes/tab_register_content.html" %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Enrollment History Card -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
-                <div class="card-body p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="font-semibold text-sm flex items-center gap-2">
-                            <i class="fa-solid fa-clock-rotate-left text-primary"></i>
-                            Enrollment History
-                        </h2>
-                        <a href="{% url 'students:promotion' %}"
-                           hx-get="{% url 'students:promotion' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-xs btn-ghost text-success">
-                            <i class="fa-solid fa-arrow-up-right-dots"></i> Promote
-                        </a>
-                    </div>
-
-                    {% if promotion_stats %}
-                    <div class="grid grid-cols-3 gap-3 mb-4">
-                        <div class="text-center p-3 rounded-lg bg-base-200/50">
-                            <div class="text-lg font-bold text-primary">{{ promotion_stats.active }}</div>
-                            <div class="text-xs text-base-content/60">Active</div>
-                        </div>
-                        <div class="text-center p-3 rounded-lg bg-base-200/50">
-                            <div class="text-lg font-bold text-info">{{ promotion_stats.promoted }}</div>
-                            <div class="text-xs text-base-content/60">Promoted</div>
-                        </div>
-                        <div class="text-center p-3 rounded-lg bg-base-200/50">
-                            <div class="text-lg font-bold text-success">{{ promotion_stats.graduated }}</div>
-                            <div class="text-xs text-base-content/60">Graduated</div>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {% if incoming_enrollments or outgoing_enrollments %}
-                    <div class="space-y-2 max-h-40 overflow-y-auto">
-                        {% for enroll in outgoing_enrollments %}
-                        <div class="flex items-center gap-2 py-1 text-sm border-b border-base-200 last:border-0">
-                            <span class="badge badge-xs {% if enroll.status == 'graduated' %}badge-success{% else %}badge-info{% endif %}">
-                                {% if enroll.status == 'graduated' %}
-                                <i class="fa-solid fa-graduation-cap"></i>
-                                {% else %}
-                                <i class="fa-solid fa-arrow-up"></i>
-                                {% endif %}
-                            </span>
-                            <span class="font-medium truncate flex-1">{{ enroll.student.full_name }}</span>
-                            <span class="text-xs text-base-content/50">
-                                {% if enroll.status == 'graduated' %}Graduated{% else %}&rarr; {{ enroll.class_assigned.name }}{% endif %}
-                            </span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="text-sm text-base-content/50 text-center py-2">No promotion history yet</p>
-                    {% endif %}
-
-                    {% if current_year %}
-                    <div class="text-xs text-base-content/40 mt-3 pt-2 border-t border-base-200 text-center">
-                        Academic Year: {{ current_year }}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
+        <!-- Students List -->
+        <div id="tab-register">
+            {% include "academics/includes/tab_register_content.html" %}
         </div>
+
     </div>
 
     <!-- Print Footer -->
@@ -394,10 +301,10 @@
 </div>
 
 <!-- General Edit Modal -->
-<dialog id="modal_edit" class="modal modal-middle">
-    <div class="modal-box max-w-2xl">
+<dialog id="modal_edit" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box max-w-2xl max-h-[90vh]">
         <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </form>
@@ -412,45 +319,9 @@
     </form>
 </dialog>
 
-<!-- Full Subjects Modal -->
-<dialog id="modal_subjects" class="modal modal-middle">
-    <div class="modal-box max-w-2xl">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </form>
-        <h3 class="font-bold text-lg mb-4">Subject Allocations</h3>
-        <div id="tab-teachers">
-            {% include "academics/includes/tab_teachers_content.html" %}
-        </div>
-    </div>
-    <form method="dialog" class="modal-backdrop">
-        <button>close</button>
-    </form>
-</dialog>
-
 <script>
     // Close all modals when closeModal event is triggered via HX-Trigger
     document.body.addEventListener('closeModal', function() {
         document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
     });
-
-    // Filter student register table
-    function filterRegister(query) {
-        const rows = document.querySelectorAll('#tab-register tbody tr');
-        const q = query.toLowerCase().trim();
-
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(q) ? '' : 'none';
-        });
-
-        // Update count display
-        const visible = document.querySelectorAll('#tab-register tbody tr:not([style*="display: none"])').length;
-        const countEl = document.querySelector('#tab-register + .text-center');
-        if (countEl && q) {
-            countEl.textContent = `Showing ${visible} of {{ students.count }} students`;
-        }
-    }
 </script>

@@ -1,15 +1,32 @@
 {% load core_tags %}
-<h3 class="text-lg font-bold mb-6">Assign Subject to {{ class.name }}</h3>
+
+<div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
+    <button type="button" class="btn btn-ghost btn-sm btn-square"
+            hx-get="{% url 'academics:class_subjects_modal' class.pk %}"
+            hx-target="#modal-edit-content">
+        <i class="fa-solid fa-arrow-left"></i>
+    </button>
+    <div>
+        <h3 class="text-lg font-bold">
+            {% if allocation %}Edit Subject{% else %}Add Subject{% endif %}
+        </h3>
+        <p class="text-xs text-base-content/60">{{ class.name }}</p>
+    </div>
+</div>
 
 <form method="post"
-      action="{% url 'academics:class_subject_create' class.pk %}"
-      hx-post="{% url 'academics:class_subject_create' class.pk %}"
+      action="{% url 'academics:class_subject_create' class.pk %}{% if subject_id %}?subject_id={{ subject_id }}{% endif %}"
+      hx-post="{% url 'academics:class_subject_create' class.pk %}{% if subject_id %}?subject_id={{ subject_id }}{% endif %}"
       hx-target="#modal-edit-content"
       hx-swap="innerHTML">
     {% csrf_token %}
+
+    {% if subject_id %}
+    <input type="hidden" name="subject_id" value="{{ subject_id }}">
+    {% endif %}
     
     <div class="space-y-4">
-        {% if form.subject.field.queryset.count == 0 %}
+        {% if form.subject.field.queryset.count == 0 and not allocation %}
             <div class="alert alert-warning text-sm">
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <div>
@@ -37,9 +54,13 @@
     {% endif %}
 
     <div class="modal-action">
-        <button type="button" class="btn" onclick="document.getElementById('modal_edit')?.close() || history.back()">Cancel</button>
-        {% if form.subject.field.queryset.count > 0 %}
-        <button type="submit" class="btn btn-primary">Assign Subject</button>
+        <form method="dialog">
+            <button class="btn">Cancel</button>
+        </form>
+        {% if form.subject.field.queryset.count > 0 or allocation %}
+        <button type="submit" class="btn btn-primary">
+            {% if allocation %}Save Changes{% else %}Assign Subject{% endif %}
+        </button>
         {% endif %}
     </div>
 </form>
