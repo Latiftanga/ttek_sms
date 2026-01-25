@@ -21,7 +21,7 @@
     <span>{{ error }}</span>
 </div>
 <div class="modal-action">
-    <button type="button" class="btn" onclick="document.getElementById('modal_edit')?.close() || history.back()">Close</button>
+    <button type="button" class="btn" onclick="var d=document.getElementById('modal_edit'); if(d) d.close(); else history.back();">Close</button>
 </div>
 {% elif not students %}
 <div class="alert alert-info">
@@ -32,15 +32,15 @@
     </div>
 </div>
 <div class="modal-action">
-    <button type="button" class="btn" onclick="document.getElementById('modal_edit')?.close() || history.back()">Close</button>
+    <button type="button" class="btn" onclick="var d=document.getElementById('modal_edit'); if(d) d.close(); else history.back();">Close</button>
 </div>
 {% else %}
 
 <form method="post"
       action="{% url 'academics:class_promote' class.pk %}"
       hx-post="{% url 'academics:class_promote' class.pk %}"
-      hx-target="#modal-edit-content"
-      hx-swap="innerHTML">
+      hx-target="body"
+      hx-swap="beforeend">
     {% csrf_token %}
 
     <!-- Quick Actions -->
@@ -139,7 +139,7 @@
     </div>
 
     <div class="modal-action border-t border-base-200 pt-4 mt-4">
-        <button type="button" class="btn" onclick="document.getElementById('modal_edit')?.close() || history.back()">Cancel</button>
+        <button type="button" class="btn" onclick="var d=document.getElementById('modal_edit'); if(d) d.close(); else history.back();">Cancel</button>
         <button type="submit" class="btn {% if is_final_year %}btn-success{% else %}btn-primary{% endif %}">
             {% if is_final_year %}
             <i class="fa-solid fa-graduation-cap"></i>

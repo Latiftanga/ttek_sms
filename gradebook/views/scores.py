@@ -419,30 +419,59 @@ def score_changes_list(request, class_id, subject_id):
 
 # ============ Assignments ============
 
+def _get_assignments_context(subject, term):
+    """Helper to build consistent context for assignments list."""
+    from django.db.models import Count
+
+    assigns = Assignment.objects.filter(
+        subject=subject,
+        term=term
+    ).select_related('assessment_category').order_by('assessment_category__order', '-date', 'name')
+
+    categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
+
+    # Get assignment counts per category for this subject/term
+    category_counts = dict(
+        Assignment.objects.filter(
+            subject=subject,
+            term=term
+        ).values('assessment_category').annotate(
+            count=Count('id')
+        ).values_list('assessment_category', 'count')
+    )
+
+    # Add count and next number to each category
+    categories_with_counts = []
+    for cat in categories:
+        count = category_counts.get(cat.pk, 0)
+        label = cat.short_name if len(cat.short_name) <= 6 else cat.name
+        categories_with_counts.append({
+            'obj': cat,
+            'count': count,
+            'next_name': f"{label} {count + 1}",
+        })
+
+    return {
+        'subject': subject,
+        'assignments': assigns,
+        'categories': categories_with_counts,
+        'current_term': term,
+    }
+
+
 @login_required
 def assignments(request, subject_id):
     """List assignments for a subject in current term."""
     current_term = Term.get_current()
     subject = get_object_or_404(Subject, pk=subject_id)
 
-    assigns = Assignment.objects.filter(
-        subject=subject,
-        term=current_term
-    ).select_related('assessment_category').order_by('assessment_category__order', 'name')
-
-    categories = AssessmentCategory.objects.filter(is_active=True)
-
-    return render(request, 'gradebook/partials/assignments_list.html', {
-        'subject': subject,
-        'assignments': assigns,
-        'categories': categories,
-        'current_term': current_term,
-    })
+    context = _get_assignments_context(subject, current_term)
+    return render(request, 'gradebook/partials/assignments_list.html', context)
 
 
 @login_required
 def assignment_create(request):
-    """Create a new assignment."""
+    """Create a new assignment with auto-generated name based on category."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -452,14 +481,34 @@ def assignment_create(request):
 
     subject_id = request.POST.get('subject_id')
     category_id = request.POST.get('category_id')
-    name = request.POST.get('name', '').strip()
+    date_str = request.POST.get('date', '').strip()
     points_possible = request.POST.get('points_possible', '100')
 
-    if not all([subject_id, category_id, name]):
+    if not all([subject_id, category_id, date_str]):
         return HttpResponse('Missing required fields', status=400)
 
     subject = get_object_or_404(Subject, pk=subject_id)
     category = get_object_or_404(AssessmentCategory, pk=category_id)
+
+    # Parse date
+    from datetime import datetime
+    try:
+        assignment_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return HttpResponse('Invalid date format', status=400)
+
+    # Auto-generate assignment name based on category
+    # Count existing assignments in this category for this subject/term
+    existing_count = Assignment.objects.filter(
+        assessment_category=category,
+        subject=subject,
+        term=current_term
+    ).count()
+
+    # Generate name like "Quiz 1", "Quiz 2", "Project 1", etc.
+    # Use short_name if it's a single word, otherwise use name
+    category_label = category.short_name if len(category.short_name) <= 6 else category.name
+    name = f"{category_label} {existing_count + 1}"
 
     Assignment.objects.create(
         assessment_category=category,
@@ -467,23 +516,12 @@ def assignment_create(request):
         term=current_term,
         name=name,
         points_possible=int(points_possible),
+        date=assignment_date,
     )
 
     # Return updated assignments list
-    assigns = Assignment.objects.filter(
-        subject=subject,
-        term=current_term
-    ).select_related('assessment_category').order_by('assessment_category__order', 'name')
-
-    categories = AssessmentCategory.objects.filter(is_active=True)
-
-    response = render(request, 'gradebook/partials/assignments_list.html', {
-        'subject': subject,
-        'assignments': assigns,
-        'categories': categories,
-        'current_term': current_term,
-    })
-    # Trigger score form refresh
+    context = _get_assignments_context(subject, current_term)
+    response = render(request, 'gradebook/partials/assignments_list.html', context)
     response['HX-Trigger'] = '{"assignmentsChanged": {"subject_id": %d}}' % subject.pk
     return response
 
@@ -500,6 +538,7 @@ def assignment_edit(request, pk):
         name = request.POST.get('name', '').strip()
         points_possible = request.POST.get('points_possible', '100')
         category_id = request.POST.get('category_id')
+        date_str = request.POST.get('date', '').strip()
 
         if not name:
             return HttpResponse('Name is required', status=400)
@@ -511,6 +550,14 @@ def assignment_edit(request, pk):
         except Exception:
             return HttpResponse('Invalid points value', status=400)
 
+        # Parse date if provided
+        if date_str:
+            from datetime import datetime
+            try:
+                assignment.date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return HttpResponse('Invalid date format', status=400)
+
         # Update assignment
         assignment.name = name
         assignment.points_possible = points
@@ -520,24 +567,13 @@ def assignment_edit(request, pk):
         assignment.save()
 
         # Return updated assignments list
-        assigns = Assignment.objects.filter(
-            subject=subject,
-            term=current_term
-        ).select_related('assessment_category').order_by('assessment_category__order', 'name')
-
-        categories = AssessmentCategory.objects.filter(is_active=True)
-
-        response = render(request, 'gradebook/partials/assignments_list.html', {
-            'subject': subject,
-            'assignments': assigns,
-            'categories': categories,
-            'current_term': current_term,
-        })
+        context = _get_assignments_context(subject, current_term)
+        response = render(request, 'gradebook/partials/assignments_list.html', context)
         response['HX-Trigger'] = '{"assignmentsChanged": {"subject_id": %d}}' % subject.pk
         return response
 
     # GET request - return edit form
-    categories = AssessmentCategory.objects.filter(is_active=True)
+    categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
     return render(request, 'gradebook/partials/assignment_edit_form.html', {
         'assignment': assignment,
         'categories': categories,
@@ -566,19 +602,7 @@ def assignment_delete(request, pk):
     assignment.delete()
 
     # Return updated assignments list
-    assigns = Assignment.objects.filter(
-        subject=subject,
-        term=current_term
-    ).select_related('assessment_category').order_by('assessment_category__order', 'name')
-
-    categories = AssessmentCategory.objects.filter(is_active=True)
-
-    response = render(request, 'gradebook/partials/assignments_list.html', {
-        'subject': subject,
-        'assignments': assigns,
-        'categories': categories,
-        'current_term': current_term,
-    })
-    # Trigger score form refresh
+    context = _get_assignments_context(subject, current_term)
+    response = render(request, 'gradebook/partials/assignments_list.html', context)
     response['HX-Trigger'] = '{"assignmentsChanged": {"subject_id": %d}}' % subject.pk
     return response
