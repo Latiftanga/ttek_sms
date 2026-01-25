@@ -1,0 +1,80 @@
+{% load core_tags %}
+
+<div class="flex items-center justify-between mb-4 pb-3 border-b border-base-200">
+    <div>
+        <h3 class="text-lg font-bold flex items-center gap-2">
+            <i class="fa-solid fa-calendar-days text-success"></i>
+            Attendance History
+        </h3>
+        <p class="text-xs text-base-content/60">{{ class.name }} &bull; Recent sessions</p>
+    </div>
+    <button class="btn btn-sm btn-primary"
+            hx-get="{% url 'academics:class_attendance_take' class.pk %}"
+            hx-target="#modal-edit-content">
+        <i class="fa-solid fa-plus"></i>
+        Take Attendance
+    </button>
+</div>
+
+{% if attendance_sessions %}
+<div class="space-y-2 max-h-[60vh] overflow-y-auto">
+    {% for session in attendance_sessions %}
+    <div class="flex items-center gap-3 p-3 bg-base-200/50 rounded-lg">
+        <!-- Date Icon -->
+        <div class="avatar placeholder flex-shrink-0">
+            <div class="w-10 h-10 rounded-lg bg-base-300 flex flex-col items-center justify-center">
+                <span class="text-[10px] font-bold uppercase text-base-content/50">{{ session.date|date:"M" }}</span>
+                <span class="text-sm font-bold leading-none">{{ session.date|date:"j" }}</span>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm">{{ session.date|date:"l" }}</div>
+            <div class="flex items-center gap-3 text-xs text-base-content/60">
+                <span class="text-success"><i class="fa-solid fa-check mr-1"></i>{{ session.present_count }}</span>
+                <span class="text-error"><i class="fa-solid fa-xmark mr-1"></i>{{ session.absent_count }}</span>
+                {% if session.total_count %}
+                {% widthratio session.present_count session.total_count 100 as rate %}
+                <span class="badge badge-xs {% if rate|add:'0' >= 80 %}badge-success{% else %}badge-warning{% endif %}">{{ rate }}%</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Edit Button -->
+        <button class="btn btn-ghost btn-xs btn-square"
+                hx-get="{% url 'academics:class_attendance_edit' class.pk session.pk %}"
+                hx-target="#modal-edit-content"
+                title="Edit">
+            <i class="fa-solid fa-pen"></i>
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="mt-4 pt-3 border-t border-base-200 text-center">
+    <a href="{% url 'academics:attendance_reports' %}?class={{ class.pk }}"
+       hx-get="{% url 'academics:attendance_reports' %}?class={{ class.pk }}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       onclick="modal_edit.close()"
+       class="btn btn-sm btn-ghost">
+        <i class="fa-solid fa-chart-line mr-1"></i>
+        View Full Reports
+    </a>
+</div>
+
+{% else %}
+<div class="text-center py-12">
+    <div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-clipboard-check text-3xl text-base-content/20"></i>
+    </div>
+    <h4 class="font-semibold mb-1">No Attendance Records</h4>
+    <p class="text-sm text-base-content/60 mb-4">Start by taking attendance for today.</p>
+    <button class="btn btn-primary btn-sm"
+            hx-get="{% url 'academics:class_attendance_take' class.pk %}"
+            hx-target="#modal-edit-content">
+        <i class="fa-solid fa-clipboard-check"></i> Take Attendance
+    </button>
+</div>
+{% endif %}

@@ -6,23 +6,34 @@
         <thead>
             <tr class="text-xs uppercase text-base-content/60">
                 <th class="w-12">#</th>
-                <th>Student</th>
+                <th>
+                    <button class="flex items-center gap-1 hover:text-primary transition-colors"
+                            hx-get="{% url 'academics:class_register' class.pk %}?sort={% if sort_by == 'name' %}-name{% else %}name{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if gender_filter %}&gender={{ gender_filter }}{% endif %}"
+                            hx-target="#tab-register"
+                            hx-swap="innerHTML">
+                        Student
+                        {% if sort_by == 'name' %}<i class="fa-solid fa-sort-up text-primary"></i>
+                        {% elif sort_by == '-name' %}<i class="fa-solid fa-sort-down text-primary"></i>
+                        {% else %}<i class="fa-solid fa-sort opacity-30"></i>{% endif %}
+                    </button>
+                </th>
                 <th class="hidden md:table-cell">Gender</th>
+                {% if elective_subjects %}<th class="hidden lg:table-cell">Electives</th>{% endif %}
                 <th class="hidden lg:table-cell">Guardian</th>
-                <th class="w-16"></th>
+                <th class="w-16 print:!hidden"></th>
             </tr>
         </thead>
         <tbody>
             {% for student in students %}
             <tr class="hover:bg-base-200/50 group">
-                <td class="font-mono text-xs text-base-content/40">{{ forloop.counter }}</td>
+                <td class="font-mono text-xs text-base-content/40">{{ students.start_index|add:forloop.counter0 }}</td>
                 <td>
                     <a href="{% url 'students:student_detail' student.pk %}"
                        hx-get="{% url 'students:student_detail' student.pk %}"
                        hx-target="#main-content"
                        hx-push-url="true"
                        class="flex items-center gap-3">
-                        <div class="avatar placeholder">
+                        <div class="avatar placeholder print:!hidden">
                             <div class="w-9 h-9 rounded-full bg-base-300 text-base-content/70 flex items-center justify-center">
                                 {% if student.photo %}
                                 <img src="{{ student.photo.url }}" alt="" class="rounded-full" loading="lazy" />
@@ -44,11 +55,36 @@
                 <td class="hidden md:table-cell">
                     <span class="badge badge-sm badge-ghost">{{ student.get_gender_display }}</span>
                 </td>
+                {% if elective_subjects %}
+                <td class="hidden lg:table-cell">
+                    {% with elective_data=student_electives|get_item:student.pk %}
+                    {% if elective_data.electives %}
+                    <div class="flex flex-wrap gap-1 items-center">
+                        {% for subj in elective_data.electives %}
+                        <span class="badge badge-xs badge-ghost">{{ subj.short_name|default:subj.name|truncatechars:8 }}</span>
+                        {% endfor %}
+                        {% if elective_data.complete %}
+                        <span class="badge badge-xs badge-success"><i class="fa-solid fa-check"></i></span>
+                        {% else %}
+                        <span class="badge badge-xs badge-warning">{{ elective_data.count }}/{{ required_electives }}</span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <span class="text-xs text-base-content/50 flex items-center gap-1">
+                        None
+                        {% if required_electives %}
+                        <span class="badge badge-xs badge-warning">0/{{ required_electives }}</span>
+                        {% endif %}
+                    </span>
+                    {% endif %}
+                    {% endwith %}
+                </td>
+                {% endif %}
                 <td class="hidden lg:table-cell">
                     <div class="text-sm">{{ student.guardian_name|default:"-" }}</div>
                     <div class="text-xs text-base-content/50">{{ student.guardian_phone|default:"" }}</div>
                 </td>
-                <td>
+                <td class="print:!hidden">
                     <div class="dropdown dropdown-end dropdown-left">
                         <div tabindex="0" role="button" class="btn btn-ghost btn-xs btn-square">
                             <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -61,6 +97,15 @@
                                     <i class="fa-solid fa-user w-4"></i> View Profile
                                 </a>
                             </li>
+                            {% if elective_subjects %}
+                            <li>
+                                <button hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
+                                        hx-target="#modal-edit-content"
+                                        onclick="modal_edit.showModal()">
+                                    <i class="fa-solid fa-book-bookmark w-4 text-secondary"></i> Electives
+                                </button>
+                            </li>
+                            {% endif %}
                             <li>
                                 <button class="text-error w-full text-left flex items-center gap-2"
                                         hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
@@ -79,11 +124,63 @@
     </table>
 </div>
 
-{% if students.count >= 10 %}
-<div class="text-center text-xs text-base-content/50 pt-4 border-t border-base-200 mt-4">
-    Showing {{ students.count }} students
+<!-- Build query string for pagination -->
+{% with qs=search_query|default:'' gender=gender_filter|default:'' sort=sort_by|default:'name' %}
+
+<!-- Pagination -->
+{% if students.paginator.num_pages > 1 %}
+<div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 pt-4 border-t border-base-200 mt-4 print:!hidden">
+    <div class="text-xs text-base-content/50">
+        Showing {{ students.start_index }}-{{ students.end_index }} of {{ students.paginator.count }} students
+        {% if qs or gender %}<span class="text-primary">(filtered)</span>{% endif %}
+    </div>
+    <div class="join">
+        {% if students.has_previous %}
+        <button class="join-item btn btn-xs"
+                hx-get="{% url 'academics:class_register' class.pk %}?page=1{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
+                hx-target="#tab-register"
+                hx-swap="innerHTML">
+            <i class="fa-solid fa-angles-left"></i>
+        </button>
+        <button class="join-item btn btn-xs"
+                hx-get="{% url 'academics:class_register' class.pk %}?page={{ students.previous_page_number }}{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
+                hx-target="#tab-register"
+                hx-swap="innerHTML">
+            <i class="fa-solid fa-angle-left"></i>
+        </button>
+        {% else %}
+        <button class="join-item btn btn-xs btn-disabled"><i class="fa-solid fa-angles-left"></i></button>
+        <button class="join-item btn btn-xs btn-disabled"><i class="fa-solid fa-angle-left"></i></button>
+        {% endif %}
+
+        <button class="join-item btn btn-xs btn-active">{{ students.number }}</button>
+
+        {% if students.has_next %}
+        <button class="join-item btn btn-xs"
+                hx-get="{% url 'academics:class_register' class.pk %}?page={{ students.next_page_number }}{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
+                hx-target="#tab-register"
+                hx-swap="innerHTML">
+            <i class="fa-solid fa-angle-right"></i>
+        </button>
+        <button class="join-item btn btn-xs"
+                hx-get="{% url 'academics:class_register' class.pk %}?page={{ students.paginator.num_pages }}{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
+                hx-target="#tab-register"
+                hx-swap="innerHTML">
+            <i class="fa-solid fa-angles-right"></i>
+        </button>
+        {% else %}
+        <button class="join-item btn btn-xs btn-disabled"><i class="fa-solid fa-angle-right"></i></button>
+        <button class="join-item btn btn-xs btn-disabled"><i class="fa-solid fa-angles-right"></i></button>
+        {% endif %}
+    </div>
+</div>
+{% elif total_students %}
+<div class="text-center text-xs text-base-content/50 px-4 pt-4 border-t border-base-200 mt-4 print:!hidden">
+    Showing all {{ total_students }} students
 </div>
 {% endif %}
+
+{% endwith %}
 
 {% else %}
 <div class="flex flex-col items-center justify-center py-16 text-center">

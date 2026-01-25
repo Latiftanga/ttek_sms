@@ -1,0 +1,97 @@
+{% load core_tags %}
+
+<div class="flex items-center justify-between mb-4 pb-3 border-b border-base-200">
+    <div>
+        <h3 class="text-lg font-bold flex items-center gap-2">
+            <i class="fa-solid fa-book text-secondary"></i>
+            Subjects
+        </h3>
+        <p class="text-xs text-base-content/60">{{ class.name }} &bull; {{ subject_allocations.count }} subject{{ subject_allocations.count|pluralize }}</p>
+    </div>
+    <a href="{% url 'academics:class_timetable' class.pk %}"
+       hx-get="{% url 'academics:class_timetable' class.pk %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       onclick="modal_edit.close()"
+       class="btn btn-sm btn-ghost">
+        <i class="fa-solid fa-table-cells"></i>
+        Timetable
+    </a>
+</div>
+
+{% if subject_allocations %}
+<div class="space-y-2 max-h-[60vh] overflow-y-auto">
+    {% for alloc in subject_allocations %}
+    <div class="flex items-center gap-3 p-3 bg-base-200/50 rounded-lg">
+        <!-- Subject Icon -->
+        <div class="avatar placeholder flex-shrink-0">
+            <div class="w-10 h-10 rounded-lg {% if alloc.subject.is_core %}bg-primary/20 text-primary{% else %}bg-secondary/20 text-secondary{% endif %} flex items-center justify-center">
+                <i class="fa-solid fa-book"></i>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+                <span class="font-semibold text-sm truncate">{{ alloc.subject.name }}</span>
+                {% if tenant.has_programmes %}
+                <span class="badge badge-xs {% if alloc.subject.is_core %}badge-primary{% else %}badge-ghost{% endif %}">
+                    {{ alloc.subject.is_core|yesno:"Core,Elective" }}
+                </span>
+                {% endif %}
+            </div>
+            <div class="text-xs text-base-content/60">
+                {% if alloc.teacher %}
+                <i class="fa-solid fa-chalkboard-user mr-1"></i>{{ alloc.teacher.full_name }}
+                {% else %}
+                <span class="text-warning"><i class="fa-solid fa-circle-exclamation mr-1"></i>No teacher</span>
+                {% endif %}
+                {% if alloc.timetable_periods %}
+                <span class="ml-2"><i class="fa-solid fa-clock mr-1"></i>{{ alloc.timetable_periods }}/wk</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-1">
+            <button class="btn btn-ghost btn-xs btn-square"
+                    hx-get="{% url 'academics:class_subject_create' class.pk %}?subject_id={{ alloc.pk }}"
+                    hx-target="#modal-edit-content"
+                    title="Edit">
+                <i class="fa-solid fa-pen"></i>
+            </button>
+            <button class="btn btn-ghost btn-xs btn-square text-error"
+                    hx-post="{% url 'academics:class_subject_delete' class.pk alloc.pk %}"
+                    hx-target="#modal-edit-content"
+                    hx-confirm="Remove {{ alloc.subject.name }} from this class?"
+                    title="Remove">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="mt-4 pt-3 border-t border-base-200 flex justify-between items-center">
+    <span class="text-sm text-base-content/50">{{ subject_allocations.count }} subject{{ subject_allocations.count|pluralize }}</span>
+    <button class="btn btn-sm btn-primary"
+            hx-get="{% url 'academics:class_subject_create' class.pk %}"
+            hx-target="#modal-edit-content">
+        <i class="fa-solid fa-plus"></i> Add Subject
+    </button>
+</div>
+
+{% else %}
+<div class="text-center py-12">
+    <div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-book text-3xl text-base-content/20"></i>
+    </div>
+    <h4 class="font-semibold mb-1">No Subjects Yet</h4>
+    <p class="text-sm text-base-content/60 mb-4">Assign subjects to start building the curriculum.</p>
+    <button class="btn btn-primary btn-sm"
+            hx-get="{% url 'academics:class_subject_create' class.pk %}"
+            hx-target="#modal-edit-content">
+        <i class="fa-solid fa-plus"></i> Assign Subject
+    </button>
+</div>
+{% endif %}

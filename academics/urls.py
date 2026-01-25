@@ -26,10 +26,16 @@ urlpatterns = [
     
     # Remove: classes/1/students/50/remove/
     path('classes/<int:class_pk>/students/<int:student_pk>/remove/', views.class_student_remove, name='class_student_remove'),
+    path('classes/<int:class_pk>/students/<int:student_pk>/electives/', views.class_student_electives, name='class_student_electives'),
+    path('classes/<int:pk>/students/bulk-electives/', views.class_bulk_electives, name='class_bulk_electives'),
+    path('classes/<int:pk>/register/', views.class_register, name='class_register'),
+    path('classes/<int:pk>/subjects/modal/', views.class_subjects_modal, name='class_subjects_modal'),
     path('classes/<int:pk>/attendance/take/', views.class_attendance_take, name='class_attendance_take'),
+    path('classes/<int:pk>/attendance/history/', views.class_attendance_history, name='class_attendance_history'),
     path('classes/<int:pk>/attendance/<int:session_pk>/edit/', views.class_attendance_edit, name='class_attendance_edit'),
     path('classes/<int:pk>/promote/', views.class_promote, name='class_promote'),
     path('classes/<int:pk>/export/', views.class_export, name='class_export'),
+    path('classes/<int:pk>/pdf/', views.class_detail_pdf, name='class_detail_pdf'),
 
     # Attendance reports
     path('attendance/', views.attendance_reports, name='attendance_reports'),
