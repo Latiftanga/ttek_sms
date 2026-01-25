@@ -7,8 +7,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.core.cache import cache
 from django.http import JsonResponse
 
-from academics.models import Class, Subject, ClassSubject
-from students.models import Student
+from academics.models import Subject, ClassSubject
 
 logger = logging.getLogger(__name__)
 

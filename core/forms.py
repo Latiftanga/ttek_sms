@@ -1,6 +1,5 @@
 from django import forms
 from .models import SchoolSettings, AcademicYear, Term
-from schools.models import School
 
 
 class SchoolBasicInfoForm(forms.Form):
@@ -16,12 +15,6 @@ class SchoolBasicInfoForm(forms.Form):
         label='Short Name',
         widget=forms.TextInput(attrs={'placeholder': 'Short name'})
     )
-    display_name = forms.CharField(
-        max_length=50,
-        required=False,
-        label='Display Name',
-        widget=forms.TextInput(attrs={'placeholder': 'Display name'})
-    )
     motto = forms.CharField(
         max_length=200,
         required=False,
@@ -30,25 +23,36 @@ class SchoolBasicInfoForm(forms.Form):
     )
 
 
-class SchoolBrandingForm(forms.ModelForm):
-    """Form for school branding settings."""
-    class Meta:
-        model = SchoolSettings
-        fields = ['logo', 'favicon', 'primary_color', 'secondary_color', 'accent_color']
-        labels = {
-            'logo': 'Logo',
-            'favicon': 'Favicon',
-            'primary_color': 'Primary',
-            'secondary_color': 'Secondary',
-            'accent_color': 'Accent',
-        }
-        widgets = {
-            'logo': forms.FileInput(attrs={'accept': 'image/*'}),
-            'favicon': forms.FileInput(attrs={'accept': 'image/*'}),
-            'primary_color': forms.TextInput(attrs={'type': 'color'}),
-            'secondary_color': forms.TextInput(attrs={'type': 'color'}),
-            'accent_color': forms.TextInput(attrs={'type': 'color'}),
-        }
+class SchoolBrandingForm(forms.Form):
+    """Form for school branding settings (stored on School model in public schema)."""
+    logo = forms.ImageField(
+        required=False,
+        label='Logo',
+        widget=forms.FileInput(attrs={'accept': 'image/*'})
+    )
+    favicon = forms.ImageField(
+        required=False,
+        label='Favicon',
+        widget=forms.FileInput(attrs={'accept': 'image/*'})
+    )
+    primary_color = forms.CharField(
+        max_length=7,
+        required=False,
+        label='Primary',
+        widget=forms.TextInput(attrs={'type': 'color'})
+    )
+    secondary_color = forms.CharField(
+        max_length=7,
+        required=False,
+        label='Secondary',
+        widget=forms.TextInput(attrs={'type': 'color'})
+    )
+    accent_color = forms.CharField(
+        max_length=7,
+        required=False,
+        label='Accent',
+        widget=forms.TextInput(attrs={'type': 'color'})
+    )
 
 
 class SchoolContactForm(forms.Form):
@@ -112,19 +116,6 @@ class AcademicSettingsForm(forms.ModelForm):
         fields = ['academic_period_type']
         labels = {
             'academic_period_type': 'Academic Period Type',
-        }
-
-
-class EducationSystemForm(forms.ModelForm):
-    """Form for education system configuration (Basic, SHS, or Both)."""
-    class Meta:
-        model = SchoolSettings
-        fields = ['education_system']
-        labels = {
-            'education_system': 'Education System',
-        }
-        widgets = {
-            'education_system': forms.RadioSelect(attrs={'class': 'radio radio-primary'}),
         }
 
 

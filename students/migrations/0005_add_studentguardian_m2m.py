@@ -21,7 +21,7 @@ def migrate_guardian_data(apps, schema_editor):
 
 def reverse_guardian_data(apps, schema_editor):
     """Reverse migration - copy primary guardian back to student."""
-    Student = apps.get_model('students', 'Student')
+    _Student = apps.get_model('students', 'Student')  # noqa: F841
     StudentGuardian = apps.get_model('students', 'StudentGuardian')
 
     for sg in StudentGuardian.objects.filter(is_primary=True):

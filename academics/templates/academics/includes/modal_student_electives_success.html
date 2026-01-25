@@ -1,0 +1,19 @@
+{% load core_tags %}
+
+<div class="flex flex-col items-center justify-center py-8 text-center">
+    <div class="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mb-4">
+        <i class="fa-solid fa-check text-3xl text-success"></i>
+    </div>
+    <h3 class="text-lg font-bold mb-2">Electives Updated</h3>
+    <p class="text-base-content/60 text-sm mb-4">
+        {{ student.full_name }}'s electives have been updated.
+    </p>
+    <form method="dialog">
+        <button class="btn btn-primary btn-sm">Close</button>
+    </form>
+</div>
+
+<!-- Out-of-band swap to update the register tab -->
+<div id="tab-register" hx-swap-oob="innerHTML">
+{% include "academics/includes/tab_register_content.html" %}
+</div>

@@ -179,7 +179,7 @@ class Command(BaseCommand):
             return
 
         try:
-            user = User.objects.create_superuser(
+            User.objects.create_superuser(
                 email=email,
                 password=password,
                 first_name='Platform',

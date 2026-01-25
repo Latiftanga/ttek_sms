@@ -5,9 +5,7 @@ Flutterwave supports payments across Africa including Ghana.
 Documentation: https://developer.flutterwave.com/docs
 """
 
-import hashlib
 import hmac
-import json
 import requests
 from decimal import Decimal
 from typing import Dict, Tuple

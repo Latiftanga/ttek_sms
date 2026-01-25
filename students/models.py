@@ -377,7 +377,7 @@ class Student(models.Model):
         if self.photo and hasattr(self.photo, 'file'):
             # Validate file size
             if hasattr(self.photo, 'size') and self.photo.size > MAX_PHOTO_SIZE:
-                logger.warning(f"Student photo rejected: size exceeds limit")
+                logger.warning("Student photo rejected: size exceeds limit")
                 raise ValidationError("Photo size must be less than 5MB")
 
             # Validate content type if available
@@ -413,7 +413,7 @@ class Student(models.Model):
                 # Replace the photo with resized version
                 self.photo.save(filename, ContentFile(buffer.read()), save=False)
             except UnidentifiedImageError:
-                logger.warning(f"Could not process student photo: unidentified format")
+                logger.warning("Could not process student photo: unidentified format")
                 raise ValidationError("Invalid image file. Please upload a valid image.")
             except (IOError, OSError) as e:
                 logger.warning(f"Student photo processing failed: {e}")

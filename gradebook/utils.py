@@ -10,11 +10,71 @@ from django.db import connection
 from django.conf import settings as django_settings
 from django.db.models import Count
 
-from .models import Assignment, Score
-from academics.models import Class, Subject, ClassSubject
+from .models import Assignment, Score, AssessmentCategory
+from academics.models import ClassSubject
 from students.models import Student
 
 logger = logging.getLogger(__name__)
+
+
+def get_all_categories_assessment_status(subject, term):
+    """
+    Get assessment status for all active categories for a subject/term.
+
+    Returns a list of dicts, each containing:
+    - category: the AssessmentCategory instance
+    - count: actual number of assessments
+    - expected: recommended count
+    - min: minimum required
+    - max: maximum allowed
+    - status: 'ok', 'below_min', 'above_max', 'below_expected', 'above_expected'
+    - message: human-readable status message
+    - weight_per_assignment: the weight each assignment carries
+    """
+    categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
+    results = []
+
+    for category in categories:
+        status = category.get_assessment_status(subject, term)
+        status['category'] = category
+        status['weight_per_assignment'] = float(category.get_weight_per_assignment(subject, term))
+        results.append(status)
+
+    return results
+
+
+def check_subject_assessment_completeness(subject, term):
+    """
+    Check if a subject has all required assessments for all categories.
+
+    Returns:
+    - is_complete: True if all categories meet minimum requirements
+    - has_warnings: True if any category is below expected (but above minimum)
+    - issues: list of issue messages (for categories below minimum)
+    - warnings: list of warning messages (for categories below expected)
+    """
+    statuses = get_all_categories_assessment_status(subject, term)
+
+    is_complete = True
+    has_warnings = False
+    issues = []
+    warnings = []
+
+    for status in statuses:
+        if status['status'] == 'below_min':
+            is_complete = False
+            issues.append(f"{status['category'].name}: {status['message']}")
+        elif status['status'] in ('below_expected', 'above_expected', 'above_max'):
+            has_warnings = True
+            warnings.append(f"{status['category'].name}: {status['message']}")
+
+    return {
+        'is_complete': is_complete,
+        'has_warnings': has_warnings,
+        'issues': issues,
+        'warnings': warnings,
+        'statuses': statuses,
+    }
 
 def calculate_score_entry_progress(current_term):
     """Calculate the overall score entry progress for the current term."""

@@ -1,3 +1,4 @@
+import json
 from functools import wraps
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
@@ -5,10 +6,12 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
-from django.db.models import Sum, Count, Q, F
+from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncDate
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from core.utils import cache_page_per_tenant
 
 from .models import (
@@ -884,7 +887,6 @@ def payment_receipt(request, pk):
 def student_fees(request, student_id):
     """View a student's fee summary."""
     student = get_object_or_404(Student, pk=student_id)
-    current_year = AcademicYear.get_current()
 
     invoices = Invoice.objects.filter(
         student=student
@@ -997,8 +999,6 @@ def reports(request):
 @admin_required
 def collection_report(request):
     """Fee collection report."""
-    current_year = AcademicYear.get_current()
-
     # Get date range
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
@@ -1108,7 +1108,6 @@ def export_report(request):
     from django.http import HttpResponse
 
     report_type = request.GET.get('type', 'collection')
-    format_type = request.GET.get('format', 'csv')
 
     if report_type == 'collection':
         payments = Payment.objects.filter(
@@ -1779,11 +1778,6 @@ def payment_callback(request):
 
         messages.error(request, f'Payment verification failed: {response.message}')
         return redirect('finance:invoice_detail', pk=payment.invoice.pk)
-
-
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
-import json
 
 
 @csrf_exempt

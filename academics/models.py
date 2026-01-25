@@ -19,6 +19,10 @@ class Programme(models.Model):
         help_text="e.g., ART, BUS, SCI"
     )
     description = models.TextField(blank=True)
+    required_electives = models.PositiveSmallIntegerField(
+        default=3,
+        help_text="Minimum number of elective subjects students must take (typically 3-4 for SHS)"
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -30,6 +34,13 @@ class Programme(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_available_electives(self):
+        """Get all elective subjects available for this programme."""
+        return Subject.objects.filter(
+            is_core=False,
+            programmes=self
+        ).order_by('name')
 
 
 class Class(models.Model):
@@ -403,7 +414,7 @@ class Period(models.Model):
     @property
     def duration_minutes(self):
         """Calculate duration in minutes."""
-        from datetime import datetime, timedelta
+        from datetime import datetime
         start = datetime.combine(datetime.today(), self.start_time)
         end = datetime.combine(datetime.today(), self.end_time)
         return int((end - start).total_seconds() / 60)

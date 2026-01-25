@@ -4,7 +4,7 @@ Base Gateway Adapter providing a common interface for all payment gateways.
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple
 import logging
 
 logger = logging.getLogger(__name__)

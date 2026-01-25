@@ -5,7 +5,6 @@ Handles async invoice/payment notifications via email (with PDF) and SMS.
 import logging
 from io import BytesIO
 from celery import shared_task
-from django.conf import settings
 from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -123,7 +122,7 @@ def generate_invoice_pdf(invoice, tenant_schema):
     Returns BytesIO buffer containing PDF data.
     """
     from django_tenants.utils import schema_context
-    from weasyprint import HTML, CSS
+    from weasyprint import HTML
     import base64
 
     with schema_context(tenant_schema):

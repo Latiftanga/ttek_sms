@@ -12,11 +12,10 @@ from django.urls import reverse
 from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_GET
 from django.db import connection
+
 from .models import SchoolSettings, AcademicYear, Term
 from .email_backend import get_from_email
 from .utils import ratelimit
-
-logger = logging.getLogger(__name__)
 from .forms import (
     SchoolBasicInfoForm,
     SchoolBrandingForm,
@@ -25,9 +24,11 @@ from .forms import (
     AcademicSettingsForm,
     AcademicYearForm,
     TermForm,
-    SMSSettingsForm,
 )
 from finance.models import PaymentGateway, PaymentGatewayConfig
+from teachers.models import Teacher
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================
@@ -213,7 +214,7 @@ def setup_wizard(request):
     Steps: Academic Year -> Terms -> Classes -> Houses -> Seed Data
     Education system is configured at tenant level by superadmin.
     """
-    from academics.models import Programme, Subject, Period, Class
+    from academics.models import Programme, Subject, Class
     from students.models import House
 
     # Get tenant for education system configuration
@@ -409,7 +410,6 @@ def setup_wizard_terms(request):
         # Get term data from form
         term_count = int(request.POST.get('term_count', 3))
         created_count = 0
-        errors_occurred = False
 
         for i in range(1, term_count + 1):
             name = request.POST.get(f'term_{i}_name', f'Term {i}')
@@ -430,7 +430,6 @@ def setup_wizard_terms(request):
                     term.save()
                     created_count += 1
                 except Exception as e:
-                    errors_occurred = True
                     if hasattr(e, 'message_dict'):
                         for field, field_errors in e.message_dict.items():
                             for error in field_errors:
@@ -438,7 +437,6 @@ def setup_wizard_terms(request):
                     else:
                         messages.error(request, f'{name}: {str(e)}')
             else:
-                errors_occurred = True
                 messages.error(request, f'{name}: Please provide both start and end dates.')
 
         if created_count > 0:
@@ -902,7 +900,6 @@ def profile(request):
     if getattr(user, 'is_teacher', False):
         from academics.models import Class, ClassSubject
         from students.models import Student
-        from teachers.models import Teacher
 
         teacher = getattr(user, 'teacher_profile', None)
         if not teacher:
@@ -947,7 +944,7 @@ def profile(request):
 
     # Parent/Guardian profile
     if getattr(user, 'is_parent', False):
-        from students.models import Guardian, Student
+        from students.models import Student
 
         guardian = getattr(user, 'guardian_profile', None)
         if not guardian:
@@ -1000,8 +997,6 @@ def profile_edit(request):
 
     # Teacher profile edit
     if getattr(user, 'is_teacher', False):
-        from teachers.models import Teacher
-
         teacher = getattr(user, 'teacher_profile', None)
         if not teacher:
             messages.error(request, 'No teacher profile linked to your account.')
@@ -1041,8 +1036,6 @@ def profile_edit(request):
 
     # Parent profile edit
     if getattr(user, 'is_parent', False):
-        from students.models import Guardian
-
         guardian = getattr(user, 'guardian_profile', None)
         if not guardian:
             messages.error(request, 'No guardian profile linked to your account.')
@@ -1110,7 +1103,6 @@ def schedule(request):
     if getattr(user, 'is_teacher', False):
         from django.utils import timezone
         from academics.models import Period, TimetableEntry
-        from teachers.models import Teacher
 
         teacher = getattr(user, 'teacher_profile', None)
         if not teacher:
@@ -1172,7 +1164,6 @@ def teacher_dashboard(request):
     from django.utils import timezone
     from academics.models import Class, ClassSubject, Period, TimetableEntry
     from students.models import Student
-    from teachers.models import Teacher
 
     teacher = getattr(request.user, 'teacher_profile', None)
 
@@ -1288,8 +1279,7 @@ def index(request):
     from django.db.models import Count, Q
     from django.utils import timezone
     from students.models import Student, Enrollment
-    from academics.models import Class, ClassSubject, AttendanceSession, AttendanceRecord
-    from teachers.models import Teacher
+    from academics.models import Class, AttendanceSession, AttendanceRecord
 
     # Check if user is a teacher - show teacher dashboard
     if getattr(request.user, 'is_teacher', False):
@@ -1316,8 +1306,6 @@ def index(request):
         enabled_level_values = ['creche', 'nursery', 'kg', 'basic', 'shs']
 
     # Get counts using aggregation (single query instead of multiple)
-    from django.db.models import Count, Q
-
     # Student counts - single query with aggregation
     student_stats = Student.objects.filter(status='active').aggregate(
         total=Count('id'),
@@ -1464,15 +1452,6 @@ def settings_page(request):
     period_type = school_settings.academic_period_type
 
     # Initialize forms with current data
-    basic_form = SchoolBasicInfoForm(initial={
-        'name': tenant.name,
-        'short_name': tenant.short_name,
-        'display_name': school_settings.display_name,
-        'motto': school_settings.motto,
-    })
-
-    branding_form = SchoolBrandingForm(instance=school_settings)
-
     contact_form = SchoolContactForm(initial={
         'email': tenant.email,
         'phone': tenant.phone,
@@ -1495,8 +1474,8 @@ def settings_page(request):
 
     # SMS settings - derive sender ID from school name
     derived_sender_id = ''
-    if school_settings.display_name:
-        derived_sender_id = ''.join(c for c in school_settings.display_name if c.isalnum())[:11]
+    if tenant.short_name:
+        derived_sender_id = ''.join(c for c in tenant.short_name if c.isalnum())[:11]
     elif tenant.name:
         derived_sender_id = ''.join(c for c in tenant.name if c.isalnum())[:11]
     derived_sender_id = derived_sender_id or 'SchoolSMS'
@@ -1509,8 +1488,6 @@ def settings_page(request):
     context = {
         'tenant': tenant,
         'school_settings': school_settings,
-        'basic_form': basic_form,
-        'branding_form': branding_form,
         'contact_form': contact_form,
         'admin_form': admin_form,
         'academic_settings_form': academic_settings_form,
@@ -1549,11 +1526,8 @@ def settings_update_basic(request):
     if form.is_valid():
         tenant.name = form.cleaned_data['name']
         tenant.short_name = form.cleaned_data['short_name']
+        tenant.motto = form.cleaned_data['motto']
         tenant.save()
-
-        school_settings.display_name = form.cleaned_data['display_name']
-        school_settings.motto = form.cleaned_data['motto']
-        school_settings.save()
 
         # For non-HTMX requests, redirect back to settings
         if not request.htmx:
@@ -1572,11 +1546,23 @@ def settings_update_branding(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    tenant = request.tenant
     school_settings = SchoolSettings.load()
-    form = SchoolBrandingForm(request.POST, request.FILES, instance=school_settings)
+    form = SchoolBrandingForm(request.POST, request.FILES)
 
     if form.is_valid():
-        form.save()
+        # Update tenant branding fields
+        if form.cleaned_data.get('logo'):
+            tenant.logo = form.cleaned_data['logo']
+        if form.cleaned_data.get('favicon'):
+            tenant.favicon = form.cleaned_data['favicon']
+        if form.cleaned_data.get('primary_color'):
+            tenant.primary_color = form.cleaned_data['primary_color']
+        if form.cleaned_data.get('secondary_color'):
+            tenant.secondary_color = form.cleaned_data['secondary_color']
+        if form.cleaned_data.get('accent_color'):
+            tenant.accent_color = form.cleaned_data['accent_color']
+        tenant.save()
 
         # Always redirect/refresh for branding changes since colors affect entire UI
         if request.htmx:
@@ -1588,7 +1574,7 @@ def settings_update_branding(request):
         return redirect('core:settings')
 
     # On error, return the form with errors
-    context = {'school_settings': school_settings, 'errors': form.errors}
+    context = {'tenant': tenant, 'school_settings': school_settings, 'errors': form.errors}
     return render(request, 'core/settings/partials/card_branding.html', context)
 
 
@@ -1858,10 +1844,13 @@ def settings_test_sms(request):
         sms_api_key = school_settings.sms_api_key
 
     # Use saved or derived sender ID
+    tenant = request.tenant
     if not sms_sender_id:
         sms_sender_id = school_settings.sms_sender_id
-    if not sms_sender_id and school_settings.display_name:
-        sms_sender_id = ''.join(c for c in school_settings.display_name if c.isalnum())[:11]
+    if not sms_sender_id and tenant.short_name:
+        sms_sender_id = ''.join(c for c in tenant.short_name if c.isalnum())[:11]
+    elif not sms_sender_id and tenant.name:
+        sms_sender_id = ''.join(c for c in tenant.name if c.isalnum())[:11]
     if not sms_sender_id:
         sms_sender_id = 'SchoolSMS'
 
@@ -1886,11 +1875,11 @@ def settings_test_sms(request):
     elif phone.startswith('+'):
         phone = phone[1:]
 
-    message = f"Test SMS from {school_settings.display_name or 'School Management System'}. Your SMS configuration is working!"
+    message = f"Test SMS from {tenant.short_name or tenant.name or 'School Management System'}. Your SMS configuration is working!"
 
     try:
         if sms_backend == 'arkesel':
-            result = send_via_arkesel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
+            _result = send_via_arkesel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
         elif sms_backend == 'hubtel':
             if ':' not in sms_api_key:
                 return HttpResponse(
@@ -1898,7 +1887,7 @@ def settings_test_sms(request):
                     '<i class="fa-solid fa-circle-xmark"></i> Hubtel API key must be in format "client_id:client_secret"'
                     '</div>' + auto_dismiss
                 )
-            result = send_via_hubtel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
+            _result = send_via_hubtel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
         elif sms_backend == 'africastalking':
             if ':' not in sms_api_key:
                 return HttpResponse(
@@ -1906,7 +1895,7 @@ def settings_test_sms(request):
                     '<i class="fa-solid fa-circle-xmark"></i> Africa\'s Talking API key must be in format "username:api_key"'
                     '</div>' + auto_dismiss
                 )
-            result = send_via_africastalking(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
+            _result = send_via_africastalking(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
         else:
             return HttpResponse(
                 '<div class="alert alert-warning text-sm py-2">'
@@ -2407,8 +2396,6 @@ def term_set_current(request, pk):
 def my_classes(request):
     """Teacher view of their assigned classes."""
     from academics.models import Class, ClassSubject
-    from students.models import Student
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -2579,7 +2566,6 @@ def my_attendance(request):
     from django.db.models import Count, Q
     from datetime import timedelta
     from academics.models import Class, ClassSubject, AttendanceSession, AttendanceRecord
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -2739,7 +2725,6 @@ def take_attendance(request, class_id):
     """Teacher takes attendance for a specific class."""
     from academics.models import Class, ClassSubject, AttendanceSession, AttendanceRecord
     from students.models import Student
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -2818,9 +2803,8 @@ def take_attendance(request, class_id):
 def my_grading(request):
     """Teacher's grading dashboard - view and enter scores for assigned classes."""
     from django.db.models import Count, Q
-    from academics.models import Class, ClassSubject, Subject
+    from academics.models import ClassSubject
     from gradebook.models import Assignment, Score, AssessmentCategory
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -2922,7 +2906,6 @@ def enter_scores(request, class_id, subject_id):
     from academics.models import Class, ClassSubject, Subject
     from gradebook.models import Assignment, Score, AssessmentCategory
     from students.models import Student
-    from teachers.models import Teacher
     from collections import defaultdict
 
     user = request.user
@@ -3001,7 +2984,6 @@ def export_scores(request, class_id, subject_id):
     from academics.models import Class, ClassSubject, Subject
     from gradebook.models import Assignment, Score
     from students.models import Student
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -3136,9 +3118,8 @@ def import_scores(request, class_id, subject_id):
     from io import TextIOWrapper
     from django.http import HttpResponse
     from academics.models import Class, ClassSubject, Subject
-    from gradebook.models import Assignment, Score
+    from gradebook.models import Assignment
     from students.models import Student
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -3393,10 +3374,8 @@ def import_scores_confirm(request, class_id, subject_id):
     """Confirm and save imported scores."""
     import json
     from django.http import HttpResponse
-    from academics.models import Class, ClassSubject, Subject
-    from gradebook.models import Assignment, Score
-    from students.models import Student
-    from teachers.models import Teacher
+    from academics.models import Class, Subject, ClassSubject
+    from gradebook.models import Score
 
     user = request.user
 
@@ -3483,7 +3462,6 @@ def class_students(request, class_id):
     """Form teacher view to manage students in their homeroom class."""
     from academics.models import Class, ClassSubject, StudentSubjectEnrollment
     from students.models import Student
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -3514,10 +3492,30 @@ def class_students(request, class_id):
     ).select_related('subject', 'teacher').order_by('-subject__is_core', 'subject__name')
 
     core_subjects = [cs for cs in class_subjects if cs.subject.is_core]
-    elective_subjects = [cs for cs in class_subjects if not cs.subject.is_core]
+
+    # Filter elective subjects by programme if class has a programme
+    # This ensures students only see electives relevant to their programme
+    if class_obj.programme:
+        programme_subject_ids = set(
+            class_obj.programme.subjects.values_list('id', flat=True)
+        )
+        elective_subjects = [
+            cs for cs in class_subjects
+            if not cs.subject.is_core and (
+                # Include if subject is in programme's electives OR has no programme restrictions
+                cs.subject.id in programme_subject_ids or
+                not cs.subject.programmes.exists()
+            )
+        ]
+        required_electives = class_obj.programme.required_electives
+    else:
+        elective_subjects = [cs for cs in class_subjects if not cs.subject.is_core]
+        required_electives = 3  # Default minimum for SHS
 
     # Get enrollment data for each student
     students_data = []
+    students_missing_electives = 0
+
     for student in students:
         enrollments = StudentSubjectEnrollment.objects.filter(
             student=student,
@@ -3528,12 +3526,25 @@ def class_students(request, class_id):
         enrolled_subjects = [e.class_subject.subject for e in enrollments]
         enrolled_electives = [e for e in enrollments if not e.class_subject.subject.is_core]
         enrolled_elective_ids = [e.class_subject_id for e in enrolled_electives]
+        elective_count = len(enrolled_electives)
+
+        # Check if student has enough electives (only for SHS with electives)
+        electives_complete = True
+        electives_missing = 0
+        if elective_subjects and required_electives > 0:
+            if elective_count < required_electives:
+                electives_complete = False
+                electives_missing = required_electives - elective_count
+                students_missing_electives += 1
 
         students_data.append({
             'student': student,
             'enrolled_subjects_count': len(enrolled_subjects),
             'enrolled_electives': [e.class_subject.subject for e in enrolled_electives],
             'enrolled_elective_ids': enrolled_elective_ids,
+            'elective_count': elective_count,
+            'electives_complete': electives_complete,
+            'electives_missing': electives_missing,
         })
 
     # Get students available for enrollment (not in any class)
@@ -3551,6 +3562,8 @@ def class_students(request, class_id):
         'core_subjects': core_subjects,
         'elective_subjects': elective_subjects,
         'available_students': available_students,
+        'required_electives': required_electives if elective_subjects else 0,
+        'students_missing_electives': students_missing_electives,
     }
 
     return htmx_render(
@@ -3564,9 +3577,8 @@ def class_students(request, class_id):
 @login_required
 def enroll_student(request, class_id):
     """Enroll a student into a class (form teacher only)."""
-    from academics.models import Class, ClassSubject, StudentSubjectEnrollment
+    from academics.models import Class, StudentSubjectEnrollment
     from students.models import Student
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -3612,7 +3624,6 @@ def remove_student(request, class_id, student_id):
     """Remove a student from a class (form teacher only)."""
     from academics.models import Class, StudentSubjectEnrollment
     from students.models import Student
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -3657,7 +3668,6 @@ def update_student_electives(request, class_id, student_id):
     """Update elective subject enrollments for a student."""
     from academics.models import Class, ClassSubject, StudentSubjectEnrollment
     from students.models import Student
-    from teachers.models import Teacher
 
     user = request.user
 
@@ -3718,6 +3728,123 @@ def update_student_electives(request, class_id, student_id):
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'electivesUpdated'
     return response
+
+
+@login_required
+def bulk_assign_electives(request, class_id):
+    """Bulk assign elective subjects to all students missing electives."""
+    from academics.models import Class, ClassSubject, StudentSubjectEnrollment
+    from students.models import Student
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        return HttpResponse('<div class="alert alert-error">Permission denied.</div>', status=403)
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+
+    # Must be the form teacher
+    if class_obj.class_teacher != teacher:
+        return HttpResponse('<div class="alert alert-error">You are not the form teacher for this class.</div>', status=403)
+
+    # Get elective subjects filtered by programme
+    if class_obj.programme:
+        programme_subject_ids = set(
+            class_obj.programme.subjects.values_list('id', flat=True)
+        )
+        elective_class_subjects = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject__is_core=False
+        ).filter(
+            models.Q(subject_id__in=programme_subject_ids) |
+            models.Q(subject__programmes__isnull=True)
+        ).select_related('subject', 'teacher').distinct()
+        required_electives = class_obj.programme.required_electives
+    else:
+        elective_class_subjects = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject__is_core=False
+        ).select_related('subject', 'teacher')
+        required_electives = 3
+
+    # Find students who need electives
+    students = Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('last_name', 'first_name')
+
+    students_needing_electives = []
+    for student in students:
+        enrolled_elective_count = StudentSubjectEnrollment.objects.filter(
+            student=student,
+            class_subject__class_assigned=class_obj,
+            class_subject__subject__is_core=False,
+            is_active=True
+        ).count()
+
+        if enrolled_elective_count < required_electives:
+            students_needing_electives.append({
+                'student': student,
+                'current_count': enrolled_elective_count,
+                'needed': required_electives - enrolled_elective_count
+            })
+
+    context = {
+        'class_obj': class_obj,
+        'elective_subjects': elective_class_subjects,
+        'students_needing_electives': students_needing_electives,
+        'required_electives': required_electives,
+    }
+
+    if request.method == 'POST':
+        # Get the selected electives to apply
+        selected_elective_ids = request.POST.getlist('electives')
+        student_ids = request.POST.getlist('students')
+
+        if not selected_elective_ids:
+            context['error'] = 'Please select at least one elective subject.'
+            return render(request, 'core/teacher/partials/bulk_electives_modal.html', context)
+
+        if not student_ids:
+            context['error'] = 'Please select at least one student.'
+            return render(request, 'core/teacher/partials/bulk_electives_modal.html', context)
+
+        # Get students to update
+        students_to_update = Student.objects.filter(pk__in=student_ids, current_class=class_obj)
+
+        # Get the class subjects
+        class_subjects = ClassSubject.objects.filter(
+            id__in=selected_elective_ids,
+            class_assigned=class_obj,
+            subject__is_core=False
+        )
+
+        # Apply enrollments
+        for student in students_to_update:
+            for class_subject in class_subjects:
+                enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
+                    student=student,
+                    class_subject=class_subject,
+                    defaults={
+                        'enrolled_by': teacher,
+                        'is_active': True
+                    }
+                )
+                if not created and not enrollment.is_active:
+                    enrollment.is_active = True
+                    enrollment.save()
+
+        # Close modal and trigger refresh
+        response = HttpResponse(status=204)
+        response['HX-Trigger'] = json.dumps({
+            'electivesUpdated': True,
+            'closeModal': True,
+        })
+        return response
+
+    return render(request, 'core/teacher/partials/bulk_electives_modal.html', context)
 
 
 # Student views
@@ -3877,7 +4004,7 @@ def my_fees(request):
 def guardian_dashboard(request):
     """Dashboard for logged-in guardians/parents showing their wards."""
     from gradebook.models import SubjectTermGrade, TermReport
-    from students.models import Guardian, StudentGuardian
+    from students.models import StudentGuardian
     from academics.models import AttendanceSession, AttendanceRecord
 
     user = request.user
@@ -3973,7 +4100,7 @@ def guardian_dashboard(request):
 def my_wards(request):
     """Parent view of their children (wards) with grades summary."""
     from gradebook.models import SubjectTermGrade, TermReport
-    from students.models import Guardian, StudentGuardian
+    from students.models import StudentGuardian
 
     user = request.user
     current_term = Term.get_current()
@@ -4032,7 +4159,7 @@ def my_wards(request):
 def ward_detail(request, pk):
     """Detailed view of a specific ward for guardians."""
     from gradebook.models import SubjectTermGrade, TermReport
-    from students.models import Student, Guardian, StudentGuardian
+    from students.models import StudentGuardian
     from academics.models import AttendanceSession, AttendanceRecord
 
     user = request.user
@@ -4120,9 +4247,9 @@ def ward_detail(request, pk):
 @login_required
 def fee_payments(request):
     """Guardian view for viewing fee payments for their wards."""
-    from students.models import Guardian, StudentGuardian
+    from students.models import StudentGuardian
     from finance.models import Invoice, Payment, PaymentGatewayConfig
-    from django.db.models import Sum, Q
+    from django.db.models import Sum
 
     user = request.user
     guardian = getattr(user, 'guardian_profile', None)

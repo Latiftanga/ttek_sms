@@ -249,7 +249,9 @@ def categories(request):
 def category_create(request):
     """Create a new assessment category (Admin only)."""
     if request.method == 'GET':
-        return render(request, 'gradebook/includes/modal_category.html', {})
+        return render(request, 'gradebook/includes/modal_category.html', {
+            'category_types': AssessmentCategory.CATEGORY_TYPES,
+        })
 
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -261,6 +263,7 @@ def category_create(request):
     if not name or not short_name:
         return render(request, 'gradebook/includes/modal_category.html', {
             'error': 'Name and short name are required.',
+            'category_types': AssessmentCategory.CATEGORY_TYPES,
         })
 
     # Check total won't exceed 100%
@@ -271,13 +274,30 @@ def category_create(request):
     if current_total + percentage > 100:
         return render(request, 'gradebook/includes/modal_category.html', {
             'error': f'Total percentage would exceed 100%. Current: {current_total}%',
+            'category_types': AssessmentCategory.CATEGORY_TYPES,
+        })
+
+    # Parse advisory fields
+    expected_assessments = int(request.POST.get('expected_assessments', 0) or 0)
+    min_assessments = int(request.POST.get('min_assessments', 0) or 0)
+    max_assessments = int(request.POST.get('max_assessments', 0) or 0)
+
+    # Validate advisory fields
+    if min_assessments > 0 and max_assessments > 0 and min_assessments > max_assessments:
+        return render(request, 'gradebook/includes/modal_category.html', {
+            'error': 'Minimum assessments cannot be greater than maximum assessments.',
+            'category_types': AssessmentCategory.CATEGORY_TYPES,
         })
 
     AssessmentCategory.objects.create(
         name=name,
         short_name=short_name,
+        category_type=request.POST.get('category_type', 'OTHER'),
         percentage=percentage,
         order=int(request.POST.get('order', 0)),
+        expected_assessments=expected_assessments,
+        min_assessments=min_assessments,
+        max_assessments=max_assessments,
     )
 
     response = HttpResponse(status=204)
@@ -294,15 +314,33 @@ def category_edit(request, pk):
     if request.method == 'GET':
         return render(request, 'gradebook/includes/modal_category.html', {
             'category': category,
+            'category_types': AssessmentCategory.CATEGORY_TYPES,
         })
 
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    # Parse advisory fields
+    expected_assessments = int(request.POST.get('expected_assessments', 0) or 0)
+    min_assessments = int(request.POST.get('min_assessments', 0) or 0)
+    max_assessments = int(request.POST.get('max_assessments', 0) or 0)
+
+    # Validate advisory fields
+    if min_assessments > 0 and max_assessments > 0 and min_assessments > max_assessments:
+        return render(request, 'gradebook/includes/modal_category.html', {
+            'category': category,
+            'category_types': AssessmentCategory.CATEGORY_TYPES,
+            'error': 'Minimum assessments cannot be greater than maximum assessments.',
+        })
+
     category.name = request.POST.get('name', '').strip()
     category.short_name = request.POST.get('short_name', '').strip().upper()
+    category.category_type = request.POST.get('category_type', 'OTHER')
     category.percentage = int(request.POST.get('percentage', 0))
     category.order = int(request.POST.get('order', 0))
+    category.expected_assessments = expected_assessments
+    category.min_assessments = min_assessments
+    category.max_assessments = max_assessments
     category.is_active = request.POST.get('is_active') == 'on'
     category.save()
 

@@ -28,12 +28,8 @@
                 <span class="font-medium">{{ tenant.short_name|default:"-" }}</span>
             </div>
             <div class="flex justify-between">
-                <span class="text-base-content/60">Display Name</span>
-                <span class="font-medium">{{ school_settings.display_name|default:"-" }}</span>
-            </div>
-            <div class="flex justify-between">
                 <span class="text-base-content/60">Motto</span>
-                <span class="font-medium text-right truncate max-w-[60%]" title="{{ school_settings.motto }}">{{ school_settings.motto|default:"-"|truncatechars:30 }}</span>
+                <span class="font-medium text-right truncate max-w-[60%]" title="{{ tenant.motto }}">{{ tenant.motto|default:"-"|truncatechars:30 }}</span>
             </div>
         </div>
     </div>

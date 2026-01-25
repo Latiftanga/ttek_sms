@@ -1,0 +1,256 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Class Register - {{ class.name }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 1.5cm;
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-family: 'Helvetica', sans-serif;
+                font-size: 9pt;
+            }
+        }
+        
+        body {
+            font-family: 'Helvetica', sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #333;
+        }
+
+        /* Header Branding */
+        .header {
+            margin-bottom: 2rem;
+            border-bottom: 2px solid {{ school_settings.primary_color|default:"#000" }};
+            padding-bottom: 1rem;
+        }
+        
+        .header-content {
+            display: flex; /* WeasyPrint supports flexbox */
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+        }
+
+        .school-info h1 {
+            margin: 0;
+            font-size: 18pt;
+            color: {{ school_settings.primary_color|default:"#000" }};
+            text-transform: uppercase;
+        }
+
+        .school-info p {
+            margin: 2px 0;
+            font-size: 9pt;
+            color: #666;
+        }
+
+        /* Document Title */
+        .doc-title {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .doc-title h2 {
+            font-size: 16pt;
+            margin: 0 0 5px 0;
+        }
+        
+        .meta-grid {
+            display: table;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        
+        .meta-row {
+            display: table-row;
+        }
+        
+        .meta-cell {
+            display: table-cell;
+            padding: 4px;
+        }
+        
+        .label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2rem;
+        }
+
+        th, td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background-color: {{ school_settings.primary_color|default:"#f3f4f6" }};
+            color: #fff; /* Assuming primary color is dark, otherwise check contrast */
+            font-weight: bold;
+            font-size: 9pt;
+            text-transform: uppercase;
+        }
+        
+        /* Alternate row colors */
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 8pt;
+            font-weight: bold;
+            background: #eee;
+        }
+
+        .footer {
+            margin-top: 3rem;
+            font-size: 8pt;
+            color: #888;
+            text-align: center;
+            border-top: 1px solid #eee;
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Branding Header -->
+    <div class="header">
+        <table style="width: 100%; border: none; margin: 0;">
+            <tr>
+                {% if logo_base64 %}
+                <td style="width: 90px; border: none; vertical-align: top;">
+                    <img src="{{ logo_base64 }}" class="logo" alt="Logo">
+                </td>
+                {% endif %}
+                <td style="border: none; vertical-align: top;">
+                    <div class="school-info">
+                        <h1>{{ school_settings.display_name }}</h1>
+                        {% if school_settings.motto %}
+                        <p style="font-style: italic;">"{{ school_settings.motto }}"</p>
+                        {% endif %}
+                        <!-- Fallback address info if available in context, otherwise generic -->
+                        <p>{{ school.address|default:school_settings.address|default:"" }}</p>
+                        <p>{{ school.phone|default:school_settings.phone|default:"" }} | {{ school.email|default:school_settings.email|default:"" }}</p>
+                    </div>
+                </td>
+                <td style="width: 150px; border: none; text-align: right; vertical-align: top;">
+                    <div style="font-size: 9pt; color: #666;">
+                        Generated:<br>
+                        <strong>{{ generated_at|date:"M j, Y" }}</strong>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Document Info -->
+    <div class="doc-title">
+        <h2>Class Register</h2>
+        <p>{{ class.name }} ({{ class.level_display }})</p>
+    </div>
+
+    <!-- Class Stats -->
+    <div class="meta-grid">
+        <div class="meta-row">
+            <div class="meta-cell"><span class="label">Class Teacher:</span></div>
+            <div class="meta-cell">{{ class.class_teacher.full_name|default:"Not Assigned" }}</div>
+            <div class="meta-cell"><span class="label">Total Students:</span></div>
+            <div class="meta-cell">{{ students.count }} / {{ class.capacity }}</div>
+        </div>
+        <div class="meta-row">
+            <div class="meta-cell"><span class="label">Programme:</span></div>
+            <div class="meta-cell">{{ class.programme.name|default:"General" }}</div>
+            <div class="meta-cell"><span class="label">Subjects:</span></div>
+            <div class="meta-cell">{{ subjects.count }}</div>
+        </div>
+    </div>
+
+    <!-- Student List -->
+    <h3>Student List</h3>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 40px;">#</th>
+                <th style="width: 100px;">Admission No</th>
+                <th>Full Name</th>
+                <th style="width: 60px;">Gender</th>
+                <th>Guardian</th>
+                <th>Contact</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td style="font-family: monospace;">{{ student.admission_number }}</td>
+                <td>
+                    <strong>{{ student.last_name }}</strong>, {{ student.first_name }}
+                </td>
+                <td>{{ student.get_gender_display }}</td>
+                <td>
+                    {% with g=student.get_primary_guardian %}
+                        {{ g.full_name|default:"-" }}
+                    {% endwith %}
+                </td>
+                <td>
+                    {% with g=student.get_primary_guardian %}
+                        {{ g.phone_number|default:"-" }}
+                    {% endwith %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Subject Summary (Optional) -->
+    {% if subjects %}
+    <div style="page-break-inside: avoid;">
+        <h3>Assigned Subjects</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Teacher</th>
+                    <th style="width: 80px;">Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alloc in subjects %}
+                <tr>
+                    <td>{{ alloc.subject.name }}</td>
+                    <td>{{ alloc.teacher.full_name|default:"-" }}</td>
+                    <td>
+                        {% if alloc.subject.is_core %}Core{% else %}Elective{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        Generated by {{ generated_by.get_full_name|default:generated_by.username }} from School Management System
+    </div>
+
+</body>
+</html>

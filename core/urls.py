@@ -69,6 +69,7 @@ urlpatterns = [
     path('my-classes/<int:class_id>/students/enroll/', views.enroll_student, name='enroll_student'),
     path('my-classes/<int:class_id>/students/<int:student_id>/remove/', views.remove_student, name='remove_student'),
     path('my-classes/<int:class_id>/students/<int:student_id>/electives/', views.update_student_electives, name='update_student_electives'),
+    path('my-classes/<int:class_id>/students/bulk-electives/', views.bulk_assign_electives, name='bulk_assign_electives'),
     path('my-attendance/', views.my_attendance, name='my_attendance'),
     path('my-attendance/take/<int:class_id>/', views.take_attendance, name='take_attendance'),
     path('my-grading/', views.my_grading, name='my_grading'),

@@ -1,6 +1,7 @@
 import re
 from django import forms
 from django.contrib import admin
+from django.utils.html import format_html
 from django_tenants.utils import schema_context, get_public_schema_name
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -24,16 +25,24 @@ class DistrictInline(admin.TabularInline):
 
 @admin.register(Region)
 class RegionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code')
+    list_display = ('name', 'code', 'district_count')
     search_fields = ('name', 'code')
     inlines = [DistrictInline]
+
+    def district_count(self, obj):
+        return obj.districts.count()
+    district_count.short_description = 'Districts'
 
 
 @admin.register(District)
 class DistrictAdmin(admin.ModelAdmin):
-    list_display = ('name', 'region')
+    list_display = ('name', 'region', 'school_count')
     list_filter = ('region',)
-    search_fields = ('name',)
+    search_fields = ('name', 'region__name')
+
+    def school_count(self, obj):
+        return obj.schools.count()
+    school_count.short_description = 'Schools'
 
 
 # School Admin
@@ -70,6 +79,20 @@ class SchoolCreationForm(forms.ModelForm):
         # Pre-populate enabled_levels from instance
         if self.instance.pk and self.instance.enabled_levels:
             self.fields['enabled_levels'].initial = self.instance.enabled_levels
+
+        # Filter districts based on selected region
+        if self.instance.pk and self.instance.location_region:
+            self.fields['location_district'].queryset = District.objects.filter(
+                region=self.instance.location_region
+            )
+        elif 'location_region' in self.data:
+            try:
+                region_id = int(self.data.get('location_region'))
+                self.fields['location_district'].queryset = District.objects.filter(region_id=region_id)
+            except (ValueError, TypeError):
+                self.fields['location_district'].queryset = District.objects.none()
+        else:
+            self.fields['location_district'].queryset = District.objects.none()
 
     def clean_enabled_levels(self):
         """Return as list for JSONField storage."""
@@ -109,9 +132,15 @@ class DomainInline(admin.TabularInline):
 class SchoolAdmin(admin.ModelAdmin):
     form = SchoolCreationForm
     inlines = [DomainInline]
-    list_display = ('name', 'schema_name', 'education_system', 'created_on')
-    list_filter = ('education_system',)
-    search_fields = ('name', 'schema_name')
+    list_display = (
+        'name', 'schema_name', 'education_system', 'primary_domain',
+        'location_display', 'email', 'phone', 'is_active', 'created_on'
+    )
+    list_filter = ('education_system', 'is_active', 'location_region', 'created_on')
+    search_fields = ('name', 'schema_name', 'email', 'phone')
+    date_hierarchy = 'created_on'
+    list_editable = ('is_active',)
+    ordering = ('-created_on',)
 
     class Media:
         js = ('admin/js/school_form.js',)
@@ -120,22 +149,76 @@ class SchoolAdmin(admin.ModelAdmin):
         if obj:
             # Editing existing school
             return (
-                (None, {'fields': ('name', 'short_name', 'schema_name', 'education_system', 'enabled_levels')}),
-                ('Contact', {'fields': ('email', 'phone', 'address', 'city')}),
-                ('Location', {'fields': ('location_region', 'location_district')}),
+                (None, {
+                    'fields': ('name', 'short_name', 'motto', 'schema_name', 'is_active', 'education_system', 'enabled_levels')
+                }),
+                ('Branding', {
+                    'fields': ('logo', 'favicon', 'primary_color', 'secondary_color', 'accent_color'),
+                    'classes': ('collapse',),
+                    'description': 'Logo, favicon, and theme colors displayed on login and throughout the app.'
+                }),
+                ('Contact', {
+                    'fields': ('email', 'phone', 'address', 'digital_address', 'city')
+                }),
+                ('Location', {
+                    'fields': ('location_region', 'location_district')
+                }),
+                ('Administration', {
+                    'fields': ('headmaster_name', 'headmaster_title'),
+                    'classes': ('collapse',)
+                }),
             )
         # Creating new school
         return (
-            (None, {'fields': ('name', 'short_name', 'schema_name', 'education_system', 'enabled_levels')}),
-            ('Contact', {'fields': ('email', 'phone', 'address', 'city')}),
-            ('Location', {'fields': ('location_region', 'location_district')}),
-            ('Principal Account', {'fields': ('admin_email', 'admin_password')}),
+            (None, {
+                'fields': ('name', 'short_name', 'motto', 'schema_name', 'is_active', 'education_system', 'enabled_levels')
+            }),
+            ('Branding', {
+                'fields': ('logo', 'favicon', 'primary_color', 'secondary_color', 'accent_color'),
+                'classes': ('collapse',),
+                'description': 'Logo, favicon, and theme colors displayed on login and throughout the app.'
+            }),
+            ('Contact', {
+                'fields': ('email', 'phone', 'address', 'digital_address', 'city')
+            }),
+            ('Location', {
+                'fields': ('location_region', 'location_district')
+            }),
+            ('Administration', {
+                'fields': ('headmaster_name', 'headmaster_title'),
+                'classes': ('collapse',)
+            }),
+            ('Principal Account', {
+                'fields': ('admin_email', 'admin_password'),
+                'description': 'Create the initial administrator account for this school.'
+            }),
         )
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
             return ('schema_name',)
         return ()
+
+    def primary_domain(self, obj):
+        """Display the primary domain for the school."""
+        domain = obj.domains.filter(is_primary=True).first()
+        if domain:
+            return format_html('<a href="//{}" target="_blank">{}</a>', domain.domain, domain.domain)
+        domain = obj.domains.first()
+        if domain:
+            return format_html('<a href="//{}" target="_blank">{}</a>', domain.domain, domain.domain)
+        return '-'
+    primary_domain.short_description = 'Domain'
+
+    def location_display(self, obj):
+        """Display region and district."""
+        parts = []
+        if obj.location_district:
+            parts.append(obj.location_district.name)
+        if obj.location_region:
+            parts.append(obj.location_region.code)
+        return ', '.join(parts) if parts else '-'
+    location_display.short_description = 'Location'
 
     def save_model(self, request, obj, form, change):
         with schema_context(get_public_schema_name()):
@@ -165,12 +248,14 @@ class SchoolAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         with schema_context(get_public_schema_name()):
-            return super().get_queryset(request)
+            return super().get_queryset(request).prefetch_related('domains')
 
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('get-districts/<int:region_id>/', self.admin_site.admin_view(self.get_districts_for_region), name='schools_school_get_districts'),
+            path('get-districts/<int:region_id>/',
+                 self.admin_site.admin_view(self.get_districts_for_region),
+                 name='schools_school_get_districts'),
         ]
         return custom_urls + urls
 
