@@ -57,7 +57,7 @@
        hx-get="{% url 'academics:attendance_reports' %}?class={{ class.pk }}"
        hx-target="#main-content"
        hx-push-url="true"
-       onclick="modal_edit.close()"
+       onclick="document.getElementById('modal_edit')?.close()"
        class="btn btn-sm btn-ghost">
         <i class="fa-solid fa-chart-line mr-1"></i>
         View Full Reports

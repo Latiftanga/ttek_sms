@@ -1,166 +1,123 @@
 {% load core_tags %}
 
 <style>
-    /* Action buttons visibility on hover */
-    .lesson-entry .action-buttons { opacity: 0; transition: opacity 0.15s ease; }
-    .lesson-entry:hover .action-buttons { opacity: 1; }
+    /* Action buttons - always visible on mobile, hover on desktop */
+    .lesson-entry .action-buttons { opacity: 1; transition: opacity 0.15s ease; }
+    @media (min-width: 768px) {
+        .lesson-entry .action-buttons { opacity: 0; }
+        .lesson-entry:hover .action-buttons { opacity: 1; }
+    }
 
     /* Smooth hover transition for lesson entries */
     .lesson-entry { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-    .lesson-entry:hover { transform: scale(1.02); }
-
-    /* HTMX loading indicator */
-    .htmx-request .loading-indicator { display: inline-flex !important; }
-    .htmx-request button[type="submit"] { pointer-events: none; opacity: 0.7; }
+    @media (min-width: 768px) {
+        .lesson-entry:hover { transform: scale(1.02); }
+    }
 
     /* Empty slot hover effect */
     .empty-slot { transition: all 0.15s ease; }
-    .empty-slot:hover { transform: scale(1.02); }
+    @media (min-width: 768px) {
+        .empty-slot:hover { transform: scale(1.02); }
+    }
 
     /* ========== PRINT STYLES ========== */
     @media print {
-        @page {
-            size: landscape;
-            margin: 0.5in;
-        }
-
-        body {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            font-size: 11pt;
-        }
-
-        /* Hide non-print elements */
-        .print\\:hidden, .print\\:\\!hidden {
-            display: none !important;
-        }
-
-        /* Show print elements */
-        .print\\:block, .print\\:\\!block {
-            display: block !important;
-        }
-
-        /* Print table styling */
-        .print-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 10pt;
-        }
-
-        .print-table th,
-        .print-table td {
-            border: 1.5pt solid #000 !important;
-            padding: 6pt 4pt;
-            vertical-align: middle;
-        }
-
-        .print-table th {
-            background-color: #e5e7eb !important;
-            font-weight: bold;
-            text-align: center;
-        }
-
-        .print-table .period-cell {
-            background-color: #f3f4f6 !important;
-            font-weight: 600;
-            min-width: 80pt;
-        }
-
-        .print-table .break-row {
-            background-color: #fef3c7 !important;
-        }
-
-        .print-table .break-row td {
-            text-align: center;
-            font-style: italic;
-            color: #92400e;
-        }
-
-        /* Lesson entry in print */
-        .print-lesson {
-            background-color: #dbeafe !important;
-            border: 1pt solid #3b82f6 !important;
-            padding: 4pt;
-            text-align: center;
-            min-height: 40pt;
-        }
-
-        .print-lesson.double {
-            background-color: #e9d5ff !important;
-            border-color: #9333ea !important;
-        }
-
-        .print-lesson.combined {
-            background-color: #d1fae5 !important;
-            border-color: #10b981 !important;
-        }
-
-        .print-lesson .subject {
-            font-weight: bold;
-            font-size: 11pt;
-        }
-
-        .print-lesson .teacher {
-            font-size: 9pt;
-            color: #374151;
-        }
-
-        .print-lesson .room {
-            font-size: 8pt;
-            color: #6b7280;
-        }
-
-        .print-continuation {
-            background-color: #f3e8ff !important;
-            text-align: center;
-            font-size: 8pt;
-            color: #7c3aed;
-            font-style: italic;
-        }
-
-        .print-empty {
-            background-color: #f9fafb !important;
-        }
+        @page { size: landscape; margin: 0.5in; }
+        body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-size: 11pt; }
+        .print-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+        .print-table th, .print-table td { border: 1.5pt solid #000 !important; padding: 6pt 4pt; vertical-align: middle; }
+        .print-table th { background-color: #e5e7eb !important; font-weight: bold; text-align: center; }
+        .print-table .period-cell { background-color: #f3f4f6 !important; font-weight: 600; min-width: 80pt; }
+        .print-table .break-row { background-color: #fef3c7 !important; }
+        .print-table .break-row td { text-align: center; font-style: italic; color: #92400e; }
+        .print-lesson { background-color: #dbeafe !important; border: 1pt solid #3b82f6 !important; padding: 4pt; text-align: center; min-height: 40pt; }
+        .print-lesson.double { background-color: #e9d5ff !important; border-color: #9333ea !important; }
+        .print-lesson.combined { background-color: #d1fae5 !important; border-color: #10b981 !important; }
+        .print-lesson .subject { font-weight: bold; font-size: 11pt; }
+        .print-lesson .teacher { font-size: 9pt; color: #374151; }
+        .print-lesson .room { font-size: 8pt; color: #6b7280; }
+        .print-continuation { background-color: #f3e8ff !important; text-align: center; font-size: 8pt; color: #7c3aed; font-style: italic; }
+        .print-empty { background-color: #f9fafb !important; }
     }
 </style>
 
-<!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 print:!hidden">
-    <div>
-        <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'academics:class_detail' class_obj.pk %}"
-               hx-get="{% url 'academics:class_detail' class_obj.pk %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle"
-               title="Back to Class">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                    <i class="fa-solid fa-calendar-days text-white"></i>
-                </div>
+<div x-data="{ activeDay: 1 }" class="print:!block">
+
+<!-- Compact Header -->
+<div class="flex flex-col gap-3 mb-4 print:!hidden">
+    <!-- Top row: Back + Title + Actions -->
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{% url 'academics:class_detail' class_obj.pk %}"
+           hx-get="{% url 'academics:class_detail' class_obj.pk %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm btn-square shrink-0">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-lg sm:text-xl font-bold truncate flex items-center gap-2">
+                <i class="fa-solid fa-calendar-days text-primary"></i>
                 {{ class_obj.name }} Timetable
             </h1>
+            <p class="text-xs text-base-content/60 truncate">
+                {{ class_obj.level_display }}{% if class_obj.programme %} &bull; {{ class_obj.programme.name }}{% endif %}
+            </p>
         </div>
-        <p class="text-sm text-base-content/60 ml-12">
-            {{ class_obj.level_display }}{% if class_obj.programme %} &bull; {{ class_obj.programme.name }}{% endif %}
-        </p>
-    </div>
-    <div class="flex gap-2">
-        <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-sm btn-outline gap-2">
-                <i class="fa-solid fa-download"></i>
-                Export
-                <i class="fa-solid fa-chevron-down text-xs"></i>
+        <div class="flex items-center gap-1 shrink-0">
+            <button class="btn btn-sm btn-ghost" onclick="window.print()" title="Print">
+                <i class="fa-solid fa-print"></i>
+            </button>
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-sm btn-ghost">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </div>
+                <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-48 border border-base-200">
+                    <li>
+                        <a href="{% url 'academics:periods' %}"
+                           hx-get="{% url 'academics:periods' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true">
+                            <i class="fa-solid fa-clock w-4"></i> Manage Periods
+                        </a>
+                    </li>
+                    <li>
+                        <button hx-get="{% url 'academics:class_subjects_modal' class_obj.pk %}"
+                                hx-target="#modal-container"
+                                onclick="modal_form.showModal()">
+                            <i class="fa-solid fa-book w-4"></i> Manage Subjects
+                        </button>
+                    </li>
+                    <li>
+                        <a href="{% url 'academics:class_detail' class_obj.pk %}"
+                           hx-get="{% url 'academics:class_detail' class_obj.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true">
+                            <i class="fa-solid fa-users w-4"></i> View Students
+                        </a>
+                    </li>
+                </ul>
             </div>
-            <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-44 border border-base-200">
-                <li>
-                    <button onclick="window.print()">
-                        <i class="fa-solid fa-print w-4"></i> Print
-                    </button>
-                </li>
-            </ul>
+        </div>
+    </div>
+
+    <!-- Compact Stats Bar -->
+    <div class="flex items-center text-xs sm:text-sm bg-base-200/50 rounded-lg px-2 sm:px-3 py-2">
+        <div class="flex-1 flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-book-open text-primary"></i>
+            <span class="font-bold">{{ timetable_entries_count|default:0 }}</span>
+            <span class="text-base-content/50 hidden sm:inline">lessons</span>
+        </div>
+        <div class="w-px h-4 bg-base-300"></div>
+        <div class="flex-1 flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-shapes text-secondary"></i>
+            <span class="font-bold">{{ class_subjects|length }}</span>
+            <span class="text-base-content/50 hidden sm:inline">subjects</span>
+        </div>
+        <div class="w-px h-4 bg-base-300"></div>
+        <div class="flex-1 flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-clock text-info"></i>
+            <span class="font-bold">{{ teaching_periods_count }}</span>
+            <span class="text-base-content/50 hidden sm:inline">periods/day</span>
         </div>
     </div>
 </div>
@@ -168,413 +125,201 @@
 <!-- Print Header -->
 <div class="hidden print:!block print:mb-6">
     <div class="flex items-start justify-between border-b-2 border-black pb-4 mb-4">
-        <!-- School Info - Left -->
         <div class="flex items-center gap-4">
             {% if school.logo %}
             <img src="{{ school.logo.url }}" alt="School Logo" style="height: 60pt; width: auto;">
             {% endif %}
             <div>
                 <h1 class="text-lg font-bold uppercase tracking-wide">{{ school.display_name|default:"School Name" }}</h1>
-                {% if school.motto %}
-                <p class="text-xs italic">"{{ school.motto }}"</p>
-                {% endif %}
-                {% if school.address %}
-                <p class="text-xs">{{ school.address }}</p>
-                {% endif %}
+                {% if school.motto %}<p class="text-xs italic">"{{ school.motto }}"</p>{% endif %}
+                {% if school.address %}<p class="text-xs">{{ school.address }}</p>{% endif %}
             </div>
         </div>
-        <!-- Class Info - Right -->
         <div class="text-right">
             <h2 class="text-2xl font-bold">{{ class_obj.name }}</h2>
             <p class="text-sm">{{ class_obj.level_display }}{% if class_obj.programme %} &bull; {{ class_obj.programme.name }}{% endif %}</p>
-            {% if class_obj.class_teacher %}
-            <p class="text-xs mt-1">Form Tutor: <strong>{{ class_obj.class_teacher.full_name }}</strong></p>
-            {% endif %}
+            {% if class_obj.class_teacher %}<p class="text-xs mt-1">Form Tutor: <strong>{{ class_obj.class_teacher.full_name }}</strong></p>{% endif %}
         </div>
     </div>
-    <!-- Title Bar -->
     <div class="text-center mb-4">
         <h3 class="text-xl font-bold uppercase tracking-widest border-y-2 border-black py-2">Weekly Class Timetable</h3>
-        {% if current_term %}
-        <p class="text-sm mt-2">{{ current_term.name }} &mdash; {{ current_term.academic_year.name }}</p>
-        {% endif %}
+        {% if current_term %}<p class="text-sm mt-2">{{ current_term.name }} &mdash; {{ current_term.academic_year.name }}</p>{% endif %}
     </div>
 </div>
 
 <!-- No periods warning -->
 {% if not periods %}
-<div class="alert alert-warning">
+<div class="alert alert-warning print:!hidden">
     <i class="fa-solid fa-exclamation-triangle"></i>
     <div>
         <h4 class="font-bold">No Periods Defined</h4>
         <p class="text-sm">Create school periods before building the timetable.</p>
     </div>
-    <a href="{% url 'academics:periods' %}"
-       hx-get="{% url 'academics:periods' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="btn btn-sm btn-warning">
+    <a href="{% url 'academics:periods' %}" hx-get="{% url 'academics:periods' %}" hx-target="#main-content" hx-push-url="true" class="btn btn-sm btn-warning">
         Create Periods
     </a>
 </div>
 {% endif %}
 
 {% if periods %}
-<!-- Stats Cards -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 print:!hidden">
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-book-open text-primary text-xl"></i>
-                </div>
-                <div>
-                    <div class="text-2xl font-bold text-primary">{{ timetable_entries_count|default:0 }}</div>
-                    <div class="text-xs text-base-content/60">Lessons/Week</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-shapes text-secondary text-xl"></i>
-                </div>
-                <div>
-                    <div class="text-2xl font-bold text-secondary">{{ class_subjects|length }}</div>
-                    <div class="text-xs text-base-content/60">Subjects</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                    <i class="fa-solid fa-chalkboard-user text-accent text-xl"></i>
-                </div>
-                <div>
-                    <div class="text-2xl font-bold text-accent">{{ teachers_count|default:0 }}</div>
-                    <div class="text-xs text-base-content/60">Teachers</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
-                    <i class="fa-solid fa-clock text-info text-xl"></i>
-                </div>
-                <div>
-                    <div class="text-2xl font-bold text-info">{{ teaching_periods_count }}</div>
-                    <div class="text-xs text-base-content/60">Periods/Day</div>
-                </div>
-            </div>
-        </div>
+<!-- Mobile Day Tabs -->
+<div class="flex md:hidden mb-3 print:!hidden">
+    <div class="join w-full">
+        {% for day_num, day_name in weekdays %}
+        <button class="join-item btn btn-sm flex-1"
+                :class="activeDay === {{ day_num }} ? 'btn-primary' : 'btn-ghost'"
+                @click="activeDay = {{ day_num }}">
+            {{ day_name|slice:":3" }}
+        </button>
+        {% endfor %}
     </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 print:block">
-    <!-- Main Content - Timetable Grid -->
-    <div class="lg:col-span-2 space-y-6 print:col-span-full">
-        <!-- Info message when empty -->
-        {% if not class_subjects %}
-        <div class="alert alert-info print:!hidden">
-            <i class="fa-solid fa-lightbulb"></i>
-            <span>Click on any empty slot to add a lesson. Subjects and teachers are assigned automatically.</span>
-        </div>
-        {% endif %}
+<!-- Timetable Card -->
+<div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-0">
+    <div class="card-body p-0">
 
-        <!-- Timetable Card -->
-        <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-0">
-            <div class="card-body p-0">
-                <div class="overflow-x-auto">
-                    <table class="table table-sm w-full print-table">
-                        <thead>
-                            <tr class="bg-base-200/50">
-                                <th class="bg-base-200/50 text-base-content/70 font-semibold sticky left-0 z-10 print:bg-gray-100">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fa-solid fa-clock text-xs opacity-50"></i>
-                                        Period
-                                    </div>
-                                </th>
-                                {% for day_num, day_name in weekdays %}
-                                <th class="text-center text-base-content/70 font-semibold print:bg-gray-100">
-                                    {{ day_name }}
-                                </th>
-                                {% endfor %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for period in periods %}
-                            <tr class="{% if period.is_break %}bg-warning/10 break-row{% else %}hover:bg-base-200/30{% endif %}">
-                                <!-- Period Info -->
-                                <td class="sticky left-0 z-10 period-cell {% if period.is_break %}bg-warning/10{% else %}bg-base-100{% endif %}">
-                                    <div>
-                                        <div class="font-semibold text-sm flex items-center gap-1.5 print:block">
-                                            {% if period.is_break %}
-                                            <i class="fa-solid fa-mug-hot text-warning text-xs print:hidden"></i>
-                                            {% endif %}
-                                            {{ period.name }}
-                                        </div>
-                                        <div class="text-xs text-base-content/50 font-mono">
-                                            {{ period.start_time|time:"H:i" }} - {{ period.end_time|time:"H:i" }}
-                                        </div>
-                                    </div>
-                                </td>
-
-                                <!-- Days -->
-                                {% for day_num, day_name in weekdays %}
-                                <td class="{% if period.is_break %}bg-warning/10{% endif %}">
-                                    {% if period.is_break %}
-                                    <!-- Break period -->
-                                    <div class="h-14 flex items-center justify-center text-warning print:text-amber-700">
-                                        <span class="hidden print:inline text-xs font-medium">BREAK</span>
-                                        <i class="fa-solid fa-mug-hot print:hidden"></i>
-                                    </div>
-                                    {% else %}
-                                    {% with entries=timetable_grid|get_item:day_num|get_item:period.pk double_entries=double_period_slots|get_item:day_num|get_item:period.pk %}
-                                    {% if entries %}
-                                    <!-- Lesson Entry (supports combined subjects like Gov/Hist) -->
-                                    <div class="lesson-entry print-lesson {% if entries|length > 1 %}bg-accent text-accent-content combined{% elif entries.0.is_double %}bg-secondary text-secondary-content double{% else %}bg-primary text-primary-content{% endif %} rounded-lg p-1.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-lg print:rounded-none print:text-black">
-                                        {% if entries|length > 1 %}
-                                        <!-- Combined/Split lessons (e.g., Gov/Hist) -->
-                                        <div class="subject font-semibold text-sm truncate leading-tight max-w-full">
-                                            {% for entry in entries %}{{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}{% if not forloop.last %}/{% endif %}{% endfor %}
-                                        </div>
-                                        <div class="teacher text-[10px] opacity-75 truncate max-w-full print:opacity-100">
-                                            {% for entry in entries %}{{ entry.class_subject.teacher.last_name|default:"TBA" }}{% if not forloop.last %}/{% endif %}{% endfor %}
-                                        </div>
-                                        <div class="room text-[10px] opacity-60 truncate max-w-full print:opacity-100">
-                                            {% for entry in entries %}{% if entry.classroom %}{{ entry.classroom.code|default:entry.classroom.name }}{% if not forloop.last %}/{% endif %}{% endif %}{% endfor %}
-                                        </div>
-                                        {% else %}
-                                        <!-- Single lesson -->
-                                        {% with entry=entries.0 %}
-                                        {% if entry.is_double %}
-                                        <span class="text-[10px] font-bold opacity-70 leading-none print:hidden">2x</span>
-                                        {% endif %}
-                                        <div class="subject font-semibold text-sm truncate leading-tight max-w-full">
-                                            {{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}
-                                        </div>
-                                        <div class="teacher text-xs opacity-75 truncate max-w-full print:opacity-100">
-                                            {% if entry.class_subject.teacher %}
-                                            {{ entry.class_subject.teacher.last_name }}
-                                            {% else %}
-                                            <span class="italic">TBA</span>
-                                            {% endif %}
-                                        </div>
-                                        {% if entry.classroom %}
-                                        <div class="room text-[10px] opacity-60 truncate max-w-full print:opacity-100">
-                                            {{ entry.classroom.code|default:entry.classroom.name }}
-                                        </div>
-                                        {% endif %}
-                                        {% endwith %}
-                                        {% endif %}
-                                        <!-- Action buttons - shown on hover, below content -->
-                                        <div class="action-buttons flex gap-1 mt-1 print:!hidden">
-                                            <button class="btn btn-xs btn-circle bg-white/20 hover:bg-white/40 border-0"
-                                                    hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}?weekday={{ day_num }}&period={{ period.pk }}"
-                                                    hx-target="#modal-container"
-                                                    hx-swap="innerHTML"
-                                                    onclick="modal_form.showModal()"
-                                                    title="Add combined subject">
-                                                <i class="fa-solid fa-plus text-[10px]"></i>
-                                            </button>
-                                            {% for entry in entries %}
-                                            <button class="btn btn-xs btn-circle bg-white/20 hover:bg-info hover:text-white border-0"
-                                                    hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}"
-                                                    hx-target="#modal-container"
-                                                    hx-swap="innerHTML"
-                                                    onclick="modal_form.showModal()"
-                                                    title="Edit {{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}">
-                                                <i class="fa-solid fa-pen text-[10px]"></i>
-                                            </button>
-                                            <button class="btn btn-xs btn-circle bg-white/20 hover:bg-error hover:text-white border-0"
-                                                    hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}"
-                                                    hx-confirm="Remove {{ entry.class_subject.subject.name }} from {{ day_name }}?"
-                                                    title="Remove {{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}">
-                                                <i class="fa-solid fa-trash text-[10px]"></i>
-                                            </button>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                    {% elif double_entries %}
-                                    <!-- Double period continuation -->
-                                    <div class="print-continuation h-14 bg-secondary/10 rounded-lg flex items-center justify-center border border-dashed border-secondary/30 print:rounded-none print:border-solid">
-                                        <span class="text-xs text-secondary/50 flex items-center gap-1">
-                                            <i class="fa-solid fa-arrow-up text-[10px] print:hidden"></i>
-                                            (continued)
-                                        </span>
-                                    </div>
-                                    {% else %}
-                                    <!-- Empty slot -->
-                                    <button class="empty-slot print-empty w-full h-14 border border-dashed border-base-300 hover:border-primary hover:bg-primary/5 rounded-lg text-base-content/30 hover:text-primary flex items-center justify-center cursor-pointer print:border-gray-200 print:rounded-none print:cursor-default"
-                                            hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}?weekday={{ day_num }}&period={{ period.pk }}"
-                                            hx-target="#modal-container"
-                                            hx-swap="innerHTML"
-                                            onclick="modal_form.showModal()"
-                                            title="Add lesson">
-                                        <i class="fa-solid fa-plus print:hidden"></i>
-                                    </button>
-                                    {% endif %}
-                                    {% endwith %}
-                                    {% endif %}
-                                </td>
-                                {% endfor %}
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Legend -->
-        <div class="flex flex-wrap items-center gap-4 text-sm text-base-content/60 print:!hidden">
-            <span class="font-medium text-base-content">Legend:</span>
-            <div class="flex items-center gap-1.5">
-                <span class="w-4 h-4 rounded-sm bg-primary"></span>
-                <span>Single</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <span class="w-4 h-4 rounded-sm bg-secondary"></span>
-                <span>Double</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <span class="w-4 h-4 rounded-sm bg-accent"></span>
-                <span>Combined</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <span class="w-4 h-4 rounded-sm bg-warning/30 border border-warning/50"></span>
-                <span>Break</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <span class="w-4 h-4 rounded-sm border-2 border-dashed border-base-300 bg-base-100"></span>
-                <span>Empty</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Right Column - Sidebar -->
-    <div class="space-y-6 print:!hidden">
-        <!-- Class Info Card -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-0">
-                <div class="flex items-center justify-between p-4 border-b border-base-200">
-                    <h2 class="font-bold flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <i class="fa-solid fa-chalkboard text-primary"></i>
-                        </div>
-                        Class Info
-                    </h2>
-                </div>
-                <div class="p-4">
-                    <div class="flex items-center gap-3 mb-3">
-                        <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-center">
-                            <span class="font-bold text-primary text-sm leading-tight">{{ class_obj.name }}</span>
-                        </div>
-                        <div>
-                            <h3 class="font-bold">{{ class_obj.level_display }}</h3>
-                            <p class="text-xs text-base-content/60">
-                                {% if class_obj.class_teacher %}
-                                {{ class_obj.class_teacher.full_name }}
+        <!-- Desktop: Full Grid -->
+        <div class="hidden md:block overflow-x-auto print:!block">
+            <table class="table table-sm w-full print-table">
+                <thead>
+                    <tr class="bg-base-200/50">
+                        <th class="bg-base-200/50 text-base-content/70 font-semibold sticky left-0 z-10 print:bg-gray-100">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-clock text-xs opacity-50"></i>
+                                Period
+                            </div>
+                        </th>
+                        {% for day_num, day_name in weekdays %}
+                        <th class="text-center text-base-content/70 font-semibold print:bg-gray-100">{{ day_name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for period in periods %}
+                    <tr class="{% if period.is_break %}bg-warning/10 break-row{% else %}hover:bg-base-200/30{% endif %}">
+                        <td class="sticky left-0 z-10 period-cell {% if period.is_break %}bg-warning/10{% else %}bg-base-100{% endif %}">
+                            <div>
+                                <div class="font-semibold text-sm flex items-center gap-1.5 print:block">
+                                    {% if period.is_break %}<i class="fa-solid fa-mug-hot text-warning text-xs print:hidden"></i>{% endif %}
+                                    {{ period.name }}
+                                </div>
+                                <div class="text-xs text-base-content/50 font-mono">{{ period.start_time|time:"H:i" }} - {{ period.end_time|time:"H:i" }}</div>
+                            </div>
+                        </td>
+                        {% for day_num, day_name in weekdays %}
+                        <td class="{% if period.is_break %}bg-warning/10{% endif %}">
+                            {% if period.is_break %}
+                            <div class="h-14 flex items-center justify-center text-warning print:text-amber-700">
+                                <span class="hidden print:inline text-xs font-medium">BREAK</span>
+                                <i class="fa-solid fa-mug-hot print:hidden"></i>
+                            </div>
+                            {% else %}
+                            {% with entries=timetable_grid|get_item:day_num|get_item:period.pk double_entries=double_period_slots|get_item:day_num|get_item:period.pk %}
+                            {% if entries %}
+                            <div class="lesson-entry print-lesson {% if entries|length > 1 %}bg-accent text-accent-content combined{% elif entries.0.is_double %}bg-secondary text-secondary-content double{% else %}bg-primary text-primary-content{% endif %} rounded-lg p-1.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-lg print:rounded-none print:text-black min-h-[3.5rem]">
+                                {% if entries|length > 1 %}
+                                <div class="subject font-semibold text-sm truncate leading-tight max-w-full">{% for entry in entries %}{{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}{% if not forloop.last %}/{% endif %}{% endfor %}</div>
+                                <div class="teacher text-[10px] opacity-75 truncate max-w-full print:opacity-100">{% for entry in entries %}{{ entry.class_subject.teacher.last_name|default:"TBA" }}{% if not forloop.last %}/{% endif %}{% endfor %}</div>
                                 {% else %}
-                                No form tutor
+                                {% with entry=entries.0 %}
+                                {% if entry.is_double %}<span class="text-[10px] font-bold opacity-70 leading-none print:hidden">2x</span>{% endif %}
+                                <div class="subject font-semibold text-sm truncate leading-tight max-w-full">{{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}</div>
+                                <div class="teacher text-xs opacity-75 truncate max-w-full print:opacity-100">{% if entry.class_subject.teacher %}{{ entry.class_subject.teacher.last_name }}{% else %}<span class="italic">TBA</span>{% endif %}</div>
+                                {% endwith %}
                                 {% endif %}
-                            </p>
-                        </div>
-                    </div>
-                    <a href="{% url 'academics:class_detail' class_obj.pk %}"
-                       hx-get="{% url 'academics:class_detail' class_obj.pk %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-sm btn-block">
-                        <i class="fa-solid fa-arrow-left"></i>
-                        Back to Class
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Assigned Subjects -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-0">
-                <div class="flex items-center justify-between p-4 border-b border-base-200">
-                    <h2 class="font-bold flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center">
-                            <i class="fa-solid fa-book text-secondary"></i>
-                        </div>
-                        Subjects
-                    </h2>
-                    <span class="badge badge-ghost">{{ class_subjects|length }}</span>
-                </div>
-                <div class="p-4">
-                    {% if class_subjects %}
-                    <div class="space-y-2 max-h-64 overflow-y-auto">
-                        {% for cs in class_subjects %}
-                        <div class="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-base-200/50 transition-colors">
-                            <div class="min-w-0 flex-1">
-                                <div class="font-medium text-sm truncate">{{ cs.subject.name }}</div>
-                                <div class="text-xs text-base-content/50 truncate">
-                                    {% if cs.teacher %}{{ cs.teacher.last_name }}{% else %}<span class="text-warning">TBA</span>{% endif %}
+                                <div class="action-buttons flex gap-1 mt-1 print:!hidden">
+                                    {% for entry in entries %}
+                                    <button class="btn btn-xs btn-circle bg-white/20 hover:bg-info border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="modal_form.showModal()" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                                    <button class="btn btn-xs btn-circle bg-white/20 hover:bg-error border-0" hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}" hx-confirm="Remove {{ entry.class_subject.subject.name }}?" title="Remove"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                                    {% endfor %}
                                 </div>
                             </div>
-                            <div class="flex items-center gap-1.5">
-                                <span class="badge badge-sm font-mono {% if cs.scheduled_periods >= cs.periods_per_week %}badge-success{% elif cs.scheduled_periods > 0 %}badge-warning{% else %}badge-ghost{% endif %}">
-                                    {{ cs.scheduled_periods }}/{{ cs.periods_per_week }}
-                                </span>
+                            {% elif double_entries %}
+                            <div class="print-continuation h-14 bg-secondary/10 rounded-lg flex items-center justify-center border border-dashed border-secondary/30 print:rounded-none print:border-solid">
+                                <span class="text-xs text-secondary/50"><i class="fa-solid fa-arrow-up text-[10px] print:hidden"></i> (continued)</span>
                             </div>
-                        </div>
+                            {% else %}
+                            <button class="empty-slot print-empty w-full h-14 border border-dashed border-base-300 hover:border-primary hover:bg-primary/5 rounded-lg text-base-content/30 hover:text-primary flex items-center justify-center cursor-pointer print:border-gray-200 print:rounded-none"
+                                    hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}?weekday={{ day_num }}&period={{ period.pk }}" hx-target="#modal-container" onclick="modal_form.showModal()" title="Add lesson">
+                                <i class="fa-solid fa-plus print:hidden"></i>
+                            </button>
+                            {% endif %}
+                            {% endwith %}
+                            {% endif %}
+                        </td>
                         {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-8">
-                        <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-base-200 flex items-center justify-center">
-                            <i class="fa-solid fa-book text-base-content/30 text-xl"></i>
-                        </div>
-                        <h3 class="font-semibold text-sm text-base-content/70">No Subjects Yet</h3>
-                        <p class="text-xs text-base-content/50 mt-1">
-                            Add lessons to assign subjects
-                        </p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
 
-        <!-- Quick Tips -->
-        <div class="card bg-gradient-to-br from-info/5 to-info/10 border border-info/20">
-            <div class="card-body p-4">
-                <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
-                    <i class="fa-solid fa-lightbulb text-info"></i>
-                    Quick Tips
-                </h3>
-                <ul class="text-xs text-base-content/70 space-y-2">
-                    <li class="flex items-start gap-2">
-                        <i class="fa-solid fa-check text-success mt-0.5"></i>
-                        <span>Click empty slots to add lessons</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <i class="fa-solid fa-check text-success mt-0.5"></i>
-                        <span>Hover to edit or delete entries</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <i class="fa-solid fa-check text-success mt-0.5"></i>
-                        <span>Use double periods for longer lessons</span>
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <i class="fa-solid fa-check text-success mt-0.5"></i>
-                        <span>Add combined subjects (e.g., Gov/Hist)</span>
-                    </li>
-                </ul>
+        <!-- Mobile: Single Day View -->
+        <div class="md:hidden print:!hidden">
+            {% for day_num, day_name in weekdays %}
+            <div x-show="activeDay === {{ day_num }}" class="space-y-2 p-3">
+                {% for period in periods %}
+                <div class="flex items-stretch gap-3 {% if period.is_break %}bg-warning/10 rounded-lg p-2{% endif %}">
+                    <!-- Period Info -->
+                    <div class="w-20 shrink-0 text-center">
+                        <div class="font-semibold text-sm">{{ period.name }}</div>
+                        <div class="text-xs text-base-content/50 font-mono">{{ period.start_time|time:"H:i" }}</div>
+                    </div>
+                    <!-- Lesson -->
+                    <div class="flex-1">
+                        {% if period.is_break %}
+                        <div class="h-12 flex items-center justify-center text-warning">
+                            <i class="fa-solid fa-mug-hot mr-2"></i> Break
+                        </div>
+                        {% else %}
+                        {% with entries=timetable_grid|get_item:day_num|get_item:period.pk double_entries=double_period_slots|get_item:day_num|get_item:period.pk %}
+                        {% if entries %}
+                        <div class="lesson-entry {% if entries|length > 1 %}bg-accent text-accent-content{% elif entries.0.is_double %}bg-secondary text-secondary-content{% else %}bg-primary text-primary-content{% endif %} rounded-lg p-3 flex items-center justify-between">
+                            <div class="min-w-0 flex-1">
+                                <div class="font-semibold truncate">{% for entry in entries %}{{ entry.class_subject.subject.short_name|default:entry.class_subject.subject.name }}{% if not forloop.last %}/{% endif %}{% endfor %}</div>
+                                <div class="text-xs opacity-75">{% for entry in entries %}{{ entry.class_subject.teacher.last_name|default:"TBA" }}{% if not forloop.last %}/{% endif %}{% endfor %}{% if entries.0.is_double %} <span class="badge badge-xs">2x</span>{% endif %}</div>
+                            </div>
+                            <div class="action-buttons flex gap-1 ml-2">
+                                {% for entry in entries %}
+                                <button class="btn btn-xs btn-circle bg-white/20 border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="modal_form.showModal()"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                                <button class="btn btn-xs btn-circle bg-white/20 border-0" hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}" hx-confirm="Remove?"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% elif double_entries %}
+                        <div class="h-12 bg-secondary/10 rounded-lg flex items-center justify-center border border-dashed border-secondary/30">
+                            <span class="text-xs text-secondary/50"><i class="fa-solid fa-arrow-up"></i> (continued)</span>
+                        </div>
+                        {% else %}
+                        <button class="empty-slot w-full h-12 border border-dashed border-base-300 hover:border-primary hover:bg-primary/5 rounded-lg text-base-content/30 hover:text-primary flex items-center justify-center"
+                                hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}?weekday={{ day_num }}&period={{ period.pk }}" hx-target="#modal-container" onclick="modal_form.showModal()">
+                            <i class="fa-solid fa-plus mr-2"></i> Add Lesson
+                        </button>
+                        {% endif %}
+                        {% endwith %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
             </div>
+            {% endfor %}
         </div>
+
     </div>
 </div>
+
+<!-- Legend (desktop only) -->
+<div class="hidden md:flex flex-wrap items-center gap-4 text-sm text-base-content/60 mt-4 print:!hidden">
+    <span class="font-medium text-base-content">Legend:</span>
+    <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-primary"></span><span>Single</span></div>
+    <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-secondary"></span><span>Double</span></div>
+    <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-accent"></span><span>Combined</span></div>
+    <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-warning/30 border border-warning/50"></span><span>Break</span></div>
+</div>
 {% endif %}
+
+</div><!-- End x-data -->
 
 <!-- Print Footer -->
 <div class="hidden print:!block print:mt-8">

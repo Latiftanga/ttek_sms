@@ -31,8 +31,8 @@
       action="{% url 'academics:class_attendance_take' class.pk %}"
       hx-post="{% url 'academics:class_attendance_take' class.pk %}"
       {% endif %}
-      hx-target="#modal-edit-content"
-      hx-swap="innerHTML">
+      hx-target="body"
+      hx-swap="beforeend">
     {% csrf_token %}
 
     <div class="h-[50vh] overflow-y-auto pr-2 space-y-2">
@@ -81,9 +81,7 @@
     </div>
 
     <div class="modal-action border-t border-base-200 pt-4 mt-4">
-        <form method="dialog">
-            <button class="btn">Cancel</button>
-        </form>
+        <button type="button" class="btn" onclick="var d=this.closest('dialog'); if(d) d.close(); else history.back();">Cancel</button>
         <button type="submit" class="btn btn-primary px-8">Save Register</button>
     </div>
 </form>

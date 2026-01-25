@@ -1021,13 +1021,19 @@ def class_student_enroll(request, pk):
                 student.save()
 
             if request.htmx:
-                # Return updated register tab content
-                context = get_register_tab_context(class_obj)
-                response = render(request, 'academics/includes/tab_register_content.html', context)
-                response['HX-Trigger'] = 'closeModal'
-                response['HX-Retarget'] = '#tab-register'
-                response['HX-Reswap'] = 'innerHTML'
-                return response
+                from django.urls import reverse
+                url = reverse('academics:class_detail', args=[pk])
+                # Close modal and refresh main content
+                script = '''<script>
+                    var dialog = document.querySelector('dialog[open]');
+                    if (dialog) {
+                        dialog.close();
+                        htmx.ajax('GET', '%s', {target: '#main-content', swap: 'innerHTML'});
+                    } else {
+                        window.location.href = '%s';
+                    }
+                </script>''' % (url, url)
+                return HttpResponse(script)
 
             return redirect('academics:class_detail', pk=pk)
     else:
@@ -1318,12 +1324,22 @@ def class_attendance_take(request, pk):
         if records_to_update:
             AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
 
-        # HTMX Success: Close modal and refresh page to update all stats
+        # HTMX Success: Close modal or redirect
         if request.htmx:
-            response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'closeModal'
-            response['HX-Refresh'] = 'true'
-            return response
+            from django.urls import reverse
+            url = reverse('academics:class_detail', args=[pk])
+            # Return script that closes modal if exists, otherwise redirects
+            script = '''<script>
+                var dialog = document.querySelector('dialog[open]');
+                if (dialog) {
+                    dialog.close();
+                    // Refresh the stats bar by triggering a refresh of class detail content
+                    htmx.ajax('GET', '%s', {target: '#main-content', swap: 'innerHTML'});
+                } else {
+                    window.location.href = '%s';
+                }
+            </script>''' % (url, url)
+            return HttpResponse(script)
 
         return redirect('academics:class_detail', pk=pk)
 
@@ -1470,12 +1486,20 @@ def class_promote(request, pk):
                     except Exception as e:
                         errors.append(f'Error: {str(e)}')
 
-        # HTMX Response: Close modal and refresh page
+        # HTMX Response: Close modal and refresh content
         if request.htmx:
-            response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'closeModal'
-            response['HX-Refresh'] = 'true'
-            return response
+            from django.urls import reverse
+            url = reverse('academics:class_detail', args=[pk])
+            script = '''<script>
+                var dialog = document.querySelector('dialog[open]');
+                if (dialog) {
+                    dialog.close();
+                    htmx.ajax('GET', '%s', {target: '#main-content', swap: 'innerHTML'});
+                } else {
+                    window.location.href = '%s';
+                }
+            </script>''' % (url, url)
+            return HttpResponse(script)
 
         return redirect('academics:class_detail', pk=pk)
 
@@ -1539,10 +1563,19 @@ def class_attendance_edit(request, pk, session_pk):
             AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
 
         if request.htmx:
-            response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'closeModal'
-            response['HX-Refresh'] = 'true'
-            return response
+            from django.urls import reverse
+            url = reverse('academics:class_detail', args=[pk])
+            # Return script that closes modal if exists, otherwise redirects
+            script = '''<script>
+                var dialog = document.querySelector('dialog[open]');
+                if (dialog) {
+                    dialog.close();
+                    htmx.ajax('GET', '%s', {target: '#main-content', swap: 'innerHTML'});
+                } else {
+                    window.location.href = '%s';
+                }
+            </script>''' % (url, url)
+            return HttpResponse(script)
 
         return redirect('academics:class_detail', pk=pk)
 

@@ -18,8 +18,8 @@
 <form method="post"
       action="{% url 'academics:class_student_enroll' class.pk %}"
       hx-post="{% url 'academics:class_student_enroll' class.pk %}"
-      hx-target="#modal-edit-content"
-      hx-swap="innerHTML">
+      hx-target="body"
+      hx-swap="beforeend">
     {% csrf_token %}
     
     <div class="space-y-4">
@@ -95,9 +95,7 @@
     {% endif %}
 
     <div class="modal-action border-t border-base-200 pt-4 mt-4">
-        <form method="dialog">
-            <button class="btn">Cancel</button>
-        </form>
+        <button type="button" class="btn" onclick="var d=this.closest('dialog'); if(d) d.close(); else history.back();">Cancel</button>
         {% if form.students.field.queryset.count > 0 %}
         <button type="submit" class="btn btn-primary px-8">
             Enroll Selected

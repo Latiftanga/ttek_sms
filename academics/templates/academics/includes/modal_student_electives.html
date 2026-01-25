@@ -65,9 +65,7 @@
     {% endif %}
 
     <div class="modal-action border-t border-base-200 pt-4 mt-4">
-        <form method="dialog">
-            <button class="btn">Cancel</button>
-        </form>
+        <button type="button" class="btn" onclick="var d=this.closest('dialog'); if(d) d.close(); else history.back();">Cancel</button>
         {% if elective_subjects %}
         <button type="submit" class="btn btn-secondary">
             <i class="fa-solid fa-check mr-1"></i>

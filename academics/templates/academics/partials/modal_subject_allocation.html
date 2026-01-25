@@ -54,9 +54,7 @@
     {% endif %}
 
     <div class="modal-action">
-        <form method="dialog">
-            <button class="btn">Cancel</button>
-        </form>
+        <button type="button" class="btn" onclick="var d=this.closest('dialog'); if(d) d.close(); else history.back();">Cancel</button>
         {% if form.subject.field.queryset.count > 0 or allocation %}
         <button type="submit" class="btn btn-primary">
             {% if allocation %}Save Changes{% else %}Assign Subject{% endif %}
