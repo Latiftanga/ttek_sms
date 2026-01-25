@@ -8,7 +8,6 @@ For example, to change MAX_FILE_SIZE:
 All configuration values are lazily loaded to avoid Django setup issues.
 """
 from decimal import Decimal
-from functools import lru_cache
 
 
 def _get_setting(name, default):

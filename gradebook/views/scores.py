@@ -5,7 +5,7 @@ import logging
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
-from django.db import models, transaction
+from django.db import transaction
 
 from .base import (
     teacher_or_admin_required, htmx_render, is_school_admin,
@@ -15,7 +15,7 @@ from ..models import (
     AssessmentCategory, Assignment, Score, ScoreAuditLog
 )
 from .. import config
-from academics.models import Class, Subject, ClassSubject
+from academics.models import Class, Subject, ClassSubject, StudentSubjectEnrollment
 from students.models import Student
 from core.models import Term
 
@@ -82,12 +82,39 @@ def score_entry_form(request, class_id, subject_id):
     # Check if user can edit scores for this subject/class
     can_edit = can_edit_scores(request.user, class_obj, subject)
 
-    # Get students - only fetch needed fields
-    students = list(Student.objects.filter(
-        current_class=class_obj
-    ).only(
-        'id', 'first_name', 'last_name', 'admission_number'
-    ).order_by('last_name', 'first_name'))
+    # Get the ClassSubject for this class/subject combination
+    class_subject = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        subject=subject
+    ).first()
+
+    # Check if there are subject enrollments for this class
+    # This determines whether we filter students by enrollment (SHS) or show all (Basic)
+    has_enrollments = StudentSubjectEnrollment.objects.filter(
+        class_subject__class_assigned=class_obj,
+        is_active=True
+    ).exists()
+
+    if has_enrollments and class_subject:
+        # SHS behavior: Only show students enrolled in this specific subject
+        enrolled_student_ids = StudentSubjectEnrollment.objects.filter(
+            class_subject=class_subject,
+            is_active=True
+        ).values_list('student_id', flat=True)
+
+        students = list(Student.objects.filter(
+            id__in=enrolled_student_ids,
+            current_class=class_obj
+        ).only(
+            'id', 'first_name', 'last_name', 'admission_number'
+        ).order_by('last_name', 'first_name'))
+    else:
+        # Basic school behavior: Show all students in the class
+        students = list(Student.objects.filter(
+            current_class=class_obj
+        ).only(
+            'id', 'first_name', 'last_name', 'admission_number'
+        ).order_by('last_name', 'first_name'))
 
     # Get assignments for this subject/term
     assignments = list(Assignment.objects.filter(
@@ -531,9 +558,6 @@ def assignment_delete(request, pk):
     # Check for existing scores (they will be cascade deleted)
     score_count = Score.objects.filter(assignment=assignment).count()
     if score_count > 0:
-        # Log the deletion for audit purposes
-        import logging
-        logger = logging.getLogger(__name__)
         logger.warning(
             f"Assignment '{assignment.name}' deleted by {request.user}. "
             f"{score_count} scores were cascade deleted."

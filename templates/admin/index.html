@@ -1,181 +1,200 @@
 {% extends "admin/base_site.html" %}
-{% load humanize %}
-{% load i18n %}
+{% load humanize i18n core_tags %}
 
 {% block content_title %}
-    {{ index_title|default:"Dashboard" }}
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold">{{ index_title|default:"Dashboard" }}</h1>
+            <p class="text-sm text-base-content/60">{% now "l, F j, Y" %}</p>
+        </div>
+    </div>
 {% endblock %}
 
 {% block content %}
-<div class="mt-3 grid gap-6">
-    <!-- Quick Access Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Schools Card -->
-        <a href="{% url 'admin:schools_school_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
-            <div class="card-body">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <i class="fa fa-school text-primary text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="card-title text-base">Schools</h3>
-                        <p class="text-sm text-base-content/60">Manage registered schools</p>
-                    </div>
-                </div>
-            </div>
-        </a>
+{% get_admin_stats as stats %}
 
-        <!-- Regions Card -->
-        <a href="{% url 'admin:schools_region_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
-            <div class="card-body">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 bg-info/10 rounded-lg flex items-center justify-center">
-                        <i class="fa fa-map text-info text-xl"></i>
+<div class="grid gap-6">
+    <!-- Stats Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {% if stats.is_public %}
+            <!-- Public / Super Admin Stats -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4 flex flex-row items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <i class="fa-solid fa-school text-xl"></i>
                     </div>
                     <div>
-                        <h3 class="card-title text-base">Regions</h3>
-                        <p class="text-sm text-base-content/60">Manage geographical regions</p>
+                        <div class="text-2xl font-bold">{{ stats.schools }}</div>
+                        <div class="text-xs text-base-content/60">Registered Schools</div>
                     </div>
                 </div>
             </div>
-        </a>
+            
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4 flex flex-row items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
+                        <i class="fa-solid fa-users text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold">{{ stats.users }}</div>
+                        <div class="text-xs text-base-content/60">Total Users</div>
+                    </div>
+                </div>
+            </div>
 
-        <!-- Districts Card -->
-        <a href="{% url 'admin:schools_district_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
-            <div class="card-body">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 bg-success/10 rounded-lg flex items-center justify-center">
-                        <i class="fa fa-city text-success text-xl"></i>
+            <!-- Quick Links for Public Admin -->
+            <a href="{% url 'admin:schools_school_changelist' %}" class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/50 transition-colors group">
+                <div class="card-body p-4 flex flex-row items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-base-200 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-plus text-base-content/50 group-hover:text-primary"></i>
                     </div>
                     <div>
-                        <h3 class="card-title text-base">Districts</h3>
-                        <p class="text-sm text-base-content/60">Manage districts</p>
+                        <div class="font-bold group-hover:text-primary">Add School</div>
+                        <div class="text-xs text-base-content/60">Onboard new tenant</div>
                     </div>
                 </div>
-            </div>
-        </a>
+            </a>
 
-        <!-- Users Card -->
-        <a href="{% url 'admin:accounts_user_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
-            <div class="card-body">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 bg-warning/10 rounded-lg flex items-center justify-center">
-                        <i class="fa fa-users text-warning text-xl"></i>
+        {% else %}
+            <!-- Tenant / School Admin Stats -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4 flex flex-row items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <i class="fa-solid fa-user-graduate text-xl"></i>
                     </div>
                     <div>
-                        <h3 class="card-title text-base">Users</h3>
-                        <p class="text-sm text-base-content/60">Manage platform users</p>
+                        <div class="text-2xl font-bold">{{ stats.students }}</div>
+                        <div class="text-xs text-base-content/60">Active Students</div>
                     </div>
                 </div>
             </div>
-        </a>
 
-        <!-- Scheduled Tasks Card -->
-        <a href="{% url 'admin:django_celery_beat_periodictask_changelist' %}" class="card bg-base-100 card-bordered hover:shadow-lg transition-shadow">
-            <div class="card-body">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 bg-error/10 rounded-lg flex items-center justify-center">
-                        <i class="fa fa-clock text-error text-xl"></i>
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4 flex flex-row items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center text-info">
+                        <i class="fa-solid fa-chalkboard-user text-xl"></i>
                     </div>
                     <div>
-                        <h3 class="card-title text-base">Scheduled Tasks</h3>
-                        <p class="text-sm text-base-content/60">Manage background jobs</p>
+                        <div class="text-2xl font-bold">{{ stats.teachers }}</div>
+                        <div class="text-xs text-base-content/60">Active Teachers</div>
                     </div>
                 </div>
             </div>
-        </a>
+
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4 flex flex-row items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
+                        <i class="fa-solid fa-chalkboard text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold">{{ stats.classes }}</div>
+                        <div class="text-xs text-base-content/60">Classes</div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
     </div>
 
-    <!-- App List Section -->
-    {% if app_list %}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {% for app in app_list %}
-        <div class="card bg-base-100 card-bordered">
-            <div class="card-body">
-                <h2 class="card-title text-lg border-b pb-2 mb-3">
-                    <i class="fa fa-folder text-primary"></i>
-                    {{ app.name }}
-                </h2>
-                <div class="space-y-2">
-                    {% for model in app.models %}
-                    <div class="flex items-center justify-between py-2 border-b border-base-200 last:border-0">
-                        <div>
-                            {% if model.admin_url %}
-                            <a href="{{ model.admin_url }}" class="font-medium hover:text-primary">
-                                {{ model.name }}
-                            </a>
-                            {% else %}
-                            <span class="text-base-content/50">{{ model.name }}</span>
-                            {% endif %}
-                        </div>
-                        <div class="flex gap-2">
-                            {% if model.add_url %}
-                            <a href="{{ model.add_url }}" class="btn btn-xs btn-primary btn-outline" title="Add">
-                                <i class="fa fa-plus"></i> Add
-                            </a>
-                            {% endif %}
-                            {% if model.admin_url %}
-                            <a href="{{ model.admin_url }}" class="btn btn-xs btn-ghost" title="View all">
-                                <i class="fa fa-list"></i>
-                            </a>
-                            {% endif %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Content (App List) -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- App List -->
+            {% if app_list %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for app in app_list %}
+                    <div class="card bg-base-100 shadow-sm border border-base-200">
+                        <div class="card-body p-4">
+                            <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+                                <!-- Try to map icons based on app name (basic mapping) -->
+                                {% if 'Auth' in app.name or 'Account' in app.name %}
+                                    <i class="fa-solid fa-shield-halved text-warning"></i>
+                                {% elif 'School' in app.name %}
+                                    <i class="fa-solid fa-school text-primary"></i>
+                                {% elif 'Academic' in app.name %}
+                                    <i class="fa-solid fa-graduation-cap text-info"></i>
+                                {% elif 'Student' in app.name %}
+                                    <i class="fa-solid fa-user-graduate text-success"></i>
+                                {% elif 'Finance' in app.name %}
+                                    <i class="fa-solid fa-coins text-secondary"></i>
+                                {% else %}
+                                    <i class="fa-solid fa-folder text-base-content/50"></i>
+                                {% endif %}
+                                <a href="{{ app.app_url }}" class="hover:text-primary transition-colors">{{ app.name }}</a>
+                            </h3>
+                            
+                            <ul class="menu menu-sm bg-base-200/50 rounded-box">
+                                {% for model in app.models %}
+                                <li>
+                                    <div class="flex justify-between items-center">
+                                        {% if model.admin_url %}
+                                            <a href="{{ model.admin_url }}" class="flex-1">{{ model.name }}</a>
+                                        {% else %}
+                                            <span class="flex-1 opacity-50">{{ model.name }}</span>
+                                        {% endif %}
+                                        
+                                        {% if model.add_url %}
+                                            <a href="{{ model.add_url }}" class="btn btn-ghost btn-xs btn-square text-success" title="Add">
+                                                <i class="fa-solid fa-plus"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Recent History -->
-    <div class="card bg-base-100 card-bordered">
-        <div class="card-body">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="card-title">
-                    <i class="fa fa-history text-primary"></i>
-                    {% trans "Recent Actions" %}
-                </h2>
-            </div>
-            {% if admin_log %}
-            <div class="overflow-x-auto">
-                <table class="table table-zebra">
-                    <thead>
-                        <tr>
-                            <th>{% trans "Action" %}</th>
-                            <th>{% trans "Object" %}</th>
-                            <th>{% trans "Time" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for entry in admin_log %}
-                        <tr>
-                            <td>
-                                {% if entry.is_addition %}
-                                <span class="badge badge-success badge-sm">Added</span>
-                                {% elif entry.is_change %}
-                                <span class="badge badge-info badge-sm">Changed</span>
-                                {% elif entry.is_deletion %}
-                                <span class="badge badge-error badge-sm">Deleted</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if entry.get_admin_url %}
-                                <a href="{{ entry.get_admin_url }}" class="link link-primary">{{ entry.object_repr }}</a>
-                                {% else %}
-                                {{ entry.object_repr }}
-                                {% endif %}
-                            </td>
-                            <td class="text-base-content/60">{{ entry.action_time|timesince }} ago</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
             {% else %}
-            <p class="text-base-content/50">{% trans "No recent actions." %}</p>
+                <div class="alert alert-info">
+                    <i class="fa-solid fa-info-circle"></i>
+                    <span>You don't have permission to view or edit anything.</span>
+                </div>
             {% endif %}
+        </div>
+
+        <!-- Sidebar (Recent Actions) -->
+        <div class="lg:col-span-1">
+            <div class="card bg-base-100 shadow-sm border border-base-200 h-full">
+                <div class="card-body p-0">
+                    <div class="p-4 border-b border-base-200">
+                        <h3 class="font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-base-content/50"></i>
+                            {% trans 'Recent Actions' %}
+                        </h3>
+                    </div>
+                    
+                    <div class="overflow-y-auto max-h-[600px]">
+                        <ul class="menu menu-sm">
+                            {% load log %}
+                            {% get_admin_log 10 as admin_log for_user user %}
+                            {% if admin_log %}
+                                {% for entry in admin_log %}
+                                <li class="border-b border-base-200 last:border-0">
+                                    <a href="{% if entry.get_admin_url %}{{ entry.get_admin_url }}{% else %}#{% endif %}" class="flex flex-col items-start gap-1 py-3">
+                                        <div class="flex items-center gap-2 w-full">
+                                            {% if entry.is_addition %}
+                                                <i class="fa-solid fa-plus-circle text-success text-xs"></i>
+                                            {% elif entry.is_change %}
+                                                <i class="fa-solid fa-pen-to-square text-warning text-xs"></i>
+                                            {% elif entry.is_deletion %}
+                                                <i class="fa-solid fa-trash-can text-error text-xs"></i>
+                                            {% endif %}
+                                            <span class="font-medium truncate w-full">{{ entry.object_repr }}</span>
+                                        </div>
+                                        <div class="text-xs text-base-content/60 pl-5">
+                                            {{ entry.content_type|capfirst }}
+                                        </div>
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            {% else %}
+                                <li class="disabled"><a>{% trans 'None available' %}</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

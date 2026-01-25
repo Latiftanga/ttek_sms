@@ -5,7 +5,7 @@ from .models import (
 )
 from students.models import Student
 from academics.models import Class
-from core.models import AcademicYear, Term
+from core.models import Term
 
 
 class FeeStructureForm(forms.ModelForm):

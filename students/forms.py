@@ -143,7 +143,7 @@ class StudentForm(forms.ModelForm):
         if photo and hasattr(photo, 'size'):
             if photo.size > self.MAX_PHOTO_SIZE:
                 raise forms.ValidationError(
-                    f"Photo size exceeds 5MB limit. Please upload a smaller image."
+                    "Photo size exceeds 5MB limit. Please upload a smaller image."
                 )
         return photo
 

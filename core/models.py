@@ -71,7 +71,7 @@ class Person(models.Model):
             content_type = getattr(self.photo, 'content_type', None)
             if content_type and content_type not in ALLOWED_IMAGE_TYPES:
                 logger.warning(f"Photo upload rejected: invalid type {content_type}")
-                raise ValidationError(f"Invalid image type. Allowed: JPEG, PNG, GIF, WebP")
+                raise ValidationError("Invalid image type. Allowed: JPEG, PNG, GIF, WebP")
 
             try:
                 img = Image.open(self.photo)
@@ -102,7 +102,7 @@ class Person(models.Model):
                 self.photo.save(filename, ContentFile(buffer.read()), save=False)
             except UnidentifiedImageError:
                 # Invalid image file - reject the upload
-                logger.warning(f"Could not process uploaded image: unidentified format")
+                logger.warning("Could not process uploaded image: unidentified format")
                 raise ValidationError("Invalid image file. Please upload a valid image.")
             except (IOError, OSError) as e:
                 # File I/O errors - log and continue with original
@@ -354,26 +354,17 @@ class Term(models.Model):
 
 
 class SchoolSettings(models.Model):
+    """
+    Stores operational configuration specific to this School (Tenant).
+    Branding fields (logo, favicon, colors, motto) are now on the School model
+    in the public schema for immediate display on login.
+    """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    """
-    Stores configuration specific to this School (Tenant).
-    """
+
     PERIOD_TYPE_CHOICES = [
         ('term', 'Terms (Basic)'),
         ('semester', 'Semesters (SHS)'),
     ]
-
-    EDUCATION_SYSTEM_CHOICES = [
-        ('basic', 'Basic Only (Creche - Basic 9)'),
-        ('shs', 'SHS Only'),
-        ('both', 'Both Basic and SHS'),
-    ]
-
-    # Branding
-    logo = models.ImageField(upload_to='school_logos/', blank=True, null=True)
-    favicon = models.ImageField(upload_to='school_favicons/', blank=True, null=True)
-    display_name = models.CharField(max_length=50, blank=True)
-    motto = models.CharField(max_length=200, blank=True)
 
     # Academic Settings
     academic_period_type = models.CharField(
@@ -382,22 +373,6 @@ class SchoolSettings(models.Model):
         default='term',
         help_text="Terms for Basic, Semesters for SHS"
     )
-    education_system = models.CharField(
-        max_length=10,
-        choices=EDUCATION_SYSTEM_CHOICES,
-        default='both',
-        help_text="Which educational levels this school supports"
-    )
-
-    # Visual Identity - Colors (stored as HEX)
-    primary_color = models.CharField(max_length=7, default="#4F46E5", help_text="Main brand color")
-    secondary_color = models.CharField(max_length=7, default="#7C3AED", help_text="Secondary brand color")
-    accent_color = models.CharField(max_length=7, default="#F59E0B", help_text="Accent/highlight color")
-
-    # OKLCH values (auto-generated, not editable)
-    primary_color_oklch = models.CharField(max_length=50, blank=True, editable=False)
-    secondary_color_oklch = models.CharField(max_length=50, blank=True, editable=False)
-    accent_color_oklch = models.CharField(max_length=50, blank=True, editable=False)
 
     # SMS Configuration
     SMS_BACKEND_CHOICES = [
@@ -494,6 +469,14 @@ class SchoolSettings(models.Model):
         help_text="When setup was completed"
     )
 
+    def _get_tenant(self):
+        """Get the School (tenant) model for this schema."""
+        from schools.models import School
+        try:
+            return School.objects.get(schema_name=connection.schema_name)
+        except School.DoesNotExist:
+            return None
+
     @property
     def period_label(self):
         """Return 'Term' or 'Semester' based on setting."""
@@ -504,109 +487,113 @@ class SchoolSettings(models.Model):
         """Return 'Terms' or 'Semesters' based on setting."""
         return 'Semesters' if self.academic_period_type == 'semester' else 'Terms'
 
+    # ===== Delegated properties from School model =====
+
+    @property
+    def logo(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.logo if tenant else None
+
+    @property
+    def favicon(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.favicon if tenant else None
+
+    @property
+    def motto(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.motto if tenant else ''
+
+    @property
+    def display_name(self):
+        """Delegate to School model's short_name or name."""
+        tenant = self._get_tenant()
+        return tenant.display_name if tenant else ''
+
+    @property
+    def primary_color(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.primary_color if tenant else '#4F46E5'
+
+    @property
+    def secondary_color(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.secondary_color if tenant else '#7C3AED'
+
+    @property
+    def accent_color(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.accent_color if tenant else '#F59E0B'
+
+    @property
+    def primary_color_oklch(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.primary_color_oklch if tenant else ''
+
+    @property
+    def secondary_color_oklch(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.secondary_color_oklch if tenant else ''
+
+    @property
+    def accent_color_oklch(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.accent_color_oklch if tenant else ''
+
+    # ===== Delegated methods from School model =====
+
     def get_allowed_level_types(self):
         """
         Return list of allowed level types based on tenant's education_system.
         Delegates to the School (tenant) model for the actual configuration.
-        Returns tuples of (value, display_name) matching Class.LevelType choices.
         """
-        from django.db import connection
-        from schools.models import School
-
-        try:
-            tenant = School.objects.get(schema_name=connection.schema_name)
+        tenant = self._get_tenant()
+        if tenant:
             return tenant.get_allowed_level_types()
-        except School.DoesNotExist:
-            # Fallback to 'both' if tenant not found
-            return [
-                ('creche', 'Creche'),
-                ('nursery', 'Nursery'),
-                ('kg', 'Kindergarten'),
-                ('basic', 'Basic'),
-                ('shs', 'SHS'),
-            ]
+        # Fallback to 'both' if tenant not found
+        return [
+            ('creche', 'Creche'),
+            ('nursery', 'Nursery'),
+            ('kg', 'Kindergarten'),
+            ('basic', 'Basic'),
+            ('shs', 'SHS'),
+        ]
+
+    @property
+    def education_system(self):
+        """Delegate to School model."""
+        tenant = self._get_tenant()
+        return tenant.education_system if tenant else 'both'
 
     @property
     def education_system_display(self):
         """Return the display name for the education system from tenant."""
-        from django.db import connection
-        from schools.models import School
-
-        try:
-            tenant = School.objects.get(schema_name=connection.schema_name)
-            return tenant.education_system_display
-        except School.DoesNotExist:
-            return 'Both Basic and SHS'
+        tenant = self._get_tenant()
+        return tenant.education_system_display if tenant else 'Both Basic and SHS'
 
     @property
     def has_houses(self):
         """Check if school has houses support. Delegates to tenant."""
-        from django.db import connection
-        from schools.models import School
-
-        try:
-            tenant = School.objects.get(schema_name=connection.schema_name)
-            return tenant.has_houses
-        except School.DoesNotExist:
-            return True  # Default to True if tenant not found
+        tenant = self._get_tenant()
+        return tenant.has_houses if tenant else True
 
     @property
     def has_programmes(self):
         """Check if school has programmes support. Delegates to tenant."""
-        from django.db import connection
-        from schools.models import School
-
-        try:
-            tenant = School.objects.get(schema_name=connection.schema_name)
-            return tenant.has_programmes
-        except School.DoesNotExist:
-            return True  # Default to True if tenant not found
-
-    def _resize_image(self, image_field, max_size, preserve_transparency=False):
-        """Resize an image field to max dimensions, converting to WebP."""
-        if not image_field or not hasattr(image_field, 'file'):
-            return
-
-        try:
-            img = Image.open(image_field)
-
-            # Handle RGBA/transparency for logos/favicons
-            if img.mode in ('RGBA', 'LA', 'P'):
-                if preserve_transparency:
-                    # Keep as PNG for transparency
-                    img.thumbnail(max_size, Image.Resampling.LANCZOS)
-                    buffer = BytesIO()
-                    img.save(buffer, format='PNG', optimize=True)
-                    buffer.seek(0)
-                    filename = image_field.name.rsplit('.', 1)[0] + '.png'
-                    image_field.save(filename, ContentFile(buffer.read()), save=False)
-                    return
-                else:
-                    img = img.convert('RGB')
-
-            img.thumbnail(max_size, Image.Resampling.LANCZOS)
-            buffer = BytesIO()
-            img.save(buffer, format='WEBP', quality=85, optimize=True)
-            buffer.seek(0)
-            filename = image_field.name.rsplit('.', 1)[0] + '.webp'
-            image_field.save(filename, ContentFile(buffer.read()), save=False)
-        except (UnidentifiedImageError, Exception) as e:
-            logger.warning(f"Could not process image: {e}")
+        tenant = self._get_tenant()
+        return tenant.has_programmes if tenant else True
 
     def save(self, *args, **kwargs):
         self.pk = 1
-
-        # Resize logo and favicon if uploaded
-        self._resize_image(self.logo, LOGO_MAX_SIZE, preserve_transparency=True)
-        self._resize_image(self.favicon, FAVICON_MAX_SIZE, preserve_transparency=True)
-
-        # Convert HEX colors to OKLCH for DaisyUI theming
-        if self.primary_color:
-            self.primary_color_oklch = hex_to_oklch_values(self.primary_color)
-        if self.secondary_color:
-            self.secondary_color_oklch = hex_to_oklch_values(self.secondary_color)
-        if self.accent_color:
-            self.accent_color_oklch = hex_to_oklch_values(self.accent_color)
         super().save(*args, **kwargs)
         # Clear tenant-specific cache
         cache_key = f'school_settings_{connection.schema_name}'

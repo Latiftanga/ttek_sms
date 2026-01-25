@@ -36,7 +36,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        is_production = not settings.DEBUG
         no_input = options.get('no_input', False)
 
         self.stdout.write(self.style.NOTICE('\n' + '=' * 60))

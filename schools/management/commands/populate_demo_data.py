@@ -7,7 +7,6 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
-from django.db import connection
 from django_tenants.utils import schema_context
 
 from schools.models import School
@@ -196,7 +195,6 @@ class Command(BaseCommand):
 
         # Number of teachers based on school type
         num_teachers = 15 if school.education_system == 'basic' else 25
-        titles = ['Mr.', 'Mrs.', 'Miss', 'Mr.', 'Mrs.']  # Weighted towards Mr/Mrs
 
         for i in range(num_teachers):
             gender = random.choice(['M', 'F'])

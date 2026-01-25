@@ -5,7 +5,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages as django_messages
 from django.core.paginator import Paginator
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.html import escape
 from django.db.models import Q
@@ -16,7 +16,7 @@ import pandas as pd
 from .models import SMSMessage, SMSTemplate
 from .utils import send_sms, validate_phone_number, normalize_phone_number, get_sms_gateway_status, get_email_gateway_status
 from students.models import Student
-from academics.models import Class, AttendanceSession, AttendanceRecord
+from academics.models import Class, AttendanceRecord
 from core.models import SchoolSettings
 
 

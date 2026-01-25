@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from core.models import AcademicYear
 from ..models import Exeat, HouseMaster, Student
-from ..forms import ExeatForm, ExeatApprovalForm, HouseMasterForm
+from ..forms import ExeatForm, HouseMasterForm
 
 logger = logging.getLogger(__name__)
 
@@ -444,7 +444,6 @@ def exeat_create(request):
     """Create a new exeat request."""
     user = request.user
     assignment = get_housemaster_assignment(user)
-    teacher = get_teacher_profile(user)
 
     # Get students for selection
     if is_school_admin(user):
@@ -670,7 +669,7 @@ def exeat_approve(request, pk):
             return redirect('students:exeat_detail', pk=pk)
 
         exeat.recommend(teacher)
-        messages.success(request, f'External exeat recommended for senior housemaster approval.')
+        messages.success(request, 'External exeat recommended for senior housemaster approval.')
 
     # External exeat - final approval by senior housemaster
     elif exeat.exeat_type == 'external' and exeat.status == 'recommended':
@@ -969,7 +968,7 @@ def get_exeat_report_data(start_date, end_date, house_filter=None, type_filter=N
 @housemaster_required
 def exeat_report(request):
     """Exeat report with statistics and export options."""
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     user = request.user
     assignment = get_housemaster_assignment(user)
@@ -1329,7 +1328,7 @@ def exeat_report_excel(request):
                     try:
                         if len(str(cell.value)) > max_length:
                             max_length = len(str(cell.value))
-                    except:
+                    except Exception:
                         pass
                 adjusted_width = min(max_length + 2, 50)
                 worksheet.column_dimensions[column].width = adjusted_width

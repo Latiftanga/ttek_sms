@@ -2,7 +2,6 @@
 Management command to create demo schools for showcasing.
 Creates two schools: Demo Basic School and Demo SHS.
 """
-import sys
 from django.core.management.base import BaseCommand
 from django.db import connection
 from django_tenants.utils import schema_context

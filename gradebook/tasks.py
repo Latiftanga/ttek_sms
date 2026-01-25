@@ -32,14 +32,13 @@ def generate_report_pdf(term_report, tenant_schema):
         BytesIO: PDF content as bytes buffer
     """
     try:
-        from weasyprint import HTML, CSS
+        from weasyprint import HTML
     except ImportError:
         logger.error("WeasyPrint not installed. Install with: pip install weasyprint")
         raise
 
     with schema_context(tenant_schema):
         from .models import SubjectTermGrade, AssessmentCategory
-        from core.models import Term
 
         student = term_report.student
         current_term = term_report.term
@@ -96,7 +95,6 @@ def generate_report_pdf(term_report, tenant_schema):
             from schools.models import School
             from core.models import SchoolSettings
             import base64
-            import os
 
             school = School.objects.get(schema_name=tenant_schema)
             school_settings = SchoolSettings.objects.first()

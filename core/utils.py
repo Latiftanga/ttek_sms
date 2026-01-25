@@ -6,7 +6,6 @@ from io import BytesIO
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
-from django.conf import settings as django_settings
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
@@ -172,7 +171,7 @@ def requires_feature(feature_name, error_message=None):
 
             tenant = get_current_tenant()
             if tenant and not getattr(tenant, feature_name, False):
-                msg = error_message or f"This feature is not available for your school's education system."
+                msg = error_message or "This feature is not available for your school's education system."
 
                 # Handle HTMX requests
                 if request.headers.get('HX-Request'):
@@ -277,7 +276,6 @@ def get_teacher_classes(teacher, include_homeroom=True, include_assigned=True, a
     Returns:
         QuerySet of Class objects
     """
-    from django.db.models import Q
     from academics.models import Class, ClassSubject
 
     class_ids = set()

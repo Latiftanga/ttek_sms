@@ -80,5 +80,5 @@ class Command(BaseCommand):
                 # Close the connection to try fresh next time
                 try:
                     connections['default'].close()
-                except:
+                except Exception:
                     pass

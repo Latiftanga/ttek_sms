@@ -73,6 +73,14 @@
                                 Weight: {{ cat.percentage }}%
                                 {% if not cat.is_active %}<span class="text-warning">(Inactive)</span>{% endif %}
                             </div>
+                            {% if cat.expected_assessments or cat.min_assessments or cat.max_assessments %}
+                            <div class="text-xs text-base-content/50 mt-0.5">
+                                <i class="fa-solid fa-clipboard-list mr-1"></i>
+                                {% if cat.expected_assessments %}Expected: {{ cat.expected_assessments }}{% endif %}
+                                {% if cat.min_assessments %} Min: {{ cat.min_assessments }}{% endif %}
+                                {% if cat.max_assessments %} Max: {{ cat.max_assessments }}{% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="flex gap-1">

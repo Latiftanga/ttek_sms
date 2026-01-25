@@ -1,10 +1,9 @@
-import json
 import logging
 import secrets
 import string
 
 from django.shortcuts import redirect, get_object_or_404, render
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.views.decorators.http import require_POST
@@ -13,14 +12,14 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.core.paginator import Paginator
 
-logger = logging.getLogger(__name__)
-
 from accounts.models import User
 from core.email_backend import get_from_email
 from academics.models import Class
 from students.models import Student, Guardian, StudentGuardian
-from students.forms import StudentForm, GuardianForm, StudentGuardianForm
+from students.forms import StudentForm, GuardianForm
 from .utils import admin_required, htmx_render, create_enrollment_for_student
+
+logger = logging.getLogger(__name__)
 
 
 def generate_temp_password(length=10):
@@ -433,7 +432,7 @@ def student_detail_pdf(request, pk):
     ).order_by('-academic_year__start_date')
 
     # Get school context with logo
-    from gradebook.utils import get_school_context, encode_logo_base64
+    from gradebook.utils import get_school_context
     school_ctx = get_school_context(include_logo_base64=True)
 
     # Encode student photo if exists

@@ -320,6 +320,19 @@ class AssessmentCategory(models.Model):
         default=0,
         help_text='Display order (lower numbers appear first)'
     )
+    # Advisory fields for assessment count guidance
+    expected_assessments = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='Recommended number of assessments per term (0 = no recommendation)'
+    )
+    min_assessments = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='Minimum required assessments per term (0 = no minimum)'
+    )
+    max_assessments = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='Maximum allowed assessments per term (0 = no maximum)'
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -359,6 +372,72 @@ class AssessmentCategory(models.Model):
         if assignment_count == 0:
             return Decimal('0.0')
         return Decimal(str(self.percentage)) / Decimal(str(assignment_count))
+
+    def get_assessment_count(self, subject, term):
+        """Get the number of assessments for this category in a subject/term."""
+        return Assignment.objects.filter(
+            assessment_category=self,
+            subject=subject,
+            term=term
+        ).count()
+
+    def get_assessment_status(self, subject, term):
+        """
+        Check if the assessment count for a subject/term meets the advisory guidelines.
+
+        Returns a dict with:
+        - count: actual number of assessments
+        - expected: recommended count (0 if none set)
+        - min: minimum required (0 if none set)
+        - max: maximum allowed (0 if none set)
+        - status: 'ok', 'below_min', 'above_max', 'below_expected', 'above_expected'
+        - message: human-readable status message
+        """
+        count = self.get_assessment_count(subject, term)
+
+        result = {
+            'count': count,
+            'expected': self.expected_assessments,
+            'min': self.min_assessments,
+            'max': self.max_assessments,
+            'status': 'ok',
+            'message': '',
+        }
+
+        # Check minimum constraint (strict)
+        if self.min_assessments > 0 and count < self.min_assessments:
+            result['status'] = 'below_min'
+            result['message'] = f'Requires at least {self.min_assessments} assessment(s), has {count}'
+            return result
+
+        # Check maximum constraint (strict)
+        if self.max_assessments > 0 and count > self.max_assessments:
+            result['status'] = 'above_max'
+            result['message'] = f'Maximum {self.max_assessments} assessment(s) allowed, has {count}'
+            return result
+
+        # Check expected count (advisory, not strict)
+        if self.expected_assessments > 0:
+            if count < self.expected_assessments:
+                result['status'] = 'below_expected'
+                result['message'] = f'Expected {self.expected_assessments}, has {count}'
+            elif count > self.expected_assessments:
+                result['status'] = 'above_expected'
+                result['message'] = f'Expected {self.expected_assessments}, has {count}'
+
+        return result
+
+    def validate_assessment_count(self, subject, term):
+        """
+        Validate that the assessment count meets minimum/maximum constraints.
+        Raises ValidationError if constraints are violated.
+        """
+        status = self.get_assessment_status(subject, term)
+
+        if status['status'] == 'below_min':
+            raise ValidationError(status['message'])
+        if status['status'] == 'above_max':
+            raise ValidationError(status['message'])
 
     class Meta:
         db_table = 'assessment_category'
@@ -410,11 +489,12 @@ class Assignment(models.Model):
         help_text='Maximum points available for this assignment'
     )
     date = models.DateField(
-        null=True,
-        blank=True,
-        help_text='Date of the assignment (optional)'
+        help_text='Date the assignment was administered'
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='Date/time the assignment was recorded in the system'
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -684,8 +764,6 @@ class SubjectTermGrade(models.Model):
         - exam_score: Sum of EXAM type categories (legacy)
         - total_score: Sum of all categories
         """
-        from django.db.models import Sum
-
         categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
         category_totals = {}
         category_scores_json = {}

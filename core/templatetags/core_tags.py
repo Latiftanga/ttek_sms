@@ -352,6 +352,36 @@ def process_nav_item(item, request, tenant=None, user=None):
     return processed
 
 
+@register.simple_tag
+def get_admin_stats():
+    """
+    Get statistics for the admin dashboard.
+    Context-aware: Returns platform stats for public schema, school stats for tenants.
+    """
+    from django.db import connection
+    from schools.models import School
+    from accounts.models import User
+    
+    stats = {}
+    
+    if connection.schema_name == 'public':
+        stats['schools'] = School.objects.count()
+        stats['users'] = User.objects.count()
+        stats['is_public'] = True
+    else:
+        # Tenant Context
+        from students.models import Student
+        from teachers.models import Teacher
+        from academics.models import Class
+        
+        stats['students'] = Student.objects.filter(status='active').count()
+        stats['teachers'] = Teacher.objects.filter(status='active').count()
+        stats['classes'] = Class.objects.filter(is_active=True).count()
+        stats['is_public'] = False
+        
+    return stats
+
+
 @register.simple_tag(takes_context=True)
 def get_navigation_items(context):
     """

@@ -270,6 +270,6 @@ class PaystackAdapter(BaseGatewayAdapter):
                 return data['data']
             return []
 
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to fetch banks")
             return []

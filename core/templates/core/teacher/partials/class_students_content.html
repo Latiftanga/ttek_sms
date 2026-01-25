@@ -102,6 +102,9 @@
                 <i class="fa-solid fa-book-bookmark text-secondary"></i>
                 Elective Subjects
                 <span class="badge badge-secondary badge-sm">{{ elective_subjects|length }}</span>
+                {% if required_electives %}
+                <span class="text-xs text-base-content/60">({{ required_electives }} required)</span>
+                {% endif %}
             </h3>
             {% if elective_subjects %}
             <div class="flex flex-wrap gap-2">
@@ -119,6 +122,24 @@
         </div>
     </div>
 </div>
+
+<!-- Warning if students are missing electives -->
+{% if students_missing_electives > 0 %}
+<div class="alert alert-warning mb-6">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <div class="flex-1">
+        <div class="font-medium">{{ students_missing_electives }} student{{ students_missing_electives|pluralize }} need{{ students_missing_electives|pluralize:"s," }} more electives</div>
+        <div class="text-sm">Students should have {{ required_electives }} elective subject{{ required_electives|pluralize }} selected for grade calculation.</div>
+    </div>
+    <button class="btn btn-sm btn-warning"
+            hx-get="{% url 'core:bulk_assign_electives' class_obj.pk %}"
+            hx-target="#modal-bulk-content"
+            onclick="modal_bulk_electives.showModal()">
+        <i class="fa-solid fa-users-gear"></i>
+        Bulk Assign
+    </button>
+</div>
+{% endif %}
 {% else %}
 <!-- Basic: All subjects in one card -->
 <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
@@ -198,13 +219,31 @@
                         {% if tenant.has_programmes %}
                         <td>
                             {% if item.enrolled_electives %}
-                            <div class="flex flex-wrap gap-1">
+                            <div class="flex flex-wrap gap-1 items-center">
                                 {% for subject in item.enrolled_electives %}
                                 <span class="badge badge-sm badge-ghost">{{ subject.short_name }}</span>
                                 {% endfor %}
+                                {% if not item.electives_complete %}
+                                <span class="badge badge-sm badge-warning gap-1" title="Needs {{ item.electives_missing }} more elective{{ item.electives_missing|pluralize }}">
+                                    <i class="fa-solid fa-exclamation text-xs"></i>
+                                    {{ item.elective_count }}/{{ required_electives }}
+                                </span>
+                                {% else %}
+                                <span class="badge badge-sm badge-success gap-1">
+                                    <i class="fa-solid fa-check text-xs"></i>
+                                </span>
+                                {% endif %}
                             </div>
                             {% elif elective_subjects %}
-                            <span class="text-xs text-base-content/50">None selected</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-base-content/50">None selected</span>
+                                {% if required_electives %}
+                                <span class="badge badge-sm badge-warning gap-1">
+                                    <i class="fa-solid fa-exclamation text-xs"></i>
+                                    0/{{ required_electives }}
+                                </span>
+                                {% endif %}
+                            </div>
                             {% else %}
                             <span class="text-xs text-base-content/50">-</span>
                             {% endif %}
@@ -382,12 +421,37 @@
     </form>
 </dialog>
 
+<!-- Bulk Electives Modal -->
+<dialog id="modal_bulk_electives" class="modal modal-middle">
+    <div class="modal-box max-w-lg">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-bulk-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
 <script>
 // Initialize student elective data (ClassSubject IDs)
 window.studentElectives = {};
 {% for item in students_data %}
 window.studentElectives[{{ item.student.pk }}] = [{% for id in item.enrolled_elective_ids %}{{ id }}{% if not forloop.last %}, {% endif %}{% endfor %}];
 {% endfor %}
+
+// Listen for closeModal trigger to close dialogs
+document.body.addEventListener('closeModal', function() {
+    if (typeof modal_bulk_electives !== 'undefined') modal_bulk_electives.close();
+    if (typeof modal_electives !== 'undefined') modal_electives.close();
+});
 
 function openElectivesModal(studentId, studentName) {
     document.getElementById('electives-student-name').textContent = 'Select elective subjects for ' + studentName;

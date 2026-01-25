@@ -2,7 +2,7 @@ import io
 import json
 from datetime import date, datetime
 
-from django.test import TestCase, Client
+from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -201,7 +201,7 @@ class BulkImportViewTests(BulkImportTestCase):
     def test_bulk_import_requires_admin(self):
         """Test view requires admin permission."""
         # Create non-admin user
-        regular_user = User.objects.create_user(
+        User.objects.create_user(
             email='user@school.com',
             password='testpass123'
         )
@@ -743,7 +743,7 @@ class PromotionViewTests(PromotionTestCase):
 
     def test_promotion_requires_admin(self):
         """Test view requires admin permission."""
-        regular_user = User.objects.create_user(
+        User.objects.create_user(
             email='user@school.com',
             password='testpass123'
         )

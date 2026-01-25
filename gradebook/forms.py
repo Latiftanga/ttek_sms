@@ -1,10 +1,10 @@
 from django import forms
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MaxValueValidator
 from decimal import Decimal
 
 from .models import (
     GradingSystem, GradeScale, AssessmentCategory,
-    Assignment, Score, SubjectTermGrade, TermReport
+    Assignment, SubjectTermGrade, TermReport
 )
 from . import config
 
@@ -83,13 +83,39 @@ class AssessmentCategoryForm(forms.ModelForm):
 
     class Meta:
         model = AssessmentCategory
-        fields = ['name', 'short_name', 'percentage', 'order', 'is_active']
+        fields = [
+            'name', 'short_name', 'category_type', 'percentage', 'order',
+            'expected_assessments', 'min_assessments', 'max_assessments', 'is_active'
+        ]
         widgets = {
             'name': forms.TextInput(attrs={'class': 'input input-bordered w-full', 'placeholder': 'e.g., Class Score'}),
             'short_name': forms.TextInput(attrs={'class': 'input input-bordered w-full', 'placeholder': 'e.g., CA', 'maxlength': '10'}),
+            'category_type': forms.Select(attrs={'class': 'select select-bordered w-full'}),
             'percentage': forms.NumberInput(attrs={'class': 'input input-bordered w-full', 'min': '0', 'max': '100'}),
             'order': forms.NumberInput(attrs={'class': 'input input-bordered w-full', 'min': '0'}),
+            'expected_assessments': forms.NumberInput(attrs={
+                'class': 'input input-bordered w-full', 'min': '0',
+                'placeholder': '0 = no recommendation'
+            }),
+            'min_assessments': forms.NumberInput(attrs={
+                'class': 'input input-bordered w-full', 'min': '0',
+                'placeholder': '0 = no minimum'
+            }),
+            'max_assessments': forms.NumberInput(attrs={
+                'class': 'input input-bordered w-full', 'min': '0',
+                'placeholder': '0 = no maximum'
+            }),
             'is_active': forms.CheckboxInput(attrs={'class': 'checkbox checkbox-primary'}),
+        }
+        labels = {
+            'expected_assessments': 'Expected Assessments',
+            'min_assessments': 'Minimum Assessments',
+            'max_assessments': 'Maximum Assessments',
+        }
+        help_texts = {
+            'expected_assessments': 'Recommended number of assessments per subject per term (advisory)',
+            'min_assessments': 'Minimum required assessments (enforced)',
+            'max_assessments': 'Maximum allowed assessments (enforced)',
         }
 
     def clean_percentage(self):
@@ -103,6 +129,32 @@ class AssessmentCategoryForm(forms.ModelForm):
         short_name = self.cleaned_data.get('short_name', '')
         return short_name.upper()
 
+    def clean(self):
+        cleaned_data = super().clean()
+        min_assessments = cleaned_data.get('min_assessments', 0) or 0
+        max_assessments = cleaned_data.get('max_assessments', 0) or 0
+        expected_assessments = cleaned_data.get('expected_assessments', 0) or 0
+
+        # Validate min <= max if both are set
+        if min_assessments > 0 and max_assessments > 0:
+            if min_assessments > max_assessments:
+                raise forms.ValidationError(
+                    'Minimum assessments cannot be greater than maximum assessments.'
+                )
+
+        # Validate expected is within min/max range if set
+        if expected_assessments > 0:
+            if min_assessments > 0 and expected_assessments < min_assessments:
+                raise forms.ValidationError(
+                    'Expected assessments cannot be less than minimum assessments.'
+                )
+            if max_assessments > 0 and expected_assessments > max_assessments:
+                raise forms.ValidationError(
+                    'Expected assessments cannot be greater than maximum assessments.'
+                )
+
+        return cleaned_data
+
 
 class AssignmentForm(forms.ModelForm):
     """Form for creating/editing assignments."""
@@ -114,7 +166,13 @@ class AssignmentForm(forms.ModelForm):
             'assessment_category': forms.Select(attrs={'class': 'select select-bordered w-full'}),
             'name': forms.TextInput(attrs={'class': 'input input-bordered w-full', 'placeholder': 'e.g., Quiz 1'}),
             'points_possible': forms.NumberInput(attrs={'class': 'input input-bordered w-full', 'min': '1', 'value': '100'}),
-            'date': forms.DateInput(attrs={'class': 'input input-bordered w-full', 'type': 'date'}),
+            'date': forms.DateInput(attrs={'class': 'input input-bordered w-full', 'type': 'date', 'required': True}),
+        }
+        labels = {
+            'date': 'Date Administered',
+        }
+        help_texts = {
+            'date': 'Date the assignment was given to students',
         }
 
     def clean_points_possible(self):

@@ -106,29 +106,31 @@
 <!-- Primary Stats Row -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <!-- Students Card - Primary branded -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden relative group">
         <div class="h-1 school-gradient-subtle"></div>
-        <div class="card-body p-4">
+        <i class="fa-solid fa-user-graduate absolute -right-2 -bottom-2 text-6xl text-primary/5 -rotate-12 group-hover:scale-110 transition-transform"></i>
+        <div class="card-body p-4 relative z-10">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs uppercase text-base-content/50 font-medium">Students</p>
                     <p class="text-3xl font-bold text-primary">{{ student_count }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl school-gradient flex items-center justify-center">
+                <div class="w-12 h-12 rounded-xl school-gradient flex items-center justify-center shadow-lg shadow-primary/20">
                     <i class="fa-solid fa-user-graduate text-xl text-white"></i>
                 </div>
             </div>
             <div class="flex gap-3 mt-2 text-xs">
-                <span class="text-info"><i class="fa-solid fa-mars"></i> {{ male_count }}</span>
-                <span class="text-secondary"><i class="fa-solid fa-venus"></i> {{ female_count }}</span>
+                <span class="text-info font-medium"><i class="fa-solid fa-mars"></i> {{ male_count }}</span>
+                <span class="text-secondary font-medium"><i class="fa-solid fa-venus"></i> {{ female_count }}</span>
             </div>
         </div>
     </div>
 
     <!-- Teachers Card -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden relative group">
         <div class="h-1 bg-info"></div>
-        <div class="card-body p-4">
+        <i class="fa-solid fa-chalkboard-user absolute -right-2 -bottom-2 text-6xl text-info/5 -rotate-12 group-hover:scale-110 transition-transform"></i>
+        <div class="card-body p-4 relative z-10">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs uppercase text-base-content/50 font-medium">Teachers</p>
@@ -139,16 +141,17 @@
                 </div>
             </div>
             <a href="{% url 'teachers:index' %}" hx-get="{% url 'teachers:index' %}" hx-target="#main-content"
-               hx-push-url="true" class="text-xs text-info hover:underline mt-2 inline-block">
+               hx-push-url="true" class="text-xs text-info font-medium hover:underline mt-2 inline-block">
                 View all <i class="fa-solid fa-arrow-right text-[10px]"></i>
             </a>
         </div>
     </div>
 
     <!-- Classes Card -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden relative group">
         <div class="h-1 bg-secondary"></div>
-        <div class="card-body p-4">
+        <i class="fa-solid fa-chalkboard absolute -right-2 -bottom-2 text-6xl text-secondary/5 -rotate-12 group-hover:scale-110 transition-transform"></i>
+        <div class="card-body p-4 relative z-10">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs uppercase text-base-content/50 font-medium">Classes</p>
@@ -159,16 +162,17 @@
                 </div>
             </div>
             <a href="{% url 'academics:index' %}" hx-get="{% url 'academics:index' %}" hx-target="#main-content"
-               hx-push-url="true" class="text-xs text-secondary hover:underline mt-2 inline-block">
+               hx-push-url="true" class="text-xs text-secondary font-medium hover:underline mt-2 inline-block">
                 Manage <i class="fa-solid fa-arrow-right text-[10px]"></i>
             </a>
         </div>
     </div>
 
     <!-- Enrollments Card -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden relative group">
         <div class="h-1 bg-accent"></div>
-        <div class="card-body p-4">
+        <i class="fa-solid fa-clipboard-list absolute -right-2 -bottom-2 text-6xl text-accent/5 -rotate-12 group-hover:scale-110 transition-transform"></i>
+        <div class="card-body p-4 relative z-10">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs uppercase text-base-content/50 font-medium">Enrollments</p>
@@ -178,7 +182,7 @@
                     <i class="fa-solid fa-clipboard-list text-xl text-accent"></i>
                 </div>
             </div>
-            <p class="text-xs text-base-content/50 mt-2">
+            <p class="text-xs text-base-content/50 font-medium mt-2">
                 {% if current_year %}{{ current_year }}{% else %}No year set{% endif %}
             </p>
         </div>
@@ -207,7 +211,8 @@
                     <div class="text-center p-3 rounded-lg bg-base-200/50">
                         <div class="text-2xl font-bold text-primary">{{ today_attendance.sessions_taken }}</div>
                         <div class="text-xs text-base-content/60">Classes Marked</div>
-                        <div class="text-[10px] text-base-content/40">of {{ today_attendance.total_classes }}</div>
+                        <div class="text-[10px] text-base-content/40 mb-2">of {{ today_attendance.total_classes }}</div>
+                        <progress class="progress progress-primary w-full h-1.5" value="{{ today_attendance.sessions_taken }}" max="{{ today_attendance.total_classes }}"></progress>
                     </div>
                     <div class="text-center p-3 rounded-lg bg-success/10">
                         <div class="text-2xl font-bold text-success">{{ today_attendance.present }}</div>
@@ -269,24 +274,9 @@
                 <div class="grid grid-cols-2 md:grid-cols-{{ students_by_level|length|add:1 }} gap-3">
                     {% for level_name, count in students_by_level.items %}
                     {% if level_name != 'Unassigned' %}
-                    <div class="text-center p-3 rounded-lg
-                        {% if level_name == 'Creche' %}bg-amber-500/10 border border-amber-500/20{% endif %}
-                        {% if level_name == 'Nursery' %}bg-orange-500/10 border border-orange-500/20{% endif %}
-                        {% if level_name == 'KG' %}bg-pink-500/10 border border-pink-500/20{% endif %}
-                        {% if level_name == 'Basic' %}bg-blue-500/10 border border-blue-500/20{% endif %}
-                        {% if level_name == 'SHS' %}bg-purple-500/10 border border-purple-500/20{% endif %}">
-                        <div class="text-xl font-bold
-                            {% if level_name == 'Creche' %}text-amber-600{% endif %}
-                            {% if level_name == 'Nursery' %}text-orange-600{% endif %}
-                            {% if level_name == 'KG' %}text-pink-600{% endif %}
-                            {% if level_name == 'Basic' %}text-blue-600{% endif %}
-                            {% if level_name == 'SHS' %}text-purple-600{% endif %}">{{ count }}</div>
-                        <div class="text-xs font-medium
-                            {% if level_name == 'Creche' %}text-amber-600/80{% endif %}
-                            {% if level_name == 'Nursery' %}text-orange-600/80{% endif %}
-                            {% if level_name == 'KG' %}text-pink-600/80{% endif %}
-                            {% if level_name == 'Basic' %}text-blue-600/80{% endif %}
-                            {% if level_name == 'SHS' %}text-purple-600/80{% endif %}">{{ level_name }}</div>
+                    <div class="text-center p-3 rounded-lg bg-base-100 border border-base-200 hover:border-primary/50 transition-all hover:shadow-sm group">
+                        <div class="text-xl font-bold text-primary group-hover:scale-110 transition-transform">{{ count }}</div>
+                        <div class="text-xs font-medium text-base-content/60">{{ level_name }}</div>
                     </div>
                     {% endif %}
                     {% endfor %}
@@ -441,41 +431,41 @@
                     </div>
                     Quick Actions
                 </h2>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-3">
                     <a href="{% url 'students:student_create' %}" hx-get="{% url 'students:student_create' %}"
                         hx-target="#main-content" hx-push-url="true"
-                        class="btn btn-sm btn-ghost justify-start gap-2 h-auto py-3">
-                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <i class="fa-solid fa-user-plus text-primary text-xs"></i>
+                        class="flex flex-col items-center justify-center p-3 rounded-xl bg-base-200/50 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all group">
+                        <div class="w-10 h-10 rounded-full bg-primary/10 group-hover:bg-primary group-hover:text-white flex items-center justify-center mb-2 transition-colors">
+                            <i class="fa-solid fa-user-plus text-sm"></i>
                         </div>
-                        <span class="text-xs">Add Student</span>
+                        <span class="text-[11px] font-medium text-base-content/70 group-hover:text-primary">Add Student</span>
                     </a>
 
                     <a href="{% url 'teachers:teacher_create' %}" hx-get="{% url 'teachers:teacher_create' %}"
                         hx-target="#main-content" hx-push-url="true"
-                        class="btn btn-sm btn-ghost justify-start gap-2 h-auto py-3">
-                        <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
-                            <i class="fa-solid fa-chalkboard-user text-info text-xs"></i>
+                        class="flex flex-col items-center justify-center p-3 rounded-xl bg-base-200/50 hover:bg-info/10 border border-transparent hover:border-info/20 transition-all group">
+                        <div class="w-10 h-10 rounded-full bg-info/10 group-hover:bg-info group-hover:text-white flex items-center justify-center mb-2 transition-colors">
+                            <i class="fa-solid fa-chalkboard-user text-sm"></i>
                         </div>
-                        <span class="text-xs">Add Teacher</span>
+                        <span class="text-[11px] font-medium text-base-content/70 group-hover:text-info">Add Teacher</span>
                     </a>
 
                     <a href="{% url 'students:bulk_import' %}" hx-get="{% url 'students:bulk_import' %}"
                         hx-target="#modal-bulk-content" hx-swap="innerHTML" onclick="modal_bulk.showModal()"
-                        class="btn btn-sm btn-ghost justify-start gap-2 h-auto py-3">
-                        <div class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
-                            <i class="fa-solid fa-file-import text-success text-xs"></i>
+                        class="flex flex-col items-center justify-center p-3 rounded-xl bg-base-200/50 hover:bg-success/10 border border-transparent hover:border-success/20 transition-all group">
+                        <div class="w-10 h-10 rounded-full bg-success/10 group-hover:bg-success group-hover:text-white flex items-center justify-center mb-2 transition-colors">
+                            <i class="fa-solid fa-file-import text-sm"></i>
                         </div>
-                        <span class="text-xs">Import</span>
+                        <span class="text-[11px] font-medium text-base-content/70 group-hover:text-success">Import</span>
                     </a>
 
                     <a href="{% url 'academics:index' %}" hx-get="{% url 'academics:index' %}"
                         hx-target="#main-content" hx-push-url="true"
-                        class="btn btn-sm btn-ghost justify-start gap-2 h-auto py-3">
-                        <div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center">
-                            <i class="fa-solid fa-graduation-cap text-secondary text-xs"></i>
+                        class="flex flex-col items-center justify-center p-3 rounded-xl bg-base-200/50 hover:bg-secondary/10 border border-transparent hover:border-secondary/20 transition-all group">
+                        <div class="w-10 h-10 rounded-full bg-secondary/10 group-hover:bg-secondary group-hover:text-white flex items-center justify-center mb-2 transition-colors">
+                            <i class="fa-solid fa-graduation-cap text-sm"></i>
                         </div>
-                        <span class="text-xs">Classes</span>
+                        <span class="text-[11px] font-medium text-base-content/70 group-hover:text-secondary">Classes</span>
                     </a>
                 </div>
 

@@ -1,6 +1,17 @@
 {% load core_tags %}
-<div class="print:max-w-none">
-    <!-- Page Header -->
+
+<div class="print:max-w-none" 
+     x-data="{ 
+        activeTab: new URLSearchParams(window.location.search).get('tab') || 'overview',
+        setTab(tab) {
+            this.activeTab = tab;
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tab);
+            window.history.replaceState({}, '', url);
+        }
+     }">
+
+    <!-- Page Header (Desktop) -->
     <div class="flex items-center justify-between mb-6 print:!hidden">
         <div>
             {% if breadcrumbs %}
@@ -18,15 +29,14 @@
                     <i class="fa-solid fa-arrow-left"></i>
                 </a>
                 <div>
-                    <h1 class="text-xl font-bold">{{ student.full_name }}</h1>
-                    <p class="text-sm text-base-content/60 font-mono">{{ student.admission_number }}</p>
+                    <h1 class="text-xl font-bold">Student Profile</h1>
                 </div>
             </div>
         </div>
         <div class="flex gap-2">
             <a href="{% url 'students:student_detail_pdf' student.pk %}" class="btn btn-ghost btn-sm">
                 <i class="fa-solid fa-file-pdf"></i>
-                Download PDF
+                PDF
             </a>
             <a href="{% url 'students:student_edit' student.pk %}"
                hx-get="{% url 'students:student_edit' student.pk %}"
@@ -39,339 +49,332 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Print Header -->
+    <div class="hidden print:!block print:mb-6 print:border-b print:border-black print:pb-3">
+        <div class="text-center">
+            <h1 class="text-lg font-bold uppercase">Student Profile</h1>
+            <h2 class="text-xl font-bold mt-2">{{ student.full_name }}</h2>
+            <p class="text-sm">{{ student.admission_number }}</p>
+        </div>
+    </div>
 
-        <!-- Left Column: Photo & Quick Info -->
-        <div class="lg:col-span-1 space-y-4">
-            <!-- Photo & Status Card -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-5 items-center text-center">
-                    <div class="avatar mb-4">
-                        <div class="w-36 h-36 rounded-full bg-base-200 flex items-center justify-center ring ring-primary ring-offset-base-100 ring-offset-2">
+    <!-- 1. Top Summary Card -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6 print:shadow-none print:border-gray-300">
+        <div class="card-body p-4 sm:p-6">
+            <div class="flex flex-col md:flex-row gap-6 items-start md:items-center">
+                
+                <!-- Identity -->
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <div class="avatar">
+                        <div class="w-20 h-20 rounded-full bg-base-200 ring ring-primary ring-offset-base-100 ring-offset-2 flex items-center justify-center">
                             {% if student.photo %}
                             <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="rounded-full object-cover" loading="lazy" />
                             {% else %}
-                            <span class="text-4xl font-bold text-base-content/30">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                            <span class="text-2xl font-bold text-base-content/30">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                             {% endif %}
                         </div>
                     </div>
-                    <h2 class="text-lg font-bold">{{ student.full_name }}</h2>
-                    <p class="text-sm text-base-content/60 font-mono">{{ student.admission_number }}</p>
-
-                    <!-- Status Badges -->
-                    <div class="flex flex-wrap justify-center gap-2 mt-3 print:!hidden">
-                        {% if student.current_class %}
-                        <span class="badge badge-primary">{{ student.current_class.name }}</span>
-                        {% endif %}
-                        {% if tenant.has_houses and student.house %}
-                        <span class="badge badge-outline" {% if student.house.color_code %}style="border-color: {{ student.house.color_code }}; color: {{ student.house.color_code }};"{% endif %}>
-                            {{ student.house.name }}
-                        </span>
-                        {% endif %}
-                        {% if student.gender == 'M' %}
-                        <span class="badge badge-info">Male</span>
-                        {% else %}
-                        <span class="badge badge-secondary">Female</span>
-                        {% endif %}
-                        {% if student.status == 'active' %}
-                        <span class="badge badge-success">Active</span>
-                        {% elif student.status == 'graduated' %}
-                        <span class="badge badge-info">Graduated</span>
-                        {% elif student.status == 'withdrawn' %}
-                        <span class="badge badge-warning">Withdrawn</span>
-                        {% elif student.status == 'suspended' %}
-                        <span class="badge badge-error">Suspended</span>
-                        {% elif student.status == 'transferred' %}
-                        <span class="badge badge-ghost">Transferred</span>
-                        {% endif %}
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-xl font-bold truncate">{{ student.full_name }}</h2>
+                        <p class="text-sm text-base-content/60 font-mono mb-1">{{ student.admission_number }}</p>
+                        <div class="flex gap-2">
+                            {% if student.status == 'active' %}
+                            <span class="badge badge-success badge-sm">Active</span>
+                            {% elif student.status == 'graduated' %}
+                            <span class="badge badge-info badge-sm">Graduated</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-sm">{{ student.get_status_display }}</span>
+                            {% endif %}
+                            
+                            {% if student.current_class %}
+                            <span class="badge badge-primary badge-outline badge-sm">{{ student.current_class.name }}</span>
+                            {% endif %}
+                        </div>
                     </div>
-                    <!-- Print status line -->
-                    <p class="hidden print:!block text-sm mt-2">
-                        {{ student.current_class.name|default:"No Class" }} | {{ student.get_gender_display }} | {{ student.get_status_display }}
-                    </p>
                 </div>
-            </div>
 
-            <!-- Quick Stats Card -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-4">
-                    <h3 class="font-semibold text-sm mb-3">Quick Info</h3>
-                    <div class="space-y-3 text-sm">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <i class="fa-solid fa-cake-candles text-primary text-xs"></i>
+                <!-- Divider -->
+                <div class="hidden md:block w-px h-16 bg-base-200"></div>
+
+                <!-- Key Stats -->
+                <div class="flex flex-wrap gap-4 md:gap-8 flex-1 w-full md:w-auto text-sm">
+                    <div>
+                        <p class="text-xs text-base-content/60 uppercase font-bold mb-0.5">Age/Gender</p>
+                        <p class="font-medium">
+                            {{ student.age }} yrs • {{ student.get_gender_display }}
+                        </p>
+                    </div>
+                    {% if tenant.has_houses and student.house %}
+                    <div>
+                        <p class="text-xs text-base-content/60 uppercase font-bold mb-0.5">House</p>
+                        <p class="font-medium flex items-center gap-1.5">
+                            {% if student.house.color_code %}
+                            <span class="w-2 h-2 rounded-full" style="background-color: {{ student.house.color_code }};"></span>
+                            {% endif %}
+                            {{ student.house.name }}
+                        </p>
+                    </div>
+                    {% endif %}
+                    {% if student.phone %}
+                    <div>
+                        <p class="text-xs text-base-content/60 uppercase font-bold mb-0.5">Phone</p>
+                        <a href="tel:{{ student.phone }}" class="link link-hover font-medium">{{ student.phone }}</a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Mobile Actions (visible only on mobile) -->
+                <div class="flex md:hidden gap-2 w-full pt-2 border-t border-base-200">
+                    <a href="{% url 'students:student_edit' student.pk %}"
+                       hx-get="{% url 'students:student_edit' student.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-sm btn-outline flex-1">
+                        Edit
+                    </a>
+                    {% with primary_guardian=student.get_primary_guardian %}
+                    {% if primary_guardian and primary_guardian.phone_number %}
+                    <a href="tel:{{ primary_guardian.phone_number }}" class="btn btn-sm btn-primary flex-1">
+                        <i class="fa-solid fa-phone"></i> Call Guardian
+                    </a>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Tabbed Content -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300 min-h-[500px]">
+        
+        <!-- Tabs Header -->
+        <div class="border-b border-base-200 px-4 pt-2 print:!hidden overflow-x-auto">
+            <div class="tabs tabs-bordered w-full flex-nowrap min-w-max">
+                <a role="tab" class="tab h-12 px-4 sm:px-6 font-medium gap-2" 
+                   :class="{ 'tab-active': activeTab === 'overview' }" 
+                   @click="setTab('overview')">
+                    <i class="fa-regular fa-id-card"></i> Overview
+                </a>
+                <a role="tab" class="tab h-12 px-4 sm:px-6 font-medium gap-2" 
+                   :class="{ 'tab-active': activeTab === 'guardians' }" 
+                   @click="setTab('guardians')">
+                    <i class="fa-solid fa-user-shield"></i> Guardians
+                </a>
+                <a role="tab" class="tab h-12 px-4 sm:px-6 font-medium gap-2" 
+                   :class="{ 'tab-active': activeTab === 'academics' }" 
+                   @click="setTab('academics')">
+                    <i class="fa-solid fa-graduation-cap"></i> Academics
+                </a>
+                <a role="tab" class="tab h-12 px-4 sm:px-6 font-medium gap-2" 
+                   :class="{ 'tab-active': activeTab === 'system' }" 
+                   @click="setTab('system')">
+                    <i class="fa-solid fa-gear"></i> System
+                </a>
+            </div>
+        </div>
+
+        <!-- Tab 1: Overview -->
+        <div x-show="activeTab === 'overview'" class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Personal Info -->
+                <div>
+                    <h3 class="font-bold text-sm uppercase text-base-content/50 mb-4 border-b border-base-200 pb-2">Personal Information</h3>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-xs text-base-content/60">First Name</p>
+                                <p class="font-medium">{{ student.first_name }}</p>
                             </div>
                             <div>
-                                <p class="text-base-content/60 text-xs">Age</p>
-                                <p class="font-medium">{{ student.age }} years old</p>
+                                <p class="text-xs text-base-content/60">Last Name</p>
+                                <p class="font-medium">{{ student.last_name }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-base-content/60">Date of Birth</p>
+                                <p class="font-medium">{{ student.date_of_birth|date:"F j, Y" }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-base-content/60">Gender</p>
+                                <p class="font-medium">{{ student.get_gender_display }}</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
-                                <i class="fa-solid fa-calendar-check text-success text-xs"></i>
-                            </div>
+                        {% if student.address %}
+                        <div>
+                            <p class="text-xs text-base-content/60">Address</p>
+                            <p class="font-medium">{{ student.address }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Admission Info -->
+                <div>
+                    <h3 class="font-bold text-sm uppercase text-base-content/50 mb-4 border-b border-base-200 pb-2">Admission Information</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-xs text-base-content/60">Admission Number</p>
+                            <p class="font-mono font-medium tracking-wide">{{ student.admission_number }}</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <p class="text-base-content/60 text-xs">Admitted</p>
+                                <p class="text-xs text-base-content/60">Admission Date</p>
                                 <p class="font-medium">{{ student.admission_date|date:"M j, Y" }}</p>
                             </div>
-                        </div>
-                        {% if student.phone %}
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
-                                <i class="fa-solid fa-phone text-info text-xs"></i>
-                            </div>
                             <div>
-                                <p class="text-base-content/60 text-xs">Phone</p>
-                                <p class="font-medium">{{ student.phone }}</p>
+                                <p class="text-xs text-base-content/60">Current Status</p>
+                                <p class="font-medium">{{ student.get_status_display }}</p>
                             </div>
                         </div>
-                        {% endif %}
                     </div>
-                </div>
-            </div>
-
-            <!-- System Info Card -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:!hidden">
-                <div class="card-body p-4">
-                    <h3 class="font-semibold text-sm mb-3">System</h3>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex justify-between items-center">
-                            <span class="text-base-content/60">Account</span>
-                            {% if student.user %}
-                            <span class="badge badge-success badge-sm">Linked</span>
-                            {% else %}
-                            <button class="btn btn-xs btn-primary"
-                                    hx-get="{% url 'students:student_create_account' student.pk %}"
-                                    hx-target="#create-account-container"
-                                    onclick="modal_create_account.showModal()">
-                                <i class="fa-solid fa-user-plus"></i>
-                                Create
-                            </button>
-                            {% endif %}
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-base-content/60">Active</span>
-                            {% if student.is_active %}
-                            <span class="badge badge-success badge-sm">Yes</span>
-                            {% else %}
-                            <span class="badge badge-error badge-sm">No</span>
-                            {% endif %}
-                        </div>
-                        <div class="flex justify-between text-xs text-base-content/50">
-                            <span>Created</span>
-                            <span>{{ student.created_at|date:"M j, Y" }}</span>
-                        </div>
-                        <div class="flex justify-between text-xs text-base-content/50">
-                            <span>Updated</span>
-                            <span>{{ student.updated_at|date:"M j, Y" }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Danger Zone -->
-            <div class="card bg-error/5 border border-error/20 print:!hidden">
-                <div class="card-body p-4">
-                    <h3 class="font-semibold text-sm text-error mb-2">Danger Zone</h3>
-                    <p class="text-xs text-base-content/60 mb-3">Permanently delete this student record.</p>
-                    <form hx-post="{% url 'students:student_delete' student.pk %}"
-                          hx-confirm="Delete {{ student.full_name|escapejs }}? This action cannot be undone.">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-error btn-sm btn-outline w-full">
-                            <i class="fa-solid fa-trash"></i>
-                            Delete Student
-                        </button>
-                    </form>
                 </div>
             </div>
         </div>
 
-        <!-- Right Column: Details -->
-        <div class="lg:col-span-2 space-y-4">
-
-            <!-- Personal Information -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-5">
-                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
-                        <i class="fa-solid fa-user text-primary print:!hidden"></i>
-                        Personal Information
-                    </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Full Name</p>
-                            <p class="font-medium">{{ student.full_name }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Date of Birth</p>
-                            <p>{{ student.date_of_birth|date:"F j, Y" }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Gender</p>
-                            <p>{{ student.get_gender_display }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Age</p>
-                            <p>{{ student.age }} years</p>
-                        </div>
-                        {% if student.phone %}
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Phone</p>
-                            <p>{{ student.phone }}</p>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% if student.address %}
-                    <div class="mt-4 pt-4 border-t border-base-200">
-                        <p class="text-xs text-base-content/60 mb-1">Address</p>
-                        <p>{{ student.address }}</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Guardians Information -->
+        <!-- Tab 2: Guardians -->
+        <div x-show="activeTab === 'guardians'" class="p-6" style="display: none;">
             {% if student_guardians %}
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-5">
-                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
-                        <i class="fa-solid fa-user-shield text-primary print:!hidden"></i>
-                        Guardians ({{ student_guardians|length }})
-                    </h2>
-                    <div class="space-y-4">
-                        {% for sg in student_guardians %}
-                        <div class="{% if not forloop.last %}border-b border-base-200 pb-4{% endif %}">
-                            <div class="flex items-start justify-between mb-2">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-medium">{{ sg.guardian.full_name }}</span>
-                                    {% if sg.is_primary %}
-                                    <span class="badge badge-primary badge-sm">Primary</span>
-                                    {% endif %}
-                                </div>
-                                <span class="text-sm text-base-content/60">{{ sg.get_relationship_display }}</span>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for sg in student_guardians %}
+                <div class="card bg-base-200/50 border border-base-200">
+                    <div class="card-body p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold">{{ sg.guardian.full_name }}</h4>
+                                <p class="text-xs text-base-content/60">{{ sg.get_relationship_display }}</p>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                                <div>
-                                    <span class="text-base-content/60">Phone:</span>
-                                    <span>{{ sg.guardian.phone_number }}</span>
-                                </div>
-                                {% if sg.guardian.email %}
-                                <div>
-                                    <span class="text-base-content/60">Email:</span>
-                                    <span>{{ sg.guardian.email }}</span>
-                                </div>
-                                {% endif %}
-                                {% if sg.guardian.occupation %}
-                                <div>
-                                    <span class="text-base-content/60">Occupation:</span>
-                                    <span>{{ sg.guardian.occupation }}</span>
-                                </div>
-                                {% endif %}
+                            {% if sg.is_primary %}
+                            <span class="badge badge-primary badge-sm">Primary</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="space-y-2 mt-2 text-sm">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-phone text-base-content/40 w-4"></i>
+                                <a href="tel:{{ sg.guardian.phone_number }}" class="link link-hover">{{ sg.guardian.phone_number }}</a>
                             </div>
+                            {% if sg.guardian.email %}
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-envelope text-base-content/40 w-4"></i>
+                                <a href="mailto:{{ sg.guardian.email }}" class="link link-hover">{{ sg.guardian.email }}</a>
+                            </div>
+                            {% endif %}
                             {% if sg.guardian.address %}
-                            <div class="mt-2 text-sm">
-                                <span class="text-base-content/60">Address:</span>
+                            <div class="flex items-start gap-2">
+                                <i class="fa-solid fa-location-dot text-base-content/40 w-4 mt-1"></i>
                                 <span>{{ sg.guardian.address }}</span>
                             </div>
                             {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-base-content/50">
+                <i class="fa-solid fa-user-shield text-4xl mb-3 opacity-20"></i>
+                <p>No guardians linked yet.</p>
+                <a href="{% url 'students:student_edit' student.pk %}" class="btn btn-sm btn-outline mt-3">Add Guardian</a>
             </div>
             {% endif %}
+        </div>
 
-            <!-- Admission Details -->
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-5">
-                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
-                        <i class="fa-solid fa-id-card text-primary print:!hidden"></i>
-                        Admission Details
-                    </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Admission Number</p>
-                            <p class="font-mono font-medium">{{ student.admission_number }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Admission Date</p>
-                            <p>{{ student.admission_date|date:"F j, Y" }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Current Class</p>
-                            <p>{{ student.current_class.name|default:"Not Assigned" }}</p>
-                        </div>
-                        {% if tenant.has_houses %}
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">House</p>
-                            {% if student.house %}
-                            <p class="flex items-center gap-2">
-                                {% if student.house.color_code %}
-                                <span class="w-3 h-3 rounded-full" style="background-color: {{ student.house.color_code }};"></span>
+        <!-- Tab 3: Academics -->
+        <div x-show="activeTab === 'academics'" class="p-6" style="display: none;">
+            <div class="max-w-2xl">
+                <h3 class="font-bold text-lg mb-4">Enrollment Timeline</h3>
+                
+                {% if enrollments %}
+                <ul class="steps steps-vertical w-full">
+                    {% for enrollment in enrollments %}
+                    <li class="step step-primary w-full !text-left">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full pl-2 gap-1 sm:gap-4 text-left">
+                            <div class="flex-1">
+                                <div class="font-bold text-sm">{{ enrollment.class_assigned.name }}</div>
+                                <div class="text-xs text-base-content/60">{{ enrollment.academic_year }}</div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                {% if enrollment.status == 'active' %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% elif enrollment.status == 'promoted' %}
+                                <span class="badge badge-info badge-sm">Promoted</span>
+                                {% elif enrollment.status == 'repeated' %}
+                                <span class="badge badge-warning badge-sm">Repeated</span>
+                                {% elif enrollment.status == 'graduated' %}
+                                <span class="badge badge-primary badge-sm">Graduated</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">{{ enrollment.get_status_display }}</span>
                                 {% endif %}
-                                {{ student.house.name }}
-                            </p>
-                            {% else %}
-                            <p class="text-base-content/50">Not Assigned</p>
-                            {% endif %}
+                                <span class="text-xs text-base-content/40 tabular-nums">{{ enrollment.enrolled_on|date:"M Y" }}</span>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-base-content/50 italic">No enrollment history found.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tab 4: System -->
+        <div x-show="activeTab === 'system'" class="p-6" style="display: none;">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- User Account -->
+                <div>
+                    <h3 class="font-bold text-sm uppercase text-base-content/50 mb-4 border-b border-base-200 pb-2">Student Portal Access</h3>
+                    <div class="bg-base-200/50 rounded-lg p-4">
+                        {% if student.user %}
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-success">
+                                <i class="fa-solid fa-check"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold">Account Linked</p>
+                                <p class="text-xs text-base-content/60">Last login: {{ student.user.last_login|default:"Never" }}</p>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="font-bold">No Account</p>
+                                <p class="text-xs text-base-content/60">Student cannot access the portal.</p>
+                            </div>
+                            <button class="btn btn-sm btn-primary"
+                                    hx-get="{% url 'students:student_create_account' student.pk %}"
+                                    hx-target="#create-account-container"
+                                    onclick="modal_create_account.showModal()">
+                                Create
+                            </button>
                         </div>
                         {% endif %}
-                        <div>
-                            <p class="text-xs text-base-content/60 mb-1">Status</p>
-                            <p>{{ student.get_status_display }}</p>
-                        </div>
+                    </div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div>
+                    <h3 class="font-bold text-sm uppercase text-error/50 mb-4 border-b border-error/20 pb-2">Danger Zone</h3>
+                    <div class="bg-error/5 border border-error/20 rounded-lg p-4">
+                        <p class="font-bold text-sm text-error">Delete Student</p>
+                        <p class="text-xs text-base-content/60 mb-3">Permanently remove this student and all related data.</p>
+                        <form hx-post="{% url 'students:student_delete' student.pk %}"
+                              hx-confirm="Delete {{ student.full_name|escapejs }}? This action cannot be undone.">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-error btn-sm btn-outline w-full">
+                                <i class="fa-solid fa-trash"></i>
+                                Delete Student
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
-
-            <!-- Enrollment History -->
-            {% if enrollments %}
-            <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
-                <div class="card-body p-5">
-                    <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
-                        <i class="fa-solid fa-timeline text-primary print:!hidden"></i>
-                        Enrollment History
-                    </h2>
-                    <div class="overflow-x-auto">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr class="text-xs">
-                                    <th>Academic Year</th>
-                                    <th>Class</th>
-                                    <th>Status</th>
-                                    <th>Enrolled On</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for enrollment in enrollments %}
-                                <tr>
-                                    <td class="font-medium">{{ enrollment.academic_year }}</td>
-                                    <td>
-                                        <span class="badge badge-sm">{{ enrollment.class_assigned.name }}</span>
-                                    </td>
-                                    <td>
-                                        {% if enrollment.status == 'active' %}
-                                        <span class="badge badge-success badge-sm">Active</span>
-                                        {% elif enrollment.status == 'promoted' %}
-                                        <span class="badge badge-info badge-sm">Promoted</span>
-                                        {% elif enrollment.status == 'repeated' %}
-                                        <span class="badge badge-warning badge-sm">Repeated</span>
-                                        {% elif enrollment.status == 'graduated' %}
-                                        <span class="badge badge-primary badge-sm">Graduated</span>
-                                        {% else %}
-                                        <span class="badge badge-ghost badge-sm">{{ enrollment.get_status_display }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-xs text-base-content/60">{{ enrollment.enrolled_on|date:"M j, Y" }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
         </div>
+
+    </div>
+
+    <!-- Print Footer -->
+    <div class="hidden print:!block print:mt-6 print:pt-3 print:border-t print:text-center print:text-xs">
+        Printed on {% now "M j, Y g:i A" %}
     </div>
 </div>
 

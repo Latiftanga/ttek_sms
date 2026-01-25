@@ -27,7 +27,7 @@ from ..utils import (
     build_academic_history,
     get_school_context,
 )
-from academics.models import Class
+from academics.models import Class, ClassSubject, StudentSubjectEnrollment
 from students.models import Student, Enrollment
 from core.models import Term, SchoolSettings
 from schools.models import School
@@ -116,6 +116,43 @@ def calculate_class_grades(request, class_id):
 
             subject_ids = [s.id for s in subjects]
 
+            # Build student -> enrolled subjects map
+            # This respects elective selections for SHS students
+            student_subject_map = {}  # {student_id: set of subject_ids}
+
+            # Check if this class uses subject enrollments (typically SHS)
+            enrollments = StudentSubjectEnrollment.objects.filter(
+                student_id__in=student_ids,
+                class_subject__class_assigned=class_obj,
+                is_active=True
+            ).select_related('class_subject__subject')
+
+            has_enrollments = enrollments.exists()
+
+            if has_enrollments:
+                # Use enrollments to determine which subjects each student takes
+                for enrollment in enrollments:
+                    sid = enrollment.student_id
+                    subj_id = enrollment.class_subject.subject_id
+                    if sid not in student_subject_map:
+                        student_subject_map[sid] = set()
+                    student_subject_map[sid].add(subj_id)
+
+                logger.info(
+                    f'Using subject enrollments for {class_obj.name}: '
+                    f'{len(student_subject_map)} students with specific subjects'
+                )
+            else:
+                # No enrollments - all students take all subjects (Basic school behavior)
+                all_subject_ids = set(subject_ids)
+                for student in students:
+                    student_subject_map[student.id] = all_subject_ids
+
+                logger.info(
+                    f'No subject enrollments for {class_obj.name}: '
+                    f'all students will be graded on all {len(subjects)} subjects'
+                )
+
             # Prefetch all categories (small table, usually 2-3 rows)
             categories = list(AssessmentCategory.objects.filter(is_active=True))
 
@@ -164,7 +201,14 @@ def calculate_class_grades(request, class_id):
             grades_to_update = []
 
             for student in students:
+                # Get subjects this student is enrolled in
+                enrolled_subject_ids = student_subject_map.get(student.id, set())
+
                 for subject in subjects:
+                    # Skip if student is not enrolled in this subject
+                    if subject.id not in enrolled_subject_ids:
+                        continue
+
                     key = (student.id, subject.id)
 
                     if key in existing_grades:
@@ -187,8 +231,17 @@ def calculate_class_grades(request, class_id):
 
             # Calculate scores for each grade using prefetched data
             for student in students:
+                # Get subjects this student is enrolled in
+                enrolled_subject_ids = student_subject_map.get(student.id, set())
+
                 for subject in subjects:
-                    grade = existing_grades[(student.id, subject.id)]
+                    # Skip if student is not enrolled in this subject
+                    if subject.id not in enrolled_subject_ids:
+                        continue
+
+                    grade = existing_grades.get((student.id, subject.id))
+                    if not grade:
+                        continue
 
                     # Calculate scores using prefetched data (no DB queries)
                     category_totals = {}
@@ -505,9 +558,6 @@ def report_cards(request):
     status_filter = request.GET.get('status', 'active')  # Default to active
     students = []
     class_obj = None
-
-    # Status choices for admins (to filter past students)
-    status_choices = Student.Status.choices if is_admin else []
 
     if class_id:
         class_obj = get_object_or_404(Class, pk=class_id)

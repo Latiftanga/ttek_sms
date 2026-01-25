@@ -15,8 +15,8 @@
         <div class="flex flex-col sm:flex-row sm:items-center gap-4 relative z-10">
             <!-- School Logo -->
             <div class="shrink-0">
-                {% if school.logo.name %}
-                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white/20 p-2">
+                {% if tenant.logo %}
+                <img src="{{ tenant.logo.url }}" alt="{{ tenant.short_name|default:tenant.name }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white/20 p-2">
                 {% else %}
                 <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white/20 flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 sm:w-12 sm:h-12 text-white" fill="currentColor" viewBox="0 0 640 512">
@@ -29,16 +29,16 @@
             <!-- School Info -->
             <div class="flex-1 text-white">
                 <h1 class="text-2xl sm:text-3xl font-bold mb-1">
-                    {% if school and school.display_name %}
-                        {{ school.display_name }}
-                    {% elif tenant and tenant.name %}
+                    {% if tenant.short_name %}
+                        {{ tenant.short_name }}
+                    {% elif tenant.name %}
                         {{ tenant.name }}
                     {% else %}
                         School Settings
                     {% endif %}
                 </h1>
-                {% if school and school.motto %}
-                <p class="text-white/80 text-sm italic mb-2">"{{ school.motto }}"</p>
+                {% if tenant.motto %}
+                <p class="text-white/80 text-sm italic mb-2">"{{ tenant.motto }}"</p>
                 {% endif %}
                 <p class="text-white/70 text-sm">Configure your school's information, branding, and integrations</p>
             </div>
@@ -67,13 +67,7 @@
     </div>
 </div>
 <div class="space-y-4">
-    <!-- Row 1: Basic Info + Branding -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {% include "core/settings/partials/card_basic.html" %}
-        {% include "core/settings/partials/card_branding.html" %}
-    </div>
-
-    <!-- Row 2: Contact + Administration -->
+    <!-- Row 1: Contact + Administration -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {% include "core/settings/partials/card_contact.html" %}
         {% include "core/settings/partials/card_admin.html" %}
@@ -89,80 +83,6 @@
     <!-- Row 4: Academic Years -->
     {% include "core/settings/partials/card_academic.html" %}
 </div>
-
-<!-- Basic Info Modal -->
-<dialog id="modal_basic" class="modal modal-middle">
-    <div class="modal-box">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <h3 class="text-lg font-bold mb-6">Edit Basic Information</h3>
-        <form method="post"
-              action="{% url 'core:settings_update_basic' %}"
-              hx-post="{% url 'core:settings_update_basic' %}"
-              hx-target="#card-basic"
-              hx-swap="outerHTML"
-              hx-on::after-request="if(event.detail.successful) modal_basic.close()">
-            {% csrf_token %}
-            <div class="space-y-6 pt-2">
-                {% floating_field basic_form.name %}
-                {% floating_field basic_form.short_name help_text="Displayed in sidebar" %}
-                {% floating_field basic_form.display_name %}
-                {% floating_field basic_form.motto %}
-            </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_basic.close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-    </div>
-</dialog>
-
-<!-- Branding Modal -->
-<dialog id="modal_branding" class="modal modal-middle">
-    <div class="modal-box">
-        <form method="dialog">
-            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <h3 class="text-lg font-bold mb-6">Edit Branding</h3>
-        <form method="post"
-              action="{% url 'core:settings_update_branding' %}"
-              enctype="multipart/form-data"
-              hx-post="{% url 'core:settings_update_branding' %}"
-              hx-target="#card-branding"
-              hx-swap="outerHTML"
-              hx-encoding="multipart/form-data"
-              hx-on::after-request="if(event.detail.successful) modal_branding.close()">
-            {% csrf_token %}
-            <div class="space-y-6 pt-2">
-                <div>
-                    {% floating_field branding_form.logo %}
-                    {% if school_settings.logo %}
-                    <p class="text-xs text-base-content/60 mt-1 ml-1">Current: {{ school_settings.logo.name }}</p>
-                    {% endif %}
-                </div>
-                <div>
-                    {% floating_field branding_form.favicon %}
-                    {% if school_settings.favicon %}
-                    <p class="text-xs text-base-content/60 mt-1 ml-1">Current: {{ school_settings.favicon.name }}</p>
-                    {% endif %}
-                </div>
-                <div>
-                    <p class="text-sm font-medium mb-3">Theme Colors</p>
-                    <div class="grid grid-cols-3 gap-4">
-                        {% floating_field branding_form.primary_color "Primary" %}
-                        {% floating_field branding_form.secondary_color "Secondary" %}
-                        {% floating_field branding_form.accent_color "Accent" %}
-                    </div>
-                </div>
-            </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_branding.close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-    </div>
-</dialog>
 
 <!-- Contact Modal -->
 <dialog id="modal_contact" class="modal modal-middle">

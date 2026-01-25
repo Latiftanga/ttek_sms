@@ -1,7 +1,6 @@
 from decimal import Decimal
 from datetime import date
 
-from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.db import models
@@ -10,10 +9,12 @@ from django_tenants.test.client import TenantClient
 
 from .models import (
     GradingSystem, GradeScale, AssessmentCategory,
-    Assignment, Score, SubjectTermGrade, TermReport
+    Assignment, Score, SubjectTermGrade
 )
 from .forms import GradeScaleForm, AssessmentCategoryForm, ScoreForm
 from academics.models import Subject, Class, Programme
+from core.models import AcademicYear, Term
+from students.models import Student, Guardian, Enrollment
 
 
 User = get_user_model()
@@ -232,12 +233,16 @@ class AssessmentCategoryFormTest(GradebookTenantTestCase):
             data={
                 'name': 'Class Score',
                 'short_name': 'ca',
+                'category_type': 'CLASS_SCORE',
                 'percentage': 30,
                 'order': 1,
+                'expected_assessments': 0,
+                'min_assessments': 0,
+                'max_assessments': 0,
                 'is_active': True
             }
         )
-        self.assertTrue(form.is_valid())
+        self.assertTrue(form.is_valid(), form.errors)
 
     def test_short_name_uppercase(self):
         """Test short_name is converted to uppercase."""
@@ -245,12 +250,16 @@ class AssessmentCategoryFormTest(GradebookTenantTestCase):
             data={
                 'name': 'Class Score',
                 'short_name': 'ca',
+                'category_type': 'CLASS_SCORE',
                 'percentage': 30,
                 'order': 1,
+                'expected_assessments': 0,
+                'min_assessments': 0,
+                'max_assessments': 0,
                 'is_active': True
             }
         )
-        self.assertTrue(form.is_valid())
+        self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['short_name'], 'CA')
 
     def test_percentage_out_of_range_invalid(self):
@@ -259,12 +268,35 @@ class AssessmentCategoryFormTest(GradebookTenantTestCase):
             data={
                 'name': 'Test',
                 'short_name': 'T',
+                'category_type': 'OTHER',
                 'percentage': 150,
                 'order': 1,
+                'expected_assessments': 0,
+                'min_assessments': 0,
+                'max_assessments': 0,
                 'is_active': True
             }
         )
         self.assertFalse(form.is_valid())
+
+    def test_assessment_count_validation(self):
+        """Test min/max assessment count validation."""
+        # Min greater than max should fail
+        form = AssessmentCategoryForm(
+            data={
+                'name': 'Test',
+                'short_name': 'T',
+                'category_type': 'OTHER',
+                'percentage': 30,
+                'order': 1,
+                'expected_assessments': 2,
+                'min_assessments': 5,
+                'max_assessments': 3,
+                'is_active': True
+            }
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn('Minimum assessments cannot be greater than maximum', str(form.errors))
 
 
 class ScoreFormTest(GradebookTenantTestCase):
@@ -421,10 +453,6 @@ class AggregateCalculationTest(GradebookTenantTestCase):
 
 
 # ============ Report Cards Status Filter Tests ============
-
-from academics.models import Class, Programme
-from core.models import AcademicYear, Term
-from students.models import Student, Guardian, Enrollment
 
 
 class ReportCardsStatusFilterTestCase(GradebookTenantTestCase):
@@ -760,9 +788,9 @@ class SubjectTermGradeCalculationTest(GradebookTenantTestCase):
         self.exam_cat = AssessmentCategory.objects.create(name='Examination', short_name='EXAM', category_type='EXAM', percentage=70)
 
         # Assignments
-        self.assignment1 = Assignment.objects.create(assessment_category=self.class_score_cat, subject=self.subject, term=self.term, name='Quiz 1', points_possible=20)
-        self.assignment2 = Assignment.objects.create(assessment_category=self.class_score_cat, subject=self.subject, term=self.term, name='Homework 1', points_possible=10)
-        self.exam_assignment = Assignment.objects.create(assessment_category=self.exam_cat, subject=self.subject, term=self.term, name='Final Exam', points_possible=100)
+        self.assignment1 = Assignment.objects.create(assessment_category=self.class_score_cat, subject=self.subject, term=self.term, name='Quiz 1', points_possible=20, date=date(2024, 9, 15))
+        self.assignment2 = Assignment.objects.create(assessment_category=self.class_score_cat, subject=self.subject, term=self.term, name='Homework 1', points_possible=10, date=date(2024, 10, 1))
+        self.exam_assignment = Assignment.objects.create(assessment_category=self.exam_cat, subject=self.subject, term=self.term, name='Final Exam', points_possible=100, date=date(2024, 12, 10))
 
         # Scores
         Score.objects.create(student=self.student, assignment=self.assignment1, points=15)  # 15/20 = 75%

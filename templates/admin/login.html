@@ -4,139 +4,341 @@
 {% block extrastyle %}
 {{ block.super }}
 <style>
+    :root {
+        --admin-primary: #1e3a5f;
+        --admin-secondary: #312e81;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
     body {
+        margin: 0;
+        padding: 0;
         overflow: auto !important;
         height: auto !important;
         min-height: 100vh;
-        background: oklch(var(--b2)) !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
+    /* Hide admin chrome */
     #sidebar, .sidebar, aside { display: none !important; }
-    #content, .content-wrapper { margin-left: 0 !important; width: 100% !important; background: transparent !important; }
-    .navbar, #content > nav { display: none !important; }
+    #content, .content-wrapper { margin-left: 0 !important; width: 100% !important; background: transparent !important; padding: 0 !important; }
+    .navbar, #content > nav, header { display: none !important; }
 
-    .login-wrapper {
+    .login-page-wrapper {
         min-height: 100vh;
+        background: linear-gradient(135deg, var(--admin-primary) 0%, var(--admin-secondary) 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 20px;
+        padding: 12px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Decorative circles */
+    .login-page-wrapper::before {
+        content: '';
+        position: absolute;
+        top: -80px;
+        right: -80px;
+        width: 256px;
+        height: 256px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.05);
+        pointer-events: none;
+    }
+
+    .login-page-wrapper::after {
+        content: '';
+        position: absolute;
+        bottom: -128px;
+        left: -128px;
+        width: 384px;
+        height: 384px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.05);
+        pointer-events: none;
     }
 
     .login-card {
-        background: oklch(var(--b1));
-        border-radius: 16px;
-        border: 1px solid oklch(var(--b3));
         width: 100%;
-        max-width: 400px;
-        padding: 40px;
+        max-width: 380px;
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        padding: 16px 24px 24px;
+        position: relative;
+        z-index: 10;
     }
 
-    .login-logo {
+    @media (min-width: 640px) {
+        .login-card {
+            padding: 20px 32px 32px;
+        }
+    }
+
+    /* Header */
+    .login-header {
         text-align: center;
-        margin-bottom: 32px;
-    }
-
-    .login-logo img {
-        max-width: 140px;
-        max-height: 45px;
-    }
-
-    .login-logo-fallback {
-        width: 56px;
-        height: 56px;
-        background: oklch(var(--p));
-        border-radius: 14px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
         margin-bottom: 16px;
     }
 
-    .login-logo-fallback i {
+    .login-logo-circle {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--admin-primary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+
+    @media (min-width: 640px) {
+        .login-logo-circle {
+            width: 64px;
+            height: 64px;
+        }
+    }
+
+    .login-logo-circle i {
         font-size: 1.5rem;
-        color: oklch(var(--pc));
+        color: #ffffff;
+    }
+
+    @media (min-width: 640px) {
+        .login-logo-circle i {
+            font-size: 1.75rem;
+        }
+    }
+
+    .login-logo-img {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        padding: 6px;
+        background: #ffffff;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e7eb;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+
+    @media (min-width: 640px) {
+        .login-logo-img {
+            width: 64px;
+            height: 64px;
+        }
+    }
+
+    .login-logo-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .login-brand {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: var(--admin-primary);
+        margin: 0 0 4px 0;
+    }
+
+    @media (min-width: 640px) {
+        .login-brand {
+            font-size: 16px;
+        }
+    }
+
+    .login-tagline {
+        font-size: 10px;
+        color: #6b7280;
+        font-style: italic;
+        margin: 0 0 12px 0;
     }
 
     .login-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: oklch(var(--bc));
-        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0 0 4px 0;
+    }
+
+    @media (min-width: 640px) {
+        .login-title {
+            font-size: 20px;
+        }
     }
 
     .login-subtitle {
-        font-size: 0.875rem;
-        color: oklch(var(--bc) / 0.6);
-        margin-top: 4px;
+        font-size: 12px;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    /* Error message */
+    .login-error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .login-error i {
+        color: #dc2626;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+    .login-error span {
+        color: #dc2626;
+        font-size: 12px;
+    }
+
+    /* Form */
+    .login-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
     }
 
     .form-group {
-        margin-bottom: 20px;
+        position: relative;
     }
 
     .form-group label {
         display: block;
-        font-size: 0.875rem;
+        font-size: 12px;
         font-weight: 500;
-        color: oklch(var(--bc));
-        margin-bottom: 8px;
+        color: #374151;
+        margin-bottom: 6px;
+    }
+
+    .input-wrapper {
+        position: relative;
+    }
+
+    .input-wrapper i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+        font-size: 14px;
+        pointer-events: none;
     }
 
     .form-group input {
         width: 100%;
-        padding: 12px 14px;
-        border: 1px solid oklch(var(--b3));
+        padding: 10px 12px 10px 38px;
+        border: 1px solid #d1d5db;
         border-radius: 8px;
-        font-size: 1rem;
-        background: oklch(var(--b1));
-        color: oklch(var(--bc));
+        font-size: 14px;
+        background: #ffffff;
+        color: #1f2937;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     .form-group input:focus {
         outline: none;
-        border-color: oklch(var(--p));
-        box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
+        border-color: var(--admin-primary);
+        box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
     }
 
+    .form-group input::placeholder {
+        color: #9ca3af;
+    }
+
+    /* Form extras row */
+    .form-extras {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 4px;
+    }
+
+    .remember-me {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+    }
+
+    .remember-me input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        accent-color: var(--admin-primary);
+        cursor: pointer;
+    }
+
+    .remember-me span {
+        font-size: 12px;
+        color: #374151;
+    }
+
+    .forgot-link {
+        font-size: 12px;
+        color: var(--admin-primary);
+        text-decoration: none;
+    }
+
+    .forgot-link:hover {
+        text-decoration: underline;
+    }
+
+    /* Submit button */
     .login-btn {
         width: 100%;
-        padding: 12px;
-        background: oklch(var(--p));
-        color: oklch(var(--pc));
+        padding: 10px 16px;
+        background: var(--admin-primary);
+        color: #ffffff;
         border: none;
         border-radius: 8px;
-        font-size: 1rem;
+        font-size: 14px;
         font-weight: 500;
         cursor: pointer;
-        transition: opacity 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 8px;
+        transition: background 0.15s ease;
     }
 
     .login-btn:hover {
-        opacity: 0.9;
+        background: #2d4a6f;
     }
 
-    .errornote {
-        background: oklch(var(--er) / 0.1);
-        color: oklch(var(--er));
-        border: 1px solid oklch(var(--er) / 0.3);
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 20px;
-        font-size: 0.875rem;
+    .login-btn i {
+        font-size: 14px;
     }
 
+    /* Footer */
     .login-footer {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid #e5e7eb;
         text-align: center;
-        margin-top: 24px;
-        padding-top: 20px;
-        border-top: 1px solid oklch(var(--b3));
     }
 
     .login-footer p {
-        font-size: 0.75rem;
-        color: oklch(var(--bc) / 0.5);
+        font-size: 10px;
+        color: #9ca3af;
         margin: 0;
+    }
+
+    .login-footer strong {
+        font-weight: 600;
     }
 </style>
 {% endblock %}
@@ -146,44 +348,77 @@
 {% block breadcrumbs %}{% endblock %}
 
 {% block content %}
-<div class="login-wrapper">
+<div class="login-page-wrapper">
     <div class="login-card">
-        <div class="login-logo">
+        <!-- Header -->
+        <div class="login-header">
+            <!-- Logo -->
             <img src="{% static 'admin/img/logo.png' %}" alt="TTEK SMS"
-                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
-            <div class="login-logo-fallback" style="display: none;">
+                 style="display: none; width: 56px; height: 56px; border-radius: 50%; padding: 6px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; object-fit: contain; margin-bottom: 8px;"
+                 onload="this.style.display='inline-block'; this.nextElementSibling.style.display='none';">
+            <div class="login-logo-circle">
                 <i class="fa fa-graduation-cap"></i>
             </div>
-            <h1 class="login-title">TTEK SMS</h1>
-            <p class="login-subtitle">School Management System</p>
+
+            <h1 class="login-brand">TTEK SMS</h1>
+            <p class="login-tagline">"Excellence in School Management"</p>
+
+            <h2 class="login-title">Welcome Back</h2>
+            <p class="login-subtitle">Sign in to your admin account to continue</p>
         </div>
 
+        <!-- Error Messages -->
         {% if form.errors %}
-        <div class="errornote">
-            {% if form.non_field_errors %}
-                {{ form.non_field_errors|first }}
-            {% else %}
-                {% trans "Please correct the errors below." %}
-            {% endif %}
+        <div class="login-error">
+            <i class="fa fa-exclamation-circle"></i>
+            <span>
+                {% if form.non_field_errors %}
+                    {{ form.non_field_errors|first }}
+                {% else %}
+                    {% trans "Please enter a correct username and password." %}
+                {% endif %}
+            </span>
         </div>
         {% endif %}
 
-        <form action="{{ app_path }}" method="post" id="login-form">
+        <!-- Login Form -->
+        <form action="{{ app_path }}" method="post" id="login-form" class="login-form">
             {% csrf_token %}
+
             <div class="form-group">
                 <label for="id_username">{% trans "Username" %}</label>
-                <input type="text" name="username" id="id_username" autofocus autocomplete="username" required>
+                <div class="input-wrapper">
+                    <i class="fa fa-envelope"></i>
+                    <input type="text" name="username" id="id_username" placeholder="Enter your username" autofocus autocomplete="username" required>
+                </div>
             </div>
+
             <div class="form-group">
                 <label for="id_password">{% trans "Password" %}</label>
-                <input type="password" name="password" id="id_password" autocomplete="current-password" required>
+                <div class="input-wrapper">
+                    <i class="fa fa-lock"></i>
+                    <input type="password" name="password" id="id_password" placeholder="Enter your password" autocomplete="current-password" required>
+                </div>
             </div>
+
+            <div class="form-extras">
+                <label class="remember-me">
+                    <input type="checkbox" name="remember" value="1">
+                    <span>Remember me</span>
+                </label>
+            </div>
+
             <input type="hidden" name="next" value="{{ next }}">
-            <button type="submit" class="login-btn">{% trans "Sign In" %}</button>
+
+            <button type="submit" class="login-btn">
+                <i class="fa fa-sign-in-alt"></i>
+                Sign In
+            </button>
         </form>
 
+        <!-- Footer -->
         <div class="login-footer">
-            <p>&copy; {% now "Y" %} TTEK SMS</p>
+            <p>Powered by <strong>TTEK SMS</strong></p>
         </div>
     </div>
 </div>
