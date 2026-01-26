@@ -691,8 +691,8 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
             Q(last_name__icontains=search) |
             Q(other_names__icontains=search) |
             Q(admission_number__icontains=search) |
-            Q(guardian_name__icontains=search)
-        )
+            Q(guardians__full_name__icontains=search)
+        ).distinct()
 
     # Apply sorting
     sort_options = {
@@ -2953,11 +2953,14 @@ def class_detail_pdf(request, pk):
     try:
         from weasyprint import HTML, CSS
         
+        # Use tenant (School) for branding/contact info, SchoolSettings for operational settings
+        school = school_ctx.get('school') or request.tenant
         context = {
             'class': class_obj,
             'students': students,
             'subjects': subjects,
-            'school_settings': school_ctx.get('school_settings'),
+            'school': school,
+            'school_settings': school,  # Use School model which has branding fields
             'logo_base64': school_ctx.get('logo_base64'),
             'generated_at': timezone.now(),
             'generated_by': request.user,
