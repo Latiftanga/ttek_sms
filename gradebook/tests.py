@@ -728,20 +728,22 @@ class ReportCardsStatusFilterTests(ReportCardsStatusFilterTestCase):
         self.client.login(email='admin@school.com', password='testpass123')
 
         # For active status, should see action buttons
+        # Note: Button text uses responsive spans, so we check for the visible text
         response = self.client.get(
             reverse('gradebook:reports'),
             {'class': self.test_class.pk, 'status': 'active'}
         )
-        self.assertContains(response, 'Enter Remarks')
-        self.assertContains(response, 'Distribute Reports')
+        self.assertContains(response, 'Remarks')  # Part of "Enter Remarks" button
+        self.assertContains(response, 'remarks/bulk')  # URL for remarks button
+        self.assertContains(response, 'distribute')  # URL for distribute button
 
         # For graduated status, should not see action buttons
         response = self.client.get(
             reverse('gradebook:reports'),
             {'class': self.test_class.pk, 'status': 'graduated'}
         )
-        self.assertNotContains(response, 'Enter Remarks')
-        self.assertNotContains(response, 'Distribute Reports')
+        self.assertNotContains(response, 'remarks/bulk')  # URL for remarks button
+        self.assertNotContains(response, 'reports/distribute')  # URL for distribute button
 
     def test_student_count_badge_correct(self):
         """Test that student count badge shows correct count."""

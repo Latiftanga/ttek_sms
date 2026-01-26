@@ -3733,6 +3733,8 @@ def update_student_electives(request, class_id, student_id):
 @login_required
 def bulk_assign_electives(request, class_id):
     """Bulk assign elective subjects to all students missing electives."""
+    import json
+    from django.db.models import Q
     from academics.models import Class, ClassSubject, StudentSubjectEnrollment
     from students.models import Student
 
@@ -3758,8 +3760,8 @@ def bulk_assign_electives(request, class_id):
             class_assigned=class_obj,
             subject__is_core=False
         ).filter(
-            models.Q(subject_id__in=programme_subject_ids) |
-            models.Q(subject__programmes__isnull=True)
+            Q(subject_id__in=programme_subject_ids) |
+            Q(subject__programmes__isnull=True)
         ).select_related('subject', 'teacher').distinct()
         required_electives = class_obj.programme.required_electives
     else:
