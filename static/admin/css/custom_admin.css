@@ -143,17 +143,34 @@ aside.bg-base-200 {
 
 #sidebar .menu a.active,
 .sidebar .menu a.active,
-#sidebar .menu a[aria-current="page"],
-.sidebar .menu a[aria-current="page"] {
-    background: oklch(var(--p) / 0.15) !important;
-    color: oklch(var(--p)) !important;
+#sidebar .menu a.menu-active,
+.sidebar .menu a.menu-active,
+.menu a.menu-active {
+    background: oklch(var(--p)) !important;
+    color: oklch(var(--pc)) !important;
     font-weight: 500;
+}
+
+/* Light theme - ensure dark text on primary bg */
+[data-theme="light"] #sidebar .menu a.menu-active,
+[data-theme="light"] .sidebar .menu a.menu-active,
+[data-theme="light"] .menu a.menu-active {
+    color: #1f2937 !important;
+}
+
+/* Dark theme - ensure light text on primary bg */
+[data-theme="dark"] #sidebar .menu a.menu-active,
+[data-theme="dark"] .sidebar .menu a.menu-active,
+[data-theme="dark"] .menu a.menu-active {
+    color: #f9fafb !important;
 }
 
 #sidebar .menu a.active i,
 .sidebar .menu a.active i,
-#sidebar .menu a[aria-current="page"] i {
-    color: oklch(var(--p)) !important;
+#sidebar .menu a.menu-active i,
+.sidebar .menu a.menu-active i,
+.menu a.menu-active i {
+    color: inherit !important;
 }
 
 #sidebar .menu i,
@@ -291,6 +308,13 @@ a.link-primary,
 /* Alerts - Subtle */
 .alert {
     border-radius: 12px;
+}
+
+/* Toast notifications - above everything */
+.toast,
+.alert-toast,
+[data-toast] {
+    z-index: 9999 !important;
 }
 
 /* Mobile */

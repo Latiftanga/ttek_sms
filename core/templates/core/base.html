@@ -27,9 +27,12 @@
 
     {% tailwind_css %}
     <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-    <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- HTMX (from django-htmx) -->
+    <script src="{% static 'django_htmx/htmx.min.js' %}"></script>
+    <script src="{% static 'js/htmx-preload.js' %}"></script>
+    <!-- Alpine.js - Collapse plugin must load before Alpine core -->
+    <script defer src="{% static 'js/alpine-collapse.min.js' %}"></script>
+    <script defer src="{% static 'js/alpine.min.js' %}"></script>
 
     <style>
         /* Prevent scrollbar shift when modals open */
