@@ -5,14 +5,24 @@
         <h3 class="text-xl font-bold">Enroll Students</h3>
         <p class="text-xs text-base-content/60">Select students to add to {{ class.name }}</p>
     </div>
-    
-    <label class="input input-bordered input-sm flex items-center gap-2 w-full sm:w-64">
-        <input type="text" 
-               class="grow" 
-               placeholder="Search name or ID..." 
-               onkeyup="filterTable(this.value)" />
-        <i class="fa-solid fa-search opacity-70"></i>
-    </label>
+
+    <div class="flex items-center gap-2 w-full sm:w-auto">
+        <!-- Gender Filter -->
+        <div class="join">
+            <button type="button" class="join-item btn btn-sm btn-active" onclick="filterGender('')" data-gender="">All</button>
+            <button type="button" class="join-item btn btn-sm" onclick="filterGender('Male')" data-gender="Male">Boys</button>
+            <button type="button" class="join-item btn btn-sm" onclick="filterGender('Female')" data-gender="Female">Girls</button>
+        </div>
+
+        <label class="input input-bordered input-sm flex items-center gap-2 flex-1 sm:w-48">
+            <input type="text"
+                   id="search-input"
+                   class="grow"
+                   placeholder="Search..."
+                   onkeyup="applyFilters()" />
+            <i class="fa-solid fa-search opacity-70"></i>
+        </label>
+    </div>
 </div>
 
 <form method="post"
@@ -49,13 +59,13 @@
                     </thead>
                     <tbody>
                         {% for student in form.students.field.queryset %}
-                        <tr class="hover cursor-pointer" onclick="toggleRow(this)">
+                        <tr class="hover cursor-pointer" onclick="toggleRow(this)" data-gender="{{ student.get_gender_display }}">
                             <td>
                                 <label>
-                                    <input type="checkbox" 
-                                           name="students" 
-                                           value="{{ student.pk }}" 
-                                           class="checkbox checkbox-sm student-check" 
+                                    <input type="checkbox"
+                                           name="students"
+                                           value="{{ student.pk }}"
+                                           class="checkbox checkbox-sm student-check"
                                            onclick="event.stopPropagation(); updateCount()" />
                                 </label>
                             </td>
@@ -70,7 +80,7 @@
                                 </div>
                             </td>
                             <td class="font-mono text-xs student-id">{{ student.admission_number }}</td>
-                            <td>{{ student.get_gender_display }}</td>
+                            <td class="student-gender">{{ student.get_gender_display }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -105,18 +115,37 @@
 </form>
 
 <script>
-    function filterTable(query) {
+    let currentGender = '';
+
+    function filterGender(gender) {
+        currentGender = gender;
+        // Update button states
+        document.querySelectorAll('[data-gender]').forEach(btn => {
+            btn.classList.remove('btn-active');
+            if (btn.dataset.gender === gender) {
+                btn.classList.add('btn-active');
+            }
+        });
+        applyFilters();
+    }
+
+    function applyFilters() {
         const table = document.getElementById('enroll-table');
         const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
         const noResults = document.getElementById('no-results');
-        const lowerQuery = query.toLowerCase();
+        const searchInput = document.getElementById('search-input');
+        const query = searchInput ? searchInput.value.toLowerCase() : '';
         let visibleCount = 0;
 
         for (let row of rows) {
             const name = row.querySelector('.student-name').textContent.toLowerCase();
             const id = row.querySelector('.student-id').textContent.toLowerCase();
-            
-            if (name.includes(lowerQuery) || id.includes(lowerQuery)) {
+            const gender = row.dataset.gender || '';
+
+            const matchesSearch = !query || name.includes(query) || id.includes(query);
+            const matchesGender = !currentGender || gender === currentGender;
+
+            if (matchesSearch && matchesGender) {
                 row.style.display = "";
                 visibleCount++;
             } else {
