@@ -5,7 +5,7 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db import models, transaction
 from django.contrib import messages
-from core.utils import cache_page_per_tenant, requires_programmes, requires_houses
+from core.utils import cache_page_per_tenant, requires_programmes
 
 from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, AttendanceRecord, Period, TimetableEntry, StudentSubjectEnrollment
 from .forms import ProgrammeForm, ClassForm, SubjectForm, StudentEnrollmentForm, ClassSubjectForm
@@ -128,7 +128,7 @@ def get_academics_context():
 @cache_page_per_tenant(timeout=300)  # Cache for 5 minutes
 def index(request):
     """Academics dashboard page - Admin only. Cached for 5 minutes."""
-    from django.db.models import Count, Q, Avg
+    from django.db.models import Count, Q
     from core.models import Term
 
     current_term = Term.get_current()
@@ -784,7 +784,7 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
 
 def get_teachers_tab_context(class_obj):
     """Context for the Teachers/Subjects tab with periods calculated from timetable."""
-    from django.db.models import Count, Case, When, IntegerField, Sum
+    from django.db.models import Case, When, IntegerField, Sum
 
     # Get subject allocations with period counts from timetable
     subject_allocations = ClassSubject.objects.filter(
@@ -1252,9 +1252,6 @@ def class_attendance_take(request, pk):
     Opens the attendance sheet for a specific date (defaults to today).
     Handles saving the records.
     """
-    from teachers.models import Teacher
-    from django.contrib import messages
-
     class_obj = get_object_or_404(Class, pk=pk)
     user = request.user
     is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
@@ -1403,8 +1400,6 @@ def class_promote(request, pk):
     ).select_related('current_class').order_by('last_name', 'first_name')
 
     if request.method == 'POST':
-        from django.contrib import messages
-
         promoted_count = 0
         repeated_count = 0
         graduated_count = 0
@@ -1792,9 +1787,8 @@ def classes_bulk_export(request):
 @teacher_or_admin_required
 def attendance_reports(request):
     """Attendance reports with filters."""
-    from django.db.models import Count, Q, F
+    from django.db.models import Count, Q
     from datetime import timedelta
-    from teachers.models import Teacher
 
     user = request.user
     is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
@@ -1860,8 +1854,6 @@ def attendance_reports(request):
         attendance_rate = round((present_count / total_records) * 100, 1)
 
     # Summary by class - use aggregated queries instead of N+1
-    from django.db.models import Count, Q, Case, When, IntegerField
-
     # Get attendance stats per class in a single query
     class_stats = records.values('session__class_assigned_id').annotate(
         total=Count('id'),
@@ -2364,7 +2356,7 @@ def notify_absent_parents(request):
                 sent_count += 1
             else:
                 failed_count += 1
-        except Exception as e:
+        except Exception:
             failed_count += 1
 
     if sent_count > 0:
@@ -2951,8 +2943,8 @@ def class_detail_pdf(request, pk):
 
     # Generate PDF using WeasyPrint
     try:
-        from weasyprint import HTML, CSS
-        
+        from weasyprint import HTML
+
         # Use tenant (School) for branding/contact info, SchoolSettings for operational settings
         school = school_ctx.get('school') or request.tenant
         context = {
@@ -2982,7 +2974,6 @@ def class_detail_pdf(request, pk):
         messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
         return redirect('academics:class_detail', pk=pk)
     except Exception as e:
-        import traceback
         logger.error(f"Failed to generate class PDF: {str(e)}")
         messages.error(request, f'Failed to generate PDF: {str(e)}')
         return redirect('academics:class_detail', pk=pk)
