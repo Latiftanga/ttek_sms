@@ -333,6 +333,24 @@ class Student(models.Model):
         sg = self.student_guardians.filter(is_primary=True).select_related('guardian').first()
         return sg.guardian if sg else None
 
+    @property
+    def guardian_name(self):
+        """Backward compatible property for primary guardian's name."""
+        guardian = self.get_primary_guardian()
+        return guardian.full_name if guardian else None
+
+    @property
+    def guardian_phone(self):
+        """Backward compatible property for primary guardian's phone."""
+        guardian = self.get_primary_guardian()
+        return guardian.phone_number if guardian else None
+
+    @property
+    def guardian_email(self):
+        """Backward compatible property for primary guardian's email."""
+        guardian = self.get_primary_guardian()
+        return guardian.email if guardian else None
+
     def get_guardians_with_relationships(self):
         """Return all guardians with their relationship info."""
         return self.student_guardians.select_related('guardian').all()

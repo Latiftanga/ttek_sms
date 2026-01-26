@@ -147,9 +147,12 @@
                         {% if school_settings.motto %}
                         <p style="font-style: italic;">"{{ school_settings.motto }}"</p>
                         {% endif %}
-                        <!-- Fallback address info if available in context, otherwise generic -->
-                        <p>{{ school.address|default:school_settings.address|default:"" }}</p>
-                        <p>{{ school.phone|default:school_settings.phone|default:"" }} | {{ school.email|default:school_settings.email|default:"" }}</p>
+                        {% if school_settings.address %}
+                        <p>{{ school_settings.address }}</p>
+                        {% endif %}
+                        {% if school_settings.phone or school_settings.email %}
+                        <p>{{ school_settings.phone|default:"" }}{% if school_settings.phone and school_settings.email %} | {% endif %}{{ school_settings.email|default:"" }}</p>
+                        {% endif %}
                     </div>
                 </td>
                 <td style="width: 150px; border: none; text-align: right; vertical-align: top;">

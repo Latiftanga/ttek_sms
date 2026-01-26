@@ -219,25 +219,28 @@
 
                 <!-- Desktop Filters -->
                 <div class="hidden sm:flex items-center gap-2">
-                    <div class="join">
-                        <input type="radio" name="gender" value="" class="join-item btn btn-sm"
-                               aria-label="All" :checked="gender === ''"
-                               @change="gender = ''"
+                    <div class="join" id="gender-filter-desktop">
+                        <button type="button" class="join-item btn btn-sm {% if not gender_filter %}btn-active{% endif %}"
+                               data-gender=""
                                hx-get="{% url 'academics:class_register' class.pk %}"
                                hx-target="#tab-register"
-                               hx-include="[name='q'], [name='sort']" />
-                        <input type="radio" name="gender" value="M" class="join-item btn btn-sm"
-                               aria-label="Boys" :checked="gender === 'M'"
-                               @change="gender = 'M'"
+                               hx-vals='{"gender": ""}'
+                               hx-include="[name='q'], [name='sort']"
+                               hx-on::after-request="updateGenderButtons('')">All</button>
+                        <button type="button" class="join-item btn btn-sm {% if gender_filter == 'M' %}btn-active{% endif %}"
+                               data-gender="M"
                                hx-get="{% url 'academics:class_register' class.pk %}"
                                hx-target="#tab-register"
-                               hx-include="[name='q'], [name='sort']" />
-                        <input type="radio" name="gender" value="F" class="join-item btn btn-sm"
-                               aria-label="Girls" :checked="gender === 'F'"
-                               @change="gender = 'F'"
+                               hx-vals='{"gender": "M"}'
+                               hx-include="[name='q'], [name='sort']"
+                               hx-on::after-request="updateGenderButtons('M')">Boys</button>
+                        <button type="button" class="join-item btn btn-sm {% if gender_filter == 'F' %}btn-active{% endif %}"
+                               data-gender="F"
                                hx-get="{% url 'academics:class_register' class.pk %}"
                                hx-target="#tab-register"
-                               hx-include="[name='q'], [name='sort']" />
+                               hx-vals='{"gender": "F"}'
+                               hx-include="[name='q'], [name='sort']"
+                               hx-on::after-request="updateGenderButtons('F')">Girls</button>
                     </div>
                     <select name="sort" class="select select-sm select-bordered"
                             x-model="sort"
@@ -254,25 +257,28 @@
 
             <!-- Mobile Filters (collapsible) -->
             <div class="sm:hidden mt-2 flex items-center gap-2" x-show="showFilters" x-collapse>
-                <div class="join flex-1">
-                    <input type="radio" name="gender" value="" class="join-item btn btn-sm flex-1"
-                           aria-label="All" :checked="gender === ''"
-                           @change="gender = ''"
+                <div class="join flex-1" id="gender-filter-mobile">
+                    <button type="button" class="join-item btn btn-sm flex-1 {% if not gender_filter %}btn-active{% endif %}"
+                           data-gender=""
                            hx-get="{% url 'academics:class_register' class.pk %}"
                            hx-target="#tab-register"
-                           hx-include="[name='q'], [name='sort']" />
-                    <input type="radio" name="gender" value="M" class="join-item btn btn-sm flex-1"
-                           aria-label="Boys" :checked="gender === 'M'"
-                           @change="gender = 'M'"
+                           hx-vals='{"gender": ""}'
+                           hx-include="[name='q'], [name='sort']"
+                           hx-on::after-request="updateGenderButtons('')">All</button>
+                    <button type="button" class="join-item btn btn-sm flex-1 {% if gender_filter == 'M' %}btn-active{% endif %}"
+                           data-gender="M"
                            hx-get="{% url 'academics:class_register' class.pk %}"
                            hx-target="#tab-register"
-                           hx-include="[name='q'], [name='sort']" />
-                    <input type="radio" name="gender" value="F" class="join-item btn btn-sm flex-1"
-                           aria-label="Girls" :checked="gender === 'F'"
-                           @change="gender = 'F'"
+                           hx-vals='{"gender": "M"}'
+                           hx-include="[name='q'], [name='sort']"
+                           hx-on::after-request="updateGenderButtons('M')">Boys</button>
+                    <button type="button" class="join-item btn btn-sm flex-1 {% if gender_filter == 'F' %}btn-active{% endif %}"
+                           data-gender="F"
                            hx-get="{% url 'academics:class_register' class.pk %}"
                            hx-target="#tab-register"
-                           hx-include="[name='q'], [name='sort']" />
+                           hx-vals='{"gender": "F"}'
+                           hx-include="[name='q'], [name='sort']"
+                           hx-on::after-request="updateGenderButtons('F')">Girls</button>
                 </div>
                 <select name="sort" class="select select-sm select-bordered"
                         x-model="sort"
@@ -324,4 +330,14 @@
     document.body.addEventListener('closeModal', function() {
         document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
     });
+
+    // Update gender filter button active states
+    function updateGenderButtons(activeGender) {
+        document.querySelectorAll('#gender-filter-desktop button, #gender-filter-mobile button').forEach(btn => {
+            btn.classList.remove('btn-active');
+            if (btn.dataset.gender === activeGender) {
+                btn.classList.add('btn-active');
+            }
+        });
+    }
 </script>
