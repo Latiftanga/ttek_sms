@@ -88,20 +88,42 @@ class GradingSystem(models.Model):
             return False
         return Decimal(str(score)) >= self.credit_mark
 
-    def get_grade_for_score(self, score):
-        """Look up the grade for a given score."""
+    def get_grade_for_score(self, score, grade_scales=None):
+        """
+        Look up the grade for a given score.
+
+        Args:
+            score: The score to look up
+            grade_scales: Optional pre-fetched list of GradeScale objects (for efficiency).
+                         If not provided, will query the database.
+        """
         if score is None:
             return None
+
+        # Use prefetched scales if provided (O(n) lookup, but avoids DB query)
+        if grade_scales is not None:
+            score_decimal = Decimal(str(score))
+            for scale in grade_scales:
+                if scale.min_percentage <= score_decimal <= scale.max_percentage:
+                    return scale
+            return None
+
+        # Fallback to database query (for backwards compatibility)
         return self.scales.filter(
             min_percentage__lte=score,
             max_percentage__gte=score
         ).first()
 
-    def calculate_aggregate(self, subject_grades):
+    def calculate_aggregate(self, subject_grades, grade_scales=None):
         """
         Calculate WASSCE-style aggregate from best N subjects.
         Returns tuple of (aggregate_points, subjects_used).
         Lower aggregate is better (best possible = 6 for 6 subjects with A1).
+
+        Args:
+            subject_grades: List of SubjectTermGrade objects
+            grade_scales: Optional pre-fetched list of GradeScale objects.
+                         If not provided, will fetch once at the start (optimized).
         """
         # Get grades with aggregate points, sorted by points (best first)
         grades_with_points = [
@@ -112,10 +134,14 @@ class GradingSystem(models.Model):
         if not grades_with_points:
             return None, []
 
-        # Get aggregate points for each grade
+        # Prefetch grade scales once if not provided (optimization: single query)
+        if grade_scales is None:
+            grade_scales = list(self.scales.all().order_by('-min_percentage'))
+
+        # Get aggregate points for each grade (now O(n*m) in memory, no DB queries)
         grade_points = []
         for sg in grades_with_points:
-            grade_scale = self.get_grade_for_score(sg.total_score)
+            grade_scale = self.get_grade_for_score(sg.total_score, grade_scales)
             if grade_scale and grade_scale.aggregate_points:
                 grade_points.append({
                     'subject_grade': sg,

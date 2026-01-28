@@ -95,13 +95,48 @@ def guardian_create(request):
 @admin_required
 def guardian_edit(request, pk):
     """Edit a guardian."""
-    guardian = get_object_or_404(Guardian, pk=pk)
+    guardian = get_object_or_404(
+        Guardian.objects.prefetch_related(
+            'guardian_students__student__current_class',
+            'invitations'
+        ).select_related('user'),
+        pk=pk
+    )
     if request.method == 'POST':
         form = GuardianForm(request.POST, instance=guardian)
         if form.is_valid():
             form.save()
             messages.success(request, f'Guardian "{guardian.full_name}" updated successfully.')
             if request.htmx:
+                # Check if request came from the detail page (has referer with guardian detail)
+                referer = request.META.get('HTTP_REFERER', '')
+                if f'/students/guardians/{pk}/' in referer:
+                    # Render the updated detail content with OOB swap
+                    from students.models import GuardianInvitation
+                    wards = guardian.guardian_students.select_related(
+                        'student__current_class'
+                    ).order_by('-is_primary', 'student__last_name')
+                    pending_invitation = guardian.invitations.filter(
+                        status=GuardianInvitation.Status.PENDING
+                    ).first()
+                    context = {
+                        'guardian': guardian,
+                        'wards': wards,
+                        'pending_invitation': pending_invitation,
+                        'breadcrumbs': [
+                            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+                            {'label': 'Guardians', 'url': '/students/guardians/'},
+                            {'label': guardian.full_name},
+                        ],
+                        'back_url': '/students/guardians/',
+                    }
+                    response = render(
+                        request,
+                        'students/partials/guardian_detail_content_oob.html',
+                        context
+                    )
+                    response['HX-Trigger'] = 'guardianChanged'
+                    return response
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'guardianChanged'
                 return response

@@ -11,6 +11,7 @@
                 <a href="{{ back_url|default:'/students/' }}"
                    hx-get="{{ back_url|default:'/students/' }}"
                    hx-target="#main-content"
+                   hx-swap="innerHTML"
                    hx-push-url="true"
                    class="btn btn-ghost btn-sm btn-circle"
                    title="Go back">

@@ -8,6 +8,7 @@ import logging
 import threading
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
@@ -15,11 +16,76 @@ from .models import (
     Score, SubjectTermGrade, TermReport,
     AssessmentCategory, Assignment, GradingSystem
 )
+from .utils import (
+    calculate_category_scores,
+    determine_grade_from_scales,
+    build_assignments_lookup,
+    build_scores_lookup,
+)
 
 logger = logging.getLogger(__name__)
 
 # Thread-local storage for signal disabling (thread-safe)
 _thread_locals = threading.local()
+
+# Cache timeout for grading system lookup (5 minutes)
+GRADING_SYSTEM_CACHE_TIMEOUT = 300
+
+
+def get_grading_system_cached(level):
+    """
+    Get grading system with caching to avoid repeated queries during rapid score entry.
+
+    Args:
+        level: 'SHS' or 'BASIC'
+
+    Returns:
+        GradingSystem instance or None
+    """
+    cache_key = f'grading_system_{level}'
+    grading_system = cache.get(cache_key)
+
+    if grading_system is None:
+        grading_system = GradingSystem.objects.filter(
+            level=level,
+            is_active=True
+        ).first()
+
+        # Also try fallback if level-specific not found
+        if not grading_system:
+            grading_system = GradingSystem.objects.filter(is_active=True).first()
+            cache_key = 'grading_system_fallback'
+
+        # Cache the result (even if None, to avoid repeated queries)
+        # Use a sentinel value for None since cache.get returns None for missing keys
+        cache.set(cache_key, grading_system if grading_system else 'NONE', GRADING_SYSTEM_CACHE_TIMEOUT)
+    elif grading_system == 'NONE':
+        grading_system = None
+
+    return grading_system
+
+
+def get_grade_scales_cached(grading_system):
+    """
+    Get grade scales for a grading system with caching.
+
+    Args:
+        grading_system: GradingSystem instance
+
+    Returns:
+        List of GradeScale objects ordered by -min_percentage
+    """
+    if not grading_system:
+        return []
+
+    cache_key = f'grade_scales_{grading_system.pk}'
+    grade_scales = cache.get(cache_key)
+
+    if grade_scales is None:
+        grade_scales = list(grading_system.scales.all().order_by('-min_percentage'))
+        cache.set(cache_key, grade_scales, GRADING_SYSTEM_CACHE_TIMEOUT)
+
+    return grade_scales
 
 
 def _is_signals_disabled():
@@ -56,7 +122,7 @@ def recalculate_subject_grade(student, subject, term):
     Recalculate SubjectTermGrade for a student/subject/term.
 
     This is called when a score changes to update the aggregated grade.
-    Supports multiple assessment categories with dynamic score storage.
+    Uses the consolidated calculate_category_scores utility to avoid duplication.
     """
     if _is_signals_disabled():
         return
@@ -70,7 +136,7 @@ def recalculate_subject_grade(student, subject, term):
         )
 
         # Get active categories ordered by display order
-        categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
+        categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
 
         # Prefetch all assignments for this subject/term (single query)
         all_assignments = list(Assignment.objects.filter(
@@ -78,106 +144,50 @@ def recalculate_subject_grade(student, subject, term):
             term=term
         ).select_related('assessment_category'))
 
-        # Get all assignment IDs for score lookup
-        assignment_ids = [a.pk for a in all_assignments]
+        # Build lookups using shared utilities
+        assignments_lookup = build_assignments_lookup(all_assignments)
 
-        # Prefetch all scores for this student and these assignments (single query)
-        scores_by_assignment = {}
+        # Prefetch all scores for this student
+        assignment_ids = [a.pk for a in all_assignments]
+        scores = []
         if assignment_ids:
-            student_scores = Score.objects.filter(
+            scores = list(Score.objects.filter(
                 student=student,
                 assignment_id__in=assignment_ids
-            )
-            for score in student_scores:
-                scores_by_assignment[score.assignment_id] = score
+            ))
+        scores_lookup = build_scores_lookup(scores)
 
-        # Group assignments by category
-        assignments_by_category = {}
-        for assignment in all_assignments:
-            cat_id = assignment.assessment_category_id
-            if cat_id not in assignments_by_category:
-                assignments_by_category[cat_id] = []
-            assignments_by_category[cat_id].append(assignment)
+        # Use consolidated calculation utility
+        calc_result = calculate_category_scores(
+            student_id=student.id,
+            subject_id=subject.id,
+            categories=categories,
+            assignments_by_subject_category=assignments_lookup,
+            scores_lookup=scores_lookup
+        )
 
-        # Calculate scores
-        category_totals = {}
-        category_scores_json = {}
-        total = Decimal('0.0')
-        class_score_total = Decimal('0.0')
-        exam_score_total = Decimal('0.0')
+        # Apply results to grade object
+        grade.category_scores = calc_result['category_scores_json']
+        grade.class_score = calc_result['class_score']
+        grade.exam_score = calc_result['exam_score']
+        grade.total_score = calc_result['total_score']
 
-        for category in categories:
-            category_assignments = assignments_by_category.get(category.pk, [])
-
-            if not category_assignments:
-                continue
-
-            # Calculate weight per assignment
-            assignment_count = len(category_assignments)
-            weight_per_assignment = Decimal(str(category.percentage)) / Decimal(str(assignment_count))
-            category_total = Decimal('0.0')
-
-            for assignment in category_assignments:
-                score = scores_by_assignment.get(assignment.pk)
-
-                if score and score.points is not None:
-                    score_pct = Decimal(str(score.points)) / Decimal(str(assignment.points_possible))
-                    category_total += score_pct * weight_per_assignment
-
-            rounded_total = round(category_total, 2)
-
-            # Store in JSON format for dynamic category support
-            category_scores_json[str(category.pk)] = {
-                'score': float(rounded_total),
-                'short_name': category.short_name,
-                'name': category.name,
-                'percentage': category.percentage,
-                'category_type': category.category_type,
-                'order': category.order,
-            }
-
-            # Store by short_name for backwards compatibility
-            category_totals[category.short_name] = rounded_total
-            total += category_total
-
-            # Aggregate by category type for legacy fields
-            if category.category_type == 'CLASS_SCORE':
-                class_score_total += category_total
-            elif category.category_type == 'EXAM':
-                exam_score_total += category_total
-
-        # Store dynamic category scores
-        grade.category_scores = category_scores_json
-
-        # Store legacy fields (aggregated by category_type)
-        grade.class_score = round(class_score_total, 2)
-        grade.exam_score = round(exam_score_total, 2)
-        grade.total_score = round(total, 2)
-
-        # Determine grade from grading system
-        # Try to get appropriate grading system based on student's class level
+        # Determine grade from grading system (cached lookup for efficiency)
         grading_system = None
         if student.current_class:
             level = 'SHS' if student.current_class.level_type == 'shs' else 'BASIC'
-            grading_system = GradingSystem.objects.filter(
-                level=level,
-                is_active=True
-            ).first()
+            grading_system = get_grading_system_cached(level)
+        else:
+            grading_system = get_grading_system_cached('BASIC')
 
-        if not grading_system:
-            grading_system = GradingSystem.objects.filter(is_active=True).first()
-
+        # Use consolidated grade lookup utility (with cached grade scales)
         grade.is_passing = False
         if grading_system and grade.total_score is not None:
-            scale = grading_system.scales.filter(
-                min_percentage__lte=grade.total_score,
-                max_percentage__gte=grade.total_score
-            ).first()
-
-            if scale:
-                grade.grade = scale.grade_label
-                grade.grade_remark = scale.interpretation
-                grade.is_passing = scale.is_pass
+            grade_scales = get_grade_scales_cached(grading_system)
+            grade_info = determine_grade_from_scales(grade.total_score, grade_scales)
+            grade.grade = grade_info['grade']
+            grade.grade_remark = grade_info['grade_remark']
+            grade.is_passing = grade_info['is_passing']
 
         grade.save()
 

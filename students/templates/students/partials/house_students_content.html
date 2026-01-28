@@ -1,160 +1,171 @@
 {% load core_tags %}
-<div class="space-y-4">
+<div class="space-y-4" id="house-students-list"
+     hx-get="{% url 'students:house_students' house.pk %}"
+     hx-trigger="studentChanged from:body"
+     hx-target="this"
+     hx-swap="outerHTML transition:true">
     <!-- Page Header -->
-    <div class="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-            {% if breadcrumbs %}
-            <div class="mb-2">
-                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'students:houses' %}"
+               hx-get="{% url 'students:houses' %}"
+               hx-target="#main-content"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-circle shrink-0"
+               title="Back to Houses">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm shrink-0"
+                 style="background-color: {{ house.color_code|default:'#6b7280' }}">
+                {{ house.name|slice:":1"|upper }}
             </div>
-            {% endif %}
-            <div class="flex items-center gap-3">
-                <a href="{% url 'students:houses' %}"
-                   hx-get="{% url 'students:houses' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-ghost btn-sm btn-circle"
-                   title="Back to Houses">
-                    <i class="fa-solid fa-arrow-left"></i>
-                </a>
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
-                         style="background-color: {{ house.color_code|default:'#6b7280' }}">
-                        {{ house.name|slice:":1"|upper }}
-                    </div>
-                    <div>
-                        <h1 class="text-xl font-bold">{{ house.name }}</h1>
-                        <p class="text-sm text-base-content/60">
-                            {{ students|length }} student{{ students|length|pluralize }}
-                            {% if housemaster %}&middot; {{ housemaster.full_name }}{% endif %}
-                        </p>
-                    </div>
-                </div>
+            <div class="min-w-0">
+                <h1 class="text-lg sm:text-xl font-bold truncate">{{ house.name }}</h1>
+                <p class="text-xs text-base-content/60">
+                    {{ students|length }} student{{ students|length|pluralize }}
+                    {% if housemaster %}<span class="hidden xs:inline">• {{ housemaster.full_name }}</span>{% endif %}
+                </p>
             </div>
         </div>
 
         <!-- Export Buttons -->
-        <div class="flex gap-2">
+        <div class="flex items-center gap-2">
             <a href="{% url 'students:house_students_pdf' house.pk %}"
-               class="btn btn-sm btn-outline">
+               class="btn btn-sm btn-outline gap-1">
                 <i class="fa-solid fa-file-pdf text-error"></i>
-                <span class="hidden sm:inline">PDF</span>
+                <span class="hidden xs:inline">PDF</span>
             </a>
             <a href="{% url 'students:house_students_excel' house.pk %}"
-               class="btn btn-sm btn-outline">
+               class="btn btn-sm btn-outline gap-1">
                 <i class="fa-solid fa-file-excel text-success"></i>
-                <span class="hidden sm:inline">Excel</span>
+                <span class="hidden xs:inline">Excel</span>
             </a>
         </div>
     </div>
 
-    <!-- House Info Card -->
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-3 gap-2">
+        <div class="bg-base-100 rounded-lg shadow-sm border border-base-200 p-3 text-center">
+            <div class="text-lg font-bold text-primary">{{ students|length }}</div>
+            <div class="text-xs text-base-content/60">Students</div>
+        </div>
+        <div class="bg-blue-50 rounded-lg border border-blue-200 p-3 text-center">
+            <div class="text-lg font-bold text-blue-600">{{ male_count|default:0 }}</div>
+            <div class="text-xs text-blue-600/80">Male</div>
+        </div>
+        <div class="bg-pink-50 rounded-lg border border-pink-200 p-3 text-center">
+            <div class="text-lg font-bold text-pink-600">{{ female_count|default:0 }}</div>
+            <div class="text-xs text-pink-600/80">Female</div>
+        </div>
+    </div>
+
+    <!-- House Info (collapsed on mobile) -->
+    {% if housemaster or house.motto %}
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex flex-wrap gap-4 text-sm">
-                <div>
-                    <span class="text-base-content/50">Total Students:</span>
-                    <span class="font-semibold ml-1">{{ students|length }}</span>
-                </div>
+        <div class="card-body p-3">
+            <div class="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                 {% if housemaster %}
-                <div>
-                    <span class="text-base-content/50">Housemaster:</span>
-                    <span class="font-semibold ml-1">{{ housemaster.full_name }}</span>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-user-tie text-base-content/40"></i>
+                    <span class="font-medium">{{ housemaster.full_name }}</span>
+                    {% if housemaster.phone_number %}
+                    <span class="text-xs text-base-content/60 font-mono hidden xs:inline">{{ housemaster.phone_number }}</span>
+                    {% endif %}
                 </div>
                 {% endif %}
                 {% if house.motto %}
-                <div>
-                    <span class="text-base-content/50">Motto:</span>
-                    <span class="italic ml-1">"{{ house.motto }}"</span>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-quote-left text-base-content/40"></i>
+                    <span class="italic text-base-content/70">"{{ house.motto }}"</span>
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Students List -->
     {% if students %}
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="overflow-x-auto">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>S/N</th>
-                            <th>Admission No</th>
-                            <th>Name</th>
-                            <th>Gender</th>
-                            <th>Class</th>
-                            <th>Guardian</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for student in students %}
-                        <tr class="hover">
-                            <td class="text-base-content/50">{{ forloop.counter }}</td>
-                            <td class="font-mono text-xs">{{ student.admission_number }}</td>
-                            <td>
-                                <div class="flex items-center gap-2">
-                                    <div class="avatar placeholder">
-                                        <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center">
-                                            {% if student.photo %}
-                                            <img src="{{ student.photo.url }}" alt="" class="rounded-full" />
-                                            {% else %}
-                                            <span class="text-xs font-medium">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    <span class="font-medium">{{ student.full_name }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                {% if student.gender == 'M' %}
-                                <span class="badge badge-info badge-xs">Male</span>
-                                {% elif student.gender == 'F' %}
-                                <span class="badge badge-secondary badge-xs">Female</span>
-                                {% else %}
-                                <span class="text-base-content/30">-</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ student.current_class.name|default:"-" }}</td>
-                            <td class="text-xs">
-                                {% with guardian=student.get_primary_guardian %}
-                                {% if guardian %}
-                                {{ guardian.full_name }}
-                                {% if guardian.phone_number %}
-                                <br><span class="text-base-content/50">{{ guardian.phone_number }}</span>
-                                {% endif %}
-                                {% else %}
-                                <span class="text-base-content/30">-</span>
-                                {% endif %}
-                                {% endwith %}
-                            </td>
-                            <td>
-                                <a href="{% url 'students:student_detail' student.pk %}"
-                                   hx-get="{% url 'students:student_detail' student.pk %}"
-                                   hx-target="#main-content"
-                                   hx-push-url="true"
-                                   class="btn btn-ghost btn-xs">
-                                    <i class="fa-solid fa-eye"></i>
-                                </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+        <div class="divide-y divide-base-200">
+            {% for student in students %}
+            <a href="{% url 'students:student_detail' student.pk %}"
+               hx-get="{% url 'students:student_detail' student.pk %}"
+               hx-target="#main-content"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors group">
+
+                <!-- Avatar with gender color -->
+                <div class="avatar placeholder shrink-0">
+                    <div class="w-11 h-11 rounded-full {{ student.gender|yesno:'bg-blue-100 text-blue-600,bg-pink-100 text-pink-600' }} flex items-center justify-center">
+                        {% if student.photo %}
+                        <img src="{{ student.photo.url }}" alt="" class="w-full h-full object-cover rounded-full" loading="lazy" />
+                        {% else %}
+                        <span class="text-sm font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                            {{ student.full_name }}
+                        </h3>
+                        {% if student.gender == 'M' %}
+                        <i class="fa-solid fa-mars text-blue-500 text-xs shrink-0"></i>
+                        {% elif student.gender == 'F' %}
+                        <i class="fa-solid fa-venus text-pink-500 text-xs shrink-0"></i>
+                        {% endif %}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                        <span class="font-mono">{{ student.admission_number }}</span>
+                        {% if student.current_class %}
+                        <span class="hidden xs:inline">•</span>
+                        <span class="hidden xs:inline">{{ student.current_class.name }}</span>
+                        {% endif %}
+                        {% with guardian=student.get_primary_guardian %}
+                        {% if guardian %}
+                        <span class="hidden sm:inline">•</span>
+                        <span class="hidden sm:inline truncate max-w-[150px]">{{ guardian.full_name }}</span>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+
+                <!-- Chevron -->
+                <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
+            </a>
+            {% endfor %}
         </div>
     </div>
     {% else %}
+    <!-- Empty State -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body">
-            <div class="text-center py-8 text-base-content/40">
-                <i class="fa-solid fa-users text-4xl mb-3"></i>
-                <p class="text-sm">No students in this house</p>
-                <p class="text-xs">Assign students to {{ house.name }} to see them here</p>
+        <div class="card-body py-12">
+            <div class="text-center">
+                <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-users text-2xl text-base-content/30"></i>
+                </div>
+                <h3 class="font-bold text-lg mb-1">No students in this house</h3>
+                <p class="text-sm text-base-content/60 mb-4">Assign students to {{ house.name }} to see them here</p>
+                <a href="{% url 'students:index' %}"
+                   hx-get="{% url 'students:index' %}"
+                   hx-target="#main-content"
+                   hx-swap="innerHTML"
+                   hx-push-url="true"
+                   class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-users"></i> View All Students
+                </a>
             </div>
         </div>
     </div>
     {% endif %}
 </div>
+
+<style>
+    #house-students-list.htmx-swapping { opacity: 0.5; transition: opacity 150ms ease-out; }
+    #house-students-list.htmx-settling { opacity: 1; transition: opacity 150ms ease-in; }
+</style>

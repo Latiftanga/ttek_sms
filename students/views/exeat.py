@@ -2,7 +2,7 @@
 import logging
 from functools import wraps
 
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -12,6 +12,7 @@ from django.utils import timezone
 from core.models import AcademicYear
 from ..models import Exeat, HouseMaster, Student
 from ..forms import ExeatForm, HouseMasterForm
+from .utils import admin_required, is_school_admin
 
 logger = logging.getLogger(__name__)
 
@@ -247,11 +248,6 @@ def send_exeat_return_sms(exeat, user=None):
         return SMSResult(SMSResult.ERROR, error=str(e))
 
 
-def is_school_admin(user):
-    """Check if user is a school admin or superuser."""
-    return user.is_superuser or getattr(user, 'is_school_admin', False)
-
-
 def get_teacher_profile(user):
     """Get the teacher profile for a user if they are a teacher."""
     if getattr(user, 'is_teacher', False):
@@ -297,26 +293,6 @@ def housemaster_required(view_func):
             if getattr(request, 'htmx', None):
                 return HttpResponse(
                     '<div class="text-error text-sm p-2">Access denied. Housemaster role required.</div>',
-                    status=403
-                )
-            messages.error(request, "You don't have permission to access this page.")
-            return redirect('core:index')
-        return view_func(request, *args, **kwargs)
-    return _wrapped_view
-
-
-def admin_required(view_func):
-    """Decorator to require school admin or superuser access."""
-    @wraps(view_func)
-    def _wrapped_view(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            if getattr(request, 'htmx', None):
-                return HttpResponse(status=401)
-            return redirect('accounts:login')
-        if not is_school_admin(request.user):
-            if getattr(request, 'htmx', None):
-                return HttpResponse(
-                    '<div class="text-error text-sm p-2">Access denied. Admin role required.</div>',
                     status=403
                 )
             messages.error(request, "You don't have permission to access this page.")
@@ -393,21 +369,19 @@ def exeat_index(request):
             Q(destination__icontains=search)
         )
 
-    # Stats - filtered by house for regular housemasters
+    # Stats - filtered by house for regular housemasters (single query with aggregate)
     today = timezone.now().date()
     stats_qs = Exeat.objects.all()
     if assignment and not assignment.is_senior and not is_school_admin(user):
         stats_qs = stats_qs.filter(student__house=assignment.house)
 
-    stats = {
-        'pending': stats_qs.filter(status='pending').count(),
-        'recommended': stats_qs.filter(status='recommended').count(),
-        'active': stats_qs.filter(status='active').count(),
-        'today_departures': stats_qs.filter(
-            status__in=['approved', 'active'],
-            departure_date=today
-        ).count(),
-    }
+    # Use aggregate for single query instead of 4 separate COUNT queries
+    stats = stats_qs.aggregate(
+        pending=Count('id', filter=Q(status='pending')),
+        recommended=Count('id', filter=Q(status='recommended')),
+        active=Count('id', filter=Q(status='active')),
+        today_departures=Count('id', filter=Q(status__in=['approved', 'active'], departure_date=today)),
+    )
 
     # Get houses for filter dropdown (admin/senior only)
     from ..models import House

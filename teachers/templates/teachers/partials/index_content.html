@@ -147,8 +147,8 @@
                     </div>
                 </div>
 
-                <!-- Quick Actions -->
-                <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <!-- Quick Actions - visible on mobile, hover on desktop -->
+                <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
                           hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
                           hx-target="#main-content"

@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db import models, transaction
+from django.db.models import Count, Q, Sum
 from django.contrib import messages
 from core.utils import cache_page_per_tenant, requires_programmes
 
@@ -60,75 +61,10 @@ def htmx_render(request, full_template, partial_template, context=None):
 
 
 
-def get_academics_context():
-    """Get common context for academics page."""
-    from django.db.models import Count, Q
-
-    # Get classes with student counts, grouped by level
-    classes = Class.objects.select_related('programme', 'class_teacher').annotate(
-        student_count=Count('students', filter=models.Q(students__status='active'))
-    ).order_by('level_number', 'section')
-
-    # Group classes by level type with stats
-    classes_by_level = {
-        'kg': {'classes': [], 'student_count': 0},
-        'primary': {'classes': [], 'student_count': 0},
-        'jhs': {'classes': [], 'student_count': 0},
-        'shs': {'classes': [], 'student_count': 0},
-    }
-    for cls in classes:
-        if cls.level_type in classes_by_level:
-            classes_by_level[cls.level_type]['classes'].append(cls)
-            classes_by_level[cls.level_type]['student_count'] += cls.student_count
-
-    # Programmes with stats
-    programmes = Programme.objects.annotate(
-        class_count=Count('classes', filter=Q(classes__is_active=True)),
-        student_count=Count(
-            'classes__students',
-            filter=Q(classes__is_active=True, classes__students__status='active')
-        )
-    ).order_by('name')
-
-    # Subjects with stats
-    subjects = Subject.objects.prefetch_related('programmes').annotate(
-        class_count=Count(
-            'class_allocations',
-            filter=Q(class_allocations__class_assigned__is_active=True)
-        ),
-        student_count=Count(
-            'class_allocations__class_assigned__students',
-            filter=Q(
-                class_allocations__class_assigned__is_active=True,
-                class_allocations__class_assigned__students__status='active'
-            )
-        )
-    ).order_by('-is_core', 'name')
-
-    total_students = Student.objects.filter(status='active').count()
-
-    return {
-        'programmes': programmes,
-        'classes': classes,
-        'classes_by_level': classes_by_level,
-        'subjects': subjects,
-        'stats': {
-            'total_classes': classes.count(),
-            'total_subjects': subjects.count(),
-            'total_programmes': programmes.count(),
-            'total_students': total_students,
-        },
-        'programme_form': ProgrammeForm(),
-        'class_form': ClassForm(),
-        'subject_form': SubjectForm(),
-    }
-
-
 @admin_required
 @cache_page_per_tenant(timeout=300)  # Cache for 5 minutes
 def index(request):
     """Academics dashboard page - Admin only. Cached for 5 minutes."""
-    from django.db.models import Count, Q
     from core.models import Term
 
     current_term = Term.get_current()
@@ -168,19 +104,26 @@ def index(request):
         )
     ).order_by('-is_core', 'name')
 
+    # Get totals using aggregate instead of Python loops
+    class_stats = Class.objects.filter(is_active=True).aggregate(
+        total_capacity=models.Sum('capacity')
+    )
     total_students = Student.objects.filter(status='active').count()
-    total_capacity = sum(cls.capacity for cls in classes)
+    total_capacity = class_stats['total_capacity'] or 0
 
-    # Recent attendance stats (last 7 days)
+    # Recent attendance stats (last 7 days) - single aggregate query
     from datetime import timedelta
     from .models import Classroom
     today = timezone.now().date()
     week_ago = today - timedelta(days=7)
-    recent_attendance = AttendanceRecord.objects.filter(
+    attendance_stats = AttendanceRecord.objects.filter(
         session__date__gte=week_ago
+    ).aggregate(
+        total_records=Count('id'),
+        present_count=Count('id', filter=models.Q(status__in=['P', 'L']))
     )
-    total_records = recent_attendance.count()
-    present_count = recent_attendance.filter(status__in=['P', 'L']).count()
+    total_records = attendance_stats['total_records'] or 0
+    present_count = attendance_stats['present_count'] or 0
     attendance_rate = round((present_count / total_records) * 100, 1) if total_records > 0 else 0
 
     # Setup status for checklist
@@ -226,7 +169,6 @@ def index(request):
 @admin_required
 def classes_list(request):
     """Classes list page with search and filters."""
-    from django.db.models import Count, Q
     from django.core.paginator import Paginator
 
     # Get filter parameters
@@ -305,8 +247,6 @@ def classes_list(request):
 
 def get_programmes_list_context():
     """Get context for programmes list with stats."""
-    from django.db.models import Count, Q
-
     programmes = Programme.objects.annotate(
         class_count=Count('classes', filter=Q(classes__is_active=True)),
         student_count=Count(
@@ -412,7 +352,6 @@ def programme_delete(request, pk):
 
 def get_classes_list_context():
     """Get context for classes list."""
-    from django.db.models import Count
     classes = Class.objects.select_related('programme', 'class_teacher').annotate(
         student_count=Count('students', filter=models.Q(students__status='active'))
     ).order_by('level_number', 'section')
@@ -480,27 +419,7 @@ def class_edit(request, pk):
         if request.htmx:
             if is_detail_page:
                 # Return updated class detail content
-                context = {
-                    'class': cls,
-                    'back_url': '/academics/classes/',
-                    'breadcrumbs': [
-                        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
-                        {'label': 'Academics', 'url': '/academics/'},
-                        {'label': 'Classes', 'url': '/academics/classes/'},
-                        {'label': cls.name},
-                    ],
-                }
-                # Get timetable stats
-                timetable_entries = TimetableEntry.objects.filter(
-                    class_subject__class_assigned=cls
-                )
-                context['timetable_stats'] = {
-                    'total_entries': timetable_entries.count(),
-                    'subjects_count': timetable_entries.values('class_subject__subject').distinct().count(),
-                    'teachers_count': timetable_entries.exclude(
-                        class_subject__teacher__isnull=True
-                    ).values('class_subject__teacher').distinct().count(),
-                }
+                context = get_class_detail_base_context(cls)
                 context.update(get_register_tab_context(cls))
                 context.update(get_teachers_tab_context(cls))
                 context.update(get_attendance_tab_context(cls))
@@ -558,8 +477,6 @@ def class_delete(request, pk):
 
 def get_subjects_list_context():
     """Get context for subjects list with stats."""
-    from django.db.models import Count, Q
-
     subjects = Subject.objects.prefetch_related('programmes').annotate(
         class_count=Count(
             'class_allocations',
@@ -668,17 +585,21 @@ def subject_delete(request, pk):
 def get_register_tab_context(class_obj, request=None, page=1, search='', gender='', sort='name'):
     """Context for the Students/Register tab with pagination, search, filter and sort."""
     from django.core.paginator import Paginator
-    from django.db.models import Q
 
     students = Student.objects.filter(
         current_class=class_obj,
         status='active'
     )
 
-    # Gender breakdown (before filtering)
-    male_count = students.filter(gender='M').count()
-    female_count = students.filter(gender='F').count()
-    total_students = students.count()
+    # Gender breakdown (before filtering) - single aggregate query
+    gender_stats = students.aggregate(
+        total=Count('id'),
+        male_count=Count('id', filter=models.Q(gender='M')),
+        female_count=Count('id', filter=models.Q(gender='F'))
+    )
+    total_students = gender_stats['total'] or 0
+    male_count = gender_stats['male_count'] or 0
+    female_count = gender_stats['female_count'] or 0
 
     # Apply gender filter if provided
     if gender in ('M', 'F'):
@@ -738,7 +659,7 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
                 class_subject__class_assigned=class_obj,
                 class_subject__subject__is_core=False,
                 is_active=True
-            ).select_related('student', 'class_subject__subject')
+            ).select_related('student', 'class_subject__subject', 'class_subject__teacher')
 
             # Build student elective map
             for enrollment in all_enrollments:
@@ -807,8 +728,6 @@ def get_teachers_tab_context(class_obj):
 
 def get_attendance_tab_context(class_obj):
     """Context for the Attendance tab with real data."""
-    from django.db.models import Count, Q
-
     sessions = AttendanceSession.objects.filter(
         class_assigned=class_obj
     ).annotate(
@@ -817,14 +736,15 @@ def get_attendance_tab_context(class_obj):
         total_count=Count('records')
     ).order_by('-date')
 
-    # Calculate overall attendance percentage
-    total_records = AttendanceRecord.objects.filter(
+    # Calculate overall attendance percentage - single aggregate query
+    stats = AttendanceRecord.objects.filter(
         session__class_assigned=class_obj
-    ).count()
-    present_count = AttendanceRecord.objects.filter(
-        session__class_assigned=class_obj,
-        status__in=['P', 'L']  # Present or Late counts as present
-    ).count()
+    ).aggregate(
+        total_records=Count('id'),
+        present_count=Count('id', filter=Q(status__in=['P', 'L']))
+    )
+    total_records = stats['total_records'] or 0
+    present_count = stats['present_count'] or 0
 
     if total_records > 0:
         attendance_percentage = int((present_count / total_records) * 100)
@@ -835,6 +755,35 @@ def get_attendance_tab_context(class_obj):
         'class': class_obj,
         'attendance_sessions': sessions,
         'attendance_percentage': attendance_percentage,
+    }
+
+
+def get_timetable_stats(class_obj):
+    """Get timetable statistics for a class."""
+    timetable_entries = TimetableEntry.objects.filter(
+        class_subject__class_assigned=class_obj
+    )
+    return {
+        'total_entries': timetable_entries.count(),
+        'subjects_count': timetable_entries.values('class_subject__subject').distinct().count(),
+        'teachers_count': timetable_entries.exclude(
+            class_subject__teacher__isnull=True
+        ).values('class_subject__teacher').distinct().count(),
+    }
+
+
+def get_class_detail_base_context(class_obj):
+    """Get common context for class detail page."""
+    return {
+        'class': class_obj,
+        'timetable_stats': get_timetable_stats(class_obj),
+        'back_url': '/academics/classes/',
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Academics', 'url': '/academics/'},
+            {'label': 'Classes', 'url': '/academics/classes/'},
+            {'label': class_obj.name},
+        ],
     }
 
 
@@ -901,31 +850,8 @@ def class_detail(request, pk):
     """Detailed view of a specific class."""
     class_obj = get_object_or_404(Class, pk=pk)
 
-    # Get timetable stats
-    timetable_entries = TimetableEntry.objects.filter(
-        class_subject__class_assigned=class_obj
-    )
-    timetable_stats = {
-        'total_entries': timetable_entries.count(),
-        'subjects_count': timetable_entries.values('class_subject__subject').distinct().count(),
-        'teachers_count': timetable_entries.exclude(
-            class_subject__teacher__isnull=True
-        ).values('class_subject__teacher').distinct().count(),
-    }
-
-    # Base context
-    context = {
-        'class': class_obj,
-        'timetable_stats': timetable_stats,
-        # Navigation
-        'back_url': '/academics/classes/',
-        'breadcrumbs': [
-            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
-            {'label': 'Academics', 'url': '/academics/'},
-            {'label': 'Classes', 'url': '/academics/classes/'},
-            {'label': class_obj.name},
-        ],
-    }
+    # Base context with timetable stats and navigation
+    context = get_class_detail_base_context(class_obj)
 
     # Combine all tab contexts for the initial page load
     page = request.GET.get('page', 1)
@@ -1605,10 +1531,18 @@ def class_export(request, pk):
     from core.models import SchoolSettings
 
     class_obj = get_object_or_404(Class, pk=pk)
-    students = Student.objects.filter(
+    students_qs = Student.objects.filter(
         current_class=class_obj,
         status='active'
     ).order_by('last_name', 'first_name')
+
+    # Get stats upfront with single aggregate query
+    student_stats = students_qs.aggregate(
+        total=Count('id'),
+        male_count=Count('id', filter=models.Q(gender='M')),
+        female_count=Count('id', filter=models.Q(gender='F'))
+    )
+    students = list(students_qs)  # Convert to list since we need both iteration and count
 
     school = SchoolSettings.load()
 
@@ -1685,14 +1619,12 @@ def class_export(request, pk):
     for i, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
-    # Summary row
+    # Summary row - use pre-computed stats
     summary_row = header_row + len(students) + 2
-    ws.cell(row=summary_row, column=1, value=f"Total Students: {students.count()}")
+    ws.cell(row=summary_row, column=1, value=f"Total Students: {student_stats['total'] or 0}")
     ws.cell(row=summary_row, column=1).font = Font(bold=True)
 
-    male_count = students.filter(gender='M').count()
-    female_count = students.filter(gender='F').count()
-    ws.cell(row=summary_row + 1, column=1, value=f"Male: {male_count} | Female: {female_count}")
+    ws.cell(row=summary_row + 1, column=1, value=f"Male: {student_stats['male_count'] or 0} | Female: {student_stats['female_count'] or 0}")
 
     # Create response
     response = DjangoHttpResponse(
@@ -1710,7 +1642,6 @@ def classes_bulk_export(request):
     """Export all classes to Excel with current filters applied."""
     import io
     from datetime import datetime
-    from django.db.models import Count, Q
     from django.http import FileResponse
     import pandas as pd
 
@@ -1787,7 +1718,6 @@ def classes_bulk_export(request):
 @teacher_or_admin_required
 def attendance_reports(request):
     """Attendance reports with filters."""
-    from django.db.models import Count, Q
     from datetime import timedelta
 
     user = request.user
@@ -2196,14 +2126,21 @@ def attendance_export(request):
     for i, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
-    # Summary
-    summary_row = header_row + records.count() + 2
-    ws.cell(row=summary_row, column=1, value=f"Total Records: {records.count()}")
+    # Summary - use aggregate to get all counts in one query
+    stats = records.aggregate(
+        total=Count('id'),
+        present=Count('id', filter=models.Q(status__in=['P', 'L'])),
+        absent=Count('id', filter=models.Q(status='A'))
+    )
+    total_records = stats['total'] or 0
+    present = stats['present'] or 0
+    absent = stats['absent'] or 0
+
+    summary_row = header_row + total_records + 2
+    ws.cell(row=summary_row, column=1, value=f"Total Records: {total_records}")
     ws.cell(row=summary_row, column=1).font = Font(bold=True)
 
-    present = records.filter(status__in=['P', 'L']).count()
-    absent = records.filter(status='A').count()
-    rate = round((present / records.count()) * 100, 1) if records.count() > 0 else 0
+    rate = round((present / total_records) * 100, 1) if total_records > 0 else 0
     ws.cell(row=summary_row + 1, column=1, value=f"Present: {present} | Absent: {absent} | Rate: {rate}%")
 
     # Response
@@ -2804,11 +2741,17 @@ def classrooms(request):
 
     classrooms_list = Classroom.objects.all().order_by('name')
 
-    # Calculate stats
-    total_classrooms = classrooms_list.count()
-    active_classrooms = classrooms_list.filter(is_active=True).count()
-    labs_count = classrooms_list.filter(room_type__in=['lab', 'computer']).count()
-    total_capacity = sum(c.capacity for c in classrooms_list.filter(is_active=True))
+    # Calculate stats using single aggregate query
+    stats = Classroom.objects.aggregate(
+        total_classrooms=Count('id'),
+        active_classrooms=Count('id', filter=models.Q(is_active=True)),
+        labs_count=Count('id', filter=models.Q(room_type__in=['lab', 'computer'])),
+        total_capacity=models.Sum('capacity', filter=models.Q(is_active=True))
+    )
+    total_classrooms = stats['total_classrooms'] or 0
+    active_classrooms = stats['active_classrooms'] or 0
+    labs_count = stats['labs_count'] or 0
+    total_capacity = stats['total_capacity'] or 0
 
     context = {
         'classrooms': classrooms_list,

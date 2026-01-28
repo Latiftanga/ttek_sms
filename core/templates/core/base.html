@@ -730,8 +730,13 @@
 
             // Initialize Alpine.js on HTMX swapped content and update page title
             document.body.addEventListener('htmx:afterSwap', (event) => {
-                if (window.Alpine) {
-                    Alpine.initTree(event.detail.target);
+                if (window.Alpine && event.detail.target) {
+                    try {
+                        Alpine.initTree(event.detail.target);
+                    } catch (e) {
+                        // Alpine may fail if content was already initialized
+                        console.debug('Alpine initTree skipped:', e.message);
+                    }
                 }
 
                 // Update page title from swapped content
@@ -791,6 +796,17 @@
             };
 
             document.body.addEventListener('htmx:pushedIntoHistory', window.updateSidebarActive);
+            document.body.addEventListener('htmx:historyRestore', function(event) {
+                window.updateSidebarActive();
+                // Re-initialize Alpine on restored content
+                if (window.Alpine && event.detail.elt) {
+                    try {
+                        Alpine.initTree(event.detail.elt);
+                    } catch (e) {
+                        console.debug('Alpine initTree on history restore skipped:', e.message);
+                    }
+                }
+            });
             document.addEventListener('DOMContentLoaded', window.updateSidebarActive);
 
             // ========================================

@@ -13,28 +13,9 @@ from core.utils import requires_houses
 from core.models import AcademicYear, SchoolSettings
 from ..models import House, Student, HouseMaster
 from ..forms import HouseForm
+from .utils import admin_required, is_school_admin
 
 logger = logging.getLogger(__name__)
-
-
-def is_school_admin(user):
-    """Check if user is a school admin or superuser."""
-    return user.is_superuser or getattr(user, 'is_school_admin', False)
-
-
-def admin_required(view_func):
-    """Decorator to require school admin or superuser access."""
-    from functools import wraps
-
-    @wraps(view_func)
-    def _wrapped_view(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('accounts:login')
-        if not is_school_admin(request.user):
-            messages.error(request, "You don't have permission to access this page.")
-            return redirect('core:index')
-        return view_func(request, *args, **kwargs)
-    return _wrapped_view
 
 
 @login_required
@@ -340,6 +321,12 @@ def house_students(request, pk):
         status='active'
     ).select_related('current_class').order_by('last_name', 'first_name')
 
+    # Get gender counts for stats
+    gender_counts = students.aggregate(
+        male_count=Count('id', filter=Q(gender='M')),
+        female_count=Count('id', filter=Q(gender='F'))
+    )
+
     # Get housemaster
     current_year = AcademicYear.get_current()
     housemaster = None
@@ -356,6 +343,8 @@ def house_students(request, pk):
         'house': house,
         'students': students,
         'housemaster': housemaster,
+        'male_count': gender_counts['male_count'],
+        'female_count': gender_counts['female_count'],
         'current_year': current_year,
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
@@ -461,12 +450,22 @@ def house_students_excel(request, pk):
     students = Student.objects.filter(
         house=house,
         status='active'
-    ).select_related('current_class').order_by('last_name', 'first_name')
+    ).select_related('current_class').prefetch_related(
+        'student_guardians__guardian'  # Prefetch guardians to avoid N+1
+    ).order_by('last_name', 'first_name')
+
+    # Build primary guardian lookup to avoid N+1 queries
+    guardian_lookup = {}
+    for student in students:
+        for sg in student.student_guardians.all():
+            if sg.is_primary:
+                guardian_lookup[student.id] = sg.guardian
+                break
 
     # Build data for Excel
     data = []
     for i, student in enumerate(students, 1):
-        guardian = student.get_primary_guardian()
+        guardian = guardian_lookup.get(student.id)
         data.append({
             'S/N': i,
             'Admission No': student.admission_number,

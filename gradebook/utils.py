@@ -5,6 +5,9 @@ Extracted helpers to reduce code duplication.
 import base64
 import os
 import logging
+from collections import defaultdict
+from decimal import Decimal, InvalidOperation
+from typing import Optional, Dict, List, Tuple, Any
 
 from django.db import connection
 from django.conf import settings as django_settings
@@ -15,6 +18,272 @@ from academics.models import ClassSubject
 from students.models import Student
 
 logger = logging.getLogger(__name__)
+
+
+# ============ Score Validation ============
+
+class ScoreValidationError(Exception):
+    """Raised when score validation fails. Provides detailed error info for UI feedback."""
+
+    def __init__(
+        self,
+        message: str,
+        error_code: str = 'invalid',
+        field: str = 'points',
+        max_value: Optional[Decimal] = None,
+        hint: Optional[str] = None
+    ):
+        self.message = message
+        self.error_code = error_code
+        self.field = field
+        self.max_value = max_value
+        self.hint = hint or self._generate_hint()
+        super().__init__(message)
+
+    def _generate_hint(self) -> str:
+        """Generate a helpful hint based on error type."""
+        hints = {
+            'required': 'Enter a score value',
+            'invalid_number': 'Use digits only (e.g., 85 or 85.5)',
+            'negative': 'Scores must be 0 or higher',
+            'exceeds_max': f'Enter a value between 0 and {self.max_value}' if self.max_value else 'Value too high',
+            'too_many_decimals': 'Use at most 2 decimal places (e.g., 85.75)',
+        }
+        return hints.get(self.error_code, '')
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON response."""
+        result = {
+            'error': self.message,
+            'code': self.error_code,
+            'field': self.field,
+            'hint': self.hint,
+        }
+        if self.max_value is not None:
+            result['max_value'] = float(self.max_value)
+        return result
+
+
+def validate_score(
+    value: Any,
+    max_points: Decimal,
+    allow_empty: bool = True
+) -> Tuple[Optional[Decimal], Optional[ScoreValidationError]]:
+    """
+    Validate a score value with detailed error messages.
+
+    Args:
+        value: The score value to validate (can be string, number, or None)
+        max_points: Maximum allowed points for this assignment
+        allow_empty: Whether to allow empty/None values (for deletion)
+
+    Returns:
+        Tuple of (validated_decimal_value, error) where error is None if valid
+    """
+    # Handle empty values
+    if value is None or (isinstance(value, str) and value.strip() == ''):
+        if allow_empty:
+            return None, None
+        return None, ScoreValidationError(
+            message="Score is required",
+            error_code='required',
+            max_value=max_points
+        )
+
+    # Convert to string for processing
+    value_str = str(value).strip()
+
+    # Try to parse as decimal
+    try:
+        points = Decimal(value_str)
+    except (InvalidOperation, ValueError):
+        return None, ScoreValidationError(
+            message="Please enter a valid number",
+            error_code='invalid_number',
+            max_value=max_points
+        )
+
+    # Check for negative values
+    if points < 0:
+        return None, ScoreValidationError(
+            message="Score cannot be negative",
+            error_code='negative',
+            max_value=max_points
+        )
+
+    # Check for exceeding maximum
+    if points > max_points:
+        return None, ScoreValidationError(
+            message=f"Maximum score is {max_points:.0f}",
+            error_code='exceeds_max',
+            max_value=max_points
+        )
+
+    # Check for too many decimal places (max 2)
+    if points.as_tuple().exponent < -2:
+        return None, ScoreValidationError(
+            message="Maximum 2 decimal places allowed",
+            error_code='too_many_decimals',
+            max_value=max_points
+        )
+
+    return points, None
+
+
+# ============ Grade Calculation (Consolidated) ============
+
+def calculate_category_scores(
+    student_id: int,
+    subject_id: int,
+    categories: List[Any],
+    assignments_by_subject_category: Dict[Tuple[int, int], List[Any]],
+    scores_lookup: Dict[Tuple[int, int], Any]
+) -> Dict[str, Any]:
+    """
+    Calculate scores by category for a student in a subject.
+
+    This is the core calculation logic shared by models, signals, and views.
+
+    Args:
+        student_id: The student's ID
+        subject_id: The subject's ID
+        categories: List of AssessmentCategory objects
+        assignments_by_subject_category: Dict mapping (subject_id, category_id) to assignments
+        scores_lookup: Dict mapping (student_id, assignment_id) to Score objects
+
+    Returns:
+        Dictionary containing:
+        - category_scores_json: JSON-serializable category breakdown
+        - class_score: Decimal total for CLASS_SCORE type categories
+        - exam_score: Decimal total for EXAM type categories
+        - total_score: Decimal total across all categories
+    """
+    category_scores_json = {}
+    total = Decimal('0.0')
+    class_score_total = Decimal('0.0')
+    exam_score_total = Decimal('0.0')
+
+    for category in categories:
+        cat_assignments = assignments_by_subject_category.get(
+            (subject_id, category.id), []
+        )
+
+        if not cat_assignments:
+            continue
+
+        # Calculate weight per assignment
+        assignment_count = len(cat_assignments)
+        weight_per_assignment = Decimal(str(category.percentage)) / Decimal(str(assignment_count))
+        category_total = Decimal('0.0')
+
+        for assignment in cat_assignments:
+            score = scores_lookup.get((student_id, assignment.id))
+
+            if score and score.points is not None:
+                score_pct = Decimal(str(score.points)) / Decimal(str(assignment.points_possible))
+                category_total += score_pct * weight_per_assignment
+
+        rounded_total = round(category_total, 2)
+
+        # Store in JSON format for dynamic category support
+        category_scores_json[str(category.pk)] = {
+            'score': float(rounded_total),
+            'short_name': category.short_name,
+            'name': category.name,
+            'percentage': category.percentage,
+            'category_type': category.category_type,
+            'order': category.order,
+        }
+
+        total += category_total
+
+        # Aggregate by category type for legacy fields
+        if category.category_type == 'CLASS_SCORE':
+            class_score_total += category_total
+        elif category.category_type == 'EXAM':
+            exam_score_total += category_total
+
+    return {
+        'category_scores_json': category_scores_json,
+        'class_score': round(class_score_total, 2),
+        'exam_score': round(exam_score_total, 2),
+        'total_score': round(total, 2),
+    }
+
+
+def determine_grade_from_scales(
+    total_score: Optional[Decimal],
+    grade_scales: List[Any]
+) -> Dict[str, Any]:
+    """
+    Determine grade label and pass status from grade scales.
+
+    Args:
+        total_score: The total score percentage
+        grade_scales: List of GradeScale objects (should be ordered by -min_percentage)
+
+    Returns:
+        Dictionary containing:
+        - grade: The grade label (e.g., 'A1', 'B2')
+        - grade_remark: The interpretation (e.g., 'Excellent')
+        - is_passing: Boolean indicating if this is a passing grade
+    """
+    result = {
+        'grade': '',
+        'grade_remark': '',
+        'is_passing': False,
+    }
+
+    if total_score is None:
+        return result
+
+    for scale in grade_scales:
+        if scale.min_percentage <= total_score <= scale.max_percentage:
+            result['grade'] = scale.grade_label
+            result['grade_remark'] = scale.interpretation
+            result['is_passing'] = scale.is_pass
+            break
+
+    return result
+
+
+def build_assignments_lookup(
+    assignments: List[Any]
+) -> Dict[Tuple[int, int], List[Any]]:
+    """
+    Build lookup dictionary for assignments by (subject_id, category_id).
+
+    Args:
+        assignments: List of Assignment objects with assessment_category relation
+
+    Returns:
+        Dict mapping (subject_id, category_id) to list of assignments
+    """
+    lookup = defaultdict(list)
+    for assignment in assignments:
+        key = (assignment.subject_id, assignment.assessment_category_id)
+        lookup[key].append(assignment)
+    return dict(lookup)
+
+
+def build_scores_lookup(
+    scores: List[Any]
+) -> Dict[Tuple[int, int], Any]:
+    """
+    Build lookup dictionary for scores by (student_id, assignment_id).
+
+    Args:
+        scores: List of Score objects
+
+    Returns:
+        Dict mapping (student_id, assignment_id) to Score object
+    """
+    return {
+        (s.student_id, s.assignment_id): s for s in scores
+    }
+
+
+# ============ Assessment Status ============
 
 
 def get_all_categories_assessment_status(subject, term):

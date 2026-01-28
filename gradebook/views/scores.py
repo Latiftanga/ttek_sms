@@ -1,5 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal
+import json
 import logging
 
 from django.shortcuts import render, get_object_or_404
@@ -14,12 +15,132 @@ from .base import (
 from ..models import (
     AssessmentCategory, Assignment, Score, ScoreAuditLog
 )
+from ..utils import validate_score, ScoreValidationError
 from .. import config
 from academics.models import Class, Subject, ClassSubject, StudentSubjectEnrollment
 from students.models import Student
 from core.models import Term
 
 logger = logging.getLogger(__name__)
+
+
+def _build_error_response(
+    message: str,
+    student_id: str,
+    assignment_id: str,
+    old_value: str = '',
+    error_code: str = 'error',
+    hint: str = '',
+    max_value: float = None
+) -> HttpResponse:
+    """
+    Build a standardized error response for score save operations.
+
+    Returns an HttpResponse with HX-Trigger header containing detailed error info
+    for the frontend to display helpful feedback to teachers.
+    """
+    trigger_data = {
+        'showToast': {
+            'message': message,
+            'type': 'error'
+        },
+        'revertScore': {
+            'student': student_id,
+            'assignment': assignment_id,
+            'value': old_value
+        },
+        'scoreError': {
+            'student': student_id,
+            'assignment': assignment_id,
+            'message': message,
+            'code': error_code,
+            'hint': hint,
+        }
+    }
+    if max_value is not None:
+        trigger_data['scoreError']['max'] = max_value
+
+    response = HttpResponse(status=200)
+    response['HX-Trigger'] = json.dumps(trigger_data)
+    return response
+
+
+def _get_score_entry_base_context(request, class_id, subject_id):
+    """
+    Shared helper to build base context for score entry views.
+
+    Returns dict with common data needed by both table and student views:
+    - class_obj, subject, current_term
+    - students (filtered by enrollment if SHS)
+    - assignments, categories
+    - can_edit, grades_locked, editing_allowed
+
+    This eliminates duplication between score_entry_form and score_entry_student.
+    """
+    current_term = Term.get_current()
+    class_obj = get_object_or_404(Class, pk=class_id)
+    subject = get_object_or_404(Subject, pk=subject_id)
+    grades_locked = current_term.grades_locked if current_term else False
+
+    # Check if user can edit scores for this subject/class
+    can_edit = can_edit_scores(request.user, class_obj, subject)
+    editing_allowed = can_edit and not grades_locked
+
+    # Get the ClassSubject for this class/subject combination
+    class_subject = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        subject=subject
+    ).first()
+
+    # Check if there are subject enrollments for this class
+    # This determines whether we filter students by enrollment (SHS) or show all (Basic)
+    has_enrollments = StudentSubjectEnrollment.objects.filter(
+        class_subject__class_assigned=class_obj,
+        is_active=True
+    ).exists()
+
+    if has_enrollments and class_subject:
+        # SHS behavior: Only show students enrolled in this specific subject
+        enrolled_student_ids = StudentSubjectEnrollment.objects.filter(
+            class_subject=class_subject,
+            is_active=True
+        ).values_list('student_id', flat=True)
+
+        students = list(Student.objects.filter(
+            id__in=enrolled_student_ids,
+            current_class=class_obj
+        ).only(
+            'id', 'first_name', 'last_name', 'admission_number'
+        ).order_by('last_name', 'first_name'))
+    else:
+        # Basic school behavior: Show all students in the class
+        students = list(Student.objects.filter(
+            current_class=class_obj
+        ).only(
+            'id', 'first_name', 'last_name', 'admission_number'
+        ).order_by('last_name', 'first_name'))
+
+    # Get assignments for this subject/term
+    assignments = list(Assignment.objects.filter(
+        subject=subject,
+        term=current_term
+    ).select_related('assessment_category').order_by('assessment_category__order', 'name'))
+
+    # Get categories (small table, usually cached)
+    categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
+
+    return {
+        'class_obj': class_obj,
+        'subject': subject,
+        'current_term': current_term,
+        'students': students,
+        'assignments': assignments,
+        'categories': categories,
+        'grades_locked': grades_locked,
+        'can_edit': can_edit,
+        'editing_allowed': editing_allowed,
+    }
+
 
 # ============ Score Entry ============
 
@@ -74,53 +195,10 @@ def score_entry_form(request, class_id, subject_id):
     OPTIMIZED: Uses select_related and builds lookup dict for O(1) score access.
     Supports both table view (desktop) and card view (mobile).
     """
-    current_term = Term.get_current()
-    class_obj = get_object_or_404(Class, pk=class_id)
-    subject = get_object_or_404(Subject, pk=subject_id)
-    grades_locked = current_term.grades_locked if current_term else False
-
-    # Check if user can edit scores for this subject/class
-    can_edit = can_edit_scores(request.user, class_obj, subject)
-
-    # Get the ClassSubject for this class/subject combination
-    class_subject = ClassSubject.objects.filter(
-        class_assigned=class_obj,
-        subject=subject
-    ).first()
-
-    # Check if there are subject enrollments for this class
-    # This determines whether we filter students by enrollment (SHS) or show all (Basic)
-    has_enrollments = StudentSubjectEnrollment.objects.filter(
-        class_subject__class_assigned=class_obj,
-        is_active=True
-    ).exists()
-
-    if has_enrollments and class_subject:
-        # SHS behavior: Only show students enrolled in this specific subject
-        enrolled_student_ids = StudentSubjectEnrollment.objects.filter(
-            class_subject=class_subject,
-            is_active=True
-        ).values_list('student_id', flat=True)
-
-        students = list(Student.objects.filter(
-            id__in=enrolled_student_ids,
-            current_class=class_obj
-        ).only(
-            'id', 'first_name', 'last_name', 'admission_number'
-        ).order_by('last_name', 'first_name'))
-    else:
-        # Basic school behavior: Show all students in the class
-        students = list(Student.objects.filter(
-            current_class=class_obj
-        ).only(
-            'id', 'first_name', 'last_name', 'admission_number'
-        ).order_by('last_name', 'first_name'))
-
-    # Get assignments for this subject/term
-    assignments = list(Assignment.objects.filter(
-        subject=subject,
-        term=current_term
-    ).select_related('assessment_category').order_by('assessment_category__order', 'name'))
+    # Get base context from shared helper (DRY)
+    context = _get_score_entry_base_context(request, class_id, subject_id)
+    students = context['students']
+    assignments = context['assignments']
 
     # Get existing scores in single query - build nested dict for O(1) template lookup
     # Structure: {student_id: {assignment_id: points}}
@@ -134,28 +212,12 @@ def score_entry_form(request, class_id, subject_id):
         ).only('student_id', 'assignment_id', 'points'):
             scores_dict[score.student_id][score.assignment_id] = score.points
 
-    # Get categories (small table, usually cached)
-    categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
-
-    # Determine if editing is allowed (not locked AND authorized)
-    editing_allowed = can_edit and not grades_locked
-
     # Check view mode preference (table or card)
     view_mode = request.GET.get('view', 'auto')  # auto, table, or card
 
-    context = {
-        'class_obj': class_obj,
-        'subject': subject,
-        'current_term': current_term,
-        'students': students,
-        'assignments': assignments,
-        'categories': categories,
-        'scores_dict': dict(scores_dict),  # Convert to regular dict for template
-        'grades_locked': grades_locked,
-        'can_edit': can_edit,
-        'editing_allowed': editing_allowed,
-        'view_mode': view_mode,
-    }
+    # Add view-specific context
+    context['scores_dict'] = dict(scores_dict)  # Convert to regular dict for template
+    context['view_mode'] = view_mode
 
     return render(request, 'gradebook/partials/score_form.html', context)
 
@@ -168,31 +230,19 @@ def score_entry_student(request, class_id, subject_id, student_id):
     Shows all assignments for one student in a vertical card layout,
     optimized for touch input on mobile devices.
     """
-    current_term = Term.get_current()
-    class_obj = get_object_or_404(Class, pk=class_id)
-    subject = get_object_or_404(Subject, pk=subject_id)
+    # Get base context from shared helper (DRY)
+    context = _get_score_entry_base_context(request, class_id, subject_id)
+    students = context['students']
+    assignments = context['assignments']
+    class_obj = context['class_obj']
+
+    # Get the specific student
     student = get_object_or_404(Student, pk=student_id, current_class=class_obj)
-    grades_locked = current_term.grades_locked if current_term else False
-
-    # Check if user can edit scores for this subject/class
-    can_edit = can_edit_scores(request.user, class_obj, subject)
-    editing_allowed = can_edit and not grades_locked
-
-    # Get all students for navigation
-    students = list(Student.objects.filter(
-        current_class=class_obj
-    ).only('id', 'first_name', 'last_name').order_by('last_name', 'first_name'))
 
     # Find current student index for prev/next navigation
     current_index = next((i for i, s in enumerate(students) if s.id == student.id), 0)
     prev_student = students[current_index - 1] if current_index > 0 else None
     next_student = students[current_index + 1] if current_index < len(students) - 1 else None
-
-    # Get assignments grouped by category
-    assignments = Assignment.objects.filter(
-        subject=subject,
-        term=current_term
-    ).select_related('assessment_category').order_by('assessment_category__order', 'name')
 
     # Get existing scores for this student
     scores_dict = {}
@@ -207,21 +257,13 @@ def score_entry_student(request, class_id, subject_id, student_id):
     for assignment in assignments:
         assignments_by_category[assignment.assessment_category].append(assignment)
 
-    context = {
-        'class_obj': class_obj,
-        'subject': subject,
-        'current_term': current_term,
-        'student': student,
-        'students': students,
-        'current_index': current_index,
-        'prev_student': prev_student,
-        'next_student': next_student,
-        'assignments_by_category': dict(assignments_by_category),
-        'scores_dict': scores_dict,
-        'grades_locked': grades_locked,
-        'can_edit': can_edit,
-        'editing_allowed': editing_allowed,
-    }
+    # Add student-view specific context
+    context['student'] = student
+    context['current_index'] = current_index
+    context['prev_student'] = prev_student
+    context['next_student'] = next_student
+    context['assignments_by_category'] = dict(assignments_by_category)
+    context['scores_dict'] = scores_dict
 
     return render(request, 'gradebook/partials/score_form_student.html', context)
 
@@ -230,46 +272,90 @@ def score_entry_student(request, class_id, subject_id, student_id):
 @teacher_or_admin_required
 @ratelimit(key='user', rate='200/h')
 def score_save(request):
-    """Save scores via HTMX with audit logging. Rate limited to 200 requests/hour."""
+    """
+    Save scores via HTMX with audit logging and detailed validation feedback.
+
+    Rate limited to 200 requests/hour per user.
+
+    Returns detailed error information via HX-Trigger header so the frontend
+    can display helpful feedback to teachers about validation issues.
+    """
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    student_id = request.POST.get('student_id')
-    assignment_id = request.POST.get('assignment_id')
+    student_id = request.POST.get('student_id', '')
+    assignment_id = request.POST.get('assignment_id', '')
     points = request.POST.get('points', '').strip()
 
     if not all([student_id, assignment_id]):
-        response = HttpResponse(status=200)
-        response['HX-Trigger'] = '{"showToast": {"message": "Missing data", "type": "error"}}'
-        return response
+        return _build_error_response(
+            message="Missing required data",
+            student_id=student_id,
+            assignment_id=assignment_id,
+            error_code='missing_data',
+            hint="Please refresh the page and try again"
+        )
 
-    student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
-    assignment = get_object_or_404(Assignment.objects.select_related('term', 'subject'), pk=assignment_id)
+    # Fetch student and assignment
+    try:
+        student = Student.objects.select_related('current_class').get(pk=student_id)
+    except Student.DoesNotExist:
+        return _build_error_response(
+            message="Student not found",
+            student_id=student_id,
+            assignment_id=assignment_id,
+            error_code='student_not_found',
+            hint="The student may have been removed"
+        )
+
+    try:
+        assignment = Assignment.objects.select_related('term', 'subject').get(pk=assignment_id)
+    except Assignment.DoesNotExist:
+        return _build_error_response(
+            message="Assignment not found",
+            student_id=student_id,
+            assignment_id=assignment_id,
+            error_code='assignment_not_found',
+            hint="The assignment may have been deleted"
+        )
 
     # Early check for authorization (before transaction)
     if not can_edit_scores(request.user, student.current_class, assignment.subject):
-        response = HttpResponse(status=200)
-        response['HX-Trigger'] = '{"showToast": {"message": "You are not authorized to edit scores for this subject", "type": "error"}}'
-        return response
+        return _build_error_response(
+            message="Not authorized to edit scores for this subject",
+            student_id=student_id,
+            assignment_id=assignment_id,
+            error_code='unauthorized',
+            hint="Contact your administrator if you need access"
+        )
 
     # Get audit context
     client_ip = get_client_ip(request)
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:255]
 
-    if points == '' or points is None:
-        # Delete score if empty
+    # Get existing score for reverting on error
+    existing_score = Score.objects.filter(student=student, assignment=assignment).first()
+    old_value = existing_score.points if existing_score else None
+    old_value_str = str(old_value) if old_value is not None else ''
+    max_points = assignment.points_possible
+
+    # Handle empty value (deletion)
+    if points == '':
         try:
             with transaction.atomic():
                 # Re-check grade lock inside transaction with row lock
                 term = Term.objects.select_for_update().get(pk=assignment.term_id)
                 if term.grades_locked:
-                    response = HttpResponse(status=200)
-                    response['HX-Trigger'] = '{"showToast": {"message": "Grades are locked for this term", "type": "error"}}'
-                    return response
+                    return _build_error_response(
+                        message="Grades are locked for this term",
+                        student_id=student_id,
+                        assignment_id=assignment_id,
+                        old_value=old_value_str,
+                        error_code='grades_locked',
+                        hint="Contact admin to unlock grades if needed"
+                    )
 
-                existing_score = Score.objects.filter(student=student, assignment=assignment).first()
                 if existing_score:
-                    old_value = existing_score.points
                     # Log deletion first
                     ScoreAuditLog.objects.create(
                         score=None,
@@ -283,45 +369,38 @@ def score_save(request):
                         user_agent=user_agent
                     )
                     existing_score.delete()
+
+            # Success - return 200 with no error trigger
+            return HttpResponse(status=200)
+
         except Exception as e:
-            logger.error(f"Error deleting score: {e}")
-            response = HttpResponse(status=200)
-            response['HX-Trigger'] = '{"showToast": {"message": "Error deleting score", "type": "error"}}'
-            return response
-        return HttpResponse(status=200)
+            logger.error(f"Error deleting score for student {student_id}, assignment {assignment_id}: {e}")
+            return _build_error_response(
+                message="Error removing score",
+                student_id=student_id,
+                assignment_id=assignment_id,
+                old_value=old_value_str,
+                error_code='delete_error',
+                hint="Please try again"
+            )
 
-    # Get existing score for reverting on error
-    existing_score = Score.objects.filter(student=student, assignment=assignment).first()
-    old_value = existing_score.points if existing_score else None
-    old_value_str = str(old_value) if old_value is not None else ''
+    # Validate the score using our utility
+    points_decimal, validation_error = validate_score(
+        value=points,
+        max_points=max_points,
+        allow_empty=False
+    )
 
-    try:
-        points_decimal = Decimal(points)
-    except Exception:
-        response = HttpResponse(status=200)
-        response['HX-Trigger'] = (
-            f'{{"showToast": {{"message": "Invalid number", "type": "error"}}, '
-            f'"revertScore": {{"student": {student_id}, "assignment": {assignment_id}, "value": "{old_value_str}"}}}}'
+    if validation_error:
+        return _build_error_response(
+            message=validation_error.message,
+            student_id=student_id,
+            assignment_id=assignment_id,
+            old_value=old_value_str,
+            error_code=validation_error.error_code,
+            hint=validation_error.hint,
+            max_value=float(max_points)
         )
-        return response
-
-    # Validate range
-    max_points = float(assignment.points_possible)
-    if points_decimal < 0:
-        response = HttpResponse(status=200)
-        response['HX-Trigger'] = (
-            f'{{"showToast": {{"message": "Score cannot be negative", "type": "error"}}, '
-            f'"revertScore": {{"student": {student_id}, "assignment": {assignment_id}, "value": "{old_value_str}"}}}}'
-        )
-        return response
-
-    if points_decimal > assignment.points_possible:
-        response = HttpResponse(status=200)
-        response['HX-Trigger'] = (
-            f'{{"showToast": {{"message": "Maximum score is {max_points:.0f}", "type": "error"}}, '
-            f'"revertScore": {{"student": {student_id}, "assignment": {assignment_id}, "value": "{old_value_str}"}}}}'
-        )
-        return response
 
     # Save score with transaction handling and race condition protection
     try:
@@ -329,9 +408,14 @@ def score_save(request):
             # Re-check grade lock inside transaction with row lock to prevent race condition
             term = Term.objects.select_for_update().get(pk=assignment.term_id)
             if term.grades_locked:
-                response = HttpResponse(status=200)
-                response['HX-Trigger'] = '{"showToast": {"message": "Grades are locked for this term", "type": "error"}}'
-                return response
+                return _build_error_response(
+                    message="Grades are locked for this term",
+                    student_id=student_id,
+                    assignment_id=assignment_id,
+                    old_value=old_value_str,
+                    error_code='grades_locked',
+                    hint="Contact admin to unlock grades if needed"
+                )
 
             score, created = Score.objects.update_or_create(
                 student=student,
@@ -351,16 +435,20 @@ def score_save(request):
                 ip_address=client_ip,
                 user_agent=user_agent
             )
-    except Exception as e:
-        logger.error(f"Error saving score: {e}")
-        response = HttpResponse(status=200)
-        response['HX-Trigger'] = (
-            f'{{"showToast": {{"message": "Error saving score", "type": "error"}}, '
-            f'"revertScore": {{"student": {student_id}, "assignment": "{assignment_id}", "value": "{old_value_str}"}}}}'
-        )
-        return response
 
-    return HttpResponse(status=200)
+        # Success response
+        return HttpResponse(status=200)
+
+    except Exception as e:
+        logger.error(f"Error saving score for student {student_id}, assignment {assignment_id}: {e}")
+        return _build_error_response(
+            message="Error saving score",
+            student_id=student_id,
+            assignment_id=assignment_id,
+            old_value=old_value_str,
+            error_code='save_error',
+            hint="Please try again. If the problem persists, contact support."
+        )
 
 
 # ============ Score Audit History ============

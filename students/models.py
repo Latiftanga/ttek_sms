@@ -435,6 +435,7 @@ class Student(models.Model):
                 raise ValidationError("Invalid image file. Please upload a valid image.")
             except (IOError, OSError) as e:
                 logger.warning(f"Student photo processing failed: {e}")
+                raise ValidationError(f"Failed to process photo: {e}")
 
         super().save(*args, **kwargs)
 
@@ -507,9 +508,6 @@ class Enrollment(models.Model):
 
     def __str__(self):
         return f"{self.student.full_name} - {self.class_assigned.name} ({self.academic_year})"
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
 
 
 class GuardianInvitation(models.Model):

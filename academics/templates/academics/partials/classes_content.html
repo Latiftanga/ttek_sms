@@ -1,309 +1,169 @@
 {% load core_tags %}
 
 <div class="space-y-4">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            {% include "core/partials/page_header.html" with title="Classes" subtitle=subtitle icon="fa-solid fa-chalkboard" back_url=back_url breadcrumbs=breadcrumbs only %}
+    <!-- Page Header -->
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-chalkboard text-white"></i>
+            </div>
+            <div class="min-w-0">
+                <h1 class="text-lg sm:text-xl font-bold">Classes</h1>
+                <p class="text-xs text-base-content/60">
+                    {% if paginator.count %}{{ paginator.count }} class{{ paginator.count|pluralize:"es" }}{% else %}No classes{% endif %}
+                    {% if search or level_filter %}<span class="text-primary">(filtered)</span>{% endif %}
+                </p>
+            </div>
         </div>
-        <div class="flex gap-2">
-            <a href="{% url 'academics:classes_bulk_export' %}{% if search or level_filter %}?{% if search %}search={{ search }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}"
-               class="btn btn-ghost btn-sm"
-               title="Export to Excel">
-                <i class="fa-solid fa-file-export"></i>
-                <span class="hidden sm:inline">Export</span>
-            </a>
-            <button onclick="document.getElementById('modal_class').showModal()" class="btn btn-primary btn-sm">
+
+        <!-- Actions -->
+        <div class="flex items-center gap-2">
+            <!-- Primary action always visible -->
+            <button onclick="document.getElementById('modal_class').showModal()" class="btn btn-primary btn-sm gap-1">
                 <i class="fa-solid fa-plus"></i>
-                Add Class
+                <span class="hidden xs:inline">Add</span> Class
             </button>
+
+            <!-- More actions dropdown -->
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </div>
+                <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-200">
+                    <li>
+                        <a href="{% url 'academics:classes_bulk_export' %}{% if search or level_filter %}?{% if search %}search={{ search }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}">
+                            <i class="fa-solid fa-file-export w-5"></i> Export Excel
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 
-    <!-- Search & Filter -->
+    <!-- Search & Filters -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-3">
-            <form method="get" class="flex flex-wrap gap-2" hx-get="{% url 'academics:classes' %}" hx-target="#main-content" hx-push-url="true">
-                <input type="text"
-                       name="search"
-                       value="{{ search|default:'' }}"
-                       placeholder="Search class name, teacher..."
-                       class="input input-bordered input-sm flex-1 min-w-[200px]" />
-                <select name="level" class="select select-sm select-bordered w-auto">
-                    <option value="">All Levels</option>
-                    <option value="creche" {% if level_filter == 'creche' %}selected{% endif %}>Creche</option>
-                    <option value="nursery" {% if level_filter == 'nursery' %}selected{% endif %}>Nursery</option>
-                    <option value="kg" {% if level_filter == 'kg' %}selected{% endif %}>KG</option>
-                    <option value="basic" {% if level_filter == 'basic' %}selected{% endif %}>Basic</option>
-                    <option value="shs" {% if level_filter == 'shs' %}selected{% endif %}>SHS</option>
-                </select>
-                <button type="submit" class="btn btn-sm btn-primary">
-                    <i class="fa-solid fa-search"></i>
-                    Search
-                </button>
-                {% if search or level_filter %}
-                <a href="{% url 'academics:classes' %}"
-                   hx-get="{% url 'academics:classes' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-sm btn-ghost">
-                    <i class="fa-solid fa-times"></i>
-                    Clear
-                </a>
-                {% endif %}
+            <form method="get"
+                  hx-get="{% url 'academics:classes' %}"
+                  hx-target="#main-content"
+                  hx-push-url="true"
+                  hx-trigger="submit, change from:select"
+                  class="flex flex-col gap-2">
+                <!-- Search -->
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-sm"></i>
+                    <input type="text"
+                           name="search"
+                           value="{{ search }}"
+                           placeholder="Search class name, teacher..."
+                           class="input input-sm input-bordered w-full pl-9"
+                           hx-get="{% url 'academics:classes' %}"
+                           hx-target="#main-content"
+                           hx-trigger="keyup changed delay:300ms"
+                           hx-include="[name='level']" />
+                </div>
+                <!-- Filters -->
+                <div class="flex gap-2">
+                    <select name="level" class="select select-sm select-bordered flex-1">
+                        <option value="">All Levels</option>
+                        <option value="creche" {% if level_filter == 'creche' %}selected{% endif %}>Creche</option>
+                        <option value="nursery" {% if level_filter == 'nursery' %}selected{% endif %}>Nursery</option>
+                        <option value="kg" {% if level_filter == 'kg' %}selected{% endif %}>KG</option>
+                        <option value="basic" {% if level_filter == 'basic' %}selected{% endif %}>Basic</option>
+                        <option value="shs" {% if level_filter == 'shs' %}selected{% endif %}>SHS</option>
+                    </select>
+                    {% if search or level_filter %}
+                    <a href="{% url 'academics:classes' %}"
+                       hx-get="{% url 'academics:classes' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-sm btn-ghost text-error"
+                       title="Clear filters">
+                        <i class="fa-solid fa-times"></i>
+                    </a>
+                    {% endif %}
+                </div>
             </form>
         </div>
     </div>
 
     <!-- Classes List -->
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-0">
-            {% if classes %}
+    {% if classes %}
+    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+        <div class="divide-y divide-base-200">
+            {% for cls in classes %}
+            <a href="{% url 'academics:class_detail' cls.pk %}"
+               hx-get="{% url 'academics:class_detail' cls.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
 
-            <!-- Mobile Card View -->
-            <div class="lg:hidden divide-y divide-base-200">
-                {% for cls in classes %}
-                <div class="p-4 hover:bg-base-200/30 transition-colors">
-                    <div class="flex items-start gap-3">
-                        <!-- Class Icon -->
-                        <div class="avatar placeholder shrink-0">
-                            <div class="w-12 h-12 rounded-lg
-                                {% if cls.level_type == 'creche' %}bg-secondary/20 text-secondary
-                                {% elif cls.level_type == 'nursery' %}bg-accent/20 text-accent
-                                {% elif cls.level_type == 'kg' %}bg-info/20 text-info
-                                {% elif cls.level_type == 'basic' %}bg-success/20 text-success
-                                {% else %}bg-primary/20 text-primary{% endif %}
-                                flex items-center justify-center">
-                                <i class="fa-solid fa-chalkboard text-lg"></i>
-                            </div>
-                        </div>
-
-                        <!-- Class Info -->
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-start justify-between gap-2">
-                                <div>
-                                    <a href="{% url 'academics:class_detail' cls.pk %}"
-                                       hx-get="{% url 'academics:class_detail' cls.pk %}"
-                                       hx-target="#main-content"
-                                       hx-push-url="true"
-                                       class="font-bold text-base hover:text-primary">
-                                        {{ cls.name }}
-                                    </a>
-                                    <span class="badge badge-sm ml-2
-                                        {% if cls.level_type == 'creche' %}badge-secondary
-                                        {% elif cls.level_type == 'nursery' %}badge-accent
-                                        {% elif cls.level_type == 'kg' %}badge-info
-                                        {% elif cls.level_type == 'basic' %}badge-success
-                                        {% else %}badge-primary{% endif %}">
-                                        {{ cls.get_level_type_display }}
-                                    </span>
-                                </div>
-
-                                <!-- Actions Dropdown -->
-                                <div class="dropdown dropdown-end">
-                                    <button tabindex="0" class="btn btn-ghost btn-sm btn-square">
-                                        <i class="fa-solid fa-ellipsis-vertical"></i>
-                                    </button>
-                                    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-44 border border-base-200">
-                                        <li>
-                                            <a href="{% url 'academics:class_detail' cls.pk %}"
-                                               hx-get="{% url 'academics:class_detail' cls.pk %}"
-                                               hx-target="#main-content"
-                                               hx-push-url="true">
-                                                <i class="fa-solid fa-eye text-primary"></i> View Details
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <button hx-get="{% url 'academics:class_edit' cls.pk %}"
-                                                    hx-target="#modal-class-edit-content"
-                                                    hx-swap="innerHTML"
-                                                    onclick="document.getElementById('modal_class_edit').showModal()">
-                                                <i class="fa-solid fa-pen text-info"></i> Edit Class
-                                            </button>
-                                        </li>
-                                        <li>
-                                            <form hx-post="{% url 'academics:class_delete' cls.pk %}"
-                                                  hx-target="#main-content"
-                                                  hx-confirm="Delete class {{ cls.name }}? This will remove all student associations.">
-                                                {% csrf_token %}
-                                                <button type="submit" class="text-error w-full text-left">
-                                                    <i class="fa-solid fa-trash"></i> Delete
-                                                </button>
-                                            </form>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-
-                            {% if cls.programme %}
-                            <p class="text-xs text-base-content/50 mt-0.5">{{ cls.programme.name }}</p>
-                            {% endif %}
-
-                            <!-- Stats Row -->
-                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
-                                <div class="flex items-center gap-1.5">
-                                    <i class="fa-solid fa-users text-base-content/40 text-xs"></i>
-                                    <span class="font-medium">{{ cls.student_count }}</span>
-                                    <span class="text-base-content/50">/ {{ cls.capacity }}</span>
-                                    {% if cls.student_count >= cls.capacity %}
-                                    <span class="badge badge-error badge-xs">Full</span>
-                                    {% elif cls.student_count > cls.capacity|add:"-5" %}
-                                    <span class="badge badge-warning badge-xs">Almost</span>
-                                    {% endif %}
-                                </div>
-
-                                {% if cls.class_teacher %}
-                                <div class="flex items-center gap-1.5 text-base-content/70">
-                                    <i class="fa-solid fa-user-tie text-base-content/40 text-xs"></i>
-                                    <span>{{ cls.class_teacher.get_title_display }} {{ cls.class_teacher.last_name }}</span>
-                                </div>
-                                {% else %}
-                                <div class="flex items-center gap-1.5 text-base-content/40 italic text-xs">
-                                    <i class="fa-solid fa-user-tie"></i>
-                                    <span>No teacher</span>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
+                <!-- Class Icon with level color -->
+                <div class="avatar placeholder shrink-0">
+                    <div class="w-11 h-11 rounded-lg
+                        {% if cls.level_type == 'creche' %}bg-secondary/20 text-secondary
+                        {% elif cls.level_type == 'nursery' %}bg-accent/20 text-accent
+                        {% elif cls.level_type == 'kg' %}bg-info/20 text-info
+                        {% elif cls.level_type == 'basic' %}bg-success/20 text-success
+                        {% else %}bg-primary/20 text-primary{% endif %}
+                        flex items-center justify-center">
+                        <i class="fa-solid fa-chalkboard"></i>
                     </div>
                 </div>
-                {% endfor %}
-            </div>
 
-            <!-- Desktop Table View -->
-            <div class="hidden lg:block overflow-x-auto">
-                <table class="table table-sm table-zebra">
-                    <thead>
-                        <tr class="text-xs bg-base-200">
-                            <th>Class</th>
-                            <th>Form Teacher</th>
-                            <th>Students</th>
-                            <th>Level</th>
-                            <th class="text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for cls in classes %}
-                        <tr class="hover">
-                            <td>
-                                <div class="flex items-center gap-3">
-                                    <div class="avatar placeholder">
-                                        <div class="w-10 h-10 rounded-lg
-                                            {% if cls.level_type == 'creche' %}bg-secondary/20 text-secondary
-                                            {% elif cls.level_type == 'nursery' %}bg-accent/20 text-accent
-                                            {% elif cls.level_type == 'kg' %}bg-info/20 text-info
-                                            {% elif cls.level_type == 'basic' %}bg-success/20 text-success
-                                            {% else %}bg-primary/20 text-primary{% endif %}
-                                            flex items-center justify-center">
-                                            <i class="fa-solid fa-chalkboard"></i>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <a href="{% url 'academics:class_detail' cls.pk %}"
-                                           hx-get="{% url 'academics:class_detail' cls.pk %}"
-                                           hx-target="#main-content"
-                                           hx-push-url="true"
-                                           class="font-medium hover:text-primary">
-                                            {{ cls.name }}
-                                        </a>
-                                        {% if cls.programme %}
-                                        <div class="text-xs text-base-content/50">{{ cls.programme.name }}</div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                {% if cls.class_teacher %}
-                                <div class="flex items-center gap-2">
-                                    <div class="avatar placeholder">
-                                        <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center">
-                                            <span class="text-xs">{{ cls.class_teacher.first_name|slice:":1" }}{{ cls.class_teacher.last_name|slice:":1" }}</span>
-                                        </div>
-                                    </div>
-                                    <span class="text-sm">{{ cls.class_teacher.get_title_display }} {{ cls.class_teacher.last_name }}</span>
-                                </div>
-                                {% else %}
-                                <span class="text-xs text-base-content/40 italic">Not assigned</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-sm font-medium">{{ cls.student_count }}</span>
-                                    <span class="text-xs text-base-content/50">/ {{ cls.capacity }}</span>
-                                    {% if cls.student_count >= cls.capacity %}
-                                    <span class="badge badge-error badge-xs">Full</span>
-                                    {% elif cls.student_count > cls.capacity|add:"-5" %}
-                                    <span class="badge badge-warning badge-xs">Almost Full</span>
-                                    {% endif %}
-                                </div>
-                            </td>
-                            <td>
-                                <span class="badge badge-sm
-                                    {% if cls.level_type == 'creche' %}badge-secondary
-                                    {% elif cls.level_type == 'nursery' %}badge-accent
-                                    {% elif cls.level_type == 'kg' %}badge-info
-                                    {% elif cls.level_type == 'basic' %}badge-success
-                                    {% else %}badge-primary{% endif %}">
-                                    {{ cls.get_level_type_display }}
-                                </span>
-                            </td>
-                            <td class="text-right">
-                                <div class="flex justify-end gap-1">
-                                    <a href="{% url 'academics:class_detail' cls.pk %}"
-                                       hx-get="{% url 'academics:class_detail' cls.pk %}"
-                                       hx-target="#main-content"
-                                       hx-push-url="true"
-                                       class="btn btn-ghost btn-xs"
-                                       title="View Details">
-                                        <i class="fa-solid fa-eye text-xs"></i>
-                                    </a>
-                                    <button class="btn btn-ghost btn-xs"
-                                            hx-get="{% url 'academics:class_edit' cls.pk %}"
-                                            hx-target="#modal-class-edit-content"
-                                            hx-swap="innerHTML"
-                                            onclick="document.getElementById('modal_class_edit').showModal()"
-                                            title="Edit Class">
-                                        <i class="fa-solid fa-pen text-xs text-info"></i>
-                                    </button>
-                                    <form hx-post="{% url 'academics:class_delete' cls.pk %}"
-                                          hx-target="#main-content"
-                                          hx-confirm="Delete class {{ cls.name }}? This will remove all student associations."
-                                          class="inline">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-ghost btn-xs" title="Delete Class">
-                                            <i class="fa-solid fa-trash text-xs text-error"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            {% else %}
-            <!-- Empty State -->
-            <div class="text-center py-16">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
-                    <i class="fa-solid fa-chalkboard text-base-content/30 text-2xl"></i>
+                <!-- Info -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                            {{ cls.name }}
+                        </h3>
+                        <span class="badge badge-xs shrink-0
+                            {% if cls.level_type == 'creche' %}badge-secondary
+                            {% elif cls.level_type == 'nursery' %}badge-accent
+                            {% elif cls.level_type == 'kg' %}badge-info
+                            {% elif cls.level_type == 'basic' %}badge-success
+                            {% else %}badge-primary{% endif %}">
+                            {{ cls.get_level_type_display }}
+                        </span>
+                        {% if cls.student_count >= cls.capacity %}
+                        <span class="badge badge-error badge-xs shrink-0">Full</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                        <span class="flex items-center gap-1">
+                            <i class="fa-solid fa-users text-[10px]"></i>
+                            {{ cls.student_count }}/{{ cls.capacity }}
+                        </span>
+                        <span class="hidden xs:inline">•</span>
+                        {% if cls.class_teacher %}
+                        <span class="hidden xs:inline truncate">{{ cls.class_teacher.get_title_display }} {{ cls.class_teacher.last_name }}</span>
+                        {% else %}
+                        <span class="hidden xs:inline text-base-content/40 italic">No teacher</span>
+                        {% endif %}
+                        {% if cls.programme %}
+                        <span class="hidden sm:inline">•</span>
+                        <span class="hidden sm:inline truncate max-w-[120px]">{{ cls.programme.name }}</span>
+                        {% endif %}
+                    </div>
                 </div>
-                <h3 class="font-semibold text-base-content/70">No Classes Found</h3>
-                <p class="text-sm text-base-content/50 max-w-md mx-auto mt-1">
-                    {% if search or level_filter %}
-                    No classes match your search criteria. Try adjusting your filters.
-                    {% else %}
-                    Get started by adding your first class.
-                    {% endif %}
-                </p>
-                {% if not search and not level_filter %}
-                <button onclick="document.getElementById('modal_class').showModal()" class="btn btn-primary btn-sm mt-4">
-                    <i class="fa-solid fa-plus"></i>
-                    Add First Class
-                </button>
-                {% endif %}
-            </div>
-            {% endif %}
+
+                <!-- Quick Actions - visible on mobile, hover on desktop -->
+                <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <span class="btn btn-ghost btn-xs btn-square"
+                          onclick="event.preventDefault(); event.stopPropagation();"
+                          hx-get="{% url 'academics:class_edit' cls.pk %}"
+                          hx-target="#modal-class-edit-content"
+                          hx-swap="innerHTML"
+                          hx-on::after-request="document.getElementById('modal_class_edit').showModal()"
+                          title="Edit">
+                        <i class="fa-solid fa-pen text-base-content/50"></i>
+                    </span>
+                </div>
+
+                <!-- Chevron -->
+                <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
+            </a>
+            {% endfor %}
         </div>
     </div>
 
@@ -313,12 +173,12 @@
         <div class="card-body p-3">
             <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
                 <!-- Page info -->
-                <div class="text-sm text-base-content/60">
-                    Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }}
+                <div class="text-sm text-base-content/60 order-2 sm:order-1">
+                    {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }}
                 </div>
 
                 <!-- Pagination controls -->
-                <div class="join">
+                <div class="join order-1 sm:order-2">
                     {% if page_obj.has_previous %}
                     <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
                        hx-get="{% url 'academics:classes' %}?page=1{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
@@ -339,7 +199,7 @@
                     <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-left"></i></button>
                     {% endif %}
 
-                    <button class="join-item btn btn-sm btn-active">{{ page_obj.number }} / {{ paginator.num_pages }}</button>
+                    <button class="join-item btn btn-sm btn-active">{{ page_obj.number }}/{{ paginator.num_pages }}</button>
 
                     {% if page_obj.has_next %}
                     <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
@@ -363,9 +223,9 @@
                 </div>
 
                 <!-- Per page selector -->
-                <div class="flex items-center gap-2">
-                    <span class="text-sm text-base-content/60">Per page:</span>
-                    <select class="select select-sm select-bordered w-20"
+                <div class="hidden sm:flex items-center gap-2 order-3">
+                    <span class="text-xs text-base-content/60">Show:</span>
+                    <select class="select select-xs select-bordered w-16"
                             hx-get="{% url 'academics:classes' %}"
                             hx-target="#main-content"
                             hx-push-url="true"
@@ -380,12 +240,40 @@
         </div>
     </div>
     {% endif %}
+    {% else %}
+    <!-- Empty State -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body py-12">
+            <div class="text-center">
+                <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-chalkboard text-2xl text-base-content/30"></i>
+                </div>
+                <h3 class="font-bold text-lg mb-1">No classes found</h3>
+                {% if search or level_filter %}
+                <p class="text-sm text-base-content/60 mb-4">Try adjusting your search or filters</p>
+                <a href="{% url 'academics:classes' %}"
+                   hx-get="{% url 'academics:classes' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-ghost btn-sm">
+                    Clear Filters
+                </a>
+                {% else %}
+                <p class="text-sm text-base-content/60 mb-4">Add your first class to get started</p>
+                <button onclick="document.getElementById('modal_class').showModal()" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Add Class
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- ============ MODALS ============ -->
 
 <!-- Add Class Modal -->
-<dialog id="modal_class" class="modal modal-middle">
+<dialog id="modal_class" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box">
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
@@ -423,7 +311,7 @@
 </dialog>
 
 <!-- Edit Class Modal -->
-<dialog id="modal_class_edit" class="modal modal-middle">
+<dialog id="modal_class_edit" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box">
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">

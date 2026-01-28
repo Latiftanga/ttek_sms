@@ -14,13 +14,16 @@
                 {% endif %}
             </div>
         </div>
-        <div>
-            <h1 class="text-xl font-bold">
-                Good {% if today.hour < 12 %}morning{% elif today.hour < 17 %}afternoon{% else %}evening{% endif %}, {{ teacher.get_title_display }} {{ teacher.last_name }}
+        <div class="min-w-0">
+            <h1 class="text-lg sm:text-xl font-bold truncate">
+                <span class="hidden sm:inline">Good {% if today.hour < 12 %}morning{% elif today.hour < 17 %}afternoon{% else %}evening{% endif %}, </span>{{ teacher.get_title_display }} {{ teacher.last_name }}
             </h1>
-            <p class="text-sm text-base-content/60 flex items-center gap-2">
-                <i class="fa-regular fa-calendar"></i>
-                {{ today|date:"l, F j, Y" }}
+            <p class="text-sm text-base-content/60 flex items-center gap-2 flex-wrap">
+                <span class="flex items-center gap-1">
+                    <i class="fa-regular fa-calendar"></i>
+                    <span class="hidden sm:inline">{{ today|date:"l, F j, Y" }}</span>
+                    <span class="sm:hidden">{{ today|date:"D, M j" }}</span>
+                </span>
                 {% if current_term %}
                 <span class="badge badge-sm badge-ghost">{{ current_term.name }}</span>
                 {% endif %}
@@ -29,55 +32,93 @@
     </div>
 </div>
 
+<!-- Mobile Quick Actions - Visible only on small screens -->
+<div class="lg:hidden mb-6">
+    <div class="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+        <a href="{% url 'core:my_grading' %}"
+           hx-get="{% url 'core:my_grading' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-primary gap-2 flex-shrink-0">
+            <i class="fa-solid fa-pen-to-square"></i>
+            Enter Scores
+        </a>
+        <a href="{% url 'core:my_attendance' %}"
+           hx-get="{% url 'core:my_attendance' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-success gap-2 flex-shrink-0">
+            <i class="fa-solid fa-clipboard-check"></i>
+            Attendance
+        </a>
+        <a href="{% url 'gradebook:reports' %}"
+           hx-get="{% url 'gradebook:reports' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-info gap-2 flex-shrink-0">
+            <i class="fa-solid fa-file-lines"></i>
+            Reports
+        </a>
+        <a href="{% url 'core:schedule' %}"
+           hx-get="{% url 'core:schedule' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-secondary gap-2 flex-shrink-0">
+            <i class="fa-solid fa-calendar-days"></i>
+            Schedule
+        </a>
+    </div>
+</div>
+
 <!-- Stats -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-chalkboard text-primary text-xl"></i>
+        <div class="card-body p-3 sm:p-4">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-chalkboard text-primary text-lg sm:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-primary">{{ stats.classes_count }}</div>
+                <div class="min-w-0">
+                    <div class="text-xl sm:text-2xl font-bold text-primary">{{ stats.classes_count }}</div>
                     <div class="text-xs text-base-content/60">Classes</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-book text-secondary text-xl"></i>
+        <div class="card-body p-3 sm:p-4">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-book text-secondary text-lg sm:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-secondary">{{ stats.subjects_count }}</div>
+                <div class="min-w-0">
+                    <div class="text-xl sm:text-2xl font-bold text-secondary">{{ stats.subjects_count }}</div>
                     <div class="text-xs text-base-content/60">Subjects</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                    <i class="fa-solid fa-users text-accent text-xl"></i>
+        <div class="card-body p-3 sm:p-4">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-users text-accent text-lg sm:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-accent">{{ stats.total_students }}</div>
+                <div class="min-w-0">
+                    <div class="text-xl sm:text-2xl font-bold text-accent">{{ stats.total_students }}</div>
                     <div class="text-xs text-base-content/60">Students</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
-                    <i class="fa-solid fa-clock text-info text-xl"></i>
+        <div class="card-body p-3 sm:p-4">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-info/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-clock text-info text-lg sm:text-xl"></i>
                 </div>
-                <div>
-                    <div class="text-2xl font-bold text-info">{{ stats.periods_today }}</div>
+                <div class="min-w-0">
+                    <div class="text-xl sm:text-2xl font-bold text-info">{{ stats.periods_today }}</div>
                     <div class="text-xs text-base-content/60">{% if is_weekend %}Weekend{% else %}Today{% endif %}</div>
                 </div>
             </div>
@@ -95,18 +136,20 @@
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-0">
                 <div class="flex items-center justify-between p-4 border-b border-base-200">
-                    <h2 class="font-bold flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <i class="fa-solid fa-clock text-primary"></i>
+                    <h2 class="font-bold flex items-center gap-2 text-sm sm:text-base">
+                        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-clock text-primary text-sm sm:text-base"></i>
                         </div>
-                        Today's Schedule
+                        <span class="hidden sm:inline">Today's Schedule</span>
+                        <span class="sm:hidden">Today</span>
                     </h2>
                     <a href="{% url 'core:schedule' %}"
                        hx-get="{% url 'core:schedule' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="btn btn-ghost btn-sm gap-1">
-                        View Full Schedule
+                       class="btn btn-ghost btn-xs sm:btn-sm gap-1">
+                        <span class="hidden sm:inline">View Full Schedule</span>
+                        <span class="sm:hidden">Full</span>
                         <i class="fa-solid fa-arrow-right text-xs"></i>
                     </a>
                 </div>
@@ -205,7 +248,7 @@
                                     </p>
                                 </div>
                                 <div class="dropdown dropdown-end">
-                                    <label tabindex="0" class="btn btn-ghost btn-xs btn-circle opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <label tabindex="0" class="btn btn-ghost btn-xs btn-circle">
                                         <i class="fa-solid fa-ellipsis-vertical"></i>
                                     </label>
                                     <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-44 border border-base-200">

@@ -1603,14 +1603,14 @@ def report_distribution(request, class_id):
         student.term_report = reports.get(student.id)
         student.last_distribution = distribution_logs.get(student.id)
 
-        # Check for guardian contact
-        guardian_email = getattr(student, 'guardian_email', None) or getattr(student, 'parent_email', None)
-        guardian_phone = getattr(student, 'guardian_phone', None) or getattr(student, 'parent_phone', None)
+        # Check for guardian contact (use different attr names to avoid conflict with properties)
+        contact_email = getattr(student, 'guardian_email', None) or getattr(student, 'parent_email', None)
+        contact_phone = getattr(student, 'guardian_phone', None) or getattr(student, 'parent_phone', None)
 
-        student.has_email = bool(guardian_email)
-        student.has_phone = bool(guardian_phone)
-        student.guardian_email = guardian_email
-        student.guardian_phone = guardian_phone
+        student.has_email = bool(contact_email)
+        student.has_phone = bool(contact_phone)
+        student.contact_email = contact_email
+        student.contact_phone = contact_phone
 
         if student.has_email:
             with_email += 1
