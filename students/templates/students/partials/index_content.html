@@ -1,5 +1,9 @@
 {% load core_tags %}
-<div class="space-y-4">
+<div class="space-y-4" id="students-list"
+     hx-get="{% url 'students:index' %}{% if search or class_filter or status_filter %}?{% if search %}search={{ search }}{% endif %}{% if class_filter %}{% if search %}&{% endif %}class={{ class_filter }}{% endif %}{% if status_filter %}{% if search or class_filter %}&{% endif %}status={{ status_filter }}{% endif %}{% endif %}"
+     hx-trigger="studentChanged from:body"
+     hx-target="this"
+     hx-swap="outerHTML transition:true">
     <!-- Page Header -->
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-3">
@@ -50,7 +54,7 @@
                         <button hx-get="{% url 'students:bulk_import' %}"
                                 hx-target="#modal-bulk-content"
                                 hx-swap="innerHTML"
-                                onclick="modal_bulk.showModal()">
+                                                 onclick="modal_bulk.showModal()">
                             <i class="fa-solid fa-file-import w-5"></i> Import
                         </button>
                     </li>
@@ -66,7 +70,7 @@
                   hx-get="{% url 'students:index' %}"
                   hx-target="#main-content"
                   hx-push-url="true"
-                  hx-trigger="submit, change from:select"
+                     hx-trigger="submit, change from:select"
                   class="flex flex-col gap-2">
                 <!-- Search -->
                 <div class="relative">
@@ -78,7 +82,7 @@
                            class="input input-sm input-bordered w-full pl-9"
                            hx-get="{% url 'students:index' %}"
                            hx-target="#main-content"
-                           hx-trigger="keyup changed delay:300ms"
+                                       hx-trigger="keyup changed delay:300ms"
                            hx-include="[name='class'], [name='status']" />
                 </div>
                 <!-- Filters -->
@@ -122,6 +126,7 @@
             <a href="{% url 'students:student_detail' student.pk %}"
                hx-get="{% url 'students:student_detail' student.pk %}"
                hx-target="#main-content"
+               hx-swap="innerHTML"
                hx-push-url="true"
                class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
 
@@ -165,8 +170,8 @@
                     </div>
                 </div>
 
-                <!-- Quick Actions -->
-                <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <!-- Quick Actions - visible on mobile, hover on desktop -->
+                <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
                           hx-get="{% url 'students:student_edit' student.pk %}"
                           hx-target="#main-content"
@@ -245,7 +250,7 @@
                             hx-get="{% url 'students:index' %}"
                             hx-target="#main-content"
                             hx-push-url="true"
-                            hx-include="[name='search'], [name='class'], [name='status']"
+                                         hx-include="[name='search'], [name='class'], [name='status']"
                             name="per_page">
                         <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
                         <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
@@ -270,6 +275,7 @@
                 <a href="{% url 'students:index' %}"
                    hx-get="{% url 'students:index' %}"
                    hx-target="#main-content"
+                   hx-swap="innerHTML"
                    hx-push-url="true"
                    class="btn btn-ghost btn-sm">
                     Clear Filters
@@ -279,6 +285,7 @@
                 <a href="{% url 'students:student_create' %}"
                    hx-get="{% url 'students:student_create' %}"
                    hx-target="#main-content"
+                   hx-swap="innerHTML"
                    hx-push-url="true"
                    class="btn btn-primary btn-sm">
                     <i class="fa-solid fa-plus"></i> Add Student
@@ -308,3 +315,8 @@
         <button>close</button>
     </form>
 </dialog>
+
+<style>
+    #students-list.htmx-swapping { opacity: 0.5; transition: opacity 150ms ease-out; }
+    #students-list.htmx-settling { opacity: 1; transition: opacity 150ms ease-in; }
+</style>

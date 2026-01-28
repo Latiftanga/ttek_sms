@@ -13,9 +13,10 @@
 
     <!-- Compact Header -->
     <div class="flex items-center gap-3 mb-4 print:!hidden">
-        <a href="{{ back_url|default:'/students/' }}"
-           hx-get="{{ back_url|default:'/students/' }}"
+        <a href="{% url 'students:index' %}"
+           hx-get="{% url 'students:index' %}"
            hx-target="#main-content"
+           hx-swap="innerHTML"
            hx-push-url="true"
            class="btn btn-ghost btn-sm btn-square shrink-0">
             <i class="fa-solid fa-arrow-left"></i>
@@ -143,32 +144,32 @@
     <!-- Tabbed Content -->
     <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-gray-300">
 
-        <!-- Tabs Header - Compact on mobile -->
+        <!-- Tabs Header - Labels visible on all sizes -->
         <div class="border-b border-base-200 px-2 sm:px-4 pt-1 print:!hidden">
             <div class="flex overflow-x-auto scrollbar-none -mb-px">
-                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+                <button class="flex-1 sm:flex-none px-2 sm:px-5 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
                         :class="activeTab === 'overview' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                         @click="setTab('overview')">
-                    <i class="fa-regular fa-id-card sm:mr-1.5"></i>
-                    <span class="hidden sm:inline">Overview</span>
+                    <i class="fa-regular fa-id-card mr-1"></i>
+                    <span>Info</span>
                 </button>
-                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+                <button class="flex-1 sm:flex-none px-2 sm:px-5 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
                         :class="activeTab === 'guardians' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                         @click="setTab('guardians')">
-                    <i class="fa-solid fa-user-shield sm:mr-1.5"></i>
-                    <span class="hidden sm:inline">Guardians</span>
+                    <i class="fa-solid fa-user-shield mr-1"></i>
+                    <span>Guardian</span>
                 </button>
-                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+                <button class="flex-1 sm:flex-none px-2 sm:px-5 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
                         :class="activeTab === 'academics' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                         @click="setTab('academics')">
-                    <i class="fa-solid fa-graduation-cap sm:mr-1.5"></i>
-                    <span class="hidden sm:inline">Academics</span>
+                    <i class="fa-solid fa-graduation-cap mr-1"></i>
+                    <span>Grades</span>
                 </button>
-                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+                <button class="flex-1 sm:flex-none px-2 sm:px-5 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
                         :class="activeTab === 'system' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                         @click="setTab('system')">
-                    <i class="fa-solid fa-gear sm:mr-1.5"></i>
-                    <span class="hidden sm:inline">System</span>
+                    <i class="fa-solid fa-gear mr-1"></i>
+                    <span>System</span>
                 </button>
             </div>
         </div>

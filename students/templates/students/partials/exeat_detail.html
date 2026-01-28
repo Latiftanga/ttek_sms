@@ -12,6 +12,7 @@
                 <a href="{% url 'students:exeat_index' %}"
                    hx-get="{% url 'students:exeat_index' %}"
                    hx-target="#main-content"
+                   hx-swap="innerHTML"
                    hx-push-url="true"
                    class="btn btn-ghost btn-sm btn-circle"
                    title="Go back">

@@ -150,18 +150,18 @@
             </div>
 
             <!-- Actions -->
-            <div class="flex gap-3">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button type="submit" class="btn btn-primary order-1 sm:order-2">
+                    <i class="fa-solid fa-check mr-1"></i>
+                    Save Changes
+                </button>
                 <a href="{% url 'core:profile' %}"
                    hx-get="{% url 'core:profile' %}"
                    hx-target="#main-content"
                    hx-push-url="true"
-                   class="btn btn-ghost">
+                   class="btn btn-ghost order-2 sm:order-1">
                     Cancel
                 </a>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fa-solid fa-check mr-1"></i>
-                    Save Changes
-                </button>
             </div>
         </div>
     </div>

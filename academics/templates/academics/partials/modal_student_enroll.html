@@ -47,14 +47,14 @@
                 <table class="table table-sm table-pin-rows" id="enroll-table">
                     <thead>
                         <tr>
-                            <th class="w-12">
+                            <th class="w-10 sm:w-12">
                                 <label>
                                     <input type="checkbox" class="checkbox checkbox-sm" onclick="toggleAll(this)" />
                                 </label>
                             </th>
-                            <th>Student Name</th>
-                            <th>Admission No.</th>
-                            <th>Gender</th>
+                            <th>Student</th>
+                            <th class="hidden sm:table-cell">Admission No.</th>
+                            <th class="hidden md:table-cell">Gender</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -70,22 +70,29 @@
                                 </label>
                             </td>
                             <td>
-                                <div class="flex items-center gap-3">
-                                    <div class="avatar placeholder">
-                                        <div class="w-8 h-8 rounded-full bg-base-200 flex items-center justify-center">
-                                            <span class="text-xs">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                                <div class="flex items-center gap-2 sm:gap-3">
+                                    <div class="avatar placeholder shrink-0">
+                                        <div class="w-8 h-8 rounded-full {{ student.gender|yesno:'bg-blue-100 text-blue-600,bg-pink-100 text-pink-600' }} flex items-center justify-center">
+                                            <span class="text-xs font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                                         </div>
                                     </div>
-                                    <span class="font-bold student-name">{{ student.full_name }}</span>
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-sm truncate student-name">{{ student.full_name }}</div>
+                                        <div class="text-xs text-base-content/50 sm:hidden student-id">{{ student.admission_number }}</div>
+                                    </div>
                                 </div>
                             </td>
-                            <td class="font-mono text-xs student-id">{{ student.admission_number }}</td>
-                            <td class="student-gender">{{ student.get_gender_display }}</td>
+                            <td class="hidden sm:table-cell font-mono text-xs student-id">{{ student.admission_number }}</td>
+                            <td class="hidden md:table-cell student-gender">
+                                <span class="badge badge-xs {{ student.gender|yesno:'badge-info,badge-secondary' }}">
+                                    {{ student.get_gender_display }}
+                                </span>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-                
+
                 <div id="no-results" class="hidden text-center py-12 text-base-content/50">
                     No matching students found.
                 </div>

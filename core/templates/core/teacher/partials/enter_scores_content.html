@@ -129,9 +129,9 @@
     <div class="flex items-center gap-3 p-3 bg-base-100 rounded-lg border border-base-200 student-score-row" data-student="{{ student.id }}">
         <!-- Student Photo -->
         <div class="avatar placeholder shrink-0">
-            <div class="w-11 h-11 rounded-full bg-base-300 text-base-content">
+            <div class="w-11 h-11 rounded-full bg-base-300 text-base-content flex items-center justify-center">
                 {% if student.photo %}
-                <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="object-cover" loading="lazy" />
+                <img src="{{ student.photo.url }}" alt="{{ student.full_name|escape }}" class="object-cover w-full h-full rounded-full" loading="lazy" />
                 {% else %}
                 <span class="text-sm font-medium">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                 {% endif %}
@@ -149,7 +149,7 @@
             {% for assignment in assignments %}
             <input type="number"
                    inputmode="decimal"
-                   name="score_{{ student.id }}_{{ assignment.id }}"
+                   name="points"
                    value="{% with score=scores_dict|get_item:student.id|get_item:assignment.id %}{{ score|default:'' }}{% endwith %}"
                    min="0"
                    max="{{ assignment.points_possible }}"
@@ -180,7 +180,7 @@
             <div class="flex flex-wrap items-center gap-3 p-3 border-b border-base-200 bg-base-200/30">
                 <span class="text-xs font-medium">Categories:</span>
                 {% for cat in categories %}
-                <span class="badge badge-outline badge-xs gap-1">{{ cat.name }} ({{ cat.percentage }}%)</span>
+                <span class="badge badge-outline badge-xs gap-1">{{ cat.name|escape }} ({{ cat.percentage }}%)</span>
                 {% endfor %}
             </div>
 
@@ -259,20 +259,43 @@
     </div>
 </div>
 
-<!-- Desktop Footer -->
-<div class="hidden md:block mt-4 p-3 bg-base-200/50 rounded-lg">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2 text-sm text-base-content/60">
-            <i class="fa-solid fa-circle-check text-success"></i>
-            <span>Scores are saved automatically when you change them</span>
+<!-- Styles for score input feedback -->
+<style>
+.score-input.input-error, .score-input-desktop.input-error {
+    border-color: oklch(var(--er)) !important;
+    background-color: oklch(var(--er) / 0.1) !important;
+    animation: shake-input 0.3s ease-in-out;
+}
+.score-input.input-success, .score-input-desktop.input-success {
+    border-color: oklch(var(--su)) !important;
+    background-color: oklch(var(--su) / 0.15) !important;
+}
+@keyframes shake-input {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-3px); }
+    40% { transform: translateX(3px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
+}
+</style>
+
+<!-- Error tooltip (fixed position, stays in viewport) -->
+<div id="score-error-tooltip-teacher" class="fixed z-[100] hidden pointer-events-none">
+    <div class="bg-error text-error-content text-xs rounded-lg shadow-lg px-3 py-2 max-w-52 pointer-events-auto">
+        <div class="flex items-start gap-2">
+            <i class="fa-solid fa-circle-exclamation mt-0.5 flex-shrink-0"></i>
+            <div>
+                <div class="font-semibold" id="tooltip-message-teacher"></div>
+                <div class="text-error-content/80 mt-0.5 text-[11px]" id="tooltip-hint-teacher"></div>
+            </div>
         </div>
-        <a href="{% url 'core:my_grading' %}"
-           hx-get="{% url 'core:my_grading' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-ghost btn-sm">
-            <i class="fa-solid fa-arrow-left"></i> Back
-        </a>
+    </div>
+</div>
+
+<!-- Toast for errors -->
+<div id="score-toast-teacher" class="toast toast-top toast-end z-50" style="display: none;">
+    <div class="alert alert-error">
+        <span id="score-toast-message-teacher"></span>
     </div>
 </div>
 
@@ -280,7 +303,7 @@
 (function() {
     // Assignment navigation for mobile - use window to avoid redeclaration
     window.currentAssignmentIndex = 0;
-    window.scoreAssignments = [{% for a in assignments %}{ id: {{ a.id }}, max: {{ a.points_possible }}, name: "{{ a.name }}" }{% if not forloop.last %},{% endif %}{% endfor %}];
+    window.scoreAssignments = [{% for a in assignments %}{ id: "{{ a.id }}", max: {{ a.points_possible }}, name: "{{ a.name|escapejs }}" }{% if not forloop.last %},{% endif %}{% endfor %}];
 })();
 
 function showAssignment(assignmentId) {
@@ -323,73 +346,265 @@ function nextAssignment() {
 }
 
 function updateNavigation() {
-    const assignments = window.scoreAssignments;
-    document.getElementById('assignment-counter').textContent =
-        (window.currentAssignmentIndex + 1) + ' of ' + assignments.length;
+    var counter = document.getElementById('assignment-counter');
+    var prevBtn = document.getElementById('prev-btn');
+    var nextBtn = document.getElementById('next-btn');
 
-    document.getElementById('prev-btn').disabled = window.currentAssignmentIndex === 0;
-    document.getElementById('next-btn').disabled = window.currentAssignmentIndex === assignments.length - 1;
+    // Exit if elements don't exist (e.g., after navigating away)
+    if (!counter || !prevBtn || !nextBtn) return;
 
-    document.getElementById('prev-btn').classList.toggle('opacity-30', window.currentAssignmentIndex === 0);
-    document.getElementById('next-btn').classList.toggle('opacity-30', window.currentAssignmentIndex === assignments.length - 1);
+    var assignments = window.scoreAssignments;
+    if (!assignments || !assignments.length) return;
+
+    counter.textContent = (window.currentAssignmentIndex + 1) + ' of ' + assignments.length;
+    prevBtn.disabled = window.currentAssignmentIndex === 0;
+    nextBtn.disabled = window.currentAssignmentIndex === assignments.length - 1;
+    prevBtn.classList.toggle('opacity-30', window.currentAssignmentIndex === 0);
+    nextBtn.classList.toggle('opacity-30', window.currentAssignmentIndex === assignments.length - 1);
 }
 
 // Calculate totals for desktop
 function calculateTotals() {
-    const students = {};
-    document.querySelectorAll('.score-input-desktop').forEach(input => {
-        const studentId = input.dataset.student;
-        const value = parseFloat(input.value) || 0;
+    // Exit if not on score entry page
+    if (!document.getElementById('score-entry-container')) return;
+
+    var students = {};
+    document.querySelectorAll('.score-input-desktop').forEach(function(input) {
+        var studentId = input.dataset.student;
+        var value = parseFloat(input.value) || 0;
         if (!students[studentId]) students[studentId] = 0;
         students[studentId] += value;
     });
-    document.querySelectorAll('.student-total').forEach(span => {
-        const studentId = span.dataset.student;
-        const total = students[studentId] || 0;
+    document.querySelectorAll('.student-total').forEach(function(span) {
+        var studentId = span.dataset.student;
+        var total = students[studentId] || 0;
         span.textContent = total > 0 ? total.toFixed(1) : '-';
     });
 }
 
-// Visual feedback on save
+// ============ Validation & Feedback System ============
+var errorTooltipTimeout = null;
+var typingDebounceTimer = null;
+
+function showToastTeacher(message, type) {
+    const toast = document.getElementById('score-toast-teacher');
+    const msgEl = document.getElementById('score-toast-message-teacher');
+    if (!toast || !msgEl) return;
+
+    const alertEl = toast.querySelector('.alert');
+    msgEl.textContent = message;
+    alertEl.className = 'alert alert-' + (type === 'error' ? 'error' : 'success');
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, type === 'error' ? 5000 : 2500);
+}
+
+function showErrorTooltipTeacher(input, message, hint) {
+    const tooltip = document.getElementById('score-error-tooltip-teacher');
+    const messageEl = document.getElementById('tooltip-message-teacher');
+    const hintEl = document.getElementById('tooltip-hint-teacher');
+
+    if (!tooltip) return;
+
+    if (errorTooltipTimeout) clearTimeout(errorTooltipTimeout);
+
+    messageEl.textContent = message;
+    hintEl.textContent = hint || '';
+    hintEl.style.display = hint ? 'block' : 'none';
+
+    // Fixed positioning - relative to viewport
+    const rect = input.getBoundingClientRect();
+    const tooltipWidth = 210;
+    const tooltipHeight = 60;
+    const padding = 8;
+
+    let top = rect.bottom + padding;
+    let left = rect.left;
+
+    if (top + tooltipHeight > window.innerHeight) {
+        top = rect.top - tooltipHeight - padding;
+    }
+    if (left + tooltipWidth > window.innerWidth - padding) {
+        left = window.innerWidth - tooltipWidth - padding;
+    }
+    if (left < padding) left = padding;
+    if (top < padding) top = padding;
+
+    tooltip.style.top = top + 'px';
+    tooltip.style.left = left + 'px';
+    tooltip.classList.remove('hidden');
+
+    errorTooltipTimeout = setTimeout(() => {
+        tooltip.classList.add('hidden');
+    }, 4000);
+}
+
+function hideErrorTooltipTeacher() {
+    const tooltip = document.getElementById('score-error-tooltip-teacher');
+    if (tooltip) tooltip.classList.add('hidden');
+}
+
+function validateScoreTeacher(value, max) {
+    if (value === "") return { valid: true };
+    var num = parseFloat(value);
+    if (isNaN(num)) return { valid: false, message: "Enter a valid number", hint: "Use digits only, like 85 or 85.5" };
+    if (num < 0) return { valid: false, message: "Cannot be negative", hint: "Scores must be 0 or higher" };
+    if (num > max) return { valid: false, message: "Maximum is " + max, hint: "Enter a value between 0 and " + max };
+    var decimalPart = value.split(".")[1];
+    if (decimalPart && decimalPart.length > 2) {
+        return { valid: false, message: "Max 2 decimal places", hint: "Use at most 2 decimal places" };
+    }
+    return { valid: true };
+}
+
+// Visual feedback on save with validation
 function setupInputFeedback() {
+    // Exit if not on score entry page
+    if (!document.getElementById('score-entry-container')) return;
+
     document.querySelectorAll('.score-input, .score-input-desktop').forEach(input => {
+        // Skip if already initialized
+        if (input.dataset.validationInit) return;
+        input.dataset.validationInit = 'true';
+
+        // Real-time validation while typing
         input.addEventListener('input', function() {
+            const inputEl = this;
             const max = parseFloat(this.dataset.max);
-            let value = parseFloat(this.value);
-            if (value > max) this.value = max;
-            if (value < 0) this.value = 0;
+            const value = this.value.trim();
+            const validation = validateScoreTeacher(value, max);
+
+            if (typingDebounceTimer) clearTimeout(typingDebounceTimer);
+
+            if (!validation.valid && value !== '') {
+                this.classList.add('input-error');
+                // Show tooltip after brief delay (150ms) for snappy mobile feedback
+                typingDebounceTimer = setTimeout(function() {
+                    showErrorTooltipTeacher(inputEl, validation.message, validation.hint);
+                }, 150);
+            } else {
+                this.classList.remove('input-error');
+                hideErrorTooltipTeacher();
+            }
+
             calculateTotals();
+        });
+
+        // Validate on blur before HTMX sends
+        input.addEventListener('blur', function() {
+            const max = parseFloat(this.dataset.max);
+            const value = this.value.trim();
+            const validation = validateScoreTeacher(value, max);
+
+            if (!validation.valid && value !== '') {
+                this.classList.add('input-error');
+                showToastTeacher(validation.message, 'error');
+                showErrorTooltipTeacher(this, validation.message, validation.hint);
+                // Cancel HTMX by removing the trigger temporarily
+                this.setAttribute('data-hx-trigger-backup', this.getAttribute('hx-trigger') || '');
+                this.removeAttribute('hx-trigger');
+                // Restore after a moment
+                setTimeout(() => {
+                    const backup = this.getAttribute('data-hx-trigger-backup');
+                    if (backup) this.setAttribute('hx-trigger', backup);
+                }, 100);
+            }
         });
     });
 }
 
-// HTMX feedback
-document.body.addEventListener('htmx:afterRequest', function(evt) {
-    if (evt.detail.successful) {
-        const input = evt.detail.elt;
-        if (input.classList.contains('score-input') || input.classList.contains('score-input-desktop')) {
-            input.classList.add('input-success');
-            setTimeout(() => input.classList.remove('input-success'), 800);
-        }
+// Intercept HTMX requests for validation
+document.body.addEventListener('htmx:beforeRequest', function(evt) {
+    const input = evt.detail.elt;
+    if (!input.classList.contains('score-input') && !input.classList.contains('score-input-desktop')) return;
+
+    const max = parseFloat(input.dataset.max);
+    const value = input.value.trim();
+    const validation = validateScoreTeacher(value, max);
+
+    if (!validation.valid && value !== '') {
+        evt.preventDefault();
+        input.classList.add('input-error');
+        showToastTeacher(validation.message, 'error');
+        showErrorTooltipTeacher(input, validation.message, validation.hint);
     }
 });
 
-// Initialize
+// HTMX feedback - handle both success and errors
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    const input = evt.detail.elt;
+    if (!input.classList.contains('score-input') && !input.classList.contains('score-input-desktop')) return;
+
+    if (evt.detail.successful) {
+        // Check for error in HX-Trigger header
+        const trigger = evt.detail.xhr.getResponseHeader('HX-Trigger');
+        if (trigger) {
+            try {
+                const triggerData = JSON.parse(trigger);
+                if (triggerData.scoreError) {
+                    input.classList.add('input-error');
+                    input.classList.remove('input-success');
+                    showToastTeacher(triggerData.scoreError.message, 'error');
+                    showErrorTooltipTeacher(input, triggerData.scoreError.message, triggerData.scoreError.hint);
+                    if (triggerData.revertScore) {
+                        input.value = triggerData.revertScore.value;
+                    }
+                    return;
+                }
+                if (triggerData.showToast && triggerData.showToast.type === 'error') {
+                    input.classList.add('input-error');
+                    showToastTeacher(triggerData.showToast.message, 'error');
+                    return;
+                }
+            } catch(e) {}
+        }
+
+        // Success
+        input.classList.remove('input-error');
+        input.classList.add('input-success');
+        setTimeout(() => input.classList.remove('input-success'), 800);
+    } else {
+        // Request failed
+        input.classList.add('input-error');
+        showToastTeacher('Failed to save score', 'error');
+        setTimeout(() => input.classList.remove('input-error'), 2000);
+    }
+});
+
+// Initialize immediately
 setupInputFeedback();
 calculateTotals();
 updateNavigation();
 
-// Re-init after HTMX swaps
+// Re-init after HTMX swaps - only if still on score entry page
 document.body.addEventListener('htmx:afterSwap', function(evt) {
-    if (evt.detail.target.id === 'score-entry-container') {
+    // Only run if score-entry-container still exists (we're still on the score entry page)
+    if (document.getElementById('score-entry-container')) {
         setupInputFeedback();
         calculateTotals();
-        updateNavigation();
+        if (typeof updateNavigation === 'function') updateNavigation();
     }
 });
 </script>
 {% endif %}
 </div><!-- end score-entry-container -->
+
+<!-- Desktop Footer - Outside container for proper HTMX handling -->
+<div class="hidden md:block mt-4 p-3 bg-base-200/50 rounded-lg">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-sm text-base-content/60">
+            <i class="fa-solid fa-circle-check text-success"></i>
+            <span>Scores are saved automatically when you change them</span>
+        </div>
+        <a href="{% url 'core:my_grading' %}"
+           hx-get="{% url 'core:my_grading' %}"
+           hx-target="#main-content"
+           hx-swap="innerHTML show:window:top"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
 
 <!-- Assignments Modal -->
 <dialog id="modal_assignments" class="modal modal-bottom sm:modal-middle">

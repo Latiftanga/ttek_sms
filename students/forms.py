@@ -60,7 +60,7 @@ class GuardianForm(forms.ModelForm):
     """Form for creating/editing guardians."""
     phone_number = forms.CharField(
         label=_("Phone Number"),
-        widget=forms.TextInput(attrs={'placeholder': 'Phone number', 'required': True})
+        widget=forms.TextInput(attrs={'placeholder': 'Phone number', 'required': True, 'type': 'tel'})
     )
     class Meta:
         model = Guardian
@@ -117,7 +117,7 @@ class StudentForm(forms.ModelForm):
             'other_names': forms.TextInput(attrs={'placeholder': 'Other names (optional)'}),
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'address': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Student address'}),
-            'phone': forms.TextInput(attrs={'placeholder': 'Phone number (optional)'}),
+            'phone': forms.TextInput(attrs={'placeholder': 'Phone number (optional)', 'type': 'tel'}),
             'admission_number': forms.TextInput(attrs={'placeholder': 'e.g., STU-2024-001'}),
             'admission_date': forms.DateInput(attrs={'type': 'date'}),
         }

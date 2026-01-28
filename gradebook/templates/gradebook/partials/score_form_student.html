@@ -106,17 +106,8 @@
                                    max="{{ assignment.points_possible }}"
                                    step="0.5"
                                    inputmode="decimal"
-                                   pattern="[0-9]*\.?[0-9]*"
                                    value="{{ scores_dict|get_item:assignment.pk|default:'' }}"
-                                   {% if editing_allowed %}
-                                   hx-post="{% url 'gradebook:score_save' %}"
-                                   hx-trigger="change, blur"
-                                   hx-vals='{"student_id": "{{ student.pk }}", "assignment_id": "{{ assignment.pk }}"}'
-                                   hx-include="this"
-                                   hx-swap="none"
-                                   {% endif %}
-                                   {% if not editing_allowed %}disabled{% endif %}
-                                   name="points">
+                                   {% if not editing_allowed %}disabled{% endif %}>
                             <span class="text-base-content/40 text-sm">/ {{ assignment.points_possible }}</span>
                         </div>
                     </div>
@@ -163,10 +154,28 @@
     </div>
 </div>
 
+<!-- Config (hidden inputs for JS to read) -->
+<input type="hidden" id="score-save-url-mobile" value="{% url 'gradebook:score_save' %}">
+<input type="hidden" id="score-csrf-token-mobile" value="{{ csrf_token }}">
+
 <!-- Toast container -->
-<div id="score-toast-mobile" class="toast toast-top toast-center z-50 hidden">
-    <div class="alert py-2">
-        <span id="score-toast-message-mobile" class="text-sm"></span>
+<div id="score-toast-mobile" class="toast toast-top toast-center z-50" style="display: none;">
+    <div class="alert py-2 alert-info">
+        <span id="score-toast-message-mobile" class="text-sm">Test</span>
+    </div>
+</div>
+
+<!-- Error tooltip for mobile -->
+<div id="score-error-tooltip-mobile" class="fixed z-50 hidden left-4 right-4 bottom-20">
+    <div class="bg-error text-error-content text-sm rounded-xl shadow-xl px-4 py-3 flex items-start gap-3">
+        <i class="fa-solid fa-circle-exclamation mt-0.5"></i>
+        <div class="flex-1">
+            <div class="font-semibold" id="tooltip-message-mobile"></div>
+            <div class="text-error-content/80 text-xs mt-1" id="tooltip-hint-mobile"></div>
+        </div>
+        <button onclick="hideErrorTooltipMobile()" class="btn btn-ghost btn-xs btn-circle">
+            <i class="fa-solid fa-times"></i>
+        </button>
     </div>
 </div>
 
@@ -175,6 +184,7 @@
     font-variant-numeric: tabular-nums;
     -webkit-appearance: none;
     -moz-appearance: textfield;
+    transition: all 0.15s ease;
 }
 .score-input-mobile::-webkit-inner-spin-button,
 .score-input-mobile::-webkit-outer-spin-button {
@@ -185,67 +195,281 @@
     outline: 2px solid oklch(var(--p));
     outline-offset: 0;
 }
-.score-input-mobile.htmx-request {
+.score-input-mobile.saving {
     background-color: oklch(var(--wa) / 0.2);
+    border-color: oklch(var(--wa));
 }
 .score-input-mobile.input-success {
-    border-color: oklch(var(--su));
-    animation: pulse-success 0.3s ease-out;
+    border-color: oklch(var(--su)) !important;
+    background-color: oklch(var(--su) / 0.15) !important;
+    animation: pulse-success-mobile 0.4s ease-out;
 }
-@keyframes pulse-success {
-    0% { box-shadow: 0 0 0 0 oklch(var(--su) / 0.4); }
-    100% { box-shadow: 0 0 0 8px oklch(var(--su) / 0); }
+.score-input-mobile.input-error {
+    border-color: oklch(var(--er)) !important;
+    background-color: oklch(var(--er) / 0.1) !important;
+    animation: shake-mobile 0.3s ease-in-out;
+}
+@keyframes pulse-success-mobile {
+    0% { box-shadow: 0 0 0 0 oklch(var(--su) / 0.5); }
+    100% { box-shadow: 0 0 0 12px oklch(var(--su) / 0); }
+}
+@keyframes shake-mobile {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-4px); }
+    40% { transform: translateX(4px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
 }
 </style>
 
 <script>
-// Handle toast display for mobile view
-document.body.addEventListener('showToast', function(e) {
-    const toast = document.getElementById('score-toast-mobile');
-    const message = document.getElementById('score-toast-message-mobile');
-    if (!toast || !message) return;
+// Global function to hide tooltip (called from onclick in HTML)
+function hideErrorTooltipMobile() {
+    const tooltip = document.getElementById('score-error-tooltip-mobile');
+    if (tooltip) tooltip.classList.add('hidden');
+}
 
-    const alert = toast.querySelector('.alert');
-    message.textContent = e.detail.message;
-    alert.className = 'alert py-2 alert-' + (e.detail.type === 'error' ? 'error' : 'success');
+(function() {
+    var SAVE_URL = document.getElementById('score-save-url-mobile').value;
+    var CSRF_TOKEN = document.getElementById('score-csrf-token-mobile').value;
+    var errorTooltipTimeout = null;
+    var typingDebounceTimer = null;
 
-    toast.classList.remove('hidden');
-    setTimeout(() => toast.classList.add('hidden'), 2000);
-});
+    // Show toast notification (longer for errors)
+    function showToast(message, type) {
+        const toast = document.getElementById('score-toast-mobile');
+        const msgEl = document.getElementById('score-toast-message-mobile');
+        if (!toast || !msgEl) return;
 
-// Handle score revert on validation error
-document.body.addEventListener('revertScore', function(e) {
-    const input = document.querySelector(
-        `.score-input-mobile[data-student="${e.detail.student}"][data-assignment="${e.detail.assignment}"]`
-    );
-    if (input) {
-        input.value = e.detail.value;
-        input.classList.add('input-error');
-        setTimeout(() => input.classList.remove('input-error'), 1000);
+        const alertEl = toast.querySelector('.alert');
+        msgEl.textContent = message;
+        alertEl.className = 'alert py-2 alert-' + (type === 'error' ? 'error' : 'success');
+        toast.style.display = 'block';
+        const duration = type === 'error' ? 4000 : 2000;
+        setTimeout(() => { toast.style.display = 'none'; }, duration);
     }
-});
 
-// Visual feedback on successful save
-document.querySelectorAll('.score-input-mobile').forEach(input => {
-    input.addEventListener('htmx:afterRequest', function(e) {
-        if (e.detail.successful) {
-            this.classList.add('input-success');
-            setTimeout(() => this.classList.remove('input-success'), 500);
+    // Show error tooltip (mobile-friendly bottom sheet style)
+    function showErrorTooltip(input, message, hint) {
+        const tooltip = document.getElementById('score-error-tooltip-mobile');
+        const messageEl = document.getElementById('tooltip-message-mobile');
+        const hintEl = document.getElementById('tooltip-hint-mobile');
+
+        if (!tooltip) return;
+
+        if (errorTooltipTimeout) clearTimeout(errorTooltipTimeout);
+
+        messageEl.textContent = message;
+        hintEl.textContent = hint || '';
+        hintEl.style.display = hint ? 'block' : 'none';
+
+        tooltip.classList.remove('hidden');
+
+        // Auto-hide after 5 seconds
+        errorTooltipTimeout = setTimeout(hideErrorTooltipMobile, 5000);
+    }
+
+    // Mark input as having persistent error
+    function markInputError(input, message, hint) {
+        input.classList.add('input-error', 'has-error');
+        input.dataset.errorMessage = message;
+        input.dataset.errorHint = hint || '';
+
+        // Add visual error indicator on the card
+        const card = input.closest('.bg-base-100');
+        if (card && !card.querySelector('.error-badge')) {
+            const badge = document.createElement('div');
+            badge.className = 'error-badge absolute -top-2 -right-2 w-5 h-5 bg-error rounded-full flex items-center justify-center shadow-md';
+            badge.innerHTML = '<i class="fa-solid fa-exclamation text-[10px] text-error-content"></i>';
+            card.style.position = 'relative';
+            card.appendChild(badge);
         }
-    });
-});
+    }
 
-// Keyboard navigation between inputs
-document.querySelectorAll('.score-input-mobile').forEach((input, index, inputs) => {
-    input.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const nextInput = inputs[index + 1];
-            if (nextInput) {
-                nextInput.focus();
-                nextInput.select();
+    // Clear error state
+    function clearInputError(input) {
+        input.classList.remove('input-error', 'has-error');
+        delete input.dataset.errorMessage;
+        delete input.dataset.errorHint;
+
+        const card = input.closest('.bg-base-100');
+        if (card) {
+            const badge = card.querySelector('.error-badge');
+            if (badge) badge.remove();
+        }
+    }
+
+    // Validate score value
+    function validateScore(value, max) {
+        if (value === '') return { valid: true };
+        const num = parseFloat(value);
+        if (isNaN(num)) return { valid: false, message: 'Enter a valid number', hint: 'Use digits only (e.g., 85 or 85.5)' };
+        if (num < 0) return { valid: false, message: 'Cannot be negative', hint: 'Scores must be 0 or higher' };
+        if (num > max) return { valid: false, message: 'Maximum is ' + max, hint: 'Enter a value between 0 and ' + max };
+        const decimalPart = value.split('.')[1];
+        if (decimalPart && decimalPart.length > 2) {
+            return { valid: false, message: 'Max 2 decimal places', hint: 'Use at most 2 decimal places' };
+        }
+        return { valid: true };
+    }
+
+    // Save score via AJAX
+    function saveScore(input) {
+        const studentId = input.dataset.student;
+        const assignmentId = input.dataset.assignment;
+        const max = parseFloat(input.dataset.max);
+        const value = input.value.trim();
+        const originalValue = input.dataset.originalValue || '';
+
+        if (value === originalValue) return;
+
+        // Client-side validation
+        const validation = validateScore(value, max);
+        if (!validation.valid) {
+            markInputError(input, validation.message, validation.hint);
+            showToast(validation.message, 'error');
+            showErrorTooltip(input, validation.message, validation.hint);
+            return;
+        }
+
+        clearInputError(input);
+        input.classList.add('saving');
+        input.classList.remove('input-success');
+
+        const formData = new FormData();
+        formData.append('student_id', studentId);
+        formData.append('assignment_id', assignmentId);
+        formData.append('points', value);
+        formData.append('csrfmiddlewaretoken', CSRF_TOKEN);
+
+        fetch(SAVE_URL, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest'
             }
-        }
+        })
+        .then(response => {
+            input.classList.remove('saving');
+
+            const trigger = response.headers.get('HX-Trigger');
+
+            if (trigger) {
+                try {
+                    const triggerData = JSON.parse(trigger);
+
+                    if (triggerData.scoreError) {
+                        const err = triggerData.scoreError;
+                        markInputError(input, err.message, err.hint);
+                        showErrorTooltip(input, err.message, err.hint);
+                    }
+
+                    if (triggerData.showToast) {
+                        showToast(triggerData.showToast.message, triggerData.showToast.type);
+                    }
+
+                    if (triggerData.revertScore) {
+                        input.value = triggerData.revertScore.value;
+                        input.dataset.originalValue = triggerData.revertScore.value;
+                        return;
+                    }
+                } catch(e) {
+                    console.error('Error parsing trigger:', e);
+                }
+            }
+
+            if (response.ok && !trigger) {
+                input.dataset.originalValue = value;
+                input.classList.add('input-success');
+                setTimeout(() => input.classList.remove('input-success'), 600);
+            } else if (response.ok && trigger) {
+                try {
+                    const td = JSON.parse(trigger);
+                    if (!td.scoreError && !td.revertScore) {
+                        input.dataset.originalValue = value;
+                        input.classList.add('input-success');
+                        setTimeout(() => input.classList.remove('input-success'), 600);
+                    }
+                } catch(e) {}
+            } else if (!response.ok) {
+                markInputError(input, 'Failed to save', 'Please try again');
+                showToast('Failed to save score', 'error');
+            }
+        })
+        .catch(error => {
+            input.classList.remove('saving');
+            markInputError(input, 'Network error', 'Check your connection');
+            showToast('Network error', 'error');
+            console.error('Score save error:', error);
+        });
+    }
+
+    // Setup all score inputs
+    document.querySelectorAll('.score-input-mobile:not([disabled])').forEach((input, index, inputs) => {
+        input.dataset.originalValue = input.value;
+
+        // Real-time validation - show feedback immediately while typing
+        input.addEventListener('input', function() {
+            const inputEl = this;
+            const value = this.value.trim();
+            const max = parseFloat(this.dataset.max);
+            const validation = validateScore(value, max);
+
+            // Clear any pending debounce
+            if (typingDebounceTimer) {
+                clearTimeout(typingDebounceTimer);
+            }
+
+            if (!validation.valid && value !== '') {
+                this.classList.add('input-error');
+
+                // Show tooltip after brief delay (150ms) for snappy mobile feedback
+                typingDebounceTimer = setTimeout(function() {
+                    showErrorTooltip(inputEl, validation.message, validation.hint);
+                }, 150);
+            } else {
+                this.classList.remove('input-error');
+                hideErrorTooltipMobile();
+                if (this.classList.contains('has-error') && validation.valid) {
+                    clearInputError(this);
+                }
+            }
+        });
+
+        // Show error on focus if exists
+        input.addEventListener('focus', function() {
+            if (this.classList.contains('has-error') && this.dataset.errorMessage) {
+                showErrorTooltip(this, this.dataset.errorMessage, this.dataset.errorHint);
+            }
+        });
+
+        // Save on blur
+        input.addEventListener('blur', function() {
+            saveScore(this);
+        });
+
+        // Save on change
+        input.addEventListener('change', function() {
+            saveScore(this);
+        });
+
+        // Enter key handling
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveScore(this);
+                const nextInput = inputs[index + 1];
+                if (nextInput) {
+                    setTimeout(() => {
+                        nextInput.focus();
+                        nextInput.select();
+                    }, 100);
+                }
+            }
+        });
     });
-});
+
+    console.log('Mobile score inputs initialized:', document.querySelectorAll('.score-input-mobile:not([disabled])').length);
+})();
 </script>
