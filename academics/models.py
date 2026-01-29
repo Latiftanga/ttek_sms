@@ -374,24 +374,16 @@ class StudentSubjectEnrollment(models.Model):
     @classmethod
     def enroll_student_in_class_subjects(cls, student, class_obj, enrolled_by=None):
         """
-        Auto-enroll a student in subjects for their class.
+        Auto-enroll a student in ALL subjects for their class.
 
-        For SHS classes: Only enrolls in core subjects (electives are manual).
-        For other levels: Enrolls in ALL subjects assigned to the class.
+        All students get enrolled in all subjects assigned to their class,
+        regardless of school level or core/elective status.
 
         Called when a student is enrolled in a new class.
         """
-        # For SHS: only core subjects (electives depend on programme choice)
-        # For other levels: all subjects (no core/elective distinction)
-        if class_obj.level_type == Class.LevelType.SHS:
-            class_subjects = ClassSubject.objects.filter(
-                class_assigned=class_obj,
-                subject__is_core=True
-            )
-        else:
-            class_subjects = ClassSubject.objects.filter(
-                class_assigned=class_obj
-            )
+        class_subjects = ClassSubject.objects.filter(
+            class_assigned=class_obj
+        )
 
         enrollments = []
         for class_subject in class_subjects:

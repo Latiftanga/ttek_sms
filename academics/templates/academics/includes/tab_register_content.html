@@ -60,15 +60,6 @@
                       title="Edit">
                     <i class="fa-solid fa-pen text-base-content/50"></i>
                 </span>
-                {% if elective_subjects %}
-                <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
-                      hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
-                      hx-target="#modal-edit-content"
-                      hx-on::after-request="modal_edit.showModal()"
-                      title="Electives">
-                    <i class="fa-solid fa-book-bookmark text-base-content/50"></i>
-                </span>
-                {% endif %}
                 <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
                       hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
                       hx-target="#tab-register"
