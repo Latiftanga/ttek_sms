@@ -318,9 +318,12 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
             for sid, data in student_electives.items():
                 data['complete'] = data['count'] >= required_electives
 
-            # Count students missing electives
-            all_student_ids = students.values_list('id', flat=True)
-            for sid in all_student_ids:
+            # Count students missing electives (use ALL students in class, not filtered)
+            all_class_student_ids = Student.objects.filter(
+                current_class=class_obj,
+                status='active'
+            ).values_list('id', flat=True)
+            for sid in all_class_student_ids:
                 if sid not in student_electives or not student_electives[sid]['complete']:
                     students_missing_electives += 1
 
