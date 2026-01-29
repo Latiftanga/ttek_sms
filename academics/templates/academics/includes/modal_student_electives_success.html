@@ -17,3 +17,22 @@
 <div id="tab-register" hx-swap-oob="innerHTML">
 {% include "academics/includes/tab_register_content.html" %}
 </div>
+
+<!-- Out-of-band swap to update the elective warning banner -->
+<div id="elective-warning-banner" hx-swap-oob="innerHTML">
+{% if students_missing_electives > 0 %}
+<div class="alert alert-warning mb-4 py-2 print:!hidden">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span class="flex-1">
+        <span class="font-medium">{{ students_missing_electives }} student{{ students_missing_electives|pluralize }}</span>
+        need{{ students_missing_electives|pluralize:"s," }} electives assigned
+    </span>
+    <button class="btn btn-xs btn-warning"
+            hx-get="{% url 'academics:class_bulk_electives' class.pk %}"
+            hx-target="#modal-edit-content"
+            onclick="modal_edit.showModal()">
+        <i class="fa-solid fa-users-gear"></i> Assign Now
+    </button>
+</div>
+{% endif %}
+</div>
