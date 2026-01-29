@@ -208,6 +208,7 @@
     </div>
 
     <!-- Elective Warning Banner (if applicable) -->
+    <div id="elective-warning-banner">
     {% if students_missing_electives > 0 %}
     <div class="alert alert-warning mb-4 py-2 print:!hidden">
         <i class="fa-solid fa-triangle-exclamation"></i>
@@ -223,6 +224,7 @@
         </button>
     </div>
     {% endif %}
+    </div>
 
     <!-- Timetable Warning for Per-Lesson Classes -->
     {% if class.attendance_type == 'per_lesson' and not has_timetable %}
