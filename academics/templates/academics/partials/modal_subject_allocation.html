@@ -1,24 +1,16 @@
 {% load core_tags %}
 
-<div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
-    <button type="button" class="btn btn-ghost btn-sm btn-square"
-            hx-get="{% url 'academics:class_subjects_modal' class.pk %}"
-            hx-target="#modal-edit-content">
-        <i class="fa-solid fa-arrow-left"></i>
-    </button>
-    <div>
-        <h3 class="text-lg font-bold">
-            {% if allocation %}Edit Subject{% else %}Add Subject{% endif %}
-        </h3>
-        <p class="text-xs text-base-content/60">{{ class.name }}</p>
-    </div>
+<div class="mb-4 pb-3 border-b border-base-200">
+    <h3 class="text-lg font-bold">
+        {% if allocation %}Edit Subject{% else %}Add Subject{% endif %}
+    </h3>
+    <p class="text-xs text-base-content/60">{{ class.name }}</p>
 </div>
 
 <form method="post"
       action="{% url 'academics:class_subject_create' class.pk %}{% if subject_id %}?subject_id={{ subject_id }}{% endif %}"
       hx-post="{% url 'academics:class_subject_create' class.pk %}{% if subject_id %}?subject_id={{ subject_id }}{% endif %}"
-      hx-target="#modal-edit-content"
-      hx-swap="innerHTML">
+      hx-swap="none">
     {% csrf_token %}
 
     {% if subject_id %}

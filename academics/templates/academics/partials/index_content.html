@@ -164,6 +164,27 @@
             </div>
         </div>
 
+        <!-- Subject Templates Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-secondary"></i>
+                        Subject Templates
+                    </h2>
+                    <button class="btn btn-sm btn-ghost"
+                            hx-get="{% url 'academics:template_create' %}"
+                            hx-target="#modal-content"
+                            hx-swap="innerHTML"
+                            onclick="document.getElementById('global-modal').showModal()">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        Add
+                    </button>
+                </div>
+                {% include 'academics/partials/templates_list.html' %}
+            </div>
+        </div>
+
         {% if tenant.has_programmes %}
         <!-- Programmes Card -->
         <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -339,6 +360,23 @@
             </button>
         </form>
         <div id="modal-subject-edit-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Global Modal (for templates, etc.) -->
+<dialog id="global-modal" class="modal modal-middle">
+    <div class="modal-box max-w-lg max-h-[85vh] overflow-y-auto">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-content" class="overflow-visible">
             <div class="flex justify-center py-8">
                 <span class="loading loading-spinner loading-lg"></span>
             </div>

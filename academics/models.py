@@ -61,6 +61,10 @@ class Class(models.Model):
         BASIC = 'basic', _('Basic')
         SHS = 'shs', _('SHS')
 
+    class AttendanceType(models.TextChoices):
+        DAILY = 'daily', _('Daily Register')
+        PER_LESSON = 'per_lesson', _('Per-Lesson')
+
     # Level info
     level_type = models.CharField(
         max_length=10,
@@ -110,6 +114,14 @@ class Class(models.Model):
         blank=True,
         related_name='assigned_classes',
         help_text="The form tutor or class teacher responsible for this class."
+    )
+
+    # Configurable attendance type
+    attendance_type = models.CharField(
+        max_length=20,
+        choices=AttendanceType.choices,
+        default=AttendanceType.DAILY,
+        help_text="Daily: one register per day. Per-Lesson: each teacher marks their lesson."
     )
 
     class Meta:
@@ -223,6 +235,62 @@ class Subject(models.Model):
         return self.name
 
 
+class SubjectTemplate(models.Model):
+    """
+    A reusable template of subjects that can be quickly applied to any class.
+    E.g., "Core Subjects", "Science Electives", etc.
+    """
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="e.g., Core Subjects, Science Electives"
+    )
+    subjects = models.ManyToManyField(
+        Subject,
+        related_name='templates',
+        help_text="Subjects included in this template"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Subject Template"
+        verbose_name_plural = "Subject Templates"
+
+    def __str__(self):
+        return self.name
+
+    def apply_to_class(self, class_obj, default_teacher=None):
+        """
+        Apply this template to a class, creating ClassSubject entries.
+        Skips subjects already assigned to the class.
+        Returns tuple: (created_count, skipped_count)
+        """
+        created = 0
+        skipped = 0
+
+        existing_subjects = set(
+            ClassSubject.objects.filter(class_assigned=class_obj)
+            .values_list('subject_id', flat=True)
+        )
+
+        for subject in self.subjects.filter(is_active=True):
+            if subject.id in existing_subjects:
+                skipped += 1
+                continue
+
+            ClassSubject.objects.create(
+                class_assigned=class_obj,
+                subject=subject,
+                teacher=default_teacher
+            )
+            created += 1
+
+        return created, skipped
+
+
 class ClassSubject(models.Model):
     """
     Links a Class to a Subject and assigns a specific Teacher.
@@ -304,18 +372,29 @@ class StudentSubjectEnrollment(models.Model):
         return f"{self.student} - {self.class_subject.subject.name}"
 
     @classmethod
-    def enroll_student_in_core_subjects(cls, student, class_obj, enrolled_by=None):
+    def enroll_student_in_class_subjects(cls, student, class_obj, enrolled_by=None):
         """
-        Auto-enroll a student in all core subjects for their class.
+        Auto-enroll a student in subjects for their class.
+
+        For SHS classes: Only enrolls in core subjects (electives are manual).
+        For other levels: Enrolls in ALL subjects assigned to the class.
+
         Called when a student is enrolled in a new class.
         """
-        core_class_subjects = ClassSubject.objects.filter(
-            class_assigned=class_obj,
-            subject__is_core=True
-        )
+        # For SHS: only core subjects (electives depend on programme choice)
+        # For other levels: all subjects (no core/elective distinction)
+        if class_obj.level_type == Class.LevelType.SHS:
+            class_subjects = ClassSubject.objects.filter(
+                class_assigned=class_obj,
+                subject__is_core=True
+            )
+        else:
+            class_subjects = ClassSubject.objects.filter(
+                class_assigned=class_obj
+            )
 
         enrollments = []
-        for class_subject in core_class_subjects:
+        for class_subject in class_subjects:
             enrollment, created = cls.objects.get_or_create(
                 student=student,
                 class_subject=class_subject,
@@ -326,8 +405,18 @@ class StudentSubjectEnrollment(models.Model):
             )
             if created:
                 enrollments.append(enrollment)
+            elif not enrollment.is_active:
+                # Reactivate if previously deactivated
+                enrollment.is_active = True
+                enrollment.save()
+                enrollments.append(enrollment)
 
         return enrollments
+
+    @classmethod
+    def enroll_student_in_core_subjects(cls, student, class_obj, enrolled_by=None):
+        """Alias for backward compatibility."""
+        return cls.enroll_student_in_class_subjects(student, class_obj, enrolled_by)
 
     @classmethod
     def get_student_subjects(cls, student, class_obj=None):
@@ -342,22 +431,72 @@ class StudentSubjectEnrollment(models.Model):
 
 
 class AttendanceSession(models.Model):
+    class SessionType(models.TextChoices):
+        DAILY = 'Daily', _('Daily Register')
+        LESSON = 'Lesson', _('Per-Lesson Attendance')
+
     class_assigned = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='attendance_sessions')
     date = models.DateField(default=timezone.now)
-    # Optional: 'Morning', 'Afternoon', or specific Subject
-    session_type = models.CharField(max_length=20, default='Daily', choices=[('Daily', 'Daily Register')]) 
+    session_type = models.CharField(
+        max_length=20,
+        choices=SessionType.choices,
+        default=SessionType.DAILY
+    )
     created_by = models.ForeignKey('teachers.Teacher', on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Fields for lesson-based attendance (only used when session_type='Lesson')
+    timetable_entry = models.ForeignKey(
+        'TimetableEntry',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_sessions',
+        help_text="The specific timetable slot for this attendance"
+    )
+    period = models.ForeignKey(
+        'Period',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_sessions',
+        help_text="The period during which attendance was taken"
+    )
+    class_subject = models.ForeignKey(
+        'ClassSubject',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_sessions',
+        help_text="The subject for this lesson attendance"
+    )
+
     class Meta:
-        unique_together = ['class_assigned', 'date', 'session_type']
         ordering = ['-date']
         indexes = [
             models.Index(fields=['class_assigned', 'date'], name='attsess_class_date_idx'),
             models.Index(fields=['date'], name='attsess_date_idx'),
+            models.Index(fields=['timetable_entry', 'date'], name='attsess_entry_date_idx'),
+            models.Index(fields=['class_subject', 'date'], name='attsess_subj_date_idx'),
+        ]
+        constraints = [
+            # Daily: one per class per day
+            models.UniqueConstraint(
+                fields=['class_assigned', 'date'],
+                condition=models.Q(session_type='Daily'),
+                name='unique_daily_session'
+            ),
+            # Lesson: one per timetable entry per day
+            models.UniqueConstraint(
+                fields=['class_assigned', 'date', 'timetable_entry'],
+                condition=models.Q(session_type='Lesson'),
+                name='unique_lesson_session'
+            ),
         ]
 
     def __str__(self):
+        if self.session_type == self.SessionType.LESSON and self.class_subject:
+            return f"{self.class_assigned} - {self.class_subject.subject.name} - {self.date}"
         return f"{self.class_assigned} - {self.date}"
 
 

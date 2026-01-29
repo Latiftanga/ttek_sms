@@ -1,0 +1,124 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-2">Bulk Add Timetable Entries</h3>
+<p class="text-sm text-base-content/60 mb-4">
+    Add the same subject to multiple days at once for <strong>{{ class_obj.name }}</strong>.
+</p>
+
+<form method="post"
+      action="{% url 'academics:bulk_timetable_entry' class_obj.pk %}"
+      hx-post="{% url 'academics:bulk_timetable_entry' class_obj.pk %}"
+      hx-target="this"
+      hx-swap="outerHTML">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+        <!-- Subject -->
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text font-medium">Subject</span>
+            </label>
+            <select name="subject" class="select select-bordered w-full" required>
+                <option value="">-- Select Subject --</option>
+                {% for subject in form.subject.field.queryset %}
+                <option value="{{ subject.pk }}" {% if subject.pk|stringformat:"s" == form.subject.value|default:""|stringformat:"s" %}selected{% endif %}>
+                    {{ subject.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Teacher -->
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text font-medium">Teacher</span>
+            </label>
+            <select name="teacher" class="select select-bordered w-full" required>
+                <option value="">-- Select Teacher --</option>
+                {% for teacher in form.teacher.field.queryset %}
+                <option value="{{ teacher.pk }}" {% if teacher.pk|stringformat:"s" == form.teacher.value|default:""|stringformat:"s" %}selected{% endif %}>
+                    {{ teacher.full_name }} {% if teacher.subject_specialization %}({{ teacher.subject_specialization }}){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Days Selection -->
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text font-medium">Days</span>
+            </label>
+            <div class="flex flex-wrap gap-2">
+                {% for value, label in form.weekdays.field.choices %}
+                <label class="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-lg border border-base-300 hover:bg-base-200 transition-colors">
+                    <input type="checkbox" name="weekdays" value="{{ value }}"
+                           class="checkbox checkbox-sm checkbox-primary"
+                           {% if value|stringformat:"s" in form.weekdays.value %}checked{% endif %} />
+                    <span class="text-sm">{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <label class="label">
+                <span class="label-text-alt text-base-content/60">Select all days this subject should be scheduled</span>
+            </label>
+        </div>
+
+        <!-- Period -->
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text font-medium">Period</span>
+            </label>
+            <select name="period" class="select select-bordered w-full" required>
+                <option value="">-- Select Period --</option>
+                {% for period in form.period.field.queryset %}
+                <option value="{{ period.pk }}" {% if period.pk|stringformat:"s" == form.period.value|default:""|stringformat:"s" %}selected{% endif %}>
+                    {{ period.name }} ({{ period.start_time|time:"g:i A" }} - {{ period.end_time|time:"g:i A" }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Double Period & Classroom -->
+        <div class="grid grid-cols-2 gap-4">
+            <label class="label cursor-pointer justify-start gap-3">
+                <input type="checkbox" name="is_double" class="checkbox checkbox-sm checkbox-primary"
+                       {% if form.is_double.value %}checked{% endif %} />
+                <span class="label-text">Double Period</span>
+            </label>
+
+            <div class="form-control">
+                <select name="classroom" class="select select-bordered select-sm w-full">
+                    <option value="">No Classroom</option>
+                    {% for room in form.classroom.field.queryset %}
+                    <option value="{{ room.pk }}" {% if room.pk|stringformat:"s" == form.classroom.value|default:""|stringformat:"s" %}selected{% endif %}>
+                        {{ room.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    {% if form.errors %}
+    <div class="alert alert-error mt-4 py-2 text-sm">
+        <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-exclamation-circle"></i>
+                <span class="font-medium">Conflicts detected:</span>
+            </div>
+            <ul class="list-disc list-inside ml-4 text-xs">
+                {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-calendar-plus"></i>
+            Add Entries
+        </button>
+    </div>
+</form>

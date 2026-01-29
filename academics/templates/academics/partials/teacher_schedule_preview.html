@@ -1,0 +1,22 @@
+{% if entries %}
+<div class="bg-warning/10 border border-warning/30 rounded-lg p-2 mt-2">
+    <div class="flex items-center gap-2 text-xs font-medium text-warning mb-1">
+        <i class="fa-solid fa-calendar-day"></i>
+        {{ teacher.full_name }}'s {{ weekday_name }} schedule:
+    </div>
+    <div class="flex flex-wrap gap-1">
+        {% for entry in entries %}
+        <span class="badge badge-sm badge-ghost">
+            {{ entry.period.name }}: {{ entry.class_subject.class_assigned.name }}
+        </span>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="bg-success/10 border border-success/30 rounded-lg p-2 mt-2">
+    <div class="flex items-center gap-2 text-xs text-success">
+        <i class="fa-solid fa-check-circle"></i>
+        {{ teacher.full_name }} is free on {{ weekday_name }}
+    </div>
+</div>
+{% endif %}

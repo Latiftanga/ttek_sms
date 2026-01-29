@@ -1234,12 +1234,15 @@ def teacher_dashboard(request):
         ).order_by('period__start_time')
 
         for entry in todays_entries:
+            class_obj = entry.class_subject.class_assigned
             todays_schedule.append({
+                'entry': entry,
                 'period': entry.period,
                 'subject': entry.class_subject.subject,
-                'class': entry.class_subject.class_assigned,
+                'class': class_obj,
                 'is_current': entry.period.start_time <= today.time() <= entry.period.end_time,
                 'is_past': entry.period.end_time < today.time(),
+                'uses_lesson_attendance': class_obj.attendance_type == Class.AttendanceType.PER_LESSON,
             })
 
     # Get all periods for reference

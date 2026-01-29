@@ -193,14 +193,27 @@
                             </div>
 
                             {% if entry.is_current %}
-                            <a href="{% url 'core:enter_scores' entry.class.pk entry.subject.pk %}"
-                               hx-get="{% url 'core:enter_scores' entry.class.pk entry.subject.pk %}"
-                               hx-target="#main-content"
-                               hx-push-url="true"
-                               class="btn btn-primary btn-sm">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                                Enter Scores
-                            </a>
+                            <div class="flex gap-1">
+                                {% if entry.uses_lesson_attendance %}
+                                <a href="{% url 'academics:take_lesson_attendance' entry.entry.pk %}"
+                                   hx-get="{% url 'academics:take_lesson_attendance' entry.entry.pk %}"
+                                   hx-target="#modal-content"
+                                   hx-swap="innerHTML"
+                                   onclick="document.getElementById('global-modal').showModal()"
+                                   class="btn btn-success btn-sm"
+                                   title="Take Attendance">
+                                    <i class="fa-solid fa-clipboard-check"></i>
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'core:enter_scores' entry.class.pk entry.subject.pk %}"
+                                   hx-get="{% url 'core:enter_scores' entry.class.pk entry.subject.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                    <span class="hidden sm:inline">Scores</span>
+                                </a>
+                            </div>
                             {% elif not entry.is_past %}
                             <div class="badge badge-ghost badge-sm">{{ entry.period.name }}</div>
                             {% else %}

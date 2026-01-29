@@ -42,23 +42,31 @@
     {% endif %}
 
     <!-- Teacher -->
-    <label class="select select-bordered select-sm w-full">
-        <span class="label">Teacher</span>
-        <select name="teacher" required>
-            <option value="" disabled {% if not form.teacher.value %}selected{% endif %}>Select a teacher...</option>
-            {% for tchr in form.fields.teacher.queryset %}
-            <option value="{{ tchr.pk }}" {% if form.teacher.value|stringformat:"s" == tchr.pk|stringformat:"s" %}selected{% endif %}>
-                {{ tchr.full_name }} ({{ tchr.subject_specialization }})
-            </option>
-            {% endfor %}
-        </select>
-    </label>
-    {% if form.teacher.errors %}
-    <div class="text-xs text-error mt-1 ml-1 flex items-center gap-1">
-        <i class="fa-solid fa-circle-exclamation"></i>
-        <span>{{ form.teacher.errors.0 }}</span>
+    <div>
+        <label class="select select-bordered select-sm w-full">
+            <span class="label">Teacher</span>
+            <select name="teacher" required
+                    hx-get="{% url 'academics:teacher_schedule_preview' %}"
+                    hx-trigger="change"
+                    hx-target="#teacher-schedule-preview"
+                    hx-swap="innerHTML"
+                    hx-include="[name='weekday']">
+                <option value="" disabled {% if not form.teacher.value %}selected{% endif %}>Select a teacher...</option>
+                {% for tchr in form.fields.teacher.queryset %}
+                <option value="{{ tchr.pk }}" {% if form.teacher.value|stringformat:"s" == tchr.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ tchr.full_name }} ({{ tchr.subject_specialization }})
+                </option>
+                {% endfor %}
+            </select>
+        </label>
+        {% if form.teacher.errors %}
+        <div class="text-xs text-error mt-1 ml-1 flex items-center gap-1">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span>{{ form.teacher.errors.0 }}</span>
+        </div>
+        {% endif %}
+        <div id="teacher-schedule-preview"></div>
     </div>
-    {% endif %}
 
     <!-- Classroom -->
     <label class="select select-bordered select-sm w-full">

@@ -1,0 +1,7 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ class.name }} Subjects - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "academics/partials/class_subjects_content.html" %}
+{% endblock %}

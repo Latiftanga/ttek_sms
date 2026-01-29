@@ -54,6 +54,14 @@
                                   value="{{ cls.student_count }}"
                                   max="{{ cls.capacity }}"></progress>
                     </span>
+                    <span class="flex items-center gap-1" title="Attendance Type">
+                        <i class="fa-solid fa-clipboard-check w-3"></i>
+                        {% if cls.attendance_type == 'per_lesson' %}
+                        <span class="badge badge-xs badge-secondary">Per-Lesson</span>
+                        {% else %}
+                        <span class="badge badge-xs badge-ghost">Daily</span>
+                        {% endif %}
+                    </span>
                 </div>
 
                 <!-- Actions -->

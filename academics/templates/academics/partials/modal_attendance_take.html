@@ -2,9 +2,17 @@
 <div class="flex justify-between items-center mb-4 sticky top-0 bg-base-100 z-10 pb-2 border-b border-base-200">
     <div>
         <h3 class="text-xl font-bold">{% if is_edit %}Edit Attendance{% else %}Mark Attendance{% endif %}</h3>
+        {% if is_lesson and subject %}
+        <p class="text-sm font-medium text-primary">{{ subject.name }} - {{ period.name }}</p>
+        {% endif %}
         <p class="text-xs text-base-content/60">{{ date|date:"l, F jS Y" }}</p>
     </div>
-    <div class="badge badge-primary">{{ student_list|length }} Students</div>
+    <div class="flex flex-col items-end gap-1">
+        <div class="badge badge-primary">{{ student_list|length }} Students</div>
+        {% if is_lesson %}
+        <div class="badge badge-secondary badge-sm">Per-Lesson</div>
+        {% endif %}
+    </div>
 </div>
 
 <!-- Bulk Actions -->
@@ -24,7 +32,10 @@
 </div>
 
 <form method="post" id="attendance-form"
-      {% if is_edit %}
+      {% if is_lesson and timetable_entry_id %}
+      action="{% url 'academics:take_lesson_attendance' timetable_entry_id %}"
+      hx-post="{% url 'academics:take_lesson_attendance' timetable_entry_id %}"
+      {% elif is_edit %}
       action="{% url 'academics:class_attendance_edit' class.pk session.pk %}"
       hx-post="{% url 'academics:class_attendance_edit' class.pk session.pk %}"
       {% else %}
