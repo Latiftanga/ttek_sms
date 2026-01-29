@@ -269,6 +269,12 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
     paginator = Paginator(students, 20)  # 20 students per page
     students_page = paginator.get_page(page)
 
+    # Get subjects that require manual assignment (auto_enroll=False)
+    manual_subjects = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        auto_enroll=False
+    ).select_related('subject', 'teacher')
+
     return {
         'class': class_obj,
         'students': students_page,
@@ -280,6 +286,7 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
             'male': male_count,
             'female': female_count,
         },
+        'manual_subjects': manual_subjects,
     }
 
 
@@ -642,58 +649,37 @@ def class_student_remove(request, class_pk, student_pk):
 
 @admin_required
 def class_student_electives(request, class_pk, student_pk):
-    """Manage elective subject enrollments for a student (Admin only)."""
+    """Manage manual subject assignments for a student (subjects with auto_enroll=False)."""
     class_obj = get_object_or_404(Class, pk=class_pk)
     student = get_object_or_404(Student, pk=student_pk, current_class=class_obj)
 
-    # Get elective subjects for this class (filtered by programme if applicable)
-    if class_obj.programme:
-        programme_subject_ids = set(
-            class_obj.programme.subjects.values_list('id', flat=True)
-        )
-        elective_subjects = ClassSubject.objects.filter(
-            class_assigned=class_obj,
-            subject__is_core=False
-        ).filter(
-            models.Q(subject_id__in=programme_subject_ids) |
-            models.Q(subject__programmes__isnull=True)
-        ).select_related('subject', 'teacher').distinct()
-        required_electives = class_obj.programme.required_electives
-    else:
-        elective_subjects = ClassSubject.objects.filter(
-            class_assigned=class_obj,
-            subject__is_core=False
-        ).select_related('subject', 'teacher')
-        required_electives = 3
+    # Get subjects that require manual assignment (auto_enroll=False)
+    manual_subjects = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        auto_enroll=False
+    ).select_related('subject', 'teacher')
 
-    # Get current enrollments
+    # Get current enrollments for manual subjects
     enrolled_ids = list(StudentSubjectEnrollment.objects.filter(
         student=student,
         class_subject__class_assigned=class_obj,
-        class_subject__subject__is_core=False,
+        class_subject__auto_enroll=False,
         is_active=True
     ).values_list('class_subject_id', flat=True))
 
     context = {
         'class': class_obj,
         'student': student,
-        'elective_subjects': elective_subjects,
+        'manual_subjects': manual_subjects,
         'enrolled_ids': enrolled_ids,
-        'required_electives': required_electives,
     }
 
     if request.method == 'POST':
-        # Get selected elective IDs
-        selected_ids = request.POST.getlist('electives')
+        # Get selected subject IDs
+        selected_ids = request.POST.getlist('subjects')
 
-        # Get all elective class subjects for this class
-        elective_class_subjects = ClassSubject.objects.filter(
-            class_assigned=class_obj,
-            subject__is_core=False
-        )
-
-        # Update enrollments
-        for class_subject in elective_class_subjects:
+        # Update enrollments for manual subjects only
+        for class_subject in manual_subjects:
             should_be_enrolled = str(class_subject.id) in selected_ids
 
             if should_be_enrolled:
@@ -714,11 +700,75 @@ def class_student_electives(request, class_pk, student_pk):
         # Return success message with OOB swap for tab content
         tab_context = get_register_tab_context(class_obj)
         tab_context['student'] = student
-        tab_context['elective_success'] = True
-        # Don't auto-close modal - let user see success message and click Close
-        return render(request, 'academics/includes/modal_student_electives_success.html', tab_context)
+        tab_context['success'] = True
+        return render(request, 'academics/includes/modal_student_subjects_success.html', tab_context)
 
-    return render(request, 'academics/includes/modal_student_electives.html', context)
+    return render(request, 'academics/includes/modal_student_subjects.html', context)
+
+
+@login_required
+@teacher_or_admin_required
+def class_bulk_subject_assign(request, pk):
+    """Bulk assign manual subjects to multiple students."""
+    class_obj = get_object_or_404(Class, pk=pk)
+
+    # Get subjects that require manual assignment (auto_enroll=False)
+    manual_subjects = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        auto_enroll=False
+    ).select_related('subject', 'teacher')
+
+    # Get all active students in the class
+    students = Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('first_name', 'last_name')
+
+    context = {
+        'class': class_obj,
+        'manual_subjects': manual_subjects,
+        'students': students,
+    }
+
+    if request.method == 'POST':
+        selected_subject_ids = request.POST.getlist('subjects')
+        selected_student_ids = request.POST.getlist('students')
+
+        if not selected_subject_ids:
+            context['error'] = 'Please select at least one subject.'
+            return render(request, 'academics/includes/modal_bulk_subject_assign.html', context)
+
+        if not selected_student_ids:
+            context['error'] = 'Please select at least one student.'
+            return render(request, 'academics/includes/modal_bulk_subject_assign.html', context)
+
+        # Get the selected class subjects and students
+        class_subjects = manual_subjects.filter(id__in=selected_subject_ids)
+        students_to_update = students.filter(id__in=selected_student_ids)
+
+        # Create enrollments
+        enrolled_count = 0
+        for student in students_to_update:
+            for class_subject in class_subjects:
+                enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
+                    student=student,
+                    class_subject=class_subject,
+                    defaults={'is_active': True}
+                )
+                if created:
+                    enrolled_count += 1
+                elif not enrollment.is_active:
+                    enrollment.is_active = True
+                    enrollment.save()
+                    enrolled_count += 1
+
+        context['success'] = True
+        context['enrolled_count'] = enrolled_count
+        context['student_count'] = students_to_update.count()
+        context['subject_count'] = class_subjects.count()
+        return render(request, 'academics/includes/modal_bulk_subject_assign_success.html', context)
+
+    return render(request, 'academics/includes/modal_bulk_subject_assign.html', context)
 
 
 @admin_required

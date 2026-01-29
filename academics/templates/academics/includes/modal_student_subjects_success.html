@@ -1,0 +1,24 @@
+{% load core_tags %}
+
+<div class="flex items-center justify-between mb-4 pb-3 border-b border-base-200">
+    <div>
+        <h3 class="text-lg font-bold">Subjects Assigned</h3>
+        <p class="text-xs text-base-content/60">{{ student.full_name }}</p>
+    </div>
+</div>
+
+<div class="text-center py-6">
+    <div class="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-check text-3xl text-success"></i>
+    </div>
+    <h3 class="font-bold text-lg mb-2">Subjects Updated Successfully</h3>
+    <p class="text-sm text-base-content/60">
+        {{ student.first_name }}'s subject enrollments have been updated.
+    </p>
+</div>
+
+<div class="modal-action border-t border-base-200 pt-4 mt-4">
+    <button type="button" class="btn btn-primary" onclick="modal_edit.close()">
+        Done
+    </button>
+</div>

@@ -173,13 +173,24 @@ class ClassSubjectForm(forms.ModelForm):
     """
     class Meta:
         model = ClassSubject
-        fields = ['subject', 'teacher', 'periods_per_week']
+        fields = ['subject', 'teacher', 'periods_per_week', 'auto_enroll']
         widgets = {
             'periods_per_week': forms.NumberInput(attrs={'min': 1, 'max': 10}),
+            'auto_enroll': forms.CheckboxInput(attrs={'class': 'checkbox checkbox-primary'}),
+        }
+        labels = {
+            'auto_enroll': 'Auto-enroll all students',
+        }
+        help_texts = {
+            'auto_enroll': 'If checked, all students will automatically be enrolled in this subject. Uncheck for electives where students choose (e.g., French vs Spanish).',
         }
 
     def __init__(self, *args, class_instance=None, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Set initial value for auto_enroll (default to True for new subjects)
+        if not self.instance.pk:
+            self.initial['auto_enroll'] = True
 
         # 1. Teacher Filter
         try:

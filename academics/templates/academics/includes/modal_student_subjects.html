@@ -1,0 +1,66 @@
+{% load core_tags %}
+
+<div class="flex items-center justify-between mb-4 pb-3 border-b border-base-200">
+    <div>
+        <h3 class="text-lg font-bold">Assign Subjects</h3>
+        <p class="text-xs text-base-content/60">{{ student.full_name }}</p>
+    </div>
+</div>
+
+{% if not manual_subjects %}
+<div class="alert alert-info mb-4">
+    <i class="fa-solid fa-info-circle"></i>
+    <span>No subjects require manual assignment for this class.</span>
+</div>
+<div class="modal-action border-t border-base-200 pt-4 mt-4">
+    <form method="dialog">
+        <button class="btn">Close</button>
+    </form>
+</div>
+{% else %}
+<form method="post"
+      action="{% url 'academics:class_student_electives' class.pk student.pk %}"
+      hx-post="{% url 'academics:class_student_electives' class.pk student.pk %}"
+      hx-target="#modal-edit-content"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <div class="alert alert-info mb-4 py-2 text-sm">
+        <i class="fa-solid fa-info-circle"></i>
+        <span>Select the subjects this student should take. These are subjects that are not automatically assigned to all students.</span>
+    </div>
+
+    <div class="space-y-2 max-h-64 overflow-y-auto">
+        {% for cs in manual_subjects %}
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-base-200 hover:bg-base-200/50 cursor-pointer transition-colors">
+            <input type="checkbox"
+                   name="subjects"
+                   value="{{ cs.pk }}"
+                   class="checkbox checkbox-primary checkbox-sm"
+                   {% if cs.pk in enrolled_ids %}checked{% endif %}>
+            <div class="flex-1">
+                <span class="font-medium">{{ cs.subject.name }}</span>
+                {% if cs.subject.code %}
+                <span class="text-xs text-base-content/50">({{ cs.subject.code }})</span>
+                {% endif %}
+                {% if cs.teacher %}
+                <p class="text-xs text-base-content/60">{{ cs.teacher.full_name }}</p>
+                {% endif %}
+            </div>
+            {% if cs.subject.is_core %}
+            <span class="badge badge-primary badge-xs">Core</span>
+            {% else %}
+            <span class="badge badge-secondary badge-xs">Elective</span>
+            {% endif %}
+        </label>
+        {% endfor %}
+    </div>
+
+    <div class="modal-action border-t border-base-200 pt-4 mt-4">
+        <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-check"></i> Save
+        </button>
+    </div>
+</form>
+{% endif %}

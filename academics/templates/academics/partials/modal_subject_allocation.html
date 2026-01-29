@@ -30,10 +30,27 @@
             </div>
         {% else %}
             {% floating_field form.subject %}
-            
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {% floating_field form.teacher %}
                 {% floating_field form.periods_per_week %}
+            </div>
+
+            <!-- Auto-enroll checkbox -->
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox"
+                           name="auto_enroll"
+                           id="id_auto_enroll"
+                           {% if form.auto_enroll.value %}checked{% endif %}
+                           class="checkbox checkbox-primary" />
+                    <div>
+                        <span class="label-text font-medium">Auto-enroll all students</span>
+                        <p class="text-xs text-base-content/60 mt-0.5">
+                            Uncheck for electives where students choose (e.g., French vs Spanish)
+                        </p>
+                    </div>
+                </label>
             </div>
         {% endif %}
     </div>

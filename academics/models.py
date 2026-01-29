@@ -307,15 +307,22 @@ class ClassSubject(models.Model):
         related_name='class_allocations'
     )
     teacher = models.ForeignKey(
-        Teacher, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        Teacher,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name='subject_assignments'
     )
-    
+
     # Optional: Periods per week for timetable generation later
     periods_per_week = models.PositiveIntegerField(default=0)
+
+    # Auto-enroll: If True, all students in the class automatically get this subject
+    # If False, students must be manually assigned (useful for electives like French vs Spanish)
+    auto_enroll = models.BooleanField(
+        default=True,
+        help_text="Automatically enroll all students in this subject"
+    )
 
     class Meta:
         unique_together = ['class_assigned', 'subject']
@@ -374,15 +381,17 @@ class StudentSubjectEnrollment(models.Model):
     @classmethod
     def enroll_student_in_class_subjects(cls, student, class_obj, enrolled_by=None):
         """
-        Auto-enroll a student in ALL subjects for their class.
+        Auto-enroll a student in subjects marked for auto-enrollment.
 
-        All students get enrolled in all subjects assigned to their class,
-        regardless of school level or core/elective status.
+        Only subjects with auto_enroll=True are automatically assigned.
+        Subjects with auto_enroll=False (e.g., French vs Spanish electives)
+        must be manually assigned to specific students.
 
         Called when a student is enrolled in a new class.
         """
         class_subjects = ClassSubject.objects.filter(
-            class_assigned=class_obj
+            class_assigned=class_obj,
+            auto_enroll=True
         )
 
         enrollments = []
