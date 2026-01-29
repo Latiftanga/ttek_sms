@@ -186,18 +186,18 @@ class StudentSubjectEnrollmentModelTests(AcademicsTestCase):
             4
         )
 
-    def test_enroll_student_in_class_subjects_shs_only_core(self):
-        """Test that SHS students get enrolled in ONLY core subjects."""
+    def test_enroll_student_in_class_subjects_shs_all_subjects(self):
+        """Test that SHS students get enrolled in ALL subjects (simplified - no elective tracking)."""
         # Create SHS class
         shs_class = self.create_class(
             Class.LevelType.SHS, 1, programme=self.programme
         )
 
-        # Create subjects
+        # Create subjects (both core and elective)
         math = self.create_subject('Core Math', 'CMATH', is_core=True)
         english = self.create_subject('Core English', 'CENG', is_core=True)
-        french = self.create_subject('French', 'FRE', is_core=False)  # Elective
-        spanish = self.create_subject('Spanish', 'SPA', is_core=False)  # Elective
+        french = self.create_subject('French', 'FRE', is_core=False)
+        spanish = self.create_subject('Spanish', 'SPA', is_core=False)
 
         # Assign all subjects to class
         self.create_class_subject(shs_class, math)
@@ -213,10 +213,10 @@ class StudentSubjectEnrollmentModelTests(AcademicsTestCase):
             student, shs_class
         )
 
-        # Should be enrolled in ONLY 2 core subjects
-        self.assertEqual(len(enrollments), 2)
+        # Should be enrolled in ALL 4 subjects (no distinction between core/elective)
+        self.assertEqual(len(enrollments), 4)
 
-        # Verify only core subjects are enrolled
+        # Verify all subjects are enrolled
         enrolled_subjects = StudentSubjectEnrollment.objects.filter(
             student=student,
             is_active=True
@@ -224,8 +224,8 @@ class StudentSubjectEnrollmentModelTests(AcademicsTestCase):
 
         self.assertIn('CMATH', enrolled_subjects)
         self.assertIn('CENG', enrolled_subjects)
-        self.assertNotIn('FRE', enrolled_subjects)
-        self.assertNotIn('SPA', enrolled_subjects)
+        self.assertIn('FRE', enrolled_subjects)
+        self.assertIn('SPA', enrolled_subjects)
 
     def test_enroll_student_in_class_subjects_kg_all_subjects(self):
         """Test that KG students get enrolled in ALL subjects."""
@@ -364,13 +364,13 @@ class StudentSubjectEnrollmentModelTests(AcademicsTestCase):
 
         self.assertEqual(len(enrollments), 0)
 
-    def test_enroll_student_shs_no_core_subjects(self):
-        """Test SHS class with only elective subjects - no auto-enrollment."""
+    def test_enroll_student_shs_with_only_elective_subjects(self):
+        """Test SHS class with only elective subjects - all get enrolled."""
         shs_class = self.create_class(
             Class.LevelType.SHS, 2, programme=self.programme
         )
 
-        # Only electives assigned
+        # Only electives assigned (but still get enrolled - no distinction now)
         elective1 = self.create_subject('Economics', 'ECO', is_core=False)
         elective2 = self.create_subject('Geography', 'GEO', is_core=False)
         self.create_class_subject(shs_class, elective1)
@@ -382,8 +382,8 @@ class StudentSubjectEnrollmentModelTests(AcademicsTestCase):
             student, shs_class
         )
 
-        # No enrollments since SHS only auto-enrolls core subjects
-        self.assertEqual(len(enrollments), 0)
+        # All subjects get enrolled (no core/elective distinction for enrollment)
+        self.assertEqual(len(enrollments), 2)
 
 
 # =============================================================================
@@ -424,7 +424,7 @@ class ClassStudentEnrollViewTests(AcademicsTestCase):
         self.assertEqual(subject_enrollments.count(), 2)
 
     def test_enroll_student_auto_enrolls_subjects_shs(self):
-        """Test enrolling a student in SHS class auto-enrolls in core subjects only."""
+        """Test enrolling a student in SHS class auto-enrolls in ALL subjects."""
         shs_class = self.create_class(
             Class.LevelType.SHS, 1, programme=self.programme
         )
@@ -444,16 +444,12 @@ class ClassStudentEnrollViewTests(AcademicsTestCase):
             {'students': [student.pk]}
         )
 
-        # Student should be enrolled in ONLY core subject
+        # Student should be enrolled in ALL subjects (no core/elective distinction)
         subject_enrollments = StudentSubjectEnrollment.objects.filter(
             student=student,
             is_active=True
         )
-        self.assertEqual(subject_enrollments.count(), 1)
-        self.assertEqual(
-            subject_enrollments.first().class_subject.subject.code,
-            'COR'
-        )
+        self.assertEqual(subject_enrollments.count(), 2)
 
     def test_enroll_multiple_students(self):
         """Test enrolling multiple students at once."""
@@ -534,7 +530,7 @@ class ClassSyncSubjectsViewTests(AcademicsTestCase):
         )
 
     def test_sync_subjects_shs_class(self):
-        """Test syncing subjects for SHS class students - core only."""
+        """Test syncing subjects for SHS class students - all subjects."""
         shs_class = self.create_class(
             Class.LevelType.SHS, 2, programme=self.programme
         )
@@ -553,13 +549,12 @@ class ClassSyncSubjectsViewTests(AcademicsTestCase):
             reverse('academics:class_sync_subjects', args=[shs_class.pk])
         )
 
-        # Student should only have core subject enrollment
+        # Student should have ALL subject enrollments (no core/elective distinction)
         enrollments = StudentSubjectEnrollment.objects.filter(
             student=student,
             is_active=True
         )
-        self.assertEqual(enrollments.count(), 1)
-        self.assertTrue(enrollments.first().class_subject.subject.is_core)
+        self.assertEqual(enrollments.count(), 2)
 
     def test_sync_subjects_get_not_allowed(self):
         """Test that GET request is not allowed."""
@@ -681,8 +676,8 @@ class ClassPromoteViewTests(AcademicsTestCase):
         )
         self.assertEqual(new_enrollments.count(), 2)
 
-    def test_promote_shs_only_core_subjects_enrolled(self):
-        """Test that SHS promotion only enrolls in core subjects."""
+    def test_promote_shs_enrolls_all_subjects(self):
+        """Test that SHS promotion enrolls in ALL subjects."""
         # Create SHS classes
         shs1 = self.create_class(Class.LevelType.SHS, 1, programme=self.programme)
         shs2 = self.create_class(Class.LevelType.SHS, 2, programme=self.programme)
@@ -706,14 +701,13 @@ class ClassPromoteViewTests(AcademicsTestCase):
             }
         )
 
-        # Only core subject should be enrolled
+        # All subjects should be enrolled (no core/elective distinction)
         new_enrollments = StudentSubjectEnrollment.objects.filter(
             student=student,
             class_subject__class_assigned=shs2,
             is_active=True
         )
-        self.assertEqual(new_enrollments.count(), 1)
-        self.assertTrue(new_enrollments.first().class_subject.subject.is_core)
+        self.assertEqual(new_enrollments.count(), 2)
 
     def test_repeat_keeps_same_class_subjects(self):
         """Test that repeating a student doesn't change subject enrollments."""
@@ -845,23 +839,23 @@ class EnrollmentIntegrationTests(AcademicsTestCase):
         )
         self.assertEqual(b2_enrollments.count(), 1)
 
-    def test_full_student_lifecycle_shs_with_electives(self):
-        """Test complete SHS student lifecycle with elective selection."""
+    def test_full_student_lifecycle_shs(self):
+        """Test complete SHS student lifecycle - all subjects auto-enrolled."""
         # Create SHS classes
         shs1 = self.create_class(Class.LevelType.SHS, 1, programme=self.programme)
 
-        # Create subjects
+        # Create subjects (both core and elective - all will be enrolled)
         core_math = self.create_subject('Core Math SHS', 'CMS', is_core=True)
         core_eng = self.create_subject('Core English SHS', 'CES', is_core=True)
         elec_french = self.create_subject('French SHS', 'FRS', is_core=False)
         elec_spanish = self.create_subject('Spanish SHS', 'SPS', is_core=False)
 
-        cs_math = self.create_class_subject(shs1, core_math)
-        cs_eng = self.create_class_subject(shs1, core_eng)
-        cs_french = self.create_class_subject(shs1, elec_french)
-        cs_spanish = self.create_class_subject(shs1, elec_spanish)
+        self.create_class_subject(shs1, core_math)
+        self.create_class_subject(shs1, core_eng)
+        self.create_class_subject(shs1, elec_french)
+        self.create_class_subject(shs1, elec_spanish)
 
-        # 1. Enroll student
+        # Enroll student
         student = self.create_student('SHSLifecycle', 'STU-025')
 
         self.client.post(
@@ -869,31 +863,18 @@ class EnrollmentIntegrationTests(AcademicsTestCase):
             {'students': [student.pk]}
         )
 
-        # Should only have core subjects (2)
+        # Should have ALL 4 subjects (no manual elective assignment needed)
         enrollments = StudentSubjectEnrollment.objects.filter(
             student=student,
             is_active=True
         )
-        self.assertEqual(enrollments.count(), 2)
+        self.assertEqual(enrollments.count(), 4)
 
-        # 2. Manually add elective (French)
-        self.client.post(
-            reverse('academics:class_student_electives', args=[shs1.pk, student.pk]),
-            {'electives': [cs_french.pk]}
-        )
-
-        # Should now have 3 subjects (2 core + 1 elective)
-        enrollments = StudentSubjectEnrollment.objects.filter(
-            student=student,
-            is_active=True
-        )
-        self.assertEqual(enrollments.count(), 3)
-
-        # Verify French is enrolled, Spanish is not
+        # Verify all subjects are enrolled
         enrolled_codes = list(enrollments.values_list(
             'class_subject__subject__code', flat=True
         ))
         self.assertIn('CMS', enrolled_codes)
         self.assertIn('CES', enrolled_codes)
         self.assertIn('FRS', enrolled_codes)
-        self.assertNotIn('SPS', enrolled_codes)
+        self.assertIn('SPS', enrolled_codes)

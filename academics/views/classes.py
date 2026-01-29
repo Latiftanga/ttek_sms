@@ -269,64 +269,6 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
     paginator = Paginator(students, 20)  # 20 students per page
     students_page = paginator.get_page(page)
 
-    # Get elective data for SHS classes
-    elective_subjects = []
-    required_electives = 0
-    students_missing_electives = 0
-    student_electives = {}  # {student_id: {'electives': [...], 'count': n, 'complete': bool}}
-
-    # Check if this is an SHS class with electives
-    if class_obj.programme:
-        # Get elective class subjects filtered by programme
-        programme_subject_ids = set(
-            class_obj.programme.subjects.values_list('id', flat=True)
-        )
-        elective_subjects = list(ClassSubject.objects.filter(
-            class_assigned=class_obj,
-            subject__is_core=False
-        ).filter(
-            models.Q(subject_id__in=programme_subject_ids) |
-            models.Q(subject__programmes__isnull=True)
-        ).select_related('subject', 'teacher').distinct())
-
-        required_electives = class_obj.programme.required_electives
-
-        if elective_subjects:
-            # Get all active enrollments for students in this class
-            all_enrollments = StudentSubjectEnrollment.objects.filter(
-                student__current_class=class_obj,
-                class_subject__class_assigned=class_obj,
-                class_subject__subject__is_core=False,
-                is_active=True
-            ).select_related('student', 'class_subject__subject', 'class_subject__teacher')
-
-            # Build student elective map
-            for enrollment in all_enrollments:
-                sid = enrollment.student_id
-                if sid not in student_electives:
-                    student_electives[sid] = {
-                        'electives': [],
-                        'elective_ids': [],
-                        'count': 0,
-                        'complete': False,
-                    }
-                student_electives[sid]['electives'].append(enrollment.class_subject.subject)
-                student_electives[sid]['elective_ids'].append(enrollment.class_subject_id)
-                student_electives[sid]['count'] += 1
-
-            # Calculate completion status
-            for sid, data in student_electives.items():
-                data['complete'] = data['count'] >= required_electives
-
-            # Count students missing electives (use ALL students in class, not filtered)
-            all_class_student_ids = Student.objects.filter(
-                current_class=class_obj,
-                status='active'
-            ).values_list('id', flat=True)
-            for sid in all_class_student_ids:
-                if sid not in student_electives or not student_electives[sid]['complete']:
-                    students_missing_electives += 1
-
     return {
         'class': class_obj,
         'students': students_page,
@@ -338,11 +280,6 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
             'male': male_count,
             'female': female_count,
         },
-        # Elective data for SHS
-        'elective_subjects': elective_subjects,
-        'required_electives': required_electives,
-        'students_missing_electives': students_missing_electives,
-        'student_electives': student_electives,
     }
 
 
