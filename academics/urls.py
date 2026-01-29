@@ -28,6 +28,7 @@ urlpatterns = [
     path('classes/<int:class_pk>/students/<int:student_pk>/remove/', views.class_student_remove, name='class_student_remove'),
     path('classes/<int:class_pk>/students/<int:student_pk>/electives/', views.class_student_electives, name='class_student_electives'),
     path('classes/<int:pk>/students/bulk-electives/', views.class_bulk_electives, name='class_bulk_electives'),
+    path('classes/<int:pk>/students/bulk-assign/', views.class_bulk_subject_assign, name='class_bulk_subject_assign'),
     path('classes/<int:pk>/register/', views.class_register, name='class_register'),
     path('classes/<int:pk>/subjects/modal/', views.class_subjects_modal, name='class_subjects_modal'),
     path('classes/<int:pk>/attendance/take/', views.class_attendance_take, name='class_attendance_take'),

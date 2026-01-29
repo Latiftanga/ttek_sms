@@ -108,6 +108,12 @@
                                 <i class="fa-solid fa-arrow-up-right-dots w-4 text-success"></i> Promote Students
                             </button>
                         </li>
+                        <li>
+                            <button hx-post="{% url 'academics:class_sync_subjects' class.pk %}"
+                                    hx-confirm="Sync subject enrollments for all students in this class? This will enroll students in all auto-enroll subjects.">
+                                <i class="fa-solid fa-rotate w-4 text-info"></i> Sync Enrollments
+                            </button>
+                        </li>
                         <li class="menu-title text-xs mt-2">Export</li>
                         <li>
                             <a href="{% url 'academics:class_export' class.pk %}">
@@ -288,44 +294,65 @@
                         <option value="-name">Name Z-A</option>
                         <option value="admission">Admission #</option>
                     </select>
+                    {% if manual_subjects %}
+                    <button type="button" class="btn btn-sm btn-outline btn-secondary"
+                            hx-get="{% url 'academics:class_bulk_subject_assign' class.pk %}"
+                            hx-target="#modal-edit-content"
+                            onclick="modal_edit.showModal()"
+                            title="Bulk assign subjects to students">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <span>Bulk Assign</span>
+                    </button>
+                    {% endif %}
                 </div>
             </div>
 
             <!-- Mobile Filters (collapsible) -->
-            <div class="sm:hidden mt-2 flex items-center gap-2" x-show="showFilters" x-collapse>
-                <div class="join flex-1" id="gender-filter-mobile">
-                    <button type="button" class="join-item btn btn-sm flex-1 {% if not gender_filter %}btn-active{% endif %}"
-                           data-gender=""
-                           hx-get="{% url 'academics:class_register' class.pk %}"
-                           hx-target="#tab-register"
-                           hx-vals='{"gender": ""}'
-                           hx-include="[name='q'], [name='sort']"
-                           hx-on::after-request="updateGenderButtons('')">All</button>
-                    <button type="button" class="join-item btn btn-sm flex-1 {% if gender_filter == 'M' %}btn-active{% endif %}"
-                           data-gender="M"
-                           hx-get="{% url 'academics:class_register' class.pk %}"
-                           hx-target="#tab-register"
-                           hx-vals='{"gender": "M"}'
-                           hx-include="[name='q'], [name='sort']"
-                           hx-on::after-request="updateGenderButtons('M')">Boys</button>
-                    <button type="button" class="join-item btn btn-sm flex-1 {% if gender_filter == 'F' %}btn-active{% endif %}"
-                           data-gender="F"
-                           hx-get="{% url 'academics:class_register' class.pk %}"
-                           hx-target="#tab-register"
-                           hx-vals='{"gender": "F"}'
-                           hx-include="[name='q'], [name='sort']"
-                           hx-on::after-request="updateGenderButtons('F')">Girls</button>
+            <div class="sm:hidden mt-2 space-y-2" x-show="showFilters" x-collapse>
+                <div class="flex items-center gap-2">
+                    <div class="join flex-1" id="gender-filter-mobile">
+                        <button type="button" class="join-item btn btn-sm flex-1 {% if not gender_filter %}btn-active{% endif %}"
+                               data-gender=""
+                               hx-get="{% url 'academics:class_register' class.pk %}"
+                               hx-target="#tab-register"
+                               hx-vals='{"gender": ""}'
+                               hx-include="[name='q'], [name='sort']"
+                               hx-on::after-request="updateGenderButtons('')">All</button>
+                        <button type="button" class="join-item btn btn-sm flex-1 {% if gender_filter == 'M' %}btn-active{% endif %}"
+                               data-gender="M"
+                               hx-get="{% url 'academics:class_register' class.pk %}"
+                               hx-target="#tab-register"
+                               hx-vals='{"gender": "M"}'
+                               hx-include="[name='q'], [name='sort']"
+                               hx-on::after-request="updateGenderButtons('M')">Boys</button>
+                        <button type="button" class="join-item btn btn-sm flex-1 {% if gender_filter == 'F' %}btn-active{% endif %}"
+                               data-gender="F"
+                               hx-get="{% url 'academics:class_register' class.pk %}"
+                               hx-target="#tab-register"
+                               hx-vals='{"gender": "F"}'
+                               hx-include="[name='q'], [name='sort']"
+                               hx-on::after-request="updateGenderButtons('F')">Girls</button>
+                    </div>
+                    <select name="sort" class="select select-sm select-bordered"
+                            x-model="sort"
+                            hx-get="{% url 'academics:class_register' class.pk %}"
+                            hx-trigger="change"
+                            hx-target="#tab-register"
+                            hx-include="[name='q'], [name='gender']">
+                        <option value="name">A-Z</option>
+                        <option value="-name">Z-A</option>
+                        <option value="admission">Adm #</option>
+                    </select>
                 </div>
-                <select name="sort" class="select select-sm select-bordered"
-                        x-model="sort"
-                        hx-get="{% url 'academics:class_register' class.pk %}"
-                        hx-trigger="change"
-                        hx-target="#tab-register"
-                        hx-include="[name='q'], [name='gender']">
-                    <option value="name">A-Z</option>
-                    <option value="-name">Z-A</option>
-                    <option value="admission">Adm #</option>
-                </select>
+                {% if manual_subjects %}
+                <button type="button" class="btn btn-sm btn-outline btn-secondary w-full"
+                        hx-get="{% url 'academics:class_bulk_subject_assign' class.pk %}"
+                        hx-target="#modal-edit-content"
+                        onclick="modal_edit.showModal()">
+                    <i class="fa-solid fa-layer-group"></i>
+                    Bulk Assign Subjects
+                </button>
+                {% endif %}
             </div>
         </div>
 

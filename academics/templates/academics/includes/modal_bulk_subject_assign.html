@@ -1,0 +1,116 @@
+{% load core_tags %}
+
+<div class="flex flex-col h-[70vh] max-h-[500px]">
+    <!-- Fixed Header -->
+    <div class="flex items-center justify-between pb-3 border-b border-base-200 shrink-0">
+        <div>
+            <h3 class="text-lg font-bold">Bulk Assign Subjects</h3>
+            <p class="text-xs text-base-content/60">{{ class.name }}</p>
+        </div>
+    </div>
+
+    {% if not manual_subjects %}
+    <div class="flex-1 flex items-center justify-center">
+        <div class="alert alert-info">
+            <i class="fa-solid fa-info-circle"></i>
+            <span>No subjects require manual assignment. All subjects are set to auto-enroll.</span>
+        </div>
+    </div>
+    <div class="modal-action border-t border-base-200 pt-4 shrink-0">
+        <button type="button" class="btn" onclick="modal_edit.close()">Close</button>
+    </div>
+    {% elif not students %}
+    <div class="flex-1 flex items-center justify-center">
+        <div class="alert alert-warning">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>No active students in this class.</span>
+        </div>
+    </div>
+    <div class="modal-action border-t border-base-200 pt-4 shrink-0">
+        <button type="button" class="btn" onclick="modal_edit.close()">Close</button>
+    </div>
+    {% else %}
+    <form method="post"
+          action="{% url 'academics:class_bulk_subject_assign' class.pk %}"
+          hx-post="{% url 'academics:class_bulk_subject_assign' class.pk %}"
+          hx-target="#modal-edit-content"
+          hx-swap="innerHTML"
+          class="flex flex-col flex-1 min-h-0 pt-4">
+        {% csrf_token %}
+
+        {% if error %}
+        <div class="alert alert-error mb-4 py-2 text-sm shrink-0">
+            <i class="fa-solid fa-exclamation-circle"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <!-- Scrollable Content Area -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
+            <!-- Subjects Selection -->
+            <div class="flex flex-col min-h-0">
+                <div class="flex items-center justify-between mb-2 shrink-0">
+                    <h4 class="font-semibold text-sm">Select Subjects <span class="text-base-content/50 font-normal">({{ manual_subjects|length }})</span></h4>
+                    <label class="text-xs text-primary cursor-pointer hover:underline">
+                        <input type="checkbox" class="hidden" onchange="toggleAll(this, 'subjects')">
+                        Select All
+                    </label>
+                </div>
+                <div class="flex-1 overflow-y-auto border border-base-200 rounded-lg p-2 space-y-1">
+                    {% for cs in manual_subjects %}
+                    <label class="flex items-center gap-2 p-2 rounded hover:bg-base-200/50 cursor-pointer">
+                        <input type="checkbox"
+                               name="subjects"
+                               value="{{ cs.pk }}"
+                               class="checkbox checkbox-primary checkbox-sm">
+                        <div class="flex-1 min-w-0">
+                            <span class="text-sm font-medium">{{ cs.subject.name }}</span>
+                            {% if cs.teacher %}
+                            <p class="text-xs text-base-content/60 truncate">{{ cs.teacher.full_name }}</p>
+                            {% endif %}
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Students Selection -->
+            <div class="flex flex-col min-h-0">
+                <div class="flex items-center justify-between mb-2 shrink-0">
+                    <h4 class="font-semibold text-sm">Select Students <span class="text-base-content/50 font-normal">({{ students|length }})</span></h4>
+                    <label class="text-xs text-primary cursor-pointer hover:underline">
+                        <input type="checkbox" class="hidden" onchange="toggleAll(this, 'students')">
+                        Select All
+                    </label>
+                </div>
+                <div class="flex-1 overflow-y-auto border border-base-200 rounded-lg p-2 space-y-1">
+                    {% for student in students %}
+                    <label class="flex items-center gap-2 p-2 rounded hover:bg-base-200/50 cursor-pointer">
+                        <input type="checkbox"
+                               name="students"
+                               value="{{ student.pk }}"
+                               class="checkbox checkbox-primary checkbox-sm">
+                        <span class="text-sm">{{ student.full_name }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Fixed Footer -->
+        <div class="modal-action border-t border-base-200 pt-4 mt-4 shrink-0">
+            <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-check"></i> Assign Subjects
+            </button>
+        </div>
+    </form>
+
+    <script>
+    function toggleAll(checkbox, name) {
+        const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+        checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    }
+    </script>
+    {% endif %}
+</div>
