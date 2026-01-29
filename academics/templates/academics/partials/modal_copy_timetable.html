@@ -1,0 +1,97 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-2">Copy Timetable</h3>
+<p class="text-sm text-base-content/60 mb-4">
+    Copy an existing timetable to <strong>{{ class_obj.name }}</strong>.
+</p>
+
+{% if not has_sources %}
+<div class="alert alert-warning mb-4">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <div>
+        <p class="font-medium">No timetables available to copy</p>
+        <p class="text-sm">Create a timetable for at least one class first.</p>
+    </div>
+</div>
+<div class="modal-action">
+    <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Close</button>
+</div>
+
+{% else %}
+<form method="post"
+      action="{% url 'academics:copy_timetable' class_obj.pk %}"
+      hx-post="{% url 'academics:copy_timetable' class_obj.pk %}"
+      hx-target="this"
+      hx-swap="outerHTML">
+    {% csrf_token %}
+
+    <div class="space-y-4">
+        <!-- Source Class -->
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text font-medium">Copy From</span>
+            </label>
+            <select name="source_class" class="select select-bordered w-full" required>
+                <option value="">-- Select Source Class --</option>
+                {% for source in form.source_class.field.queryset %}
+                <option value="{{ source.pk }}" {% if source.pk|stringformat:"s" == form.source_class.value|default:""|stringformat:"s" %}selected{% endif %}>
+                    {{ source.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <label class="label">
+                <span class="label-text-alt text-base-content/60">Select a class with an existing timetable</span>
+            </label>
+        </div>
+
+        <!-- Options -->
+        <div class="bg-base-200/50 rounded-lg p-4 space-y-3">
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="copy_teachers" class="checkbox checkbox-sm checkbox-primary"
+                       {% if form.copy_teachers.value %}checked{% endif %} />
+                <div>
+                    <span class="label-text font-medium">Keep Same Teachers</span>
+                    <p class="text-xs text-base-content/60">Copy teacher assignments (skips if teacher has conflict)</p>
+                </div>
+            </label>
+
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="overwrite" class="checkbox checkbox-sm checkbox-warning"
+                       {% if form.overwrite.value %}checked{% endif %} />
+                <div>
+                    <span class="label-text font-medium">Overwrite Existing</span>
+                    <p class="text-xs text-base-content/60">Delete current timetable before copying</p>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    {% if form.errors %}
+    <div class="alert alert-error mt-4 py-2 text-sm">
+        <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-exclamation-circle"></i>
+                <span class="font-medium">Error:</span>
+            </div>
+            <ul class="list-disc list-inside ml-4 text-xs">
+                {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li>{{ field.label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-copy"></i>
+            Copy Timetable
+        </button>
+    </div>
+</form>
+{% endif %}

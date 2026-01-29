@@ -1,0 +1,52 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-3">{% if is_create %}Create{% else %}Edit{% endif %} Subject Template</h3>
+<form method="post"
+      action="{% if template %}{% url 'academics:template_edit' template.pk %}{% else %}{% url 'academics:template_create' %}{% if from_class %}?from_class={{ from_class }}{% endif %}{% endif %}"
+      hx-post="{% if template %}{% url 'academics:template_edit' template.pk %}{% else %}{% url 'academics:template_create' %}{% if from_class %}?from_class={{ from_class }}{% endif %}{% endif %}"
+      hx-target="{{ modal_target|default:'#modal-content' }}"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <!-- Name & Active -->
+    <div class="flex gap-3 items-center mb-3">
+        <input type="text" name="name" value="{{ form.name.value|default:'' }}"
+               class="input input-sm input-bordered flex-1" placeholder="Template name" required />
+        <label class="label cursor-pointer gap-2">
+            <input type="checkbox" name="is_active" class="checkbox checkbox-sm checkbox-primary"
+                   {% if form.instance.is_active or is_create %}checked{% endif %} />
+            <span class="label-text text-sm">Active</span>
+        </label>
+    </div>
+
+    <!-- Subjects - 2-column grid (no inner scroll) -->
+    <div class="text-xs font-medium text-base-content/70 mb-1">Select Subjects:</div>
+    <div class="border border-base-300 rounded-lg p-2">
+        <div class="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            {% for subject in form.subjects.field.queryset %}
+            <label class="cursor-pointer flex items-center gap-1.5 py-1 px-1 rounded hover:bg-base-200 text-sm">
+                <input type="checkbox" name="subjects" value="{{ subject.pk }}"
+                       class="checkbox checkbox-xs checkbox-primary"
+                       {% if subject.pk|stringformat:"s" in selected_subject_ids %}checked{% endif %} />
+                <span class="truncate flex-1">{{ subject.name }}</span>
+                {% if subject.is_core %}<span class="badge badge-xs badge-primary">C</span>{% endif %}
+            </label>
+            {% empty %}
+            <p class="text-sm text-base-content/50 col-span-2 py-2">No subjects available.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if form.errors %}
+    <div class="alert alert-error mt-3 py-2 text-sm">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>{{ form.non_field_errors.0|default:"Please fix the errors." }}</span>
+    </div>
+    {% endif %}
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
+            {% if is_create %}Create{% else %}Save{% endif %}
+        </button>
+    </div>
+</form>

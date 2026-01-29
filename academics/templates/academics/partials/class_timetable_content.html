@@ -88,6 +88,20 @@
                         </button>
                     </li>
                     <li>
+                        <button hx-get="{% url 'academics:bulk_timetable_entry' class_obj.pk %}"
+                                hx-target="#modal-container"
+                                onclick="modal_form.showModal()">
+                            <i class="fa-solid fa-calendar-plus w-4"></i> Bulk Add Lessons
+                        </button>
+                    </li>
+                    <li>
+                        <button hx-get="{% url 'academics:copy_timetable' class_obj.pk %}"
+                                hx-target="#modal-container"
+                                onclick="modal_form.showModal()">
+                            <i class="fa-solid fa-copy w-4"></i> Copy Timetable
+                        </button>
+                    </li>
+                    <li>
                         <a href="{% url 'academics:class_detail' class_obj.pk %}"
                            hx-get="{% url 'academics:class_detail' class_obj.pk %}"
                            hx-target="#main-content"

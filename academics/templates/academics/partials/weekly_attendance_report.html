@@ -1,0 +1,180 @@
+{% load core_tags %}
+
+<div class="p-4 sm:p-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                <i class="fa-solid fa-chart-bar text-primary"></i>
+                Weekly Attendance Report
+            </h1>
+            <p class="text-sm text-base-content/60 mt-1">
+                {{ class.name }} - {{ start_date|date:"M j" }} to {{ end_date|date:"M j, Y" }}
+            </p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{% url 'academics:class_detail' class.pk %}"
+               hx-get="{% url 'academics:class_detail' class.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm gap-1">
+                <i class="fa-solid fa-arrow-left"></i>
+                Back to Class
+            </a>
+        </div>
+    </div>
+
+    <!-- Week Navigation -->
+    <div class="flex items-center justify-center gap-4 mb-6">
+        <a href="?week={{ prev_week }}"
+           hx-get="?week={{ prev_week }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-circle btn-sm btn-ghost">
+            <i class="fa-solid fa-chevron-left"></i>
+        </a>
+        <div class="text-center">
+            <div class="font-semibold">
+                {{ start_date|date:"M j" }} - {{ end_date|date:"M j, Y" }}
+            </div>
+            {% if is_current_week %}
+            <div class="badge badge-primary badge-sm">Current Week</div>
+            {% endif %}
+        </div>
+        {% if next_week is not None %}
+        <a href="?week={{ next_week }}"
+           hx-get="?week={{ next_week }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-circle btn-sm btn-ghost">
+            <i class="fa-solid fa-chevron-right"></i>
+        </a>
+        {% else %}
+        <button class="btn btn-circle btn-sm btn-ghost" disabled>
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        {% endif %}
+    </div>
+
+    {% if not uses_lesson_attendance %}
+    <!-- Info for daily attendance classes -->
+    <div class="alert alert-info mb-6">
+        <i class="fa-solid fa-info-circle"></i>
+        <span>This class uses daily attendance. The report below shows overall attendance statistics.</span>
+    </div>
+    {% endif %}
+
+    <!-- Overall Stats Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div class="card bg-base-100 border border-base-200">
+            <div class="card-body p-4">
+                <div class="text-2xl font-bold text-primary">{{ overall.sessions }}</div>
+                <div class="text-xs text-base-content/60">Total Sessions</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 border border-base-200">
+            <div class="card-body p-4">
+                <div class="text-2xl font-bold text-success">{{ overall.present }}</div>
+                <div class="text-xs text-base-content/60">Present</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 border border-base-200">
+            <div class="card-body p-4">
+                <div class="text-2xl font-bold text-error">{{ overall.absent }}</div>
+                <div class="text-xs text-base-content/60">Absent</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 border border-base-200">
+            <div class="card-body p-4">
+                <div class="text-2xl font-bold {% if overall.rate >= 90 %}text-success{% elif overall.rate >= 75 %}text-warning{% else %}text-error{% endif %}">
+                    {{ overall.rate }}%
+                </div>
+                <div class="text-xs text-base-content/60">Attendance Rate</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subject-wise Breakdown Table -->
+    {% if stats %}
+    <div class="card bg-base-100 border border-base-200">
+        <div class="card-body p-0">
+            <div class="p-4 border-b border-base-200">
+                <h2 class="font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-book text-secondary"></i>
+                    Attendance by Subject
+                </h2>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Teacher</th>
+                            <th class="text-center">Sessions</th>
+                            <th class="text-center">Present</th>
+                            <th class="text-center">Late</th>
+                            <th class="text-center">Absent</th>
+                            <th class="text-center">Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in stats %}
+                        <tr>
+                            <td class="font-medium">{{ item.subject.name }}</td>
+                            <td class="text-sm text-base-content/70">
+                                {% if item.teacher %}
+                                {{ item.teacher.full_name }}
+                                {% else %}
+                                <span class="text-base-content/40">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">{{ item.sessions }}</td>
+                            <td class="text-center text-success">{{ item.present }}</td>
+                            <td class="text-center text-warning">{{ item.late }}</td>
+                            <td class="text-center text-error">{{ item.absent }}</td>
+                            <td class="text-center">
+                                {% if item.sessions > 0 %}
+                                <span class="badge badge-sm {% if item.rate >= 90 %}badge-success{% elif item.rate >= 75 %}badge-warning{% else %}badge-error{% endif %}">
+                                    {{ item.rate }}%
+                                </span>
+                                {% else %}
+                                <span class="text-base-content/40">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+            <i class="fa-solid fa-clipboard text-base-content/30 text-2xl"></i>
+        </div>
+        <h3 class="font-semibold text-base-content/70">No Attendance Data</h3>
+        <p class="text-sm text-base-content/50">No attendance has been recorded for this period.</p>
+    </div>
+    {% endif %}
+
+    <!-- Legend -->
+    <div class="mt-6 p-4 bg-base-200/50 rounded-lg">
+        <h3 class="text-sm font-semibold mb-2">Legend</h3>
+        <div class="flex flex-wrap gap-4 text-sm">
+            <div class="flex items-center gap-2">
+                <span class="badge badge-success badge-sm">90%+</span>
+                <span class="text-base-content/60">Excellent</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="badge badge-warning badge-sm">75-89%</span>
+                <span class="text-base-content/60">Good</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="badge badge-error badge-sm">&lt;75%</span>
+                <span class="text-base-content/60">Needs Attention</span>
+            </div>
+        </div>
+    </div>
+</div>

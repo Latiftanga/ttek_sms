@@ -1,6 +1,6 @@
 from django import forms
 from django.db.models import Q  # Import Q directly here
-from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, Period, TimetableEntry, Classroom
+from .models import Programme, Class, Subject, ClassSubject, AttendanceSession, Period, TimetableEntry, Classroom, SubjectTemplate
 from students.models import Student
 
 
@@ -26,8 +26,8 @@ class ClassForm(forms.ModelForm):
     class Meta:
         model = Class
         fields = [
-            'level_type', 'level_number', 'section', 
-            'programme', 'capacity', 'class_teacher', 'is_active'
+            'level_type', 'level_number', 'section',
+            'programme', 'capacity', 'class_teacher', 'attendance_type', 'is_active'
         ]
         widgets = {
             'section': forms.TextInput(attrs={'placeholder': 'A, B, C...'}),
@@ -46,6 +46,9 @@ class ClassForm(forms.ModelForm):
             self.fields['class_teacher'].label = "Form Tutor / Class Teacher"
         except ImportError:
             pass
+
+        # Attendance type field
+        self.fields['attendance_type'].label = "Attendance Type"
 
         # Filter level_type choices based on school's education system setting
         try:
@@ -132,6 +135,35 @@ class SubjectForm(forms.ModelForm):
                 del self.fields['is_core']
         except Exception:
             pass
+
+
+class SubjectTemplateForm(forms.ModelForm):
+    """Form for creating/editing subject templates."""
+
+    class Meta:
+        model = SubjectTemplate
+        fields = ['name', 'subjects', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder': 'e.g., Core Subjects'}),
+            'subjects': forms.CheckboxSelectMultiple(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['subjects'].queryset = Subject.objects.filter(is_active=True).order_by('-is_core', 'name')
+
+
+class ApplyTemplateForm(forms.Form):
+    """Form to select a template to apply to a class."""
+    template = forms.ModelChoiceField(
+        queryset=SubjectTemplate.objects.none(),
+        label="Select Template",
+        empty_label="-- Choose a template --"
+    )
+
+    def __init__(self, *args, class_obj=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['template'].queryset = SubjectTemplate.objects.filter(is_active=True)
 
 
 class ClassSubjectForm(forms.ModelForm):
@@ -486,3 +518,304 @@ class TimetableEntryForm(forms.ModelForm):
         self.instance.class_subject = class_subject
 
         return super().save(commit=commit)
+
+
+class BulkTimetableEntryForm(forms.Form):
+    """
+    Form for adding multiple timetable entries at once.
+    Select a subject, teacher, and multiple days/periods.
+    """
+    from teachers.models import Teacher
+
+    subject = forms.ModelChoiceField(
+        queryset=Subject.objects.none(),
+        required=True,
+        label='Subject'
+    )
+    teacher = forms.ModelChoiceField(
+        queryset=Teacher.objects.none(),
+        required=True,
+        label='Teacher'
+    )
+    weekdays = forms.MultipleChoiceField(
+        choices=TimetableEntry.Weekday.choices,
+        widget=forms.CheckboxSelectMultiple(),
+        required=True,
+        label='Days'
+    )
+    period = forms.ModelChoiceField(
+        queryset=Period.objects.none(),
+        required=True,
+        label='Period'
+    )
+    is_double = forms.BooleanField(
+        required=False,
+        label='Double Period',
+        help_text='Lesson spans two consecutive periods'
+    )
+    classroom = forms.ModelChoiceField(
+        queryset=Classroom.objects.none(),
+        required=False,
+        label='Classroom'
+    )
+
+    def __init__(self, *args, class_instance=None, **kwargs):
+        from teachers.models import Teacher
+        super().__init__(*args, **kwargs)
+        self.class_instance = class_instance
+
+        # Filter periods to active, non-break
+        self.fields['period'].queryset = Period.objects.filter(
+            is_active=True,
+            is_break=False
+        ).order_by('order')
+
+        # Populate subjects
+        self.fields['subject'].queryset = Subject.objects.filter(
+            is_active=True
+        ).order_by('name')
+
+        # Populate teachers
+        self.fields['teacher'].queryset = Teacher.objects.filter(
+            status='active'
+        ).order_by('first_name', 'last_name')
+
+        # Populate classrooms
+        self.fields['classroom'].queryset = Classroom.objects.filter(
+            is_active=True
+        ).order_by('name')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        weekdays = cleaned_data.get('weekdays', [])
+        period = cleaned_data.get('period')
+        teacher = cleaned_data.get('teacher')
+        subject = cleaned_data.get('subject')
+        is_double = cleaned_data.get('is_double', False)
+        classroom = cleaned_data.get('classroom')
+
+        if not (weekdays and period and teacher and subject):
+            return cleaned_data
+
+        errors = []
+
+        # Check for conflicts on each selected day
+        for weekday in weekdays:
+            weekday_int = int(weekday)
+            weekday_name = dict(TimetableEntry.Weekday.choices)[weekday_int]
+
+            # Check if slot already has this subject for this class
+            existing = TimetableEntry.objects.filter(
+                class_subject__class_assigned=self.class_instance,
+                class_subject__subject=subject,
+                weekday=weekday_int,
+                period=period
+            ).exists()
+            if existing:
+                errors.append(f'{subject.name} already scheduled for {weekday_name} {period.name}')
+                continue
+
+            # Check teacher conflict
+            teacher_conflict = TimetableEntry.objects.filter(
+                class_subject__teacher=teacher,
+                weekday=weekday_int,
+                period=period
+            ).exclude(
+                class_subject__class_assigned=self.class_instance
+            ).select_related('class_subject__class_assigned').first()
+
+            if teacher_conflict:
+                errors.append(
+                    f'{teacher.full_name} already teaching {teacher_conflict.class_subject.class_assigned.name} '
+                    f'on {weekday_name} {period.name}'
+                )
+
+            # Check classroom conflict
+            if classroom:
+                classroom_conflict = TimetableEntry.objects.filter(
+                    classroom=classroom,
+                    weekday=weekday_int,
+                    period=period
+                ).exclude(
+                    class_subject__class_assigned=self.class_instance
+                ).select_related('class_subject__class_assigned').first()
+
+                if classroom_conflict:
+                    errors.append(
+                        f'{classroom.name} already booked for {classroom_conflict.class_subject.class_assigned.name} '
+                        f'on {weekday_name} {period.name}'
+                    )
+
+        if errors:
+            raise forms.ValidationError(errors)
+
+        return cleaned_data
+
+    def save(self):
+        """Create timetable entries for all selected days."""
+        subject = self.cleaned_data['subject']
+        teacher = self.cleaned_data['teacher']
+        weekdays = self.cleaned_data['weekdays']
+        period = self.cleaned_data['period']
+        is_double = self.cleaned_data.get('is_double', False)
+        classroom = self.cleaned_data.get('classroom')
+
+        # Get or create ClassSubject
+        class_subject, _ = ClassSubject.objects.get_or_create(
+            class_assigned=self.class_instance,
+            subject=subject,
+            defaults={'teacher': teacher}
+        )
+
+        # Update teacher if different
+        if class_subject.teacher != teacher:
+            class_subject.teacher = teacher
+            class_subject.save()
+
+        # Create entries for each day
+        created_count = 0
+        for weekday in weekdays:
+            TimetableEntry.objects.create(
+                class_subject=class_subject,
+                period=period,
+                weekday=int(weekday),
+                is_double=is_double,
+                classroom=classroom
+            )
+            created_count += 1
+
+        return created_count
+
+
+class CopyTimetableForm(forms.Form):
+    """
+    Form for copying a timetable from one class to another.
+    Useful for parallel classes (e.g., Form 1A -> Form 1B).
+    """
+    source_class = forms.ModelChoiceField(
+        queryset=Class.objects.none(),
+        required=True,
+        label='Copy From',
+        help_text='Select a class with an existing timetable'
+    )
+    copy_teachers = forms.BooleanField(
+        required=False,
+        initial=True,
+        label='Keep Same Teachers',
+        help_text='If unchecked, entries will be created without teacher assignments'
+    )
+    overwrite = forms.BooleanField(
+        required=False,
+        initial=False,
+        label='Overwrite Existing',
+        help_text='Replace any existing timetable entries (otherwise skip conflicts)'
+    )
+
+    def __init__(self, *args, target_class=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.target_class = target_class
+
+        # Get classes that have timetable entries, excluding the target class
+        classes_with_timetable = Class.objects.filter(
+            is_active=True,
+            classsubject__timetableentry__isnull=False
+        ).exclude(pk=target_class.pk if target_class else None).distinct().order_by('level_type', 'level_number', 'section')
+
+        self.fields['source_class'].queryset = classes_with_timetable
+
+    def clean(self):
+        cleaned_data = super().clean()
+        source_class = cleaned_data.get('source_class')
+
+        if source_class and self.target_class:
+            # Check if source has any timetable entries
+            entry_count = TimetableEntry.objects.filter(
+                class_subject__class_assigned=source_class
+            ).count()
+            if entry_count == 0:
+                raise forms.ValidationError(
+                    f'{source_class.name} has no timetable entries to copy.'
+                )
+
+        return cleaned_data
+
+    def save(self):
+        """Copy timetable from source to target class."""
+        source_class = self.cleaned_data['source_class']
+        copy_teachers = self.cleaned_data.get('copy_teachers', True)
+        overwrite = self.cleaned_data.get('overwrite', False)
+
+        # Get all source entries with related data
+        source_entries = TimetableEntry.objects.filter(
+            class_subject__class_assigned=source_class
+        ).select_related('class_subject__subject', 'class_subject__teacher', 'period', 'classroom')
+
+        if overwrite:
+            # Delete existing entries for target class
+            TimetableEntry.objects.filter(
+                class_subject__class_assigned=self.target_class
+            ).delete()
+
+        created_count = 0
+        skipped_count = 0
+
+        for entry in source_entries:
+            subject = entry.class_subject.subject
+            teacher = entry.class_subject.teacher if copy_teachers else None
+
+            # Get or create ClassSubject for target class
+            class_subject, _ = ClassSubject.objects.get_or_create(
+                class_assigned=self.target_class,
+                subject=subject,
+                defaults={'teacher': teacher}
+            )
+
+            # Check if entry already exists at this slot
+            existing = TimetableEntry.objects.filter(
+                class_subject__class_assigned=self.target_class,
+                weekday=entry.weekday,
+                period=entry.period
+            ).exists()
+
+            if existing and not overwrite:
+                skipped_count += 1
+                continue
+
+            # Check teacher conflict (if copying teachers)
+            if copy_teachers and teacher:
+                teacher_conflict = TimetableEntry.objects.filter(
+                    class_subject__teacher=teacher,
+                    weekday=entry.weekday,
+                    period=entry.period
+                ).exclude(
+                    class_subject__class_assigned=self.target_class
+                ).exists()
+
+                if teacher_conflict:
+                    # Create without teacher to avoid conflict
+                    class_subject_no_teacher, _ = ClassSubject.objects.get_or_create(
+                        class_assigned=self.target_class,
+                        subject=subject,
+                        defaults={'teacher': None}
+                    )
+                    TimetableEntry.objects.create(
+                        class_subject=class_subject_no_teacher,
+                        period=entry.period,
+                        weekday=entry.weekday,
+                        is_double=entry.is_double,
+                        classroom=None  # Don't copy classroom to avoid conflicts
+                    )
+                    created_count += 1
+                    continue
+
+            # Create the entry
+            TimetableEntry.objects.create(
+                class_subject=class_subject,
+                period=entry.period,
+                weekday=entry.weekday,
+                is_double=entry.is_double,
+                classroom=None  # Don't copy classroom to avoid conflicts
+            )
+            created_count += 1
+
+        return created_count, skipped_count

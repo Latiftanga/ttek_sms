@@ -1,0 +1,205 @@
+{% load core_tags %}
+
+<div>
+    <!-- Header -->
+    <div class="flex flex-col gap-3 mb-4">
+        <!-- Top row: Back + Title + Actions -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <a href="{% url 'academics:class_detail' class.pk %}"
+               hx-get="{% url 'academics:class_detail' class.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-square shrink-0">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div class="flex-1 min-w-0">
+                <h1 class="text-lg sm:text-xl font-bold truncate flex items-center gap-2">
+                    <i class="fa-solid fa-book text-secondary"></i>
+                    {{ class.name }} Subjects
+                </h1>
+                <p class="text-xs text-base-content/60 truncate">
+                    {{ class.level_display }}{% if class.programme %} &bull; {{ class.programme.name }}{% endif %}
+                </p>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+                <a href="{% url 'academics:class_timetable' class.pk %}"
+                   hx-get="{% url 'academics:class_timetable' class.pk %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-sm btn-ghost"
+                   title="View Timetable">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span class="hidden sm:inline">Timetable</span>
+                </a>
+                <button class="btn btn-sm btn-ghost"
+                        hx-get="{% url 'academics:apply_template' class.pk %}"
+                        hx-target="#modal-container"
+                        onclick="modal_form.showModal()"
+                        title="Apply Template">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span class="hidden sm:inline">Template</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="flex items-center text-xs sm:text-sm bg-base-200/50 rounded-lg px-2 sm:px-3 py-2">
+            <div class="flex-1 flex items-center justify-center gap-1.5 px-1">
+                <i class="fa-solid fa-book text-secondary"></i>
+                <span class="font-bold">{{ subject_allocations.count }}</span>
+                <span class="text-base-content/60">subject{{ subject_allocations.count|pluralize }}</span>
+            </div>
+            <div class="w-px h-4 bg-base-300"></div>
+            <div class="flex-1 flex items-center justify-center gap-1.5 px-1">
+                <i class="fa-solid fa-chalkboard-user text-primary"></i>
+                <span class="font-bold">{{ teachers_assigned }}</span>
+                <span class="text-base-content/60 hidden sm:inline">with teachers</span>
+            </div>
+            <div class="w-px h-4 bg-base-300"></div>
+            <div class="flex-1 flex items-center justify-center gap-1.5 px-1">
+                <i class="fa-solid fa-clock text-info"></i>
+                <span class="font-bold">{{ total_periods }}</span>
+                <span class="text-base-content/60 hidden sm:inline">periods/wk</span>
+            </div>
+        </div>
+    </div>
+
+    {% if template_applied %}
+    <!-- Success message after applying template -->
+    <div class="alert alert-success mb-4 py-2">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>Template applied: {{ created_count }} subject{{ created_count|pluralize }} added{% if skipped_count %}, {{ skipped_count }} already existed{% endif %}.</span>
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="p-3 border-b border-base-200 flex items-center justify-between">
+            <h3 class="font-semibold text-sm">Assigned Subjects</h3>
+            <button class="btn btn-sm btn-primary"
+                    hx-get="{% url 'academics:class_subject_create' class.pk %}"
+                    hx-target="#modal-container"
+                    onclick="modal_form.showModal()">
+                <i class="fa-solid fa-plus"></i>
+                <span class="hidden sm:inline">Add Subject</span>
+            </button>
+        </div>
+
+        {% if subject_allocations %}
+        <div id="subjects-list" class="divide-y divide-base-200">
+            {% for alloc in subject_allocations %}
+            <div class="flex items-center gap-3 p-3 hover:bg-base-50 transition-colors">
+                <!-- Subject Icon -->
+                <div class="avatar placeholder flex-shrink-0">
+                    <div class="w-10 h-10 rounded-lg {% if alloc.subject.is_core %}bg-primary/20 text-primary{% else %}bg-secondary/20 text-secondary{% endif %} flex items-center justify-center">
+                        <i class="fa-solid fa-book"></i>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-semibold text-sm">{{ alloc.subject.name }}</span>
+                        {% if tenant.has_programmes %}
+                        <span class="badge badge-xs {% if alloc.subject.is_core %}badge-primary{% else %}badge-ghost{% endif %}">
+                            {{ alloc.subject.is_core|yesno:"Core,Elective" }}
+                        </span>
+                        {% endif %}
+                        {% if alloc.timetable_periods %}
+                        <span class="badge badge-xs badge-info badge-outline">
+                            <i class="fa-solid fa-clock mr-1"></i>{{ alloc.timetable_periods }}/wk
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-base-content/60 mt-0.5">
+                        {% if alloc.teacher %}
+                        <span class="inline-flex items-center gap-1">
+                            <i class="fa-solid fa-chalkboard-user"></i>
+                            {{ alloc.teacher.full_name }}
+                        </span>
+                        {% else %}
+                        <span class="text-warning inline-flex items-center gap-1">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            No teacher assigned
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-1">
+                    <button class="btn btn-ghost btn-sm btn-square"
+                            hx-get="{% url 'academics:class_subject_create' class.pk %}?subject_id={{ alloc.pk }}"
+                            hx-target="#modal-container"
+                            onclick="modal_form.showModal()"
+                            title="Edit">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
+                    <button class="btn btn-ghost btn-sm btn-square text-error"
+                            hx-post="{% url 'academics:class_subject_delete' class.pk alloc.pk %}"
+                            hx-swap="none"
+                            hx-confirm="Remove {{ alloc.subject.name }} from this class?"
+                            title="Remove">
+                        <i class="fa-solid fa-trash text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="text-center py-12">
+            <div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-book text-3xl text-base-content/20"></i>
+            </div>
+            <h4 class="font-semibold mb-1">No Subjects Yet</h4>
+            <p class="text-sm text-base-content/60 mb-4">Assign subjects to start building the curriculum.</p>
+            <div class="flex flex-col sm:flex-row gap-2 justify-center">
+                <button class="btn btn-secondary btn-sm"
+                        hx-get="{% url 'academics:apply_template' class.pk %}"
+                        hx-target="#modal-container"
+                        onclick="modal_form.showModal()">
+                    <i class="fa-solid fa-layer-group"></i> Use Template
+                </button>
+                <button class="btn btn-primary btn-sm"
+                        hx-get="{% url 'academics:class_subject_create' class.pk %}"
+                        hx-target="#modal-container"
+                        onclick="modal_form.showModal()">
+                    <i class="fa-solid fa-plus"></i> Add Manually
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal for forms -->
+<dialog id="modal_form" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box max-w-lg overflow-visible">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-container" class="overflow-visible">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+    // Close modal when closeModal event is triggered via HX-Trigger
+    document.body.addEventListener('closeModal', function() {
+        document.getElementById('modal_form')?.close();
+    });
+
+    // Refresh subjects list after successful form submission
+    document.body.addEventListener('refreshSubjects', function() {
+        htmx.ajax('GET', '{% url "academics:class_subjects" class.pk %}', {target: '#main-content', swap: 'innerHTML'});
+    });
+</script>

@@ -19,8 +19,16 @@
     </a>
 </div>
 
+{% if template_applied %}
+<!-- Success message after applying template -->
+<div class="alert alert-success mb-4 py-2">
+    <i class="fa-solid fa-check-circle"></i>
+    <span>Template applied: {{ created_count }} subject{{ created_count|pluralize }} added{% if skipped_count %}, {{ skipped_count }} already existed{% endif %}.</span>
+</div>
+{% endif %}
+
 {% if subject_allocations %}
-<div class="space-y-2 max-h-[60vh] overflow-y-auto">
+<div class="space-y-2 max-h-[50vh] overflow-y-auto">
     {% for alloc in subject_allocations %}
     <div class="flex items-center gap-3 p-3 bg-base-200/50 rounded-lg">
         <!-- Subject Icon -->
@@ -74,11 +82,20 @@
 
 <div class="mt-4 pt-3 border-t border-base-200 flex justify-between items-center">
     <span class="text-sm text-base-content/50">{{ subject_allocations.count }} subject{{ subject_allocations.count|pluralize }}</span>
-    <button class="btn btn-sm btn-primary"
-            hx-get="{% url 'academics:class_subject_create' class.pk %}"
-            hx-target="#modal-edit-content">
-        <i class="fa-solid fa-plus"></i> Add Subject
-    </button>
+    <div class="flex gap-2">
+        <button class="btn btn-sm btn-ghost"
+                hx-get="{% url 'academics:apply_template' class.pk %}"
+                hx-target="#modal-edit-content"
+                title="Apply a subject template">
+            <i class="fa-solid fa-layer-group"></i>
+            <span class="hidden sm:inline">Template</span>
+        </button>
+        <button class="btn btn-sm btn-primary"
+                hx-get="{% url 'academics:class_subject_create' class.pk %}"
+                hx-target="#modal-edit-content">
+            <i class="fa-solid fa-plus"></i> Add Subject
+        </button>
+    </div>
 </div>
 
 {% else %}
@@ -88,10 +105,17 @@
     </div>
     <h4 class="font-semibold mb-1">No Subjects Yet</h4>
     <p class="text-sm text-base-content/60 mb-4">Assign subjects to start building the curriculum.</p>
-    <button class="btn btn-primary btn-sm"
-            hx-get="{% url 'academics:class_subject_create' class.pk %}"
-            hx-target="#modal-edit-content">
-        <i class="fa-solid fa-plus"></i> Assign Subject
-    </button>
+    <div class="flex flex-col sm:flex-row gap-2 justify-center">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="{% url 'academics:apply_template' class.pk %}"
+                hx-target="#modal-edit-content">
+            <i class="fa-solid fa-layer-group"></i> Use Template
+        </button>
+        <button class="btn btn-primary btn-sm"
+                hx-get="{% url 'academics:class_subject_create' class.pk %}"
+                hx-target="#modal-edit-content">
+            <i class="fa-solid fa-plus"></i> Add Manually
+        </button>
+    </div>
 </div>
 {% endif %}

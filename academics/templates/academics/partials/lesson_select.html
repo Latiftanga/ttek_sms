@@ -1,0 +1,126 @@
+{% load core_tags %}
+
+<div class="flex justify-between items-center mb-4 sticky top-0 bg-base-100 z-10 pb-2 border-b border-base-200">
+    <div>
+        <h3 class="text-xl font-bold">Select Lesson</h3>
+        <p class="text-xs text-base-content/60">{{ class.name }} - {{ date|date:"l, F jS Y" }}</p>
+    </div>
+    <div class="badge badge-primary">Per-Lesson Attendance</div>
+</div>
+
+{% if not has_lessons %}
+<div class="text-center py-12">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+        <i class="fa-solid fa-calendar-xmark text-base-content/30 text-2xl"></i>
+    </div>
+    {% if no_timetable %}
+    <h3 class="font-semibold text-base-content/70">Timetable Not Set Up</h3>
+    <p class="text-sm text-base-content/50 mb-4">
+        This class uses per-lesson attendance but has no timetable entries.<br>
+        Set up the timetable to enable lesson attendance.
+    </p>
+    <a href="{% url 'academics:class_timetable' class.pk %}"
+       hx-get="{% url 'academics:class_timetable' class.pk %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-primary btn-sm gap-2">
+        <i class="fa-solid fa-table-cells"></i>
+        Set Up Timetable
+    </a>
+    {% else %}
+    <h3 class="font-semibold text-base-content/70">No Lessons Today</h3>
+    <p class="text-sm text-base-content/50">There are no scheduled lessons for {{ class.name }} today.</p>
+    {% endif %}
+</div>
+{% else %}
+<div class="space-y-3">
+    {% for lesson in lessons %}
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-base-200 rounded-xl hover:bg-base-200/50 gap-3 transition-all
+        {% if lesson.is_current %}bg-primary/5 border-primary/30{% elif lesson.is_past %}opacity-60{% endif %}">
+
+        <!-- Time and Period -->
+        <div class="flex items-center gap-4">
+            <div class="text-center min-w-[80px]">
+                <div class="text-sm font-medium {% if lesson.is_current %}text-primary{% else %}text-base-content/50{% endif %}">
+                    {{ lesson.period.start_time|time:"g:i A" }}
+                </div>
+                <div class="text-xs text-base-content/40">
+                    {{ lesson.period.end_time|time:"g:i A" }}
+                </div>
+            </div>
+
+            <div class="flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-bold {% if lesson.is_current %}text-primary{% endif %}">
+                        {{ lesson.subject.name }}
+                    </span>
+                    {% if lesson.is_current %}
+                    <span class="badge badge-primary badge-xs animate-pulse">NOW</span>
+                    {% endif %}
+                    {% if lesson.attendance_taken %}
+                    <span class="badge badge-success badge-xs gap-1">
+                        <i class="fa-solid fa-check text-[10px]"></i> Done
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="text-sm text-base-content/60 flex items-center gap-2 flex-wrap">
+                    <span>{{ lesson.period.name }}</span>
+                    {% if lesson.teacher %}
+                    <span class="text-xs">{{ lesson.teacher.full_name }}</span>
+                    {% endif %}
+                    {% if lesson.classroom %}
+                    <span class="badge badge-ghost badge-xs">{{ lesson.classroom.name }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Button -->
+        <div class="flex items-center gap-2">
+            {% if lesson.can_mark %}
+                {% if lesson.attendance_taken %}
+                <a href="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
+                   hx-get="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
+                   hx-target="#modal-content"
+                   hx-swap="innerHTML"
+                   onclick="document.getElementById('global-modal').showModal()"
+                   class="btn btn-sm btn-outline btn-success gap-1">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span class="hidden sm:inline">Edit</span>
+                </a>
+                {% else %}
+                <a href="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
+                   hx-get="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
+                   hx-target="#modal-content"
+                   hx-swap="innerHTML"
+                   onclick="document.getElementById('global-modal').showModal()"
+                   class="btn btn-sm {% if lesson.is_current %}btn-primary{% else %}btn-outline btn-primary{% endif %} gap-1">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    <span class="hidden sm:inline">Take Attendance</span>
+                    <span class="sm:hidden">Mark</span>
+                </a>
+                {% endif %}
+            {% else %}
+                <span class="text-xs text-base-content/40">Not your lesson</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Weekly Report Link -->
+<div class="mt-6 pt-4 border-t border-base-200">
+    <a href="{% url 'academics:class_weekly_attendance_report' class.pk %}"
+       hx-get="{% url 'academics:class_weekly_attendance_report' class.pk %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm gap-2">
+        <i class="fa-solid fa-chart-bar"></i>
+        View Weekly Attendance Report
+    </a>
+</div>
+{% endif %}
+
+<div class="modal-action border-t border-base-200 pt-4 mt-4">
+    <button type="button" class="btn" onclick="var d=this.closest('dialog'); if(d) d.close(); else history.back();">Close</button>
+</div>

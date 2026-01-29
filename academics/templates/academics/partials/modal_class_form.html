@@ -23,6 +23,12 @@
             {% floating_field form.programme size="sm" %}
         </div>
         {% endif %}
+
+        {% floating_field form.attendance_type size="sm" %}
+        <p class="text-xs text-base-content/60 -mt-2 ml-1">
+            Daily: Class teacher marks once per day. Per-Lesson: Each subject teacher marks their lesson.
+        </p>
+
         <label class="label cursor-pointer justify-start gap-3">
             <input type="checkbox" name="is_active" class="checkbox checkbox-sm checkbox-primary" {% if form.is_active.value %}checked{% endif %}>
             <span class="label-text text-sm">Active</span>

@@ -19,7 +19,7 @@ urlpatterns = [
     path('classes/<int:pk>/', views.class_detail, name='class_detail'),
     path('classes/<int:pk>/edit/', views.class_edit, name='class_edit'),
     path('classes/<int:pk>/delete/', views.class_delete, name='class_delete'),
-    path('classes/<int:pk>/subjects/', views.class_subject_create, name='class_subjects'),
+    path('classes/<int:pk>/subjects/', views.class_subjects, name='class_subjects'),
     path('classes/<int:pk>/subjects/add/', views.class_subject_create, name='class_subject_create'),
     path('classes/<int:class_pk>/subjects/<int:pk>/delete/', views.class_subject_delete, name='class_subject_delete'),
     path('classes/<int:pk>/enroll/', views.class_student_enroll, name='class_student_enroll'),
@@ -33,9 +33,15 @@ urlpatterns = [
     path('classes/<int:pk>/attendance/take/', views.class_attendance_take, name='class_attendance_take'),
     path('classes/<int:pk>/attendance/history/', views.class_attendance_history, name='class_attendance_history'),
     path('classes/<int:pk>/attendance/<int:session_pk>/edit/', views.class_attendance_edit, name='class_attendance_edit'),
+
+    # Per-lesson attendance
+    path('classes/<int:pk>/attendance/lessons/', views.lesson_attendance_list, name='lesson_attendance_list'),
+    path('attendance/lesson/<int:timetable_entry_id>/', views.take_lesson_attendance, name='take_lesson_attendance'),
+    path('classes/<int:pk>/attendance/weekly-report/', views.class_weekly_attendance_report, name='class_weekly_attendance_report'),
     path('classes/<int:pk>/promote/', views.class_promote, name='class_promote'),
     path('classes/<int:pk>/export/', views.class_export, name='class_export'),
     path('classes/<int:pk>/pdf/', views.class_detail_pdf, name='class_detail_pdf'),
+    path('classes/<int:pk>/sync-subjects/', views.class_sync_subjects, name='class_sync_subjects'),
 
     # Attendance reports
     path('attendance/', views.attendance_reports, name='attendance_reports'),
@@ -47,6 +53,12 @@ urlpatterns = [
     path('subjects/create/', views.subject_create, name='subject_create'),
     path('subjects/<int:pk>/edit/', views.subject_edit, name='subject_edit'),
     path('subjects/<int:pk>/delete/', views.subject_delete, name='subject_delete'),
+
+    # Subject Template routes
+    path('templates/create/', views.template_create, name='template_create'),
+    path('templates/<int:pk>/edit/', views.template_edit, name='template_edit'),
+    path('templates/<int:pk>/delete/', views.template_delete, name='template_delete'),
+    path('classes/<int:pk>/apply-template/', views.apply_template, name='apply_template'),
 
     # API endpoints
     path('api/class/<int:pk>/subjects/', views.api_class_subjects, name='api_class_subjects'),
@@ -67,6 +79,9 @@ urlpatterns = [
     path('timetable/', views.timetable_index, name='timetable'),
     path('timetable/class/<int:class_id>/', views.class_timetable, name='class_timetable'),
     path('timetable/class/<int:class_id>/entry/create/', views.timetable_entry_create, name='timetable_entry_create'),
+    path('timetable/class/<int:class_id>/entry/bulk/', views.bulk_timetable_entry, name='bulk_timetable_entry'),
+    path('timetable/class/<int:class_id>/copy/', views.copy_timetable, name='copy_timetable'),
     path('timetable/entry/<int:pk>/edit/', views.timetable_entry_edit, name='timetable_entry_edit'),
     path('timetable/entry/<int:pk>/delete/', views.timetable_entry_delete, name='timetable_entry_delete'),
+    path('timetable/teacher-schedule/', views.teacher_schedule_preview, name='teacher_schedule_preview'),
 ]
