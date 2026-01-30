@@ -41,25 +41,42 @@
             {% csrf_token %}
 
             <!-- Quick Actions Bar - Sticky on mobile -->
-            <div class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 p-3 md:p-4 border-b border-base-200 bg-base-100/95 backdrop-blur-sm">
+            <div class="sticky top-0 z-10 flex flex-col gap-2 p-3 md:p-4 border-b border-base-200 bg-base-100/95 backdrop-blur-sm">
+                <!-- Search and Quick Actions Row -->
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium hidden sm:inline">Quick:</span>
+                        <button type="button" onclick="setAllStatus('P')" class="btn btn-success btn-xs sm:btn-sm gap-1">
+                            <i class="fa-solid fa-check"></i>
+                            <span class="hidden xs:inline">All</span> Present
+                        </button>
+                        <button type="button" onclick="setAllStatus('A')" class="btn btn-error btn-xs sm:btn-sm gap-1">
+                            <i class="fa-solid fa-xmark"></i>
+                            <span class="hidden xs:inline">All</span> Absent
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-1 text-xs sm:text-sm">
+                        <span class="text-success font-bold" id="present-count">{{ student_list|length }}</span>
+                        <span class="text-base-content/40">/</span>
+                        <span class="text-warning font-bold" id="late-count">0</span>
+                        <span class="text-base-content/40">/</span>
+                        <span class="text-error font-bold" id="absent-count">0</span>
+                    </div>
+                </div>
+                <!-- Search Input (for large classes) -->
+                {% if student_list|length > 15 %}
                 <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium hidden sm:inline">Quick:</span>
-                    <button type="button" onclick="setAllStatus('P')" class="btn btn-success btn-xs sm:btn-sm gap-1">
-                        <i class="fa-solid fa-check"></i>
-                        <span class="hidden xs:inline">All</span> Present
-                    </button>
-                    <button type="button" onclick="setAllStatus('A')" class="btn btn-error btn-xs sm:btn-sm gap-1">
-                        <i class="fa-solid fa-xmark"></i>
-                        <span class="hidden xs:inline">All</span> Absent
-                    </button>
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-sm"></i>
+                        <input type="text"
+                               id="student-search"
+                               placeholder="Search student..."
+                               class="input input-sm input-bordered w-full pl-9"
+                               onkeyup="filterStudents(this.value)">
+                    </div>
+                    <span id="search-count" class="text-xs text-base-content/60 hidden"></span>
                 </div>
-                <div class="flex items-center gap-1 text-xs sm:text-sm">
-                    <span class="text-success font-bold" id="present-count">{{ student_list|length }}</span>
-                    <span class="text-base-content/40">/</span>
-                    <span class="text-warning font-bold" id="late-count">0</span>
-                    <span class="text-base-content/40">/</span>
-                    <span class="text-error font-bold" id="absent-count">0</span>
-                </div>
+                {% endif %}
             </div>
 
             <!-- Student List -->
@@ -73,7 +90,7 @@
                     <div class="flex items-center gap-3">
                         <!-- Student Photo -->
                         <div class="avatar placeholder shrink-0">
-                            <div class="w-12 h-12 rounded-full bg-base-300 text-base-content">
+                            <div class="w-12 h-12 rounded-full bg-base-300 text-base-content flex items-center justify-center">
                                 {% if item.obj.photo %}
                                 <img src="{{ item.obj.photo.url }}" alt="{{ item.obj.full_name }}" class="object-cover" loading="lazy" decoding="async" />
                                 {% else %}
@@ -141,7 +158,7 @@
                             <td>
                                 <div class="flex items-center gap-3">
                                     <div class="avatar placeholder">
-                                        <div class="w-10 h-10 rounded-full bg-base-300 text-base-content">
+                                        <div class="w-10 h-10 rounded-full bg-base-300 text-base-content flex items-center justify-center">
                                             {% if item.obj.photo %}
                                             <img src="{{ item.obj.photo.url }}" alt="{{ item.obj.full_name }}" loading="lazy" />
                                             {% else %}
@@ -349,4 +366,64 @@ document.querySelectorAll('.status-label').forEach(label => {
 
 // Initial summary update
 updateSummary();
+
+// Student search/filter function
+function filterStudents(query) {
+    query = query.toLowerCase().trim();
+    let visibleCount = 0;
+    const totalCount = document.querySelectorAll('.student-row').length / 2; // Divide by 2 for mobile+desktop
+
+    document.querySelectorAll('.student-row').forEach(row => {
+        const studentName = row.querySelector('.font-medium')?.textContent?.toLowerCase() || '';
+        const admissionNo = row.querySelector('.font-mono')?.textContent?.toLowerCase() || '';
+
+        if (studentName.includes(query) || admissionNo.includes(query) || query === '') {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Update search count indicator
+    const searchCount = document.getElementById('search-count');
+    if (searchCount) {
+        if (query) {
+            searchCount.textContent = `${visibleCount / 2} of ${totalCount}`;
+            searchCount.classList.remove('hidden');
+        } else {
+            searchCount.classList.add('hidden');
+        }
+    }
+}
+
+// Double-submit prevention
+(function() {
+    const form = document.getElementById('attendance-form');
+    if (!form) return;
+
+    let isSubmitting = false;
+
+    form.addEventListener('submit', function(e) {
+        if (isSubmitting) {
+            e.preventDefault();
+            return false;
+        }
+
+        isSubmitting = true;
+
+        // Disable all buttons in the form
+        form.querySelectorAll('button[type="submit"]').forEach(btn => {
+            btn.disabled = true;
+        });
+
+        // Re-enable after 10 seconds (in case of error)
+        setTimeout(() => {
+            isSubmitting = false;
+            form.querySelectorAll('button[type="submit"]').forEach(btn => {
+                btn.disabled = false;
+            });
+        }, 10000);
+    });
+})();
 </script>

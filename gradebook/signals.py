@@ -304,3 +304,14 @@ def score_deleted(sender, instance, **kwargs):
         student=student,
         term=assignment.term
     )
+
+
+# ============ Cache Invalidation Signals ============
+
+@receiver(post_save, sender=AssessmentCategory)
+@receiver(post_delete, sender=AssessmentCategory)
+def invalidate_categories_cache(sender, instance, **kwargs):
+    """Invalidate categories cache when categories are modified."""
+    from .utils import invalidate_categories_cache as clear_cache
+    clear_cache()
+    logger.debug(f"Categories cache invalidated due to {sender.__name__} change")

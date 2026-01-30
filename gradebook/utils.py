@@ -676,3 +676,31 @@ def encode_logo_base64(logo_field, schema_name):
     except Exception as e:
         logger.debug(f"Error encoding logo as base64: {e}")
         return None
+
+
+# ============ Cached Queries ============
+
+def get_active_categories():
+    """
+    Get active assessment categories with caching.
+    Categories rarely change, so caching for 1 hour is safe.
+
+    Returns:
+        List of AssessmentCategory objects
+    """
+    from django.core.cache import cache
+
+    cache_key = 'assessment_categories_active'
+    categories = cache.get(cache_key)
+
+    if categories is None:
+        categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
+        cache.set(cache_key, categories, 3600)  # Cache for 1 hour
+
+    return categories
+
+
+def invalidate_categories_cache():
+    """Invalidate the categories cache when categories are modified."""
+    from django.core.cache import cache
+    cache.delete('assessment_categories_active')
