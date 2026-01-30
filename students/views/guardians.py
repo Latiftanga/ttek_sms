@@ -162,19 +162,23 @@ def guardian_delete(request, pk):
         pk=pk
     )
 
+    # Helper to render guardian list for HTMX responses
+    def render_guardian_list():
+        guardians = Guardian.objects.annotate(
+            ward_count=Count('wards', filter=Q(wards__status='active'))
+        )
+        return htmx_render(
+            request,
+            'students/guardian_index.html',
+            'students/partials/guardian_list.html',
+            {'guardians': guardians}
+        )
+
     # Check if guardian is attached to any students
     if guardian.wards.exists():
         messages.error(request, "Cannot delete guardian with associated students. Remove them from students first.")
         if request.htmx:
-            guardians = Guardian.objects.annotate(
-                ward_count=Count('wards', filter=Q(wards__status='active'))
-            )
-            return htmx_render(
-                request,
-                'students/guardian_index.html',
-                'students/partials/guardian_list.html',
-                {'guardians': guardians}
-            )
+            return render_guardian_list()
         return redirect('students:guardian_index')
 
     try:
@@ -186,15 +190,7 @@ def guardian_delete(request, pk):
         messages.error(request, "An error occurred while deleting the guardian.")
 
     if request.htmx:
-        guardians = Guardian.objects.annotate(
-            ward_count=Count('wards', filter=Q(wards__status='active'))
-        )
-        return htmx_render(
-            request,
-            'students/guardian_index.html',
-            'students/partials/guardian_list.html',
-            {'guardians': guardians}
-        )
+        return render_guardian_list()
     return redirect('students:guardian_index')
 
 

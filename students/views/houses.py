@@ -454,18 +454,18 @@ def house_students_excel(request, pk):
         'student_guardians__guardian'  # Prefetch guardians to avoid N+1
     ).order_by('last_name', 'first_name')
 
-    # Build primary guardian lookup to avoid N+1 queries
-    guardian_lookup = {}
+    # Set primary guardian on each student from prefetched data
     for student in students:
+        student._cached_primary_guardian = None
         for sg in student.student_guardians.all():
             if sg.is_primary:
-                guardian_lookup[student.id] = sg.guardian
+                student._cached_primary_guardian = sg.guardian
                 break
 
     # Build data for Excel
     data = []
     for i, student in enumerate(students, 1):
-        guardian = guardian_lookup.get(student.id)
+        guardian = student._cached_primary_guardian
         data.append({
             'S/N': i,
             'Admission No': student.admission_number,

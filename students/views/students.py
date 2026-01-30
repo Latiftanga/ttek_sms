@@ -186,7 +186,10 @@ def student_create(request):
 @admin_required
 def student_edit(request, pk):
     """Edit a student."""
-    student = get_object_or_404(Student, pk=pk)
+    student = get_object_or_404(
+        Student.objects.prefetch_related('student_guardians__guardian'),
+        pk=pk
+    )
     student_guardians = student.get_guardians_with_relationships()
 
     breadcrumbs = [
