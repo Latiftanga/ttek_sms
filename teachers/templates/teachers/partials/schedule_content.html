@@ -154,15 +154,14 @@
         <!-- Mobile View - Day-by-Day Tabs -->
         <div class="lg:hidden">
             <!-- Day Tabs -->
-            <div class="tabs tabs-boxed bg-base-200/50 p-1 m-3 rounded-xl" role="tablist">
+            <div class="flex bg-base-200/50 p-1 m-3 rounded-xl gap-1" role="tablist">
                 {% for day_num, day_name in weekdays %}
-                <input type="radio"
-                       name="day_tabs"
-                       role="tab"
-                       class="tab flex-1 {% if day_num == weekday %}tab-active{% endif %}"
-                       aria-label="{{ day_name|slice:':3' }}"
-                       {% if day_num == weekday %}checked{% endif %}
-                       data-day="{{ day_num }}" />
+                <button type="button"
+                        role="tab"
+                        class="day-tab flex-1 py-3 px-1 text-xs font-medium rounded-lg transition-colors min-h-[44px] {% if day_num == weekday %}bg-primary text-primary-content{% else %}hover:bg-base-300{% endif %}"
+                        data-day="{{ day_num }}">
+                    {{ day_name|slice:":3" }}
+                </button>
                 {% endfor %}
             </div>
 
@@ -271,9 +270,17 @@
 
 <!-- Mobile Tab Switching Script -->
 <script>
-document.querySelectorAll('[name="day_tabs"]').forEach(tab => {
-    tab.addEventListener('change', function() {
+document.querySelectorAll('.day-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
         const day = this.dataset.day;
+        // Update tab styles
+        document.querySelectorAll('.day-tab').forEach(t => {
+            t.classList.remove('bg-primary', 'text-primary-content');
+            t.classList.add('hover:bg-base-300');
+        });
+        this.classList.add('bg-primary', 'text-primary-content');
+        this.classList.remove('hover:bg-base-300');
+        // Show/hide content
         document.querySelectorAll('.day-content').forEach(content => {
             content.classList.toggle('hidden', content.dataset.day !== day);
         });

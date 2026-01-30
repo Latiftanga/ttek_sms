@@ -77,14 +77,13 @@
 <div class="lg:hidden">
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <!-- Day Tabs -->
-        <div class="tabs tabs-boxed bg-base-200/50 p-1 m-2 gap-1" id="day-tabs">
+        <div class="flex bg-base-200/50 p-1 m-2 gap-1 rounded-lg" id="day-tabs">
             {% for day_num, day_name in weekdays %}
             <button type="button"
-                    class="tab tab-sm flex-1 {% if forloop.first %}tab-active{% endif %}"
+                    class="flex-1 py-3 px-1 text-xs font-medium rounded-md transition-colors min-h-[44px] {% if forloop.first %}bg-primary text-primary-content{% else %}hover:bg-base-300{% endif %}"
                     onclick="showDay({{ day_num }})"
                     data-day="{{ day_num }}">
-                <span class="hidden xs:inline">{{ day_name|slice:":3" }}</span>
-                <span class="xs:hidden">{{ day_name|slice:":1" }}</span>
+                {{ day_name|slice:":3" }}
             </button>
             {% endfor %}
         </div>
@@ -285,11 +284,13 @@ function showDay(dayNum) {
     // Show selected panel
     document.querySelector(`.day-panel[data-day="${dayNum}"]`).classList.remove('hidden');
 
-    // Update tab states
-    document.querySelectorAll('#day-tabs .tab').forEach(tab => {
-        tab.classList.remove('tab-active');
+    // Update tab styles
+    document.querySelectorAll('#day-tabs button').forEach(tab => {
+        tab.classList.remove('bg-primary', 'text-primary-content');
+        tab.classList.add('hover:bg-base-300');
         if (parseInt(tab.dataset.day) === dayNum) {
-            tab.classList.add('tab-active');
+            tab.classList.add('bg-primary', 'text-primary-content');
+            tab.classList.remove('hover:bg-base-300');
         }
     });
 }
