@@ -2937,11 +2937,11 @@ def enter_scores(request, class_id, subject_id):
     # Check if grades are locked
     grades_locked = current_term.grades_locked if current_term else True
 
-    # Get students
+    # Get students - only fetch needed fields
     students = list(Student.objects.filter(
         current_class=class_obj,
         status='active'
-    ).order_by('last_name', 'first_name'))
+    ).only('id', 'first_name', 'last_name', 'admission_number', 'photo').order_by('last_name', 'first_name'))
 
     # Get assignments for this subject/term
     assignments_list = list(Assignment.objects.filter(
