@@ -28,7 +28,7 @@
             </div>
 
             <!-- Quick Actions -->
-            <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+            <div class="flex items-center gap-2 shrink-0">
                 <button class="btn btn-sm btn-primary"
                         hx-get="{% url 'academics:class_student_enroll' class.pk %}"
                         hx-target="#modal-edit-content"
@@ -236,19 +236,23 @@
         <!-- Search Bar -->
         <div class="p-2 sm:p-3 border-b border-base-200 print:!hidden">
             <div class="flex items-center gap-2">
-                <!-- Search Input -->
+                <!-- Search Input with loading indicator -->
                 <div class="relative flex-1">
                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-xs"></i>
                     <input type="search"
                            name="q"
                            placeholder="Search students..."
                            value="{{ search_query|default:'' }}"
-                           class="input input-sm input-bordered pl-9 w-full"
+                           class="input input-sm input-bordered pl-9 pr-8 w-full"
                            hx-get="{% url 'academics:class_register' class.pk %}"
                            hx-trigger="input changed delay:300ms, search"
                            hx-target="#tab-register"
                            hx-swap="innerHTML"
-                           hx-include="[name='gender'], [name='sort']" />
+                           hx-include="[name='gender'], [name='sort']"
+                           hx-indicator="#search-spinner" />
+                    <span id="search-spinner" class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2">
+                        <span class="loading loading-spinner loading-xs text-primary"></span>
+                    </span>
                 </div>
 
                 <!-- Filter Toggle Button (mobile) -->
