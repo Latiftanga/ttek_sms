@@ -329,9 +329,14 @@ class Student(models.Model):
         return None
 
     def get_primary_guardian(self):
-        """Return the primary guardian for this student."""
+        """Return the primary guardian for this student. Caches result to avoid repeated queries."""
+        # Use cached value if available (set by prefetch or previous call)
+        if hasattr(self, '_cached_primary_guardian'):
+            return self._cached_primary_guardian
+
         sg = self.student_guardians.filter(is_primary=True).select_related('guardian').first()
-        return sg.guardian if sg else None
+        self._cached_primary_guardian = sg.guardian if sg else None
+        return self._cached_primary_guardian
 
     @property
     def guardian_name(self):
