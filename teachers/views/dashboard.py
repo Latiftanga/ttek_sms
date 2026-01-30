@@ -1,3 +1,4 @@
+from django.db.models import Count, Q
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -18,10 +19,12 @@ def profile(request):
         messages.warning(request, "No teacher profile linked to your account.")
         return redirect('core:index')
 
-    # Get class assignments
+    # Get class assignments with student count annotation to avoid N+1
     homeroom_classes = Class.objects.filter(
         class_teacher=teacher,
         is_active=True
+    ).annotate(
+        student_count=Count('students', filter=Q(students__status='active'))
     ).order_by('name')
 
     subject_assignments = ClassSubject.objects.filter(
@@ -30,15 +33,13 @@ def profile(request):
         'class_assigned__level_number', 'class_assigned__name'
     )
 
-    # Calculate workload efficiently using database queries
-    class_ids_taught = ClassSubject.objects.filter(
-        teacher=teacher
-    ).values_list('class_assigned_id', flat=True).distinct()
+    # Calculate workload efficiently - reuse subject_assignments queryset
+    class_ids_taught = list(subject_assignments.values_list('class_assigned_id', flat=True).distinct())
 
     total_students = Student.objects.filter(
         current_class_id__in=class_ids_taught,
         status='active'
-    ).count()
+    ).count() if class_ids_taught else 0
 
     context = {
         'teacher': teacher,
@@ -73,39 +74,47 @@ def dashboard(request):
     from core.models import Term
     current_term = Term.get_current()
 
-    # Homeroom classes (where teacher is class teacher)
+    # Homeroom classes with student count annotation to avoid N+1
     homeroom_classes = Class.objects.filter(
         class_teacher=teacher,
         is_active=True
-    ).prefetch_related('students').order_by('name')
+    ).annotate(
+        student_count=Count('students', filter=Q(students__status='active'))
+    ).order_by('name')
 
-    # Subject assignments
+    # Subject assignments - single query, reuse for all derived data
     subject_assignments = ClassSubject.objects.filter(
         teacher=teacher
     ).select_related('class_assigned', 'subject').order_by(
         'class_assigned__level_number', 'class_assigned__name'
     )
 
-    # Get unique class IDs taught efficiently
-    class_ids_taught = ClassSubject.objects.filter(
-        teacher=teacher
-    ).values_list('class_assigned_id', flat=True).distinct()
-
-    # Get class objects for display (sorted)
-    classes_taught = list(Class.objects.filter(
-        id__in=class_ids_taught
-    ).order_by('level_number', 'name'))
+    # Extract unique classes from already-loaded assignments (no extra query)
+    seen_class_ids = set()
+    classes_taught = []
+    for assignment in subject_assignments:
+        if assignment.class_assigned_id not in seen_class_ids:
+            classes_taught.append(assignment.class_assigned)
+            seen_class_ids.add(assignment.class_assigned_id)
 
     # Calculate stats efficiently
     total_students = Student.objects.filter(
-        current_class_id__in=class_ids_taught,
+        current_class_id__in=seen_class_ids,
         status='active'
-    ).count()
+    ).count() if seen_class_ids else 0
 
-    homeroom_students = Student.objects.filter(
-        current_class_id__in=homeroom_classes.values_list('id', flat=True),
-        status='active'
-    ).count()
+    # Sum homeroom students from annotated count (no extra query)
+    homeroom_students = sum(cls.student_count for cls in homeroom_classes)
+
+    # Get student counts for all taught classes in one query
+    class_student_counts = dict(
+        Student.objects.filter(
+            current_class_id__in=seen_class_ids,
+            status='active'
+        ).values('current_class_id').annotate(
+            count=Count('id')
+        ).values_list('current_class_id', 'count')
+    ) if seen_class_ids else {}
 
     # Group assignments by class for easy display
     assignments_by_class = {}
@@ -114,7 +123,8 @@ def dashboard(request):
         if class_name not in assignments_by_class:
             assignments_by_class[class_name] = {
                 'class': assignment.class_assigned,
-                'subjects': []
+                'subjects': [],
+                'student_count': class_student_counts.get(assignment.class_assigned_id, 0),
             }
         assignments_by_class[class_name]['subjects'].append(assignment.subject)
 

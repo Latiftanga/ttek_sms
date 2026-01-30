@@ -260,7 +260,7 @@
         <!-- Tab: Classes -->
         <div x-show="activeTab === 'classes'" x-cloak class="p-4 sm:p-6" style="display: none;">
             <!-- Workload Stats -->
-            <div class="grid grid-cols-4 gap-2 sm:gap-4 mb-6">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">
                 <div class="text-center p-3 rounded-xl bg-primary/10">
                     <div class="text-xl sm:text-2xl font-bold text-primary">{{ workload.classes_taught }}</div>
                     <div class="text-[10px] sm:text-xs text-base-content/60 uppercase">Classes</div>
@@ -365,18 +365,22 @@
                 </p>
                 <div class="flex flex-wrap gap-2">
                     <form hx-post="{% url 'teachers:reset_password' teacher.pk %}"
-                          hx-confirm="Reset password for {{ teacher.full_name }}? A new temporary password will be sent to their email.">
+                          hx-confirm="Reset password for {{ teacher.full_name }}? A new temporary password will be sent to their email."
+                          hx-indicator="#reset-spinner">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline btn-warning">
                             <i class="fa-solid fa-key"></i> Reset Password
+                            <span id="reset-spinner" class="loading loading-spinner loading-xs htmx-indicator"></span>
                         </button>
                     </form>
                     {% if teacher.user.is_active %}
                     <form hx-post="{% url 'teachers:deactivate_account' teacher.pk %}"
-                          hx-confirm="Deactivate account for {{ teacher.full_name }}? They will no longer be able to log in.">
+                          hx-confirm="Deactivate account for {{ teacher.full_name }}? They will no longer be able to log in."
+                          hx-indicator="#deactivate-spinner">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline btn-error">
                             <i class="fa-solid fa-user-slash"></i> Deactivate
+                            <span id="deactivate-spinner" class="loading loading-spinner loading-xs htmx-indicator"></span>
                         </button>
                     </form>
                     {% endif %}
@@ -405,14 +409,14 @@
                         <form hx-post="{% url 'teachers:resend_invitation' teacher.pk %}"
                               hx-confirm="Resend invitation to {{ teacher.full_name }}?">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-xs btn-ghost" title="Resend">
+                            <button type="submit" class="btn btn-sm btn-ghost min-w-[44px] min-h-[44px]" title="Resend">
                                 <i class="fa-solid fa-rotate-right"></i>
                             </button>
                         </form>
                         <form hx-post="{% url 'teachers:cancel_invitation' teacher.pk %}"
                               hx-confirm="Cancel invitation for {{ teacher.full_name }}?">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-xs btn-ghost text-error" title="Cancel">
+                            <button type="submit" class="btn btn-sm btn-ghost text-error min-w-[44px] min-h-[44px]" title="Cancel">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </form>
@@ -471,10 +475,12 @@
                         <p class="font-bold text-sm text-error mb-1">Delete Teacher</p>
                         <p class="text-xs text-base-content/60 mb-3">This will permanently remove this teacher and all related records.</p>
                         <form hx-post="{% url 'teachers:teacher_delete' teacher.pk %}"
-                              hx-confirm="Delete {{ teacher.full_name|escapejs }}? This action cannot be undone.">
+                              hx-confirm="Delete {{ teacher.full_name|escapejs }}? This action cannot be undone."
+                              hx-indicator="#delete-spinner">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-error btn-sm btn-outline w-full">
                                 <i class="fa-solid fa-trash"></i> Delete Teacher
+                                <span id="delete-spinner" class="loading loading-spinner loading-xs htmx-indicator"></span>
                             </button>
                         </form>
                     </div>
