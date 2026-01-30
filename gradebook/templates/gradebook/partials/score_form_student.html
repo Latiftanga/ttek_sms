@@ -7,14 +7,14 @@
         <div class="flex items-center justify-between gap-2 mb-4">
             <!-- Prev button -->
             {% if prev_student %}
-            <button class="btn btn-circle btn-sm btn-ghost"
+            <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px]"
                     hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk prev_student.pk %}"
                     hx-target="#score-form-container"
                     hx-swap="innerHTML">
                 <i class="fa-solid fa-chevron-left"></i>
             </button>
             {% else %}
-            <button class="btn btn-circle btn-sm btn-ghost btn-disabled">
+            <button class="btn btn-circle btn-ghost btn-disabled min-w-[44px] min-h-[44px]">
                 <i class="fa-solid fa-chevron-left"></i>
             </button>
             {% endif %}
@@ -36,14 +36,14 @@
 
             <!-- Next button -->
             {% if next_student %}
-            <button class="btn btn-circle btn-sm btn-ghost"
+            <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px]"
                     hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk next_student.pk %}"
                     hx-target="#score-form-container"
                     hx-swap="innerHTML">
                 <i class="fa-solid fa-chevron-right"></i>
             </button>
             {% else %}
-            <button class="btn btn-circle btn-sm btn-ghost btn-disabled">
+            <button class="btn btn-circle btn-ghost btn-disabled min-w-[44px] min-h-[44px]">
                 <i class="fa-solid fa-chevron-right"></i>
             </button>
             {% endif %}
@@ -56,7 +56,7 @@
                hx-get="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
                hx-target="#score-form-container"
                hx-swap="innerHTML"
-               class="btn btn-xs btn-ghost">
+               class="btn btn-sm btn-ghost min-h-[44px]">
                 <i class="fa-solid fa-table-cells"></i>
                 Table View
             </a>
@@ -173,7 +173,7 @@
             <div class="font-semibold" id="tooltip-message-mobile"></div>
             <div class="text-error-content/80 text-xs mt-1" id="tooltip-hint-mobile"></div>
         </div>
-        <button onclick="hideErrorTooltipMobile()" class="btn btn-ghost btn-xs btn-circle">
+        <button onclick="hideErrorTooltipMobile()" class="btn btn-ghost btn-sm btn-circle min-w-[44px] min-h-[44px]">
             <i class="fa-solid fa-times"></i>
         </button>
     </div>
