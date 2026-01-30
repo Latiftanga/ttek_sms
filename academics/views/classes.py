@@ -497,21 +497,65 @@ def _get_class_subjects_queryset(class_obj):
     ).order_by('subject__name')
 
 
+def _enroll_class_students_in_subject(class_obj, class_subject):
+    """
+    Enroll all active students in a class into a specific subject.
+    Called when a new ClassSubject with auto_enroll=True is created.
+    """
+    students = Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).only('id')
+
+    enrollments_to_create = []
+    existing_student_ids = set(
+        StudentSubjectEnrollment.objects.filter(
+            class_subject=class_subject
+        ).values_list('student_id', flat=True)
+    )
+
+    for student in students:
+        if student.id not in existing_student_ids:
+            enrollments_to_create.append(
+                StudentSubjectEnrollment(
+                    student=student,
+                    class_subject=class_subject,
+                    is_active=True
+                )
+            )
+
+    if enrollments_to_create:
+        StudentSubjectEnrollment.objects.bulk_create(
+            enrollments_to_create,
+            ignore_conflicts=True
+        )
+
+    return len(enrollments_to_create)
+
+
 @admin_required
 def class_subjects(request, pk):
     """View and manage subjects for a specific class."""
     class_obj = get_object_or_404(Class, pk=pk)
     subject_allocations = _get_class_subjects_queryset(class_obj)
 
-    # Calculate stats
-    teachers_assigned = subject_allocations.filter(teacher__isnull=False).count()
-    total_periods = sum(alloc.timetable_periods or 0 for alloc in subject_allocations)
+    # Calculate stats using database aggregation (avoids N+1)
+    stats = ClassSubject.objects.filter(class_assigned=class_obj).aggregate(
+        teachers_assigned=Count('teacher', filter=Q(teacher__isnull=False)),
+        total_periods=Sum(
+            Case(
+                When(timetable_entries__is_double=True, then=2),
+                default=1,
+                output_field=IntegerField()
+            )
+        )
+    )
 
     context = {
         'class': class_obj,
         'subject_allocations': subject_allocations,
-        'teachers_assigned': teachers_assigned,
-        'total_periods': total_periods,
+        'teachers_assigned': stats['teachers_assigned'] or 0,
+        'total_periods': stats['total_periods'] or 0,
     }
 
     if request.htmx:
@@ -541,8 +585,10 @@ def class_subject_create(request, pk):
     # Check if editing existing allocation
     subject_id = request.GET.get('subject_id') or request.POST.get('subject_id')
     allocation = None
+    is_new = True
     if subject_id:
         allocation = get_object_or_404(ClassSubject, pk=subject_id, class_assigned=class_obj)
+        is_new = False
 
     if request.method == 'POST':
         form = ClassSubjectForm(request.POST, instance=allocation, class_instance=class_obj)
@@ -550,6 +596,10 @@ def class_subject_create(request, pk):
             obj = form.save(commit=False)
             obj.class_assigned = class_obj
             obj.save()
+
+            # Auto-enroll existing students if this is a new auto_enroll subject
+            if obj.auto_enroll and is_new:
+                _enroll_class_students_in_subject(class_obj, obj)
 
             if request.htmx:
                 # Close modal and trigger page refresh
@@ -606,19 +656,9 @@ def class_student_enroll(request, pk):
                 )
 
             if request.htmx:
-                from django.urls import reverse
-                url = reverse('academics:class_detail', args=[pk])
-                # Close modal and refresh main content
-                script = '''<script>
-                    var dialog = document.querySelector('dialog[open]');
-                    if (dialog) {
-                        dialog.close();
-                        htmx.ajax('GET', '%s', {target: '#main-content', swap: 'innerHTML'});
-                    } else {
-                        window.location.href = '%s';
-                    }
-                </script>''' % (url, url)
-                return HttpResponse(script)
+                response = HttpResponse()
+                response['HX-Trigger'] = 'studentsEnrolled, closeModal'
+                return response
 
             return redirect('academics:class_detail', pk=pk)
     else:
@@ -1067,18 +1107,9 @@ def class_promote(request, pk):
 
         # HTMX Response: Close modal and refresh content
         if request.htmx:
-            from django.urls import reverse
-            url = reverse('academics:class_detail', args=[pk])
-            script = '''<script>
-                var dialog = document.querySelector('dialog[open]');
-                if (dialog) {
-                    dialog.close();
-                    htmx.ajax('GET', '%s', {target: '#main-content', swap: 'innerHTML'});
-                } else {
-                    window.location.href = '%s';
-                }
-            </script>''' % (url, url)
-            return HttpResponse(script)
+            response = HttpResponse()
+            response['HX-Trigger'] = 'studentsPromoted, closeModal'
+            return response
 
         return redirect('academics:class_detail', pk=pk)
 

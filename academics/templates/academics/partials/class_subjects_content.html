@@ -1,6 +1,10 @@
 {% load core_tags %}
 
-<div>
+<div hx-get="{% url 'academics:class_subjects' class.pk %}"
+     hx-trigger="refreshSubjects from:body, closeModal from:body"
+     hx-target="#main-content"
+     hx-swap="innerHTML"
+     hx-on::after-request="document.querySelectorAll('dialog[open]').forEach(d => d.close())">
     <!-- Header -->
     <div class="flex flex-col gap-3 mb-4">
         <!-- Top row: Back + Title + Actions -->
@@ -34,7 +38,7 @@
                 <button class="btn btn-sm btn-ghost"
                         hx-get="{% url 'academics:apply_template' class.pk %}"
                         hx-target="#modal-container"
-                        onclick="modal_form.showModal()"
+                        hx-on::after-request="modal_form.showModal()"
                         title="Apply Template">
                     <i class="fa-solid fa-layer-group"></i>
                     <span class="hidden sm:inline">Template</span>
@@ -79,7 +83,7 @@
             <button class="btn btn-sm btn-primary"
                     hx-get="{% url 'academics:class_subject_create' class.pk %}"
                     hx-target="#modal-container"
-                    onclick="modal_form.showModal()">
+                    hx-on::after-request="modal_form.showModal()">
                 <i class="fa-solid fa-plus"></i>
                 <span class="hidden sm:inline">Add Subject</span>
             </button>
@@ -131,7 +135,7 @@
                     <button class="btn btn-ghost btn-sm btn-square"
                             hx-get="{% url 'academics:class_subject_create' class.pk %}?subject_id={{ alloc.pk }}"
                             hx-target="#modal-container"
-                            onclick="modal_form.showModal()"
+                            hx-on::after-request="modal_form.showModal()"
                             title="Edit">
                         <i class="fa-solid fa-pen text-xs"></i>
                     </button>
@@ -158,13 +162,13 @@
                 <button class="btn btn-secondary btn-sm"
                         hx-get="{% url 'academics:apply_template' class.pk %}"
                         hx-target="#modal-container"
-                        onclick="modal_form.showModal()">
+                        hx-on::after-request="modal_form.showModal()">
                     <i class="fa-solid fa-layer-group"></i> Use Template
                 </button>
                 <button class="btn btn-primary btn-sm"
                         hx-get="{% url 'academics:class_subject_create' class.pk %}"
                         hx-target="#modal-container"
-                        onclick="modal_form.showModal()">
+                        hx-on::after-request="modal_form.showModal()">
                     <i class="fa-solid fa-plus"></i> Add Manually
                 </button>
             </div>
@@ -192,9 +196,4 @@
     </form>
 </dialog>
 
-<script>
-    // Refresh subjects list after successful form submission
-    document.body.addEventListener('refreshSubjects', function() {
-        htmx.ajax('GET', '{% url "academics:class_subjects" class.pk %}', {target: '#main-content', swap: 'innerHTML'});
-    });
-</script>
+<!-- refreshSubjects event handled by hx-trigger on container -->

@@ -1,5 +1,11 @@
 {% load core_tags %}
 
+<div hx-get="{% url 'gradebook:student_report' student.pk %}"
+     hx-trigger="closeModal from:body"
+     hx-target="#main-content"
+     hx-swap="innerHTML"
+     hx-on::after-request="if(document.getElementById('modal_remarks')) modal_remarks.close()">
+
 <!-- Page Header -->
 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-6">
     <div class="flex items-center gap-3 md:gap-4">
@@ -215,16 +221,5 @@
     </form>
 </dialog>
 
-<script>
-// Close remarks modal on success and refresh page content
-document.body.addEventListener('closeModal', function() {
-    const modal = document.getElementById('modal_remarks');
-    if (modal) modal.close();
-
-    // Refresh the report card page content
-    htmx.ajax('GET', '{% url "gradebook:student_report" student.pk %}', {
-        target: '#main-content',
-        swap: 'innerHTML'
-    });
-});
-</script>
+<!-- closeModal event handled by hx-trigger on container -->
+</div><!-- end hx-trigger container -->

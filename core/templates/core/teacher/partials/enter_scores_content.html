@@ -46,7 +46,10 @@
         {% endif %}
         {% if not grades_locked %}
         <button class="btn btn-ghost btn-sm btn-square"
-                onclick="modal_assignments.showModal(); htmx.ajax('GET', '{% url 'gradebook:assignments' subject.pk %}', {target: '#assignments-container'})"
+                hx-get="{% url 'gradebook:assignments' subject.pk %}"
+                hx-target="#assignments-container"
+                hx-swap="innerHTML"
+                hx-on::after-request="modal_assignments.showModal()"
                 title="Manage Assignments">
             <i class="fa-solid fa-cog"></i>
         </button>
@@ -95,7 +98,10 @@
         </p>
         {% if not grades_locked %}
         <button class="btn btn-primary"
-                onclick="modal_assignments.showModal(); htmx.ajax('GET', '{% url 'gradebook:assignments' subject.pk %}', {target: '#assignments-container'})">
+                hx-get="{% url 'gradebook:assignments' subject.pk %}"
+                hx-target="#assignments-container"
+                hx-swap="innerHTML"
+                hx-on::after-request="modal_assignments.showModal()">
             <i class="fa-solid fa-plus"></i>
             Create Assignments
         </button>

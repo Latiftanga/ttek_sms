@@ -1,5 +1,10 @@
 {% load core_tags %}
 
+<div hx-get="{% url 'gradebook:settings' %}"
+     hx-trigger="refreshSettings from:body"
+     hx-target="#main-content"
+     hx-swap="innerHTML">
+
 <!-- Page Header -->
 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
     <div>
@@ -234,8 +239,6 @@
         }
     });
 
-    // Handle refreshSettings event - reload the settings content
-    document.body.addEventListener('refreshSettings', function() {
-        htmx.ajax('GET', '{% url "gradebook:settings" %}', {target: '#main-content', swap: 'innerHTML'});
-    });
+    // Note: refreshSettings event is handled by hx-trigger on the container
 </script>
+</div><!-- end hx-trigger container -->
