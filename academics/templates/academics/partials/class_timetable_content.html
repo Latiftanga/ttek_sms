@@ -41,7 +41,12 @@
     }
 </style>
 
-<div x-data="{ activeDay: 1 }" class="print:!block">
+<div x-data="{ activeDay: 1 }" class="print:!block"
+     hx-get="{% url 'academics:class_timetable' class_obj.pk %}"
+     hx-trigger="timetableChanged from:body"
+     hx-target="#main-content"
+     hx-swap="innerHTML"
+     hx-on::after-request="if(document.getElementById('modal_form')) modal_form.close()">
 
 <!-- Compact Header -->
 <div class="flex flex-col gap-3 mb-4 print:!hidden">
@@ -388,9 +393,4 @@
     </form>
 </dialog>
 
-<script>
-document.body.addEventListener('timetableChanged', function() {
-    htmx.ajax('GET', '{% url "academics:class_timetable" class_obj.pk %}', {target: '#main-content'});
-    modal_form.close();
-});
-</script>
+<!-- timetableChanged event handled by hx-trigger on container -->

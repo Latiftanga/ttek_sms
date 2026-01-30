@@ -121,6 +121,8 @@
         <div class="divider my-4">Jump to Student</div>
         <div class="form-control">
             <select class="select select-bordered w-full"
+                    hx-swap="innerHTML"
+                    hx-target="#score-form-container"
                     onchange="if(this.value) htmx.ajax('GET', this.value, {target:'#score-form-container', swap:'innerHTML'})">
                 <option value="">Select a student...</option>
                 {% for s in students %}

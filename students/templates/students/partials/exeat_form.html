@@ -95,8 +95,10 @@
                         <i class="fa-solid fa-user-shield text-primary text-sm"></i>
                         <span class="font-medium text-sm">Guardian</span>
                     </div>
-                    <div id="guardian-content">
-                        <!-- Content loaded via HTMX -->
+                    <div id="guardian-content"
+                         hx-trigger="loadGuardian"
+                         hx-swap="innerHTML">
+                        <!-- Content loaded via HTMX when student selected -->
                     </div>
                 </div>
             </div>
@@ -189,6 +191,9 @@ function selectStudent(id, name, house) {
     }
     // Show guardian section and fetch info via HTMX
     document.getElementById('guardian-section').classList.remove('hidden');
-    htmx.ajax('GET', '/students/exeats/student/' + id + '/guardian/', {target: '#guardian-content'});
+    var guardianContent = document.getElementById('guardian-content');
+    guardianContent.setAttribute('hx-get', '/students/exeats/student/' + id + '/guardian/');
+    htmx.process(guardianContent);
+    htmx.trigger(guardianContent, 'loadGuardian');
 }
 </script>

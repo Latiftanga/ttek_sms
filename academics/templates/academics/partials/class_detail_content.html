@@ -5,7 +5,12 @@
         showFilters: false,
         gender: '{{ gender_filter|default:'' }}',
         sort: '{{ sort_by|default:'name' }}'
-     }">
+     }"
+     hx-get="{% url 'academics:class_detail' class.pk %}"
+     hx-trigger="studentsEnrolled from:body, studentsPromoted from:body, closeModal from:body"
+     hx-target="#main-content"
+     hx-swap="innerHTML"
+     hx-on::after-request="document.querySelectorAll('dialog[open]').forEach(d => d.close())">
 
     <!-- Compact Header -->
     <div class="flex flex-col gap-3 mb-4 print:!hidden w-full">

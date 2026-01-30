@@ -1,6 +1,10 @@
 {% load core_tags %}
 
-<div class="space-y-6">
+<div class="space-y-6"
+     hx-get="{% url 'gradebook:remark_templates' %}"
+     hx-trigger="refreshTemplates from:body"
+     hx-target="#main-content"
+     hx-swap="innerHTML">
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -147,12 +151,7 @@
 <div id="modal-container"></div>
 
 <script>
-document.addEventListener('refreshTemplates', function() {
-    htmx.ajax('GET', window.location.pathname, {
-        target: '#main-content',
-        swap: 'innerHTML'
-    });
-});
+// refreshTemplates event handled by hx-trigger on container
 
 document.addEventListener('closeModal', function() {
     const modal = document.querySelector('.modal.modal-open');
