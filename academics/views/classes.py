@@ -69,9 +69,10 @@ def classes_list(request):
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
-    # Build subtitle
+    # Build subtitle - cache total_students to avoid querying twice
     total_classes = paginator.count
     total_students = Student.objects.filter(status='active').count()
+    all_classes_count = Class.objects.count()
     subtitle = f"{total_classes} class{'es' if total_classes != 1 else ''} • {total_students} student{'s' if total_students != 1 else ''}"
     if search or level_filter:
         subtitle += " (filtered)"
@@ -84,7 +85,7 @@ def classes_list(request):
         'search': search,
         'level_filter': level_filter,
         'stats': {
-            'total_classes': Class.objects.count(),
+            'total_classes': all_classes_count,
             'total_students': total_students,
         },
         'class_form': ClassForm(),
@@ -796,24 +797,30 @@ def class_bulk_electives(request, pk):
         ).select_related('subject', 'teacher')
         required_electives = 3
 
-    # Find students needing electives
-    students = Student.objects.filter(current_class=class_obj, status='active')
-    students_needing_electives = []
+    # Find students needing electives - use annotation instead of N+1 queries
+    students = Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).annotate(
+        elective_count=Count(
+            'subject_enrollments',
+            filter=Q(
+                subject_enrollments__class_subject__class_assigned=class_obj,
+                subject_enrollments__class_subject__subject__is_core=False,
+                subject_enrollments__is_active=True
+            )
+        )
+    )
 
-    for student in students:
-        count = StudentSubjectEnrollment.objects.filter(
-            student=student,
-            class_subject__class_assigned=class_obj,
-            class_subject__subject__is_core=False,
-            is_active=True
-        ).count()
-
-        if count < required_electives:
-            students_needing_electives.append({
-                'student': student,
-                'current_count': count,
-                'needed': required_electives - count
-            })
+    students_needing_electives = [
+        {
+            'student': student,
+            'current_count': student.elective_count,
+            'needed': required_electives - student.elective_count
+        }
+        for student in students
+        if student.elective_count < required_electives
+    ]
 
     context = {
         'class': class_obj,

@@ -244,8 +244,8 @@
                                 {% endif %}
                                 <div class="action-buttons flex gap-1 mt-1 print:!hidden">
                                     {% for entry in entries %}
-                                    <button class="btn btn-xs btn-circle bg-white/20 hover:bg-info border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="modal_form.showModal()" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
-                                    <button class="btn btn-xs btn-circle bg-white/20 hover:bg-error border-0" hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}" hx-confirm="Remove {{ entry.class_subject.subject.name }}?" title="Remove"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                                    <button class="btn btn-sm sm:btn-xs btn-circle min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-white/20 hover:bg-info border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="modal_form.showModal()" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                                    <button class="btn btn-sm sm:btn-xs btn-circle min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-white/20 hover:bg-error border-0" hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}" hx-confirm="Remove {{ entry.class_subject.subject.name }}?" title="Remove"><i class="fa-solid fa-trash text-[10px]"></i></button>
                                     {% endfor %}
                                 </div>
                             </div>
@@ -296,8 +296,8 @@
                             </div>
                             <div class="action-buttons flex gap-1 ml-2">
                                 {% for entry in entries %}
-                                <button class="btn btn-xs btn-circle bg-white/20 border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="modal_form.showModal()"><i class="fa-solid fa-pen text-[10px]"></i></button>
-                                <button class="btn btn-xs btn-circle bg-white/20 border-0" hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}" hx-confirm="Remove?"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                                <button class="btn btn-sm btn-circle min-w-[44px] min-h-[44px] bg-white/20 border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="modal_form.showModal()"><i class="fa-solid fa-pen text-xs"></i></button>
+                                <button class="btn btn-sm btn-circle min-w-[44px] min-h-[44px] bg-white/20 border-0" hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}" hx-confirm="Remove?"><i class="fa-solid fa-trash text-xs"></i></button>
                                 {% endfor %}
                             </div>
                         </div>

@@ -8,6 +8,7 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db import models
 from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
 from django.contrib import messages
 
 from students.models import Student
@@ -111,22 +112,14 @@ def class_attendance_take(request, pk):
         if records_to_update:
             AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
 
-        # HTMX Success: Close modal or redirect
+        # HTMX Success: Use HX-Trigger to close modal and refresh content
         if request.htmx:
             from django.urls import reverse
             url = reverse('academics:class_detail', args=[pk])
-            # Return script that closes modal if exists, otherwise redirects
-            script = '''<script>
-                var dialog = document.querySelector('dialog[open]');
-                if (dialog) {
-                    dialog.close();
-                    // Refresh the stats bar by triggering a refresh of class detail content
-                    htmx.ajax('GET', '%s', {target: '#main-content', swap: 'innerHTML'});
-                } else {
-                    window.location.href = '%s';
-                }
-            </script>''' % (url, url)
-            return HttpResponse(script)
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'closeModal'
+            response['HX-Redirect'] = url
+            return response
 
         return redirect('academics:class_detail', pk=pk)
 
@@ -195,20 +188,14 @@ def class_attendance_edit(request, pk, session_pk):
         if records_to_update:
             AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
 
+        # HTMX Success: Use HX-Trigger to close modal and refresh content
         if request.htmx:
             from django.urls import reverse
             url = reverse('academics:class_detail', args=[pk])
-            # Return script that closes modal if exists, otherwise redirects
-            script = '''<script>
-                var dialog = document.querySelector('dialog[open]');
-                if (dialog) {
-                    dialog.close();
-                    htmx.ajax('GET', '%s', {target: '#main-content', swap: 'innerHTML'});
-                } else {
-                    window.location.href = '%s';
-                }
-            </script>''' % (url, url)
-            return HttpResponse(script)
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'closeModal'
+            response['HX-Redirect'] = url
+            return response
 
         return redirect('academics:class_detail', pk=pk)
 
@@ -237,15 +224,14 @@ def class_attendance_history(request, pk):
     """Show class attendance history in a modal."""
     class_obj = get_object_or_404(Class, pk=pk)
 
+    # Use annotations to get counts in a single query instead of N+1
     attendance_sessions = AttendanceSession.objects.filter(
         class_assigned=class_obj
+    ).annotate(
+        present_count=Count('records', filter=Q(records__status__in=['P', 'L'])),
+        absent_count=Count('records', filter=Q(records__status='A')),
+        total_count=Count('records')
     ).order_by('-date')[:20]
-
-    # Add counts
-    for session in attendance_sessions:
-        session.present_count = session.records.filter(status='present').count()
-        session.absent_count = session.records.filter(status='absent').count()
-        session.total_count = session.present_count + session.absent_count
 
     context = {
         'class': class_obj,
@@ -447,20 +433,14 @@ def take_lesson_attendance(request, timetable_entry_id):
         if records_to_update:
             AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
 
-        # HTMX Success
+        # HTMX Success: Use HX-Trigger to close modal and refresh content
         if request.htmx:
             from django.urls import reverse
             url = reverse('academics:lesson_attendance_list', args=[class_obj.pk])
-            script = '''<script>
-                var dialog = document.querySelector('dialog[open]');
-                if (dialog) {
-                    dialog.close();
-                    htmx.ajax('GET', '%s', {target: '#main-content', swap: 'innerHTML'});
-                } else {
-                    window.location.href = '%s';
-                }
-            </script>''' % (url, url)
-            return HttpResponse(script)
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'closeModal'
+            response['HX-Redirect'] = url
+            return response
 
         return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
 
@@ -731,28 +711,24 @@ def attendance_reports(request):
     # Sort by attendance rate (lowest first)
     low_attendance_students.sort(key=lambda x: x['rate'])
 
-    # Trends data for chart (always calculate for sidebar chart)
-    trend_data = []
+    # Trends data for chart - use database aggregation instead of Python loop
+    daily_trend = records.annotate(
+        day=TruncDate('session__date')
+    ).values('day').annotate(
+        total=Count('id'),
+        present=Count('id', filter=Q(status__in=['P', 'L']))
+    ).order_by('day')
 
-    # Group records by date
-    daily_rates = defaultdict(lambda: {'present': 0, 'total': 0})
-    for record in records:
-        date_str = record.session.date.isoformat()
-        daily_rates[date_str]['total'] += 1
-        if record.status in ['P', 'L']:
-            daily_rates[date_str]['present'] += 1
-
-    # Sort by date and calculate rates
-    for date_str in sorted(daily_rates.keys()):
-        data = daily_rates[date_str]
-        rate = round((data['present'] / data['total']) * 100, 1) if data['total'] > 0 else 0
-        trend_data.append({
-            'date': date_str,
-            'rate': rate,
-            'present': data['present'],
-            'absent': data['total'] - data['present'],
-            'total': data['total']
-        })
+    trend_data = [
+        {
+            'date': item['day'].isoformat(),
+            'rate': round((item['present'] / item['total']) * 100, 1) if item['total'] > 0 else 0,
+            'present': item['present'],
+            'absent': item['total'] - item['present'],
+            'total': item['total']
+        }
+        for item in daily_trend
+    ]
 
     # Calculate consecutive absences for alert
     students_with_consecutive_absences = []

@@ -61,25 +61,25 @@
                 </div>
             </div>
 
-            <!-- Touch-friendly status buttons -->
-            <div class="flex items-center gap-1 sm:gap-2">
+            <!-- Touch-friendly status buttons with 44px minimum touch targets -->
+            <div class="flex items-center gap-2">
                 <label class="flex-1 sm:flex-none">
                     <input type="radio" name="status_{{ item.obj.id }}" value="P" class="peer hidden" {% if item.status == 'P' %}checked{% endif %} />
-                    <span class="flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 rounded-lg cursor-pointer text-xs font-medium border-2 border-transparent bg-base-200 peer-checked:bg-success/20 peer-checked:border-success peer-checked:text-success transition-all">
+                    <span class="flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg cursor-pointer text-xs font-medium border-2 border-transparent bg-base-200 peer-checked:bg-success/20 peer-checked:border-success peer-checked:text-success transition-all">
                         <i class="fa-solid fa-check"></i>
                         <span class="hidden xs:inline">Present</span>
                     </span>
                 </label>
                 <label class="flex-1 sm:flex-none">
                     <input type="radio" name="status_{{ item.obj.id }}" value="L" class="peer hidden" {% if item.status == 'L' %}checked{% endif %} />
-                    <span class="flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 rounded-lg cursor-pointer text-xs font-medium border-2 border-transparent bg-base-200 peer-checked:bg-warning/20 peer-checked:border-warning peer-checked:text-warning transition-all">
+                    <span class="flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg cursor-pointer text-xs font-medium border-2 border-transparent bg-base-200 peer-checked:bg-warning/20 peer-checked:border-warning peer-checked:text-warning transition-all">
                         <i class="fa-solid fa-clock"></i>
                         <span class="hidden xs:inline">Late</span>
                     </span>
                 </label>
                 <label class="flex-1 sm:flex-none">
                     <input type="radio" name="status_{{ item.obj.id }}" value="A" class="peer hidden" {% if item.status == 'A' %}checked{% endif %} />
-                    <span class="flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 rounded-lg cursor-pointer text-xs font-medium border-2 border-transparent bg-base-200 peer-checked:bg-error/20 peer-checked:border-error peer-checked:text-error transition-all">
+                    <span class="flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg cursor-pointer text-xs font-medium border-2 border-transparent bg-base-200 peer-checked:bg-error/20 peer-checked:border-error peer-checked:text-error transition-all">
                         <i class="fa-solid fa-xmark"></i>
                         <span class="hidden xs:inline">Absent</span>
                     </span>
