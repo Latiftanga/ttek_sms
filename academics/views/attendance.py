@@ -1,8 +1,11 @@
 """Attendance management views including taking attendance, reports, and exports."""
+import logging
 from collections import defaultdict
 from datetime import timedelta, datetime
 
 from django.shortcuts import render, redirect, get_object_or_404
+
+logger = logging.getLogger(__name__)
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
@@ -106,11 +109,23 @@ def class_attendance_take(request, pk):
                     status=new_status
                 ))
 
-        # Bulk operations
-        if records_to_create:
-            AttendanceRecord.objects.bulk_create(records_to_create)
-        if records_to_update:
-            AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+        # Bulk operations with error handling
+        try:
+            if records_to_create:
+                AttendanceRecord.objects.bulk_create(records_to_create)
+            if records_to_update:
+                AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+
+            total_saved = len(records_to_create) + len(records_to_update)
+            messages.success(request, f'Attendance saved ({total_saved} records).')
+        except Exception as e:
+            logger.error(f"Failed to save attendance for class {pk}: {str(e)}")
+            messages.error(request, f'Failed to save attendance: {str(e)}')
+            if request.htmx:
+                response = HttpResponse(status=500)
+                response['HX-Reswap'] = 'none'
+                return response
+            return redirect('academics:class_detail', pk=pk)
 
         # HTMX Success: Use HX-Trigger to close modal and refresh content
         if request.htmx:
@@ -182,11 +197,23 @@ def class_attendance_edit(request, pk, session_pk):
                     status=new_status
                 ))
 
-        # Bulk operations
-        if records_to_create:
-            AttendanceRecord.objects.bulk_create(records_to_create)
-        if records_to_update:
-            AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+        # Bulk operations with error handling
+        try:
+            if records_to_create:
+                AttendanceRecord.objects.bulk_create(records_to_create)
+            if records_to_update:
+                AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+
+            total_saved = len(records_to_create) + len(records_to_update)
+            messages.success(request, f'Attendance updated ({total_saved} records).')
+        except Exception as e:
+            logger.error(f"Failed to update attendance for class {pk}: {str(e)}")
+            messages.error(request, f'Failed to save attendance: {str(e)}')
+            if request.htmx:
+                response = HttpResponse(status=500)
+                response['HX-Reswap'] = 'none'
+                return response
+            return redirect('academics:class_detail', pk=pk)
 
         # HTMX Success: Use HX-Trigger to close modal and refresh content
         if request.htmx:
@@ -427,11 +454,23 @@ def take_lesson_attendance(request, timetable_entry_id):
                     status=new_status
                 ))
 
-        # Bulk operations
-        if records_to_create:
-            AttendanceRecord.objects.bulk_create(records_to_create)
-        if records_to_update:
-            AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+        # Bulk operations with error handling
+        try:
+            if records_to_create:
+                AttendanceRecord.objects.bulk_create(records_to_create)
+            if records_to_update:
+                AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+
+            total_saved = len(records_to_create) + len(records_to_update)
+            messages.success(request, f'Lesson attendance saved ({total_saved} records).')
+        except Exception as e:
+            logger.error(f"Failed to save lesson attendance: {str(e)}")
+            messages.error(request, f'Failed to save attendance: {str(e)}')
+            if request.htmx:
+                response = HttpResponse(status=500)
+                response['HX-Reswap'] = 'none'
+                return response
+            return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
 
         # HTMX Success: Use HX-Trigger to close modal and refresh content
         if request.htmx:
@@ -1059,17 +1098,42 @@ def notify_absent_parents(request):
     school_settings = SchoolSettings.load()
     school_name = school_settings.display_name if school_settings else ''
 
-    # Get students with their attendance stats
-    students = Student.objects.filter(pk__in=student_ids, guardian_phone__isnull=False)
+    # Get students with their current class (avoid N+1)
+    students = list(Student.objects.filter(
+        pk__in=student_ids,
+        guardian_phone__isnull=False
+    ).select_related('current_class'))
+
+    if not students:
+        messages.warning(request, "No students with guardian phone numbers found.")
+        return redirect('academics:attendance_reports')
+
+    # Batch fetch all recent attendance records for these students (avoid N+1)
+    from collections import defaultdict
+    all_records = AttendanceRecord.objects.filter(
+        student__in=students
+    ).select_related('session').order_by('student_id', '-session__date')
+
+    # Group records by student and limit to 30 per student
+    records_by_student = defaultdict(list)
+    for record in all_records:
+        if len(records_by_student[record.student_id]) < 30:
+            records_by_student[record.student_id].append(record)
+
+    # Import SMS utility once at the top (not inside loop)
+    try:
+        from communications.utils import send_sms
+    except ImportError:
+        logger.error("Failed to import send_sms from communications.utils")
+        messages.error(request, "SMS service not available.")
+        return redirect('academics:attendance_reports')
+
     sent_count = 0
     failed_count = 0
 
     for student in students:
-        # Calculate consecutive absences for this student
-        recent_records = AttendanceRecord.objects.filter(
-            student=student
-        ).select_related('session').order_by('-session__date')[:30]
-
+        # Calculate consecutive absences from pre-fetched records
+        recent_records = records_by_student.get(student.id, [])
         consecutive_days = 0
         for record in recent_records:
             if record.status == 'A':
@@ -1084,9 +1148,8 @@ def notify_absent_parents(request):
         message = message.replace('{class_name}', student.current_class.name if student.current_class else '')
         message = message.replace('{school_name}', school_name)
 
-        # Send SMS
+        # Send SMS with proper error logging
         try:
-            from communications.utils import send_sms
             result = send_sms(
                 to_phone=student.guardian_phone,
                 message=message,
@@ -1097,8 +1160,10 @@ def notify_absent_parents(request):
             if result.get('success'):
                 sent_count += 1
             else:
+                logger.warning(f"SMS failed for student {student.id}: {result.get('error', 'Unknown error')}")
                 failed_count += 1
-        except Exception:
+        except Exception as e:
+            logger.error(f"SMS exception for student {student.id} ({student.guardian_phone}): {str(e)}")
             failed_count += 1
 
     if sent_count > 0:

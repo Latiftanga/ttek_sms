@@ -191,7 +191,7 @@ class GradingSystem(models.Model):
                 student=term_report.student,
                 term=term_report.term,
                 subject__is_core=True
-            )
+            ).select_related('subject')
             failed_core = [
                 sg for sg in core_grades
                 if sg.total_score is not None and not self.is_passing_score(sg.total_score)
@@ -790,34 +790,54 @@ class SubjectTermGrade(models.Model):
         - exam_score: Sum of EXAM type categories (legacy)
         - total_score: Sum of all categories
         """
-        categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
+        from .utils import get_active_categories
+        categories = get_active_categories()
         category_totals = {}
         category_scores_json = {}
         total = Decimal('0.0')
         class_score_total = Decimal('0.0')
         exam_score_total = Decimal('0.0')
 
-        for category in categories:
-            assignments = Assignment.objects.filter(
-                assessment_category=category,
-                subject=self.subject,
-                term=self.term
-            )
+        # Pre-fetch all assignments for this subject/term with their scores in ONE query
+        # This eliminates the N+1 query problem
+        all_assignments = list(Assignment.objects.filter(
+            subject=self.subject,
+            term=self.term
+        ).select_related('assessment_category'))
 
-            if not assignments.exists():
+        # Pre-fetch all scores for this student's assignments in ONE query
+        assignment_ids = [a.id for a in all_assignments]
+        scores_dict = {}
+        if assignment_ids:
+            for score in Score.objects.filter(
+                student=self.student,
+                assignment_id__in=assignment_ids
+            ).only('assignment_id', 'points'):
+                scores_dict[score.assignment_id] = score.points
+
+        # Group assignments by category
+        assignments_by_category = {}
+        for assignment in all_assignments:
+            cat_id = assignment.assessment_category_id
+            if cat_id not in assignments_by_category:
+                assignments_by_category[cat_id] = []
+            assignments_by_category[cat_id].append(assignment)
+
+        for category in categories:
+            assignments = assignments_by_category.get(category.id, [])
+
+            if not assignments:
                 continue
 
             weight_per_assignment = category.get_weight_per_assignment(self.subject, self.term)
             category_total = Decimal('0.0')
 
             for assignment in assignments:
-                score = Score.objects.filter(
-                    student=self.student,
-                    assignment=assignment
-                ).first()
+                # Use pre-fetched score from dictionary (O(1) lookup)
+                points = scores_dict.get(assignment.id)
 
-                if score:
-                    score_pct = Decimal(str(score.points)) / Decimal(str(assignment.points_possible))
+                if points is not None:
+                    score_pct = Decimal(str(points)) / Decimal(str(assignment.points_possible))
                     category_total += score_pct * weight_per_assignment
 
             rounded_total = round(category_total, 2)

@@ -74,6 +74,7 @@ urlpatterns = [
     path('my-attendance/take/<int:class_id>/', views.take_attendance, name='take_attendance'),
     path('my-grading/', views.my_grading, name='my_grading'),
     path('my-grading/<int:class_id>/<int:subject_id>/', views.enter_scores, name='enter_scores'),
+    path('my-grading/<int:class_id>/<int:subject_id>/student/<int:student_id>/', views.enter_scores_student, name='enter_scores_student'),
     path('my-grading/<int:class_id>/<int:subject_id>/export/', views.export_scores, name='export_scores'),
     path('my-grading/<int:class_id>/<int:subject_id>/import/', views.import_scores, name='import_scores'),
     path('my-grading/<int:class_id>/<int:subject_id>/import/confirm/', views.import_scores_confirm, name='import_scores_confirm'),

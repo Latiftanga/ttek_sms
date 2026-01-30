@@ -2752,26 +2752,62 @@ def take_attendance(request, class_id):
 
     target_date = timezone.now().date()
 
-    # Check if session exists
+    # Get or create session with explicit session_type
     session, created = AttendanceSession.objects.get_or_create(
         class_assigned=class_obj,
-        date=target_date
+        date=target_date,
+        session_type=AttendanceSession.SessionType.DAILY,
+        defaults={'created_by': teacher}
     )
 
     if request.method == 'POST':
-        students = Student.objects.filter(current_class=class_obj, status='active')
+        students = list(Student.objects.filter(current_class=class_obj, status='active'))
+
+        # Get existing records for bulk update vs create
+        existing_records = {
+            r.student_id: r for r in AttendanceRecord.objects.filter(
+                session=session,
+                student__in=students
+            ).select_for_update()
+        }
+
+        records_to_create = []
+        records_to_update = []
 
         for student in students:
             status_key = f"status_{student.id}"
             new_status = request.POST.get(status_key, AttendanceRecord.Status.PRESENT)
 
-            AttendanceRecord.objects.update_or_create(
-                session=session,
-                student=student,
-                defaults={'status': new_status}
-            )
+            if student.id in existing_records:
+                # Update existing record
+                record = existing_records[student.id]
+                if record.status != new_status:
+                    record.status = new_status
+                    records_to_update.append(record)
+            else:
+                # Create new record
+                records_to_create.append(AttendanceRecord(
+                    session=session,
+                    student=student,
+                    status=new_status
+                ))
 
-        messages.success(request, f'Attendance saved for {class_obj.name}.')
+        # Bulk operations with error handling
+        try:
+            if records_to_create:
+                AttendanceRecord.objects.bulk_create(records_to_create)
+            if records_to_update:
+                AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+
+            total_saved = len(records_to_create) + len(records_to_update)
+            messages.success(request, f'Attendance saved for {class_obj.name} ({total_saved} records).')
+        except Exception as e:
+            messages.error(request, f'Failed to save attendance: {str(e)}')
+            if request.htmx:
+                response = HttpResponse(status=500)
+                response['HX-Reswap'] = 'none'
+                return response
+            return redirect('core:take_attendance', class_id=class_id)
 
         if request.htmx:
             response = HttpResponse(status=204)
@@ -2951,6 +2987,7 @@ def enter_scores(request, class_id, subject_id):
 
     # Get existing scores - build nested dict for O(1) lookup
     scores_dict = defaultdict(dict)
+    student_totals = {}  # Server-side totals calculation
     if students and assignments_list:
         student_ids = [s.id for s in students]
         assignment_ids = [a.id for a in assignments_list]
@@ -2960,8 +2997,49 @@ def enter_scores(request, class_id, subject_id):
         ).only('student_id', 'assignment_id', 'points'):
             scores_dict[score.student_id][score.assignment_id] = score.points
 
-    # Get categories
-    categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
+        # Calculate totals server-side
+        for student in students:
+            total = sum(
+                scores_dict[student.id].get(a.id, 0) or 0
+                for a in assignments_list
+            )
+            student_totals[student.id] = round(total, 1) if total > 0 else None
+
+    # Get categories (cached for 1 hour since they rarely change)
+    from django.core.cache import cache
+    cache_key = 'assessment_categories_active'
+    categories = cache.get(cache_key)
+    if categories is None:
+        categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
+        cache.set(cache_key, categories, 3600)  # Cache for 1 hour
+
+    # Check for view mode (table or student)
+    view_mode = request.GET.get('view', 'table')
+    current_student = None
+    current_student_index = 0
+    prev_student = None
+    next_student = None
+    current_student_scores = {}
+
+    if view_mode == 'student' and students:
+        # Get specific student or default to first
+        student_id = request.GET.get('student_id')
+        if student_id:
+            try:
+                student_id = int(student_id)
+                current_student = next((s for s in students if s.id == student_id), students[0])
+            except (ValueError, TypeError):
+                current_student = students[0]
+        else:
+            current_student = students[0]
+
+        # Find index for prev/next navigation
+        current_student_index = next((i for i, s in enumerate(students) if s.id == current_student.id), 0)
+        prev_student = students[current_student_index - 1] if current_student_index > 0 else None
+        next_student = students[current_student_index + 1] if current_student_index < len(students) - 1 else None
+
+        # Get scores for current student
+        current_student_scores = scores_dict.get(current_student.id, {})
 
     context = {
         'class_obj': class_obj,
@@ -2971,11 +3049,95 @@ def enter_scores(request, class_id, subject_id):
         'assignments': assignments_list,
         'categories': categories,
         'scores_dict': dict(scores_dict),
+        'student_totals': student_totals,
         'grades_locked': grades_locked,
         'can_edit': not grades_locked,
+        # Student view context
+        'view_mode': view_mode,
+        'current_student': current_student,
+        'current_student_index': current_student_index,
+        'prev_student': prev_student,
+        'next_student': next_student,
+        'current_student_scores': current_student_scores,
     }
 
     return htmx_render(request, 'core/teacher/enter_scores.html', 'core/teacher/partials/enter_scores_content.html', context)
+
+
+@login_required
+def enter_scores_student(request, class_id, subject_id, student_id):
+    """HTMX endpoint for per-student score entry (mobile-optimized)."""
+    from academics.models import Class, ClassSubject, Subject
+    from gradebook.models import Assignment, Score, AssessmentCategory
+    from students.models import Student
+
+    user = request.user
+
+    # Must be a teacher
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        return HttpResponse('Unauthorized', status=403)
+
+    teacher = user.teacher_profile
+    class_obj = get_object_or_404(Class, pk=class_id)
+    subject = get_object_or_404(Subject, pk=subject_id)
+    current_term = Term.get_current()
+
+    # Check permission
+    is_assigned = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        subject=subject,
+        teacher=teacher
+    ).exists()
+
+    if not is_assigned:
+        return HttpResponse('Not authorized', status=403)
+
+    grades_locked = current_term.grades_locked if current_term else True
+
+    # Get all students for navigation
+    students = list(Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).only('id', 'first_name', 'last_name', 'admission_number', 'photo').order_by('last_name', 'first_name'))
+
+    # Get specific student
+    student = get_object_or_404(Student, pk=student_id, current_class=class_obj)
+
+    # Find index for prev/next
+    current_index = next((i for i, s in enumerate(students) if s.id == student.id), 0)
+    prev_student = students[current_index - 1] if current_index > 0 else None
+    next_student = students[current_index + 1] if current_index < len(students) - 1 else None
+
+    # Get assignments (only if current_term exists)
+    assignments = []
+    if current_term:
+        assignments = list(Assignment.objects.filter(
+            subject=subject,
+            term=current_term
+        ).select_related('assessment_category').order_by('assessment_category__order', 'name'))
+
+    # Get scores for this student
+    scores_dict = {}
+    for score in Score.objects.filter(
+        student=student,
+        assignment__in=assignments
+    ).only('assignment_id', 'points'):
+        scores_dict[score.assignment_id] = score.points
+
+    context = {
+        'class_obj': class_obj,
+        'subject': subject,
+        'student': student,
+        'students': students,
+        'current_index': current_index,
+        'prev_student': prev_student,
+        'next_student': next_student,
+        'assignments': assignments,
+        'scores_dict': scores_dict,
+        'grades_locked': grades_locked,
+    }
+
+    return render(request, 'core/teacher/partials/enter_scores_student.html', context)
 
 
 @login_required
