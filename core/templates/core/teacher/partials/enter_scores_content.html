@@ -16,14 +16,39 @@
             <p class="text-xs text-base-content/60">{{ class_obj.name }}</p>
         </div>
     </div>
-    <div class="flex items-center gap-2 shrink-0">
+    <div class="flex items-center gap-1 shrink-0">
         {% if grades_locked %}
         <span class="badge badge-warning badge-sm gap-1">
             <i class="fa-solid fa-lock text-xs"></i>
             <span class="hidden sm:inline">Locked</span>
         </span>
         {% endif %}
-        <span class="badge badge-outline">{{ students|length }} <span class="hidden sm:inline">students</span></span>
+        <label class="swap swap-rotate btn btn-ghost btn-sm btn-square" title="Toggle View">
+            <input type="checkbox" id="view-toggle" onchange="toggleScoreView()" />
+            <i class="swap-off fa-solid fa-table-cells"></i>
+            <i class="swap-on fa-solid fa-id-card"></i>
+        </label>
+        {% if not grades_locked %}
+        <button class="btn btn-ghost btn-sm btn-square"
+                onclick="modal_assignments.showModal(); htmx.ajax('GET', '{% url 'gradebook:assignments' subject.pk %}', {target: '#assignments-container'})"
+                title="Manage Assignments">
+            <i class="fa-solid fa-cog"></i>
+        </button>
+        {% endif %}
+        <div class="dropdown dropdown-end">
+            <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square" title="More options">
+                <i class="fa-solid fa-ellipsis-v"></i>
+            </div>
+            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-48 p-2 shadow-lg border border-base-200">
+                <li><a href="{% url 'core:export_scores' class_obj.pk subject.pk %}"><i class="fa-solid fa-download text-success"></i> Export CSV</a></li>
+                <li><a href="{% url 'core:export_scores' class_obj.pk subject.pk %}?format=xlsx"><i class="fa-solid fa-file-excel text-success"></i> Export Excel</a></li>
+                {% if not grades_locked %}
+                <li class="border-t border-base-200 mt-1 pt-1">
+                    <button onclick="modal_import.showModal()"><i class="fa-solid fa-upload text-primary"></i> Import Scores</button>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
     </div>
 </div>
 
@@ -76,104 +101,79 @@
 
 {% else %}
 
-<!-- Assignment Selector - Sticky on mobile -->
-<div class="sticky top-0 z-20 bg-base-100 pb-2 -mx-4 px-4 pt-2 border-b border-base-200 mb-4">
-    <div class="flex items-center gap-2">
-        <div class="flex-1">
-            <select id="assignment-selector" class="select select-bordered select-sm w-full font-medium" onchange="showAssignment(this.value)">
-                {% for assignment in assignments %}
-                <option value="{{ assignment.id }}" data-max="{{ assignment.points_possible }}" data-category="{{ assignment.assessment_category.short_name }}">
-                    {{ assignment.name }} ({{ assignment.assessment_category.short_name }} - {{ assignment.points_possible }} pts)
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        {% if not grades_locked %}
-        <button class="btn btn-ghost btn-sm btn-square"
-                onclick="modal_assignments.showModal(); htmx.ajax('GET', '{% url 'gradebook:assignments' subject.pk %}', {target: '#assignments-container'})"
-                title="Manage Assignments">
-            <i class="fa-solid fa-cog"></i>
+<!-- Toolbar - Sticky (Card View) -->
+<div class="sticky top-0 z-20 bg-base-100 -mx-4 px-4 py-2 border-b border-base-200 mb-4" id="card-view-controls">
+    <!-- Navigation row - full width -->
+    <div class="flex items-center">
+        <button type="button" onclick="prevStudent()" class="btn btn-ghost btn-sm btn-square" id="prev-student-btn" title="Previous student">
+            <i class="fa-solid fa-chevron-left"></i>
         </button>
-        {% endif %}
-        <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square" title="Import/Export">
-                <i class="fa-solid fa-ellipsis-v"></i>
-            </div>
-            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-48 p-2 shadow-lg border border-base-200">
-                <li><a href="{% url 'core:export_scores' class_obj.pk subject.pk %}"><i class="fa-solid fa-download text-success"></i> Export CSV</a></li>
-                <li><a href="{% url 'core:export_scores' class_obj.pk subject.pk %}?format=xlsx"><i class="fa-solid fa-file-excel text-success"></i> Export Excel</a></li>
-                {% if not grades_locked %}
-                <li class="border-t border-base-200 mt-1 pt-1">
-                    <button onclick="modal_import.showModal()"><i class="fa-solid fa-upload text-primary"></i> Import Scores</button>
-                </li>
-                {% endif %}
-            </ul>
+        <div class="flex-1 text-center min-w-0">
+            <p class="font-semibold truncate" id="current-student-name">{{ students.0.full_name }}</p>
+            <p class="text-xs text-base-content/60" id="student-counter">1/{{ students|length }}</p>
         </div>
-    </div>
-
-    <!-- Assignment Navigation -->
-    <div class="flex items-center justify-between mt-2 text-xs text-base-content/60">
-        <button type="button" onclick="prevAssignment()" class="btn btn-ghost btn-xs gap-1" id="prev-btn">
-            <i class="fa-solid fa-chevron-left"></i> Previous
-        </button>
-        <span id="assignment-counter">1 of {{ assignments|length }}</span>
-        <button type="button" onclick="nextAssignment()" class="btn btn-ghost btn-xs gap-1" id="next-btn">
-            Next <i class="fa-solid fa-chevron-right"></i>
+        <button type="button" onclick="nextStudent()" class="btn btn-ghost btn-sm btn-square" id="next-student-btn" title="Next student">
+            <i class="fa-solid fa-chevron-right"></i>
         </button>
     </div>
 </div>
 
-<!-- MOBILE VIEW - Card based, one assignment at a time -->
-<div class="md:hidden space-y-2" id="mobile-score-view">
+<!-- CARD VIEW - One student at a time with all assignments (default view) -->
+<div id="card-score-view">
     {% for student in students %}
-    <div class="flex items-center gap-3 p-3 bg-base-100 rounded-lg border border-base-200 student-score-row" data-student="{{ student.id }}">
-        <!-- Student Photo -->
-        <div class="avatar placeholder shrink-0">
-            <div class="w-11 h-11 rounded-full bg-base-300 text-base-content flex items-center justify-center">
-                {% if student.photo %}
-                <img src="{{ student.photo.url }}" alt="{{ student.full_name|escape }}" class="object-cover w-full h-full rounded-full" loading="lazy" />
-                {% else %}
-                <span class="text-sm font-medium">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
-                {% endif %}
+    <div class="student-card {% if not forloop.first %}hidden{% endif %}" data-student-index="{{ forloop.counter0 }}" data-student-id="{{ student.id }}">
+        <!-- Assignment Scores -->
+        <div class="card bg-base-100 shadow-sm border border-base-200 mb-4">
+            <div class="divide-y divide-base-200">
+                {% for assignment in assignments %}
+                <div class="flex items-center justify-between gap-3 p-4">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium">{{ assignment.name }}</p>
+                        <p class="text-xs text-base-content/60 mt-0.5">
+                            <span class="badge badge-ghost badge-sm">{{ assignment.assessment_category.short_name }}</span>
+                            <span class="ml-1">Max {{ assignment.points_possible }}</span>
+                        </p>
+                    </div>
+                    <input type="number"
+                           inputmode="decimal"
+                           name="points"
+                           value="{% with score=scores_dict|get_item:student.id|get_item:assignment.id %}{{ score|default:'' }}{% endwith %}"
+                           min="0"
+                           max="{{ assignment.points_possible }}"
+                           step="0.5"
+                           placeholder="--"
+                           class="input input-bordered w-20 h-12 text-center text-lg font-bold score-input"
+                           data-student="{{ student.id }}"
+                           data-assignment="{{ assignment.id }}"
+                           data-max="{{ assignment.points_possible }}"
+                           {% if grades_locked %}disabled{% endif %}
+                           hx-post="{% url 'gradebook:score_save' %}"
+                           hx-trigger="change delay:500ms, blur"
+                           hx-vals='{"student_id": "{{ student.id }}", "assignment_id": "{{ assignment.id }}"}'
+                           hx-include="this"
+                           hx-swap="none" />
+                </div>
+                {% endfor %}
             </div>
-        </div>
-
-        <!-- Student Name -->
-        <div class="flex-1 min-w-0">
-            <p class="font-medium text-sm truncate">{{ student.full_name }}</p>
-            <p class="text-xs text-base-content/50 font-mono">{{ student.admission_number }}</p>
-        </div>
-
-        <!-- Score Input - Large touch target -->
-        <div class="flex items-center gap-1">
-            {% for assignment in assignments %}
-            <input type="number"
-                   inputmode="decimal"
-                   name="points"
-                   value="{% with score=scores_dict|get_item:student.id|get_item:assignment.id %}{{ score|default:'' }}{% endwith %}"
-                   min="0"
-                   max="{{ assignment.points_possible }}"
-                   step="0.5"
-                   placeholder="--"
-                   class="input input-bordered w-16 h-12 text-center text-lg font-bold score-input assignment-{{ assignment.id }} {% if forloop.first %}{% else %}hidden{% endif %}"
-                   data-student="{{ student.id }}"
-                   data-assignment="{{ assignment.id }}"
-                   data-max="{{ assignment.points_possible }}"
-                   {% if grades_locked %}disabled{% endif %}
-                   hx-post="{% url 'gradebook:score_save' %}"
-                   hx-trigger="change delay:500ms, blur"
-                   hx-vals='{"student_id": "{{ student.id }}", "assignment_id": "{{ assignment.id }}"}'
-                   hx-include="this"
-                   hx-swap="none" />
-            {% endfor %}
-            <span class="text-xs text-base-content/50 w-8" id="max-display-{{ student.id }}">/ {{ assignments.0.points_possible }}</span>
         </div>
     </div>
     {% endfor %}
+
+    <!-- Jump to Student - Below the card -->
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text text-xs">Jump to student</span>
+        </label>
+        <select id="student-selector" class="select select-bordered w-full" onchange="showStudent(parseInt(this.value))">
+            {% for student in students %}
+            <option value="{{ forloop.counter0 }}">{{ forloop.counter }}. {{ student.full_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
 </div>
 
-<!-- DESKTOP VIEW - Table grid -->
-<div class="hidden md:block">
+<!-- TABLE VIEW - Full grid (hidden by default, shown via toggle) -->
+<div class="hidden" id="table-score-view">
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-0">
             <!-- Category Legend -->
@@ -251,12 +251,12 @@
     </div>
 </div>
 
-<!-- Mobile Footer -->
-<div class="md:hidden mt-4 p-3 bg-base-200/50 rounded-lg">
-    <div class="flex items-center gap-2 text-xs text-base-content/60">
+<!-- Auto-save indicator -->
+<div class="mt-4 p-3 bg-base-200/50 rounded-lg text-center">
+    <span class="text-xs text-base-content/60">
         <i class="fa-solid fa-circle-check text-success"></i>
-        <span>Scores save automatically</span>
-    </div>
+        Scores save automatically
+    </span>
 </div>
 
 <!-- Styles for score input feedback -->
@@ -301,71 +301,94 @@
 
 <script>
 (function() {
-    // Assignment navigation for mobile - use window to avoid redeclaration
-    window.currentAssignmentIndex = 0;
-    window.scoreAssignments = [{% for a in assignments %}{ id: "{{ a.id }}", max: {{ a.points_possible }}, name: "{{ a.name|escapejs }}" }{% if not forloop.last %},{% endif %}{% endfor %}];
+    // Student navigation for card view
+    window.currentStudentIndex = 0;
+    window.totalStudents = {{ students|length }};
+    window.studentNames = [{% for s in students %}"{{ s.full_name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];
 })();
 
-function showAssignment(assignmentId) {
-    const assignments = window.scoreAssignments;
-    // Keep assignmentId as string to match class names and array IDs
-    assignmentId = String(assignmentId);
-    window.currentAssignmentIndex = assignments.findIndex(a => String(a.id) === assignmentId);
+// Show a specific student card
+function showStudent(index) {
+    if (index < 0 || index >= window.totalStudents) return;
 
-    // Hide all inputs, show selected
-    document.querySelectorAll('#mobile-score-view .score-input').forEach(input => {
-        input.classList.add('hidden');
+    window.currentStudentIndex = index;
+
+    // Hide all student cards, show selected
+    document.querySelectorAll('#card-score-view .student-card').forEach(function(card, i) {
+        if (i === index) {
+            card.classList.remove('hidden');
+        } else {
+            card.classList.add('hidden');
+        }
     });
-    document.querySelectorAll('#mobile-score-view .assignment-' + assignmentId).forEach(input => {
-        input.classList.remove('hidden');
-    });
 
-    // Update max display - with null check to prevent errors
-    if (window.currentAssignmentIndex >= 0 && assignments[window.currentAssignmentIndex]) {
-        const maxPoints = assignments[window.currentAssignmentIndex].max;
-        document.querySelectorAll('[id^="max-display-"]').forEach(span => {
-            span.textContent = '/ ' + maxPoints;
-        });
-    }
+    // Update the dropdown selector
+    var selector = document.getElementById('student-selector');
+    if (selector) selector.selectedIndex = index;
 
-    // Update counter and nav buttons
-    updateNavigation();
+    updateStudentNavigation();
 }
 
-function prevAssignment() {
-    const assignments = window.scoreAssignments;
-    if (window.currentAssignmentIndex > 0) {
-        const newIndex = window.currentAssignmentIndex - 1;
-        document.getElementById('assignment-selector').selectedIndex = newIndex;
-        showAssignment(assignments[newIndex].id);
+function prevStudent() {
+    if (window.currentStudentIndex > 0) {
+        showStudent(window.currentStudentIndex - 1);
     }
 }
 
-function nextAssignment() {
-    const assignments = window.scoreAssignments;
-    if (window.currentAssignmentIndex >= 0 && window.currentAssignmentIndex < assignments.length - 1) {
-        const newIndex = window.currentAssignmentIndex + 1;
-        document.getElementById('assignment-selector').selectedIndex = newIndex;
-        showAssignment(assignments[newIndex].id);
+function nextStudent() {
+    if (window.currentStudentIndex < window.totalStudents - 1) {
+        showStudent(window.currentStudentIndex + 1);
     }
 }
 
-function updateNavigation() {
-    var counter = document.getElementById('assignment-counter');
-    var prevBtn = document.getElementById('prev-btn');
-    var nextBtn = document.getElementById('next-btn');
+function updateStudentNavigation() {
+    var nameEl = document.getElementById('current-student-name');
+    var counterEl = document.getElementById('student-counter');
+    var prevBtn = document.getElementById('prev-student-btn');
+    var nextBtn = document.getElementById('next-student-btn');
 
-    // Exit if elements don't exist (e.g., after navigating away)
-    if (!counter || !prevBtn || !nextBtn) return;
+    if (nameEl && window.studentNames) {
+        nameEl.textContent = window.studentNames[window.currentStudentIndex];
+    }
 
-    var assignments = window.scoreAssignments;
-    if (!assignments || !assignments.length) return;
+    if (counterEl) {
+        counterEl.textContent = (window.currentStudentIndex + 1) + '/' + window.totalStudents;
+    }
 
-    counter.textContent = (window.currentAssignmentIndex + 1) + ' of ' + assignments.length;
-    prevBtn.disabled = window.currentAssignmentIndex === 0;
-    nextBtn.disabled = window.currentAssignmentIndex === assignments.length - 1;
-    prevBtn.classList.toggle('opacity-30', window.currentAssignmentIndex === 0);
-    nextBtn.classList.toggle('opacity-30', window.currentAssignmentIndex === assignments.length - 1);
+    if (prevBtn) {
+        prevBtn.disabled = window.currentStudentIndex === 0;
+        prevBtn.classList.toggle('btn-disabled', window.currentStudentIndex === 0);
+    }
+
+    if (nextBtn) {
+        nextBtn.disabled = window.currentStudentIndex === window.totalStudents - 1;
+        nextBtn.classList.toggle('btn-disabled', window.currentStudentIndex === window.totalStudents - 1);
+    }
+}
+
+// View toggle - switch between card view and table view
+function toggleScoreView() {
+    var cardView = document.getElementById('card-score-view');
+    var tableView = document.getElementById('table-score-view');
+    var cardControls = document.getElementById('card-view-controls');
+    var viewToggle = document.getElementById('view-toggle');
+
+    if (!cardView || !tableView) return;
+
+    var showTable = viewToggle ? viewToggle.checked : false;
+
+    if (showTable) {
+        // Switch to table view
+        cardView.classList.add('hidden');
+        tableView.classList.remove('hidden');
+        if (cardControls) cardControls.classList.add('hidden');
+        calculateTotals();
+    } else {
+        // Switch to card view
+        tableView.classList.add('hidden');
+        cardView.classList.remove('hidden');
+        if (cardControls) cardControls.classList.remove('hidden');
+    }
 }
 
 // Calculate totals for desktop
@@ -578,38 +601,20 @@ document.body.addEventListener('htmx:afterRequest', function(evt) {
 // Initialize immediately
 setupInputFeedback();
 calculateTotals();
-updateNavigation();
+updateStudentNavigation();
 
-// Re-init after HTMX swaps - only if still on score entry page
-document.body.addEventListener('htmx:afterSwap', function(evt) {
-    // Only run if score-entry-container still exists (we're still on the score entry page)
+// Re-init after HTMX swaps
+document.body.addEventListener('htmx:afterSwap', function() {
     if (document.getElementById('score-entry-container')) {
         setupInputFeedback();
         calculateTotals();
-        if (typeof updateNavigation === 'function') updateNavigation();
+        updateStudentNavigation();
     }
 });
 </script>
 {% endif %}
 </div><!-- end score-entry-container -->
 
-<!-- Desktop Footer - Outside container for proper HTMX handling -->
-<div class="hidden md:block mt-4 p-3 bg-base-200/50 rounded-lg">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2 text-sm text-base-content/60">
-            <i class="fa-solid fa-circle-check text-success"></i>
-            <span>Scores are saved automatically when you change them</span>
-        </div>
-        <a href="{% url 'core:my_grading' %}"
-           hx-get="{% url 'core:my_grading' %}"
-           hx-target="#main-content"
-           hx-swap="innerHTML show:window:top"
-           hx-push-url="true"
-           class="btn btn-ghost btn-sm">
-            <i class="fa-solid fa-arrow-left"></i> Back
-        </a>
-    </div>
-</div>
 
 <!-- Assignments Modal -->
 <dialog id="modal_assignments" class="modal modal-bottom sm:modal-middle">
