@@ -810,6 +810,13 @@
             document.addEventListener('DOMContentLoaded', window.updateSidebarActive);
 
             // ========================================
+            // Close Modal Handler (HX-Trigger: closeModal)
+            // ========================================
+            document.body.addEventListener('closeModal', function() {
+                document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
+            });
+
+            // ========================================
             // Custom Confirm Dialog
             // ========================================
             document.body.addEventListener('htmx:confirm', function(e) {

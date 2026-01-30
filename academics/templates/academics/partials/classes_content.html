@@ -326,10 +326,3 @@
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
-
-<script>
-    // Close all modals when closeModal event is triggered via HX-Trigger
-    document.body.addEventListener('closeModal', function() {
-        document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
-    });
-</script>

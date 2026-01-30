@@ -185,7 +185,7 @@
             <div class="hidden sm:flex flex-1 items-center justify-center gap-2 px-1">
                 <div class="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center overflow-hidden">
                     {% if class.class_teacher.photo %}
-                    <img src="{{ class.class_teacher.photo.url }}" alt="" class="w-full h-full object-cover" />
+                    <img src="{{ class.class_teacher.photo.url }}" alt="" class="w-full h-full object-cover" loading="lazy" />
                     {% else %}
                     {{ class.class_teacher.first_name|slice:":1" }}
                     {% endif %}
@@ -393,11 +393,6 @@
 </dialog>
 
 <script>
-    // Close all modals when closeModal event is triggered via HX-Trigger
-    document.body.addEventListener('closeModal', function() {
-        document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
-    });
-
     // Update gender filter button active states
     function updateGenderButtons(activeGender) {
         document.querySelectorAll('#gender-filter-desktop button, #gender-filter-mobile button').forEach(btn => {

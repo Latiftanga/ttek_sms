@@ -193,11 +193,6 @@
 </dialog>
 
 <script>
-    // Close modal when closeModal event is triggered via HX-Trigger
-    document.body.addEventListener('closeModal', function() {
-        document.getElementById('modal_form')?.close();
-    });
-
     // Refresh subjects list after successful form submission
     document.body.addEventListener('refreshSubjects', function() {
         htmx.ajax('GET', '{% url "academics:class_subjects" class.pk %}', {target: '#main-content', swap: 'innerHTML'});
