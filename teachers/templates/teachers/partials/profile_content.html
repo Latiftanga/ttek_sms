@@ -242,7 +242,7 @@
                                hx-get="{% url 'core:enter_scores' assignment.class_assigned.pk assignment.subject.pk %}"
                                hx-target="#main-content"
                                hx-push-url="true"
-                               class="btn btn-ghost btn-xs">
+                               class="btn btn-ghost btn-sm min-h-[44px]">
                                 <i class="fa-solid fa-pen-to-square"></i>
                                 Grades
                             </a>
@@ -288,7 +288,7 @@
                             </div>
                             <div>
                                 <p class="font-medium">{{ cls.name }}</p>
-                                <p class="text-xs text-base-content/50">{{ cls.students.count }} students</p>
+                                <p class="text-xs text-base-content/50">{{ cls.student_count }} students</p>
                             </div>
                         </div>
                     </div>
