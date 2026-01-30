@@ -484,7 +484,7 @@ def score_changes_list(request, class_id, subject_id):
     assignments = Assignment.objects.filter(
         subject=subject,
         term=current_term
-    )
+    ).select_related('assessment_category')
 
     # Get all students in this class
     students = Student.objects.filter(current_class=class_obj)
