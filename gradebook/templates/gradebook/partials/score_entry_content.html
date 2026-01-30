@@ -233,10 +233,37 @@
             return;
         }
 
-        // Load score entry form via HTMX
+        // Show loading state immediately for mobile feedback
+        scoreContainer.innerHTML = `
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-6">
+                    <div class="flex flex-col items-center justify-center py-8">
+                        <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
+                        <p class="text-sm text-base-content/60">Loading score entry...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Load score entry form via HTMX with error handling
         htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
             target: '#score-form-container',
             swap: 'innerHTML'
+        }).catch(function(error) {
+            console.error('Error loading score form:', error);
+            scoreContainer.innerHTML = `
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-6">
+                        <div class="alert alert-error">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <span>Failed to load score entry. Please try again.</span>
+                        </div>
+                        <button class="btn btn-primary btn-sm mt-4" onclick="document.getElementById('subject-select').dispatchEvent(new Event('change'))">
+                            <i class="fa-solid fa-rotate-right"></i> Retry
+                        </button>
+                    </div>
+                </div>
+            `;
         });
     });
 
@@ -246,6 +273,12 @@
         const subjectId = subjectSelect.value;
 
         if (classId && subjectId) {
+            // Show brief loading indicator
+            const existingCard = scoreContainer.querySelector('.card');
+            if (existingCard) {
+                existingCard.classList.add('opacity-50');
+            }
+
             htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
                 target: '#score-form-container',
                 swap: 'innerHTML'
@@ -277,6 +310,12 @@
         const subjectId = subjectSelect.value;
 
         if (classId && subjectId) {
+            // Show loading state
+            const existingCard = scoreContainer.querySelector('.card');
+            if (existingCard) {
+                existingCard.classList.add('opacity-50');
+            }
+
             htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
                 target: '#score-form-container',
                 swap: 'innerHTML'

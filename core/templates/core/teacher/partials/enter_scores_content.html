@@ -308,8 +308,9 @@
 
 function showAssignment(assignmentId) {
     const assignments = window.scoreAssignments;
-    assignmentId = parseInt(assignmentId);
-    window.currentAssignmentIndex = assignments.findIndex(a => a.id === assignmentId);
+    // Keep assignmentId as string to match class names and array IDs
+    assignmentId = String(assignmentId);
+    window.currentAssignmentIndex = assignments.findIndex(a => String(a.id) === assignmentId);
 
     // Hide all inputs, show selected
     document.querySelectorAll('#mobile-score-view .score-input').forEach(input => {
@@ -319,11 +320,13 @@ function showAssignment(assignmentId) {
         input.classList.remove('hidden');
     });
 
-    // Update max display
-    const maxPoints = assignments[window.currentAssignmentIndex].max;
-    document.querySelectorAll('[id^="max-display-"]').forEach(span => {
-        span.textContent = '/ ' + maxPoints;
-    });
+    // Update max display - with null check to prevent errors
+    if (window.currentAssignmentIndex >= 0 && assignments[window.currentAssignmentIndex]) {
+        const maxPoints = assignments[window.currentAssignmentIndex].max;
+        document.querySelectorAll('[id^="max-display-"]').forEach(span => {
+            span.textContent = '/ ' + maxPoints;
+        });
+    }
 
     // Update counter and nav buttons
     updateNavigation();
@@ -332,16 +335,18 @@ function showAssignment(assignmentId) {
 function prevAssignment() {
     const assignments = window.scoreAssignments;
     if (window.currentAssignmentIndex > 0) {
-        document.getElementById('assignment-selector').selectedIndex = window.currentAssignmentIndex - 1;
-        showAssignment(assignments[window.currentAssignmentIndex - 1].id);
+        const newIndex = window.currentAssignmentIndex - 1;
+        document.getElementById('assignment-selector').selectedIndex = newIndex;
+        showAssignment(assignments[newIndex].id);
     }
 }
 
 function nextAssignment() {
     const assignments = window.scoreAssignments;
-    if (window.currentAssignmentIndex < assignments.length - 1) {
-        document.getElementById('assignment-selector').selectedIndex = window.currentAssignmentIndex + 1;
-        showAssignment(assignments[window.currentAssignmentIndex + 1].id);
+    if (window.currentAssignmentIndex >= 0 && window.currentAssignmentIndex < assignments.length - 1) {
+        const newIndex = window.currentAssignmentIndex + 1;
+        document.getElementById('assignment-selector').selectedIndex = newIndex;
+        showAssignment(assignments[newIndex].id);
     }
 }
 
