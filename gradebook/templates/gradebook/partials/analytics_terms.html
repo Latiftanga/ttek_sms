@@ -75,7 +75,7 @@
 </div>
 
 {% if terms %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 (function() {
     const termData = {{ terms_json|safe }};

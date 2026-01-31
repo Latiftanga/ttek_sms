@@ -150,7 +150,7 @@
 </div>
 
 {% if class_stats %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 (function() {
     const classData = {{ class_stats_json|safe }};
