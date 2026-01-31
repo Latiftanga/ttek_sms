@@ -19,7 +19,7 @@
                 {% elif page_num == cl.page_num %}
                     <span class="w-10 h-10 rounded-lg bg-primary text-primary-content flex items-center justify-center font-semibold text-sm">{{ page_num }}</span>
                 {% else %}
-                    <a href="{% url opts|admin_urlname:'changelist' %}?{% if cl.params %}{{ cl.get_query_string }}&amp;{% endif %}p={{ page_num|add:"-1" }}" class="w-10 h-10 rounded-lg hover:bg-base-200 flex items-center justify-center text-sm transition-colors">{{ page_num }}</a>
+                    <a href="{% url cl.opts|admin_urlname:'changelist' %}?{{ cl.get_query_string }}&amp;p={{ page_num|add:"-1" }}" class="w-10 h-10 rounded-lg hover:bg-base-200 flex items-center justify-center text-sm transition-colors">{{ page_num }}</a>
                 {% endif %}
             {% endfor %}
         {% endif %}
