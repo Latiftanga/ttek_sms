@@ -40,14 +40,16 @@
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-0">
                 <!-- Search and actions bar -->
-                <div class="p-4 border-b border-base-200 flex flex-col sm:flex-row gap-4">
+                <div class="p-4 border-b border-base-200 flex flex-col sm:flex-row gap-3">
                     {% if cl.search_fields %}
                     <form id="changelist-search" action="" method="get" class="flex-1">
-                        <div class="join w-full max-w-md">
+                        <div class="join w-full sm:max-w-md">
                             <input type="text" name="{{ search_var }}" value="{{ cl.query }}"
                                    class="input input-bordered join-item flex-1"
-                                   placeholder="{% trans 'Search' %}..." />
-                            <button type="submit" class="btn btn-primary join-item">
+                                   placeholder="{% trans 'Search' %}..."
+                                   autocomplete="off"
+                                   autocapitalize="off" />
+                            <button type="submit" class="btn btn-primary join-item" aria-label="{% trans 'Search' %}">
                                 <i class="fa-solid fa-search"></i>
                             </button>
                             {% if cl.query %}
@@ -62,6 +64,20 @@
                             {% endif %}
                         {% endfor %}
                     </form>
+                    {% endif %}
+
+                    {% if cl.has_filters %}
+                    <!-- Mobile filter toggle -->
+                    <button type="button"
+                            class="filter-toggle-mobile btn btn-ghost gap-2 lg:hidden"
+                            aria-expanded="false"
+                            aria-controls="filters-panel">
+                        <i class="fa-solid fa-filter"></i>
+                        <span>{% trans 'Filters' %}</span>
+                        {% if cl.is_filtered %}
+                        <span class="badge badge-primary badge-sm">{% trans 'Active' %}</span>
+                        {% endif %}
+                    </button>
                     {% endif %}
 
                     {% if cl.date_hierarchy %}
@@ -124,8 +140,8 @@
 
     <!-- Filters sidebar -->
     {% if cl.has_filters %}
-    <div style="flex-shrink: 0;" class="changelist-filters">
-        <div class="card bg-base-100 shadow-sm border border-base-200">
+    <div style="flex-shrink: 0;" class="changelist-filters" id="filters-panel">
+        <div class="card bg-base-100 shadow-sm border border-base-200 lg:sticky lg:top-4">
             <div class="card-body p-0">
                 <div class="p-4 border-b border-base-200 flex items-center justify-between">
                     <h3 class="font-bold flex items-center gap-2">
