@@ -9,7 +9,7 @@ Supports: text, email, password, number, tel, url
     {% endif %}
 
     {% if icon %}
-    <div class="input input-sm {% if error %}input-error{% endif %} {{ input_class }} flex items-center gap-2">
+    <div class="input input-md {% if error %}input-error{% endif %} {{ input_class }} flex items-center gap-2">
         <i class="{{ icon }} text-base-content/50"></i>
         <input type="{{ input_type|default:'text' }}"
                name="{{ name }}"
@@ -22,7 +22,7 @@ Supports: text, email, password, number, tel, url
                {% if min is not None %}min="{{ min }}"{% endif %}
                {% if max is not None %}max="{{ max }}"{% endif %}
                {% if step %}step="{{ step }}"{% endif %}
-               class="grow bg-transparent border-none focus:outline-none" />
+               class="grow bg-transparent border-none focus:outline-none text-base" />
     </div>
     {% else %}
     <input type="{{ input_type|default:'text' }}"
@@ -36,7 +36,7 @@ Supports: text, email, password, number, tel, url
            {% if min is not None %}min="{{ min }}"{% endif %}
            {% if max is not None %}max="{{ max }}"{% endif %}
            {% if step %}step="{{ step }}"{% endif %}
-           class="input input-sm {% if error %}input-error{% endif %} {{ input_class }}" />
+           class="input input-md {% if error %}input-error{% endif %} {{ input_class }}" />
     {% endif %}
 </label>
 
