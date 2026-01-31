@@ -1,9 +1,12 @@
 {% load core_tags %}
 
-<h3 class="font-bold text-lg mb-4">
+<h3 class="font-bold text-lg mb-1">
     <i class="fa-solid fa-clock text-primary"></i>
     {{ action }} Period
 </h3>
+<p class="text-sm text-base-content/60 mb-4">
+    Periods define the daily time slots for your school (e.g., Period 1, Break, Assembly).
+</p>
 
 <form hx-post="{% if period %}{% url 'academics:period_edit' period.pk %}{% else %}{% url 'academics:period_create' %}{% endif %}"
       hx-target="#modal-container"
@@ -16,6 +19,7 @@
         <div class="form-control md:col-span-2">
             <label class="label py-1">
                 <span class="label-text text-sm font-medium">Period Name</span>
+                <span class="label-text-alt text-base-content/50">What appears on timetables</span>
             </label>
             <input type="text" name="name"
                    value="{{ form.name.value|default:'' }}"
@@ -71,7 +75,10 @@
             <label class="label cursor-pointer justify-start gap-3">
                 <input type="checkbox" name="is_break" class="checkbox checkbox-sm checkbox-warning"
                        {% if form.is_break.value %}checked{% endif %}>
-                <span class="label-text text-sm">Break Period</span>
+                <div>
+                    <span class="label-text text-sm">Break Period</span>
+                    <p class="text-xs text-base-content/50">Non-teaching time (e.g., recess, lunch)</p>
+                </div>
             </label>
         </div>
 
@@ -80,7 +87,10 @@
             <label class="label cursor-pointer justify-start gap-3">
                 <input type="checkbox" name="is_active" class="checkbox checkbox-sm checkbox-success"
                        {% if form.is_active.value or form.is_active.value == None %}checked{% endif %}>
-                <span class="label-text text-sm">Active (visible in timetable)</span>
+                <div>
+                    <span class="label-text text-sm">Active</span>
+                    <p class="text-xs text-base-content/50">Show this period in timetables</p>
+                </div>
             </label>
         </div>
     </div>

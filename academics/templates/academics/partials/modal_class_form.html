@@ -1,48 +1,127 @@
 {% load core_tags %}
-<h3 class="text-lg font-bold mb-6">{% if is_create %}Add{% else %}Edit{% endif %} Class</h3>
+<h3 class="text-lg font-bold mb-2">{% if is_create %}Add{% else %}Edit{% endif %} Class</h3>
+<p class="text-sm text-base-content/60 mb-4">
+    {% if is_create %}Create a new class for your school.{% else %}Update class details.{% endif %}
+</p>
 <form method="post"
       action="{% if class %}{% url 'academics:class_edit' class.pk %}{% else %}{% url 'academics:class_create' %}{% endif %}"
       hx-post="{% if class %}{% url 'academics:class_edit' class.pk %}{% else %}{% url 'academics:class_create' %}{% endif %}"
       hx-target="this"
       hx-swap="outerHTML">
     {% csrf_token %}
-    <div class="space-y-3">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% floating_field form.level_type size="sm" %}
-            {% floating_field form.level_number size="sm" %}
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% floating_field form.section size="sm" %}
-            {% floating_field form.capacity size="sm" %}
+    <div class="space-y-4">
+        <!-- Level & Number -->
+        <div>
+            <div class="flex items-center gap-1 mb-1">
+                <span class="text-xs font-medium text-base-content/70">Class Level</span>
+                <div class="dropdown dropdown-hover dropdown-top">
+                    <label tabindex="0" class="cursor-help"><i class="fa-solid fa-circle-question text-xs text-base-content/40"></i></label>
+                    <div tabindex="0" class="dropdown-content z-50 p-2 shadow-lg bg-base-100 rounded-lg w-56 text-xs border border-base-200">
+                        <p class="font-medium mb-1">Choose the education level:</p>
+                        <ul class="space-y-1 text-base-content/70">
+                            <li><b>Creche</b> - Ages 0-2 (Levels 1-2)</li>
+                            <li><b>KG</b> - Kindergarten (Levels 1-2)</li>
+                            <li><b>Primary</b> - Primary school (Levels 1-6)</li>
+                            <li><b>JHS</b> - Junior High (Levels 1-3)</li>
+                            <li><b>SHS</b> - Senior High (Levels 1-3)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                {% floating_field form.level_type size="sm" %}
+                {% floating_field form.level_number size="sm" %}
+            </div>
         </div>
 
-        {% floating_field form.class_teacher "Class Teacher" size="sm" %}
+        <!-- Section & Capacity -->
+        <div>
+            <div class="flex items-center gap-1 mb-1">
+                <span class="text-xs font-medium text-base-content/70">Section & Size</span>
+                <div class="dropdown dropdown-hover dropdown-top">
+                    <label tabindex="0" class="cursor-help"><i class="fa-solid fa-circle-question text-xs text-base-content/40"></i></label>
+                    <div tabindex="0" class="dropdown-content z-50 p-2 shadow-lg bg-base-100 rounded-lg w-48 text-xs border border-base-200">
+                        <p><b>Section</b>: Letter or name to distinguish multiple classes at the same level (e.g., A, B, Gold, Silver)</p>
+                        <p class="mt-1"><b>Capacity</b>: Maximum students allowed in this class</p>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                {% floating_field form.section size="sm" %}
+                {% floating_field form.capacity size="sm" %}
+            </div>
+        </div>
+
+        <!-- Class Teacher -->
+        <div>
+            <div class="flex items-center gap-1 mb-1">
+                <span class="text-xs font-medium text-base-content/70">Class Teacher (Optional)</span>
+                <div class="dropdown dropdown-hover dropdown-top">
+                    <label tabindex="0" class="cursor-help"><i class="fa-solid fa-circle-question text-xs text-base-content/40"></i></label>
+                    <div tabindex="0" class="dropdown-content z-50 p-2 shadow-lg bg-base-100 rounded-lg w-48 text-xs border border-base-200">
+                        The teacher responsible for this class. They can mark daily attendance and view all class reports.
+                    </div>
+                </div>
+            </div>
+            {% floating_field form.class_teacher "" size="sm" %}
+        </div>
 
         {% if tenant.has_programmes %}
+        <!-- Programme (SHS only) -->
         <div id="programme-field" class="hidden">
-            {% floating_field form.programme size="sm" %}
+            <div class="flex items-center gap-1 mb-1">
+                <span class="text-xs font-medium text-base-content/70">Programme</span>
+                <span class="badge badge-xs badge-info">SHS Only</span>
+            </div>
+            {% floating_field form.programme "" size="sm" %}
+            <p class="text-xs text-base-content/50 mt-1">
+                SHS students are grouped by programme (e.g., General Arts, Science, Business)
+            </p>
         </div>
         {% endif %}
 
-        {% floating_field form.attendance_type size="sm" %}
-        <p class="text-xs text-base-content/60 -mt-2 ml-1">
-            Daily: Class teacher marks once per day. Per-Lesson: Each subject teacher marks their lesson.
-        </p>
+        <!-- Attendance Type -->
+        <div>
+            <div class="flex items-center gap-1 mb-1">
+                <span class="text-xs font-medium text-base-content/70">Attendance Type</span>
+                <div class="dropdown dropdown-hover dropdown-top">
+                    <label tabindex="0" class="cursor-help"><i class="fa-solid fa-circle-question text-xs text-base-content/40"></i></label>
+                    <div tabindex="0" class="dropdown-content z-50 p-2 shadow-lg bg-base-100 rounded-lg w-56 text-xs border border-base-200">
+                        <p class="font-medium mb-1">Choose how attendance is tracked:</p>
+                        <p class="mb-2"><b>Daily</b> - Class teacher marks once per day. Best for primary/JHS.</p>
+                        <p><b>Per-Lesson</b> - Each subject teacher marks their lesson. Requires timetable setup. Best for SHS.</p>
+                    </div>
+                </div>
+            </div>
+            {% floating_field form.attendance_type "" size="sm" %}
+        </div>
 
-        <label class="label cursor-pointer justify-start gap-3">
+        <label class="label cursor-pointer justify-start gap-3 py-0">
             <input type="checkbox" name="is_active" class="checkbox checkbox-sm checkbox-primary" {% if form.is_active.value %}checked{% endif %}>
-            <span class="label-text text-sm">Active</span>
+            <span class="label-text text-sm">Active class (visible in lists and reports)</span>
         </label>
     </div>
     {% if form.errors %}
     <div class="alert alert-error mt-4 py-2 text-sm">
         <i class="fa-solid fa-exclamation-circle"></i>
-        <span>{{ form.non_field_errors.0|default:"Please fix the errors below." }}</span>
+        <div>
+            <span class="font-medium">Please fix the following:</span>
+            <ul class="list-disc list-inside mt-1">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <li>{{ field.label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
     {% endif %}
     <div class="modal-action">
         <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
-        <button type="submit" class="btn btn-sm btn-primary">{% if is_create %}Create{% else %}Save Changes{% endif %}</button>
+        <button type="submit" class="btn btn-sm btn-primary">{% if is_create %}Create Class{% else %}Save Changes{% endif %}</button>
     </div>
 </form>
 

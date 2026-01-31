@@ -26,18 +26,22 @@
     </div>
     {% else %}
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body items-center text-center py-16">
-            <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mb-4">
-                <i class="fa-solid fa-chalkboard text-2xl text-base-content/40"></i>
+        <div class="card-body items-center text-center py-12">
+            <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-chalkboard text-2xl text-primary"></i>
             </div>
-            <h3 class="font-bold text-lg">No Classes Yet</h3>
-            <p class="text-sm text-base-content/60 max-w-sm">
-                Start by creating your first class.
+            <h3 class="font-bold text-lg mb-1">No Classes Yet</h3>
+            <p class="text-sm text-base-content/60 max-w-md mb-2">
+                Classes group students by level (e.g., Primary 1A, JHS 2B). Each class can have a teacher, subjects, and timetable.
             </p>
-            <button class="btn btn-primary btn-sm mt-4"
+            <div class="text-xs text-base-content/50 mb-4">
+                <i class="fa-solid fa-lightbulb text-warning mr-1"></i>
+                Tip: Set up <a href="{% url 'academics:periods' %}" hx-get="{% url 'academics:periods' %}" hx-target="#main-content" hx-push-url="true" class="link link-primary">periods</a> first to enable timetables.
+            </div>
+            <button class="btn btn-primary btn-sm"
                     onclick="document.getElementById('modal_class').showModal()">
                 <i class="fa-solid fa-plus"></i>
-                Create First Class
+                Create Your First Class
             </button>
         </div>
     </div>

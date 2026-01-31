@@ -48,12 +48,14 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="text-center py-8">
-        <div class="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-3">
-            <i class="fa-solid fa-book text-base-content/30 text-lg"></i>
+    <div class="text-center py-6">
+        <div class="w-12 h-12 rounded-full bg-info/10 flex items-center justify-center mx-auto mb-3">
+            <i class="fa-solid fa-book text-info text-lg"></i>
         </div>
-        <p class="text-sm text-base-content/60 font-medium">No subjects yet</p>
-        <p class="text-xs text-base-content/40 mt-1">Click + to add your first subject</p>
+        <p class="text-sm text-base-content/70 font-medium mb-1">No subjects yet</p>
+        <p class="text-xs text-base-content/50 max-w-xs mx-auto">
+            Add subjects like Mathematics, English, Science. These can be assigned to classes.
+        </p>
     </div>
     {% endif %}
 </div>
