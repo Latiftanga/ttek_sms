@@ -13,7 +13,7 @@ from core.utils import requires_houses
 from core.models import AcademicYear, SchoolSettings
 from ..models import House, Student, HouseMaster
 from ..forms import HouseForm
-from .utils import admin_required, is_school_admin
+from .utils import admin_required
 
 logger = logging.getLogger(__name__)
 

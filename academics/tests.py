@@ -9,7 +9,6 @@ Focuses on:
 """
 from datetime import date
 
-from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django_tenants.test.cases import TenantTestCase
@@ -407,7 +406,7 @@ class ClassStudentEnrollViewTests(AcademicsTestCase):
         student = self.create_student('NewStudent', 'STU-010')
 
         # Enroll via view
-        response = self.client.post(
+        self.client.post(
             reverse('academics:class_student_enroll', args=[basic_class.pk]),
             {'students': [student.pk]}
         )
@@ -509,7 +508,7 @@ class ClassSyncSubjectsViewTests(AcademicsTestCase):
         )
 
         # Sync via view
-        response = self.client.post(
+        self.client.post(
             reverse('academics:class_sync_subjects', args=[basic_class.pk])
         )
 
@@ -725,7 +724,6 @@ class ClassPromoteViewTests(AcademicsTestCase):
             student=student,
             class_subject__class_assigned=basic_class
         )
-        original_pk = original_enrollment.pk
 
         # Repeat student
         self.client.post(

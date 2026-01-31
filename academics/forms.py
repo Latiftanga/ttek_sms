@@ -602,7 +602,6 @@ class BulkTimetableEntryForm(forms.Form):
         period = cleaned_data.get('period')
         teacher = cleaned_data.get('teacher')
         subject = cleaned_data.get('subject')
-        is_double = cleaned_data.get('is_double', False)
         classroom = cleaned_data.get('classroom')
 
         if not (weekdays and period and teacher and subject):

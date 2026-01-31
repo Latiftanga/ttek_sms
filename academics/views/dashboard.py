@@ -8,7 +8,7 @@ from django.utils import timezone
 from core.utils import cache_page_per_tenant
 
 from ..models import (
-    Programme, Class, Subject, ClassSubject, SubjectTemplate,
+    Programme, Class, Subject, SubjectTemplate,
     AttendanceRecord, Period, TimetableEntry, Classroom
 )
 from ..forms import ProgrammeForm, SubjectForm
