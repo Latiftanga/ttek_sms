@@ -1,0 +1,331 @@
+{% load static tailwind_tags i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<script>
+    // Apply saved theme immediately to prevent flash
+    document.documentElement.setAttribute('data-theme',
+        localStorage.getItem('theme') || 'light'
+    );
+</script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% if title %}{{ title }} | {% endif %}{{ site_title|default:_('Django site admin') }}{% endblock %}</title>
+
+    {% tailwind_css %}
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'admin/css/custom_admin.css' %}">
+
+    <style>
+        /* Prevent scrollbar shift when modals open */
+        html, body {
+            overflow: hidden;
+            height: 100%;
+        }
+
+        /* Fix mobile viewport height issues */
+        @supports (height: 100dvh) {
+            .h-screen {
+                height: 100dvh !important;
+            }
+        }
+
+        /* Admin theme colors */
+        :root,
+        [data-theme="light"],
+        [data-theme="dark"] {
+            --admin-primary: #570df8;
+            --admin-secondary: #7c3aed;
+            --admin-gradient: linear-gradient(135deg, #570df8 0%, #7c3aed 100%);
+            --desktop-width: 16rem;
+        }
+
+        .admin-gradient {
+            background: var(--admin-gradient);
+        }
+
+        .admin-gradient-subtle {
+            background: linear-gradient(90deg, #570df8 0%, #7c3aed 100%);
+        }
+
+        /* Desktop sidebar */
+        .desktop-sidebar {
+            width: var(--desktop-width);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 100vh;
+            overflow: hidden;
+        }
+
+        .desktop-sidebar #desktop-nav {
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar text - visible by default, hidden when collapsed */
+        .sidebar-text {
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        #desktop-toggle:checked ~ .drawer-content .desktop-sidebar {
+            --desktop-width: 5rem;
+        }
+
+        #desktop-toggle:checked ~ .drawer-content .desktop-sidebar .sidebar-text {
+            display: none;
+        }
+
+        #desktop-toggle:checked ~ .drawer-content .desktop-sidebar .sidebar-brand {
+            justify-content: center;
+        }
+
+        /* Scrollbar utilities */
+        .scrollbar-thin {
+            scrollbar-width: thin;
+            scrollbar-color: transparent transparent;
+        }
+
+        .scrollbar-thin:hover {
+            scrollbar-color: oklch(var(--bc) / 0.3) transparent;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: transparent;
+            border-radius: 9999px;
+        }
+
+        .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+            background-color: oklch(var(--bc) / 0.3);
+        }
+
+        /* HTMX loading indicator */
+        .htmx-request #main-content {
+            opacity: 0.6;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .htmx-request #loading-indicator {
+            display: flex !important;
+        }
+
+        /* Loading progress bar */
+        .loading-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, oklch(var(--p)) 0%, oklch(var(--s)) 50%, oklch(var(--p)) 100%);
+            background-size: 200% 100%;
+            animation: loading-shimmer 1.5s ease-in-out infinite;
+            width: 100%;
+            transform-origin: left;
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .htmx-request .loading-progress {
+            transform: scaleX(0.7);
+        }
+
+        @keyframes loading-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Button loading states */
+        button.htmx-request,
+        .btn.htmx-request {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        button.htmx-request::after,
+        .btn.htmx-request::after {
+            content: '';
+            width: 1em;
+            height: 1em;
+            margin-left: 0.5em;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: btn-spin 0.6s linear infinite;
+        }
+
+        @keyframes btn-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Print styles */
+        @media print {
+            .drawer-toggle,
+            .desktop-sidebar,
+            .drawer-side,
+            header,
+            #loading-indicator {
+                display: none !important;
+            }
+
+            .drawer,
+            .drawer-content {
+                display: block !important;
+                overflow: visible !important;
+            }
+
+            main {
+                width: 100% !important;
+                margin: 0 !important;
+            }
+        }
+    </style>
+    {% block extrahead %}{% endblock %}
+</head>
+
+<body class="bg-base-200 min-h-screen text-base-content">
+    <div class="drawer">
+        <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
+        <input id="desktop-toggle" type="checkbox" class="hidden" />
+
+        <div class="drawer-content flex flex-col h-screen overflow-hidden" style="height: 100vh; height: 100dvh;">
+            <div class="flex flex-1 h-full overflow-hidden">
+                <!-- Desktop Sidebar -->
+                {% include "admin/partials/sidebar.html" %}
+
+                <main class="flex-1 flex flex-col min-w-0 h-full overflow-y-auto scrollbar-thin relative transition-all">
+                    <!-- Header -->
+                    {% include "admin/partials/header.html" %}
+
+                    <!-- Loading progress bar -->
+                    <div class="loading-progress"></div>
+
+                    <!-- Loading indicator overlay -->
+                    <div id="loading-indicator" class="hidden absolute inset-0 bg-base-100/70 backdrop-blur-sm z-40 items-center justify-center">
+                        <div class="flex flex-col items-center gap-3">
+                            <span class="loading loading-spinner loading-lg text-primary"></span>
+                            <span class="text-sm text-base-content/60 font-medium">Loading...</span>
+                        </div>
+                    </div>
+
+                    <!-- Breadcrumbs -->
+                    {% block breadcrumbs %}
+                    <div class="px-6 pt-4">
+                        <div class="breadcrumbs text-sm">
+                            <ul>
+                                <li><a href="{% url 'admin:index' %}"><i class="fa-solid fa-house mr-1"></i> Home</a></li>
+                                {% block breadcrumb_items %}{% endblock %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endblock %}
+
+                    <!-- Page title -->
+                    {% block content_title %}{% endblock %}
+
+                    <!-- Main content area -->
+                    <div id="main-content" class="flex-1 p-6">
+                        <!-- Messages -->
+                        {% if messages %}
+                        <div class="mb-4 space-y-2">
+                            {% for message in messages %}
+                            <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %} shadow-sm">
+                                <i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark{% elif message.tags == 'warning' %}fa-triangle-exclamation{% elif message.tags == 'success' %}fa-circle-check{% else %}fa-circle-info{% endif %}"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% block content %}{% endblock %}
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- Mobile Sidebar -->
+        <div class="drawer-side z-50">
+            <label for="mobile-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+            <aside class="bg-base-100 w-72 min-h-full flex flex-col border-r border-base-300">
+                <!-- Mobile sidebar header -->
+                <div class="h-16 flex items-center px-4 shrink-0 relative overflow-hidden">
+                    <div class="absolute inset-0 admin-gradient opacity-5"></div>
+                    <div class="flex items-center gap-3 w-full relative z-10">
+                        <div class="w-9 h-9 rounded-lg admin-gradient text-white grid place-content-center font-bold text-lg shrink-0">
+                            T
+                        </div>
+                        <div>
+                            <span class="font-bold text-base tracking-tight">TTEK SMS</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="h-0.5 admin-gradient-subtle opacity-30"></div>
+
+                <!-- Mobile navigation -->
+                <nav class="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
+                    {% include "admin/partials/sidebar_nav.html" %}
+                </nav>
+
+            </aside>
+        </div>
+    </div>
+
+    <!-- Logout form (hidden) -->
+    <form id="logout-form" method="post" action="{% url 'admin:logout' %}" class="hidden">
+        {% csrf_token %}
+    </form>
+
+    <script>
+        // Theme management
+        {
+            const themeCtrl = document.querySelector('.theme-controller');
+            if (themeCtrl) themeCtrl.checked = localStorage.getItem('theme') === 'dark';
+        }
+
+        // Sidebar active state management
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.desktop-sidebar a[href], .drawer-side a[href]');
+
+            let bestMatches = [];
+            let bestMatchLength = 0;
+
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (!href || href === '#') return;
+
+                const hrefBase = href.replace(/\/$/, '');
+                const currentPathBase = currentPath.replace(/\/$/, '');
+                let isMatch = false;
+
+                if (href === '/admin/' || currentPath === '/admin/') {
+                    isMatch = currentPathBase === hrefBase;
+                } else {
+                    isMatch = currentPathBase === hrefBase ||
+                              currentPath.startsWith(hrefBase + '/');
+                }
+
+                if (isMatch) {
+                    if (href.length > bestMatchLength) {
+                        bestMatches = [link];
+                        bestMatchLength = href.length;
+                    } else if (href.length === bestMatchLength) {
+                        bestMatches.push(link);
+                    }
+                }
+            });
+
+            navLinks.forEach(link => link.classList.remove('active'));
+            bestMatches.forEach(match => match.classList.add('active'));
+        });
+    </script>
+    {% block extrajs %}{% endblock %}
+</body>
+</html>

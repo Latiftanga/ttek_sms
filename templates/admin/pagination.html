@@ -1,0 +1,28 @@
+{% load i18n admin_urls %}
+<div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="text-sm text-base-content/60">
+        {% if pagination_required %}
+        <span class="font-medium text-base-content">{{ cl.result_count }}</span> {% if cl.result_count == 1 %}{% trans 'result' %}{% else %}{% trans 'results' %}{% endif %}
+        {% endif %}
+        {% if cl.show_all_url %}
+        <span class="mx-2 text-base-content/30">•</span>
+        <a href="{{ cl.show_all_url }}" class="text-primary hover:underline">{% trans 'Show all' %}</a>
+        {% endif %}
+    </div>
+
+    {% if pagination_required %}
+    <div class="flex items-center gap-1">
+        {% if page_range %}
+            {% for page_num in page_range %}
+                {% if page_num == DOT %}
+                    <span class="px-2 text-base-content/40">...</span>
+                {% elif page_num == cl.page_num %}
+                    <span class="w-10 h-10 rounded-lg bg-primary text-primary-content flex items-center justify-center font-semibold text-sm">{{ page_num }}</span>
+                {% else %}
+                    <a href="{% url opts|admin_urlname:'changelist' %}?{% if cl.params %}{{ cl.get_query_string }}&amp;{% endif %}p={{ page_num|add:"-1" }}" class="w-10 h-10 rounded-lg hover:bg-base-200 flex items-center justify-center text-sm transition-colors">{{ page_num }}</a>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

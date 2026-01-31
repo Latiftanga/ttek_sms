@@ -6,6 +6,11 @@ from django.http import JsonResponse
 from schools.views import public_home
 from core.views import service_worker, offline, manifest
 
+# Configure admin site
+admin.site.site_header = getattr(settings, 'ADMIN_SITE_HEADER', 'TTEK SMS Admin')
+admin.site.site_title = getattr(settings, 'ADMIN_SITE_TITLE', 'TTEK SMS')
+admin.site.index_title = getattr(settings, 'ADMIN_INDEX_TITLE', 'Dashboard')
+
 
 def health_check(request):
     """Health check endpoint for load balancers and monitoring."""

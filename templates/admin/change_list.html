@@ -1,0 +1,151 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls admin_list %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+<li>{{ opts.verbose_name_plural|capfirst }}</li>
+{% endblock %}
+
+{% block content_title %}
+<div class="px-6 pt-2 pb-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold">{{ title }}</h1>
+            {% if cl.result_count != cl.full_result_count %}
+            <p class="text-sm text-base-content/60 mt-1">
+                {{ cl.result_count }} {% trans 'of' %} {{ cl.full_result_count }} {% trans 'results' %}
+            </p>
+            {% elif cl.result_count %}
+            <p class="text-sm text-base-content/60 mt-1">
+                {{ cl.result_count }} {% if cl.result_count == 1 %}{{ opts.verbose_name }}{% else %}{{ opts.verbose_name_plural }}{% endif %}
+            </p>
+            {% endif %}
+        </div>
+        {% if has_add_permission %}
+        <a href="{% url opts|admin_urlname:'add' %}{% if is_popup %}?_popup=1{% endif %}" class="btn btn-primary gap-2">
+            <i class="fa-solid fa-plus"></i>
+            {% blocktrans with name=opts.verbose_name %}Add {{ name }}{% endblocktrans %}
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 1.5rem;" class="changelist-wrapper">
+    <!-- Main content -->
+    <div style="flex: 1; min-width: 0;" class="changelist-main">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <!-- Search and actions bar -->
+                <div class="p-4 border-b border-base-200 flex flex-col sm:flex-row gap-4">
+                    {% if cl.search_fields %}
+                    <form id="changelist-search" action="" method="get" class="flex-1">
+                        <div class="join w-full max-w-md">
+                            <input type="text" name="{{ search_var }}" value="{{ cl.query }}"
+                                   class="input input-bordered join-item flex-1"
+                                   placeholder="{% trans 'Search' %}..." />
+                            <button type="submit" class="btn btn-primary join-item">
+                                <i class="fa-solid fa-search"></i>
+                            </button>
+                            {% if cl.query %}
+                            <a href="{% url opts|admin_urlname:'changelist' %}" class="btn btn-ghost join-item" title="{% trans 'Clear' %}">
+                                <i class="fa-solid fa-xmark"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% for key, value in cl.params.items %}
+                            {% if key != search_var %}
+                            <input type="hidden" name="{{ key }}" value="{{ value }}" />
+                            {% endif %}
+                        {% endfor %}
+                    </form>
+                    {% endif %}
+
+                    {% if cl.date_hierarchy %}
+                    <div class="flex items-center gap-2">
+                        {% date_hierarchy cl %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Results -->
+                <form id="changelist-form" method="post" action="">
+                    {% csrf_token %}
+
+                    <!-- Action bar -->
+                    {% if action_form and actions_on_top and cl.show_admin_actions %}
+                    <div class="p-4 border-b border-base-200 bg-base-200/30">
+                        {% admin_actions %}
+                    </div>
+                    {% endif %}
+
+                    {% if cl.result_count %}
+                    <!-- Table -->
+                    <div class="overflow-x-auto">
+                        {% result_list cl %}
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if cl.result_count != cl.full_result_count or cl.can_show_all or cl.multi_page %}
+                    <div class="p-4 border-t border-base-200">
+                        {% pagination cl %}
+                    </div>
+                    {% endif %}
+
+                    {% else %}
+                    <!-- Empty state -->
+                    <div class="p-8 text-center">
+                        <div class="text-6xl text-base-content/20 mb-4">
+                            <i class="fa-solid fa-inbox"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-base-content/70 mb-2">{% trans 'No results found' %}</h3>
+                        <p class="text-sm text-base-content/50 mb-4">
+                            {% if cl.query %}
+                            {% trans 'No items matched your search.' %}
+                            {% else %}
+                            {% trans 'There are no items yet.' %}
+                            {% endif %}
+                        </p>
+                        {% if has_add_permission %}
+                        <a href="{% url opts|admin_urlname:'add' %}" class="btn btn-primary btn-sm gap-2">
+                            <i class="fa-solid fa-plus"></i>
+                            {% blocktrans with name=opts.verbose_name %}Add {{ name }}{% endblocktrans %}
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters sidebar -->
+    {% if cl.has_filters %}
+    <div style="flex-shrink: 0;" class="changelist-filters">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="p-4 border-b border-base-200 flex items-center justify-between">
+                    <h3 class="font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-filter text-base-content/50"></i>
+                        {% trans 'Filters' %}
+                    </h3>
+                    {% if cl.is_filtered %}
+                    <a href="{% url opts|admin_urlname:'changelist' %}" class="btn btn-ghost btn-xs">
+                        {% trans 'Clear all' %}
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="p-4 space-y-4 max-h-64 lg:max-h-[calc(100vh-16rem)] overflow-y-auto">
+                    {% for spec in cl.filter_specs %}
+                    {% admin_list_filter cl spec %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

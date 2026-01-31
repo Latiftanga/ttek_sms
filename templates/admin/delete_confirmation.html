@@ -1,0 +1,137 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls %}
+
+{% block title %}{% blocktrans with object_name=opts.verbose_name %}Delete {{ object_name }}{% endblocktrans %} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+<li><a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+<li><a href="{% url opts|admin_urlname:'change' object.pk|admin_urlquote %}">{{ object|truncatewords:"18" }}</a></li>
+<li>{% trans 'Delete' %}</li>
+{% endblock %}
+
+{% block content_title %}
+<div class="px-6 pt-2 pb-4">
+    <h1 class="text-2xl font-bold text-error flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        {% blocktrans with object_name=opts.verbose_name %}Delete {{ object_name }}{% endblocktrans %}
+    </h1>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl">
+    {% if perms_lacking %}
+    <!-- Permission denied -->
+    <div class="card bg-base-100 shadow-sm border border-error">
+        <div class="card-body">
+            <div class="alert alert-error">
+                <i class="fa-solid fa-lock"></i>
+                <div>
+                    <h3 class="font-bold">{% trans 'Permission denied' %}</h3>
+                    <p>{% blocktrans with escaped_object=object %}Deleting the {{ object_name }} '{{ escaped_object }}' would require deleting the following protected related objects:{% endblocktrans %}</p>
+                </div>
+            </div>
+            <ul class="list-disc list-inside mt-4 space-y-1 text-base-content/80">
+                {% for obj in perms_lacking %}
+                <li>{{ obj }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    {% elif protected %}
+    <!-- Protected objects -->
+    <div class="card bg-base-100 shadow-sm border border-warning">
+        <div class="card-body">
+            <div class="alert alert-warning">
+                <i class="fa-solid fa-shield"></i>
+                <div>
+                    <h3 class="font-bold">{% trans 'Cannot delete' %}</h3>
+                    <p>{% blocktrans with escaped_object=object %}Deleting the {{ object_name }} '{{ escaped_object }}' would require deleting the following protected related objects:{% endblocktrans %}</p>
+                </div>
+            </div>
+            <ul class="list-disc list-inside mt-4 space-y-1 text-base-content/80">
+                {% for obj in protected %}
+                <li>{{ obj }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Confirmation form -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <div class="alert alert-warning mb-6">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div>
+                    <h3 class="font-bold">{% trans 'Are you sure?' %}</h3>
+                    <p>{% blocktrans with escaped_object=object %}Are you sure you want to delete the {{ object_name }} "{{ escaped_object }}"? All of the following related items will be deleted:{% endblocktrans %}</p>
+                </div>
+            </div>
+
+            {% if deleted_objects %}
+            <div class="mb-6">
+                <h3 class="font-medium mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-link-slash text-base-content/50"></i>
+                    {% trans 'Objects to be deleted:' %}
+                </h3>
+                <div class="bg-base-200/50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                    <ul class="nested-list space-y-1 text-sm">
+                        {% for deleted_object in deleted_objects %}
+                        <li class="flex items-start gap-2">
+                            <i class="fa-solid fa-trash-can text-error text-xs mt-1"></i>
+                            <span>{{ deleted_object }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if model_count %}
+            <div class="mb-6">
+                <h3 class="font-medium mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-bar text-base-content/50"></i>
+                    {% trans 'Summary' %}
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="table table-sm table-zebra">
+                        <thead>
+                            <tr>
+                                <th>{% trans 'Object type' %}</th>
+                                <th class="text-right">{% trans 'Count' %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for model, count in model_count.items %}
+                            <tr>
+                                <td>{{ model }}</td>
+                                <td class="text-right font-mono">{{ count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="flex flex-wrap gap-3 justify-end">
+                    <a href="{% url opts|admin_urlname:'change' object.pk|admin_urlquote %}" class="btn btn-ghost">
+                        <i class="fa-solid fa-arrow-left mr-2"></i>
+                        {% trans "No, take me back" %}
+                    </a>
+                    <button type="submit" class="btn btn-error">
+                        <i class="fa-solid fa-trash-can mr-2"></i>
+                        {% trans "Yes, I'm sure" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

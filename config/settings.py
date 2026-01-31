@@ -69,7 +69,6 @@ if not DEBUG:
 # --- 2. APPS ---
 SHARED_APPS = (
     'django_tenants',
-    'django_daisy',  # Django Daisy admin theme - must be before django.contrib.admin
     'schools',
     'accounts',
     'django.contrib.admin',
@@ -477,38 +476,9 @@ USE_TZ = True
 # --- 13. DEFAULT PRIMARY KEY ---
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# --- 14. DJANGO DAISY ADMIN THEME ---
-DAISY_SETTINGS = {
-    'SITE_TITLE': 'TTEK SMS',
-    'SITE_HEADER': 'TTEK SMS Admin',
-    'INDEX_TITLE': 'Dashboard',
-    'DONT_SUPPORT_ME': True,
-    'EXTRA_STYLES': [
-        '/static/admin/css/custom_admin.css',
-    ],
-    'APPS_REORDER': {
-        'schools': {
-            'name': 'School Management',
-            'icon': 'fa fa-school',
-            'priority': 100,
-            'divider_title': 'Schools',
-        },
-        'accounts': {
-            'name': 'Users',
-            'icon': 'fa fa-users',
-            'priority': 90,
-        },
-        'django_celery_beat': {
-            'name': 'Scheduled Tasks',
-            'icon': 'fa fa-clock',
-            'priority': 10,
-            'divider_title': 'System',
-        },
-        'auth': {
-            'name': 'Authentication',
-            'icon': 'fa fa-lock',
-            'priority': 80,
-        },
-    },
-}
+# --- 14. ADMIN SETTINGS ---
+# Custom admin theme using DaisyUI (templates/admin/)
+ADMIN_SITE_TITLE = 'TTEK SMS'
+ADMIN_SITE_HEADER = 'TTEK SMS Admin'
+ADMIN_INDEX_TITLE = 'Dashboard'
 

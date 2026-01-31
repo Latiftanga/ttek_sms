@@ -1,0 +1,122 @@
+{% load i18n %}
+<ul class="menu p-3 gap-0.5 text-sm" id="desktop-nav">
+    <!-- Dashboard -->
+    <li>
+        <a href="{% url 'admin:index' %}" class="gap-3 rounded-lg">
+            <span class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <i class="fa-solid fa-gauge-high text-primary text-sm"></i>
+            </span>
+            <span class="sidebar-text font-medium">{% trans 'Dashboard' %}</span>
+        </a>
+    </li>
+
+    <li class="menu-title sidebar-text mt-5 mb-1 px-3 text-[10px] font-semibold opacity-40 uppercase tracking-widest">
+        {% trans 'Schools' %}
+    </li>
+
+    <!-- Schools -->
+    <li>
+        <a href="{% url 'admin:schools_school_changelist' %}" class="gap-3 rounded-lg">
+            <span class="w-8 h-8 rounded-lg bg-base-200 flex items-center justify-center">
+                <i class="fa-solid fa-school text-base-content/60 text-sm"></i>
+            </span>
+            <span class="sidebar-text">{% trans 'All Schools' %}</span>
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'admin:schools_school_add' %}" class="gap-3 rounded-lg">
+            <span class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                <i class="fa-solid fa-plus text-success text-sm"></i>
+            </span>
+            <span class="sidebar-text">{% trans 'Add School' %}</span>
+        </a>
+    </li>
+
+    <li class="menu-title sidebar-text mt-5 mb-1 px-3 text-[10px] font-semibold opacity-40 uppercase tracking-widest">
+        {% trans 'Geography' %}
+    </li>
+
+    <!-- Regions & Districts -->
+    <li>
+        <a href="{% url 'admin:schools_region_changelist' %}" class="gap-3 rounded-lg">
+            <span class="w-8 h-8 rounded-lg bg-base-200 flex items-center justify-center">
+                <i class="fa-solid fa-map text-base-content/60 text-sm"></i>
+            </span>
+            <span class="sidebar-text">{% trans 'Regions' %}</span>
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'admin:schools_district_changelist' %}" class="gap-3 rounded-lg">
+            <span class="w-8 h-8 rounded-lg bg-base-200 flex items-center justify-center">
+                <i class="fa-solid fa-location-dot text-base-content/60 text-sm"></i>
+            </span>
+            <span class="sidebar-text">{% trans 'Districts' %}</span>
+        </a>
+    </li>
+
+    <li class="menu-title sidebar-text mt-5 mb-1 px-3 text-[10px] font-semibold opacity-40 uppercase tracking-widest">
+        {% trans 'Users' %}
+    </li>
+
+    <!-- Users -->
+    <li>
+        <a href="{% url 'admin:accounts_user_changelist' %}" class="gap-3 rounded-lg">
+            <span class="w-8 h-8 rounded-lg bg-base-200 flex items-center justify-center">
+                <i class="fa-solid fa-users text-base-content/60 text-sm"></i>
+            </span>
+            <span class="sidebar-text">{% trans 'Users' %}</span>
+        </a>
+    </li>
+
+    <!-- Auth Groups -->
+    <li>
+        <a href="{% url 'admin:auth_group_changelist' %}" class="gap-3 rounded-lg">
+            <span class="w-8 h-8 rounded-lg bg-base-200 flex items-center justify-center">
+                <i class="fa-solid fa-user-group text-base-content/60 text-sm"></i>
+            </span>
+            <span class="sidebar-text">{% trans 'Groups' %}</span>
+        </a>
+    </li>
+
+    <li class="menu-title sidebar-text mt-5 mb-1 px-3 text-[10px] font-semibold opacity-40 uppercase tracking-widest">
+        {% trans 'System' %}
+    </li>
+
+    <!-- Scheduled Tasks -->
+    <li>
+        <a href="{% url 'admin:django_celery_beat_periodictask_changelist' %}" class="gap-3 rounded-lg">
+            <span class="w-8 h-8 rounded-lg bg-base-200 flex items-center justify-center">
+                <i class="fa-solid fa-clock text-base-content/60 text-sm"></i>
+            </span>
+            <span class="sidebar-text">{% trans 'Scheduled Tasks' %}</span>
+        </a>
+    </li>
+
+    <!-- All Apps (for anything not listed) -->
+    {% if app_list %}
+    <li class="menu-title sidebar-text mt-4 text-xs opacity-50 uppercase tracking-wider">
+        {% trans 'More' %}
+    </li>
+    {% for app in app_list %}
+        {% if app.app_label not in 'schools,accounts,auth,django_celery_beat' %}
+        <li>
+            <details class="group">
+                <summary class="gap-3">
+                    <i class="fa-solid fa-folder w-5 text-center"></i>
+                    <span class="sidebar-text">{{ app.name }}</span>
+                </summary>
+                <ul>
+                    {% for model in app.models %}
+                    <li>
+                        <a href="{{ model.admin_url }}" class="gap-3">
+                            <span class="sidebar-text">{{ model.name }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </li>
+        {% endif %}
+    {% endfor %}
+    {% endif %}
+</ul>

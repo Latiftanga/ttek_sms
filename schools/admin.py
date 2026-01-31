@@ -132,10 +132,7 @@ class DomainInline(admin.TabularInline):
 class SchoolAdmin(admin.ModelAdmin):
     form = SchoolCreationForm
     inlines = [DomainInline]
-    list_display = (
-        'name', 'schema_name', 'education_system', 'primary_domain',
-        'location_display', 'email', 'phone', 'is_active', 'created_on'
-    )
+    list_display = ('name', 'primary_domain', 'education_system', 'is_active')
     list_filter = ('education_system', 'is_active', 'location_region', 'created_on')
     search_fields = ('name', 'schema_name', 'email', 'phone')
     date_hierarchy = 'created_on'

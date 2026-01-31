@@ -1,0 +1,95 @@
+{% load i18n admin_urls %}
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6 inline-group" id="{{ inline_admin_formset.formset.prefix }}-group">
+    <div class="card-body p-0">
+        <div class="p-4 border-b border-base-200 flex items-center justify-between">
+            <h2 class="font-bold text-lg">{{ inline_admin_formset.opts.verbose_name_plural|capfirst }}</h2>
+            {% if inline_admin_formset.has_add_permission %}
+            <span class="text-sm text-base-content/60">
+                {{ inline_admin_formset.formset.total_form_count }} {% trans 'of' %} {{ inline_admin_formset.formset.max_num|default:"∞" }}
+            </span>
+            {% endif %}
+        </div>
+
+        {{ inline_admin_formset.formset.management_form }}
+
+        <div class="overflow-x-auto">
+            <table class="table w-full">
+                <thead>
+                    <tr class="bg-base-200">
+                        {% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission %}
+                        <th class="w-12 text-center">
+                            <i class="fa-solid fa-trash text-base-content/50 text-xs"></i>
+                        </th>
+                        {% endif %}
+                        {% for field in inline_admin_formset.fields %}
+                            {% if not field.widget.is_hidden %}
+                            <th class="{% if field.required %}font-bold{% endif %}">
+                                {{ field.label }}
+                                {% if field.required %}<span class="text-error">*</span>{% endif %}
+                            </th>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inline_admin_form in inline_admin_formset %}
+                    <tr class="inline-related {% if inline_admin_form.original %}has_original{% endif %} hover" id="{{ inline_admin_formset.formset.prefix }}-{{ forloop.counter0 }}">
+                        {% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission %}
+                        <td class="text-center">
+                            {% if inline_admin_form.original %}
+                            {{ inline_admin_form.deletion_field.field }}
+                            {% endif %}
+                        </td>
+                        {% endif %}
+
+                        {% if inline_admin_form.form.non_field_errors %}
+                        <td colspan="{{ inline_admin_formset.fields|length|add:1 }}">
+                            <div class="alert alert-error text-sm">
+                                {{ inline_admin_form.form.non_field_errors }}
+                            </div>
+                        </td>
+                        {% endif %}
+
+                        {% for fieldset in inline_admin_form %}
+                            {% for line in fieldset %}
+                                {% for field in line %}
+                                    {% if not field.field.is_hidden %}
+                                    <td class="{% if field.field.errors %}has-error{% endif %}">
+                                        {% if field.is_readonly %}
+                                            <span class="text-base-content/70">{{ field.contents }}</span>
+                                        {% else %}
+                                            {{ field.field }}
+                                            {% if field.field.errors %}
+                                            <div class="text-error text-xs mt-1">{{ field.field.errors|join:", " }}</div>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    {% else %}
+                                    {{ field.field }}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+
+                        {% if inline_admin_form.needs_explicit_pk_field %}
+                            {{ inline_admin_form.pk_field.field }}
+                        {% endif %}
+                        {% if inline_admin_form.fk_field %}
+                            {{ inline_admin_form.fk_field.field }}
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if inline_admin_formset.has_add_permission %}
+        <div class="p-4 border-t border-base-200 add-row">
+            <a href="#" class="btn btn-ghost btn-sm gap-2">
+                <i class="fa-solid fa-plus"></i>
+                {% blocktrans with name=inline_admin_formset.opts.verbose_name %}Add another {{ name }}{% endblocktrans %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>

@@ -1,0 +1,18 @@
+{% load i18n admin_urls %}
+{% if cl.search_fields %}
+<form id="changelist-search" method="get">
+    <div class="join w-full max-w-md">
+        <input type="text" name="{{ search_var }}" value="{{ cl.query }}"
+               class="input input-bordered join-item flex-1"
+               placeholder="{% trans 'Search' %}..." />
+        <button type="submit" class="btn btn-primary join-item">
+            <i class="fa-solid fa-search"></i>
+        </button>
+        {% if cl.query %}
+        <a href="{% url cl.opts|admin_urlname:'changelist' %}" class="btn btn-ghost join-item" title="{% trans 'Clear' %}">
+            <i class="fa-solid fa-xmark"></i>
+        </a>
+        {% endif %}
+    </div>
+</form>
+{% endif %}

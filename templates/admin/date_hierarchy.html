@@ -1,0 +1,24 @@
+{% load i18n %}
+{% if show %}
+<div class="flex flex-wrap items-center gap-2">
+    {% if back %}
+    <a href="{{ back.link }}" class="btn btn-ghost btn-xs">
+        <i class="fa-solid fa-chevron-left"></i>
+    </a>
+    {% endif %}
+
+    {% if choices %}
+    <div class="breadcrumbs text-sm p-0">
+        <ul class="gap-1">
+            {% for choice in choices %}
+            <li>
+                <a href="{{ choice.link }}" class="link link-hover {% if forloop.last %}font-medium{% endif %}">
+                    {{ choice.title }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endif %}

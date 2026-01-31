@@ -1,333 +1,770 @@
-/* Fixed sidebar and topnav for Django Daisy */
+/* ============================================
+   TTEK SMS Custom Admin Theme
+   Clean, minimal design using DaisyUI + Tailwind
+   ============================================ */
 
-/* Make the body not scroll */
+/* Base body styles */
 body {
     overflow: hidden;
     height: 100vh;
 }
 
-/* Main flex container */
-body > .flex {
-    height: 100vh;
-    overflow: hidden;
-}
-
-/* Fix the sidebar - w-56 = 14rem = 224px */
-#sidebar,
-.sidebar {
-    position: fixed !important;
-    top: 0;
-    left: 0;
-    height: 100vh !important;
-    width: 14rem;
-    overflow-y: auto;
-    overflow-x: hidden;
-    z-index: 40;
-    transition: transform 0.2s ease-in-out;
-}
-
-/* Hide horizontal scrollbar in sidebar menu */
-#sidebar ul,
-#sidebar .menu,
-.sidebar ul,
-.sidebar .menu {
-    overflow-x: hidden;
-}
-
-/* When sidebar is hidden */
-#sidebar.\!hidden,
-.sidebar.\!hidden {
-    transform: translateX(-100%);
-}
-
-/* Content wrapper takes remaining space with left margin for sidebar */
-#content,
-.content-wrapper {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-    margin-left: 14rem;
-    width: calc(100% - 14rem);
-    transition: margin-left 0.2s ease-in-out, width 0.2s ease-in-out;
-}
-
-/* When sidebar is hidden, content fills full width */
-body:has(#sidebar.\!hidden) #content,
-body:has(#sidebar.\!hidden) .content-wrapper,
-body:has(.sidebar.\!hidden) #content,
-body:has(.sidebar.\!hidden) .content-wrapper {
-    margin-left: 0;
-    width: 100%;
-}
-
-/* On mobile/tablet where sidebar is hidden by default */
-@media (max-width: 1023px) {
-    #sidebar,
-    .sidebar {
-        transform: translateX(-100%);
-    }
-
-    #sidebar.\!block,
-    .sidebar.\!block {
-        transform: translateX(0);
-    }
-
-    #content,
-    .content-wrapper {
-        margin-left: 0;
-        width: 100%;
-    }
-
-    /* When sidebar is shown on mobile */
-    body:has(#sidebar.\!block) #content,
-    body:has(.sidebar.\!block) #content {
-        margin-left: 14rem;
-        width: calc(100% - 14rem);
-    }
-}
-
-/* Fix the navbar at top of content area */
-#content > nav,
-#content > header,
-.content-wrapper > nav,
-.content-wrapper > header,
-.navbar {
-    position: sticky !important;
-    top: 0;
-    z-index: 30;
-    flex-shrink: 0;
-    background: inherit;
-}
-
-/* Make the main content area scrollable */
-.main-content {
-    flex: 1;
-    overflow-y: auto !important;
-    overflow-x: hidden;
-}
-
-/* Breadcrumb area should not shrink */
-#content > .flex.items-center,
-.content-wrapper > .flex.items-center {
-    flex-shrink: 0;
-}
-
 /* ============================================
-   TTEK SMS - Gemini Inspired Theme
-   Clean, minimal design using DaisyUI colors
+   Sidebar Styles
    ============================================ */
 
-/* Sidebar - Light gray background */
-#sidebar,
-.sidebar,
-aside.bg-base-200 {
-    background: oklch(var(--b2)) !important;
-    border-right: 1px solid oklch(var(--b3));
+.desktop-sidebar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+.desktop-sidebar:hover {
+    scrollbar-color: oklch(var(--bc) / 0.2) transparent;
 }
 
 /* Sidebar menu items */
-#sidebar .menu a,
-.sidebar .menu a {
-    color: oklch(var(--bc)) !important;
-    border-radius: 24px;
-    margin: 2px 8px;
-    font-weight: 400;
-    transition: background 0.15s ease;
+.desktop-sidebar .menu a,
+.drawer-side .menu a {
+    border-radius: 10px;
+    margin: 2px 0;
+    transition: all 0.2s ease;
+    padding: 0.5rem 0.75rem;
 }
 
-#sidebar .menu a:hover,
-.sidebar .menu a:hover {
-    background: oklch(var(--b3)) !important;
+.desktop-sidebar .menu a:hover,
+.drawer-side .menu a:hover {
+    background: oklch(var(--b2));
 }
 
-#sidebar .menu a.active,
-.sidebar .menu a.active,
-#sidebar .menu a.menu-active,
-.sidebar .menu a.menu-active,
-.menu a.menu-active {
-    background: oklch(var(--p)) !important;
-    color: oklch(var(--pc)) !important;
-    font-weight: 500;
+.desktop-sidebar .menu a.active,
+.drawer-side .menu a.active {
+    background: oklch(var(--p) / 0.1) !important;
+    color: oklch(var(--p)) !important;
+    font-weight: 600;
 }
 
-/* Light theme - ensure dark text on primary bg */
-[data-theme="light"] #sidebar .menu a.menu-active,
-[data-theme="light"] .sidebar .menu a.menu-active,
-[data-theme="light"] .menu a.menu-active {
-    color: #1f2937 !important;
+.desktop-sidebar .menu a.active span:first-child,
+.drawer-side .menu a.active span:first-child {
+    background: oklch(var(--p) / 0.2) !important;
 }
 
-/* Dark theme - ensure light text on primary bg */
-[data-theme="dark"] #sidebar .menu a.menu-active,
-[data-theme="dark"] .sidebar .menu a.menu-active,
-[data-theme="dark"] .menu a.menu-active {
-    color: #f9fafb !important;
+.desktop-sidebar .menu a.active i,
+.drawer-side .menu a.active i {
+    color: oklch(var(--p)) !important;
 }
 
-#sidebar .menu a.active i,
-.sidebar .menu a.active i,
-#sidebar .menu a.menu-active i,
-.sidebar .menu a.menu-active i,
-.menu a.menu-active i {
-    color: inherit !important;
-}
-
-#sidebar .menu i,
-.sidebar .menu i {
-    color: oklch(var(--bc) / 0.6) !important;
-}
-
-#sidebar .menu-title,
-.sidebar .menu-title {
-    color: oklch(var(--bc) / 0.5) !important;
-    font-size: 0.7rem;
+/* Menu title styling */
+.desktop-sidebar .menu-title,
+.drawer-side .menu-title {
+    color: oklch(var(--bc) / 0.4);
+    font-size: 0.65rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 500;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    padding: 0.75rem 0.75rem 0.25rem;
 }
 
-#sidebar hr,
-.sidebar hr {
-    border-color: oklch(var(--b3));
-}
+/* ============================================
+   Cards and Components
+   ============================================ */
 
-/* Navbar - Clean white/base */
-.navbar,
-#content > nav,
-header.navbar {
-    background: oklch(var(--b1)) !important;
-    border-bottom: 1px solid oklch(var(--b3));
-}
-
-.navbar .btn,
-#content > nav .btn {
-    background: oklch(var(--b2)) !important;
-    border: 1px solid oklch(var(--b3)) !important;
-    color: oklch(var(--bc)) !important;
-}
-
-.navbar .btn:hover,
-#content > nav .btn:hover {
-    background: oklch(var(--b3)) !important;
-}
-
-/* Cards - Subtle styling */
 .card {
-    border-radius: 12px;
-    border: 1px solid oklch(var(--b3));
-    box-shadow: none;
+    border-radius: 16px;
+    transition: all 0.2s ease;
 }
 
 .card:hover {
-    box-shadow: 0 1px 3px oklch(var(--bc) / 0.08);
+    box-shadow: 0 8px 24px oklch(var(--bc) / 0.1);
 }
 
-/* Tables */
+/* Stat cards gradient backgrounds */
+.card[class*="from-"] {
+    border: none;
+}
+
+/* ============================================
+   Tables
+   ============================================ */
+
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
 .table thead th {
     background: oklch(var(--b2));
-    font-weight: 500;
+    font-weight: 600;
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.025em;
+    border-bottom: 1px solid oklch(var(--b3));
+    padding: 0.75rem 1rem;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.table tbody tr {
+    transition: background 0.1s ease;
+    border-bottom: 1px solid oklch(var(--b2));
+}
+
+.table tbody tr:last-child {
+    border-bottom: none;
 }
 
 .table tbody tr:hover {
     background: oklch(var(--b2) / 0.5);
 }
 
-/* Forms */
+.table td, .table th {
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+}
+
+/* Django admin changelist table */
+#changelist-form .table td {
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+    border: none;
+    background: transparent;
+}
+
+#changelist-form .table td a {
+    color: oklch(var(--p));
+    font-weight: 500;
+}
+
+#changelist-form .table td a:hover {
+    text-decoration: underline;
+}
+
+/* First column link (object name) - make it stand out */
+#changelist-form .table td:first-child a,
+#changelist-form .table td.field-__str__ a {
+    font-weight: 600;
+}
+
+/* Action checkbox column */
+#changelist-form .table td.action-checkbox,
+#changelist-form .table th.action-checkbox-column {
+    width: 2.5rem;
+    text-align: center;
+    padding: 0.5rem;
+}
+
+#changelist-form .table input[type="checkbox"] {
+    width: 1.125rem;
+    height: 1.125rem;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 2px solid oklch(var(--bc) / 0.3);
+    accent-color: oklch(var(--p));
+}
+
+#changelist-form .table input[type="checkbox"]:checked {
+    background-color: oklch(var(--p));
+    border-color: oklch(var(--p));
+}
+
+/* Boolean icons */
+#changelist-form .table td img {
+    width: 1rem;
+    height: 1rem;
+    vertical-align: middle;
+}
+
+/* Empty/null field styling */
+#changelist-form .table td em,
+#changelist-form .table td .empty {
+    color: oklch(var(--bc) / 0.4);
+    font-style: italic;
+}
+
+/* Date/time fields */
+#changelist-form .table td.field-created_on,
+#changelist-form .table td.field-updated_at,
+#changelist-form .table td.field-date_joined {
+    white-space: nowrap;
+    font-size: 0.875rem;
+    color: oklch(var(--bc) / 0.7);
+}
+
+/* Status/boolean columns */
+#changelist-form .table td.field-is_active img[alt="True"],
+#changelist-form .table td.field-is_active img[alt="Yes"] {
+    filter: hue-rotate(90deg) saturate(2);
+}
+
+/* Action checkboxes in tables */
+.table input[type="checkbox"].action-select {
+    width: 1.125rem;
+    height: 1.125rem;
+}
+
+/* ============================================
+   Forms
+   ============================================ */
+
+/* Form inputs */
 .input,
 .select,
 .textarea {
     border-radius: 8px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input:focus,
 .select:focus,
 .textarea:focus {
     border-color: oklch(var(--p)) !important;
-    box-shadow: 0 0 0 2px oklch(var(--p) / 0.1) !important;
+    box-shadow: 0 0 0 3px oklch(var(--p) / 0.1) !important;
     outline: none !important;
 }
 
-/* Buttons - Use DaisyUI defaults, just refine */
-.btn {
+/* Error state */
+.input.input-error,
+.select.input-error,
+.textarea.input-error {
+    border-color: oklch(var(--er));
+}
+
+.input.input-error:focus,
+.select.input-error:focus,
+.textarea.input-error:focus {
+    box-shadow: 0 0 0 3px oklch(var(--er) / 0.1) !important;
+}
+
+/* File inputs */
+.file-input {
     border-radius: 8px;
+}
+
+/* Checkboxes and radios */
+.checkbox,
+.radio {
+    cursor: pointer;
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+
+.btn {
+    border-radius: 10px;
     font-weight: 500;
+    transition: all 0.2s ease;
 }
 
 .btn-primary {
-    box-shadow: none;
+    box-shadow: 0 4px 12px oklch(var(--p) / 0.3);
 }
 
-/* Links */
-a.link-primary,
-.link-primary {
-    color: oklch(var(--p)) !important;
+.btn-primary:hover {
+    box-shadow: 0 6px 16px oklch(var(--p) / 0.4);
+    transform: translateY(-1px);
 }
 
-/* Breadcrumbs */
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-ghost:hover {
+    background: oklch(var(--bc) / 0.08);
+}
+
+/* ============================================
+   Django Admin Form Overrides
+   ============================================ */
+
+/* Override Django admin form field styling */
+#content form input[type="text"],
+#content form input[type="email"],
+#content form input[type="url"],
+#content form input[type="number"],
+#content form input[type="password"],
+#content form input[type="tel"],
+#content form input[type="date"],
+#content form input[type="datetime-local"],
+#content form input[type="time"] {
+    @apply input input-bordered w-full;
+}
+
+#content form select {
+    @apply select select-bordered w-full;
+}
+
+#content form textarea {
+    @apply textarea textarea-bordered w-full;
+    min-height: 100px;
+}
+
+#content form input[type="checkbox"] {
+    @apply checkbox checkbox-primary;
+}
+
+#content form input[type="file"] {
+    @apply file-input file-input-bordered w-full;
+}
+
+/* Color picker inputs */
+#content form input[type="color"] {
+    @apply w-16 h-10 rounded-lg cursor-pointer border border-base-300;
+    padding: 2px;
+}
+
+/* Readonly fields */
+.readonly {
+    @apply px-3 py-2 bg-base-200 rounded-lg text-base-content/80;
+}
+
+/* Help text */
+.help,
+.helptext {
+    @apply text-sm text-base-content/60 mt-1;
+}
+
+/* Error list */
+.errorlist {
+    @apply text-sm text-error mt-1 list-none p-0;
+}
+
+.errorlist li {
+    @apply mb-1;
+}
+
+/* ============================================
+   Inline Formsets
+   ============================================ */
+
+.inline-group {
+    @apply card bg-base-100 shadow-sm border border-base-200 mb-6;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.inline-group h2 {
+    background: oklch(var(--b2) / 0.5);
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+    margin: 0;
+    border-bottom: 1px solid oklch(var(--b3));
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.inline-group h2::before {
+    content: "\f0c9"; /* fa-bars */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 0.75rem;
+    color: oklch(var(--bc) / 0.4);
+}
+
+.inline-related {
+    padding: 1.25rem;
+    border-bottom: 1px solid oklch(var(--b2));
+    transition: background 0.15s ease;
+}
+
+.inline-related:last-of-type {
+    border-bottom: none;
+}
+
+.inline-related:hover {
+    background: oklch(var(--b2) / 0.3);
+}
+
+.inline-related.has_original {
+    background: oklch(var(--b2) / 0.2);
+}
+
+/* Add another row link */
+.add-row {
+    padding: 0.75rem 1.25rem;
+    background: oklch(var(--su) / 0.05);
+    border-top: 1px solid oklch(var(--b2));
+}
+
+.add-row a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    background: oklch(var(--su) / 0.1);
+    color: oklch(var(--su));
+    font-weight: 500;
+    font-size: 0.875rem;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.add-row a:hover {
+    background: oklch(var(--su) / 0.2);
+}
+
+.add-row a::before {
+    content: "\f067"; /* fa-plus */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 0.75rem;
+}
+
+/* Delete checkbox in inline */
+.inline-deletelink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    background: oklch(var(--er) / 0.1);
+    color: oklch(var(--er));
+    transition: all 0.15s ease;
+}
+
+.inline-deletelink:hover {
+    background: oklch(var(--er) / 0.2);
+}
+
+/* Delete checkbox label */
+.delete input[type="checkbox"] {
+    accent-color: oklch(var(--er));
+}
+
+.delete label {
+    color: oklch(var(--er));
+    font-size: 0.875rem;
+}
+
+/* Tabular inline styling */
+.tabular .module {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.tabular thead th {
+    background: oklch(var(--b2));
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    padding: 0.75rem 1rem;
+}
+
+.tabular tbody tr {
+    border-bottom: 1px solid oklch(var(--b2));
+}
+
+.tabular tbody tr:hover {
+    background: oklch(var(--b2) / 0.5);
+}
+
+.tabular tbody td {
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+}
+
+/* Original row indicator */
+.tabular .original {
+    display: none;
+}
+
+/* ============================================
+   Dropdowns
+   ============================================ */
+
+.dropdown-content {
+    border-radius: 12px;
+    border: 1px solid oklch(var(--b3));
+    box-shadow: 0 8px 24px oklch(var(--bc) / 0.12);
+}
+
+/* ============================================
+   Alerts and Messages
+   ============================================ */
+
+.alert {
+    border-radius: 12px;
+}
+
+.messagelist {
+    @apply space-y-2 mb-4;
+}
+
+.messagelist li {
+    @apply alert shadow-sm;
+}
+
+.messagelist .success {
+    @apply alert-success;
+}
+
+.messagelist .warning {
+    @apply alert-warning;
+}
+
+.messagelist .error {
+    @apply alert-error;
+}
+
+.messagelist .info {
+    @apply alert-info;
+}
+
+/* ============================================
+   Breadcrumbs
+   ============================================ */
+
 .breadcrumbs {
     font-size: 0.875rem;
 }
 
 .breadcrumbs a {
     color: oklch(var(--bc) / 0.6);
+    transition: color 0.15s ease;
 }
 
 .breadcrumbs a:hover {
     color: oklch(var(--p));
 }
 
-/* Scrollbar - Minimal */
-#sidebar::-webkit-scrollbar {
-    width: 4px;
+/* ============================================
+   Pagination
+   ============================================ */
+
+.paginator,
+.pagination {
+    @apply flex items-center justify-center gap-1;
 }
 
-#sidebar::-webkit-scrollbar-track {
-    background: transparent;
+.paginator a,
+.pagination a {
+    @apply btn btn-sm;
 }
 
-#sidebar::-webkit-scrollbar-thumb {
-    background: oklch(var(--bc) / 0.15);
-    border-radius: 2px;
-}
-
-#sidebar::-webkit-scrollbar-thumb:hover {
-    background: oklch(var(--bc) / 0.25);
-}
-
-/* Dropdown */
-.dropdown-content {
-    border-radius: 12px;
-    border: 1px solid oklch(var(--b3));
-    box-shadow: 0 4px 16px oklch(var(--bc) / 0.1);
-}
-
-/* Alerts - Subtle */
-.alert {
-    border-radius: 12px;
-}
-
-/* Toast notifications - above everything */
-.toast,
-.alert-toast,
-[data-toast] {
-    z-index: 9999 !important;
-}
-
-/* Mobile */
-@media (max-width: 1023px) {
-    #sidebar,
-    .sidebar {
-        box-shadow: 4px 0 16px oklch(var(--bc) / 0.1);
-    }
+.paginator .this-page,
+.pagination .active {
+    @apply btn btn-sm btn-primary;
 }
 
 /* ============================================
-   Loading States
+   Filter Panel
    ============================================ */
+
+#changelist-filter {
+    @apply space-y-4;
+}
+
+#changelist-filter h2 {
+    @apply font-bold text-base mb-2 flex items-center gap-2;
+}
+
+#changelist-filter h3 {
+    @apply font-medium text-sm text-base-content/80 mb-1;
+}
+
+#changelist-filter ul {
+    @apply menu menu-xs bg-base-200/50 rounded-box p-1;
+}
+
+#changelist-filter li a {
+    @apply py-1.5 text-sm rounded-lg;
+}
+
+#changelist-filter li a.selected {
+    @apply bg-primary text-primary-content font-medium;
+}
+
+/* ============================================
+   Calendar and Date Widgets
+   ============================================ */
+
+.calendarbox {
+    @apply bg-base-100 border border-base-200 rounded-xl shadow-lg overflow-hidden;
+}
+
+.calendar {
+    @apply w-full;
+}
+
+.calendar caption {
+    @apply bg-base-200 px-4 py-2 font-bold text-center;
+}
+
+.calendar th {
+    @apply text-center text-xs font-medium text-base-content/60 p-2;
+}
+
+.calendar td {
+    @apply text-center p-1;
+}
+
+.calendar td a {
+    @apply block w-8 h-8 leading-8 rounded-full hover:bg-base-200 transition-colors;
+}
+
+.calendar td.today a {
+    @apply bg-primary text-primary-content;
+}
+
+/* Time picker */
+.timelist {
+    @apply bg-base-100 border border-base-200 rounded-xl shadow-lg p-2;
+}
+
+.timelist li a {
+    @apply block px-3 py-1.5 rounded hover:bg-base-200 transition-colors;
+}
+
+/* ============================================
+   Related Lookups (FK/M2M popups)
+   ============================================ */
+
+/* Related widget wrapper - contains select + action icons */
+.related-widget-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.related-widget-wrapper select {
+    flex: 1;
+}
+
+/* Action icons container */
+.related-widget-wrapper-link,
+.related-lookup {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    background: oklch(var(--b2));
+    color: oklch(var(--bc) / 0.6);
+    transition: all 0.15s ease;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+.related-widget-wrapper-link:hover,
+.related-lookup:hover {
+    background: oklch(var(--b3));
+    color: oklch(var(--bc));
+}
+
+/* Individual action buttons */
+.add-related,
+.change-related,
+.delete-related {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.375rem;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+
+.add-related {
+    background: oklch(var(--su) / 0.1);
+    color: oklch(var(--su));
+}
+
+.add-related:hover {
+    background: oklch(var(--su) / 0.2);
+}
+
+.change-related {
+    background: oklch(var(--in) / 0.1);
+    color: oklch(var(--in));
+}
+
+.change-related:hover {
+    background: oklch(var(--in) / 0.2);
+}
+
+.delete-related {
+    background: oklch(var(--er) / 0.1);
+    color: oklch(var(--er));
+}
+
+.delete-related:hover {
+    background: oklch(var(--er) / 0.2);
+}
+
+/* Hide the default Django img icons and use font-awesome */
+.related-widget-wrapper-link img,
+.add-related img,
+.change-related img,
+.delete-related img {
+    display: none;
+}
+
+/* Add font-awesome icons via CSS */
+.add-related::before {
+    content: "\f067"; /* fa-plus */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 0.75rem;
+}
+
+.change-related::before {
+    content: "\f304"; /* fa-pencil */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 0.7rem;
+}
+
+.delete-related::before {
+    content: "\f00d"; /* fa-xmark */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 0.75rem;
+}
+
+/* ============================================
+   Scrollbar Styles
+   ============================================ */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: oklch(var(--bc) / 0.15);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: oklch(var(--bc) / 0.25);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(var(--bc) / 0.15) transparent;
+}
+
+/* ============================================
+   Loading States & HTMX
+   ============================================ */
+
+/* Form submission loading */
+form.htmx-request {
+    opacity: 0.6;
+    pointer-events: none;
+}
 
 /* Button loading state */
 button.htmx-request,
@@ -357,13 +794,134 @@ input[type="submit"].htmx-request::after {
     to { transform: rotate(360deg); }
 }
 
-/* Form submission loading */
-form.htmx-request {
-    opacity: 0.7;
-    pointer-events: none;
+/* ============================================
+   Print Styles
+   ============================================ */
+
+@media print {
+    .desktop-sidebar,
+    .drawer-side,
+    .drawer-toggle,
+    header,
+    .btn,
+    form,
+    #loading-indicator {
+        display: none !important;
+    }
+
+    body {
+        overflow: visible;
+        height: auto;
+    }
+
+    .drawer,
+    .drawer-content,
+    main {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        overflow: visible !important;
+    }
+
+    .card {
+        break-inside: avoid;
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+    }
 }
 
-/* Page loading indicator */
-.htmx-request .main-content {
-    opacity: 0.5;
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+
+@media (max-width: 1023px) {
+    .desktop-sidebar {
+        display: none !important;
+    }
+}
+
+/* Changelist layout */
+.changelist-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1.5rem !important;
+}
+
+.changelist-main {
+    flex: 1 !important;
+    min-width: 0 !important;
+    order: 2;
+}
+
+.changelist-filters {
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    order: 1;
+}
+
+@media (min-width: 1024px) {
+    .changelist-wrapper {
+        flex-direction: row !important;
+    }
+
+    .changelist-main {
+        order: 1;
+    }
+
+    .changelist-filters {
+        width: 280px !important;
+        order: 2;
+    }
+}
+
+/* ============================================
+   Transition Animations
+   ============================================ */
+
+.fade-in {
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Card hover animation */
+.card-hover:hover {
+    transform: translateY(-2px);
+}
+
+/* ============================================
+   Nested List Styles (for delete confirmation)
+   ============================================ */
+
+.nested-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.nested-list .nested-list {
+    padding-left: 1.5rem;
+    margin-top: 0.25rem;
+}
+
+.nested-list li {
+    position: relative;
+}
+
+/* ============================================
+   Toast Notifications
+   ============================================ */
+
+.toast,
+.alert-toast,
+[data-toast] {
+    z-index: 9999 !important;
 }

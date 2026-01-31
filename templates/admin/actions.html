@@ -1,0 +1,87 @@
+{% load i18n %}
+{% if action_form %}
+<div class="flex flex-wrap items-center gap-4">
+    <label class="flex items-center gap-2 cursor-pointer select-none group">
+        <input type="checkbox" id="action-toggle" class="checkbox checkbox-sm checkbox-primary"
+               onclick="(function(cb) { document.querySelectorAll('input.action-select').forEach(function(el) { el.checked = cb.checked; }); updateActionCounter(); })(this);">
+        <span class="text-sm text-base-content/70 group-hover:text-base-content transition-colors">{% trans "Select all" %}</span>
+    </label>
+
+    <div class="h-6 w-px bg-base-300"></div>
+
+    <div class="flex items-center gap-2">
+        <div class="relative">
+            {{ action_form.action }}
+        </div>
+        <button type="submit" name="index" value="0" class="btn btn-sm btn-primary gap-2 shadow-sm">
+            <i class="fa-solid fa-bolt text-xs"></i>
+            {% trans "Apply" %}
+        </button>
+    </div>
+
+    <div class="flex items-center gap-2 text-sm" id="action-counter">
+        <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 rounded-full bg-primary/10 text-primary font-semibold selected-count">0</span>
+        <span class="text-base-content/60">{% trans 'selected' %}</span>
+    </div>
+</div>
+
+<script>
+function updateActionCounter() {
+    var count = document.querySelectorAll('input.action-select:checked').length;
+    var counter = document.querySelector('#action-counter .selected-count');
+    var toggle = document.getElementById('action-toggle');
+    var total = document.querySelectorAll('input.action-select').length;
+
+    if (counter) {
+        counter.textContent = count;
+        counter.classList.toggle('bg-primary', count > 0);
+        counter.classList.toggle('text-primary-content', count > 0);
+        counter.classList.toggle('bg-primary/10', count === 0);
+        counter.classList.toggle('text-primary', count === 0);
+    }
+
+    if (toggle && total > 0) {
+        toggle.checked = count === total;
+        toggle.indeterminate = count > 0 && count < total;
+    }
+}
+
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('action-select') || e.target.id === 'action-toggle') {
+        updateActionCounter();
+    }
+});
+
+// Initial count
+updateActionCounter();
+</script>
+
+<style>
+/* Style the action select dropdown */
+#changelist-form select[name="action"] {
+    min-width: 200px;
+    padding: 0.5rem 2.5rem 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+    border: 1px solid oklch(var(--bc) / 0.15);
+    background-color: oklch(var(--b1));
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    appearance: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+#changelist-form select[name="action"]:hover {
+    border-color: oklch(var(--bc) / 0.3);
+}
+
+#changelist-form select[name="action"]:focus {
+    outline: none;
+    border-color: oklch(var(--p));
+    box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+}
+</style>
+{% endif %}
