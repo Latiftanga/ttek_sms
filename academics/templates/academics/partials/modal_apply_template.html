@@ -1,67 +1,110 @@
 {% load core_tags %}
 <h3 class="text-lg font-bold mb-2">Apply Subject Template</h3>
-<p class="text-sm text-base-content/60 mb-4">
-    Quickly add multiple subjects to <strong>{{ class.name }}</strong> from a template.
-</p>
+    <p class="text-sm text-base-content/60 mb-4">
+        Quickly add multiple subjects to <strong>{{ class.name }}</strong> from a template.
+    </p>
 
-{% if template_created %}
-<div class="alert alert-success mb-4 py-2 text-sm">
-    <i class="fa-solid fa-check-circle"></i>
-    <span>Template "{{ template_created }}" created successfully!</span>
-</div>
-{% endif %}
-
-{% if has_templates %}
-<form method="post"
-      action="{% url 'academics:apply_template' class.pk %}"
-      hx-post="{% url 'academics:apply_template' class.pk %}"
-      hx-swap="none">
-    {% csrf_token %}
-
-    <div class="form-control">
-        <label class="label">
-            <span class="label-text font-medium">Select Template</span>
-        </label>
-        <select name="template" class="select select-bordered w-full" required>
-            <option value="">-- Choose a template --</option>
-            {% for template in form.template.field.queryset %}
-            <option value="{{ template.pk }}">
-                {{ template.name }} ({{ template.subjects.count }} subjects)
-            </option>
-            {% endfor %}
-        </select>
-        <label class="label">
-            <span class="label-text-alt text-base-content/60">
-                Subjects already assigned to this class will be skipped.
-            </span>
-        </label>
+    {% if template_created %}
+    <div class="alert alert-success mb-4 py-2 text-sm">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>Template "{{ template_created }}" created successfully!</span>
     </div>
+    {% elif template_updated %}
+    <div class="alert alert-success mb-4 py-2 text-sm">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>Template "{{ template_updated }}" updated successfully!</span>
+    </div>
+    {% endif %}
 
-    <div class="alert alert-info mt-4 py-2 text-sm">
-        <i class="fa-solid fa-info-circle"></i>
-        <span>Teachers can be assigned after subjects are added.</span>
+    {% if has_templates %}
+    <form method="post"
+          action="{% url 'academics:apply_template' class.pk %}"
+          hx-post="{% url 'academics:apply_template' class.pk %}"
+          hx-swap="none">
+        {% csrf_token %}
+
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text font-medium">Select Template</span>
+                <button type="button" class="btn btn-xs btn-ghost text-primary"
+                        hx-get="{% url 'academics:template_create' %}?from_class={{ class.pk }}"
+                        hx-target="#modal-container"
+                        hx-swap="innerHTML">
+                    <i class="fa-solid fa-plus"></i> New
+                </button>
+            </label>
+            <div class="flex gap-2">
+                <select name="template" id="template-select" class="select select-bordered flex-1" required>
+                    <option value="">-- Choose a template --</option>
+                    {% for template in form.template.field.queryset %}
+                    <option value="{{ template.pk }}">
+                        {{ template.name }} ({{ template.subjects.count }} subjects)
+                    </option>
+                    {% endfor %}
+                </select>
+                <button type="button" id="edit-template-btn" class="btn btn-sm btn-ghost btn-square" title="Edit selected template" disabled
+                        hx-target="#modal-container"
+                        hx-swap="innerHTML">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                </button>
+            </div>
+            <label class="label">
+                <span class="label-text-alt text-base-content/60">
+                    Subjects already assigned to this class will be skipped.
+                </span>
+            </label>
+        </div>
+
+        <div class="alert alert-info mt-4 py-2 text-sm">
+            <i class="fa-solid fa-info-circle"></i>
+            <span>Teachers can be assigned after subjects are added.</span>
+        </div>
+
+        <div class="modal-action">
+            <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-layer-group"></i>
+                Apply Template
+            </button>
+        </div>
+    </form>
+
+    <script>
+    (function() {
+        const select = document.getElementById('template-select');
+        const editBtn = document.getElementById('edit-template-btn');
+        const classId = '{{ class.pk }}';
+
+        select.addEventListener('change', function() {
+            const templateId = this.value;
+            if (templateId) {
+                editBtn.disabled = false;
+                editBtn.setAttribute('hx-get', `/academics/templates/${templateId}/edit/?from_class=${classId}`);
+                htmx.process(editBtn);
+            } else {
+                editBtn.disabled = true;
+            }
+        });
+    })();
+    </script>
+    {% else %}
+    <div class="text-center py-8">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+            <i class="fa-solid fa-layer-group text-base-content/30 text-2xl"></i>
+        </div>
+        <h3 class="font-semibold text-base-content/70">No Templates Available</h3>
+        <p class="text-sm text-base-content/50 mb-4">
+            Create a subject template to quickly assign multiple subjects.
+        </p>
+        <button type="button" class="btn btn-sm btn-primary"
+                hx-get="{% url 'academics:template_create' %}?from_class={{ class.pk }}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            <i class="fa-solid fa-plus"></i> Create Template
+        </button>
     </div>
 
     <div class="modal-action">
-        <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
-        <button type="submit" class="btn btn-sm btn-primary">
-            <i class="fa-solid fa-layer-group"></i>
-            Apply Template
-        </button>
+        <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Close</button>
     </div>
-</form>
-{% else %}
-<div class="text-center py-8">
-    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
-        <i class="fa-solid fa-layer-group text-base-content/30 text-2xl"></i>
-    </div>
-    <h3 class="font-semibold text-base-content/70">No Templates Available</h3>
-    <p class="text-sm text-base-content/50 mb-4">
-        Create a subject template first from the Academics settings, or add subjects manually.
-    </p>
-</div>
-
-<div class="modal-action">
-    <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Close</button>
-</div>
-{% endif %}
+    {% endif %}

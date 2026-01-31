@@ -28,7 +28,7 @@
                             hx-get="{% url 'academics:subject_edit' subject.pk %}"
                             hx-target="#modal-subject-edit-content"
                             hx-swap="innerHTML"
-                            onclick="document.getElementById('modal_subject_edit').showModal()"
+                            hx-on::after-request="document.getElementById('modal_subject_edit').showModal()"
                             title="Edit {{ subject.name }}">
                         <i class="fa-solid fa-pen text-xs"></i>
                     </button>

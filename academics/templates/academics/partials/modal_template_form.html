@@ -1,11 +1,22 @@
 {% load core_tags %}
-<h3 class="text-lg font-bold mb-3">{% if is_create %}Create{% else %}Edit{% endif %} Subject Template</h3>
+<div class="flex items-center gap-2 mb-3">
+    {% if from_class %}
+    <button type="button" class="btn btn-ghost btn-sm btn-square"
+            hx-get="{% url 'academics:apply_template' from_class %}"
+            hx-target="#modal-container"
+            hx-swap="innerHTML">
+        <i class="fa-solid fa-arrow-left"></i>
+    </button>
+    {% endif %}
+    <h3 class="text-lg font-bold">{% if is_create %}Create{% else %}Edit{% endif %} Subject Template</h3>
+</div>
 <form method="post"
-      action="{% if template %}{% url 'academics:template_edit' template.pk %}{% else %}{% url 'academics:template_create' %}{% if from_class %}?from_class={{ from_class }}{% endif %}{% endif %}"
-      hx-post="{% if template %}{% url 'academics:template_edit' template.pk %}{% else %}{% url 'academics:template_create' %}{% if from_class %}?from_class={{ from_class }}{% endif %}{% endif %}"
+      action="{% if template %}{% url 'academics:template_edit' template.pk %}{% if from_class %}?from_class={{ from_class }}{% endif %}{% else %}{% url 'academics:template_create' %}{% if from_class %}?from_class={{ from_class }}{% endif %}{% endif %}"
+      hx-post="{% if template %}{% url 'academics:template_edit' template.pk %}{% if from_class %}?from_class={{ from_class }}{% endif %}{% else %}{% url 'academics:template_create' %}{% if from_class %}?from_class={{ from_class }}{% endif %}{% endif %}"
       hx-target="{{ modal_target|default:'#modal-content' }}"
       hx-swap="innerHTML">
     {% csrf_token %}
+    {% if from_class %}<input type="hidden" name="from_class" value="{{ from_class }}">{% endif %}
 
     <!-- Name & Active -->
     <div class="flex gap-3 items-center mb-3">
@@ -20,7 +31,7 @@
 
     <!-- Subjects - 2-column grid (no inner scroll) -->
     <div class="text-xs font-medium text-base-content/70 mb-1">Select Subjects:</div>
-    <div class="border border-base-300 rounded-lg p-2">
+    <div class="border border-base-300 rounded-lg p-2 max-h-48 overflow-y-auto">
         <div class="grid grid-cols-2 gap-x-3 gap-y-0.5">
             {% for subject in form.subjects.field.queryset %}
             <label class="cursor-pointer flex items-center gap-1.5 py-1 px-1 rounded hover:bg-base-200 text-sm">
@@ -44,7 +55,14 @@
     {% endif %}
 
     <div class="modal-action">
+        {% if from_class %}
+        <button type="button" class="btn btn-sm"
+                hx-get="{% url 'academics:apply_template' from_class %}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">Cancel</button>
+        {% else %}
         <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
+        {% endif %}
         <button type="submit" class="btn btn-sm btn-primary">
             {% if is_create %}Create{% else %}Save{% endif %}
         </button>
