@@ -47,10 +47,12 @@
                 <p class="text-xs text-base-content/60">{{ cs.teacher.full_name }}</p>
                 {% endif %}
             </div>
+            {% if tenant.has_programmes %}
             {% if cs.subject.is_core %}
             <span class="badge badge-primary badge-xs">Core</span>
             {% else %}
             <span class="badge badge-secondary badge-xs">Elective</span>
+            {% endif %}
             {% endif %}
         </label>
         {% endfor %}

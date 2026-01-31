@@ -25,7 +25,7 @@
                            class="font-semibold text-sm hover:text-primary transition-colors truncate block">
                             {{ cls.name }}
                         </a>
-                        {% if cls.programme %}
+                        {% if tenant.has_programmes and cls.programme %}
                         <p class="text-xs text-base-content/50">{{ cls.programme.name }}</p>
                         {% endif %}
                     </div>
