@@ -38,5 +38,3 @@ django-encrypted-model-fields>=0.6.5
 django-axes>=7.0.0
 sentry-sdk[django,celery]>=2.0.0
 
-# Admin Theme
-django-daisy

@@ -1,0 +1,95 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls %}
+
+{% block title %}{% blocktrans with object_name=opts.verbose_name %}History: {{ object_name }}{% endblocktrans %} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+<li><a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+<li><a href="{% url opts|admin_urlname:'change' object.pk|admin_urlquote %}">{{ object|truncatewords:"18" }}</a></li>
+<li>{% trans 'History' %}</li>
+{% endblock %}
+
+{% block content_title %}
+<div class="px-6 pt-2 pb-4">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <i class="fa-solid fa-clock-rotate-left text-primary"></i>
+                {% trans 'Change history' %}
+            </h1>
+            <p class="text-sm text-base-content/60 mt-1">{{ object|truncatewords:"18" }}</p>
+        </div>
+        <a href="{% url opts|admin_urlname:'change' object.pk|admin_urlquote %}" class="btn btn-ghost gap-2">
+            <i class="fa-solid fa-arrow-left"></i>
+            {% trans 'Back to edit' %}
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            {% if action_list %}
+            <ul class="timeline timeline-vertical">
+                {% for action in action_list %}
+                <li>
+                    {% if not forloop.first %}<hr class="bg-base-300">{% endif %}
+                    <div class="timeline-start text-xs text-base-content/60">
+                        {{ action.action_time|date:"M j, Y" }}<br>
+                        {{ action.action_time|time:"H:i" }}
+                    </div>
+                    <div class="timeline-middle">
+                        {% if action.is_addition %}
+                        <div class="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center">
+                            <i class="fa-solid fa-plus text-sm"></i>
+                        </div>
+                        {% elif action.is_change %}
+                        <div class="w-8 h-8 rounded-full bg-warning/20 text-warning flex items-center justify-center">
+                            <i class="fa-solid fa-pen text-sm"></i>
+                        </div>
+                        {% elif action.is_deletion %}
+                        <div class="w-8 h-8 rounded-full bg-error/20 text-error flex items-center justify-center">
+                            <i class="fa-solid fa-trash text-sm"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="timeline-end timeline-box bg-base-100 border border-base-200">
+                        <div class="font-medium">
+                            {% if action.is_addition %}
+                            {% trans 'Added' %}
+                            {% elif action.is_change %}
+                            {% trans 'Changed' %}
+                            {% elif action.is_deletion %}
+                            {% trans 'Deleted' %}
+                            {% endif %}
+                        </div>
+                        {% if action.change_message %}
+                        <p class="text-sm text-base-content/70 mt-1">{{ action.change_message }}</p>
+                        {% endif %}
+                        <div class="text-xs text-base-content/50 mt-2">
+                            <i class="fa-regular fa-user mr-1"></i>
+                            {{ action.user.get_full_name|default:action.user.get_username }}
+                        </div>
+                    </div>
+                    {% if not forloop.last %}<hr class="bg-base-300">{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="p-8 text-center">
+                <div class="text-6xl text-base-content/20 mb-4">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <h3 class="text-lg font-medium text-base-content/70 mb-2">{% trans 'No history available' %}</h3>
+                <p class="text-sm text-base-content/50">
+                    {% trans 'This object does not have a change history yet.' %}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

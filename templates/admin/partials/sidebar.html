@@ -1,0 +1,24 @@
+{% load i18n %}
+<aside class="desktop-sidebar bg-base-100 hidden lg:flex flex-col shrink-0 z-20 border-r border-base-300 shadow-sm">
+    <!-- Logo with admin branding -->
+    <div class="h-16 flex items-center px-4 shrink-0 relative overflow-hidden">
+        <!-- Subtle gradient background -->
+        <div class="absolute inset-0 admin-gradient opacity-5"></div>
+        <div class="sidebar-brand flex items-center gap-3 w-full relative z-10">
+            <div class="w-9 h-9 rounded-lg admin-gradient text-white grid place-content-center font-bold text-lg shrink-0">
+                T
+            </div>
+            <div class="sidebar-text">
+                <span class="font-bold text-base tracking-tight">TTEK SMS</span>
+            </div>
+        </div>
+    </div>
+    <!-- Gradient divider -->
+    <div class="h-0.5 admin-gradient-subtle opacity-30"></div>
+
+    <!-- Navigation menu - scrollable -->
+    <nav class="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
+        {% include "admin/partials/sidebar_nav.html" %}
+    </nav>
+
+</aside>

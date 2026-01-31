@@ -1,0 +1,15 @@
+{% load i18n %}
+<div class="mb-4">
+    <h4 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-2">{{ title }}</h4>
+    <div class="space-y-1">
+        {% for choice in choices %}
+        <a href="{{ choice.query_string }}"
+           class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all {% if choice.selected %}bg-primary text-primary-content font-medium shadow-sm{% else %}hover:bg-base-200 text-base-content/80{% endif %}">
+            {% if choice.selected %}
+            <i class="fa-solid fa-check text-xs"></i>
+            {% endif %}
+            <span class="{% if not choice.selected %}ml-5{% endif %}">{{ choice.display }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>

@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumb_items %}
+<li>{{ app_label|capfirst }}</li>
+{% endblock %}
+
+{% block content_title %}
+<div class="px-6 pt-2 pb-4">
+    <h1 class="text-2xl font-bold">{{ title }}</h1>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for model in app_list.0.models %}
+    <div class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/30 transition-colors">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                        <i class="fa-solid fa-cube"></i>
+                    </div>
+                    <div>
+                        {% if model.admin_url %}
+                        <a href="{{ model.admin_url }}" class="font-bold hover:text-primary transition-colors">{{ model.name }}</a>
+                        {% else %}
+                        <span class="font-bold text-base-content/50">{{ model.name }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if model.add_url %}
+                <a href="{{ model.add_url }}" class="btn btn-ghost btn-sm btn-circle text-success" title="{% blocktrans with name=model.name %}Add {{ name }}{% endblocktrans %}">
+                    <i class="fa-solid fa-plus"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full">
+        <div class="alert alert-info">
+            <i class="fa-solid fa-info-circle"></i>
+            <span>{% trans "You don't have permission to edit anything in this app." %}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

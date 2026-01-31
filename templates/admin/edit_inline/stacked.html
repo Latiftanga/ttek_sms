@@ -1,0 +1,97 @@
+{% load i18n admin_urls %}
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-6 inline-group" id="{{ inline_admin_formset.formset.prefix }}-group">
+    <div class="card-body p-0">
+        <div class="p-4 border-b border-base-200 flex items-center justify-between">
+            <h2 class="font-bold text-lg">{{ inline_admin_formset.opts.verbose_name_plural|capfirst }}</h2>
+            {% if inline_admin_formset.has_add_permission %}
+            <span class="text-sm text-base-content/60">
+                {{ inline_admin_formset.formset.total_form_count }} {% trans 'of' %} {{ inline_admin_formset.formset.max_num|default:"∞" }}
+            </span>
+            {% endif %}
+        </div>
+
+        {{ inline_admin_formset.formset.management_form }}
+
+        {% for inline_admin_form in inline_admin_formset %}
+        <div class="inline-related {% if inline_admin_form.original %}has_original{% endif %} p-4 border-b border-base-200 last:border-0" id="{{ inline_admin_formset.formset.prefix }}-{{ forloop.counter0 }}">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-medium">
+                    {% if inline_admin_form.original %}
+                    {{ inline_admin_form.original }}
+                    {% else %}
+                    <span class="text-base-content/50">#{{ forloop.counter }}</span>
+                    {% endif %}
+                </h3>
+                {% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission and inline_admin_form.original %}
+                <label class="flex items-center gap-2 text-error cursor-pointer">
+                    {{ inline_admin_form.deletion_field.field }}
+                    <span class="text-sm">{% trans 'Delete' %}</span>
+                </label>
+                {% endif %}
+            </div>
+
+            {% if inline_admin_form.form.non_field_errors %}
+            <div class="alert alert-error text-sm mb-4">
+                {{ inline_admin_form.form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            {% for fieldset in inline_admin_form %}
+            <div class="space-y-4">
+                {% for line in fieldset %}
+                {% with num_fields=line.fields|length %}
+                <div class="{% if num_fields > 1 %}grid grid-cols-1 md:grid-cols-{{ num_fields }} gap-4{% endif %}">
+                    {% for field in line %}
+                    {% if not field.field.is_hidden %}
+                    <div class="form-control w-full {% if field.field.errors %}has-error{% endif %}">
+                        <label class="label">
+                            <span class="label-text font-medium">
+                                {{ field.field.label }}
+                                {% if field.field.field.required %}<span class="text-error">*</span>{% endif %}
+                            </span>
+                        </label>
+                        {% if field.is_readonly %}
+                        <div class="px-3 py-2 bg-base-200 rounded-lg text-base-content/80">{{ field.contents }}</div>
+                        {% else %}
+                        {{ field.field }}
+                        {% endif %}
+                        {% if field.field.help_text %}
+                        <label class="label">
+                            <span class="label-text-alt text-base-content/60">{{ field.field.help_text|safe }}</span>
+                        </label>
+                        {% endif %}
+                        {% if field.field.errors %}
+                        <label class="label">
+                            <span class="label-text-alt text-error">{{ field.field.errors|join:", " }}</span>
+                        </label>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    {{ field.field }}
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endwith %}
+                {% endfor %}
+            </div>
+            {% endfor %}
+
+            {% if inline_admin_form.needs_explicit_pk_field %}
+                {{ inline_admin_form.pk_field.field }}
+            {% endif %}
+            {% if inline_admin_form.fk_field %}
+                {{ inline_admin_form.fk_field.field }}
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        {% if inline_admin_formset.has_add_permission %}
+        <div class="p-4 border-t border-base-200 add-row">
+            <a href="#" class="btn btn-ghost btn-sm gap-2">
+                <i class="fa-solid fa-plus"></i>
+                {% blocktrans with name=inline_admin_formset.opts.verbose_name %}Add another {{ name }}{% endblocktrans %}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
