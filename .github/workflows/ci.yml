@@ -82,7 +82,7 @@ jobs:
           SECRET_KEY: "test-secret-key-for-ci"
           DATABASE_URL: "postgres://postgres:postgres@localhost:5432/test_db"
           REDIS_URL: "redis://localhost:6379/0"
-          FIELD_ENCRYPTION_KEY: "dGVzdC1zZWNyZXQta2V5LWZvci1jaS1lbnZpcm9ubQ=="
+          FIELD_ENCRYPTION_KEY: "S-lCiLx0ym9wfNDS2JegDCDqzjocWksm_GLceVEMMWQ="
         run: |
           python manage.py migrate_schemas --shared
           python manage.py test --verbosity=2
