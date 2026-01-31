@@ -35,6 +35,75 @@
         </div>
     </div>
 
+    {% if setup.periods == 0 or stats.total_classes == 0 %}
+    <!-- Getting Started Guide - Shows for new schools -->
+    <div class="card bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 border border-primary/20">
+        <div class="card-body p-4 sm:p-6">
+            <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+                <div class="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-rocket text-primary text-xl"></i>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-lg font-bold mb-1">Welcome! Let's set up your school</h2>
+                    <p class="text-sm text-base-content/70 mb-4">
+                        Follow these steps to get your academic system ready. Each step builds on the previous one.
+                    </p>
+
+                    <!-- Step-by-step guide -->
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <!-- Step 1: Periods -->
+                        <a href="{% url 'academics:periods' %}"
+                           hx-get="{% url 'academics:periods' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="flex-1 p-3 rounded-lg border-2 transition-all {% if setup.periods > 0 %}border-success/50 bg-success/5{% else %}border-primary border-dashed bg-base-100 hover:border-solid hover:bg-primary/5{% endif %}">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center {% if setup.periods > 0 %}bg-success text-success-content{% else %}bg-primary text-primary-content{% endif %}">
+                                    {% if setup.periods > 0 %}<i class="fa-solid fa-check text-xs"></i>{% else %}1{% endif %}
+                                </span>
+                                <span class="font-semibold text-sm">Define Periods</span>
+                            </div>
+                            <p class="text-xs text-base-content/60 ml-8">
+                                {% if setup.periods > 0 %}Done! {{ setup.periods }} periods{% else %}Set up your daily schedule (e.g., Period 1, Break, Period 2){% endif %}
+                            </p>
+                        </a>
+
+                        <!-- Step 2: Classes -->
+                        <a href="{% url 'academics:classes' %}"
+                           hx-get="{% url 'academics:classes' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="flex-1 p-3 rounded-lg border-2 transition-all {% if stats.total_classes > 0 %}border-success/50 bg-success/5{% elif setup.periods > 0 %}border-secondary border-dashed bg-base-100 hover:border-solid hover:bg-secondary/5{% else %}border-base-300 bg-base-200/50 opacity-60 pointer-events-none{% endif %}">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center {% if stats.total_classes > 0 %}bg-success text-success-content{% elif setup.periods > 0 %}bg-secondary text-secondary-content{% else %}bg-base-300 text-base-content/50{% endif %}">
+                                    {% if stats.total_classes > 0 %}<i class="fa-solid fa-check text-xs"></i>{% else %}2{% endif %}
+                                </span>
+                                <span class="font-semibold text-sm">Create Classes</span>
+                            </div>
+                            <p class="text-xs text-base-content/60 ml-8">
+                                {% if stats.total_classes > 0 %}Done! {{ stats.total_classes }} classes{% elif setup.periods == 0 %}Complete step 1 first{% else %}Add your school's classes (e.g., Class 1A, JHS 2B){% endif %}
+                            </p>
+                        </a>
+
+                        <!-- Step 3: Subjects & Timetable -->
+                        <div class="flex-1 p-3 rounded-lg border-2 transition-all {% if setup.timetable_entries > 0 %}border-success/50 bg-success/5{% elif stats.total_classes > 0 %}border-accent border-dashed bg-base-100{% else %}border-base-300 bg-base-200/50 opacity-60{% endif %}">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center {% if setup.timetable_entries > 0 %}bg-success text-success-content{% elif stats.total_classes > 0 %}bg-accent text-accent-content{% else %}bg-base-300 text-base-content/50{% endif %}">
+                                    {% if setup.timetable_entries > 0 %}<i class="fa-solid fa-check text-xs"></i>{% else %}3{% endif %}
+                                </span>
+                                <span class="font-semibold text-sm">Subjects & Timetable</span>
+                            </div>
+                            <p class="text-xs text-base-content/60 ml-8">
+                                {% if setup.timetable_entries > 0 %}Done! {{ setup.timetable_entries }} lessons{% elif stats.total_classes == 0 %}Complete step 2 first{% else %}Assign subjects and create timetables{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Stats Cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="card bg-base-100 shadow-sm border border-base-200">
