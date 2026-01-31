@@ -3,9 +3,13 @@
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="{{ school.primary_color|default:'#570df8' }}">
     <meta name="description" content="{{ school.motto|default:'School Management System' }}">
-    <title>Login - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}</title>
+    <title>Sign In - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}</title>
 
     {% if school.favicon.name %}
     <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
@@ -19,118 +23,633 @@
             --school-primary: {{ school.primary_color|default:'#570df8' }};
             --school-secondary: {{ school.secondary_color|default:'#7c3aed' }};
         }
-        body { margin: 0; padding: 0; }
-        .school-gradient {
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Main container - split layout on desktop */
+        .login-wrapper {
+            display: flex;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+
+        /* Left panel - branding (hidden on mobile) */
+        .brand-panel {
+            display: none;
+            flex: 1;
             background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        @media (min-width: 1024px) {
+            .brand-panel {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                padding: 3rem;
+            }
+        }
+
+        .brand-panel::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+            animation: pulse 15s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.3; }
+        }
+
+        .brand-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            color: white;
+            max-width: 400px;
+        }
+
+        .brand-logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 24px;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .brand-logo img {
+            width: 70%;
+            height: 70%;
+            object-fit: contain;
+        }
+
+        .brand-name {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .brand-motto {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-style: italic;
+        }
+
+        .brand-features {
+            margin-top: 3rem;
+            text-align: left;
+        }
+
+        .brand-feature {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            opacity: 0.9;
+        }
+
+        .brand-feature i {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Right panel - form */
+        .form-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            background: oklch(var(--b1));
+            position: relative;
+            overflow-y: auto;
+        }
+
+        @media (min-width: 1024px) {
+            .form-panel {
+                max-width: 560px;
+                padding: 3rem;
+            }
+        }
+
+        /* Mobile header with gradient */
+        .mobile-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        @media (min-width: 1024px) {
+            .mobile-header {
+                display: none;
+            }
+        }
+
+        .mobile-logo {
+            width: 72px;
+            height: 72px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+        .mobile-logo img {
+            width: 60%;
+            height: 60%;
+            object-fit: contain;
+        }
+
+        /* Form container */
+        .form-container {
+            width: 100%;
+            max-width: 380px;
+        }
+
+        .form-header {
+            margin-bottom: 2rem;
+        }
+
+        @media (min-width: 1024px) {
+            .form-header {
+                text-align: left;
+            }
+        }
+
+        .form-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: oklch(var(--bc));
+            margin-bottom: 0.5rem;
+        }
+
+        .form-subtitle {
+            color: oklch(var(--bc) / 0.6);
+            font-size: 0.95rem;
+        }
+
+        /* Floating label styling */
+        .floating-label {
+            display: block;
+            width: 100%;
+        }
+
+        .floating-label .input {
+            height: 3rem;
+            border-radius: 12px;
+            border: 1.5px solid oklch(var(--bc) / 0.15);
+            background: oklch(var(--b1));
+            transition: all 0.2s;
+        }
+
+        .floating-label .input:hover {
+            border-color: oklch(var(--bc) / 0.3);
+        }
+
+        .floating-label .input:focus-within {
+            border-color: var(--school-primary);
+            box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+        }
+
+        .floating-label .input input {
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            font-size: 1rem;
+        }
+
+        .floating-label .input i {
+            color: oklch(var(--bc) / 0.4);
+            transition: color 0.2s;
+        }
+
+        .floating-label .input:focus-within i {
+            color: var(--school-primary);
+        }
+
+        /* Password field with toggle */
+        .password-field {
+            position: relative;
+        }
+
+        .password-field .floating-label .input input {
+            padding-right: 2.5rem !important;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            color: oklch(var(--bc) / 0.4);
+            transition: color 0.2s;
+            z-index: 10;
+        }
+
+        .password-toggle:hover {
+            color: oklch(var(--bc) / 0.7);
+        }
+
+        /* Options row */
+        .form-options {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .remember-me input {
+            width: 1.125rem;
+            height: 1.125rem;
+            accent-color: var(--school-primary);
+            cursor: pointer;
+        }
+
+        .forgot-link {
+            color: var(--school-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Submit button */
+        .submit-btn {
+            width: 100%;
+            height: 3rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px oklch(var(--p) / 0.3);
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px oklch(var(--p) / 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn.loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .submit-btn.loading::after {
+            content: '';
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid transparent;
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error alert */
+        .error-alert {
+            background: oklch(var(--er) / 0.1);
+            border: 1px solid oklch(var(--er) / 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+
+        .error-alert i {
+            color: oklch(var(--er));
+            margin-top: 0.125rem;
+        }
+
+        .error-alert p {
+            color: oklch(var(--er));
+            font-size: 0.875rem;
+            margin: 0;
+        }
+
+        /* Footer */
+        .form-footer {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid oklch(var(--bc) / 0.1);
+            text-align: center;
+        }
+
+        .security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.75rem;
+            color: oklch(var(--bc) / 0.5);
+            margin-bottom: 1rem;
+        }
+
+        .security-badge i {
+            color: oklch(var(--su));
+        }
+
+        .powered-by {
+            font-size: 0.7rem;
+            color: oklch(var(--bc) / 0.4);
+        }
+
+        /* Theme toggle */
+        .theme-toggle {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            background: oklch(var(--bc) / 0.05);
+            border: 1px solid oklch(var(--bc) / 0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: oklch(var(--bc) / 0.6);
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: oklch(var(--bc) / 0.1);
+            color: oklch(var(--bc));
+        }
+
+        /* Dark mode */
+        [data-theme="dark"] .form-panel {
+            background: oklch(var(--b1));
+        }
+
+        [data-theme="dark"] .floating-label .input {
+            background: oklch(var(--b2));
+            border-color: oklch(var(--bc) / 0.15);
+        }
+
+        [data-theme="dark"] .brand-panel {
+            background: linear-gradient(135deg,
+                color-mix(in srgb, var(--school-primary) 70%, black) 0%,
+                color-mix(in srgb, var(--school-secondary) 70%, black) 100%);
+        }
+
+        /* Safe area */
+        @supports (padding: env(safe-area-inset-top)) {
+            .form-panel {
+                padding-top: calc(2rem + env(safe-area-inset-top));
+                padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+            }
         }
     </style>
 </head>
 <body>
-    <div class="min-h-screen school-gradient flex items-center justify-center p-3 sm:p-4 relative overflow-hidden">
-        <!-- Decorative Elements -->
-        <div class="hidden sm:block absolute -top-20 -right-20 w-64 h-64 rounded-full bg-white/5 pointer-events-none"></div>
-        <div class="hidden sm:block absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-white/5 pointer-events-none"></div>
-
-        <div class="w-full max-w-sm bg-base-100 rounded-2xl shadow-2xl p-4 sm:p-6 relative z-10">
-            <!-- Header -->
-            <div class="text-center mb-4">
-                <!-- School Logo/Icon -->
-                {% if school.logo.name %}
-                <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2 p-1.5 bg-white shadow-md border border-base-200">
-                    <img src="{{ school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
-                </div>
-                {% else %}
-                <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2" style="background-color: var(--school-primary);">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 640 512">
-                        <path d="M337.8 5.4C327-1.8 313-1.8 302.2 5.4L166.3 96 48 96C21.5 96 0 117.5 0 144L0 464c0 26.5 21.5 48 48 48l208 0 0-96c0-35.3 28.7-64 64-64s64 28.7 64 64l0 96 208 0c26.5 0 48-21.5 48-48l0-320c0-26.5-21.5-48-48-48L473.7 96 337.8 5.4zM96 192l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM96 320l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM232 176a88 88 0 1 1 176 0 88 88 0 1 1 -176 0zm88-48c-8.8 0-16 7.2-16 16l0 32 0 16-32 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0 16 0 0-16 0-64c0-8.8-7.2-16-16-16z"/>
-                    </svg>
-                </div>
-                {% endif %}
-
-                <!-- School Name -->
-                <h1 class="text-sm sm:text-base font-bold tracking-wide mb-0.5 line-clamp-2 px-2" style="color: var(--school-primary);">
-                    {% if school and school.display_name %}
-                        {{ school.display_name|upper|truncatechars:40 }}
-                    {% elif tenant and tenant.name %}
-                        {{ tenant.name|upper|truncatechars:40 }}
+    <div class="login-wrapper">
+        <!-- Left Panel - Branding (Desktop only) -->
+        <div class="brand-panel">
+            <div class="brand-content">
+                <div class="brand-logo">
+                    {% if school.logo.name %}
+                    <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:'School' }}">
                     {% else %}
-                        SCHOOL PORTAL
+                    <i class="fa-solid fa-graduation-cap text-4xl text-white"></i>
+                    {% endif %}
+                </div>
+                <h1 class="brand-name">
+                    {% if school and school.display_name %}
+                        {{ school.display_name }}
+                    {% elif tenant and tenant.name %}
+                        {{ tenant.name }}
+                    {% else %}
+                        School Portal
                     {% endif %}
                 </h1>
-
                 {% if school and school.motto %}
-                <p class="text-[10px] text-base-content/50 italic mb-2">"{{ school.motto }}"</p>
+                <p class="brand-motto">"{{ school.motto }}"</p>
                 {% endif %}
 
-                <h2 class="text-lg sm:text-xl font-bold text-base-content">Welcome Back</h2>
-                <p class="text-base-content/60 text-xs">Sign in to your account to continue</p>
-            </div>
-
-            <!-- Error Messages -->
-            {% if form.non_field_errors %}
-            <div class="alert alert-error alert-sm py-2 mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span class="text-xs">
-                    {% for error in form.non_field_errors %}
-                        {{ error }}
-                    {% endfor %}
-                </span>
-            </div>
-            {% endif %}
-
-            <!-- Login Form -->
-            <form method="post" class="space-y-3">
-                {% csrf_token %}
-
-                {% if next %}
-                <input type="hidden" name="next" value="{{ next }}">
-                {% endif %}
-
-                {% email_input "username" value=form.username.value label="Email Address" placeholder="Enter your email" required=True icon="fa-solid fa-envelope" input_class="w-full" %}
-
-                {% password_input "password" label="Password" placeholder="Enter your password" required=True icon="fa-solid fa-lock" input_class="w-full" %}
-
-                <!-- Remember Me & Forgot Password -->
-                <div class="flex items-center justify-between pt-1">
-                    <div class="form-control">
-                        {% checkbox_input "remember" label="Remember me" color="primary" %}
+                <div class="brand-features">
+                    <div class="brand-feature">
+                        <i class="fa-solid fa-shield-check"></i>
+                        <span>Secure & encrypted platform</span>
                     </div>
-                    <span class="text-xs text-base-content/60">
-                        <span class="link link-primary">Forgot password?</span>
-                    </span>
+                    <div class="brand-feature">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>Fast & reliable access</span>
+                    </div>
+                    <div class="brand-feature">
+                        <i class="fa-solid fa-clock"></i>
+                        <span>24/7 availability</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Form -->
+        <div class="form-panel">
+            <!-- Theme Toggle -->
+            <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+                <i class="fa-solid fa-moon" id="theme-icon"></i>
+            </button>
+
+            <!-- Mobile Header -->
+            <div class="mobile-header">
+                <div class="mobile-logo">
+                    {% if school.logo.name %}
+                    <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:'School' }}">
+                    {% else %}
+                    <i class="fa-solid fa-graduation-cap text-3xl text-white"></i>
+                    {% endif %}
+                </div>
+                <h1 style="font-size: 1.125rem; font-weight: 700; color: var(--school-primary); text-align: center;">
+                    {% if school and school.display_name %}
+                        {{ school.display_name }}
+                    {% elif tenant and tenant.name %}
+                        {{ tenant.name }}
+                    {% else %}
+                        School Portal
+                    {% endif %}
+                </h1>
+                {% if school and school.motto %}
+                <p style="font-size: 0.75rem; color: oklch(var(--bc) / 0.5); font-style: italic; margin-top: 0.25rem;">
+                    "{{ school.motto }}"
+                </p>
+                {% endif %}
+            </div>
+
+            <!-- Form Container -->
+            <div class="form-container">
+                <div class="form-header">
+                    <h2 class="form-title">Welcome back</h2>
+                    <p class="form-subtitle">Enter your credentials to access your account</p>
                 </div>
 
-                <!-- Submit Button -->
-                <button type="submit" class="btn btn-primary btn-sm w-full mt-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                    Sign In
-                </button>
-            </form>
+                <!-- Error Alert -->
+                {% if form.non_field_errors %}
+                <div class="error-alert" role="alert">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <div>
+                        {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
 
-            <!-- Footer -->
-            <div class="mt-4 pt-3 border-t border-base-200 text-center">
-                <p class="text-[10px] text-base-content/40">
-                    {% if tenant and tenant.phone or tenant and tenant.email %}
-                    <span class="block mb-0.5">
-                        {% if tenant.phone %}{{ tenant.phone }}{% endif %}
-                        {% if tenant.phone and tenant.email %} | {% endif %}
-                        {% if tenant.email %}{{ tenant.email }}{% endif %}
-                    </span>
+                <!-- Login Form -->
+                <form method="post" id="login-form">
+                    {% csrf_token %}
+                    {% if next %}
+                    <input type="hidden" name="next" value="{{ next }}">
                     {% endif %}
-                    Powered by <span class="font-semibold">TTEK SMS</span>
-                </p>
+
+                    <!-- Email with Floating Label -->
+                    <div style="margin-bottom: 2rem;">
+                        {% email_input "username" value=form.username.value label="Email Address" placeholder="Enter your email" required=True icon="fa-solid fa-envelope" input_class="w-full" %}
+                    </div>
+
+                    <!-- Password with Floating Label -->
+                    <div class="password-field" style="margin-bottom: 1.5rem;">
+                        {% password_input "password" label="Password" placeholder="Enter your password" required=True icon="fa-solid fa-lock" input_class="w-full" %}
+                        <button type="button" class="password-toggle" id="password-toggle" aria-label="Show password">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+
+                    <!-- Options -->
+                    <div class="form-options">
+                        <label class="remember-me">
+                            <input type="checkbox" name="remember" id="id_remember">
+                            <span>Remember me</span>
+                        </label>
+                        <a href="#" class="forgot-link">Forgot password?</a>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="submit-btn" id="submit-btn">
+                        <span>Sign In</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </form>
+
+                <!-- Footer -->
+                <div class="form-footer">
+                    <div class="security-badge">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>256-bit SSL Encrypted</span>
+                    </div>
+                    {% if tenant and tenant.phone or tenant and tenant.email %}
+                    <p style="font-size: 0.75rem; color: oklch(var(--bc) / 0.5); margin-bottom: 0.75rem;">
+                        Need help?
+                        {% if tenant.phone %}<a href="tel:{{ tenant.phone }}" style="color: var(--school-primary);">{{ tenant.phone }}</a>{% endif %}
+                        {% if tenant.phone and tenant.email %} · {% endif %}
+                        {% if tenant.email %}<a href="mailto:{{ tenant.email }}" style="color: var(--school-primary);">{{ tenant.email }}</a>{% endif %}
+                    </p>
+                    {% endif %}
+                    <p class="powered-by">Powered by <strong>TTEK SMS</strong></p>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Check for saved theme preference or default to 'light'
-        const currentTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', currentTheme);
+        // Theme
+        (function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            updateIcon(theme);
+
+            document.getElementById('theme-toggle').addEventListener('click', function() {
+                const current = document.documentElement.getAttribute('data-theme');
+                const next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('theme', next);
+                updateIcon(next);
+            });
+
+            function updateIcon(t) {
+                document.getElementById('theme-icon').className = t === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+            }
+        })();
+
+        // Password toggle
+        (function() {
+            const toggle = document.getElementById('password-toggle');
+            const input = document.getElementById('id_password');
+            toggle.addEventListener('click', function() {
+                const type = input.type === 'password' ? 'text' : 'password';
+                input.type = type;
+                toggle.querySelector('i').className = type === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+            });
+        })();
+
+        // Form loading
+        document.getElementById('login-form').addEventListener('submit', function() {
+            const btn = document.getElementById('submit-btn');
+            btn.classList.add('loading');
+            btn.innerHTML = '<span>Signing in...</span>';
+        });
     </script>
 </body>
 </html>
