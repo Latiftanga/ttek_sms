@@ -21,7 +21,7 @@
                             hx-get="{% url 'academics:template_edit' template.pk %}"
                             hx-target="#modal-content"
                             hx-swap="innerHTML"
-                            onclick="document.getElementById('global-modal').showModal()">
+                            hx-on::after-request="document.getElementById('global-modal').showModal()">
                         <i class="fa-solid fa-pen text-xs"></i>
                     </button>
                     <form hx-post="{% url 'academics:template_delete' template.pk %}"

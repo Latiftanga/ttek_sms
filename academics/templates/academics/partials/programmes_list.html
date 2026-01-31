@@ -35,7 +35,7 @@
                                     hx-get="{% url 'academics:programme_edit' prog.pk %}"
                                     hx-target="#modal-programme-edit-content"
                                     hx-swap="innerHTML"
-                                    onclick="document.getElementById('modal_programme_edit').showModal()"
+                                    hx-on::after-request="document.getElementById('modal_programme_edit').showModal()"
                                     title="Edit {{ prog.name }}">
                                 <i class="fa-solid fa-pen-to-square text-xs"></i>
                             </button>

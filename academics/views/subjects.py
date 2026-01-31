@@ -128,7 +128,7 @@ def template_create(request):
     """Create a new subject template."""
     # Detect if called from class detail context (apply template modal)
     from_class = request.GET.get('from_class')
-    modal_target = '#modal-edit-content' if from_class else '#modal-content'
+    modal_target = '#modal-container' if from_class else '#modal-content'
 
     if request.method == 'GET':
         form = SubjectTemplateForm()
@@ -187,6 +187,8 @@ def template_create(request):
 def template_edit(request, pk):
     """Edit an existing subject template."""
     template = get_object_or_404(SubjectTemplate, pk=pk)
+    from_class = request.GET.get('from_class') or request.POST.get('from_class')
+    modal_target = '#modal-container' if from_class else '#modal-content'
 
     if request.method == 'GET':
         form = SubjectTemplateForm(instance=template)
@@ -196,6 +198,8 @@ def template_edit(request, pk):
             'template': template,
             'is_create': False,
             'selected_subject_ids': selected_subject_ids,
+            'modal_target': modal_target,
+            'from_class': from_class,
         })
 
     if request.method != 'POST':
@@ -205,6 +209,17 @@ def template_edit(request, pk):
     if form.is_valid():
         form.save()
         if request.htmx:
+            # If edited from class detail, return to apply template modal
+            if from_class:
+                class_obj = get_object_or_404(Class, pk=from_class)
+                apply_form = ApplyTemplateForm(class_obj=class_obj)
+                return render(request, 'academics/partials/modal_apply_template.html', {
+                    'form': apply_form,
+                    'class': class_obj,
+                    'has_templates': True,
+                    'template_updated': template.name,
+                })
+            # Otherwise update templates list on index page
             response = render(request, 'academics/partials/templates_list.html', get_templates_list_context())
             response['HX-Trigger'] = 'closeModal'
             response['HX-Reswap'] = 'outerHTML'
@@ -219,6 +234,8 @@ def template_edit(request, pk):
         'template': template,
         'is_create': False,
         'selected_subject_ids': selected_subject_ids,
+        'modal_target': modal_target,
+        'from_class': from_class,
     }
     if request.htmx:
         response = render(request, 'academics/partials/modal_template_form.html', context)

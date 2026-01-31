@@ -153,7 +153,7 @@
                             hx-get="{% url 'academics:subject_create' %}"
                             hx-target="#modal-subject-content"
                             hx-swap="innerHTML"
-                            onclick="document.getElementById('modal_subject').showModal()">
+                            hx-on::after-request="document.getElementById('modal_subject').showModal()">
                         <i class="fa-solid fa-plus text-xs"></i>
                         Add
                     </button>
@@ -176,7 +176,7 @@
                             hx-get="{% url 'academics:template_create' %}"
                             hx-target="#modal-content"
                             hx-swap="innerHTML"
-                            onclick="document.getElementById('global-modal').showModal()">
+                            hx-on::after-request="document.getElementById('global-modal').showModal()">
                         <i class="fa-solid fa-plus text-xs"></i>
                         Add
                     </button>
@@ -198,7 +198,7 @@
                             hx-get="{% url 'academics:programme_create' %}"
                             hx-target="#modal-programme-content"
                             hx-swap="innerHTML"
-                            onclick="document.getElementById('modal_programme').showModal()">
+                            hx-on::after-request="document.getElementById('modal_programme').showModal()">
                         <i class="fa-solid fa-plus text-xs"></i>
                         Add
                     </button>
@@ -384,3 +384,30 @@
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
+
+<script>
+// Reset modal content when closed to show loading spinner for next open
+const modalResets = {
+    'global-modal': 'modal-content',
+    'modal_subject': 'modal-subject-content',
+    'modal_subject_edit': 'modal-subject-edit-content',
+    'modal_programme': 'modal-programme-content',
+    'modal_programme_edit': 'modal-programme-edit-content'
+};
+
+const spinnerHTML = `
+    <div class="flex justify-center py-8">
+        <span class="loading loading-spinner loading-lg"></span>
+    </div>
+`;
+
+Object.entries(modalResets).forEach(([modalId, contentId]) => {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.addEventListener('close', function() {
+            const content = document.getElementById(contentId);
+            if (content) content.innerHTML = spinnerHTML;
+        });
+    }
+});
+</script>
