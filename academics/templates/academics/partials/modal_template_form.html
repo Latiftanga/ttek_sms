@@ -39,7 +39,7 @@
                        class="checkbox checkbox-xs checkbox-primary"
                        {% if subject.pk|stringformat:"s" in selected_subject_ids %}checked{% endif %} />
                 <span class="truncate flex-1">{{ subject.name }}</span>
-                {% if subject.is_core %}<span class="badge badge-xs badge-primary">C</span>{% endif %}
+                {% if tenant.has_programmes and subject.is_core %}<span class="badge badge-xs badge-primary">C</span>{% endif %}
             </label>
             {% empty %}
             <p class="text-sm text-base-content/50 col-span-2 py-2">No subjects available.</p>

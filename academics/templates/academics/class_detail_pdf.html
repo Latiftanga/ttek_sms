@@ -179,12 +179,21 @@
             <div class="meta-cell"><span class="label">Total Students:</span></div>
             <div class="meta-cell">{{ students.count }} / {{ class.capacity }}</div>
         </div>
+        {% if school_settings.has_programmes %}
         <div class="meta-row">
             <div class="meta-cell"><span class="label">Programme:</span></div>
             <div class="meta-cell">{{ class.programme.name|default:"General" }}</div>
             <div class="meta-cell"><span class="label">Subjects:</span></div>
             <div class="meta-cell">{{ subjects.count }}</div>
         </div>
+        {% else %}
+        <div class="meta-row">
+            <div class="meta-cell"><span class="label">Subjects:</span></div>
+            <div class="meta-cell">{{ subjects.count }}</div>
+            <div class="meta-cell"></div>
+            <div class="meta-cell"></div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Student List -->
@@ -233,7 +242,7 @@
                 <tr>
                     <th>Subject</th>
                     <th>Teacher</th>
-                    <th style="width: 80px;">Type</th>
+                    {% if school_settings.has_programmes %}<th style="width: 80px;">Type</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -241,9 +250,11 @@
                 <tr>
                     <td>{{ alloc.subject.name }}</td>
                     <td>{{ alloc.teacher.full_name|default:"-" }}</td>
+                    {% if school_settings.has_programmes %}
                     <td>
                         {% if alloc.subject.is_core %}Core{% else %}Elective{% endif %}
                     </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
