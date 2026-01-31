@@ -9,7 +9,11 @@
 </script>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="format-detection" content="telephone=no">
     <title>{% block title %}{% if title %}{{ title }} | {% endif %}{{ site_title|default:_('Django site admin') }}{% endblock %}</title>
 
     {% tailwind_css %}
@@ -324,7 +328,52 @@
 
             navLinks.forEach(link => link.classList.remove('active'));
             bestMatches.forEach(match => match.classList.add('active'));
+
+            // Mobile filter toggle
+            const filterToggle = document.querySelector('.filter-toggle-mobile');
+            const filterPanel = document.querySelector('.changelist-filters');
+            if (filterToggle && filterPanel) {
+                filterToggle.addEventListener('click', function() {
+                    filterPanel.classList.toggle('expanded');
+                    this.setAttribute('aria-expanded', filterPanel.classList.contains('expanded'));
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('fa-filter');
+                        icon.classList.toggle('fa-xmark');
+                    }
+                });
+            }
+
+            // Close mobile drawer on link click
+            const mobileDrawer = document.getElementById('mobile-drawer');
+            const mobileLinks = document.querySelectorAll('.drawer-side a[href]');
+            mobileLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    if (mobileDrawer) mobileDrawer.checked = false;
+                });
+            });
+
+            // Touch swipe to close drawer
+            let touchStartX = 0;
+            const drawerSide = document.querySelector('.drawer-side');
+            if (drawerSide) {
+                drawerSide.addEventListener('touchstart', e => {
+                    touchStartX = e.touches[0].clientX;
+                }, { passive: true });
+
+                drawerSide.addEventListener('touchend', e => {
+                    const touchEndX = e.changedTouches[0].clientX;
+                    if (touchStartX - touchEndX > 50) {
+                        // Swipe left - close drawer
+                        if (mobileDrawer) mobileDrawer.checked = false;
+                    }
+                }, { passive: true });
+            }
         });
+
+        // Passive scroll listeners for better performance
+        document.addEventListener('scroll', function() {}, { passive: true });
+        document.addEventListener('touchmove', function() {}, { passive: true });
     </script>
     {% block extrajs %}{% endblock %}
 </body>
