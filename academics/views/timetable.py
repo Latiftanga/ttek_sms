@@ -2,7 +2,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
-from django.db.models import Sum, Case, When, IntegerField
 from django.contrib import messages
 
 from ..models import Class, ClassSubject, TimetableEntry, Period

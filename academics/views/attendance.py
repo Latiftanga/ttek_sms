@@ -1,18 +1,15 @@
 """Attendance management views including taking attendance, reports, and exports."""
 import logging
-from collections import defaultdict
 from datetime import timedelta, datetime
 
-from django.shortcuts import render, redirect, get_object_or_404
-
-logger = logging.getLogger(__name__)
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, JsonResponse
-from django.utils import timezone
 from django.db import models
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
-from django.contrib import messages
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
 
 from students.models import Student
 
@@ -22,7 +19,9 @@ from ..models import (
 from ..utils import (
     should_use_lesson_attendance, get_students_for_lesson, get_lesson_attendance_stats
 )
-from .base import admin_required, teacher_or_admin_required, htmx_render, is_school_admin
+from .base import admin_required, teacher_or_admin_required, htmx_render
+
+logger = logging.getLogger(__name__)
 
 
 # ============ DAILY ATTENDANCE ============

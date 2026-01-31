@@ -3068,7 +3068,7 @@ def enter_scores(request, class_id, subject_id):
 def enter_scores_student(request, class_id, subject_id, student_id):
     """HTMX endpoint for per-student score entry (mobile-optimized)."""
     from academics.models import Class, ClassSubject, Subject
-    from gradebook.models import Assignment, Score, AssessmentCategory
+    from gradebook.models import Assignment, Score
     from students.models import Student
 
     user = request.user

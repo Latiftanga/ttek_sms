@@ -2,7 +2,6 @@
 Utility functions for academics module, especially for per-lesson attendance.
 """
 from django.utils import timezone
-from datetime import datetime
 
 
 def get_current_period():
@@ -90,7 +89,7 @@ def get_teacher_lessons_today(teacher, class_obj=None):
     Returns:
         List of dicts with lesson info and attendance status
     """
-    from .models import TimetableEntry, AttendanceSession, Class
+    from .models import TimetableEntry, AttendanceSession
 
     now = timezone.localtime()
     current_time = now.time()

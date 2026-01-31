@@ -15,7 +15,7 @@ from .base import (
 from ..models import (
     AssessmentCategory, Assignment, Score, ScoreAuditLog
 )
-from ..utils import validate_score, ScoreValidationError
+from ..utils import validate_score
 from .. import config
 from academics.models import Class, Subject, ClassSubject, StudentSubjectEnrollment
 from students.models import Student
