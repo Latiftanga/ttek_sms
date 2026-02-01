@@ -230,6 +230,44 @@
             outline-offset: 2px;
         }
 
+        /* HTMX Smooth Transitions */
+        .htmx-swapping {
+            opacity: 0;
+            transition: opacity 0.15s ease-out;
+        }
+        .htmx-settling {
+            opacity: 1;
+            transition: opacity 0.15s ease-in;
+        }
+
+        /* Modal content transitions */
+        .modal-box .htmx-added {
+            animation: modalFadeIn 0.2s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Enhanced DaisyUI modal transitions */
+        .modal {
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        .modal::backdrop {
+            transition: opacity 0.2s ease;
+        }
+        .modal-box {
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+        .modal:not([open]) .modal-box {
+            transform: scale(0.95);
+            opacity: 0;
+        }
+        .modal[open] .modal-box {
+            transform: scale(1);
+            opacity: 1;
+        }
+
         /* Offline indicator animation */
         @keyframes pulse-warning {
             0%, 100% { opacity: 1; }
