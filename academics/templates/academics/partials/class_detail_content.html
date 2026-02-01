@@ -36,7 +36,8 @@
                 <button class="btn btn-sm btn-primary"
                         hx-get="{% url 'academics:class_student_enroll' class.pk %}"
                         hx-target="#modal-edit-content"
-                        onclick="modal_edit.showModal()">
+                        hx-swap="innerHTML"
+                        hx-on::after-request="document.getElementById('modal_edit').showModal()">
                     <i class="fa-solid fa-user-plus"></i>
                     <span class="hidden sm:inline">Enroll</span>
                 </button>
@@ -44,7 +45,8 @@
                 <a href="{% url 'academics:lesson_attendance_list' class.pk %}"
                    hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
                    hx-target="#modal-edit-content"
-                   onclick="modal_edit.showModal()"
+                   hx-swap="innerHTML"
+                   hx-on::after-request="document.getElementById('modal_edit').showModal()"
                    class="btn btn-sm btn-secondary">
                     <i class="fa-solid fa-clipboard-check"></i>
                     <span class="hidden sm:inline">Lessons</span>
@@ -53,7 +55,8 @@
                 <button class="btn btn-sm btn-secondary"
                         hx-get="{% url 'academics:class_attendance_take' class.pk %}"
                         hx-target="#modal-edit-content"
-                        onclick="modal_edit.showModal()">
+                        hx-swap="innerHTML"
+                        hx-on::after-request="document.getElementById('modal_edit').showModal()">
                     <i class="fa-solid fa-clipboard-check"></i>
                     <span class="hidden sm:inline">Attendance</span>
                 </button>
@@ -75,7 +78,8 @@
                         <li>
                             <button hx-get="{% url 'academics:class_attendance_history' class.pk %}"
                                     hx-target="#modal-edit-content"
-                                    onclick="modal_edit.showModal()">
+                                    hx-swap="innerHTML"
+                                    hx-on::after-request="document.getElementById('modal_edit').showModal()">
                                 <i class="fa-solid fa-calendar-days w-4"></i> Attendance History
                             </button>
                         </li>
@@ -101,14 +105,16 @@
                         <li>
                             <button hx-get="{% url 'academics:class_edit' class.pk %}"
                                     hx-target="#modal-edit-content"
-                                    onclick="modal_edit.showModal()">
+                                    hx-swap="innerHTML"
+                                    hx-on::after-request="document.getElementById('modal_edit').showModal()">
                                 <i class="fa-solid fa-gear w-4"></i> Class Settings
                             </button>
                         </li>
                         <li>
                             <button hx-get="{% url 'academics:class_promote' class.pk %}"
                                     hx-target="#modal-edit-content"
-                                    onclick="modal_edit.showModal()">
+                                    hx-swap="innerHTML"
+                                    hx-on::after-request="document.getElementById('modal_edit').showModal()">
                                 <i class="fa-solid fa-arrow-up-right-dots w-4 text-success"></i> Promote Students
                             </button>
                         </li>
@@ -149,7 +155,8 @@
             <button class="flex-1 flex items-center justify-center gap-1.5 px-1 hover:text-success transition-colors cursor-pointer"
                     hx-get="{% url 'academics:class_attendance_history' class.pk %}"
                     hx-target="#modal-edit-content"
-                    onclick="modal_edit.showModal()"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="document.getElementById('modal_edit').showModal()"
                     title="View attendance history">
                 <i class="fa-solid fa-clipboard-user text-success"></i>
                 <span class="font-bold">{{ attendance_percentage|default:0 }}%</span>
@@ -306,7 +313,8 @@
                     <button type="button" class="btn btn-sm btn-outline btn-secondary"
                             hx-get="{% url 'academics:class_bulk_subject_assign' class.pk %}"
                             hx-target="#modal-edit-content"
-                            onclick="modal_edit.showModal()"
+                            hx-swap="innerHTML"
+                            hx-on::after-request="document.getElementById('modal_edit').showModal()"
                             title="Bulk assign subjects to students">
                         <i class="fa-solid fa-layer-group"></i>
                         <span>Bulk Assign</span>
@@ -356,7 +364,8 @@
                 <button type="button" class="btn btn-sm btn-outline btn-secondary w-full"
                         hx-get="{% url 'academics:class_bulk_subject_assign' class.pk %}"
                         hx-target="#modal-edit-content"
-                        onclick="modal_edit.showModal()">
+                        hx-swap="innerHTML"
+                        hx-on::after-request="document.getElementById('modal_edit').showModal()">
                     <i class="fa-solid fa-layer-group"></i>
                     Bulk Assign Subjects
                 </button>
