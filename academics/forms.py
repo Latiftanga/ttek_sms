@@ -64,10 +64,15 @@ class ClassForm(forms.ModelForm):
 
             # Filter level_type choices to only include allowed types
             original_choices = self.fields['level_type'].choices
-            self.fields['level_type'].choices = [
+            filtered_choices = [
                 (value, label) for value, label in original_choices
                 if value in allowed_values
             ]
+            self.fields['level_type'].choices = filtered_choices
+
+            # Set default level_type if not already set (for new forms)
+            if not self.instance.pk and filtered_choices:
+                self.initial['level_type'] = filtered_choices[0][0]
 
             # Hide programme field for basic-only schools
             if not school_settings.has_programmes:
