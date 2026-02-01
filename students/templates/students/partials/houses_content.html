@@ -25,7 +25,7 @@
                     hx-get="{% url 'students:house_create' %}"
                     hx-target="#modal-house-content"
                     hx-swap="innerHTML"
-                                        onclick="modal_house.showModal()">
+                    hx-on::after-request="document.getElementById('modal_house').showModal()">
                 <i class="fa-solid fa-plus"></i>
                 <span class="hidden xs:inline">Add</span> House
             </button>
@@ -123,7 +123,7 @@
                             hx-get="{% url 'students:house_assign_master' house.pk %}"
                             hx-target="#modal-housemaster-content"
                             hx-swap="innerHTML"
-                                                        hx-on::after-request="modal_housemaster.showModal()"
+                            hx-on::after-request="document.getElementById('modal_housemaster').showModal()"
                             title="{% if house.housemaster_assignment %}Change{% else %}Assign{% endif %} Housemaster">
                         <i class="fa-solid fa-user-tie text-base-content/50"></i>
                     </button>
@@ -131,7 +131,7 @@
                             hx-get="{% url 'students:house_edit' house.pk %}"
                             hx-target="#modal-house-content"
                             hx-swap="innerHTML"
-                                                        hx-on::after-request="modal_house.showModal()"
+                            hx-on::after-request="document.getElementById('modal_house').showModal()"
                             title="Edit">
                         <i class="fa-solid fa-pen text-base-content/50"></i>
                     </button>
@@ -157,7 +157,7 @@
                         hx-get="{% url 'students:house_create' %}"
                         hx-target="#modal-house-content"
                         hx-swap="innerHTML"
-                                                onclick="modal_house.showModal()">
+                        hx-on::after-request="document.getElementById('modal_house').showModal()">
                     <i class="fa-solid fa-plus"></i> Add House
                 </button>
             </div>
@@ -211,7 +211,9 @@
 </style>
 <script>
 document.body.addEventListener('houseChanged', function() {
-    if (typeof modal_house !== 'undefined') modal_house.close();
-    if (typeof modal_housemaster !== 'undefined') modal_housemaster.close();
+    var houseModal = document.getElementById('modal_house');
+    var housemasterModal = document.getElementById('modal_housemaster');
+    if (houseModal) houseModal.close();
+    if (housemasterModal) housemasterModal.close();
 });
 </script>
