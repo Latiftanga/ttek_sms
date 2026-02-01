@@ -280,32 +280,9 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </form>
-        <h3 class="text-lg font-bold mb-6">Add Class</h3>
-        <form method="post"
-              action="{% url 'academics:class_create' %}"
-              hx-post="{% url 'academics:class_create' %}"
-              hx-target="#main-content">
-            {% csrf_token %}
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    {% floating_field class_form.level_type %}
-                    {% floating_field class_form.level_number %}
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    {% floating_field class_form.section %}
-                    {% floating_field class_form.capacity %}
-                </div>
-                {% floating_field class_form.class_teacher "Class Teacher" %}
-                {% if tenant.has_programmes %}
-                {% floating_field class_form.programme %}
-                <p class="text-xs text-base-content/60">Programme is only required for SHS classes</p>
-                {% endif %}
-            </div>
-            <div class="modal-action">
-                <button type="button" class="btn" onclick="document.getElementById('modal_class').close()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create</button>
-            </div>
-        </form>
+        <div id="modal-class-content">
+            {% include 'academics/partials/modal_class_form.html' with form=class_form is_create=True %}
+        </div>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
