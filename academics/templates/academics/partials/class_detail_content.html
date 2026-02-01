@@ -7,7 +7,7 @@
         sort: '{{ sort_by|default:'name' }}'
      }"
      hx-get="{% url 'academics:class_detail' class.pk %}"
-     hx-trigger="studentsEnrolled from:body, studentsPromoted from:body, closeModal from:body"
+     hx-trigger="classChanged from:body, studentsEnrolled from:body, studentsPromoted from:body, closeModal from:body"
      hx-target="#main-content"
      hx-swap="innerHTML">
 
