@@ -52,9 +52,9 @@
                   hx-target="#main-content"
                   hx-push-url="true"
                   hx-trigger="submit, change from:find select"
-                  class="flex flex-col gap-2">
+                  class="flex flex-col sm:flex-row gap-2">
                 <!-- Search -->
-                <div class="relative">
+                <div class="relative flex-1">
                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-sm"></i>
                     <input type="text"
                            name="search"
@@ -68,13 +68,11 @@
                 </div>
                 <!-- Filters -->
                 <div class="flex gap-2">
-                    <select name="level" class="select select-sm select-bordered flex-1">
+                    <select name="level" class="select select-sm select-bordered w-full sm:w-auto">
                         <option value="">All Levels</option>
-                        <option value="creche" {% if level_filter == 'creche' %}selected{% endif %}>Creche</option>
-                        <option value="nursery" {% if level_filter == 'nursery' %}selected{% endif %}>Nursery</option>
-                        <option value="kg" {% if level_filter == 'kg' %}selected{% endif %}>KG</option>
-                        <option value="basic" {% if level_filter == 'basic' %}selected{% endif %}>Basic</option>
-                        <option value="shs" {% if level_filter == 'shs' %}selected{% endif %}>SHS</option>
+                        {% for value, label in level_choices %}
+                        <option value="{{ value }}" {% if level_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
                     </select>
                     {% if search or level_filter %}
                     <a href="{% url 'academics:classes' %}"
