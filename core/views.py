@@ -1648,6 +1648,13 @@ def settings_update_sms(request):
     sms_api_key = request.POST.get('sms_api_key', '').strip()
     sms_sender_id = request.POST.get('sms_sender_id', '').strip()
 
+    # Validate sender ID length (GSM standard max 11 characters)
+    if sms_sender_id and len(sms_sender_id) > 11:
+        errors.append(
+            f'Sender ID must be 11 characters or fewer (currently {len(sms_sender_id)}). '
+            'This is a GSM standard limit.'
+        )
+
     # Validate if SMS is enabled and not console mode
     if sms_enabled and sms_backend != 'console':
         if not sms_api_key and not school_settings.sms_api_key:
