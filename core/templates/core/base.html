@@ -743,6 +743,14 @@
                 }
             });
 
+            // Allow HTMX to swap content on 422 (validation errors)
+            document.body.addEventListener('htmx:beforeSwap', function(e) {
+                if (e.detail.xhr.status === 422) {
+                    e.detail.shouldSwap = true;
+                    e.detail.isError = false;
+                }
+            });
+
             // Show warning before request if offline (but don't block - let it fail naturally)
             document.body.addEventListener('htmx:beforeRequest', function(e) {
                 // If offline, show warning but let request proceed (it will fail and show retry option)
