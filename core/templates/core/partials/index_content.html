@@ -225,26 +225,40 @@
                 </div>
 
                 {% if classes_without_attendance %}
-                <div class="divider text-xs my-2">Pending Attendance</div>
+                <div class="divider text-xs my-2">
+                    <i class="fa-solid fa-bell text-warning mr-1"></i> Awaiting Teacher Action
+                </div>
                 <div class="space-y-2">
                     {% for cls in classes_without_attendance %}
                     <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-warning/5 border border-warning/20">
-                        <div class="flex items-center gap-2">
-                            <span class="badge badge-warning badge-xs"><i class="fa-solid fa-clock"></i></span>
-                            <span class="font-medium text-sm">{{ cls.name }}</span>
-                            {% if cls.class_teacher %}
-                            <span class="text-xs text-base-content/50">{{ cls.class_teacher.last_name }}</span>
-                            {% endif %}
+                        <div class="flex items-center gap-3 min-w-0 flex-1">
+                            <span class="badge badge-warning badge-xs shrink-0"><i class="fa-solid fa-clock"></i></span>
+                            <div class="min-w-0">
+                                <div class="font-medium text-sm truncate">{{ cls.name }}</div>
+                                {% if cls.class_teacher %}
+                                <div class="text-xs text-base-content/60 flex items-center gap-1">
+                                    <i class="fa-solid fa-chalkboard-user text-[10px]"></i>
+                                    {{ cls.class_teacher.get_full_name|default:cls.class_teacher.last_name }}
+                                </div>
+                                {% else %}
+                                <div class="text-xs text-error/70">No class teacher assigned</div>
+                                {% endif %}
+                            </div>
                         </div>
                         <a href="{% url 'academics:class_detail' cls.pk %}"
                            hx-get="{% url 'academics:class_detail' cls.pk %}"
                            hx-target="#main-content" hx-push-url="true"
-                           class="btn btn-xs btn-ghost">
-                            Take <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>
+                           class="btn btn-xs btn-ghost shrink-0"
+                           title="View class details">
+                            View <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>
                         </a>
                     </div>
                     {% endfor %}
                 </div>
+                <p class="text-xs text-base-content/50 mt-3 text-center">
+                    <i class="fa-solid fa-info-circle mr-1"></i>
+                    Remind teachers to mark attendance for these classes
+                </p>
                 {% else %}
                 <div class="text-center py-4 text-success">
                     <i class="fa-solid fa-check-circle text-2xl mb-2"></i>
