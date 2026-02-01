@@ -148,8 +148,13 @@ def class_edit(request, pk):
     cls = get_object_or_404(Class, pk=pk)
 
     # Check if editing from class detail page (not from classes list)
-    current_url = request.headers.get('HX-Current-URL', '')
-    is_detail_page = f'/academics/classes/{pk}/' in current_url and not current_url.endswith('/academics/classes/')
+    # On GET: detect from HX-Current-URL header
+    # On POST: use hidden field (more reliable)
+    if request.method == 'POST':
+        is_detail_page = request.POST.get('is_detail_page') == '1'
+    else:
+        current_url = request.headers.get('HX-Current-URL', '')
+        is_detail_page = f'/academics/classes/{pk}/' in current_url and not current_url.endswith('/academics/classes/')
 
     if request.method == 'GET':
         form = ClassForm(instance=cls)
