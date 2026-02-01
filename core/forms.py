@@ -145,6 +145,16 @@ class SMSSettingsForm(forms.ModelForm):
             'sms_sender_id': 'Leave empty to use school name',
         }
 
+    def clean_sms_sender_id(self):
+        """Validate SMS sender ID length (GSM standard max 11 characters)."""
+        sender_id = self.cleaned_data.get('sms_sender_id', '')
+        if sender_id and len(sender_id) > 11:
+            raise forms.ValidationError(
+                f'Sender ID must be 11 characters or fewer (currently {len(sender_id)}). '
+                'This is a GSM standard limit for alphanumeric sender IDs.'
+            )
+        return sender_id
+
 
 class EmailSettingsForm(forms.ModelForm):
     """Form for email configuration settings."""
