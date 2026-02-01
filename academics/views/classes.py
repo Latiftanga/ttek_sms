@@ -36,12 +36,12 @@ def classes_list(request):
     """Classes list page with search and filters."""
     # Get filter parameters
     search = request.GET.get('search', '').strip()
-    level_filter = request.GET.get('level', '')
+    level_filter = request.GET.get('level', '')  # Combined filter: "shs_1", "basic_3", etc.
 
     # Get classes with student counts
     classes = Class.objects.select_related('programme', 'class_teacher').annotate(
         student_count=Count('students', filter=models.Q(students__status='active'))
-    ).order_by('level_number', 'section')
+    ).order_by('level_type', 'level_number', 'section')
 
     # Apply search filter
     if search:
@@ -52,9 +52,10 @@ def classes_list(request):
             Q(programme__name__icontains=search)
         )
 
-    # Apply level filter
-    if level_filter:
-        classes = classes.filter(level_type=level_filter)
+    # Apply level filter (combined level_type and level_number)
+    if level_filter and '_' in level_filter:
+        level_type, level_number = level_filter.split('_', 1)
+        classes = classes.filter(level_type=level_type, level_number=level_number)
 
     # Pagination
     per_page = request.GET.get('per_page', '25')
@@ -77,6 +78,26 @@ def classes_list(request):
     if search or level_filter:
         subtitle += " (filtered)"
 
+    # Get distinct level combinations for filter dropdown
+    level_choices = []
+    distinct_levels = Class.objects.values('level_type', 'level_number').distinct().order_by('level_type', 'level_number')
+    for item in distinct_levels:
+        lt, ln = item['level_type'], item['level_number']
+        # Create display name based on level type
+        if lt == 'shs':
+            display = f"Form {ln}"
+        elif lt == 'creche':
+            display = f"Creche {ln}"
+        elif lt == 'nursery':
+            display = f"Nursery {ln}"
+        elif lt == 'kg':
+            display = f"KG {ln}"
+        elif lt == 'basic':
+            display = f"Basic {ln}"
+        else:
+            display = f"{lt.title()} {ln}"
+        level_choices.append((f"{lt}_{ln}", display))
+
     context = {
         'classes': page_obj,
         'page_obj': page_obj,
@@ -84,6 +105,7 @@ def classes_list(request):
         'per_page': per_page,
         'search': search,
         'level_filter': level_filter,
+        'level_choices': level_choices,
         'stats': {
             'total_classes': all_classes_count,
             'total_students': total_students,

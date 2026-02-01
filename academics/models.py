@@ -170,7 +170,7 @@ class Class(models.Model):
         elif self.level_type == self.LevelType.BASIC:
             return f"Basic {self.level_number}"
         elif self.level_type == self.LevelType.SHS:
-            return f"SHS {self.level_number}"
+            return f"Form {self.level_number}"
         return str(self.level_number)
 
     @property
