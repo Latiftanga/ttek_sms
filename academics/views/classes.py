@@ -136,10 +136,14 @@ def class_create(request):
 
 @admin_required
 def class_edit(request, pk):
-    """Edit a class."""
+    """Edit a class (HTMX modal endpoint)."""
     cls = get_object_or_404(Class, pk=pk)
 
     if request.method == 'GET':
+        # Non-HTMX GET (direct URL access/refresh) - redirect to classes list
+        if not request.htmx:
+            return redirect('academics:classes')
+        # HTMX GET - return modal form partial
         form = ClassForm(instance=cls)
         return render(request, 'academics/partials/modal_class_form.html', {
             'form': form,
@@ -543,8 +547,12 @@ def class_subjects_modal(request, pk):
 
 @admin_required
 def class_subject_create(request, pk):
-    """Add a subject allocation to a class."""
+    """Add a subject allocation to a class (HTMX modal endpoint)."""
     class_obj = get_object_or_404(Class, pk=pk)
+
+    # Non-HTMX GET (direct URL access/refresh) - redirect to class subjects page
+    if request.method == 'GET' and not request.htmx:
+        return redirect('academics:class_subjects', pk=pk)
 
     # Check if editing existing allocation
     subject_id = request.GET.get('subject_id') or request.POST.get('subject_id')
@@ -602,8 +610,12 @@ def class_subject_delete(request, class_pk, pk):
 
 @admin_required
 def class_student_enroll(request, pk):
-    """Enroll existing students into a class."""
+    """Enroll existing students into a class (HTMX modal endpoint)."""
     class_obj = get_object_or_404(Class, pk=pk)
+
+    # Non-HTMX GET (direct URL access/refresh) - redirect to class detail
+    if request.method == 'GET' and not request.htmx:
+        return redirect('academics:class_detail', pk=pk)
 
     if request.method == 'POST':
         form = StudentEnrollmentForm(request.POST, class_instance=class_obj)
@@ -654,9 +666,13 @@ def class_student_remove(request, class_pk, student_pk):
 
 @admin_required
 def class_student_electives(request, class_pk, student_pk):
-    """Manage manual subject assignments for a student (subjects with auto_enroll=False)."""
+    """Manage manual subject assignments for a student (HTMX modal endpoint)."""
     class_obj = get_object_or_404(Class, pk=class_pk)
     student = get_object_or_404(Student, pk=student_pk, current_class=class_obj)
+
+    # Non-HTMX GET (direct URL access/refresh) - redirect to class detail
+    if request.method == 'GET' and not request.htmx:
+        return redirect('academics:class_detail', pk=class_pk)
 
     # Get subjects that require manual assignment (auto_enroll=False)
     manual_subjects = ClassSubject.objects.filter(
@@ -714,8 +730,12 @@ def class_student_electives(request, class_pk, student_pk):
 @login_required
 @teacher_or_admin_required
 def class_bulk_subject_assign(request, pk):
-    """Bulk assign manual subjects to multiple students."""
+    """Bulk assign manual subjects to multiple students (HTMX modal endpoint)."""
     class_obj = get_object_or_404(Class, pk=pk)
+
+    # Non-HTMX GET (direct URL access/refresh) - redirect to class detail
+    if request.method == 'GET' and not request.htmx:
+        return redirect('academics:class_detail', pk=pk)
 
     # Get subjects that require manual assignment (auto_enroll=False)
     manual_subjects = ClassSubject.objects.filter(
@@ -778,8 +798,12 @@ def class_bulk_subject_assign(request, pk):
 
 @admin_required
 def class_bulk_electives(request, pk):
-    """Bulk assign elective subjects to students (Admin only)."""
+    """Bulk assign elective subjects to students (HTMX modal endpoint)."""
     class_obj = get_object_or_404(Class, pk=pk)
+
+    # Non-HTMX GET (direct URL access/refresh) - redirect to class detail
+    if request.method == 'GET' and not request.htmx:
+        return redirect('academics:class_detail', pk=pk)
 
     # Get elective subjects filtered by programme
     if class_obj.programme:
@@ -933,11 +957,16 @@ def class_sync_subjects(request, pk):
 
 @admin_required
 def class_promote(request, pk):
-    """Promote students from a specific class (modal-based)."""
+    """Promote students from a specific class (HTMX modal endpoint)."""
     from students.models import Enrollment
     from core.models import AcademicYear
 
     class_obj = get_object_or_404(Class, pk=pk)
+
+    # Non-HTMX GET (direct URL access/refresh) - redirect to class detail
+    if request.method == 'GET' and not request.htmx:
+        return redirect('academics:class_detail', pk=pk)
+
     current_year = AcademicYear.get_current()
 
     if not current_year:
