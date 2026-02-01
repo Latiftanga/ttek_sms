@@ -79,8 +79,8 @@ def index(request):
     present_count = attendance_stats['present_count'] or 0
     attendance_rate = round((present_count / total_records) * 100, 1) if total_records > 0 else 0
 
-    # Setup status for checklist
-    periods_count = Period.objects.filter(is_active=True).count()
+    # Setup status for checklist (exclude breaks from period count)
+    periods_count = Period.objects.filter(is_active=True, is_break=False).count()
     classrooms_count = Classroom.objects.filter(is_active=True).count()
     timetable_entries_count = TimetableEntry.objects.count()
 
