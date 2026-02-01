@@ -1,5 +1,6 @@
 {% load core_tags %}
-<div x-data="{ levelType: '{{ form.level_type.value|default:'' }}' }">
+{% with first_level=form.level_type.field.choices.0.0 %}
+<div x-data="{ levelType: '{{ form.level_type.value|default:first_level }}' }">
 <h3 class="text-lg font-bold mb-3">{% if is_create %}Add{% else %}Edit{% endif %} Class</h3>
 <form hx-post="{% if class %}{% url 'academics:class_edit' class.pk %}{% else %}{% url 'academics:class_create' %}{% endif %}"
       hx-target="closest .modal-box"
@@ -12,7 +13,7 @@
                 <span class="label">Type</span>
                 <select name="level_type" x-model="levelType" required>
                     {% for value, label in form.level_type.field.choices %}
-                    <option value="{{ value }}" {% if form.level_type.value == value %}selected{% endif %}>{{ label }}</option>
+                    <option value="{{ value }}" {% if form.level_type.value == value or forloop.first and not form.level_type.value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </label>
@@ -75,3 +76,4 @@
     </div>
 </form>
 </div>
+{% endwith %}
