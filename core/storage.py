@@ -3,6 +3,15 @@ from django.db import connection
 from django_tenants.files.storage import TenantFileSystemStorage
 
 
+class PublicSchemaStorage(FileSystemStorage):
+    """
+    Storage backend that always uses the public schema media path.
+    Use this for models in shared apps (like School) that store media files
+    in the public schema regardless of which tenant is active.
+    """
+    pass
+
+
 class CustomSchemaStorage(FileSystemStorage):
     """
     Custom storage backend that uses FileSystemStorage for public schema

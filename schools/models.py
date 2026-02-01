@@ -4,6 +4,7 @@ from django.db import models
 from django.core.files.base import ContentFile
 from django_tenants.models import TenantMixin, DomainMixin
 from PIL import Image, UnidentifiedImageError
+from core.storage import PublicSchemaStorage
 import logging
 
 logger = logging.getLogger(__name__)
@@ -108,9 +109,21 @@ class School(TenantMixin):
         help_text="Specific levels offered (e.g., ['basic', 'shs']). If empty, defaults based on education_system."
     )
 
-    # Branding
-    logo = models.ImageField(upload_to='school_logos/', blank=True, null=True, help_text="School logo/crest")
-    favicon = models.ImageField(upload_to='school_favicons/', blank=True, null=True, help_text="Browser tab icon")
+    # Branding - use PublicSchemaStorage so URLs work from any tenant context
+    logo = models.ImageField(
+        upload_to='school_logos/',
+        storage=PublicSchemaStorage(),
+        blank=True,
+        null=True,
+        help_text="School logo/crest"
+    )
+    favicon = models.ImageField(
+        upload_to='school_favicons/',
+        storage=PublicSchemaStorage(),
+        blank=True,
+        null=True,
+        help_text="Browser tab icon"
+    )
 
     # Theme Colors (HEX format)
     primary_color = models.CharField(max_length=7, default="#4F46E5", help_text="Main brand color (hex)")
