@@ -3,11 +3,9 @@
 <p class="text-sm text-base-content/60 mb-4">
     {% if is_create %}Create a new class for your school.{% else %}Update class details.{% endif %}
 </p>
-<form method="post"
-      action="{% if class %}{% url 'academics:class_edit' class.pk %}{% else %}{% url 'academics:class_create' %}{% endif %}"
-      hx-post="{% if class %}{% url 'academics:class_edit' class.pk %}{% else %}{% url 'academics:class_create' %}{% endif %}"
-      hx-target="this"
-      hx-swap="outerHTML">
+<form hx-post="{% if class %}{% url 'academics:class_edit' class.pk %}{% else %}{% url 'academics:class_create' %}{% endif %}"
+      hx-target="closest .modal-box"
+      hx-swap="innerHTML transition:true">
     {% csrf_token %}
     <div class="space-y-4">
         <!-- Level & Number -->
