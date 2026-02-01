@@ -9,7 +9,6 @@
       hx-target="this"
       hx-swap="outerHTML">
     {% csrf_token %}
-    {% if is_detail_page %}<input type="hidden" name="is_detail_page" value="1">{% endif %}
     <div class="space-y-4">
         <!-- Level & Number -->
         <div>

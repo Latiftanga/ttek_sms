@@ -117,17 +117,9 @@ def class_create(request):
     if form.is_valid():
         form.save()
         if request.htmx:
-            # Return updated classes content and close modal
-            context = get_classes_list_context()
-            context['stats'] = {
-                'total_classes': Class.objects.count(),
-                'total_students': Student.objects.filter(status='active').count(),
-            }
-            context['class_form'] = ClassForm()
-            response = render(request, 'academics/partials/classes_content.html', context)
-            response['HX-Trigger'] = 'closeModal'
-            response['HX-Retarget'] = '#main-content'
-            response['HX-Reswap'] = 'innerHTML'
+            # Trigger event for page to refresh itself
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'classChanged'
             return response
         return redirect('academics:classes')
 
@@ -147,21 +139,11 @@ def class_edit(request, pk):
     """Edit a class."""
     cls = get_object_or_404(Class, pk=pk)
 
-    # Check if editing from class detail page (not from classes list)
-    # On GET: detect from HX-Current-URL header
-    # On POST: use hidden field (more reliable)
-    if request.method == 'POST':
-        is_detail_page = request.POST.get('is_detail_page') == '1'
-    else:
-        current_url = request.headers.get('HX-Current-URL', '')
-        is_detail_page = f'/academics/classes/{pk}/' in current_url and not current_url.endswith('/academics/classes/')
-
     if request.method == 'GET':
         form = ClassForm(instance=cls)
         return render(request, 'academics/partials/modal_class_form.html', {
             'form': form,
             'class': cls,
-            'is_detail_page': is_detail_page,
         })
 
     if request.method != 'POST':
@@ -169,34 +151,12 @@ def class_edit(request, pk):
 
     form = ClassForm(request.POST, instance=cls)
     if form.is_valid():
-        cls = form.save()
+        form.save()
         if request.htmx:
-            if is_detail_page:
-                # Return updated class detail content
-                context = get_class_detail_base_context(cls)
-                context.update(get_register_tab_context(cls))
-                context.update(get_teachers_tab_context(cls))
-                context.update(get_attendance_tab_context(cls))
-                context.update(get_promotion_history_context(cls))
-
-                response = render(request, 'academics/partials/class_detail_content.html', context)
-                response['HX-Trigger'] = 'closeModal'
-                response['HX-Retarget'] = '#main-content'
-                response['HX-Reswap'] = 'innerHTML'
-                return response
-            else:
-                # Return updated classes list content
-                context = get_classes_list_context()
-                context['stats'] = {
-                    'total_classes': Class.objects.count(),
-                    'total_students': Student.objects.filter(status='active').count(),
-                }
-                context['class_form'] = ClassForm()
-                response = render(request, 'academics/partials/classes_content.html', context)
-                response['HX-Trigger'] = 'closeModal'
-                response['HX-Retarget'] = '#main-content'
-                response['HX-Reswap'] = 'innerHTML'
-                return response
+            # Trigger event for page to refresh itself
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = 'classChanged'
+            return response
         return redirect('academics:classes')
 
     # Validation error (422 keeps modal open)
@@ -204,7 +164,6 @@ def class_edit(request, pk):
         response = render(request, 'academics/partials/modal_class_form.html', {
             'form': form,
             'class': cls,
-            'is_detail_page': is_detail_page,
         })
         response.status_code = 422
         return response
