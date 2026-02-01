@@ -30,8 +30,13 @@ class ClassForm(forms.ModelForm):
             'programme', 'capacity', 'class_teacher', 'attendance_type', 'is_active'
         ]
         widgets = {
-            'section': forms.TextInput(attrs={'placeholder': 'A, B, C...'}),
-            'capacity': forms.NumberInput(attrs={'min': 1, 'max': 100}),
+            'section': forms.TextInput(attrs={'placeholder': 'A, B, Gold...'}),
+            'capacity': forms.NumberInput(attrs={'min': 1, 'max': 100, 'placeholder': 'Max students'}),
+        }
+        help_texts = {
+            'section': '',
+            'capacity': '',
+            'programme': '',
         }
 
     def __init__(self, *args, **kwargs):
