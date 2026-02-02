@@ -1,47 +1,42 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-6">
-    <div>
-        {% if breadcrumbs %}
-        <div class="mb-2">
-            {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-        </div>
-        {% endif %}
-        <div class="flex items-center gap-3">
-            <div class="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0">
-                <i class="fa-solid fa-graduation-cap text-white text-sm md:text-base"></i>
-            </div>
-            <div>
-                <h1 class="text-xl md:text-2xl font-bold">Gradebook</h1>
-                <p class="text-sm text-base-content/60">
-                    {% if current_term %}
-                    <i class="fa-solid fa-calendar-day mr-1"></i>
-                    {{ current_term.name }} - {{ current_term.academic_year.name }}
-                    {% else %}
-                    <span class="text-warning"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No current term set</span>
-                    {% endif %}
-                </p>
-            </div>
-        </div>
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-graduation-cap text-white text-sm sm:text-base"></i>
     </div>
-    <div class="flex gap-2 ml-12 md:ml-0">
-        <a href="{% url 'gradebook:score_entry' %}"
-           hx-get="{% url 'gradebook:score_entry' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-primary btn-sm md:btn-md">
-            <i class="fa-solid fa-pen-to-square"></i>
-            <span class="hidden sm:inline">Enter</span> Scores
-        </a>
-        <a href="{% url 'gradebook:settings' %}"
-           hx-get="{% url 'gradebook:settings' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-ghost btn-sm md:btn-md">
-            <i class="fa-solid fa-cog"></i>
-            <span class="hidden sm:inline">Settings</span>
-        </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Gradebook</h1>
+        <p class="text-[10px] sm:text-sm text-base-content/60">
+            {% if current_term %}
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% else %}
+            <span class="text-warning"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No current term</span>
+            {% endif %}
+        </p>
+    </div>
+    <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+            <li>
+                <a href="{% url 'gradebook:score_entry' %}"
+                   hx-get="{% url 'gradebook:score_entry' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-pen-to-square text-primary"></i> Enter Scores
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'gradebook:settings' %}"
+                   hx-get="{% url 'gradebook:settings' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-cog"></i> Settings
+                </a>
+            </li>
+        </ul>
     </div>
 </div>
 

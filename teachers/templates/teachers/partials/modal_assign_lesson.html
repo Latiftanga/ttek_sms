@@ -1,0 +1,83 @@
+<!-- Modal: Assign Lesson to Teacher -->
+<div class="p-1" x-data="{
+    selectedClass: '',
+    selectedSubject: '',
+    existingAssignments: {{ existing_assignments_json|safe }},
+    isAlreadyAssigned() {
+        if (!this.selectedClass || !this.selectedSubject) return false;
+        const key = this.selectedClass + '-' + this.selectedSubject;
+        return this.existingAssignments.includes(key);
+    }
+}">
+    <h3 class="font-bold text-lg mb-1">Assign Lesson</h3>
+    <p class="text-sm text-base-content/60 mb-4">
+        Assign <strong>{{ teacher.get_title_display }} {{ teacher.full_name }}</strong> to teach a subject in a class.
+    </p>
+
+    <form hx-post="{% url 'teachers:assign_lesson' teacher.pk %}"
+          hx-target="#modal-container"
+          hx-swap="innerHTML"
+          hx-indicator="#assign-spinner"
+          class="space-y-4">
+        {% csrf_token %}
+
+        <!-- Class Selection -->
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text font-medium">Class</span>
+            </label>
+            <select name="class_id"
+                    id="class-select"
+                    class="select select-bordered w-full"
+                    required
+                    x-model="selectedClass">
+                <option value="">Select a class...</option>
+                {% for class in classes %}
+                <option value="{{ class.pk }}">{{ class.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Subject Selection -->
+        <div class="form-control">
+            <label class="label">
+                <span class="label-text font-medium">Subject</span>
+            </label>
+            <select name="subject_id"
+                    id="subject-select"
+                    class="select select-bordered w-full"
+                    required
+                    x-model="selectedSubject">
+                <option value="">Select a subject...</option>
+                {% for subject in subjects %}
+                <option value="{{ subject.pk }}">{{ subject.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Already Assigned Warning -->
+        <div x-show="isAlreadyAssigned()" x-cloak class="alert alert-warning py-2">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span class="text-xs">This teacher is already assigned to this class-subject combination.</span>
+        </div>
+
+        <!-- Info -->
+        <div x-show="!isAlreadyAssigned()" class="alert alert-info py-2">
+            <i class="fa-solid fa-info-circle"></i>
+            <span class="text-xs">If another teacher is currently assigned, they will be replaced.</span>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-2 pt-2">
+            <button type="button" class="btn btn-ghost" onclick="modal_form.close()">Cancel</button>
+            <button type="submit"
+                    class="btn btn-primary"
+                    :disabled="isAlreadyAssigned()"
+                    :class="{ 'btn-disabled': isAlreadyAssigned() }">
+                <i class="fa-solid fa-plus"></i>
+                Assign Lesson
+                <span id="assign-spinner" class="loading loading-spinner loading-xs htmx-indicator"></span>
+            </button>
+        </div>
+    </form>
+</div>

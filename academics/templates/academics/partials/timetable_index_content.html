@@ -2,36 +2,40 @@
 
 <div class="space-y-6">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
-                <a href="{% url 'academics:index' %}"
-                   hx-get="{% url 'academics:index' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="hover:text-primary">Academics</a>
-                <i class="fa-solid fa-chevron-right text-xs"></i>
-                <span>Timetable</span>
-            </div>
-            <h1 class="text-2xl font-bold flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-calendar-days text-primary"></i>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{% url 'academics:index' %}"
+           hx-get="{% url 'academics:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm btn-square shrink-0">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold flex items-center gap-2">
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-calendar-days text-primary text-sm sm:text-base"></i>
                 </div>
                 Timetable Management
             </h1>
-            <p class="text-base-content/60 text-sm mt-1">
+            <p class="text-[10px] sm:text-sm text-base-content/60 ml-10 sm:ml-12">
                 Select a class to view or edit its timetable
             </p>
         </div>
-
-        <a href="{% url 'academics:periods' %}"
-           hx-get="{% url 'academics:periods' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-ghost gap-2">
-            <i class="fa-solid fa-clock"></i>
-            Manage Periods
-        </a>
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </label>
+            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                <li>
+                    <a href="{% url 'academics:periods' %}"
+                       hx-get="{% url 'academics:periods' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-clock"></i> Manage Periods
+                    </a>
+                </li>
+            </ul>
+        </div>
     </div>
 
     <!-- Warning if no periods -->

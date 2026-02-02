@@ -6,45 +6,47 @@
      hx-target="#main-content"
      hx-swap="innerHTML">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
-                <a href="{% url 'academics:index' %}"
-                   hx-get="{% url 'academics:index' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="hover:text-primary">Academics</a>
-                <i class="fa-solid fa-chevron-right text-xs"></i>
-                <span>School Periods</span>
-            </div>
-            <h1 class="text-2xl font-bold flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-clock text-primary"></i>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{% url 'academics:index' %}"
+           hx-get="{% url 'academics:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm btn-square shrink-0">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold flex items-center gap-2">
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-clock text-primary text-sm sm:text-base"></i>
                 </div>
                 School Periods
             </h1>
-            <p class="text-base-content/60 text-sm mt-1">
+            <p class="text-[10px] sm:text-sm text-base-content/60 ml-10 sm:ml-12">
                 Define time slots for the school timetable
             </p>
         </div>
-
-        <div class="flex items-center gap-3">
-            <a href="{% url 'academics:timetable' %}"
-               hx-get="{% url 'academics:timetable' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost gap-2">
-                <i class="fa-solid fa-calendar-days"></i>
-                View Timetable
-            </a>
-            <button class="btn btn-primary gap-2"
-                    hx-get="{% url 'academics:period_create' %}"
-                    hx-target="#modal-container"
-                    hx-swap="innerHTML"
-                    onclick="modal_form.showModal()">
-                <i class="fa-solid fa-plus"></i>
-                Add Period
-            </button>
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </label>
+            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                <li>
+                    <button hx-get="{% url 'academics:period_create' %}"
+                            hx-target="#modal-container"
+                            hx-swap="innerHTML"
+                            onclick="modal_form.showModal()">
+                        <i class="fa-solid fa-plus text-primary"></i> Add Period
+                    </button>
+                </li>
+                <li>
+                    <a href="{% url 'academics:timetable' %}"
+                       hx-get="{% url 'academics:timetable' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-calendar-days"></i> View Timetable
+                    </a>
+                </li>
+            </ul>
         </div>
     </div>
 
@@ -52,7 +54,52 @@
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-0">
             {% if periods %}
-            <div class="overflow-x-auto">
+            <!-- Mobile Card View -->
+            <div class="sm:hidden divide-y divide-base-200">
+                {% for period in periods %}
+                <div class="p-3 {% if period.is_break %}bg-warning/5{% endif %} group">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-base-200 flex items-center justify-center text-xs font-mono">{{ period.order }}</span>
+                            {% if period.is_break %}
+                            <i class="fa-solid fa-mug-hot text-warning"></i>
+                            {% else %}
+                            <i class="fa-solid fa-book text-primary"></i>
+                            {% endif %}
+                            <span class="font-medium">{{ period.name }}</span>
+                        </div>
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="btn btn-ghost btn-xs btn-square"
+                                    hx-get="{% url 'academics:period_edit' period.pk %}"
+                                    hx-target="#modal-container"
+                                    hx-swap="innerHTML"
+                                    onclick="modal_form.showModal()">
+                                <i class="fa-solid fa-pen-to-square text-primary"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-xs btn-square"
+                                    hx-post="{% url 'academics:period_delete' period.pk %}"
+                                    hx-confirm="Delete period '{{ period.name }}'?">
+                                <i class="fa-solid fa-trash text-error"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-base-content/70 ml-8">
+                        <span>{{ period.start_time|time:"g:i A" }} - {{ period.end_time|time:"g:i A" }}</span>
+                        <span class="badge badge-ghost badge-xs">{{ period.duration_minutes }}min</span>
+                        {% if period.is_break %}
+                        <span class="badge badge-warning badge-xs">Break</span>
+                        {% else %}
+                        <span class="badge badge-primary badge-xs">Class</span>
+                        {% endif %}
+                        {% if not period.is_active %}
+                        <span class="badge badge-ghost badge-xs">Inactive</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <!-- Desktop Table View -->
+            <div class="hidden sm:block overflow-x-auto">
                 <table class="table">
                     <thead>
                         <tr class="bg-base-200/50">
@@ -63,12 +110,12 @@
                             <th>Duration</th>
                             <th>Type</th>
                             <th>Status</th>
-                            <th class="w-24">Actions</th>
+                            <th class="w-24"></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for period in periods %}
-                        <tr class="hover:bg-base-200/30 {% if period.is_break %}bg-warning/5{% endif %}">
+                        <tr class="hover:bg-base-200/30 {% if period.is_break %}bg-warning/5{% endif %} group">
                             <td class="font-mono text-center">{{ period.order }}</td>
                             <td>
                                 <div class="flex items-center gap-2">
@@ -102,7 +149,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="flex items-center gap-1">
+                                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button class="btn btn-ghost btn-xs btn-square"
                                             hx-get="{% url 'academics:period_edit' period.pk %}"
                                             hx-target="#modal-container"

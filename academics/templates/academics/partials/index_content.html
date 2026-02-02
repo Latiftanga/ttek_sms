@@ -2,36 +2,34 @@
 
 <div class="space-y-6">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            {% if breadcrumbs %}
-            <div class="mb-2">
-                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-            </div>
-            {% endif %}
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                    <i class="fa-solid fa-school text-white"></i>
-                </div>
-                Academics
-            </h1>
-            <p class="text-sm text-base-content/60 ml-12">
+    <div class="flex items-center gap-2 sm:gap-3">
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-school text-white text-sm sm:text-base"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold">Academics</h1>
+            <p class="text-[10px] sm:text-sm text-base-content/60">
                 {% if current_term %}
                 {{ current_term.name }} - {{ current_term.academic_year.name }}
                 {% else %}
-                <span class="text-warning"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No current term set</span>
+                <span class="text-warning"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No current term</span>
                 {% endif %}
             </p>
         </div>
-        <div class="flex gap-2">
-            <a href="{% url 'academics:classes' %}"
-               hx-get="{% url 'academics:classes' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-chalkboard"></i>
-                View Classes
-            </a>
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </label>
+            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                <li>
+                    <a href="{% url 'academics:classes' %}"
+                       hx-get="{% url 'academics:classes' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-chalkboard text-primary"></i> View Classes
+                    </a>
+                </li>
+            </ul>
         </div>
     </div>
 

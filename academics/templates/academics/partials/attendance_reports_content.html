@@ -1,43 +1,48 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'academics:index' %}"
-               hx-get="{% url 'academics:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle"
-               title="Back to Dashboard">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
-                    <i class="fa-solid fa-clipboard-user text-white"></i>
-                </div>
-                {% if is_admin %}Attendance Reports{% else %}My Attendance{% endif %}
-            </h1>
-        </div>
-        <p class="text-sm text-base-content/60 ml-12">
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'academics:index' %}"
+       hx-get="{% url 'academics:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm btn-square shrink-0"
+       title="Back to Dashboard">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold flex items-center gap-2">
+            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-clipboard-user text-white text-sm sm:text-base"></i>
+            </div>
+            {% if is_admin %}Attendance Reports{% else %}My Attendance{% endif %}
+        </h1>
+        <p class="text-[10px] sm:text-sm text-base-content/60 ml-10 sm:ml-12">
             {% if is_admin %}
-            View and analyze student attendance data across all classes
+            View and analyze attendance data
             {% else %}
-            View attendance data for your assigned classes
+            View attendance for your classes
             {% endif %}
         </p>
     </div>
-    <div class="flex gap-2">
-        {% if is_admin %}
-        <a href="{% url 'academics:attendance_export' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}"
-           class="btn btn-sm btn-outline gap-2">
-            <i class="fa-solid fa-file-excel text-success"></i>
-            Export Excel
-        </a>
-        {% endif %}
-        <button onclick="window.print()" class="btn btn-sm btn-ghost">
-            <i class="fa-solid fa-print"></i>
-        </button>
+    <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+            {% if is_admin %}
+            <li>
+                <a href="{% url 'academics:attendance_export' %}?class={{ class_filter }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                    <i class="fa-solid fa-file-excel text-success"></i> Export Excel
+                </a>
+            </li>
+            {% endif %}
+            <li>
+                <button onclick="window.print()">
+                    <i class="fa-solid fa-print"></i> Print
+                </button>
+            </li>
+        </ul>
     </div>
 </div>
 

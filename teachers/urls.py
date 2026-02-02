@@ -16,6 +16,10 @@ urlpatterns = [
     path('<uuid:pk>/deactivate-account/', views.deactivate_account, name='deactivate_account'),
     path('<uuid:pk>/reset-password/', views.reset_password, name='reset_password'),
 
+    # Lesson assignment routes
+    path('<uuid:pk>/assign-lesson/', views.assign_lesson, name='assign_lesson'),
+    path('<uuid:pk>/unassign-lesson/<int:assignment_pk>/', views.unassign_lesson, name='unassign_lesson'),
+
     # Invitation routes
     path('<uuid:pk>/send-invitation/', views.send_invitation, name='send_invitation'),
     path('<uuid:pk>/resend-invitation/', views.resend_invitation, name='resend_invitation'),

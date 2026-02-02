@@ -1,0 +1,33 @@
+<!-- Success Message in Modal -->
+<div class="flex flex-col items-center justify-center py-8 text-center">
+    {% if is_warning %}
+    <div class="w-16 h-16 bg-warning/10 rounded-full flex items-center justify-center mb-4">
+        <i class="fa-solid fa-triangle-exclamation text-3xl text-warning"></i>
+    </div>
+    <h3 class="text-lg font-bold mb-2">Already Assigned</h3>
+    {% elif is_removal %}
+    <div class="w-16 h-16 bg-info/10 rounded-full flex items-center justify-center mb-4">
+        <i class="fa-solid fa-minus text-3xl text-info"></i>
+    </div>
+    <h3 class="text-lg font-bold mb-2">Lesson Removed</h3>
+    {% else %}
+    <div class="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mb-4">
+        <i class="fa-solid fa-check text-3xl text-success"></i>
+    </div>
+    <h3 class="text-lg font-bold mb-2">Lesson Assigned</h3>
+    {% endif %}
+    <p class="text-base-content/60 text-sm mb-4">
+        {{ message }}
+    </p>
+    <button class="btn btn-primary btn-sm" onclick="modal_form.close()">Close</button>
+</div>
+
+<!-- Out-of-band swap: Update the assignments list -->
+<div id="teaching-assignments-list" hx-swap-oob="innerHTML">
+    {% include "teachers/partials/teaching_assignments_list.html" %}
+</div>
+
+<!-- Out-of-band swap: Update workload stats -->
+<div id="workload-stats" hx-swap-oob="innerHTML">
+    {% include "teachers/partials/workload_stats.html" %}
+</div>

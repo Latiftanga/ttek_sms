@@ -16,32 +16,35 @@
                 <i class="fa-solid fa-arrow-left"></i>
             </a>
             <div class="flex-1 min-w-0">
-                <h1 class="text-lg sm:text-xl font-bold truncate flex items-center gap-2">
+                <h1 class="text-base sm:text-xl font-bold truncate flex items-center gap-2">
                     <i class="fa-solid fa-book text-secondary"></i>
                     {{ class.name }} Subjects
                 </h1>
-                <p class="text-xs text-base-content/60 truncate">
+                <p class="text-[10px] sm:text-xs text-base-content/60 truncate">
                     {{ class.level_display }}{% if tenant.has_programmes and class.programme %} &bull; {{ class.programme.name }}{% endif %}
                 </p>
             </div>
-            <div class="flex items-center gap-1 shrink-0">
-                <a href="{% url 'academics:class_timetable' class.pk %}"
-                   hx-get="{% url 'academics:class_timetable' class.pk %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-sm btn-ghost"
-                   title="View Timetable">
-                    <i class="fa-solid fa-calendar-days"></i>
-                    <span class="hidden sm:inline">Timetable</span>
-                </a>
-                <button class="btn btn-sm btn-ghost"
-                        hx-get="{% url 'academics:apply_template' class.pk %}"
-                        hx-target="#modal-container"
-                        hx-on::after-request="modal_form.showModal()"
-                        title="Apply Template">
-                    <i class="fa-solid fa-layer-group"></i>
-                    <span class="hidden sm:inline">Template</span>
-                </button>
+            <div class="dropdown dropdown-end">
+                <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </label>
+                <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                    <li>
+                        <button hx-get="{% url 'academics:apply_template' class.pk %}"
+                                hx-target="#modal-container"
+                                hx-on::after-request="modal_form.showModal()">
+                            <i class="fa-solid fa-layer-group text-primary"></i> Apply Template
+                        </button>
+                    </li>
+                    <li>
+                        <a href="{% url 'academics:class_timetable' class.pk %}"
+                           hx-get="{% url 'academics:class_timetable' class.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true">
+                            <i class="fa-solid fa-calendar-days"></i> Timetable
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
 
