@@ -1,0 +1,65 @@
+<!-- Teaching Assignments Header -->
+<div class="flex items-center justify-between mb-3">
+    <h3 class="font-bold text-xs uppercase text-base-content/50 flex items-center gap-2">
+        <i class="fa-solid fa-chalkboard-user text-secondary"></i> Teaching Assignments
+        {% if subject_assignments %}
+        <span class="badge badge-xs badge-ghost">{{ subject_assignments|length }}</span>
+        {% endif %}
+    </h3>
+    <button class="btn btn-primary btn-sm"
+            hx-get="{% url 'teachers:assign_lesson' teacher.pk %}"
+            hx-target="#modal-container"
+            onclick="modal_form.showModal()">
+        <i class="fa-solid fa-plus"></i>
+        <span class="hidden sm:inline">Assign Lesson</span>
+    </button>
+</div>
+
+{% if subject_assignments %}
+<div class="space-y-2">
+    {% for assignment in subject_assignments %}
+    <div class="flex items-center justify-between p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors group">
+        <a href="{% url 'academics:class_detail' assignment.class_assigned.pk %}"
+           hx-get="{% url 'academics:class_detail' assignment.class_assigned.pk %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="flex items-center gap-3 flex-1 min-w-0">
+            <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-chalkboard text-primary text-sm"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <span class="font-medium text-sm group-hover:text-primary transition-colors">{{ assignment.class_assigned.name }}</span>
+                <span class="badge badge-ghost badge-sm ml-2">{{ assignment.subject.name }}</span>
+            </div>
+        </a>
+        <form hx-post="{% url 'teachers:unassign_lesson' teacher.pk assignment.pk %}"
+              hx-target="#modal-container"
+              hx-swap="innerHTML"
+              hx-confirm="Remove {{ assignment.subject.name }} in {{ assignment.class_assigned.name }} from {{ teacher.full_name }}?"
+              class="ml-2">
+            {% csrf_token %}
+            <button type="submit"
+                    class="btn btn-ghost btn-xs btn-square text-error opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove assignment">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-10">
+    <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-clipboard-list text-2xl text-base-content/30"></i>
+    </div>
+    <h3 class="font-bold mb-1">No Teaching Assignments</h3>
+    <p class="text-sm text-base-content/60 mb-4">This teacher hasn't been assigned any lessons yet</p>
+    <button class="btn btn-primary btn-sm"
+            hx-get="{% url 'teachers:assign_lesson' teacher.pk %}"
+            hx-target="#modal-container"
+            onclick="modal_form.showModal()">
+        <i class="fa-solid fa-plus"></i>
+        Assign First Lesson
+    </button>
+</div>
+{% endif %}

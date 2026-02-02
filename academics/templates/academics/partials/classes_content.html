@@ -6,45 +6,36 @@
      hx-target="this"
      hx-swap="outerHTML transition:true">
     <!-- Page Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-chalkboard text-white"></i>
-            </div>
-            <div class="min-w-0">
-                <h1 class="text-lg sm:text-xl font-bold">Classes</h1>
-                <p class="text-xs text-base-content/60">
-                    {% if paginator.count %}{{ paginator.count }} class{{ paginator.count|pluralize:"es" }}{% else %}No classes{% endif %}
-                    {% if search or level_filter %}<span class="text-primary">(filtered)</span>{% endif %}
-                </p>
-            </div>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-chalkboard text-white text-sm sm:text-base"></i>
         </div>
-
-        <!-- Actions -->
-        <div class="flex items-center gap-2">
-            <!-- Primary action always visible -->
-            <button class="btn btn-primary btn-sm gap-1"
-                    hx-get="{% url 'academics:class_create' %}"
-                    hx-target="#modal-class-content"
-                    hx-swap="innerHTML"
-                    hx-on::after-request="document.getElementById('modal_class').showModal()">
-                <i class="fa-solid fa-plus"></i>
-                <span class="hidden xs:inline">Add</span> Class
-            </button>
-
-            <!-- More actions dropdown -->
-            <div class="dropdown dropdown-end">
-                <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square">
-                    <i class="fa-solid fa-ellipsis-vertical"></i>
-                </div>
-                <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-200">
-                    <li>
-                        <a href="{% url 'academics:classes_bulk_export' %}{% if search or level_filter %}?{% if search %}search={{ search }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}">
-                            <i class="fa-solid fa-file-export w-5"></i> Export Excel
-                        </a>
-                    </li>
-                </ul>
-            </div>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold">Classes</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">
+                {% if paginator.count %}{{ paginator.count }} class{{ paginator.count|pluralize:"es" }}{% else %}No classes{% endif %}
+                {% if search or level_filter %}<span class="text-primary">(filtered)</span>{% endif %}
+            </p>
+        </div>
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </label>
+            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                <li>
+                    <button hx-get="{% url 'academics:class_create' %}"
+                            hx-target="#modal-class-content"
+                            hx-swap="innerHTML"
+                            hx-on::after-request="document.getElementById('modal_class').showModal()">
+                        <i class="fa-solid fa-plus text-primary"></i> Add Class
+                    </button>
+                </li>
+                <li>
+                    <a href="{% url 'academics:classes_bulk_export' %}{% if search or level_filter %}?{% if search %}search={{ search }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}">
+                        <i class="fa-solid fa-file-export"></i> Export Excel
+                    </a>
+                </li>
+            </ul>
         </div>
     </div>
 
@@ -114,6 +105,7 @@
             <a href="{% url 'academics:class_detail' cls.pk %}"
                hx-get="{% url 'academics:class_detail' cls.pk %}"
                hx-target="#main-content"
+               hx-swap="innerHTML"
                hx-push-url="true"
                class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
 
@@ -172,6 +164,7 @@
                        onclick="event.stopPropagation();"
                        hx-get="{% url 'academics:class_detail' cls.pk %}"
                        hx-target="#main-content"
+                       hx-swap="innerHTML"
                        hx-push-url="true"
                        class="btn btn-ghost btn-xs btn-square"
                        title="View Details">

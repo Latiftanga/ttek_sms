@@ -6,6 +6,8 @@ from .teachers import (
     teacher_detail,
     teacher_detail_pdf,
     teacher_delete,
+    assign_lesson,
+    unassign_lesson,
 )
 
 # Teacher dashboard/portal views
@@ -43,6 +45,8 @@ __all__ = [
     'teacher_detail',
     'teacher_detail_pdf',
     'teacher_delete',
+    'assign_lesson',
+    'unassign_lesson',
     # Dashboard
     'profile',
     'dashboard',

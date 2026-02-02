@@ -12,7 +12,7 @@
      }">
 
     <!-- Compact Header -->
-    <div class="flex items-center gap-3 mb-4 print:!hidden">
+    <div class="flex items-center gap-2 sm:gap-3 mb-4 print:!hidden">
         <a href="{{ back_url|default:'/teachers/' }}"
            hx-get="{{ back_url|default:'/teachers/' }}"
            hx-target="#main-content"
@@ -21,33 +21,40 @@
             <i class="fa-solid fa-arrow-left"></i>
         </a>
         <div class="flex-1 min-w-0">
-            <h1 class="text-lg font-bold truncate">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
-            <p class="text-xs text-base-content/60 flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold truncate">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60 flex items-center gap-1 sm:gap-2">
                 <span class="font-mono">{{ teacher.staff_id }}</span>
-                <span>•</span>
-                <span>{{ teacher.subject_specialization }}</span>
+                <span class="hidden sm:inline">•</span>
+                <span class="hidden sm:inline">{{ teacher.subject_specialization }}</span>
             </p>
         </div>
-        <div class="flex gap-1 shrink-0">
-            <a href="{% url 'teachers:teacher_schedule' teacher.pk %}"
-               hx-get="{% url 'teachers:teacher_schedule' teacher.pk %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-square" title="Schedule">
-                <i class="fa-solid fa-calendar-days"></i>
-            </a>
-            <a href="{% url 'teachers:teacher_detail_pdf' teacher.pk %}"
-               class="btn btn-ghost btn-sm btn-square" title="Download PDF">
-                <i class="fa-solid fa-file-pdf"></i>
-            </a>
-            <a href="{% url 'teachers:teacher_edit' teacher.pk %}"
-               hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-pen"></i>
-                <span class="hidden sm:inline">Edit</span>
-            </a>
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </label>
+            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                <li>
+                    <a href="{% url 'teachers:teacher_edit' teacher.pk %}"
+                       hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-pen"></i> Edit
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'teachers:teacher_schedule' teacher.pk %}"
+                       hx-get="{% url 'teachers:teacher_schedule' teacher.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-calendar-days"></i> Schedule
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'teachers:teacher_detail_pdf' teacher.pk %}">
+                        <i class="fa-solid fa-file-pdf"></i> Download PDF
+                    </a>
+                </li>
+            </ul>
         </div>
     </div>
 
@@ -139,25 +146,25 @@
         <!-- Tabs Header -->
         <div class="border-b border-base-200 px-2 sm:px-4 pt-1 print:!hidden">
             <div class="flex overflow-x-auto scrollbar-none -mb-px">
-                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
                         :class="activeTab === 'overview' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                         @click="setTab('overview')">
                     <i class="fa-regular fa-id-card sm:mr-1.5"></i>
                     <span class="hidden sm:inline">Overview</span>
                 </button>
-                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
                         :class="activeTab === 'classes' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                         @click="setTab('classes')">
                     <i class="fa-solid fa-chalkboard sm:mr-1.5"></i>
                     <span class="hidden sm:inline">Classes</span>
                 </button>
-                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
                         :class="activeTab === 'account' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                         @click="setTab('account')">
                     <i class="fa-solid fa-user-shield sm:mr-1.5"></i>
                     <span class="hidden sm:inline">Account</span>
                 </button>
-                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
                         :class="activeTab === 'system' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                         @click="setTab('system')">
                     <i class="fa-solid fa-gear sm:mr-1.5"></i>
@@ -260,23 +267,8 @@
         <!-- Tab: Classes -->
         <div x-show="activeTab === 'classes'" x-cloak class="p-4 sm:p-6" style="display: none;">
             <!-- Workload Stats -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">
-                <div class="text-center p-3 rounded-xl bg-primary/10">
-                    <div class="text-xl sm:text-2xl font-bold text-primary">{{ workload.classes_taught }}</div>
-                    <div class="text-[10px] sm:text-xs text-base-content/60 uppercase">Classes</div>
-                </div>
-                <div class="text-center p-3 rounded-xl bg-secondary/10">
-                    <div class="text-xl sm:text-2xl font-bold text-secondary">{{ workload.subjects_taught }}</div>
-                    <div class="text-[10px] sm:text-xs text-base-content/60 uppercase">Subjects</div>
-                </div>
-                <div class="text-center p-3 rounded-xl bg-accent/10">
-                    <div class="text-xl sm:text-2xl font-bold text-accent">{{ workload.total_students }}</div>
-                    <div class="text-[10px] sm:text-xs text-base-content/60 uppercase">Students</div>
-                </div>
-                <div class="text-center p-3 rounded-xl bg-info/10">
-                    <div class="text-xl sm:text-2xl font-bold text-info">{{ workload.homeroom_classes }}</div>
-                    <div class="text-[10px] sm:text-xs text-base-content/60 uppercase">Homeroom</div>
-                </div>
+            <div id="workload-stats">
+                {% include "teachers/partials/workload_stats.html" %}
             </div>
 
             <!-- Homeroom Classes -->
@@ -301,43 +293,9 @@
             {% endif %}
 
             <!-- Teaching Assignments -->
-            <h3 class="font-bold text-xs uppercase text-base-content/50 mb-3 flex items-center gap-2">
-                <i class="fa-solid fa-chalkboard-user text-secondary"></i> Teaching Assignments
-                {% if subject_assignments %}
-                <span class="badge badge-xs badge-ghost">{{ subject_assignments|length }}</span>
-                {% endif %}
-            </h3>
-
-            {% if subject_assignments %}
-            <div class="space-y-2">
-                {% for assignment in subject_assignments %}
-                <a href="{% url 'academics:class_detail' assignment.class_assigned.pk %}"
-                   hx-get="{% url 'academics:class_detail' assignment.class_assigned.pk %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="flex items-center justify-between p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors group">
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <i class="fa-solid fa-chalkboard text-primary text-sm"></i>
-                        </div>
-                        <span class="font-medium text-sm group-hover:text-primary transition-colors">{{ assignment.class_assigned.name }}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="badge badge-ghost badge-sm">{{ assignment.subject.name }}</span>
-                        <i class="fa-solid fa-chevron-right text-base-content/30 text-xs"></i>
-                    </div>
-                </a>
-                {% endfor %}
+            <div id="teaching-assignments-list">
+                {% include "teachers/partials/teaching_assignments_list.html" %}
             </div>
-            {% else %}
-            <div class="text-center py-10">
-                <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
-                    <i class="fa-solid fa-clipboard-list text-2xl text-base-content/30"></i>
-                </div>
-                <h3 class="font-bold mb-1">No Teaching Assignments</h3>
-                <p class="text-sm text-base-content/60">Assign subjects in the Academics section</p>
-            </div>
-            {% endif %}
         </div>
 
         <!-- Tab: Account -->

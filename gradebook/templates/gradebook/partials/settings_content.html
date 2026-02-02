@@ -6,27 +6,18 @@
      hx-swap="innerHTML">
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        {% if breadcrumbs %}
-        <div class="mb-2">
-            {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-        </div>
-        {% endif %}
-        <div class="flex items-center gap-3">
-            <a href="{% url 'gradebook:index' %}"
-               hx-get="{% url 'gradebook:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle"
-               title="Back to Gradebook">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div>
-                <h1 class="text-xl font-bold">Gradebook Settings</h1>
-                <p class="text-sm text-base-content/60">Configure grading systems and assessment categories</p>
-            </div>
-        </div>
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'gradebook:index' %}"
+       hx-get="{% url 'gradebook:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm btn-square shrink-0"
+       title="Back to Gradebook">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Gradebook Settings</h1>
+        <p class="text-[10px] sm:text-sm text-base-content/60">Configure grading systems and assessment categories</p>
     </div>
 </div>
 

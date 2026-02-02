@@ -2,38 +2,36 @@
 
 <div class="space-y-6">
     <!-- Page Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            {% if breadcrumbs %}
-            <div class="mb-2">
-                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-            </div>
-            {% endif %}
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                    <i class="fa-solid fa-comment-sms text-white"></i>
-                </div>
-                Communications
-            </h1>
-            <p class="text-sm text-base-content/60 ml-12">Send SMS notifications to parents and guardians</p>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-comment-sms text-white text-sm sm:text-base"></i>
         </div>
-        <div class="flex gap-2">
-            <a href="{% url 'communications:history' %}"
-               hx-get="{% url 'communications:history' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-sm btn-ghost">
-                <i class="fa-solid fa-clock-rotate-left"></i>
-                History
-            </a>
-            <a href="{% url 'communications:templates' %}"
-               hx-get="{% url 'communications:templates' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-sm btn-ghost">
-                <i class="fa-solid fa-file-lines"></i>
-                Templates
-            </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold">Communications</h1>
+            <p class="text-[10px] sm:text-sm text-base-content/60">Send SMS notifications to parents and guardians</p>
+        </div>
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </label>
+            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                <li>
+                    <a href="{% url 'communications:history' %}"
+                       hx-get="{% url 'communications:history' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-clock-rotate-left"></i> History
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'communications:templates' %}"
+                       hx-get="{% url 'communications:templates' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-file-lines"></i> Templates
+                    </a>
+                </li>
+            </ul>
         </div>
     </div>
 

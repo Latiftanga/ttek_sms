@@ -1,40 +1,38 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        {% if breadcrumbs %}
-        <div class="mb-2">
-            {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-        </div>
-        {% endif %}
-        <div class="flex items-center gap-3">
-            <a href="{{ back_url|default:'/communications/' }}"
-               hx-get="{{ back_url|default:'/communications/' }}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle"
-               title="Back to Communications">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div>
-                <h1 class="text-xl font-bold flex items-center gap-2">
-                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-accent to-primary flex items-center justify-center">
-                        <i class="fa-solid fa-file-lines text-white"></i>
-                    </div>
-                    SMS Templates
-                </h1>
-                <p class="text-sm text-base-content/60 ml-12">Create reusable message templates</p>
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{{ back_url|default:'/communications/' }}"
+       hx-get="{{ back_url|default:'/communications/' }}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm btn-square shrink-0"
+       title="Back to Communications">
+        <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold flex items-center gap-2">
+            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-accent to-primary flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-file-lines text-white text-sm sm:text-base"></i>
             </div>
-        </div>
+            SMS Templates
+        </h1>
+        <p class="text-[10px] sm:text-sm text-base-content/60 ml-10 sm:ml-12">Create reusable message templates</p>
     </div>
-    <button class="btn btn-sm btn-primary"
-            hx-get="{% url 'communications:template_create' %}"
-            hx-target="#modal-template-content"
-            onclick="modal_template.showModal()">
-        <i class="fa-solid fa-plus"></i>
-        Add Template
-    </button>
+    <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+            <li>
+                <button hx-get="{% url 'communications:template_create' %}"
+                        hx-target="#modal-template-content"
+                        onclick="modal_template.showModal()">
+                    <i class="fa-solid fa-plus text-primary"></i> Add Template
+                </button>
+            </li>
+        </ul>
+    </div>
 </div>
 
 <!-- Templates Grid -->

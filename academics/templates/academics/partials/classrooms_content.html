@@ -6,45 +6,47 @@
      hx-target="#main-content"
      hx-swap="innerHTML">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            <div class="flex items-center gap-2 text-sm text-base-content/60 mb-1">
-                <a href="{% url 'academics:index' %}"
-                   hx-get="{% url 'academics:index' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="hover:text-primary">Academics</a>
-                <i class="fa-solid fa-chevron-right text-xs"></i>
-                <span>Classrooms</span>
-            </div>
-            <h1 class="text-2xl font-bold flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-door-open text-primary"></i>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{% url 'academics:index' %}"
+           hx-get="{% url 'academics:index' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-ghost btn-sm btn-square shrink-0">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold flex items-center gap-2">
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-door-open text-primary text-sm sm:text-base"></i>
                 </div>
                 Classrooms
             </h1>
-            <p class="text-base-content/60 text-sm mt-1">
+            <p class="text-[10px] sm:text-sm text-base-content/60 ml-10 sm:ml-12">
                 Manage physical rooms for timetable scheduling
             </p>
         </div>
-
-        <div class="flex items-center gap-3">
-            <a href="{% url 'academics:timetable' %}"
-               hx-get="{% url 'academics:timetable' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost gap-2">
-                <i class="fa-solid fa-calendar-days"></i>
-                View Timetable
-            </a>
-            <button class="btn btn-primary gap-2"
-                    hx-get="{% url 'academics:classroom_create' %}"
-                    hx-target="#modal-container"
-                    hx-swap="innerHTML"
-                    onclick="modal_form.showModal()">
-                <i class="fa-solid fa-plus"></i>
-                Add Classroom
-            </button>
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </label>
+            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                <li>
+                    <button hx-get="{% url 'academics:classroom_create' %}"
+                            hx-target="#modal-container"
+                            hx-swap="innerHTML"
+                            onclick="modal_form.showModal()">
+                        <i class="fa-solid fa-plus text-primary"></i> Add Classroom
+                    </button>
+                </li>
+                <li>
+                    <a href="{% url 'academics:timetable' %}"
+                       hx-get="{% url 'academics:timetable' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-calendar-days"></i> View Timetable
+                    </a>
+                </li>
+            </ul>
         </div>
     </div>
 
@@ -108,7 +110,55 @@
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-0">
             {% if classrooms %}
-            <div class="overflow-x-auto">
+            <!-- Mobile Card View -->
+            <div class="sm:hidden divide-y divide-base-200">
+                {% for classroom in classrooms %}
+                <div class="p-3 group">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            {% if classroom.room_type == 'lab' or classroom.room_type == 'computer' %}
+                            <i class="fa-solid fa-flask text-info"></i>
+                            {% elif classroom.room_type == 'library' %}
+                            <i class="fa-solid fa-book text-secondary"></i>
+                            {% elif classroom.room_type == 'hall' %}
+                            <i class="fa-solid fa-building-columns text-warning"></i>
+                            {% else %}
+                            <i class="fa-solid fa-door-open text-primary"></i>
+                            {% endif %}
+                            <span class="font-medium">{{ classroom.name }}</span>
+                            {% if classroom.code %}
+                            <span class="badge badge-ghost badge-xs font-mono">{{ classroom.code }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="btn btn-ghost btn-xs btn-square"
+                                    hx-get="{% url 'academics:classroom_edit' classroom.pk %}"
+                                    hx-target="#modal-container"
+                                    hx-swap="innerHTML"
+                                    onclick="modal_form.showModal()">
+                                <i class="fa-solid fa-pen-to-square text-primary"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-xs btn-square"
+                                    hx-post="{% url 'academics:classroom_delete' classroom.pk %}"
+                                    hx-confirm="Delete classroom '{{ classroom.name }}'?">
+                                <i class="fa-solid fa-trash text-error"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-base-content/70 ml-6">
+                        <span>{{ classroom.get_room_type_display }}</span>
+                        <span class="badge badge-ghost badge-xs">{{ classroom.capacity }} seats</span>
+                        {% if classroom.is_active %}
+                        <span class="badge badge-success badge-xs">Active</span>
+                        {% else %}
+                        <span class="badge badge-ghost badge-xs">Inactive</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <!-- Desktop Table View -->
+            <div class="hidden sm:block overflow-x-auto">
                 <table class="table">
                     <thead>
                         <tr class="bg-base-200/50">
@@ -117,12 +167,12 @@
                             <th>Type</th>
                             <th class="text-center">Capacity</th>
                             <th>Status</th>
-                            <th class="w-24">Actions</th>
+                            <th class="w-24"></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for classroom in classrooms %}
-                        <tr class="hover:bg-base-200/30">
+                        <tr class="hover:bg-base-200/30 group">
                             <td>
                                 <div class="flex items-center gap-2">
                                     {% if classroom.room_type == 'lab' or classroom.room_type == 'computer' %}
@@ -158,7 +208,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="flex items-center gap-1">
+                                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button class="btn btn-ghost btn-xs btn-square"
                                             hx-get="{% url 'academics:classroom_edit' classroom.pk %}"
                                             hx-target="#modal-container"

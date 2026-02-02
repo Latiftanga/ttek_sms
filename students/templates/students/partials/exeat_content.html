@@ -1,42 +1,43 @@
 {% load core_tags %}
 <div class="space-y-4" id="exeat-list">
     <!-- Page Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-ticket text-white"></i>
-            </div>
-            <div class="min-w-0">
-                <h1 class="text-lg sm:text-xl font-bold">Exeats</h1>
-                <p class="text-xs text-base-content/60">
-                    {% if assignment %}{{ assignment.house.name }}{% else %}All Houses{% endif %}
-                    {% if search or status_filter or type_filter or house_filter %}<span class="text-primary">(filtered)</span>{% endif %}
-                </p>
-            </div>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-ticket text-white text-sm sm:text-base"></i>
         </div>
-
-        <!-- Actions -->
-        <div class="flex items-center gap-2">
-            {% if is_senior %}
-            <a href="{% url 'students:exeat_report' %}"
-               hx-get="{% url 'students:exeat_report' %}"
-               hx-target="#main-content"
-               hx-swap="innerHTML"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-square"
-               title="Reports">
-                <i class="fa-solid fa-chart-bar"></i>
-            </a>
-            {% endif %}
-            <a href="{% url 'students:exeat_create' %}"
-               hx-get="{% url 'students:exeat_create' %}"
-               hx-target="#main-content"
-               hx-swap="innerHTML"
-               hx-push-url="true"
-               class="btn btn-primary btn-sm gap-1">
-                <i class="fa-solid fa-plus"></i>
-                <span class="hidden xs:inline">New</span> Request
-            </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold">Exeats</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">
+                {% if assignment %}{{ assignment.house.name }}{% else %}All Houses{% endif %}
+                {% if search or status_filter or type_filter or house_filter %}<span class="text-primary">(filtered)</span>{% endif %}
+            </p>
+        </div>
+        <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </label>
+            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                <li>
+                    <a href="{% url 'students:exeat_create' %}"
+                       hx-get="{% url 'students:exeat_create' %}"
+                       hx-target="#main-content"
+                       hx-swap="innerHTML"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-plus text-primary"></i> New Request
+                    </a>
+                </li>
+                {% if is_senior %}
+                <li>
+                    <a href="{% url 'students:exeat_report' %}"
+                       hx-get="{% url 'students:exeat_report' %}"
+                       hx-target="#main-content"
+                       hx-swap="innerHTML"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-chart-bar"></i> Reports
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
         </div>
     </div>
 

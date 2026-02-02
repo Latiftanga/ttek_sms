@@ -1,5 +1,6 @@
 from django.shortcuts import redirect, get_object_or_404
 from django.http import HttpResponse
+from django.urls import reverse
 from django.db.models import Q
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -364,3 +365,158 @@ def teacher_delete(request, pk):
         response['HX-Refresh'] = 'true'
         return response
     return redirect('teachers:index')
+
+
+def get_teacher_assignments_context(teacher):
+    """Get context for teacher assignments (for OOB swaps)."""
+    from django.shortcuts import render
+
+    # Subject assignments
+    subject_assignments = ClassSubject.objects.filter(
+        teacher=teacher
+    ).select_related('class_assigned', 'subject').order_by(
+        'class_assigned__level_number', 'class_assigned__name', 'subject__name'
+    )
+
+    # Calculate workload stats
+    classes_taught = subject_assignments.values('class_assigned').distinct().count()
+    subjects_taught = subject_assignments.values('subject').distinct().count()
+
+    class_ids = subject_assignments.values_list('class_assigned_id', flat=True).distinct()
+    total_students = Student.objects.filter(
+        current_class_id__in=class_ids,
+        status='active'
+    ).count()
+
+    homeroom_classes = Class.objects.filter(
+        class_teacher=teacher,
+        is_active=True
+    )
+
+    workload = {
+        'classes_taught': classes_taught,
+        'subjects_taught': subjects_taught,
+        'total_students': total_students,
+        'homeroom_classes': homeroom_classes.count(),
+    }
+
+    return {
+        'teacher': teacher,
+        'subject_assignments': subject_assignments,
+        'workload': workload,
+    }
+
+
+@admin_required
+def assign_lesson(request, pk):
+    """Assign a lesson (class + subject) to a teacher."""
+    import json
+    from django.shortcuts import render
+    from academics.models import Subject
+
+    teacher = get_object_or_404(Teacher, pk=pk)
+
+    # Get all active classes and subjects
+    classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
+    subjects = Subject.objects.filter(is_active=True).order_by('name')
+
+    # Get existing assignments for this teacher
+    existing_assignments = list(
+        ClassSubject.objects.filter(teacher=teacher).values_list('class_assigned_id', 'subject_id')
+    )
+    # Convert to JSON format for Alpine.js: ["class_id-subject_id", ...]
+    existing_assignments_json = json.dumps([f"{c}-{s}" for c, s in existing_assignments])
+
+    if request.method == 'GET':
+        return htmx_render(
+            request,
+            'teachers/partials/modal_assign_lesson.html',
+            'teachers/partials/modal_assign_lesson.html',
+            {
+                'teacher': teacher,
+                'classes': classes,
+                'subjects': subjects,
+                'existing_assignments_json': existing_assignments_json,
+            }
+        )
+
+    if request.method == 'POST':
+        class_id = request.POST.get('class_id')
+        subject_id = request.POST.get('subject_id')
+
+        if not class_id or not subject_id:
+            messages.error(request, "Please select both a class and a subject.")
+            return HttpResponse(status=400)
+
+        class_obj = get_object_or_404(Class, pk=class_id)
+        subject = get_object_or_404(Subject, pk=subject_id)
+
+        # Check if already assigned to this teacher
+        existing = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject=subject,
+            teacher=teacher
+        ).exists()
+
+        if existing:
+            # Return modal with warning
+            context = get_teacher_assignments_context(teacher)
+            context['message'] = f"{teacher.full_name} is already assigned to {subject.name} in {class_obj.name}"
+            context['is_warning'] = True
+            return render(request, 'teachers/partials/modal_assign_lesson_success.html', context)
+
+        # Check if this class-subject combination already exists
+        class_subject, created = ClassSubject.objects.get_or_create(
+            class_assigned=class_obj,
+            subject=subject,
+            defaults={'teacher': teacher}
+        )
+
+        message = ""
+        if not created:
+            if class_subject.teacher == teacher:
+                message = f"Already assigned: {subject.name} in {class_obj.name}"
+            else:
+                # Update the teacher for this assignment
+                old_teacher = class_subject.teacher
+                class_subject.teacher = teacher
+                class_subject.save(update_fields=['teacher'])
+                if old_teacher:
+                    message = f"Reassigned {subject.name} in {class_obj.name} from {old_teacher.full_name} to {teacher.full_name}"
+                else:
+                    message = f"Assigned {subject.name} in {class_obj.name} to {teacher.full_name}"
+        else:
+            message = f"Assigned {subject.name} in {class_obj.name} to {teacher.full_name}"
+
+        # Return success template with OOB swaps
+        context = get_teacher_assignments_context(teacher)
+        context['message'] = message
+        return render(request, 'teachers/partials/modal_assign_lesson_success.html', context)
+
+    return HttpResponse(status=405)
+
+
+@admin_required
+def unassign_lesson(request, pk, assignment_pk):
+    """Remove a lesson assignment from a teacher."""
+    from django.shortcuts import render
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    teacher = get_object_or_404(Teacher, pk=pk)
+    assignment = get_object_or_404(ClassSubject, pk=assignment_pk, teacher=teacher)
+
+    # Remove the teacher from this assignment (don't delete the ClassSubject)
+    subject_name = assignment.subject.name
+    class_name = assignment.class_assigned.name
+    assignment.teacher = None
+    assignment.save(update_fields=['teacher'])
+
+    message = f"Removed {subject_name} in {class_name} from {teacher.full_name}"
+
+    # Return success template with OOB swaps
+    context = get_teacher_assignments_context(teacher)
+    context['message'] = message
+    context['is_removal'] = True
+    return render(request, 'teachers/partials/modal_assign_lesson_success.html', context)
