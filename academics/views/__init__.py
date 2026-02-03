@@ -45,6 +45,7 @@ from .classes import (
     class_subjects_modal,
     class_subject_create,
     class_subject_delete,
+    copy_subjects,
     class_student_enroll,
     class_student_remove,
     class_student_electives,
@@ -55,6 +56,10 @@ from .classes import (
     class_export,
     classes_bulk_export,
     class_detail_pdf,
+    bulk_subject_import,
+    bulk_subject_import_confirm,
+    bulk_subject_import_template,
+    assignment_dashboard,
 )
 
 # Subjects
@@ -138,6 +143,7 @@ __all__ = [
     'class_subjects_modal',
     'class_subject_create',
     'class_subject_delete',
+    'copy_subjects',
     'class_student_enroll',
     'class_student_remove',
     'class_student_electives',
@@ -148,6 +154,10 @@ __all__ = [
     'class_export',
     'classes_bulk_export',
     'class_detail_pdf',
+    'bulk_subject_import',
+    'bulk_subject_import_confirm',
+    'bulk_subject_import_template',
+    'assignment_dashboard',
     # Subjects
     'subject_create',
     'subject_edit',

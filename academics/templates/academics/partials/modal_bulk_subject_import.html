@@ -1,0 +1,97 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-2">Import Subject Assignments</h3>
+<p class="text-sm text-base-content/60 mb-4">
+    Upload a CSV or Excel file to bulk import subject assignments to classes.
+</p>
+
+{% if error %}
+<div class="alert alert-error mb-4 py-2 text-sm">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+</div>
+{% endif %}
+
+<form method="post"
+      action="{% url 'academics:bulk_subject_import' %}"
+      hx-post="{% url 'academics:bulk_subject_import' %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML"
+      enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="form-control mb-4">
+        <label class="label">
+            <span class="label-text font-medium">Upload File</span>
+            <a href="{% url 'academics:bulk_subject_import_template' %}"
+               class="link link-primary text-xs">
+                <i class="fa-solid fa-download mr-1"></i>Download Template
+            </a>
+        </label>
+        <input type="file" name="file" accept=".xlsx,.csv"
+               class="file-input file-input-bordered w-full" required>
+        <label class="label">
+            <span class="label-text-alt text-base-content/60">
+                Supported formats: .xlsx, .csv
+            </span>
+        </label>
+    </div>
+
+    <div class="collapse collapse-arrow bg-base-200/50 rounded-lg mb-4">
+        <input type="checkbox">
+        <div class="collapse-title text-sm font-medium py-2 min-h-0">
+            <i class="fa-solid fa-info-circle text-info mr-2"></i>
+            Expected Columns
+        </div>
+        <div class="collapse-content">
+            <table class="table table-xs">
+                <thead>
+                    <tr>
+                        <th>Column</th>
+                        <th>Required</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>class_name</code></td>
+                        <td><span class="badge badge-xs badge-error">Yes</span></td>
+                        <td>Exact class name (e.g., B1-A, JHS2-B)</td>
+                    </tr>
+                    <tr>
+                        <td><code>subject_name</code></td>
+                        <td><span class="badge badge-xs badge-error">Yes</span></td>
+                        <td>Subject name or short name (e.g., Mathematics, MATH)</td>
+                    </tr>
+                    <tr>
+                        <td><code>teacher_email</code></td>
+                        <td><span class="badge badge-xs badge-ghost">No</span></td>
+                        <td>Teacher's email for assignment</td>
+                    </tr>
+                    <tr>
+                        <td><code>periods_per_week</code></td>
+                        <td><span class="badge badge-xs badge-ghost">No</span></td>
+                        <td>Number of periods per week (default: 0)</td>
+                    </tr>
+                    <tr>
+                        <td><code>auto_enroll</code></td>
+                        <td><span class="badge badge-xs badge-ghost">No</span></td>
+                        <td>Auto-enroll students: true/false (default: true)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="alert alert-info py-2 text-sm">
+        <i class="fa-solid fa-info-circle"></i>
+        <span>Existing class-subject combinations will be skipped to prevent duplicates.</span>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-upload"></i>
+            Upload & Validate
+        </button>
+    </div>
+</form>

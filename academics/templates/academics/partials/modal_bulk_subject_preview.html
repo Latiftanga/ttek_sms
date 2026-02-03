@@ -1,0 +1,127 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-2">Confirm Import</h3>
+<p class="text-sm text-base-content/60 mb-4">
+    Review the data before importing. {{ total_rows }} row{{ total_rows|pluralize }} found.
+</p>
+
+<!-- Summary Stats -->
+<div class="flex gap-3 mb-4">
+    <div class="flex-1 bg-success/10 rounded-lg p-3 text-center">
+        <div class="text-2xl font-bold text-success">{{ valid_count }}</div>
+        <div class="text-xs text-base-content/60">Valid</div>
+    </div>
+    <div class="flex-1 bg-error/10 rounded-lg p-3 text-center">
+        <div class="text-2xl font-bold text-error">{{ error_count }}</div>
+        <div class="text-xs text-base-content/60">Errors</div>
+    </div>
+</div>
+
+{% if all_errors %}
+<!-- Errors Section -->
+<div class="mb-4">
+    <h4 class="font-semibold text-sm text-error mb-2">
+        <i class="fa-solid fa-circle-exclamation mr-1"></i>
+        Errors ({{ all_errors|length }})
+    </h4>
+    <div class="bg-error/5 border border-error/20 rounded-lg p-2 max-h-32 overflow-y-auto">
+        {% for error in all_errors %}
+        <div class="text-xs mb-1">
+            <span class="font-semibold">Row {{ error.row }}:</span>
+            {% for err in error.errors %}
+            <span class="text-error">{{ err }}{% if not forloop.last %};{% endif %}</span>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if valid_rows %}
+<!-- Valid Rows Preview -->
+<div class="mb-4">
+    <h4 class="font-semibold text-sm mb-2">
+        <i class="fa-solid fa-check-circle text-success mr-1"></i>
+        Ready to Import ({{ valid_count }})
+    </h4>
+    <div class="overflow-x-auto max-h-48 overflow-y-auto border border-base-300 rounded-lg">
+        <table class="table table-xs">
+            <thead class="sticky top-0 bg-base-200">
+                <tr>
+                    <th>#</th>
+                    <th>Class</th>
+                    <th>Subject</th>
+                    <th>Teacher</th>
+                    <th>Periods</th>
+                    <th>Auto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in valid_rows %}
+                <tr class="hover">
+                    <td class="text-base-content/50">{{ row.row_num }}</td>
+                    <td>{{ row.class_name }}</td>
+                    <td>{{ row.subject_name }}</td>
+                    <td>
+                        {% if row.teacher_name %}
+                        {{ row.teacher_name }}
+                        {% else %}
+                        <span class="text-base-content/30">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.periods_per_week }}</td>
+                    <td>
+                        {% if row.auto_enroll %}
+                        <span class="badge badge-xs badge-success">Yes</span>
+                        {% else %}
+                        <span class="badge badge-xs badge-ghost">No</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form method="post"
+      action="{% url 'academics:bulk_subject_import_confirm' %}"
+      hx-post="{% url 'academics:bulk_subject_import_confirm' %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <div class="alert alert-info py-2 text-sm mb-4">
+        <i class="fa-solid fa-info-circle"></i>
+        <span>Students will be auto-enrolled in subjects with auto-enroll enabled.</span>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm"
+                hx-get="{% url 'academics:bulk_subject_import' %}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back
+        </button>
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-check"></i>
+            Import {{ valid_count }} Record{{ valid_count|pluralize }}
+        </button>
+    </div>
+</form>
+{% else %}
+<div class="alert alert-error py-2">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>No valid records to import. Please fix the errors and try again.</span>
+</div>
+
+<div class="modal-action">
+    <button type="button" class="btn btn-sm"
+            hx-get="{% url 'academics:bulk_subject_import' %}"
+            hx-target="#modal-container"
+            hx-swap="innerHTML">
+        <i class="fa-solid fa-arrow-left"></i>
+        Back
+    </button>
+</div>
+{% endif %}

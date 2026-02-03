@@ -6,11 +6,17 @@ app_name = 'academics'
 urlpatterns = [
     # Main page
     path('', views.index, name='index'),
+    path('assignment-dashboard/', views.assignment_dashboard, name='assignment_dashboard'),
 
     # Programme routes (SHS only)
     path('programmes/create/', views.programme_create, name='programme_create'),
     path('programmes/<int:pk>/edit/', views.programme_edit, name='programme_edit'),
     path('programmes/<int:pk>/delete/', views.programme_delete, name='programme_delete'),
+
+    # Bulk Subject Import
+    path('subjects/import/', views.bulk_subject_import, name='bulk_subject_import'),
+    path('subjects/import/confirm/', views.bulk_subject_import_confirm, name='bulk_subject_import_confirm'),
+    path('subjects/import/template/', views.bulk_subject_import_template, name='bulk_subject_import_template'),
 
     # Class routes
     path('classes/', views.classes_list, name='classes'),
@@ -21,6 +27,7 @@ urlpatterns = [
     path('classes/<int:pk>/delete/', views.class_delete, name='class_delete'),
     path('classes/<int:pk>/subjects/', views.class_subjects, name='class_subjects'),
     path('classes/<int:pk>/subjects/add/', views.class_subject_create, name='class_subject_create'),
+    path('classes/<int:pk>/subjects/copy/', views.copy_subjects, name='copy_subjects'),
     path('classes/<int:class_pk>/subjects/<int:pk>/delete/', views.class_subject_delete, name='class_subject_delete'),
     path('classes/<int:pk>/enroll/', views.class_student_enroll, name='class_student_enroll'),
     

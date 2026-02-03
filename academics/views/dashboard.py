@@ -8,7 +8,7 @@ from django.utils import timezone
 from core.utils import cache_page_per_tenant
 
 from ..models import (
-    Programme, Class, Subject, SubjectTemplate,
+    Programme, Class, Subject, SubjectTemplate, ClassSubject,
     AttendanceRecord, Period, TimetableEntry, Classroom
 )
 from ..forms import ProgrammeForm, SubjectForm
@@ -87,6 +87,18 @@ def index(request):
     # Subject templates
     templates = SubjectTemplate.objects.prefetch_related('subjects').filter(is_active=True)
 
+    # Assignment issues (for inline alerts)
+    classes_without_subjects = Class.objects.filter(
+        is_active=True
+    ).annotate(
+        subject_count=Count('subjects')
+    ).filter(subject_count=0).count()
+
+    subjects_without_teachers = ClassSubject.objects.filter(
+        teacher__isnull=True,
+        class_assigned__is_active=True
+    ).count()
+
     context = {
         'current_term': current_term,
         'programmes': programmes,
@@ -105,6 +117,11 @@ def index(request):
             'periods': periods_count,
             'classrooms': classrooms_count,
             'timetable_entries': timetable_entries_count,
+        },
+        'assignment_issues': {
+            'classes_without_subjects': classes_without_subjects,
+            'subjects_without_teachers': subjects_without_teachers,
+            'total': classes_without_subjects + subjects_without_teachers,
         },
         'programme_form': ProgrammeForm(),
         'subject_form': SubjectForm(),

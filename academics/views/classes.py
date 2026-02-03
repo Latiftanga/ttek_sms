@@ -1,8 +1,11 @@
 """Class management views including CRUD, detail, and student enrollment."""
 import io
+import json
 import logging
 from datetime import datetime
 from io import BytesIO
+
+import pandas as pd
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -17,9 +20,9 @@ from students.models import Student
 
 from ..models import (
     Class, ClassSubject, AttendanceSession, AttendanceRecord,
-    TimetableEntry, StudentSubjectEnrollment
+    TimetableEntry, StudentSubjectEnrollment, Subject
 )
-from ..forms import ClassForm, StudentEnrollmentForm, ClassSubjectForm
+from ..forms import ClassForm, StudentEnrollmentForm, ClassSubjectForm, CopySubjectsForm
 from .base import admin_required, teacher_or_admin_required, htmx_render
 
 
@@ -626,6 +629,59 @@ def class_subject_delete(request, class_pk, pk):
         return response
 
     return redirect('academics:class_subjects', pk=class_pk)
+
+
+@admin_required
+def copy_subjects(request, pk):
+    """Copy subjects from another class (HTMX modal endpoint)."""
+    class_obj = get_object_or_404(Class, pk=pk)
+
+    # Non-HTMX GET (direct URL access/refresh) - redirect to class subjects page
+    if request.method == 'GET' and not request.htmx:
+        return redirect('academics:class_subjects', pk=pk)
+
+    if request.method == 'POST':
+        form = CopySubjectsForm(request.POST, target_class=class_obj)
+        if form.is_valid():
+            created_count, skipped_count = form.save()
+
+            # Auto-enroll students for subjects with auto_enroll=True
+            for class_subject in ClassSubject.objects.filter(
+                class_assigned=class_obj,
+                auto_enroll=True
+            ):
+                _enroll_class_students_in_subject(class_obj, class_subject)
+
+            if request.htmx:
+                response = HttpResponse(status=204)
+                response['HX-Trigger'] = 'closeModal, refreshSubjects'
+                return response
+
+            messages.success(
+                request,
+                f'Subjects copied: {created_count} added, {skipped_count} already existed.'
+            )
+            return redirect('academics:class_subjects', pk=pk)
+
+        # Validation error
+        if request.htmx:
+            response = render(request, 'academics/partials/modal_copy_subjects.html', {
+                'form': form,
+                'class': class_obj,
+            })
+            response.status_code = 422
+            return response
+    else:
+        form = CopySubjectsForm(target_class=class_obj)
+
+    # Check if any source classes are available
+    has_sources = form.fields['source_class'].queryset.exists()
+
+    return render(request, 'academics/partials/modal_copy_subjects.html', {
+        'form': form,
+        'class': class_obj,
+        'has_sources': has_sources,
+    })
 
 
 # ============ STUDENT ENROLLMENT & ELECTIVES ============
@@ -1405,3 +1461,335 @@ def class_detail_pdf(request, pk):
         logger.error(f"Failed to generate class PDF: {str(e)}")
         messages.error(request, f'Failed to generate PDF: {str(e)}')
         return redirect('academics:class_detail', pk=pk)
+
+
+# ============ BULK SUBJECT IMPORT ============
+
+SUBJECT_IMPORT_COLUMNS = [
+    'class_name', 'subject_name', 'teacher_email', 'periods_per_week', 'auto_enroll'
+]
+
+
+def clean_value(val):
+    """Clean a value from pandas, handling NaN and whitespace."""
+    if pd.isna(val):
+        return ''
+    return str(val).strip()
+
+
+@admin_required
+def bulk_subject_import(request):
+    """Handle bulk import of subject assignments from Excel/CSV."""
+    from teachers.models import Teacher
+
+    if request.method == 'GET':
+        return render(request, 'academics/partials/modal_bulk_subject_import.html', {
+            'expected_columns': SUBJECT_IMPORT_COLUMNS,
+        })
+
+    # POST - process file
+    if 'file' not in request.FILES:
+        return render(request, 'academics/partials/modal_bulk_subject_import.html', {
+            'expected_columns': SUBJECT_IMPORT_COLUMNS,
+            'error': 'Please select a file to upload.',
+        })
+
+    file = request.FILES['file']
+    ext = file.name.split('.')[-1].lower()
+
+    if ext not in ['xlsx', 'csv']:
+        return render(request, 'academics/partials/modal_bulk_subject_import.html', {
+            'expected_columns': SUBJECT_IMPORT_COLUMNS,
+            'error': 'Only .xlsx and .csv files are supported.',
+        })
+
+    try:
+        # Read file
+        if ext == 'xlsx':
+            df = pd.read_excel(file, engine='openpyxl')
+        else:
+            df = pd.read_csv(file)
+
+        if df.empty:
+            return render(request, 'academics/partials/modal_bulk_subject_import.html', {
+                'expected_columns': SUBJECT_IMPORT_COLUMNS,
+                'error': 'The file is empty.',
+            })
+
+        # Normalize column names
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+
+        # Build lookups
+        class_map = {c.name: c for c in Class.objects.filter(is_active=True)}
+        subject_map = {s.name.lower(): s for s in Subject.objects.filter(is_active=True)}
+        subject_map.update({s.short_name.lower(): s for s in Subject.objects.filter(is_active=True)})
+        teacher_map = {t.user.email.lower(): t for t in Teacher.objects.filter(
+            status='active', user__isnull=False
+        ).select_related('user')}
+
+        # Get existing class-subject combinations
+        existing_combinations = set(
+            ClassSubject.objects.values_list('class_assigned__name', 'subject__name')
+        )
+
+        # Process rows
+        all_errors = []
+        valid_rows = []
+
+        for idx, row in df.iterrows():
+            row_num = idx + 2  # Excel row number
+            errors = []
+
+            # Extract and clean values
+            class_name = clean_value(row.get('class_name', ''))
+            subject_name = clean_value(row.get('subject_name', ''))
+            teacher_email = clean_value(row.get('teacher_email', '')).lower()
+            periods_per_week = row.get('periods_per_week', 0)
+            auto_enroll = clean_value(row.get('auto_enroll', 'true')).lower()
+
+            # Parse periods_per_week
+            try:
+                periods_per_week = int(periods_per_week) if periods_per_week else 0
+            except (ValueError, TypeError):
+                periods_per_week = 0
+
+            # Parse auto_enroll
+            auto_enroll = auto_enroll in ['true', 'yes', '1', 't', 'y']
+
+            # Validate class
+            class_obj = None
+            if not class_name:
+                errors.append('Class name is required')
+            elif class_name not in class_map:
+                errors.append(f'Class "{class_name}" not found')
+            else:
+                class_obj = class_map[class_name]
+
+            # Validate subject
+            subject_obj = None
+            if not subject_name:
+                errors.append('Subject name is required')
+            elif subject_name.lower() not in subject_map:
+                errors.append(f'Subject "{subject_name}" not found')
+            else:
+                subject_obj = subject_map[subject_name.lower()]
+
+            # Check if combination already exists
+            if class_obj and subject_obj:
+                if (class_obj.name, subject_obj.name) in existing_combinations:
+                    errors.append(f'{subject_obj.name} already assigned to {class_obj.name}')
+
+            # Validate teacher (optional)
+            teacher_obj = None
+            if teacher_email:
+                if teacher_email not in teacher_map:
+                    errors.append(f'Teacher with email "{teacher_email}" not found')
+                else:
+                    teacher_obj = teacher_map[teacher_email]
+
+            if errors:
+                all_errors.append({'row': row_num, 'errors': errors})
+            else:
+                valid_rows.append({
+                    'row_num': row_num,
+                    'class_name': class_obj.name,
+                    'class_pk': class_obj.pk,
+                    'subject_name': subject_obj.name,
+                    'subject_pk': subject_obj.pk,
+                    'teacher_email': teacher_email,
+                    'teacher_pk': teacher_obj.pk if teacher_obj else None,
+                    'teacher_name': teacher_obj.full_name if teacher_obj else None,
+                    'periods_per_week': periods_per_week,
+                    'auto_enroll': auto_enroll,
+                })
+                # Track to prevent duplicates in same import
+                existing_combinations.add((class_obj.name, subject_obj.name))
+
+        # Store in session for confirmation
+        request.session['bulk_subject_import_data'] = json.dumps(valid_rows)
+
+        return render(request, 'academics/partials/modal_bulk_subject_preview.html', {
+            'valid_rows': valid_rows,
+            'all_errors': all_errors,
+            'total_rows': len(df),
+            'valid_count': len(valid_rows),
+            'error_count': len(all_errors),
+        })
+
+    except Exception as e:
+        return render(request, 'academics/partials/modal_bulk_subject_import.html', {
+            'expected_columns': SUBJECT_IMPORT_COLUMNS,
+            'error': f'Error reading file: {str(e)}',
+        })
+
+
+@admin_required
+def bulk_subject_import_confirm(request):
+    """Confirm and process the bulk subject import."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    data = request.session.get('bulk_subject_import_data')
+    if not data:
+        return render(request, 'academics/partials/modal_bulk_subject_import.html', {
+            'expected_columns': SUBJECT_IMPORT_COLUMNS,
+            'error': 'Session expired. Please upload the file again.',
+        })
+
+    try:
+        rows = json.loads(data)
+    except json.JSONDecodeError:
+        return render(request, 'academics/partials/modal_bulk_subject_import.html', {
+            'expected_columns': SUBJECT_IMPORT_COLUMNS,
+            'error': 'Invalid session data. Please upload the file again.',
+        })
+
+    created_count = 0
+    errors = []
+
+    try:
+        with transaction.atomic():
+            for row in rows:
+                try:
+                    class_subject = ClassSubject.objects.create(
+                        class_assigned_id=row['class_pk'],
+                        subject_id=row['subject_pk'],
+                        teacher_id=row.get('teacher_pk'),
+                        periods_per_week=row.get('periods_per_week', 0),
+                        auto_enroll=row.get('auto_enroll', True)
+                    )
+
+                    # Auto-enroll students if auto_enroll is True
+                    if class_subject.auto_enroll:
+                        class_obj = Class.objects.get(pk=row['class_pk'])
+                        _enroll_class_students_in_subject(class_obj, class_subject)
+
+                    created_count += 1
+
+                except Exception as e:
+                    errors.append(f"Row {row.get('row_num', '?')}: {str(e)}")
+
+    except Exception as e:
+        errors.append(f"Error during import: {str(e)}")
+
+    # Clear session
+    request.session.pop('bulk_subject_import_data', None)
+
+    if errors:
+        return render(request, 'academics/partials/modal_bulk_subject_success.html', {
+            'created_count': created_count,
+            'errors': errors,
+            'has_errors': True,
+        })
+
+    return render(request, 'academics/partials/modal_bulk_subject_success.html', {
+        'created_count': created_count,
+        'has_errors': False,
+    })
+
+
+@admin_required
+def bulk_subject_import_template(request):
+    """Download a sample import template for subject assignments."""
+    sample_data = {
+        'class_name': ['B1-A', 'B1-A', 'B1-B', 'B1-B'],
+        'subject_name': ['Mathematics', 'English', 'Mathematics', 'English'],
+        'teacher_email': ['john@school.com', 'jane@school.com', 'john@school.com', 'jane@school.com'],
+        'periods_per_week': [5, 5, 5, 5],
+        'auto_enroll': ['true', 'true', 'true', 'true'],
+    }
+
+    df = pd.DataFrame(sample_data)
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Subject Assignments')
+
+    output.seek(0)
+    return FileResponse(
+        output,
+        as_attachment=True,
+        filename='subject_import_template.xlsx',
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+
+# ============ ASSIGNMENT DASHBOARD ============
+
+@admin_required
+def assignment_dashboard(request):
+    """
+    Dashboard showing incomplete subject/teacher assignments at a glance.
+    Helps admins identify what needs attention.
+    """
+    # Get active classes
+    active_classes = Class.objects.filter(is_active=True)
+
+    # 1. Classes without subjects
+    classes_without_subjects = active_classes.annotate(
+        subject_count=Count('subjects')
+    ).filter(subject_count=0).order_by('level_type', 'level_number', 'section')
+
+    # 2. Subjects without teachers (ClassSubject where teacher is null)
+    subjects_without_teachers = ClassSubject.objects.filter(
+        class_assigned__is_active=True,
+        teacher__isnull=True
+    ).select_related(
+        'class_assigned', 'subject'
+    ).order_by('class_assigned__level_type', 'class_assigned__level_number', 'subject__name')
+
+    # 3. Students missing enrollments in manual subjects (auto_enroll=False)
+    # Find students in classes with manual subjects they're not enrolled in
+    manual_subjects = ClassSubject.objects.filter(
+        class_assigned__is_active=True,
+        auto_enroll=False
+    ).select_related('class_assigned', 'subject')
+
+    students_missing_enrollments = []
+    for cs in manual_subjects:
+        # Get students in this class not enrolled in this subject
+        enrolled_student_ids = StudentSubjectEnrollment.objects.filter(
+            class_subject=cs
+        ).values_list('student_id', flat=True)
+
+        missing_students = Student.objects.filter(
+            current_class=cs.class_assigned,
+            status='active'
+        ).exclude(pk__in=enrolled_student_ids)
+
+        if missing_students.exists():
+            students_missing_enrollments.append({
+                'class_subject': cs,
+                'missing_count': missing_students.count(),
+                'students': missing_students[:5],  # Show first 5
+                'has_more': missing_students.count() > 5,
+            })
+
+    # Summary stats
+    total_classes = active_classes.count()
+    classes_with_subjects = total_classes - classes_without_subjects.count()
+    total_class_subjects = ClassSubject.objects.filter(class_assigned__is_active=True).count()
+    subjects_with_teachers = total_class_subjects - subjects_without_teachers.count()
+
+    context = {
+        'classes_without_subjects': classes_without_subjects,
+        'subjects_without_teachers': subjects_without_teachers,
+        'students_missing_enrollments': students_missing_enrollments,
+        'total_classes': total_classes,
+        'classes_with_subjects': classes_with_subjects,
+        'total_class_subjects': total_class_subjects,
+        'subjects_with_teachers': subjects_with_teachers,
+        'completion_percentage': round(
+            (classes_with_subjects / total_classes * 100) if total_classes > 0 else 0
+        ),
+        'teacher_assignment_percentage': round(
+            (subjects_with_teachers / total_class_subjects * 100) if total_class_subjects > 0 else 0
+        ),
+    }
+
+    return htmx_render(
+        request,
+        'academics/partials/assignment_dashboard_content.html',
+        context,
+        full_template='academics/assignment_dashboard.html'
+    )
