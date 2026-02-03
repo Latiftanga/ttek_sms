@@ -1,41 +1,34 @@
 {% load core_tags %}
-<div>
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            {% if breadcrumbs %}
-            <div class="mb-2">
-                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-            </div>
-            {% endif %}
-            <div class="flex items-center gap-3">
-                <a href="{{ back_url|default:'/students/' }}"
-                   hx-get="{{ back_url|default:'/students/' }}"
-                   hx-target="#main-content"
-                   hx-swap="innerHTML"
-                   hx-push-url="true"
-                   class="btn btn-ghost btn-sm btn-circle"
-                   title="Go back">
-                    <i class="fa-solid fa-arrow-left"></i>
-                </a>
-                <div>
-                    <h1 class="text-xl font-bold">{% if student %}Edit Student{% else %}Add New Student{% endif %}</h1>
-                    <p class="text-sm text-base-content/60">
-                        {% if student %}Update student information{% else %}Enter student details{% endif %}
-                    </p>
-                </div>
-            </div>
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{{ back_url|default:'/students/' }}"
+           hx-get="{{ back_url|default:'/students/' }}"
+           hx-target="#main-content"
+           hx-swap="innerHTML"
+           hx-push-url="true"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+           title="Go back">
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold">{% if student %}Edit Student{% else %}Add New Student{% endif %}</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">
+                {% if student %}Update student information{% else %}Enter student details{% endif %}
+            </p>
         </div>
         <div class="flex gap-2">
             <a href="{% url 'students:index' %}"
                hx-get="{% url 'students:index' %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-ghost btn-sm">
-                Cancel
+               class="btn btn-ghost btn-xs sm:btn-sm">
+                <span class="hidden sm:inline">Cancel</span>
+                <i class="fa-solid fa-times sm:hidden"></i>
             </a>
-            <button type="submit" form="student-form" class="btn btn-primary btn-sm">
+            <button type="submit" form="student-form" class="btn btn-primary btn-xs sm:btn-sm">
                 <i class="fa-solid fa-save"></i>
-                {% if student %}Save Changes{% else %}Create Student{% endif %}
+                <span class="hidden sm:inline">{% if student %}Save Changes{% else %}Create{% endif %}</span>
             </button>
         </div>
     </div>

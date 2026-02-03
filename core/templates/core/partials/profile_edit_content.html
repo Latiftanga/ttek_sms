@@ -1,29 +1,18 @@
 {% load core_tags %}
 
-{% if breadcrumbs %}
-<div class="mb-4">
-    {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-</div>
-{% endif %}
-
 <!-- Page Header -->
-<div class="flex items-center gap-3 mb-6">
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
     <a href="{{ back_url|default:'/profile/' }}"
        hx-get="{{ back_url|default:'/profile/' }}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-ghost btn-sm btn-circle"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
        title="Back to Profile">
-        <i class="fa-solid fa-arrow-left"></i>
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
     </a>
-    <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <i class="fa-solid fa-user-pen text-primary"></i>
-        </div>
-        <div>
-            <h1 class="text-xl font-bold">Edit Profile</h1>
-            <p class="text-sm text-base-content/60">Update your account information</p>
-        </div>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Edit Profile</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">Update your account information</p>
     </div>
 </div>
 

@@ -6,17 +6,13 @@
        hx-get="{{ back_url|default:'/communications/' }}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-ghost btn-sm btn-square shrink-0"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-info to-primary flex items-center justify-center shrink-0"
        title="Back to Communications">
-        <i class="fa-solid fa-arrow-left"></i>
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
     </a>
     <div class="flex-1 min-w-0">
-        <h1 class="text-base sm:text-xl font-bold flex items-center gap-2">
-            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-info to-primary flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-clock-rotate-left text-white text-sm sm:text-base"></i>
-            </div>
-            Message History
-        </h1>
+        <h1 class="text-base sm:text-xl font-bold">Message History</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">View sent messages and delivery status</p>
     </div>
     <div class="dropdown dropdown-end">
         <label tabindex="0" class="btn btn-ghost btn-sm btn-square">

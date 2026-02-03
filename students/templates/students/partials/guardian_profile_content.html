@@ -1,15 +1,19 @@
 {% load core_tags %}
 
-<!-- Back Button -->
-<div class="mb-4">
+<!-- Page Header -->
+<div class="flex items-center gap-2 sm:gap-3 mb-4">
     <a href="{% url 'core:index' %}"
        hx-get="{% url 'core:index' %}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-ghost btn-sm gap-2">
-        <i class="fa-solid fa-arrow-left"></i>
-        Back to Dashboard
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Dashboard">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
     </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">My Profile</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">View and manage your information</p>
+    </div>
 </div>
 
 <!-- Profile Header -->

@@ -5,41 +5,37 @@
      hx-target="this"
      hx-swap="outerHTML transition:true">
     <!-- Page Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-3">
-            <a href="{% url 'students:houses' %}"
-               hx-get="{% url 'students:houses' %}"
-               hx-target="#main-content"
-               hx-swap="innerHTML"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle shrink-0"
-               title="Back to Houses">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm shrink-0"
-                 style="background-color: {{ house.color_code|default:'#6b7280' }}">
-                {{ house.name|slice:":1"|upper }}
-            </div>
-            <div class="min-w-0">
-                <h1 class="text-lg sm:text-xl font-bold truncate">{{ house.name }}</h1>
-                <p class="text-xs text-base-content/60">
-                    {{ students|length }} student{{ students|length|pluralize }}
-                    {% if housemaster %}<span class="hidden xs:inline">• {{ housemaster.full_name }}</span>{% endif %}
-                </p>
-            </div>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{% url 'students:houses' %}"
+           hx-get="{% url 'students:houses' %}"
+           hx-target="#main-content"
+           hx-swap="innerHTML"
+           hx-push-url="true"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0"
+           title="Back to Houses">
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+        </a>
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white text-sm sm:text-base font-bold shadow-sm shrink-0"
+             style="background-color: {{ house.color_code|default:'#6b7280' }}">
+            {{ house.name|slice:":1"|upper }}
         </div>
-
-        <!-- Export Buttons -->
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold truncate">{{ house.name }}</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">
+                {{ students|length }} student{{ students|length|pluralize }}
+                {% if housemaster %}<span class="hidden sm:inline">• {{ housemaster.full_name }}</span>{% endif %}
+            </p>
+        </div>
         <div class="flex items-center gap-2">
             <a href="{% url 'students:house_students_pdf' house.pk %}"
-               class="btn btn-sm btn-outline gap-1">
+               class="btn btn-xs sm:btn-sm btn-outline gap-1">
                 <i class="fa-solid fa-file-pdf text-error"></i>
-                <span class="hidden xs:inline">PDF</span>
+                <span class="hidden sm:inline">PDF</span>
             </a>
             <a href="{% url 'students:house_students_excel' house.pk %}"
-               class="btn btn-sm btn-outline gap-1">
+               class="btn btn-xs sm:btn-sm btn-outline gap-1">
                 <i class="fa-solid fa-file-excel text-success"></i>
-                <span class="hidden xs:inline">Excel</span>
+                <span class="hidden sm:inline">Excel</span>
             </a>
         </div>
     </div>

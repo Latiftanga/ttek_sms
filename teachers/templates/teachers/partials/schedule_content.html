@@ -1,22 +1,21 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-    <div class="min-w-0">
-        <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'core:index' %}"
-               hx-get="{% url 'core:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle flex-shrink-0">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <h1 class="text-lg sm:text-xl font-bold truncate">
-                <span class="sm:hidden">Schedule</span>
-                <span class="hidden sm:inline">My Weekly Schedule</span>
-            </h1>
-        </div>
-        <p class="text-xs sm:text-sm text-base-content/60 ml-12 truncate">
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'core:index' %}"
+       hx-get="{% url 'core:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Dashboard">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold truncate">
+            <span class="sm:hidden">Schedule</span>
+            <span class="hidden sm:inline">My Weekly Schedule</span>
+        </h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60 truncate">
             {{ teacher.get_title_display }} {{ teacher.last_name }} <span class="hidden sm:inline">&bull; {{ teacher.staff_id }}</span>
         </p>
     </div>

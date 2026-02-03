@@ -2,32 +2,20 @@
 
 <div class="space-y-6 w-full max-w-full box-border">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            {% if breadcrumbs %}
-            <div class="mb-2">
-                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-            </div>
-            {% endif %}
-            <div class="flex items-center gap-3">
-                <a href="{% url 'gradebook:reports' %}"
-                   hx-get="{% url 'gradebook:reports' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-ghost btn-sm btn-circle"
-                   title="Back to Reports">
-                    <i class="fa-solid fa-arrow-left"></i>
-                </a>
-                <div class="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
-                    <i class="fa-solid fa-paper-plane text-secondary"></i>
-                </div>
-                <div>
-                    <h1 class="text-xl font-bold">{{ class_obj.name }} - Report Distribution</h1>
-                    <p class="text-base-content/60 text-sm">
-                        {{ current_term.name }} | Send reports to parents/guardians
-                    </p>
-                </div>
-            </div>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{% url 'gradebook:reports' %}"
+           hx-get="{% url 'gradebook:reports' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-secondary to-accent flex items-center justify-center shrink-0"
+           title="Back to Reports">
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold truncate">{{ class_obj.name }} - Report Distribution</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">
+                {{ current_term.name }} | Send reports to parents/guardians
+            </p>
         </div>
     </div>
 

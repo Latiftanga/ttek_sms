@@ -6,13 +6,13 @@
        hx-get="{% url 'gradebook:index' %}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-ghost btn-sm btn-square shrink-0"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
        title="Back to Gradebook">
-        <i class="fa-solid fa-arrow-left"></i>
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
     </a>
     <div class="flex-1 min-w-0">
         <h1 class="text-base sm:text-xl font-bold">Score Entry</h1>
-        <p class="text-[10px] sm:text-sm text-base-content/60">
+        <p class="text-[10px] sm:text-xs text-base-content/60">
             {% if current_term %}
             {{ current_term.name }} - {{ current_term.academic_year.name }}
             {% else %}
