@@ -1011,11 +1011,11 @@ class TermReport(models.Model):
         blank=True,
         help_text='Interest in school activities'
     )
-    punctuality_rating = models.CharField(
+    attendance_rating = models.CharField(
         max_length=10,
         choices=RATING_CHOICES,
         blank=True,
-        help_text='Punctuality record'
+        help_text='Attendance rating'
     )
 
     # Approval tracking

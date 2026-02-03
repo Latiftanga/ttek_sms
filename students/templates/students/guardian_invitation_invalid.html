@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Invalid Invitation - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}">
-    <title>Invalid Invitation - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}</title>
+    <meta name="description" content="Invalid Invitation - {% if school and school.display_name %}{{ school.display_name }}{% elif school and school.name %}{{ school.name }}{% else %}School{% endif %}">
+    <title>Invalid Invitation - {% if school and school.display_name %}{{ school.display_name }}{% elif school and school.name %}{{ school.name }}{% else %}School{% endif %}</title>
 
-    {% if school.favicon.name %}
-    <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
+    {% if school_settings.favicon %}
+    <link rel="icon" type="image/x-icon" href="{{ school_settings.favicon.url }}">
     {% endif %}
 
     {% tailwind_css %}
@@ -16,8 +16,8 @@
 
     <style>
         :root {
-            --school-primary: {{ school.primary_color|default:'#10b981' }};
-            --school-secondary: {{ school.secondary_color|default:'#059669' }};
+            --school-primary: {{ school_settings.primary_color|default:'#10b981' }};
+            --school-secondary: {{ school_settings.secondary_color|default:'#059669' }};
         }
         body { margin: 0; padding: 0; }
         .school-gradient {
@@ -35,9 +35,9 @@
             <!-- Header -->
             <div class="text-center mb-4">
                 <!-- School Logo/Icon -->
-                {% if school.logo.name %}
+                {% if school_settings.logo %}
                 <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2 p-1.5 bg-white shadow-md border border-base-200">
-                    <img src="{{ school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
+                    <img src="{{ school_settings.logo.url }}" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 {% else %}
                 <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2" style="background-color: var(--school-primary);">
@@ -51,15 +51,15 @@
                 <h1 class="text-sm sm:text-base font-bold tracking-wide mb-0.5 line-clamp-2 px-2" style="color: var(--school-primary);">
                     {% if school and school.display_name %}
                         {{ school.display_name|upper|truncatechars:40 }}
-                    {% elif tenant and tenant.name %}
-                        {{ tenant.name|upper|truncatechars:40 }}
+                    {% elif school and school.name %}
+                        {{ school.name|upper|truncatechars:40 }}
                     {% else %}
                         SCHOOL PORTAL
                     {% endif %}
                 </h1>
 
-                {% if school and school.motto %}
-                <p class="text-[10px] text-base-content/50 italic">"{{ school.motto }}"</p>
+                {% if school_settings.motto %}
+                <p class="text-[10px] text-base-content/50 italic">"{{ school_settings.motto }}"</p>
                 {% endif %}
             </div>
 
@@ -134,11 +134,11 @@
             <!-- Footer -->
             <div class="mt-4 pt-3 border-t border-base-200 text-center">
                 <p class="text-[10px] text-base-content/40">
-                    {% if tenant and tenant.phone or tenant and tenant.email %}
+                    {% if school.phone or school.email %}
                     <span class="block mb-0.5">
-                        {% if tenant.phone %}{{ tenant.phone }}{% endif %}
-                        {% if tenant.phone and tenant.email %} | {% endif %}
-                        {% if tenant.email %}{{ tenant.email }}{% endif %}
+                        {% if school.phone %}{{ school.phone }}{% endif %}
+                        {% if school.phone and school.email %} | {% endif %}
+                        {% if school.email %}{{ school.email }}{% endif %}
                     </span>
                     {% endif %}
                     Powered by <span class="font-semibold">TTEK SMS</span>

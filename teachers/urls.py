@@ -15,6 +15,7 @@ urlpatterns = [
     path('<uuid:pk>/create-account/', views.create_account, name='create_account'),
     path('<uuid:pk>/deactivate-account/', views.deactivate_account, name='deactivate_account'),
     path('<uuid:pk>/reset-password/', views.reset_password, name='reset_password'),
+    path('<uuid:pk>/toggle-admin/', views.toggle_school_admin, name='toggle_school_admin'),
 
     # Lesson assignment routes
     path('<uuid:pk>/assign-lesson/', views.assign_lesson, name='assign_lesson'),
