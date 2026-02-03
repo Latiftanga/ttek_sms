@@ -110,7 +110,7 @@
                 <li class="pointer-events-none">
                     <div class="school-gradient-subtle rounded-lg px-3 py-2 mb-1 flex items-center gap-2">
                         {% if school.logo %}
-                        <img src="{{ school.logo.url }}" alt="{{ tenant.short_name|default:tenant.name }}" class="h-6 w-auto object-contain bg-white/90 rounded p-0.5 shadow-sm">
+                        <img src="{{ school.logo.url }}" alt="{{ tenant.short_name|default:tenant.name }}" class="h-6 w-auto object-contain">
                         {% else %}
                         <div class="w-6 h-6 rounded bg-white/20 flex items-center justify-center text-white font-bold text-xs">
                             {{ tenant.short_name|slice:":1"|default:"S" }}
