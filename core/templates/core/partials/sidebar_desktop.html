@@ -6,7 +6,7 @@
         <div class="absolute inset-0 school-gradient opacity-5"></div>
         <div class="flex items-center gap-3 w-full relative z-10">
             {% if school.logo %}
-                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="w-9 h-9 rounded-lg shrink-0 object-contain bg-base-200 p-1" />
+                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="w-9 h-9 rounded-lg shrink-0 object-contain bg-white p-1 shadow-sm" />
             {% else %}
                 <div class="w-9 h-9 rounded-lg school-gradient text-white grid place-content-center font-bold text-lg shrink-0">
                     {{ tenant.short_name|slice:":1"|default:"S" }}

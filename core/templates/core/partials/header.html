@@ -110,7 +110,7 @@
                 <li class="pointer-events-none">
                     <div class="school-gradient-subtle rounded-lg px-3 py-2 mb-1 flex items-center gap-2">
                         {% if school.logo %}
-                        <img src="{{ school.logo.url }}" alt="{{ tenant.short_name|default:tenant.name }}" class="h-6 w-auto object-contain bg-white/20 rounded p-0.5">
+                        <img src="{{ school.logo.url }}" alt="{{ tenant.short_name|default:tenant.name }}" class="h-6 w-auto object-contain bg-white rounded p-0.5 shadow-sm">
                         {% else %}
                         <div class="w-6 h-6 rounded bg-white/20 flex items-center justify-center text-white font-bold text-xs">
                             {{ tenant.short_name|slice:":1"|default:"S" }}
@@ -134,7 +134,7 @@
                 </li>
                 <div class="divider my-1"></div>
                 <li>
-                    <form method="post" action="{% url 'accounts:logout' %}" id="logout-form">
+                    <form method="post" action="{% url 'accounts:logout' %}" id="logout-form" hx-disable>
                         {% csrf_token %}
                         <button type="submit" class="py-2 text-sm text-error cursor-pointer text-left w-full">
                             <i class="fa-solid fa-right-from-bracket mr-2"></i> Logout
