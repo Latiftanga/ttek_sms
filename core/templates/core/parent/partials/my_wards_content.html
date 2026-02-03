@@ -1,26 +1,22 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div class="flex items-center gap-3">
-        <a href="{% url 'core:index' %}"
-           hx-get="{% url 'core:index' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-ghost btn-sm btn-circle">
-            <i class="fa-solid fa-arrow-left"></i>
-        </a>
-        <div>
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <i class="fa-solid fa-children text-success"></i>
-                My Wards
-            </h1>
-            <p class="text-sm text-base-content/60">
-                {% if current_term %}
-                {{ current_term.name }} - {{ current_term.academic_year.name }}
-                {% endif %}
-            </p>
-        </div>
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'core:index' %}"
+       hx-get="{% url 'core:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center shrink-0"
+       title="Back to Dashboard">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">My Wards</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">
+            {% if current_term %}
+            {{ current_term.name }} - {{ current_term.academic_year.name }}
+            {% endif %}
+        </p>
     </div>
 </div>
 

@@ -1,33 +1,29 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-    <div>
-        <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'core:my_attendance' %}"
-               hx-get="{% url 'core:my_attendance' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                Take Attendance
-                {% if is_homeroom %}
-                <span class="badge badge-primary badge-sm">Homeroom</span>
-                {% endif %}
-            </h1>
-        </div>
-        <p class="text-sm text-base-content/60 ml-12">
+<div class="flex items-center gap-2 sm:gap-3 mb-4">
+    <a href="{% url 'core:my_attendance' %}"
+       hx-get="{% url 'core:my_attendance' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center shrink-0"
+       title="Back to Attendance">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold flex items-center gap-2">
+            Take Attendance
+            {% if is_homeroom %}
+            <span class="badge badge-primary badge-xs sm:badge-sm">Homeroom</span>
+            {% endif %}
+        </h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">
             {{ class.name }} &bull; {{ date|date:"D, M j" }}
         </p>
     </div>
-
-    <div class="flex items-center gap-3">
-        <div class="badge badge-lg gap-2">
-            <i class="fa-solid fa-users"></i>
-            {{ student_list|length }} students
-        </div>
+    <div class="badge badge-sm sm:badge-lg gap-1 sm:gap-2">
+        <i class="fa-solid fa-users"></i>
+        {{ student_list|length }}
     </div>
 </div>
 

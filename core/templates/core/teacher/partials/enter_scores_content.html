@@ -1,20 +1,19 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex items-center justify-between gap-2 mb-4">
-    <div class="flex items-center gap-2 min-w-0">
-        <a href="{% url 'core:my_grading' %}"
-           hx-get="{% url 'core:my_grading' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           hx-swap="innerHTML show:window:top"
-           class="btn btn-ghost btn-sm btn-circle shrink-0">
-            <i class="fa-solid fa-arrow-left"></i>
-        </a>
-        <div class="min-w-0">
-            <h1 class="text-lg font-bold truncate">{{ subject.name }}</h1>
-            <p class="text-xs text-base-content/60">{{ class_obj.name }}</p>
-        </div>
+<div class="flex items-center gap-2 sm:gap-3 mb-4">
+    <a href="{% url 'core:my_grading' %}"
+       hx-get="{% url 'core:my_grading' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       hx-swap="innerHTML show:window:top"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Grading">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold truncate">{{ subject.name }}</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">{{ class_obj.name }}</p>
     </div>
     <div class="flex items-center gap-1 shrink-0">
         {% if grades_locked %}

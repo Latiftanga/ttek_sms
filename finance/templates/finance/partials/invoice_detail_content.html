@@ -4,17 +4,13 @@
        hx-get="{% url 'finance:invoices' %}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-ghost btn-sm btn-square shrink-0">
-        <i class="fa-solid fa-arrow-left"></i>
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Invoices">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
     </a>
     <div class="flex-1 min-w-0">
-        <h1 class="text-base sm:text-lg font-bold truncate flex items-center gap-2">
-            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-file-invoice text-white text-sm sm:text-base"></i>
-            </div>
-            {{ invoice.invoice_number }}
-        </h1>
-        <p class="text-[10px] sm:text-xs text-base-content/60 ml-10 sm:ml-12 truncate">
+        <h1 class="text-base sm:text-xl font-bold truncate">{{ invoice.invoice_number }}</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60 truncate">
             {{ invoice.student.full_name }} - {{ invoice.term.name }}
         </p>
     </div>

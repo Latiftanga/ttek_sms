@@ -1,25 +1,22 @@
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'finance:reports' %}"
-               hx-get="{% url 'finance:reports' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center">
-                    <i class="fa-solid fa-chart-line text-white"></i>
-                </div>
-                Collection Report
-            </h1>
-        </div>
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'finance:reports' %}"
+       hx-get="{% url 'finance:reports' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center shrink-0"
+       title="Back to Reports">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Collection Report</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">
+            View fee collections by date, method, and class
+        </p>
     </div>
-    <a href="{% url 'finance:export_report' %}?type=collection" class="btn btn-ghost btn-sm">
+    <a href="{% url 'finance:export_report' %}?type=collection" class="btn btn-ghost btn-xs sm:btn-sm">
         <i class="fa-solid fa-download"></i>
-        Export CSV
+        <span class="hidden sm:inline">Export CSV</span>
     </a>
 </div>
 
