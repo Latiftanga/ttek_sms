@@ -29,6 +29,26 @@
         </label>
     </div>
 
+    <!-- Level Type & Default -->
+    <div class="flex gap-3 items-center mb-3">
+        <div class="form-control flex-1">
+            <label class="label py-0">
+                <span class="label-text text-xs">Applicable Level</span>
+            </label>
+            <select name="level_type" class="select select-sm select-bordered w-full">
+                <option value="all" {% if form.level_type.value == 'all' or not form.level_type.value %}selected{% endif %}>All Levels</option>
+                <option value="primary" {% if form.level_type.value == 'primary' %}selected{% endif %}>Primary (KG, Basic 1-6)</option>
+                <option value="jhs" {% if form.level_type.value == 'jhs' %}selected{% endif %}>JHS (Basic 7-9)</option>
+                <option value="shs" {% if form.level_type.value == 'shs' %}selected{% endif %}>SHS</option>
+            </select>
+        </div>
+        <label class="label cursor-pointer gap-2 pt-5">
+            <input type="checkbox" name="is_default" class="checkbox checkbox-sm checkbox-secondary"
+                   {% if form.is_default.value %}checked{% endif %} />
+            <span class="label-text text-sm">Default</span>
+        </label>
+    </div>
+
     <!-- Subjects - 2-column grid (no inner scroll) -->
     <div class="text-xs font-medium text-base-content/70 mb-1">Select Subjects:</div>
     <div class="border border-base-300 rounded-lg p-2 max-h-48 overflow-y-auto">

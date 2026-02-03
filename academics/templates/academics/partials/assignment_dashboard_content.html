@@ -1,0 +1,262 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'academics:index' %}"
+       hx-get="{% url 'academics:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-warning to-error flex items-center justify-center shrink-0"
+       title="Back to Academics">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Assignment Dashboard</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">
+            Review incomplete subject and teacher assignments
+        </p>
+    </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chalkboard text-primary text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-primary">{{ classes_with_subjects }}/{{ total_classes }}</div>
+                    <div class="text-xs text-base-content/60">Classes with Subjects</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-user-tie text-success text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-success">{{ subjects_with_teachers }}/{{ total_class_subjects }}</div>
+                    <div class="text-xs text-base-content/60">Subjects with Teachers</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                    <i class="fa-solid fa-exclamation-triangle text-warning text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-warning">{{ classes_without_subjects|length }}</div>
+                    <div class="text-xs text-base-content/60">Classes Need Setup</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-chart-pie text-info text-xl"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold {% if completion_percentage >= 80 %}text-success{% elif completion_percentage >= 50 %}text-warning{% else %}text-error{% endif %}">{{ completion_percentage }}%</div>
+                    <div class="text-xs text-base-content/60">Setup Complete</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Classes Without Subjects -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            <div class="flex items-center justify-between p-4 border-b border-base-200">
+                <h2 class="font-bold flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                        <i class="fa-solid fa-folder-open text-warning"></i>
+                    </div>
+                    Classes Without Subjects
+                </h2>
+                <span class="badge badge-warning">{{ classes_without_subjects|length }}</span>
+            </div>
+
+            <div class="p-4">
+                {% if classes_without_subjects %}
+                <div class="space-y-2">
+                    {% for class in classes_without_subjects %}
+                    <div class="flex items-center gap-3 p-3 rounded-xl border border-base-200 hover:border-warning/30 hover:bg-base-200/30 transition-all">
+                        <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                            <i class="fa-solid fa-chalkboard text-warning"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-medium">{{ class.name }}</h3>
+                            <p class="text-xs text-base-content/60">
+                                {{ class.get_level_type_display }}
+                                {% if class.class_teacher %}
+                                <span class="mx-1">•</span>
+                                {{ class.class_teacher.full_name }}
+                                {% endif %}
+                            </p>
+                        </div>
+                        <a href="{% url 'academics:class_subjects' class.pk %}"
+                           hx-get="{% url 'academics:class_subjects' class.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-warning btn-sm">
+                            <i class="fa-solid fa-plus"></i>
+                            <span class="hidden sm:inline">Add</span>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-success/10 flex items-center justify-center">
+                        <i class="fa-solid fa-check text-success text-2xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-success">All Set!</h3>
+                    <p class="text-sm text-base-content/50">All classes have subjects assigned</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Subjects Without Teachers -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            <div class="flex items-center justify-between p-4 border-b border-base-200">
+                <h2 class="font-bold flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-error/10 flex items-center justify-center">
+                        <i class="fa-solid fa-user-slash text-error"></i>
+                    </div>
+                    Subjects Without Teachers
+                </h2>
+                <span class="badge badge-error">{{ subjects_without_teachers|length }}</span>
+            </div>
+
+            <div class="p-4">
+                {% if subjects_without_teachers %}
+                <div class="space-y-2 max-h-80 overflow-y-auto">
+                    {% for cs in subjects_without_teachers %}
+                    <div class="flex items-center gap-3 p-3 rounded-xl border border-base-200 hover:border-error/30 hover:bg-base-200/30 transition-all">
+                        <div class="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center">
+                            <i class="fa-solid fa-book text-error"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-medium">{{ cs.subject.name }}</h3>
+                            <p class="text-xs text-base-content/60">{{ cs.class_assigned.name }}</p>
+                        </div>
+                        <a href="{% url 'academics:class_subjects' cs.class_assigned.pk %}"
+                           hx-get="{% url 'academics:class_subjects' cs.class_assigned.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-sm">
+                            <i class="fa-solid fa-edit"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-success/10 flex items-center justify-center">
+                        <i class="fa-solid fa-check text-success text-2xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-success">All Set!</h3>
+                    <p class="text-sm text-base-content/50">All subjects have teachers assigned</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Students Missing Enrollments -->
+{% if students_missing_enrollments %}
+<div class="card bg-base-100 shadow-sm border border-base-200 mt-6">
+    <div class="card-body p-0">
+        <div class="flex items-center justify-between p-4 border-b border-base-200">
+            <h2 class="font-bold flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-user-graduate text-info"></i>
+                </div>
+                Students Missing Elective Enrollments
+            </h2>
+            <span class="badge badge-info">{{ students_missing_enrollments|length }} subject{{ students_missing_enrollments|length|pluralize }}</span>
+        </div>
+
+        <div class="p-4">
+            <p class="text-sm text-base-content/60 mb-4">
+                These subjects have <code class="bg-base-200 px-1 rounded">auto_enroll=False</code> and students are not enrolled.
+            </p>
+            <div class="space-y-3">
+                {% for item in students_missing_enrollments %}
+                <div class="p-4 rounded-xl border border-base-200 bg-base-200/20">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium">{{ item.class_subject.subject.name }}</span>
+                            <span class="badge badge-ghost badge-sm">{{ item.class_subject.class_assigned.name }}</span>
+                        </div>
+                        <span class="text-sm text-info font-medium">{{ item.missing_count }} student{{ item.missing_count|pluralize }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1">
+                        {% for student in item.students %}
+                        <span class="badge badge-sm">{{ student.full_name }}</span>
+                        {% endfor %}
+                        {% if item.has_more %}
+                        <span class="badge badge-sm badge-ghost">+{{ item.missing_count|add:"-5" }} more</span>
+                        {% endif %}
+                    </div>
+                    <div class="mt-2">
+                        <a href="{% url 'academics:class_bulk_subject_assign' item.class_subject.class_assigned.pk %}"
+                           hx-get="{% url 'academics:class_bulk_subject_assign' item.class_subject.class_assigned.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-info btn-xs">
+                            <i class="fa-solid fa-user-plus"></i>
+                            Bulk Enroll
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Tips -->
+<div class="card bg-gradient-to-br from-info/5 to-info/10 border border-info/20 mt-6">
+    <div class="card-body p-4">
+        <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+            <i class="fa-solid fa-lightbulb text-info"></i>
+            Quick Tips
+        </h3>
+        <ul class="text-xs text-base-content/70 space-y-2">
+            <li class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-success mt-0.5"></i>
+                <span>Use <strong>Copy Subjects</strong> to quickly set up parallel classes (e.g., JHS 2A to JHS 2B)</span>
+            </li>
+            <li class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-success mt-0.5"></i>
+                <span>Use <strong>Apply Template</strong> to add standard subject sets to new classes</span>
+            </li>
+            <li class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-success mt-0.5"></i>
+                <span>Use <strong>Bulk Import</strong> to upload subject assignments from Excel/CSV</span>
+            </li>
+            <li class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-success mt-0.5"></i>
+                <span>Subjects with <strong>auto_enroll=True</strong> automatically enroll all class students</span>
+            </li>
+        </ul>
+    </div>
+</div>

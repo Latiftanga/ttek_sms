@@ -240,6 +240,12 @@ class SubjectTemplate(models.Model):
     A reusable template of subjects that can be quickly applied to any class.
     E.g., "Core Subjects", "Science Electives", etc.
     """
+    class LevelType(models.TextChoices):
+        ALL = 'all', 'All Levels'
+        PRIMARY = 'primary', 'Primary (KG, Basic 1-6)'
+        JHS = 'jhs', 'JHS (Basic 7-9)'
+        SHS = 'shs', 'SHS'
+
     name = models.CharField(
         max_length=100,
         unique=True,
@@ -250,17 +256,47 @@ class SubjectTemplate(models.Model):
         related_name='templates',
         help_text="Subjects included in this template"
     )
+    level_type = models.CharField(
+        max_length=10,
+        choices=LevelType.choices,
+        default=LevelType.ALL,
+        help_text="Filter templates by level when applying to classes"
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Default templates are pre-selected when applying to matching classes"
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['name']
+        ordering = ['-is_default', 'name']
         verbose_name = "Subject Template"
         verbose_name_plural = "Subject Templates"
 
     def __str__(self):
         return self.name
+
+    def matches_class_level(self, class_obj):
+        """Check if this template is appropriate for a given class."""
+        if self.level_type == self.LevelType.ALL:
+            return True
+
+        if self.level_type == self.LevelType.PRIMARY:
+            # KG, Nursery, Creche, or Basic 1-6
+            return class_obj.level_type in ['kg', 'nursery', 'creche'] or (
+                class_obj.level_type == 'basic' and class_obj.level_number <= 6
+            )
+
+        if self.level_type == self.LevelType.JHS:
+            # Basic 7-9
+            return class_obj.level_type == 'basic' and class_obj.level_number >= 7
+
+        if self.level_type == self.LevelType.SHS:
+            return class_obj.level_type == 'shs'
+
+        return False
 
     def apply_to_class(self, class_obj, default_teacher=None):
         """

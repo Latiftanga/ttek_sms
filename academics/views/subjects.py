@@ -288,3 +288,5 @@ def apply_template(request, pk):
         'class': class_obj,
         'has_templates': available_templates,
     })
+
+

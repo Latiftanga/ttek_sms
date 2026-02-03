@@ -152,10 +152,18 @@ class SubjectTemplateForm(forms.ModelForm):
 
     class Meta:
         model = SubjectTemplate
-        fields = ['name', 'subjects', 'is_active']
+        fields = ['name', 'level_type', 'is_default', 'subjects', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'e.g., Core Subjects'}),
             'subjects': forms.CheckboxSelectMultiple(),
+        }
+        labels = {
+            'level_type': 'Applicable Level',
+            'is_default': 'Default Template',
+        }
+        help_texts = {
+            'level_type': 'This template will only appear when applying to classes of this level.',
+            'is_default': 'Default templates are pre-selected when applying to matching classes.',
         }
 
     def __init__(self, *args, **kwargs):
@@ -173,7 +181,26 @@ class ApplyTemplateForm(forms.Form):
 
     def __init__(self, *args, class_obj=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['template'].queryset = SubjectTemplate.objects.filter(is_active=True)
+        self.class_obj = class_obj
+
+        # Get all active templates
+        templates = SubjectTemplate.objects.filter(is_active=True)
+
+        if class_obj:
+            # Filter templates by level type
+            filtered_templates = []
+            for template in templates:
+                if template.matches_class_level(class_obj):
+                    filtered_templates.append(template.pk)
+
+            templates = templates.filter(pk__in=filtered_templates)
+
+            # Pre-select default template if one exists for this level
+            default_template = templates.filter(is_default=True).first()
+            if default_template:
+                self.initial['template'] = default_template.pk
+
+        self.fields['template'].queryset = templates
 
 
 class ClassSubjectForm(forms.ModelForm):
@@ -705,6 +732,100 @@ class BulkTimetableEntryForm(forms.Form):
             created_count += 1
 
         return created_count
+
+
+class CopySubjectsForm(forms.Form):
+    """
+    Form for copying subjects from one class to another.
+    Useful for parallel classes (e.g., JHS 2A -> JHS 2B).
+    """
+    source_class = forms.ModelChoiceField(
+        queryset=Class.objects.none(),
+        required=True,
+        label='Copy From',
+        help_text='Select a class with subjects to copy'
+    )
+    copy_teachers = forms.BooleanField(
+        required=False,
+        initial=True,
+        label='Keep Same Teachers',
+        help_text='If unchecked, subjects will be created without teacher assignments'
+    )
+    copy_auto_enroll = forms.BooleanField(
+        required=False,
+        initial=True,
+        label='Copy Auto-Enroll Settings',
+        help_text='Copy the auto-enroll setting for each subject'
+    )
+
+    def __init__(self, *args, target_class=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.target_class = target_class
+
+        # Get classes that have subjects, excluding the target class
+        classes_with_subjects = Class.objects.filter(
+            is_active=True,
+            subjects__isnull=False
+        ).exclude(pk=target_class.pk if target_class else None).distinct().order_by(
+            'level_type', 'level_number', 'section'
+        )
+
+        self.fields['source_class'].queryset = classes_with_subjects
+
+    def clean(self):
+        cleaned_data = super().clean()
+        source_class = cleaned_data.get('source_class')
+
+        if source_class and self.target_class:
+            # Check if source has any subjects
+            subject_count = ClassSubject.objects.filter(
+                class_assigned=source_class
+            ).count()
+            if subject_count == 0:
+                raise forms.ValidationError(
+                    f'{source_class.name} has no subjects to copy.'
+                )
+
+        return cleaned_data
+
+    def save(self):
+        """Copy subjects from source to target class."""
+        source_class = self.cleaned_data['source_class']
+        copy_teachers = self.cleaned_data.get('copy_teachers', True)
+        copy_auto_enroll = self.cleaned_data.get('copy_auto_enroll', True)
+
+        # Get all source class subjects
+        source_subjects = ClassSubject.objects.filter(
+            class_assigned=source_class
+        ).select_related('subject', 'teacher')
+
+        created_count = 0
+        skipped_count = 0
+
+        # Get existing subjects in target class
+        existing_subjects = set(
+            ClassSubject.objects.filter(
+                class_assigned=self.target_class
+            ).values_list('subject_id', flat=True)
+        )
+
+        for source_cs in source_subjects:
+            # Skip if subject already exists in target class
+            if source_cs.subject_id in existing_subjects:
+                skipped_count += 1
+                continue
+
+            # Create new ClassSubject for target class
+            ClassSubject.objects.create(
+                class_assigned=self.target_class,
+                subject=source_cs.subject,
+                teacher=source_cs.teacher if copy_teachers else None,
+                periods_per_week=source_cs.periods_per_week,
+                auto_enroll=source_cs.auto_enroll if copy_auto_enroll else True
+            )
+            created_count += 1
+
+        return created_count, skipped_count
 
 
 class CopyTimetableForm(forms.Form):

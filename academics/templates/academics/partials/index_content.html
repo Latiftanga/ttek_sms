@@ -102,6 +102,30 @@
     </div>
     {% endif %}
 
+    {% if assignment_issues.total > 0 %}
+    <!-- Assignment Issues Alert -->
+    <div class="alert alert-warning shadow-sm">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <div class="flex-1">
+            <span class="font-medium">Incomplete Setup:</span>
+            {% if assignment_issues.classes_without_subjects > 0 %}
+            <span class="ml-1">{{ assignment_issues.classes_without_subjects }} class{{ assignment_issues.classes_without_subjects|pluralize:"es" }} without subjects</span>
+            {% endif %}
+            {% if assignment_issues.classes_without_subjects > 0 and assignment_issues.subjects_without_teachers > 0 %}&bull;{% endif %}
+            {% if assignment_issues.subjects_without_teachers > 0 %}
+            <span class="ml-1">{{ assignment_issues.subjects_without_teachers }} subject{{ assignment_issues.subjects_without_teachers|pluralize }} without teachers</span>
+            {% endif %}
+        </div>
+        <a href="{% url 'academics:assignment_dashboard' %}"
+           hx-get="{% url 'academics:assignment_dashboard' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-sm btn-warning">
+            Review
+        </a>
+    </div>
+    {% endif %}
+
     <!-- Stats Cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -368,6 +392,33 @@
                     <i class="fa-solid fa-arrow-up-right-dots text-warning w-5"></i>
                     Student Promotion
                 </a>
+            </div>
+        </div>
+
+        <!-- Bulk Actions Card -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-file-import text-accent"></i>
+                    Bulk Actions
+                </h2>
+                <div class="space-y-2">
+                    <button class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200/50 transition-colors cursor-pointer w-full text-left"
+                            hx-get="{% url 'academics:bulk_subject_import' %}"
+                            hx-target="#modal-content"
+                            hx-swap="innerHTML"
+                            hx-on::after-request="document.getElementById('global-modal').showModal()">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center bg-accent/20 text-accent">
+                            <i class="fa-solid fa-file-csv text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium">Import Subject Assignments</div>
+                            <div class="text-xs text-base-content/60">
+                                Upload CSV to assign subjects to classes
+                            </div>
+                        </div>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

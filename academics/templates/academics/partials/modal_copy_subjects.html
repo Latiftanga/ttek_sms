@@ -1,0 +1,101 @@
+{% load core_tags %}
+<h3 class="text-lg font-bold mb-2">Copy Subjects from Another Class</h3>
+<p class="text-sm text-base-content/60 mb-4">
+    Copy all subjects from a parallel class to <strong>{{ class.name }}</strong>.
+</p>
+
+{% if has_sources %}
+<form method="post"
+      action="{% url 'academics:copy_subjects' class.pk %}"
+      hx-post="{% url 'academics:copy_subjects' class.pk %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-error mb-4 py-2 text-sm">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span>{{ form.non_field_errors.0 }}</span>
+    </div>
+    {% endif %}
+
+    <div class="form-control mb-4">
+        <label class="label">
+            <span class="label-text font-medium">Copy From</span>
+        </label>
+        <select name="source_class" class="select select-bordered w-full" required>
+            <option value="">-- Select a class --</option>
+            {% for source in form.source_class.field.queryset %}
+            <option value="{{ source.pk }}" {% if form.source_class.value == source.pk|stringformat:"d" %}selected{% endif %}>
+                {{ source.name }} ({{ source.subjects.count }} subject{{ source.subjects.count|pluralize }})
+            </option>
+            {% endfor %}
+        </select>
+        {% if form.source_class.errors %}
+        <label class="label">
+            <span class="label-text-alt text-error">{{ form.source_class.errors.0 }}</span>
+        </label>
+        {% else %}
+        <label class="label">
+            <span class="label-text-alt text-base-content/60">
+                Subjects already in {{ class.name }} will be skipped.
+            </span>
+        </label>
+        {% endif %}
+    </div>
+
+    <div class="divider text-xs">Options</div>
+
+    <div class="form-control mb-2">
+        <label class="label cursor-pointer justify-start gap-3">
+            <input type="checkbox" name="copy_teachers" class="checkbox checkbox-primary checkbox-sm"
+                   {% if form.copy_teachers.value %}checked{% endif %}>
+            <div>
+                <span class="label-text font-medium">Keep Same Teachers</span>
+                <p class="text-xs text-base-content/60">Copy teacher assignments from the source class</p>
+            </div>
+        </label>
+    </div>
+
+    <div class="form-control mb-4">
+        <label class="label cursor-pointer justify-start gap-3">
+            <input type="checkbox" name="copy_auto_enroll" class="checkbox checkbox-primary checkbox-sm"
+                   {% if form.copy_auto_enroll.value %}checked{% endif %}>
+            <div>
+                <span class="label-text font-medium">Copy Auto-Enroll Settings</span>
+                <p class="text-xs text-base-content/60">Copy whether subjects auto-enroll students</p>
+            </div>
+        </label>
+    </div>
+
+    <div class="alert alert-info py-2 text-sm">
+        <i class="fa-solid fa-info-circle"></i>
+        <span>Students will be auto-enrolled in subjects with auto-enroll enabled.</span>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-copy"></i>
+            Copy Subjects
+        </button>
+    </div>
+</form>
+{% else %}
+<div class="text-center py-8">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
+        <i class="fa-solid fa-copy text-base-content/30 text-2xl"></i>
+    </div>
+    <h3 class="font-semibold text-base-content/70">No Source Classes Available</h3>
+    <p class="text-sm text-base-content/50 mb-4">
+        There are no other classes with subjects to copy from.
+    </p>
+    <p class="text-xs text-base-content/50">
+        Add subjects to another class first, or use "Apply Template" to add subjects.
+    </p>
+</div>
+
+<div class="modal-action">
+    <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Close</button>
+</div>
+{% endif %}

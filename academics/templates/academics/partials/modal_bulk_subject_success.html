@@ -1,0 +1,54 @@
+{% load core_tags %}
+
+{% if has_errors %}
+<!-- Partial Success with Errors -->
+<div class="text-center py-4">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-warning/20 flex items-center justify-center">
+        <i class="fa-solid fa-triangle-exclamation text-warning text-3xl"></i>
+    </div>
+    <h3 class="font-bold text-lg mb-2">Import Partially Complete</h3>
+    <p class="text-sm text-base-content/70 mb-4">
+        {{ created_count }} subject assignment{{ created_count|pluralize }} created, but some errors occurred.
+    </p>
+
+    <div class="bg-error/5 border border-error/20 rounded-lg p-3 text-left max-h-32 overflow-y-auto mb-4">
+        {% for error in errors %}
+        <div class="text-xs text-error mb-1">{{ error }}</div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="modal-action">
+    <form method="dialog">
+        <button type="submit" class="btn btn-sm btn-primary"
+                hx-on::click="htmx.trigger(document.body, 'refreshSubjects')">
+            <i class="fa-solid fa-check"></i>
+            Done
+        </button>
+    </form>
+</div>
+{% else %}
+<!-- Full Success -->
+<div class="text-center py-6">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
+        <i class="fa-solid fa-circle-check text-success text-3xl"></i>
+    </div>
+    <h3 class="font-bold text-lg text-success mb-2">Import Successful!</h3>
+    <p class="text-sm text-base-content/70">
+        {{ created_count }} subject assignment{{ created_count|pluralize }} created successfully.
+    </p>
+    <p class="text-xs text-base-content/50 mt-2">
+        Students have been auto-enrolled in subjects with auto-enroll enabled.
+    </p>
+</div>
+
+<div class="modal-action">
+    <form method="dialog">
+        <button type="submit" class="btn btn-sm btn-primary"
+                hx-on::click="htmx.trigger(document.body, 'refreshSubjects')">
+            <i class="fa-solid fa-check"></i>
+            Done
+        </button>
+    </form>
+</div>
+{% endif %}
