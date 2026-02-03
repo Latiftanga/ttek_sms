@@ -1,34 +1,20 @@
 {% load core_tags %}
 <div class="space-y-4">
     <!-- Page Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            {% if breadcrumbs %}
-            <div class="mb-2">
-                {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-            </div>
-            {% endif %}
-            <div class="flex items-center gap-3">
-                <a href="{{ back_url|default:'/students/' }}"
-                   hx-get="{{ back_url|default:'/students/' }}"
-                   hx-target="#main-content"
-                   hx-push-url="true"
-                   class="btn btn-ghost btn-sm btn-circle"
-                   title="Back to Students">
-                    <i class="fa-solid fa-arrow-left"></i>
-                </a>
-                <div>
-                    <h1 class="text-xl font-bold flex items-center gap-2">
-                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-warning to-error flex items-center justify-center">
-                            <i class="fa-solid fa-arrow-up-right-dots text-white"></i>
-                        </div>
-                        Student Promotion
-                    </h1>
-                    <p class="text-sm text-base-content/60 ml-12">
-                        Promote students to next academic year
-                    </p>
-                </div>
-            </div>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{{ back_url|default:'/students/' }}"
+           hx-get="{{ back_url|default:'/students/' }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-warning to-error flex items-center justify-center shrink-0"
+           title="Back to Students">
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold">Student Promotion</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">
+                Promote students to next academic year
+            </p>
         </div>
     </div>
 

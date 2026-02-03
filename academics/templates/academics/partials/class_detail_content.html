@@ -12,24 +12,23 @@
      hx-swap="innerHTML">
 
     <!-- Compact Header -->
-    <div class="flex flex-col gap-3 mb-4 print:!hidden w-full">
-        <!-- Top row: Title + Actions -->
-        <div class="flex items-center gap-2 sm:gap-3 w-full">
-            <a href="{{ back_url|default:'javascript:history.back()' }}"
-               class="btn btn-ghost btn-sm btn-square shrink-0">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <div class="flex-1 min-w-0">
-                <h1 class="text-lg sm:text-xl font-bold truncate flex items-center gap-2">
-                    {{ class.name }}
-                    <span class="badge badge-xs sm:badge-sm {{ class.is_active|yesno:'badge-success,badge-ghost' }}">
-                        {{ class.is_active|yesno:'Active,Inactive' }}
-                    </span>
-                </h1>
-                <p class="text-xs text-base-content/60 truncate">
-                    {{ class.level_display }}{% if tenant.has_programmes and class.programme %} &bull; {{ class.programme.name }}{% endif %}{% if class.class_teacher %} &bull; {{ class.class_teacher.get_title_display }} {{ class.class_teacher.last_name }}{% endif %}
-                </p>
-            </div>
+    <div class="flex items-center gap-2 sm:gap-3 mb-4 print:!hidden">
+        <a href="{{ back_url|default:'javascript:history.back()' }}"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+           title="Go back">
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold truncate flex items-center gap-2">
+                {{ class.name }}
+                <span class="badge badge-xs sm:badge-sm {{ class.is_active|yesno:'badge-success,badge-ghost' }}">
+                    {{ class.is_active|yesno:'Active,Inactive' }}
+                </span>
+            </h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60 truncate">
+                {{ class.level_display }}{% if tenant.has_programmes and class.programme %} &bull; {{ class.programme.name }}{% endif %}{% if class.class_teacher %} &bull; {{ class.class_teacher.get_title_display }} {{ class.class_teacher.last_name }}{% endif %}
+            </p>
+        </div>
 
             <!-- Actions Dropdown -->
             <div class="dropdown dropdown-end">

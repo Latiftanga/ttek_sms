@@ -1,18 +1,18 @@
 {% load core_tags %}
-<div>
+<div class="space-y-4">
     <!-- Page Header -->
-    <div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <div class="flex items-center gap-2 sm:gap-3">
         <a href="{% url 'students:guardian_index' %}"
            hx-get="{% url 'students:guardian_index' %}"
            hx-target="#main-content"
            hx-swap="innerHTML"
            hx-push-url="true"
-           class="btn btn-ghost btn-sm btn-square shrink-0"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
            title="Back to Guardians">
-            <i class="fa-solid fa-arrow-left"></i>
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
         </a>
         <div class="flex-1 min-w-0">
-            <h1 class="text-base sm:text-lg font-bold truncate">{{ guardian.full_name }}</h1>
+            <h1 class="text-base sm:text-xl font-bold truncate">{{ guardian.full_name }}</h1>
             <p class="text-[10px] sm:text-xs text-base-content/60">{{ guardian.phone_number }}</p>
         </div>
         <div class="dropdown dropdown-end">

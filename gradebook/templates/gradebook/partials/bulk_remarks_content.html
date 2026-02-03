@@ -2,52 +2,36 @@
 
 <div class="space-y-4 md:space-y-6">
     <!-- Header -->
-    <div class="flex flex-col gap-3 md:gap-4">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
-            <div class="min-w-0">
-                {% if breadcrumbs %}
-                <div class="mb-2">
-                    {% include "core/partials/breadcrumbs.html" with breadcrumbs=breadcrumbs only %}
-                </div>
-                {% endif %}
-                <div class="flex items-center gap-3">
-                    <a href="{% url 'gradebook:reports' %}"
-                       hx-get="{% url 'gradebook:reports' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-sm btn-circle"
-                       title="Back to Reports">
-                        <i class="fa-solid fa-arrow-left"></i>
-                    </a>
-                    <div class="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <i class="fa-solid fa-comment-dots text-primary text-sm md:text-base"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-xl font-bold truncate">{{ class_obj.name }} - Term Remarks</h1>
-                        <p class="text-base-content/60 text-sm">
-                            {{ current_term.name }} | Enter remarks for all students
-                        </p>
-                    </div>
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{% url 'gradebook:reports' %}"
+           hx-get="{% url 'gradebook:reports' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+           title="Back to Reports">
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold truncate">{{ class_obj.name }} - Term Remarks</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">
+                {{ current_term.name }} | Enter remarks for all students
+            </p>
+        </div>
+        <div class="flex items-center gap-2">
+            <!-- Progress indicator -->
+            <div class="flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-base-200 rounded-lg">
+                <div class="text-xs sm:text-sm">
+                    <div class="font-semibold">{{ completed_count }}/{{ total_count }}</div>
                 </div>
             </div>
-
-            <div class="flex items-center gap-2 md:gap-3 ml-10 md:ml-0">
-                <!-- Progress indicator -->
-                <div class="flex items-center gap-2 px-3 md:px-4 py-2 bg-base-200 rounded-lg">
-                    <div class="text-sm">
-                        <div class="font-semibold">{{ completed_count }}/{{ total_count }}</div>
-                        <div class="text-xs text-base-content/60">Done</div>
-                    </div>
-                </div>
-
-                <!-- Sign Off Button -->
-                <button hx-post="{% url 'gradebook:bulk_remarks_sign' class_obj.pk %}"
-                        hx-confirm="Sign off all remarks for this class? This confirms all entries are complete."
-                        class="btn btn-sm md:btn-md btn-primary gap-1 md:gap-2">
-                    <i class="fa-solid fa-signature"></i>
-                    <span class="hidden sm:inline">Sign Off</span>
-                </button>
-            </div>
+            <!-- Sign Off Button -->
+            <button hx-post="{% url 'gradebook:bulk_remarks_sign' class_obj.pk %}"
+                    hx-confirm="Sign off all remarks for this class? This confirms all entries are complete."
+                    class="btn btn-xs sm:btn-sm btn-primary gap-1">
+                <i class="fa-solid fa-signature"></i>
+                <span class="hidden sm:inline">Sign Off</span>
+            </button>
+        </div>
         </div>
     </div>
 
@@ -136,17 +120,17 @@
                             </select>
                         </label>
 
-                        <!-- Punctuality -->
+                        <!-- Attendance -->
                         <label class="select select-sm">
-                            <span class="label">Punctuality</span>
+                            <span class="label">Attendance</span>
                             <select hx-post="{% url 'gradebook:bulk_remark_save' %}"
-                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "punctuality_rating"}'
+                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "attendance_rating"}'
                                     hx-trigger="change"
                                     hx-swap="none"
                                     name="value">
                                 <option value="">Select...</option>
                                 {% for value, label in rating_choices %}
-                                <option value="{{ value }}" {% if student.term_report and student.term_report.punctuality_rating == value %}selected{% endif %}>{{ label }}</option>
+                                <option value="{{ value }}" {% if student.term_report and student.term_report.attendance_rating == value %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
                         </label>
