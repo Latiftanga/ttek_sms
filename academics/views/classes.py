@@ -1789,7 +1789,7 @@ def assignment_dashboard(request):
 
     return htmx_render(
         request,
+        'academics/assignment_dashboard.html',
         'academics/partials/assignment_dashboard_content.html',
-        context,
-        full_template='academics/assignment_dashboard.html'
+        context
     )
