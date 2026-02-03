@@ -13,7 +13,7 @@
             <!-- School Logo -->
             <div class="mb-4">
                 {% if school.logo.name %}
-                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-contain bg-white/90 p-2 mx-auto shadow-lg">
+                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-contain mx-auto">
                 {% else %}
                 <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-white/20 flex items-center justify-center mx-auto">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 sm:w-14 sm:h-14 text-white" fill="currentColor" viewBox="0 0 640 512">
