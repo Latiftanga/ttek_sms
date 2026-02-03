@@ -1,37 +1,30 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <h1 class="text-2xl font-bold flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <i class="fa-solid fa-chart-line text-white"></i>
-            </div>
-            My Results
-        </h1>
-        <p class="text-sm text-base-content/60 mt-1">
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-chart-line text-white text-sm sm:text-base"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">My Results</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">
             {% if student.current_class %}
-            <i class="fa-solid fa-chalkboard mr-1"></i>
             {{ student.current_class.name }}
             {% endif %}
         </p>
     </div>
-
     {% if available_terms %}
-    <div class="flex gap-2 items-center">
-        <span class="text-sm text-base-content/60">Term:</span>
-        <select class="select select-bordered select-sm"
-                hx-get="{% url 'core:my_results' %}"
-                hx-target="#main-content"
-                hx-push-url="true"
-                name="term">
-            {% for term in available_terms %}
-            <option value="{{ term.pk }}" {% if selected_term.pk == term.pk %}selected{% endif %}>
-                {{ term.name }} - {{ term.academic_year.name }}
-            </option>
-            {% endfor %}
-        </select>
-    </div>
+    <select class="select select-bordered select-xs sm:select-sm"
+            hx-get="{% url 'core:my_results' %}"
+            hx-target="#main-content"
+            hx-push-url="true"
+            name="term">
+        {% for term in available_terms %}
+        <option value="{{ term.pk }}" {% if selected_term.pk == term.pk %}selected{% endif %}>
+            {{ term.name }}
+        </option>
+        {% endfor %}
+    </select>
     {% endif %}
 </div>
 

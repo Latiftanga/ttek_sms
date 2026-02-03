@@ -4,17 +4,13 @@
        hx-get="{% url 'finance:payments' %}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-ghost btn-sm btn-square shrink-0">
-        <i class="fa-solid fa-arrow-left"></i>
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center shrink-0"
+       title="Back to Payments">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
     </a>
     <div class="flex-1 min-w-0">
-        <h1 class="text-base sm:text-lg font-bold truncate flex items-center gap-2">
-            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-receipt text-white text-sm sm:text-base"></i>
-            </div>
-            {{ payment.receipt_number }}
-        </h1>
-        <p class="text-[10px] sm:text-xs text-base-content/60 ml-10 sm:ml-12 truncate">
+        <h1 class="text-base sm:text-xl font-bold truncate">{{ payment.receipt_number }}</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60 truncate">
             Payment for {{ payment.invoice.student.full_name }}
         </p>
     </div>

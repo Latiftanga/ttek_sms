@@ -4,18 +4,13 @@
        hx-get="{{ back_url|default:'/finance/' }}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="btn btn-ghost btn-sm btn-square shrink-0"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center shrink-0"
        title="Back to Finance">
-        <i class="fa-solid fa-arrow-left"></i>
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
     </a>
     <div class="flex-1 min-w-0">
-        <h1 class="text-base sm:text-xl font-bold flex items-center gap-2">
-            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-money-bill-wave text-white text-sm sm:text-base"></i>
-            </div>
-            Payments
-        </h1>
-        <p class="text-[10px] sm:text-sm text-base-content/60 ml-10 sm:ml-12">
+        <h1 class="text-base sm:text-xl font-bold">Payments</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">
             View and manage all payment records
             {% if search or status_filter or method_filter or date_from or date_to %}<span class="text-primary"> (filtered)</span>{% endif %}
         </p>

@@ -1,23 +1,16 @@
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'finance:index' %}"
-               hx-get="{% url 'finance:index' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle"
-               title="Back to Finance">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-info to-secondary flex items-center justify-center">
-                    <i class="fa-solid fa-chart-bar text-white"></i>
-                </div>
-                Finance Reports
-            </h1>
-        </div>
-        <p class="text-sm text-base-content/60 ml-12">
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'finance:index' %}"
+       hx-get="{% url 'finance:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-info to-secondary flex items-center justify-center shrink-0"
+       title="Back to Finance">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Finance Reports</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">
             Generate and view financial reports
         </p>
     </div>

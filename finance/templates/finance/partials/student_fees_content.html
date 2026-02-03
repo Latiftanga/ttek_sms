@@ -1,37 +1,31 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <div class="flex items-center gap-3 mb-1">
-            <a href="{% url 'finance:invoices' %}"
-               hx-get="{% url 'finance:invoices' %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-arrow-left"></i>
-            </a>
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                    <i class="fa-solid fa-user text-white"></i>
-                </div>
-                {{ student.full_name }}
-            </h1>
-        </div>
-        <p class="text-sm text-base-content/60 ml-12">{{ student.admission_number }} • {{ student.current_class.name|default:"No Class" }}</p>
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'finance:invoices' %}"
+       hx-get="{% url 'finance:invoices' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Invoices">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold truncate">{{ student.full_name }}</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">{{ student.admission_number }} • {{ student.current_class.name|default:"No Class" }}</p>
     </div>
-    <div class="flex gap-2">
-        <a href="{% url 'finance:student_statement' student_id=student.pk %}" class="btn btn-ghost btn-sm" target="_blank">
+    <div class="flex gap-1 sm:gap-2">
+        <a href="{% url 'finance:student_statement' student_id=student.pk %}" class="btn btn-ghost btn-xs sm:btn-sm" target="_blank">
             <i class="fa-solid fa-file-alt"></i>
-            Statement
+            <span class="hidden sm:inline">Statement</span>
         </a>
         <a href="{% url 'finance:invoice_generate' %}"
            hx-get="{% url 'finance:invoice_generate' %}?student={{ student.pk }}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-primary btn-sm">
+           class="btn btn-primary btn-xs sm:btn-sm">
             <i class="fa-solid fa-plus"></i>
-            New Invoice
+            <span class="hidden sm:inline">New Invoice</span>
         </a>
     </div>
 </div>

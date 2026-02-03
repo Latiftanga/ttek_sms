@@ -1,27 +1,25 @@
 {% load core_tags %}
 <div id="my-grading-content">
 <!-- Page Header -->
-<div class="flex items-center justify-between gap-2 mb-4">
-    <div class="flex items-center gap-2">
-        <a href="{% url 'core:index' %}"
-           hx-get="{% url 'core:index' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           class="btn btn-ghost btn-sm btn-circle"
-           title="Back to Dashboard">
-            <i class="fa-solid fa-arrow-left"></i>
-        </a>
-        <div>
-            <h1 class="text-lg font-bold">My Grading</h1>
-            {% if current_term %}
-            <p class="text-xs text-base-content/60">{{ current_term.name }}</p>
-            {% endif %}
-        </div>
+<div class="flex items-center gap-2 sm:gap-3 mb-4">
+    <a href="{% url 'core:index' %}"
+       hx-get="{% url 'core:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Dashboard">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">My Grading</h1>
+        {% if current_term %}
+        <p class="text-[10px] sm:text-xs text-base-content/60">{{ current_term.name }}</p>
+        {% endif %}
     </div>
     {% if current_term.grades_locked %}
-    <span class="badge badge-warning gap-1">
+    <span class="badge badge-warning badge-sm gap-1">
         <i class="fa-solid fa-lock text-xs"></i>
-        Locked
+        <span class="hidden sm:inline">Locked</span>
     </span>
     {% endif %}
 </div>
