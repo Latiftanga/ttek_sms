@@ -134,11 +134,12 @@
                 </li>
                 <div class="divider my-1"></div>
                 <li>
-                    <button hx-post="{% url 'accounts:logout' %}" 
-                    hx-target="body"
-                    class="py-2 text-sm text-error cursor-pointer text-left">
-                        <i class="fa-solid fa-right-from-bracket mr-2"></i> Logout
-                    </button>
+                    <form method="post" action="{% url 'accounts:logout' %}" id="logout-form">
+                        {% csrf_token %}
+                        <button type="submit" class="py-2 text-sm text-error cursor-pointer text-left w-full">
+                            <i class="fa-solid fa-right-from-bracket mr-2"></i> Logout
+                        </button>
+                    </form>
                 </li>
             </ul>
         </div>
