@@ -5,19 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>You're Invited</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to the Guardian Portal</h1>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f3f4f6;">
+    <div style="background: linear-gradient(135deg, {{ school.primary_color|default:'#10b981' }} 0%, {{ school.secondary_color|default:'#059669' }} 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+        {% if school.logo %}
+        <div style="margin-bottom: 15px;">
+            <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:school.name }}" style="max-height: 60px; max-width: 200px;">
+        </div>
+        {% endif %}
+        <h1 style="color: white; margin: 0; font-size: 22px;">
+            {% if school %}{{ school.display_name|default:school.name }}{% else %}School Portal{% endif %}
+        </h1>
+        {% if school.motto %}
+        <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0 0; font-size: 13px; font-style: italic;">
+            {{ school.motto }}
+        </p>
+        {% endif %}
+        <p style="color: rgba(255,255,255,0.9); margin: 12px 0 0 0; font-size: 14px; font-weight: 500;">
+            Guardian Portal Invitation
+        </p>
     </div>
 
-    <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+    <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
         <p style="font-size: 16px; margin-bottom: 20px;">
             Dear <strong>{{ guardian.full_name }}</strong>,
         </p>
 
         <p style="margin-bottom: 20px;">
-            You have been invited to create your account on the school's guardian portal.
-            This will allow you to view your ward's academic progress, attendance records, and more.
+            You have been invited to create your account on the
+            <strong>{% if school %}{{ school.display_name|default:school.name }}{% else %}school{% endif %}</strong>
+            guardian portal. This will allow you to view your ward's academic progress, attendance records, and more.
         </p>
 
         <p style="margin-bottom: 20px;">
@@ -26,7 +42,7 @@
 
         <div style="text-align: center; margin: 30px 0;">
             <a href="{{ accept_url }}"
-               style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+               style="background: linear-gradient(135deg, {{ school.primary_color|default:'#10b981' }} 0%, {{ school.secondary_color|default:'#059669' }} 100%);
                       color: white;
                       padding: 14px 30px;
                       text-decoration: none;
@@ -41,7 +57,7 @@
         <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
             Or copy and paste this link into your browser:
         </p>
-        <p style="background: #e5e7eb; padding: 10px; border-radius: 5px; word-break: break-all; font-size: 13px; color: #4b5563;">
+        <p style="background: #f3f4f6; padding: 10px; border-radius: 5px; word-break: break-all; font-size: 13px; color: #4b5563;">
             {{ accept_url }}
         </p>
 
@@ -54,10 +70,10 @@
         <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 25px 0;">
 
         <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            If you did not expect this invitation, please ignore this email or contact the school administrator.
+            If you did not expect this invitation, please ignore this email or contact your school administrator.
         </p>
         <p style="color: #9ca3af; font-size: 12px; margin-top: 10px;">
-            This is an automated message. Please do not reply directly to this email.
+            This is an automated message from {% if school %}{{ school.display_name|default:school.name }}{% else %}School Portal{% endif %}. Please do not reply directly to this email.
         </p>
     </div>
 </body>

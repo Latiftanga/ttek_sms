@@ -13,6 +13,7 @@ from django.utils.html import strip_tags
 
 from accounts.models import User
 from core.email_backend import get_from_email
+from gradebook.utils import get_school_context
 from teachers.models import Teacher, TeacherInvitation
 from .utils import admin_required
 
@@ -213,19 +214,25 @@ def send_invitation_email(invitation, request):
     # Build the accept URL
     accept_url = request.build_absolute_uri(f'/teachers/invite/{invitation.token}/')
 
+    # Get school context for branding
+    school_ctx = get_school_context()
+    school = school_ctx.get('school')
+    school_name = school.display_name or school.name if school else 'School'
+
     # Email context
     context = {
         'teacher': teacher,
         'invitation': invitation,
         'accept_url': accept_url,
         'expires_hours': 72,
+        **school_ctx,
     }
 
     # Render email content
     html_message = render_to_string('teachers/emails/invitation_email.html', context)
     plain_message = strip_tags(html_message)
 
-    subject = "You're Invited to Join the School Portal"
+    subject = f"You're Invited to Join {school_name}"
 
     from smtplib import SMTPException
     try:
@@ -401,10 +408,12 @@ def accept_invitation(request, token):
     This view is accessible without authentication.
     """
     invitation = TeacherInvitation.get_by_token(token)
+    school_ctx = get_school_context()
 
     if not invitation:
         return render(request, 'teachers/invitation_invalid.html', {
-            'reason': 'expired_or_invalid'
+            'reason': 'expired_or_invalid',
+            **school_ctx,
         })
 
     teacher = invitation.teacher
@@ -414,12 +423,14 @@ def accept_invitation(request, token):
         return render(request, 'teachers/invitation_invalid.html', {
             'reason': 'already_has_account',
             'teacher': teacher,
+            **school_ctx,
         })
 
     if request.method == 'GET':
         return render(request, 'teachers/accept_invitation.html', {
             'invitation': invitation,
             'teacher': teacher,
+            **school_ctx,
         })
 
     if request.method == 'POST':
@@ -441,6 +452,7 @@ def accept_invitation(request, token):
                 'invitation': invitation,
                 'teacher': teacher,
                 'errors': errors,
+                **school_ctx,
             })
 
         # Create user account
@@ -473,6 +485,7 @@ def accept_invitation(request, token):
                 'invitation': invitation,
                 'teacher': teacher,
                 'errors': [f"An account with email '{invitation.email}' already exists."],
+                **school_ctx,
             })
 
         # Auto-login and redirect to profile setup
