@@ -576,9 +576,40 @@ def multiply(value, arg):
     Usage: {{ value|multiply:arg }}
     """
     try:
-        return int(value) * int(arg)
+        return float(value) * float(arg)
     except (ValueError, TypeError):
         return 0
+
+
+@register.filter
+def divide(value, arg):
+    """
+    Divide value by arg.
+    Usage: {{ value|divide:arg }}
+    """
+    try:
+        return float(value) / float(arg)
+    except (ValueError, TypeError, ZeroDivisionError):
+        return 0
+
+
+@register.filter
+def ordinal_suffix(value):
+    """
+    Return the ordinal suffix for a number (st, nd, rd, th).
+    Usage: {{ position }}{{ position|ordinal_suffix }}
+    Example: 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st, 22nd, 23rd
+    """
+    try:
+        value = int(value)
+    except (ValueError, TypeError):
+        return ''
+
+    if 10 <= value % 100 <= 20:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(value % 10, 'th')
+    return suffix
 
 
 @register.filter

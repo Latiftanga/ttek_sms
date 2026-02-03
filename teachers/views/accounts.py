@@ -163,6 +163,44 @@ def deactivate_account(request, pk):
 
 
 @admin_required
+def toggle_school_admin(request, pk):
+    """Toggle a teacher's school admin status."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    teacher = get_object_or_404(Teacher, pk=pk)
+
+    if not teacher.user:
+        messages.error(request, f"{teacher.full_name} does not have an account.")
+        response = HttpResponse(status=204)
+        response['HX-Refresh'] = 'true'
+        return response
+
+    user = teacher.user
+
+    # Toggle the school admin status
+    user.is_school_admin = not user.is_school_admin
+    # School admins need is_staff=True to access certain features
+    user.is_staff = user.is_school_admin
+    user.save(update_fields=['is_school_admin', 'is_staff'])
+
+    if user.is_school_admin:
+        messages.success(
+            request,
+            f"{teacher.full_name} has been promoted to School Administrator."
+        )
+    else:
+        messages.success(
+            request,
+            f"{teacher.full_name} has been demoted from School Administrator."
+        )
+
+    response = HttpResponse(status=204)
+    response['HX-Refresh'] = 'true'
+    return response
+
+
+@admin_required
 def reset_password(request, pk):
     """Reset a teacher's password and send new credentials."""
     if request.method != 'POST':

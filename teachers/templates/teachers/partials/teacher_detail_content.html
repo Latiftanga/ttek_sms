@@ -345,6 +345,40 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- School Admin Role -->
+            <div class="bg-base-200/50 rounded-xl p-4 mb-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full {% if teacher.user.is_school_admin %}bg-primary/10 text-primary{% else %}bg-base-300 text-base-content/50{% endif %} flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-user-shield"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-sm">School Administrator</p>
+                            <p class="text-xs text-base-content/60">
+                                {% if teacher.user.is_school_admin %}
+                                Can manage school settings, teachers, students, and all data
+                                {% else %}
+                                Grant admin access to manage the school
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <form hx-post="{% url 'teachers:toggle_school_admin' teacher.pk %}"
+                          hx-confirm="{% if teacher.user.is_school_admin %}Remove school admin privileges from {{ teacher.full_name }}?{% else %}Grant school admin privileges to {{ teacher.full_name }}? They will be able to manage all school data.{% endif %}"
+                          hx-indicator="#admin-toggle-spinner">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm {% if teacher.user.is_school_admin %}btn-primary{% else %}btn-outline{% endif %}">
+                            {% if teacher.user.is_school_admin %}
+                            <i class="fa-solid fa-check"></i> Admin
+                            {% else %}
+                            <i class="fa-solid fa-plus"></i> Make Admin
+                            {% endif %}
+                            <span id="admin-toggle-spinner" class="loading loading-spinner loading-xs htmx-indicator"></span>
+                        </button>
+                    </form>
+                </div>
+            </div>
             {% else %}
             <div class="bg-warning/5 border border-warning/20 rounded-xl p-4 mb-4">
                 <div class="flex items-center gap-3 mb-3">

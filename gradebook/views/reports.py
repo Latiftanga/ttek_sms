@@ -1207,17 +1207,44 @@ def calculate_subject_performance(subject_grades, pass_mark=None):
     return result
 
 
-def calculate_grade_distribution(subject_grades):
-    """Calculate grade distribution across all subjects."""
+def calculate_grade_distribution(subject_grades, grading_system=None):
+    """Calculate grade distribution across all subjects.
+
+    Args:
+        subject_grades: List of SubjectTermGrade objects
+        grading_system: Optional GradingSystem to get grade order from.
+                       If not provided, fetches the active one.
+    """
     grade_counts = Counter(g.grade for g in subject_grades if g.grade)
 
-    # Define grade order for display
-    grade_order = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9']
+    # Get grade order from grading system (ordered by min_percentage descending)
+    if grading_system is None:
+        grading_system = GradingSystem.objects.filter(
+            is_active=True
+        ).prefetch_related('scales').first()
+
+    if grading_system:
+        # Get grades ordered by min_percentage descending (highest grades first)
+        grade_order = list(
+            grading_system.scales.order_by('-min_percentage')
+            .values_list('grade_label', flat=True)
+        )
+        # Determine key grades (first, middle, pass threshold, and last)
+        key_grades = set()
+        if grade_order:
+            key_grades.add(grade_order[0])  # Best grade
+            key_grades.add(grade_order[-1])  # Worst grade
+            if len(grade_order) > 2:
+                key_grades.add(grade_order[len(grade_order) // 2])  # Middle grade
+    else:
+        # Fallback to WASSCE grades if no grading system configured
+        grade_order = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9']
+        key_grades = {'A1', 'B2', 'C6', 'F9'}
 
     result = []
     for grade in grade_order:
         count = grade_counts.get(grade, 0)
-        if count > 0 or grade in ['A1', 'B2', 'C6', 'F9']:  # Always show key grades
+        if count > 0 or grade in key_grades:
             result.append({
                 'grade': grade,
                 'count': count,
@@ -1345,7 +1372,7 @@ def bulk_remark_save(request):
     # Update the field
     allowed_fields = [
         'class_teacher_remark', 'conduct_rating', 'attitude_rating',
-        'interest_rating', 'punctuality_rating'
+        'interest_rating', 'attendance_rating'
     ]
 
     if field in allowed_fields:

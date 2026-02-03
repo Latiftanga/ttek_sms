@@ -316,7 +316,13 @@ def class_recipients(request):
         class_obj = Class.objects.get(pk=class_id)
         students = Student.objects.filter(current_class=class_obj, status='active')
         total_students = students.count()
-        with_phone = students.exclude(guardian_phone='').exclude(guardian_phone__isnull=True).count()
+        # Count students with a primary guardian who has a phone number
+        with_phone = students.filter(
+            student_guardians__is_primary=True,
+            student_guardians__guardian__phone_number__isnull=False
+        ).exclude(
+            student_guardians__guardian__phone_number=''
+        ).distinct().count()
         without_phone = total_students - with_phone
 
         # Escape user-controlled data to prevent XSS
