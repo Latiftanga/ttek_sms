@@ -1,24 +1,53 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <h1 class="text-2xl font-bold flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-success to-emerald-600 flex items-center justify-center">
-                <i class="fa-solid fa-house-user text-white"></i>
-            </div>
-            Guardian Portal
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-emerald-600 flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-house-user text-white text-sm sm:text-base"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">
+            <span class="sm:hidden">Guardian Portal</span>
+            <span class="hidden sm:inline">{% if guardian %}Welcome, {{ guardian.full_name }}{% else %}Guardian Portal{% endif %}</span>
         </h1>
-        <p class="text-sm text-base-content/60 mt-1">
-            {% if guardian %}
-            Welcome, {{ guardian.full_name }}
-            {% endif %}
+        <p class="text-[10px] sm:text-xs text-base-content/60">
             {% if current_term %}
-            <span class="mx-2">|</span>
             <i class="fa-solid fa-calendar-day mr-1"></i>
             {{ current_term.name }} - {{ current_term.academic_year.name }}
             {% endif %}
         </p>
+    </div>
+    <div class="dropdown dropdown-end shrink-0">
+        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50">
+            <li>
+                <a href="{% url 'core:my_wards' %}"
+                   hx-get="{% url 'core:my_wards' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-children text-success"></i> My Wards
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'core:fee_payments' %}"
+                   hx-get="{% url 'core:fee_payments' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-credit-card text-primary"></i> Fee Payments
+                </a>
+            </li>
+            <div class="divider my-1"></div>
+            <li>
+                <a href="{% url 'core:profile' %}"
+                   hx-get="{% url 'core:profile' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-user text-base-content/50"></i> My Profile
+                </a>
+            </li>
+        </ul>
     </div>
 </div>
 

@@ -14,6 +14,35 @@
         <h1 class="text-base sm:text-xl font-bold">My Profile</h1>
         <p class="text-[10px] sm:text-xs text-base-content/60">View and manage your information</p>
     </div>
+    <div class="dropdown dropdown-end shrink-0">
+        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50">
+            <li>
+                <a href="{% url 'core:profile_edit' %}"
+                   hx-get="{% url 'core:profile_edit' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-pen text-primary"></i> Edit Profile
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'core:my_wards' %}"
+                   hx-get="{% url 'core:my_wards' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-children text-success"></i> My Wards
+                </a>
+            </li>
+            <div class="divider my-1"></div>
+            <li>
+                <a href="{% url 'accounts:password_change' %}">
+                    <i class="fa-solid fa-key text-warning"></i> Change Password
+                </a>
+            </li>
+        </ul>
+    </div>
 </div>
 
 <!-- Profile Header -->

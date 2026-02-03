@@ -18,6 +18,29 @@
             {% endif %}
         </p>
     </div>
+    <div class="dropdown dropdown-end shrink-0">
+        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50">
+            <li>
+                <a href="{% url 'core:fee_payments' %}"
+                   hx-get="{% url 'core:fee_payments' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-credit-card text-primary"></i> Fee Payments
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'core:profile' %}"
+                   hx-get="{% url 'core:profile' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-user text-base-content/50"></i> My Profile
+                </a>
+            </li>
+        </ul>
+    </div>
 </div>
 
 {% if not wards %}
