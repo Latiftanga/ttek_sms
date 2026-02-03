@@ -20,7 +20,7 @@
             <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
             </label>
-            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-52 z-50">
                 <li>
                     <a href="{% url 'academics:classes' %}"
                        hx-get="{% url 'academics:classes' %}"
@@ -28,6 +28,22 @@
                        hx-push-url="true">
                         <i class="fa-solid fa-chalkboard text-primary"></i> View Classes
                     </a>
+                </li>
+                <li>
+                    <a href="{% url 'academics:assignment_dashboard' %}"
+                       hx-get="{% url 'academics:assignment_dashboard' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-clipboard-check text-warning"></i> Assignment Dashboard
+                    </a>
+                </li>
+                <li>
+                    <button hx-get="{% url 'academics:bulk_subject_import' %}"
+                            hx-target="#modal-container"
+                            hx-swap="innerHTML"
+                            onclick="document.getElementById('modal').showModal()">
+                        <i class="fa-solid fa-file-import text-success"></i> Import Subjects
+                    </button>
                 </li>
             </ul>
         </div>
