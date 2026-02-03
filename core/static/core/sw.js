@@ -4,7 +4,7 @@
 // IMPORTANT: Increment CACHE_VERSION when deploying updates to force cache refresh
 // Format: 'v{major}.{minor}' - bump minor for small changes, major for breaking changes
 
-const CACHE_VERSION = 'v1.3';
+const CACHE_VERSION = 'v1.4';
 const CACHE_NAME = `sms-cache-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline/';
 
