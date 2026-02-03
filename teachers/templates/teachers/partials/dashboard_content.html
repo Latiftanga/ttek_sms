@@ -1,34 +1,80 @@
 {% load core_tags %}
 
 <!-- Welcome Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div class="flex items-center gap-4">
-        <div class="avatar">
-            <div class="w-14 h-14 rounded-full bg-primary text-primary-content ring ring-primary/20 ring-offset-base-100 ring-offset-2">
-                {% if teacher.photo %}
-                <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" loading="lazy" />
-                {% else %}
-                <div class="flex items-center justify-center h-full text-xl font-bold">
-                    {{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}
-                </div>
-                {% endif %}
+<div class="flex items-center gap-3 sm:gap-4 mb-6">
+    <div class="avatar shrink-0">
+        <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-primary text-primary-content ring ring-primary/20 ring-offset-base-100 ring-offset-2">
+            {% if teacher.photo %}
+            <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" loading="lazy" />
+            {% else %}
+            <div class="flex items-center justify-center h-full text-lg sm:text-xl font-bold">
+                {{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}
             </div>
+            {% endif %}
         </div>
-        <div class="min-w-0">
-            <h1 class="text-lg sm:text-xl font-bold truncate">
-                <span class="hidden sm:inline">Good {% if today.hour < 12 %}morning{% elif today.hour < 17 %}afternoon{% else %}evening{% endif %}, </span>{{ teacher.get_title_display }} {{ teacher.last_name }}
-            </h1>
-            <p class="text-sm text-base-content/60 flex items-center gap-2 flex-wrap">
-                <span class="flex items-center gap-1">
-                    <i class="fa-regular fa-calendar"></i>
-                    <span class="hidden sm:inline">{{ today|date:"l, F j, Y" }}</span>
-                    <span class="sm:hidden">{{ today|date:"D, M j" }}</span>
-                </span>
-                {% if current_term %}
-                <span class="badge badge-sm badge-ghost">{{ current_term.name }}</span>
-                {% endif %}
-            </p>
-        </div>
+    </div>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold truncate">
+            <span class="hidden sm:inline">Good {% if today.hour < 12 %}morning{% elif today.hour < 17 %}afternoon{% else %}evening{% endif %}, </span>{{ teacher.get_title_display }} {{ teacher.last_name }}
+        </h1>
+        <p class="text-[10px] sm:text-sm text-base-content/60 flex items-center gap-2 flex-wrap">
+            <span class="flex items-center gap-1">
+                <i class="fa-regular fa-calendar"></i>
+                <span class="hidden sm:inline">{{ today|date:"l, F j, Y" }}</span>
+                <span class="sm:hidden">{{ today|date:"D, M j" }}</span>
+            </span>
+            {% if current_term %}
+            <span class="badge badge-xs sm:badge-sm badge-ghost">{{ current_term.name }}</span>
+            {% endif %}
+        </p>
+    </div>
+    <div class="dropdown dropdown-end shrink-0">
+        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50">
+            <li>
+                <a href="{% url 'core:my_grading' %}"
+                   hx-get="{% url 'core:my_grading' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-pen-to-square text-primary"></i> Enter Scores
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'core:my_attendance' %}"
+                   hx-get="{% url 'core:my_attendance' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-clipboard-check text-success"></i> Attendance
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'gradebook:reports' %}"
+                   hx-get="{% url 'gradebook:reports' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-file-lines text-info"></i> Reports
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'core:schedule' %}"
+                   hx-get="{% url 'core:schedule' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-calendar-days text-secondary"></i> Schedule
+                </a>
+            </li>
+            <div class="divider my-1"></div>
+            <li>
+                <a href="{% url 'core:profile' %}"
+                   hx-get="{% url 'core:profile' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-user text-base-content/50"></i> My Profile
+                </a>
+            </li>
+        </ul>
     </div>
 </div>
 

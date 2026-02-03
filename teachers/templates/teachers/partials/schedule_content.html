@@ -19,6 +19,37 @@
             {{ teacher.get_title_display }} {{ teacher.last_name }} <span class="hidden sm:inline">&bull; {{ teacher.staff_id }}</span>
         </p>
     </div>
+    <div class="dropdown dropdown-end shrink-0">
+        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50">
+            <li>
+                <a href="{% url 'core:my_grading' %}"
+                   hx-get="{% url 'core:my_grading' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-pen-to-square text-primary"></i> Enter Scores
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'core:my_attendance' %}"
+                   hx-get="{% url 'core:my_attendance' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-clipboard-check text-success"></i> Attendance
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'gradebook:reports' %}"
+                   hx-get="{% url 'gradebook:reports' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-file-lines text-info"></i> Reports
+                </a>
+            </li>
+        </ul>
+    </div>
 </div>
 
 <!-- Stats -->
