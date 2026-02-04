@@ -3048,6 +3048,9 @@ def enter_scores(request, class_id, subject_id):
         # Get scores for current student
         current_student_scores = scores_dict.get(current_student.id, {})
 
+    # Check if teacher is class teacher for this class
+    is_class_teacher = class_obj.class_teacher == teacher
+
     context = {
         'class_obj': class_obj,
         'subject': subject,
@@ -3059,6 +3062,7 @@ def enter_scores(request, class_id, subject_id):
         'student_totals': student_totals,
         'grades_locked': grades_locked,
         'can_edit': not grades_locked,
+        'is_class_teacher': is_class_teacher,
         # Student view context
         'view_mode': view_mode,
         'current_student': current_student,

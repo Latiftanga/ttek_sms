@@ -230,7 +230,12 @@ def score_entry_form(request, class_id, subject_id):
     context['scores_dict'] = dict(scores_dict)  # Convert to regular dict for template
     context['view_mode'] = view_mode
 
-    return render(request, 'gradebook/partials/score_form.html', context)
+    return htmx_render(
+        request,
+        'gradebook/score_form.html',
+        'gradebook/partials/score_form.html',
+        context
+    )
 
 
 @login_required
@@ -276,7 +281,12 @@ def score_entry_student(request, class_id, subject_id, student_id):
     context['assignments_by_category'] = dict(assignments_by_category)
     context['scores_dict'] = scores_dict
 
-    return render(request, 'gradebook/partials/score_form_student.html', context)
+    return htmx_render(
+        request,
+        'gradebook/score_entry_student.html',
+        'gradebook/partials/score_form_student.html',
+        context
+    )
 
 
 @login_required
