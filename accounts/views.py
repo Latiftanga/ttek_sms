@@ -259,12 +259,25 @@ class CustomLoginView(LoginView):
 class ForcePasswordChangeView(PasswordChangeView):
     """
     Password change view that clears the must_change_password flag.
+
+    For forced password changes, uses standalone template (no navigation).
+    For voluntary changes, uses modal with HTMX support.
     """
     template_name = 'accounts/password_change.html'
     success_url = reverse_lazy('core:index')
 
+    def render_to_response(self, context, **response_kwargs):
+        # For voluntary changes via HTMX, return modal content
+        if not context.get('is_forced') and self.request.headers.get('HX-Request'):
+            return render(self.request, 'accounts/partials/password_change_modal.html', context)
+        return super().render_to_response(context, **response_kwargs)
+
     def form_valid(self, form):
-        response = super().form_valid(form)
+        import json
+        from django.http import HttpResponse
+
+        # Save the new password
+        form.save()
 
         # Clear the must_change_password flag
         user = self.request.user
@@ -272,8 +285,18 @@ class ForcePasswordChangeView(PasswordChangeView):
             user.must_change_password = False
             user.save(update_fields=['must_change_password'])
 
+        # For HTMX requests, close modal and show toast
+        if self.request.headers.get('HX-Request'):
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = json.dumps({
+                'closeModal': True,
+                'showToast': {'message': 'Password changed successfully', 'type': 'success'}
+            })
+            return response
+
+        # For regular requests, redirect with message
         messages.success(self.request, 'Your password has been changed successfully.')
-        return response
+        return redirect(self.success_url)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
