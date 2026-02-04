@@ -44,23 +44,44 @@
             <i class="fa-solid fa-id-card"></i>
         </a>
         {% endif %}
-        {% if not grades_locked %}
-        <button class="btn btn-ghost btn-sm btn-square"
-                hx-get="{% url 'gradebook:assignments' subject.pk %}"
-                hx-target="#assignments-container"
-                hx-swap="innerHTML"
-                hx-on::after-request="modal_assignments.showModal()"
-                title="Manage Assignments">
-            <i class="fa-solid fa-cog"></i>
-        </button>
-        {% endif %}
         <div class="dropdown dropdown-end">
             <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square" title="More options">
-                <i class="fa-solid fa-ellipsis-v"></i>
+                <i class="fa-solid fa-ellipsis-vertical"></i>
             </div>
-            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-48 p-2 shadow-lg border border-base-200">
-                <li><a href="{% url 'core:export_scores' class_obj.pk subject.pk %}"><i class="fa-solid fa-download text-success"></i> Export CSV</a></li>
-                <li><a href="{% url 'core:export_scores' class_obj.pk subject.pk %}?format=xlsx"><i class="fa-solid fa-file-excel text-success"></i> Export Excel</a></li>
+            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-52 p-2 shadow-lg border border-base-200">
+                {% if not grades_locked %}
+                <li>
+                    <button hx-get="{% url 'gradebook:assignments' subject.pk %}"
+                            hx-target="#assignments-container"
+                            hx-swap="innerHTML"
+                            hx-on::after-request="modal_assignments.showModal()">
+                        <i class="fa-solid fa-cog text-primary"></i> Manage Assignments
+                    </button>
+                </li>
+                {% endif %}
+                <li>
+                    <button hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
+                            hx-target="#changes-container"
+                            onclick="modal_changes.showModal()">
+                        <i class="fa-solid fa-clock-rotate-left text-info"></i> View Changes
+                    </button>
+                </li>
+                {% if is_class_teacher %}
+                <li>
+                    <a href="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+                       hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-comment-dots text-warning"></i> Enter Remarks
+                    </a>
+                </li>
+                {% endif %}
+                <li class="border-t border-base-200 mt-1 pt-1">
+                    <a href="{% url 'core:export_scores' class_obj.pk subject.pk %}"><i class="fa-solid fa-file-csv text-success"></i> Export CSV</a>
+                </li>
+                <li>
+                    <a href="{% url 'core:export_scores' class_obj.pk subject.pk %}?format=xlsx"><i class="fa-solid fa-file-excel text-success"></i> Export Excel</a>
+                </li>
                 {% if not grades_locked %}
                 <li class="border-t border-base-200 mt-1 pt-1">
                     <button onclick="modal_import.showModal()"><i class="fa-solid fa-upload text-primary"></i> Import Scores</button>
@@ -757,6 +778,25 @@ document.body.addEventListener('htmx:afterSwap', function() {
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Score Changes Modal -->
+<dialog id="modal_changes" class="modal modal-middle">
+    <div class="modal-box max-w-4xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="changes-container">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
         </div>
     </div>
     <form method="dialog" class="modal-backdrop">
