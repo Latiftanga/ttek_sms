@@ -60,6 +60,16 @@
                     <i class="fa-solid fa-clock-rotate-left"></i>
                     <span class="hidden sm:inline">View Changes</span>
                 </button>
+                {% if is_class_teacher %}
+                <a href="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+                   hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-sm btn-warning gap-1">
+                    <i class="fa-solid fa-comment-dots"></i>
+                    <span class="hidden sm:inline">Enter</span> Remarks
+                </a>
+                {% endif %}
             </div>
         </div>
 

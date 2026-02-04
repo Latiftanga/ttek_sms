@@ -49,8 +49,8 @@
             {% endif %}
         </div>
 
-        <!-- Subject badge -->
-        <div class="flex items-center justify-center gap-2 mb-4">
+        <!-- Subject badge and actions -->
+        <div class="flex flex-wrap items-center justify-center gap-2 mb-4">
             <span class="badge badge-primary badge-lg">{{ subject.name }}</span>
             <a href="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
                hx-get="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
@@ -60,6 +60,16 @@
                 <i class="fa-solid fa-table-cells"></i>
                 Table View
             </a>
+            {% if is_class_teacher %}
+            <a href="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+               hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-sm btn-warning gap-1 min-h-[44px]">
+                <i class="fa-solid fa-comment-dots"></i>
+                Enter Remarks
+            </a>
+            {% endif %}
         </div>
 
         {% if not can_edit %}

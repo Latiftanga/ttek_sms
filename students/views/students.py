@@ -77,7 +77,7 @@ def index(request):
         students = students.filter(
             Q(first_name__icontains=search) |
             Q(last_name__icontains=search) |
-            Q(other_names__icontains=search) |
+            Q(middle_name__icontains=search) |
             Q(admission_number__icontains=search)
         )
 

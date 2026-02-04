@@ -12,17 +12,15 @@
             <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
         </a>
         <div class="flex-1 min-w-0">
-            <h1 class="text-base sm:text-xl font-bold truncate">{{ class_obj.name }} - Term Remarks</h1>
-            <p class="text-[10px] sm:text-xs text-base-content/60">
-                {{ current_term.name }} | Enter remarks for all students
+            <h1 class="text-base sm:text-xl font-bold truncate">{{ class_obj.name }} - Remarks</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60 truncate">
+                {{ current_term.name }} | {{ total_count }} students
             </p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1 sm:gap-2">
             <!-- Progress indicator -->
-            <div class="flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-base-200 rounded-lg">
-                <div class="text-xs sm:text-sm">
-                    <div class="font-semibold">{{ completed_count }}/{{ total_count }}</div>
-                </div>
+            <div class="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-base-200 rounded-lg">
+                <div class="text-xs sm:text-sm font-semibold">{{ completed_count }}/{{ total_count }}</div>
             </div>
             <!-- Sign Off Button -->
             <button hx-post="{% url 'gradebook:bulk_remarks_sign' class_obj.pk %}"
@@ -32,53 +30,176 @@
                 <span class="hidden sm:inline">Sign Off</span>
             </button>
         </div>
+    </div>
+
+    <!-- Mobile Quick Remarks Button (floating) -->
+    <div class="lg:hidden fixed bottom-20 right-4 z-40">
+        <button onclick="document.getElementById('remarks-drawer').checked = true"
+                class="btn btn-circle btn-secondary btn-lg shadow-lg">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </button>
+    </div>
+
+    <!-- Mobile Drawer for Quick Remarks -->
+    <input type="checkbox" id="remarks-drawer" class="drawer-toggle lg:hidden">
+    <div class="drawer drawer-end lg:hidden fixed inset-0 z-50 pointer-events-none">
+        <input type="checkbox" id="remarks-drawer-toggle" class="drawer-toggle">
+        <div class="drawer-side pointer-events-auto">
+            <label for="remarks-drawer" class="drawer-overlay"></label>
+            <div class="bg-base-100 w-80 max-w-[85vw] min-h-full p-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles text-secondary"></i>
+                        Quick Remarks
+                    </h3>
+                    <label for="remarks-drawer" class="btn btn-ghost btn-sm btn-circle">
+                        <i class="fa-solid fa-xmark"></i>
+                    </label>
+                </div>
+
+                <div class="alert alert-info py-2 mb-4">
+                    <i class="fa-solid fa-lightbulb text-sm"></i>
+                    <span class="text-xs">First tap a student's remark field, then select a template.</span>
+                </div>
+
+                {% if templates_by_category %}
+                <div class="space-y-3 max-h-[70vh] overflow-y-auto">
+                    {% for category, templates in templates_by_category.items %}
+                    <div class="collapse collapse-arrow bg-base-200/50 rounded-lg">
+                        <input type="checkbox" {% if forloop.first %}checked{% endif %}>
+                        <div class="collapse-title py-2 px-3 min-h-0 font-medium text-sm">
+                            {% if 'Excellent' in category %}
+                            <span class="badge badge-success badge-sm">{{ category }}</span>
+                            {% elif 'Good' in category %}
+                            <span class="badge badge-info badge-sm">{{ category }}</span>
+                            {% elif 'Average' in category %}
+                            <span class="badge badge-warning badge-sm">{{ category }}</span>
+                            {% elif 'Needs' in category %}
+                            <span class="badge badge-error badge-sm">{{ category }}</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-sm">{{ category }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="collapse-content px-2 pb-2">
+                            <div class="space-y-1">
+                                {% for template in templates %}
+                                <button type="button"
+                                        class="remark-template btn btn-ghost btn-sm h-auto py-2 px-3 text-left justify-start w-full whitespace-normal leading-snug font-normal text-xs"
+                                        data-content="{{ template.content }}"
+                                        onclick="document.getElementById('remarks-drawer').checked = false">
+                                    {{ template.content|truncatechars:80 }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-6 text-base-content/50">
+                    <i class="fa-solid fa-file-lines text-2xl mb-2"></i>
+                    <p class="text-sm">No templates available</p>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         <!-- Main Content - Student Cards -->
-        <div class="lg:col-span-2 space-y-4">
+        <div class="lg:col-span-2 space-y-3 sm:space-y-4">
+            <!-- Pagination Info & Controls (Top) -->
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="flex items-center justify-between bg-base-200/50 rounded-lg px-3 py-2">
+                <span class="text-xs sm:text-sm text-base-content/70">
+                    Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+                </span>
+                <div class="join">
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}"
+                       hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}?page={{ page_obj.previous_page_number }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-xs sm:btn-sm">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-xs sm:btn-sm btn-disabled">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    {% endif %}
+
+                    <span class="join-item btn btn-xs sm:btn-sm btn-active no-animation">
+                        {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                    </span>
+
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}"
+                       hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}?page={{ page_obj.next_page_number }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-xs sm:btn-sm">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-xs sm:btn-sm btn-disabled">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
             {% for student in students %}
             <div class="card bg-base-100 shadow-sm border border-base-200" id="student-card-{{ student.pk }}">
-                <div class="card-body p-4">
-                    <!-- Student Header -->
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                                <span class="text-sm font-bold">{{ forloop.counter }}</span>
+                <div class="card-body p-3 sm:p-4">
+                    <!-- Student Header - Mobile Optimized -->
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
+                        <!-- Student Info -->
+                        <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                <span class="text-xs sm:text-sm font-bold">{{ page_obj.start_index|add:forloop.counter0 }}</span>
                             </div>
-                            <div>
-                                <div class="font-semibold">{{ student.full_name }}</div>
-                                <div class="text-xs text-base-content/50">{{ student.admission_number }}</div>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-semibold text-sm sm:text-base truncate">{{ student.full_name }}</div>
+                                <div class="text-[10px] sm:text-xs text-base-content/50">{{ student.admission_number }}</div>
                             </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            {% if student.term_report %}
-                            <div class="text-right">
-                                <div class="text-xs text-base-content/50">Position</div>
-                                <div class="font-bold">{{ student.term_report.position|default:"-" }}/{{ student.term_report.out_of|default:"-" }}</div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-xs text-base-content/50">Average</div>
-                                <div class="font-bold {% if student.term_report.average >= 80 %}text-success{% elif student.term_report.average >= 50 %}text-warning{% else %}text-error{% endif %}">
-                                    {{ student.term_report.average|floatformat:1|default:"-" }}%
-                                </div>
-                            </div>
-                            {% else %}
-                            <span class="badge badge-ghost">No grades yet</span>
-                            {% endif %}
-                            <span class="save-indicator hidden text-success" id="save-indicator-{{ student.pk }}">
+                            <!-- Save indicator -->
+                            <span class="save-indicator hidden text-success shrink-0" id="save-indicator-{{ student.pk }}">
                                 <i class="fa-solid fa-check-circle"></i>
                             </span>
                         </div>
+
+                        <!-- Stats Row -->
+                        {% if student.term_report %}
+                        <div class="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm pl-10 sm:pl-0">
+                            <div class="flex items-center gap-1">
+                                <span class="text-base-content/50">Pos:</span>
+                                <span class="font-bold">{{ student.term_report.position|default:"-" }}/{{ student.term_report.out_of|default:"-" }}</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <span class="text-base-content/50">Avg:</span>
+                                <span class="font-bold {% if student.term_report.average >= 80 %}text-success{% elif student.term_report.average >= 50 %}text-warning{% else %}text-error{% endif %}">
+                                    {{ student.term_report.average|floatformat:1|default:"-" }}%
+                                </span>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="pl-10 sm:pl-0">
+                            <span class="badge badge-ghost badge-sm">No grades yet</span>
+                        </div>
+                        {% endif %}
                     </div>
 
-                    <!-- Ratings Row -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                    <!-- Ratings Grid - Better Mobile Layout -->
+                    <div class="grid grid-cols-2 gap-2 sm:gap-3 mb-3">
                         <!-- Conduct -->
-                        <label class="select select-sm">
-                            <span class="label">Conduct</span>
-                            <select hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                        <div class="form-control">
+                            <label class="label py-0.5 sm:py-1">
+                                <span class="label-text text-xs">Conduct</span>
+                            </label>
+                            <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
+                                    hx-post="{% url 'gradebook:bulk_remark_save' %}"
                                     hx-vals='{"student_id": "{{ student.pk }}", "field": "conduct_rating"}'
                                     hx-trigger="change"
                                     hx-swap="none"
@@ -88,12 +209,15 @@
                                 <option value="{{ value }}" {% if student.term_report and student.term_report.conduct_rating == value %}selected{% endif %}>{{ value }} - {{ label }}</option>
                                 {% endfor %}
                             </select>
-                        </label>
+                        </div>
 
                         <!-- Attitude -->
-                        <label class="select select-sm">
-                            <span class="label">Attitude</span>
-                            <select hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                        <div class="form-control">
+                            <label class="label py-0.5 sm:py-1">
+                                <span class="label-text text-xs">Attitude</span>
+                            </label>
+                            <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
+                                    hx-post="{% url 'gradebook:bulk_remark_save' %}"
                                     hx-vals='{"student_id": "{{ student.pk }}", "field": "attitude_rating"}'
                                     hx-trigger="change"
                                     hx-swap="none"
@@ -103,12 +227,15 @@
                                 <option value="{{ value }}" {% if student.term_report and student.term_report.attitude_rating == value %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
-                        </label>
+                        </div>
 
                         <!-- Interest -->
-                        <label class="select select-sm">
-                            <span class="label">Interest</span>
-                            <select hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                        <div class="form-control">
+                            <label class="label py-0.5 sm:py-1">
+                                <span class="label-text text-xs">Interest</span>
+                            </label>
+                            <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
+                                    hx-post="{% url 'gradebook:bulk_remark_save' %}"
                                     hx-vals='{"student_id": "{{ student.pk }}", "field": "interest_rating"}'
                                     hx-trigger="change"
                                     hx-swap="none"
@@ -118,12 +245,15 @@
                                 <option value="{{ value }}" {% if student.term_report and student.term_report.interest_rating == value %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
-                        </label>
+                        </div>
 
                         <!-- Attendance -->
-                        <label class="select select-sm">
-                            <span class="label">Attendance</span>
-                            <select hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                        <div class="form-control">
+                            <label class="label py-0.5 sm:py-1">
+                                <span class="label-text text-xs">Attendance</span>
+                            </label>
+                            <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
+                                    hx-post="{% url 'gradebook:bulk_remark_save' %}"
                                     hx-vals='{"student_id": "{{ student.pk }}", "field": "attendance_rating"}'
                                     hx-trigger="change"
                                     hx-swap="none"
@@ -133,13 +263,15 @@
                                 <option value="{{ value }}" {% if student.term_report and student.term_report.attendance_rating == value %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
-                        </label>
+                        </div>
                     </div>
 
                     <!-- Remark Textarea -->
-                    <label class="floating-label w-full">
-                        <span>Class Teacher's Remark</span>
-                        <textarea class="textarea textarea-sm w-full remark-textarea"
+                    <div class="form-control">
+                        <label class="label py-0.5 sm:py-1">
+                            <span class="label-text text-xs">Class Teacher's Remark</span>
+                        </label>
+                        <textarea class="textarea textarea-bordered textarea-sm w-full text-sm remark-textarea"
                                   rows="2"
                                   hx-post="{% url 'gradebook:bulk_remark_save' %}"
                                   hx-vals='{"student_id": "{{ student.pk }}", "field": "class_teacher_remark"}'
@@ -151,7 +283,7 @@
                                   data-student-name="{{ student.first_name }}"
                                   data-average="{% if student.term_report %}{{ student.term_report.average|floatformat:1 }}{% endif %}"
                                   data-position="{% if student.term_report %}{{ student.term_report.position }}{% endif %}">{% if student.term_report %}{{ student.term_report.class_teacher_remark }}{% endif %}</textarea>
-                    </label>
+                    </div>
                 </div>
             </div>
             {% empty %}
@@ -162,10 +294,81 @@
                 </div>
             </div>
             {% endfor %}
+
+            <!-- Pagination Controls (Bottom) -->
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-base-200/50 rounded-lg px-3 py-3">
+                <span class="text-xs sm:text-sm text-base-content/70">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+
+                <!-- Page number buttons -->
+                <div class="join">
+                    <!-- First page -->
+                    {% if page_obj.number > 2 %}
+                    <a href="?page=1"
+                       hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}?page=1"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-xs sm:btn-sm">
+                        <i class="fa-solid fa-angles-left"></i>
+                    </a>
+                    {% endif %}
+
+                    <!-- Previous -->
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}"
+                       hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}?page={{ page_obj.previous_page_number }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-xs sm:btn-sm">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </a>
+                    {% endif %}
+
+                    <!-- Page numbers -->
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if num == page_obj.number %}
+                        <button class="join-item btn btn-xs sm:btn-sm btn-primary no-animation">{{ num }}</button>
+                        {% elif num == page_obj.number|add:"-1" or num == page_obj.number|add:"1" or num == 1 or num == page_obj.paginator.num_pages %}
+                        <a href="?page={{ num }}"
+                           hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}?page={{ num }}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="join-item btn btn-xs sm:btn-sm">{{ num }}</a>
+                        {% elif num == page_obj.number|add:"-2" or num == page_obj.number|add:"2" %}
+                        <button class="join-item btn btn-xs sm:btn-sm btn-disabled">...</button>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- Next -->
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}"
+                       hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}?page={{ page_obj.next_page_number }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-xs sm:btn-sm">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                    {% endif %}
+
+                    <!-- Last page -->
+                    {% if page_obj.number < page_obj.paginator.num_pages|add:"-1" %}
+                    <a href="?page={{ page_obj.paginator.num_pages }}"
+                       hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}?page={{ page_obj.paginator.num_pages }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-xs sm:btn-sm">
+                        <i class="fa-solid fa-angles-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
 
-        <!-- Sidebar - Remark Templates -->
-        <div class="lg:col-span-1">
+        <!-- Sidebar - Remark Templates (Desktop only) -->
+        <div class="hidden lg:block lg:col-span-1">
             <div class="card bg-base-100 shadow-sm border border-base-200 sticky top-4">
                 <div class="card-body p-4">
                     <h3 class="font-bold flex items-center gap-2 mb-3">
@@ -243,28 +446,28 @@
     </div>
 
     <!-- Footer Actions -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 md:p-4 bg-base-200/30 rounded-lg border border-base-200">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 p-3 bg-base-200/30 rounded-lg border border-base-200">
         <a href="{% url 'gradebook:reports' %}?class={{ class_obj.pk }}"
            hx-get="{% url 'gradebook:reports' %}?class={{ class_obj.pk }}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-ghost btn-sm md:btn-md gap-2">
+           class="btn btn-ghost btn-sm gap-2 justify-start">
             <i class="fa-solid fa-arrow-left"></i>
-            <span class="hidden sm:inline">Back to</span> Reports
+            Back to Reports
         </a>
 
-        <div class="flex items-center gap-2 md:gap-4 w-full sm:w-auto justify-between sm:justify-end">
-            <span class="text-xs md:text-sm text-base-content/60">
+        <div class="flex items-center gap-2 justify-between sm:justify-end">
+            <span class="text-xs text-base-content/60">
                 <i class="fa-solid fa-cloud-arrow-up mr-1"></i>
-                <span class="hidden sm:inline">Auto-</span>saved
+                Auto-saved
             </span>
             <a href="{% url 'gradebook:report_distribution' class_obj.pk %}"
                hx-get="{% url 'gradebook:report_distribution' class_obj.pk %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-secondary btn-sm md:btn-md gap-1 md:gap-2">
+               class="btn btn-secondary btn-sm gap-1">
                 <i class="fa-solid fa-paper-plane"></i>
-                <span class="hidden sm:inline">Distribute</span> <span class="sm:hidden">Send</span>
+                Distribute
             </a>
         </div>
     </div>

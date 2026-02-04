@@ -129,6 +129,16 @@ def _get_score_entry_base_context(request, class_id, subject_id):
     # Get categories (small table, usually cached)
     categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
 
+    # Check if user is the class teacher (form master) for this class
+    # This determines if they can enter remarks for student reports
+    is_class_teacher = False
+    if getattr(request.user, 'is_teacher', False) and hasattr(request.user, 'teacher_profile'):
+        teacher = request.user.teacher_profile
+        is_class_teacher = class_obj.class_teacher_id == teacher.id
+    elif is_school_admin(request.user):
+        # Admins can also enter remarks
+        is_class_teacher = True
+
     return {
         'class_obj': class_obj,
         'subject': subject,
@@ -139,6 +149,7 @@ def _get_score_entry_base_context(request, class_id, subject_id):
         'grades_locked': grades_locked,
         'can_edit': can_edit,
         'editing_allowed': editing_allowed,
+        'is_class_teacher': is_class_teacher,
     }
 
 

@@ -243,7 +243,7 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
         students = students.filter(
             Q(first_name__icontains=search) |
             Q(last_name__icontains=search) |
-            Q(other_names__icontains=search) |
+            Q(middle_name__icontains=search) |
             Q(admission_number__icontains=search) |
             Q(guardians__full_name__icontains=search)
         ).distinct()
