@@ -13,9 +13,12 @@
 
     <!-- Compact Header -->
     <div class="flex items-center gap-2 sm:gap-3 mb-4 print:!hidden">
-        <a href="{{ back_url|default:'javascript:history.back()' }}"
+        <a href="{% url 'academics:classes' %}"
+           hx-get="{% url 'academics:classes' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
            class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
-           title="Go back">
+           title="Back to Classes">
             <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
         </a>
         <div class="flex-1 min-w-0">

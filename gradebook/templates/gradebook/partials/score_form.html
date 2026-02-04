@@ -17,6 +17,7 @@
                    hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
                    hx-target="#score-form-container"
                    hx-swap="innerHTML"
+                   hx-push-url="true"
                    class="btn btn-sm btn-primary md:btn-outline md:btn-ghost">
                     <i class="fa-solid fa-mobile-screen"></i>
                     <span class="sm:hidden">Mobile</span>
