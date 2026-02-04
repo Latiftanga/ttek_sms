@@ -14,7 +14,8 @@ import pandas as pd
 from accounts.models import User
 from academics.models import Class
 from core.models import AcademicYear
-from students.models import Student, Enrollment, Guardian, StudentGuardian
+from gradebook.utils import get_school_context
+from students.models import Student, Enrollment, Guardian, StudentGuardian, House
 from .utils import admin_required, parse_date, clean_value
 
 
@@ -52,12 +53,32 @@ def validate_phone_number(phone):
     return True, cleaned, None
 
 
-EXPECTED_COLUMNS = [
+BASE_COLUMNS = [
     'first_name', 'middle_name', 'last_name', 'date_of_birth', 'gender',
     'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
     'admission_number', 'admission_date', 'class_name',
     'student_email'  # Optional - if provided, creates a user account
 ]
+
+# Additional columns for SHS schools
+SHS_COLUMNS = ['house_name', 'residence_type']
+
+
+def get_expected_columns(school=None):
+    """Return expected columns based on school type."""
+    columns = BASE_COLUMNS.copy()
+    if school and school.education_system in ('shs', 'both'):
+        # Insert SHS columns before student_email
+        columns = columns[:-1] + SHS_COLUMNS + [columns[-1]]
+    return columns
+
+
+def is_shs_school(school=None):
+    """Check if school has SHS students."""
+    if school is None:
+        school_ctx = get_school_context()
+        school = school_ctx.get('school')
+    return school and school.education_system in ('shs', 'both')
 
 
 def generate_temp_password(length=10):
@@ -69,15 +90,22 @@ def generate_temp_password(length=10):
 @admin_required
 def bulk_import(request):
     """Handle bulk import of students from Excel/CSV."""
+    school_ctx = get_school_context()
+    school = school_ctx.get('school')
+    expected_columns = get_expected_columns(school)
+    shs_school = is_shs_school(school)
+
     if request.method == 'GET':
         return render(request, 'students/partials/modal_bulk_import.html', {
-            'expected_columns': EXPECTED_COLUMNS,
+            'expected_columns': expected_columns,
+            'is_shs_school': shs_school,
         })
 
     # POST - process file
     if 'file' not in request.FILES:
         return render(request, 'students/partials/modal_bulk_import.html', {
-            'expected_columns': EXPECTED_COLUMNS,
+            'expected_columns': expected_columns,
+            'is_shs_school': shs_school,
             'error': 'Please select a file to upload.',
         })
 
@@ -86,7 +114,8 @@ def bulk_import(request):
 
     if ext not in ['xlsx', 'csv']:
         return render(request, 'students/partials/modal_bulk_import.html', {
-            'expected_columns': EXPECTED_COLUMNS,
+            'expected_columns': expected_columns,
+            'is_shs_school': shs_school,
             'error': 'Only .xlsx and .csv files are supported.',
         })
 
@@ -99,7 +128,8 @@ def bulk_import(request):
 
         if df.empty:
             return render(request, 'students/partials/modal_bulk_import.html', {
-                'expected_columns': EXPECTED_COLUMNS,
+                'expected_columns': expected_columns,
+                'is_shs_school': shs_school,
                 'error': 'The file is empty.',
             })
 
@@ -107,10 +137,16 @@ def bulk_import(request):
         df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
 
         # Build lookups - use values_list for memory efficiency
-        class_map = {c.name: c.pk for c in Class.objects.filter(is_active=True)}
+        # Store class info with level_type for SHS detection
+        class_map = {c.name: {'pk': c.pk, 'level_type': c.level_type} for c in Class.objects.filter(is_active=True)}
         guardian_map = dict(Guardian.objects.values_list('phone_number', 'pk'))
         existing_admissions = set(Student.objects.values_list('admission_number', flat=True))
         existing_emails = set(User.objects.values_list('email', flat=True))
+
+        # SHS-specific lookups (house map needed if school has any SHS classes)
+        house_map = {}
+        if shs_school:
+            house_map = {h.name.lower(): h.pk for h in House.objects.all()}
 
         # Process rows
         all_errors = []
@@ -170,10 +206,36 @@ def bulk_import(request):
 
             # Validate class
             class_pk = None
+            class_is_shs = False
             if class_name and class_name in class_map:
-                class_pk = class_map[class_name]
+                class_info = class_map[class_name]
+                class_pk = class_info['pk']
+                class_is_shs = class_info['level_type'] == 'shs'
             elif class_name:
                 errors.append(f'Class "{class_name}" not found')
+
+            # SHS-specific fields - only process if class is SHS level
+            house_pk = None
+            residence_type = ''
+            if shs_school and class_is_shs:
+                house_name = clean_value(row.get('house_name', '')).lower()
+                residence_type = clean_value(row.get('residence_type', '')).lower()
+
+                # Validate house (optional)
+                if house_name:
+                    if house_name in house_map:
+                        house_pk = house_map[house_name]
+                    else:
+                        errors.append(f'House "{house_name}" not found')
+
+                # Normalize residence_type (optional)
+                if residence_type:
+                    if residence_type in ['day', 'd']:
+                        residence_type = 'day'
+                    elif residence_type in ['boarding', 'b', 'boarder']:
+                        residence_type = 'boarding'
+                    else:
+                        errors.append(f'Residence type must be "day" or "boarding"')
 
             # Validate student email (optional - for account creation)
             if student_email:
@@ -199,7 +261,7 @@ def bulk_import(request):
             if errors:
                 all_errors.append({'row': row_num, 'errors': errors})
             else:
-                valid_rows.append({
+                row_data = {
                     'row_num': row_num,
                     'first_name': first_name,
                     'middle_name': middle_name,
@@ -214,10 +276,17 @@ def bulk_import(request):
                     'guardian_name': guardian_name,
                     'guardian_relationship': guardian_relationship,
                     'student_email': student_email,  # Optional - for account creation
-                })
+                }
+                # Add SHS fields only if class is SHS level
+                if class_is_shs:
+                    row_data['house_pk'] = house_pk
+                    row_data['residence_type'] = residence_type
+
+                valid_rows.append(row_data)
                 existing_admissions.add(admission_number)
 
         request.session['bulk_import_data'] = json.dumps(valid_rows)
+        request.session['bulk_import_is_shs'] = shs_school
 
         return render(request, 'students/partials/modal_bulk_preview.html', {
             'valid_rows': valid_rows,
@@ -225,11 +294,13 @@ def bulk_import(request):
             'total_rows': len(df),
             'valid_count': len(valid_rows),
             'error_count': len(all_errors),
+            'is_shs_school': shs_school,
         })
 
     except Exception as e:
         return render(request, 'students/partials/modal_bulk_import.html', {
-            'expected_columns': EXPECTED_COLUMNS,
+            'expected_columns': expected_columns,
+            'is_shs_school': shs_school,
             'error': f'Error reading file: {str(e)}',
         })
 
@@ -240,10 +311,16 @@ def bulk_import_confirm(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    school_ctx = get_school_context()
+    school = school_ctx.get('school')
+    expected_columns = get_expected_columns(school)
+    shs_school = request.session.get('bulk_import_is_shs', False)
+
     data = request.session.get('bulk_import_data')
     if not data:
         return render(request, 'students/partials/modal_bulk_import.html', {
-            'expected_columns': EXPECTED_COLUMNS,
+            'expected_columns': expected_columns,
+            'is_shs_school': shs_school,
             'error': 'Session expired. Please upload the file again.',
         })
 
@@ -251,7 +328,8 @@ def bulk_import_confirm(request):
         rows = json.loads(data)
     except json.JSONDecodeError:
         return render(request, 'students/partials/modal_bulk_import.html', {
-            'expected_columns': EXPECTED_COLUMNS,
+            'expected_columns': expected_columns,
+            'is_shs_school': shs_school,
             'error': 'Invalid session data. Please upload the file again.',
         })
 
@@ -259,17 +337,21 @@ def bulk_import_confirm(request):
     accounts_created = 0
     errors = []
 
-    # Collect all guardian and class PKs for bulk fetching
+    # Collect all guardian, class, and house PKs for bulk fetching
     guardian_pks = [row['guardian_pk'] for row in rows if row.get('guardian_pk')]
     class_pks = [row['class_pk'] for row in rows if row.get('class_pk')]
+    house_pks = [row['house_pk'] for row in rows if row.get('house_pk')]
 
-    # Bulk fetch guardians and classes (2 queries instead of N*2)
+    # Bulk fetch guardians, classes, and houses
     guardians_dict = {
         g.pk: g for g in Guardian.objects.filter(pk__in=guardian_pks)
     }
     classes_dict = {
         c.pk: c for c in Class.objects.filter(pk__in=class_pks)
     }
+    houses_dict = {
+        h.pk: h for h in House.objects.filter(pk__in=house_pks)
+    } if house_pks else {}
 
     # Get current academic year once
     current_year = AcademicYear.get_current()
@@ -281,6 +363,7 @@ def bulk_import_confirm(request):
     for idx, row in enumerate(rows):
         try:
             current_class = classes_dict.get(row['class_pk']) if row.get('class_pk') else None
+            house = houses_dict.get(row.get('house_pk')) if row.get('house_pk') else None
 
             students_to_create.append(Student(
                 first_name=row['first_name'],
@@ -291,6 +374,8 @@ def bulk_import_confirm(request):
                 admission_number=row['admission_number'],
                 admission_date=datetime.strptime(row['admission_date'], '%Y-%m-%d').date(),
                 current_class=current_class,
+                house=house,
+                residence_type=row.get('residence_type', ''),
                 status='active',
                 is_active=True,
             ))
@@ -389,22 +474,69 @@ def bulk_import_confirm(request):
 
 @admin_required
 def bulk_import_template(request):
-    """Download a sample import template."""
-    sample_data = {
-        'first_name': ['John', 'Jane'],
-        'middle_name': ['', 'Marie'],
-        'last_name': ['Doe', 'Smith'],
-        'date_of_birth': ['2010-05-15', '2011-08-22'],
-        'gender': ['M', 'F'],
-        'guardian_name': ['James Doe', 'Mary Smith'],
-        'guardian_phone': ['0241234567', '0551234567'],
-        'guardian_email': ['james@email.com', ''],
-        'guardian_relationship': ['father', 'mother'],
-        'admission_number': ['STU-2024-001', 'STU-2024-002'],
-        'admission_date': ['2024-09-01', '2024-09-01'],
-        'class_name': ['B1-A', 'B2-A'],
-        'student_email': ['john.doe@school.com', ''],  # Optional - creates portal account if provided
-    }
+    """Download a sample import template based on school type."""
+    school_ctx = get_school_context()
+    school = school_ctx.get('school')
+    shs_school = is_shs_school(school)
+    is_both = school and school.education_system == 'both'
+
+    # Build sample data based on school type
+    if is_both:
+        # School has both Basic and SHS - show mixed examples
+        sample_data = {
+            'first_name': ['John', 'Jane', 'Kofi'],
+            'middle_name': ['', 'Marie', ''],
+            'last_name': ['Doe', 'Smith', 'Mensah'],
+            'date_of_birth': ['2010-05-15', '2008-08-22', '2015-03-10'],
+            'gender': ['M', 'F', 'M'],
+            'guardian_name': ['James Doe', 'Mary Smith', 'Ama Mensah'],
+            'guardian_phone': ['0241234567', '0551234567', '0201234567'],
+            'guardian_email': ['james@email.com', '', 'ama@email.com'],
+            'guardian_relationship': ['father', 'mother', 'mother'],
+            'admission_number': ['STU-2024-001', 'STU-2024-002', 'STU-2024-003'],
+            'admission_date': ['2024-09-01', '2024-09-01', '2024-09-01'],
+            'class_name': ['1SCI-A', 'B3-A', 'B1-B'],  # SHS, Basic, Basic
+            # SHS fields - only filled for SHS class (first row)
+            'house_name': ['Red House', '', ''],  # Only for SHS
+            'residence_type': ['boarding', '', ''],  # Only for SHS
+            'student_email': ['john.doe@school.com', '', ''],
+        }
+    elif shs_school:
+        # SHS-only school
+        sample_data = {
+            'first_name': ['John', 'Jane'],
+            'middle_name': ['', 'Marie'],
+            'last_name': ['Doe', 'Smith'],
+            'date_of_birth': ['2008-05-15', '2007-08-22'],
+            'gender': ['M', 'F'],
+            'guardian_name': ['James Doe', 'Mary Smith'],
+            'guardian_phone': ['0241234567', '0551234567'],
+            'guardian_email': ['james@email.com', ''],
+            'guardian_relationship': ['father', 'mother'],
+            'admission_number': ['STU-2024-001', 'STU-2024-002'],
+            'admission_date': ['2024-09-01', '2024-09-01'],
+            'class_name': ['1SCI-A', '2BUS-B'],
+            'house_name': ['Red House', 'Blue House'],
+            'residence_type': ['boarding', 'day'],
+            'student_email': ['john.doe@school.com', ''],
+        }
+    else:
+        # Basic-only school
+        sample_data = {
+            'first_name': ['John', 'Jane'],
+            'middle_name': ['', 'Marie'],
+            'last_name': ['Doe', 'Smith'],
+            'date_of_birth': ['2015-05-15', '2016-08-22'],
+            'gender': ['M', 'F'],
+            'guardian_name': ['James Doe', 'Mary Smith'],
+            'guardian_phone': ['0241234567', '0551234567'],
+            'guardian_email': ['james@email.com', ''],
+            'guardian_relationship': ['father', 'mother'],
+            'admission_number': ['STU-2024-001', 'STU-2024-002'],
+            'admission_date': ['2024-09-01', '2024-09-01'],
+            'class_name': ['B1-A', 'B2-A'],
+            'student_email': ['', ''],
+        }
 
     df = pd.DataFrame(sample_data)
     output = io.BytesIO()
@@ -412,11 +544,26 @@ def bulk_import_template(request):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Students')
 
+        # Add instructions sheet for schools with both levels
+        if is_both:
+            instructions = pd.DataFrame({
+                'Instructions': [
+                    'house_name and residence_type columns are ONLY for SHS classes.',
+                    'Leave these columns empty for Basic/KG/Nursery students.',
+                    'The system will automatically ignore these fields for non-SHS classes.',
+                ]
+            })
+            instructions.to_excel(writer, index=False, sheet_name='Instructions')
+
     output.seek(0)
+
+    # Dynamic filename based on school type
+    filename = 'student_import_template.xlsx'
+
     return FileResponse(
         output,
         as_attachment=True,
-        filename='student_import_template.xlsx',
+        filename=filename,
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
@@ -481,6 +628,7 @@ def bulk_export(request):
             'Address': student.address or '',
             'Current Class': student.current_class.name if student.current_class else '',
             'House': student.house.name if student.house else '',
+            'Residence Type': student.get_residence_type_display() if student.residence_type else '',
             'Status': student.get_status_display(),
             'Admission Date': student.admission_date.strftime('%Y-%m-%d') if student.admission_date else '',
             'Guardian Name': primary_guardian.full_name if primary_guardian else '',

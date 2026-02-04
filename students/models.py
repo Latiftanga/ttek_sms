@@ -203,6 +203,10 @@ class Student(models.Model):
         SUSPENDED = 'suspended', _('Suspended')
         TRANSFERRED = 'transferred', _('Transferred')
 
+    class ResidenceType(models.TextChoices):
+        DAY = 'day', _('Day')
+        BOARDING = 'boarding', _('Boarding')
+
     # Personal Information
     first_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, blank=True)
@@ -248,6 +252,15 @@ class Student(models.Model):
         blank=True,
         related_name='students',
         help_text="School house the student belongs to"
+    )
+
+    # Residence Type (Day/Boarding) - primarily for SHS
+    residence_type = models.CharField(
+        max_length=10,
+        choices=ResidenceType.choices,
+        blank=True,
+        default='',
+        help_text="Day or Boarding student"
     )
 
     # Status
