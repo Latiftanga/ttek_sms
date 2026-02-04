@@ -1,5 +1,6 @@
 {% load core_tags %}
 
+<div id="enter-scores-page">
 <!-- Page Header -->
 <div class="flex items-center gap-2 sm:gap-3 mb-4">
     <a href="{% url 'core:my_grading' %}"
@@ -134,6 +135,7 @@
                hx-target="#main-content"
                hx-push-url="true"
                hx-swap="innerHTML"
+               hx-select="unset"
                class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px]"
                title="Previous student">
                 <i class="fa-solid fa-chevron-left"></i>
@@ -166,6 +168,7 @@
                hx-target="#main-content"
                hx-push-url="true"
                hx-swap="innerHTML"
+               hx-select="unset"
                class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px]"
                title="Next student">
                 <i class="fa-solid fa-chevron-right"></i>
@@ -234,6 +237,7 @@
                     hx-target="#main-content"
                     hx-push-url="true"
                     hx-swap="innerHTML"
+                    hx-select="unset"
                     hx-trigger="change"
                     hx-include="this"
                     name="student_id"
@@ -759,3 +763,4 @@ document.body.addEventListener('htmx:afterSwap', function() {
         <button>close</button>
     </form>
 </dialog>
+</div><!-- end enter-scores-page -->

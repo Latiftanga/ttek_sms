@@ -4,7 +4,5 @@
 {% block title %}{{ class_obj.name }} Students - {{ block.super }}{% endblock %}
 
 {% block content %}
-<div id="main-content">
-    {% include 'core/teacher/partials/class_students_content.html' %}
-</div>
+{% include 'core/teacher/partials/class_students_content.html' %}
 {% endblock %}
