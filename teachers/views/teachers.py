@@ -1,6 +1,5 @@
 from django.shortcuts import redirect, get_object_or_404
 from django.http import HttpResponse
-from django.urls import reverse
 from django.db.models import Q
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -369,8 +368,6 @@ def teacher_delete(request, pk):
 
 def get_teacher_assignments_context(teacher):
     """Get context for teacher assignments (for OOB swaps)."""
-    from django.shortcuts import render
-
     # Subject assignments
     subject_assignments = ClassSubject.objects.filter(
         teacher=teacher

@@ -1,11 +1,12 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django_tenants.test.cases import TenantTestCase
 
 User = get_user_model()
 
 
 class UserManagerTests(TestCase):
-    """Tests for the custom UserManager."""
+    """Tests for the custom UserManager (public schema)."""
 
     def test_create_user(self):
         """Test creating a regular user with email."""
@@ -60,6 +61,10 @@ class UserManagerTests(TestCase):
                 is_superuser=False
             )
 
+
+class TenantUserManagerTests(TenantTestCase):
+    """Tests for the custom UserManager (tenant schema)."""
+
     def test_create_school_admin(self):
         """Test creating a school admin."""
         user = User.objects.create_school_admin(
@@ -107,7 +112,7 @@ class UserManagerTests(TestCase):
 
 
 class UserModelTests(TestCase):
-    """Tests for the User model."""
+    """Tests for the User model (public schema)."""
 
     def test_user_str_returns_email(self):
         """Test that user string representation is email."""
@@ -117,13 +122,37 @@ class UserModelTests(TestCase):
         )
         self.assertEqual(str(user), 'test@example.com')
 
-    def test_role_label_superuser(self):
-        """Test role_label for superuser."""
+    def test_role_label_platform_admin(self):
+        """Test role_label for superuser in public schema."""
         user = User.objects.create_superuser(
             email='admin@example.com',
             password='adminpass123'
         )
-        self.assertEqual(user.role_label, 'Super Admin')
+        self.assertEqual(user.role_label, 'Platform Admin')
+
+    def test_role_label_platform_user(self):
+        """Test role_label for user with no specific role in public schema."""
+        user = User.objects.create_user(
+            email='user@example.com',
+            password='userpass123'
+        )
+        self.assertEqual(user.role_label, 'Platform User')
+
+    def test_username_field_is_email(self):
+        """Test that USERNAME_FIELD is email."""
+        self.assertEqual(User.USERNAME_FIELD, 'email')
+
+    def test_username_is_none(self):
+        """Test that username field is removed."""
+        user = User.objects.create_user(
+            email='test@example.com',
+            password='testpass123'
+        )
+        self.assertFalse(hasattr(user, 'username') and user.username)
+
+
+class TenantUserModelTests(TenantTestCase):
+    """Tests for the User model (tenant schema)."""
 
     def test_role_label_school_admin(self):
         """Test role_label for school admin."""
@@ -156,23 +185,3 @@ class UserModelTests(TestCase):
             password='parentpass123'
         )
         self.assertEqual(user.role_label, 'Parent')
-
-    def test_role_label_default_user(self):
-        """Test role_label for user with no specific role."""
-        user = User.objects.create_user(
-            email='user@example.com',
-            password='userpass123'
-        )
-        self.assertEqual(user.role_label, 'User')
-
-    def test_username_field_is_email(self):
-        """Test that USERNAME_FIELD is email."""
-        self.assertEqual(User.USERNAME_FIELD, 'email')
-
-    def test_username_is_none(self):
-        """Test that username field is removed."""
-        user = User.objects.create_user(
-            email='test@example.com',
-            password='testpass123'
-        )
-        self.assertFalse(hasattr(user, 'username') and user.username)

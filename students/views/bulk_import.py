@@ -235,7 +235,7 @@ def bulk_import(request):
                     elif residence_type in ['boarding', 'b', 'boarder']:
                         residence_type = 'boarding'
                     else:
-                        errors.append(f'Residence type must be "day" or "boarding"')
+                        errors.append('Residence type must be "day" or "boarding"')
 
             # Validate student email (optional - for account creation)
             if student_email:

@@ -12,7 +12,7 @@ import pandas as pd
 
 from students.models import Student, Guardian, Enrollment
 from students.views.utils import parse_date, clean_value
-from students.views.bulk_import import EXPECTED_COLUMNS
+from students.views.bulk_import import BASE_COLUMNS
 from academics.models import Class, Programme
 from core.models import AcademicYear
 
@@ -189,7 +189,7 @@ class BulkImportViewTests(BulkImportTestCase):
         response = self.client.get(reverse('students:bulk_import'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('expected_columns', response.context)
-        self.assertEqual(response.context['expected_columns'], EXPECTED_COLUMNS)
+        self.assertEqual(response.context['expected_columns'], BASE_COLUMNS)
 
     def test_bulk_import_requires_authentication(self):
         """Test view requires authentication."""
