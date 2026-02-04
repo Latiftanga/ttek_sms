@@ -8,8 +8,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Avg, Count, Q
-from django.db import transaction
+from django.db import connection, transaction
 from django.contrib import messages
+from django.core.paginator import Paginator
 
 from .base import (
     admin_required, htmx_render, is_school_admin, teacher_or_admin_required
@@ -660,15 +661,31 @@ def student_report(request, student_id):
             messages.error(request, 'You do not have permission to view this report.')
             return redirect('core:index')
 
-    # Get subject grades with core/elective distinction - single query
+    # Get subject grades - single query
     subject_grades = list(SubjectTermGrade.objects.filter(
         student=student,
         term=current_term
     ).select_related('subject').order_by('-subject__is_core', 'subject__name'))
 
-    # Separate core and elective subjects in memory (no extra queries)
-    core_grades = [sg for sg in subject_grades if sg.subject.is_core]
-    elective_grades = [sg for sg in subject_grades if not sg.subject.is_core]
+    # Check school's education system to determine if we should show core/elective separation
+    # Only SHS schools (or schools with SHS levels) have elective subjects
+    school_ctx = get_school_context()
+    school = school_ctx.get('school')
+    is_shs_class = student.current_class and student.current_class.level_type == 'shs'
+
+    # Show core/elective only for SHS-only schools, or for SHS classes in mixed schools
+    if school:
+        show_core_elective = school.education_system == 'shs' or (school.has_shs_levels and is_shs_class)
+    else:
+        show_core_elective = is_shs_class
+
+    if show_core_elective:
+        core_grades = [sg for sg in subject_grades if sg.subject.is_core]
+        elective_grades = [sg for sg in subject_grades if not sg.subject.is_core]
+    else:
+        # For Basic-only schools, don't separate - show all subjects together
+        core_grades = []
+        elective_grades = []
 
     # Get term report
     term_report = TermReport.objects.filter(
@@ -699,6 +716,7 @@ def student_report(request, student_id):
         'grade_summary': grade_summary,
         'categories': categories,
         'grading_system': grading_system,
+        'is_shs': show_core_elective,
     }
 
     return render(request, 'gradebook/partials/report_card.html', context)
@@ -798,15 +816,31 @@ def report_card_print(request, student_id):
             messages.error(request, 'You do not have permission to print this report.')
             return redirect('core:index')
 
-    # Get subject grades with core/elective distinction - single query
+    # Get subject grades - single query
     subject_grades = list(SubjectTermGrade.objects.filter(
         student=student,
         term=current_term
     ).select_related('subject').order_by('-subject__is_core', 'subject__name'))
 
-    # Separate core and elective subjects in memory
-    core_grades = [sg for sg in subject_grades if sg.subject.is_core]
-    elective_grades = [sg for sg in subject_grades if not sg.subject.is_core]
+    # Check school's education system to determine if we should show core/elective separation
+    # Only SHS schools (or schools with SHS levels) have elective subjects
+    school_ctx = get_school_context()
+    school_obj = school_ctx.get('school')
+    is_shs_class = student.current_class and student.current_class.level_type == 'shs'
+
+    # Show core/elective only for SHS-only schools, or for SHS classes in mixed schools
+    if school_obj:
+        show_core_elective = school_obj.education_system == 'shs' or (school_obj.has_shs_levels and is_shs_class)
+    else:
+        show_core_elective = is_shs_class
+
+    if show_core_elective:
+        core_grades = [sg for sg in subject_grades if sg.subject.is_core]
+        elective_grades = [sg for sg in subject_grades if not sg.subject.is_core]
+    else:
+        # For Basic-only schools, don't separate - show all subjects together
+        core_grades = []
+        elective_grades = []
 
     term_report = TermReport.objects.filter(
         student=student,
@@ -1260,6 +1294,7 @@ def bulk_remarks_entry(request, class_id):
     """
     Bulk remarks entry page for form teachers.
     Shows all students with their performance data and input fields.
+    Supports pagination for mobile-friendly experience.
     """
     current_term = Term.get_current()
     class_obj = get_object_or_404(Class, pk=class_id)
@@ -1274,31 +1309,40 @@ def bulk_remarks_entry(request, class_id):
             messages.error(request, 'You can only enter remarks for your homeroom class.')
             return redirect('gradebook:reports')
 
-    # Get students with term reports
-    students = list(Student.objects.filter(
+    # Get all students for counting
+    all_students = list(Student.objects.filter(
         current_class=class_obj,
         status='active'
     ).order_by('last_name', 'first_name'))
 
-    if not students:
+    if not all_students:
         messages.info(request, 'No active students found in this class.')
         return redirect('gradebook:reports')
 
-    # Prefetch term reports
-    student_ids = [s.id for s in students]
-    reports = {
+    # Prefetch all term reports for counting completed
+    all_student_ids = [s.id for s in all_students]
+    all_reports = {
         r.student_id: r for r in TermReport.objects.filter(
-            student_id__in=student_ids,
+            student_id__in=all_student_ids,
             term=current_term
         )
     }
 
-    # Attach reports to students and count completed
+    # Count completed remarks across all students
     completed_count = 0
-    for student in students:
-        student.term_report = reports.get(student.id)
-        if student.term_report and student.term_report.class_teacher_remark:
+    for student in all_students:
+        report = all_reports.get(student.id)
+        if report and report.class_teacher_remark:
             completed_count += 1
+
+    # Pagination - 10 students per page for mobile-friendly experience
+    page_number = request.GET.get('page', 1)
+    paginator = Paginator(all_students, 10)
+    page_obj = paginator.get_page(page_number)
+
+    # Attach term reports to paginated students
+    for student in page_obj:
+        student.term_report = all_reports.get(student.id)
 
     # Get remark templates
     remark_templates = RemarkTemplate.objects.filter(is_active=True).order_by('category', 'order')
@@ -1313,13 +1357,14 @@ def bulk_remarks_entry(request, class_id):
 
     context = {
         'class_obj': class_obj,
-        'students': students,
+        'students': page_obj,
+        'page_obj': page_obj,
         'current_term': current_term,
         'templates_by_category': templates_by_category,
         'conduct_choices': TermReport.CONDUCT_CHOICES,
         'rating_choices': TermReport.RATING_CHOICES,
         'completed_count': completed_count,
-        'total_count': len(students),
+        'total_count': len(all_students),
         'is_admin': is_school_admin(user),
         # Navigation
         'breadcrumbs': [

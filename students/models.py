@@ -205,8 +205,8 @@ class Student(models.Model):
 
     # Personal Information
     first_name = models.CharField(max_length=100)
+    middle_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100)
-    other_names = models.CharField(max_length=100, blank=True)
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=1, choices=Gender.choices)
     photo = models.ImageField(upload_to='students/photos/', blank=True, null=True)
@@ -296,11 +296,8 @@ class Student(models.Model):
     @property
     def full_name(self):
         """Return full name of student."""
-        names = [self.first_name]
-        if self.other_names:
-            names.append(self.other_names)
-        names.append(self.last_name)
-        return ' '.join(names)
+        parts = [self.first_name, self.middle_name, self.last_name]
+        return " ".join(filter(None, parts))
 
     @property
     def age(self):

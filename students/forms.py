@@ -99,7 +99,7 @@ class StudentForm(forms.ModelForm):
         model = Student
         fields = [
             # Personal info
-            'first_name', 'last_name', 'other_names',
+            'first_name', 'middle_name', 'last_name',
             'date_of_birth', 'gender', 'photo',
             'address', 'phone',
             # Admission
@@ -113,8 +113,8 @@ class StudentForm(forms.ModelForm):
         ]
         widgets = {
             'first_name': forms.TextInput(attrs={'placeholder': 'First name'}),
+            'middle_name': forms.TextInput(attrs={'placeholder': 'Middle name (optional)'}),
             'last_name': forms.TextInput(attrs={'placeholder': 'Last name'}),
-            'other_names': forms.TextInput(attrs={'placeholder': 'Other names (optional)'}),
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'address': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Student address'}),
             'phone': forms.TextInput(attrs={'placeholder': 'Phone number (optional)', 'type': 'tel'}),

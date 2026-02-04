@@ -167,8 +167,8 @@ class BulkImportTestCase(TenantTestCase):
         """Get valid student data for import."""
         return {
             'first_name': ['John', 'Jane'],
+            'middle_name': ['', 'Marie'],
             'last_name': ['Doe', 'Smith'],
-            'other_names': ['', 'Marie'],
             'date_of_birth': ['2010-05-15', '2011-08-22'],
             'gender': ['M', 'F'],
             'guardian_name': ['James Doe', 'Mary Smith'],
@@ -540,7 +540,7 @@ class BulkImportTemplateViewTests(BulkImportTestCase):
         df = pd.read_excel(io.BytesIO(content))
 
         expected = [
-            'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender',
+            'first_name', 'middle_name', 'last_name', 'date_of_birth', 'gender',
             'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
             'admission_number', 'admission_date', 'class_name'
         ]

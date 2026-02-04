@@ -53,7 +53,7 @@ def validate_phone_number(phone):
 
 
 EXPECTED_COLUMNS = [
-    'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender',
+    'first_name', 'middle_name', 'last_name', 'date_of_birth', 'gender',
     'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
     'admission_number', 'admission_date', 'class_name',
     'student_email'  # Optional - if provided, creates a user account
@@ -122,8 +122,8 @@ def bulk_import(request):
 
             # Extract and clean values
             first_name = clean_value(row.get('first_name', ''))
+            middle_name = clean_value(row.get('middle_name', ''))
             last_name = clean_value(row.get('last_name', ''))
-            other_names = clean_value(row.get('other_names', ''))
             gender = clean_value(row.get('gender', '')).upper()
             guardian_name = clean_value(row.get('guardian_name', ''))
             guardian_phone = clean_value(row.get('guardian_phone', ''))
@@ -202,8 +202,8 @@ def bulk_import(request):
                 valid_rows.append({
                     'row_num': row_num,
                     'first_name': first_name,
+                    'middle_name': middle_name,
                     'last_name': last_name,
-                    'other_names': other_names,
                     'date_of_birth': str(date_of_birth),
                     'gender': gender,
                     'admission_number': admission_number,
@@ -284,8 +284,8 @@ def bulk_import_confirm(request):
 
             students_to_create.append(Student(
                 first_name=row['first_name'],
+                middle_name=row.get('middle_name', ''),
                 last_name=row['last_name'],
-                other_names=row.get('other_names', ''),
                 date_of_birth=datetime.strptime(row['date_of_birth'], '%Y-%m-%d').date(),
                 gender=row['gender'],
                 admission_number=row['admission_number'],
@@ -392,8 +392,8 @@ def bulk_import_template(request):
     """Download a sample import template."""
     sample_data = {
         'first_name': ['John', 'Jane'],
+        'middle_name': ['', 'Marie'],
         'last_name': ['Doe', 'Smith'],
-        'other_names': ['', 'Marie'],
         'date_of_birth': ['2010-05-15', '2011-08-22'],
         'gender': ['M', 'F'],
         'guardian_name': ['James Doe', 'Mary Smith'],
@@ -447,7 +447,7 @@ def bulk_export(request):
         students = students.filter(
             Q(first_name__icontains=search) |
             Q(last_name__icontains=search) |
-            Q(other_names__icontains=search) |
+            Q(middle_name__icontains=search) |
             Q(admission_number__icontains=search)
         )
 
@@ -473,8 +473,8 @@ def bulk_export(request):
         export_data.append({
             'Admission Number': student.admission_number,
             'First Name': student.first_name,
+            'Middle Name': student.middle_name or '',
             'Last Name': student.last_name,
-            'Other Names': student.other_names or '',
             'Date of Birth': student.date_of_birth.strftime('%Y-%m-%d') if student.date_of_birth else '',
             'Gender': student.get_gender_display() if student.gender else '',
             'Phone': student.phone or '',
