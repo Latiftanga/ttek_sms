@@ -72,7 +72,7 @@ class TenantUserManagerTests(TenantTestCase):
             password='schoolpass123'
         )
         self.assertTrue(user.is_school_admin)
-        self.assertFalse(user.is_staff)
+        self.assertTrue(user.is_staff)  # School admins have staff access
         self.assertFalse(user.is_teacher)
         self.assertFalse(user.is_student)
         self.assertFalse(user.is_parent)

@@ -189,7 +189,9 @@ class BulkImportViewTests(BulkImportTestCase):
         response = self.client.get(reverse('students:bulk_import'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('expected_columns', response.context)
-        self.assertEqual(response.context['expected_columns'], BASE_COLUMNS)
+        # Check that all base columns are present (SHS schools may have additional columns)
+        for col in BASE_COLUMNS:
+            self.assertIn(col, response.context['expected_columns'])
 
     def test_bulk_import_requires_authentication(self):
         """Test view requires authentication."""
@@ -554,7 +556,8 @@ class BulkImportTemplateViewTests(BulkImportTestCase):
         content = b''.join(response.streaming_content)
         df = pd.read_excel(io.BytesIO(content))
 
-        self.assertEqual(len(df), 2)
+        # Template has at least 2 sample rows (3 for schools with both Basic and SHS)
+        self.assertGreaterEqual(len(df), 2)
         self.assertEqual(df.iloc[0]['first_name'], 'John')
         self.assertEqual(df.iloc[1]['first_name'], 'Jane')
 
