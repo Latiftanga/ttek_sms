@@ -590,10 +590,14 @@
                     If you have any questions or issues, please contact your school administrator.
                 </p>
                 <div class="flex gap-2">
-                    <a href="{% url 'accounts:password_change' %}" class="btn btn-xs btn-ghost flex-1">
+                    <button hx-get="{% url 'accounts:password_change' %}"
+                            hx-target="#password-change-container"
+                            hx-swap="innerHTML"
+                            onclick="modal_password_change.showModal()"
+                            class="btn btn-xs btn-ghost flex-1">
                         <i class="fa-solid fa-key"></i>
                         Change Password
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>

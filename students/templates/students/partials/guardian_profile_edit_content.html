@@ -77,9 +77,13 @@
                             <p class="text-xs text-base-content/50">Change your login password</p>
                         </div>
                     </div>
-                    <a href="{% url 'accounts:password_change' %}" class="btn btn-ghost btn-sm">
+                    <button hx-get="{% url 'accounts:password_change' %}"
+                            hx-target="#password-change-container"
+                            hx-swap="innerHTML"
+                            onclick="modal_password_change.showModal()"
+                            class="btn btn-ghost btn-sm">
                         Change
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>

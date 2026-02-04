@@ -37,9 +37,13 @@
             </li>
             <div class="divider my-1"></div>
             <li>
-                <a href="{% url 'accounts:password_change' %}">
+                <button hx-get="{% url 'accounts:password_change' %}"
+                        hx-target="#password-change-container"
+                        hx-swap="innerHTML"
+                        onclick="modal_password_change.showModal()"
+                        class="w-full text-left">
                     <i class="fa-solid fa-key text-warning"></i> Change Password
-                </a>
+                </button>
             </li>
         </ul>
     </div>
@@ -255,10 +259,14 @@
                     </div>
 
                     <div class="mt-4 space-y-2">
-                        <a href="{% url 'accounts:password_change' %}" class="btn btn-ghost btn-sm btn-block justify-start">
+                        <button hx-get="{% url 'accounts:password_change' %}"
+                                hx-target="#password-change-container"
+                                hx-swap="innerHTML"
+                                onclick="modal_password_change.showModal()"
+                                class="btn btn-ghost btn-sm btn-block justify-start">
                             <i class="fa-solid fa-key"></i>
                             Change Password
-                        </a>
+                        </button>
                     </div>
                 </div>
             </div>

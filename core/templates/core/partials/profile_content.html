@@ -79,10 +79,14 @@
                     Keep your account secure by using a strong password and changing it regularly.
                 </p>
 
-                <a href="{% url 'accounts:password_change' %}" class="btn btn-outline btn-block">
+                <button hx-get="{% url 'accounts:password_change' %}"
+                        hx-target="#password-change-container"
+                        hx-swap="innerHTML"
+                        onclick="modal_password_change.showModal()"
+                        class="btn btn-outline btn-block">
                     <i class="fa-solid fa-key"></i>
                     Change Password
-                </a>
+                </button>
             </div>
         </div>
     </div>
