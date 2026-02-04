@@ -106,8 +106,8 @@ class StudentForm(forms.ModelForm):
             'admission_number', 'admission_date',
             # Enrollment
             'current_class',
-            # House
-            'house',
+            # House & Residence (SHS)
+            'house', 'residence_type',
             # Status
             'status', 'is_active',
         ]
@@ -128,14 +128,40 @@ class StudentForm(forms.ModelForm):
         self.fields['current_class'].queryset = Class.objects.filter(is_active=True)
         self.fields['current_class'].required = False
 
-        # Hide house field for schools without houses support
+        # Get school settings
         from core.models import SchoolSettings
         school_settings = SchoolSettings.load()
-        if school_settings.has_houses:
+
+        # Check if student's current class is SHS (for editing existing students)
+        student_class_is_shs = False
+        if self.instance and self.instance.pk and self.instance.current_class:
+            student_class_is_shs = self.instance.current_class.level_type == 'shs'
+
+        # School has SHS capability
+        school_has_shs = school_settings.education_system in ('shs', 'both')
+
+        # House field - show for SHS students or if school has houses and is SHS-capable
+        if school_settings.has_houses and (student_class_is_shs or school_has_shs):
             self.fields['house'].queryset = House.objects.filter(is_active=True)
             self.fields['house'].required = False
-        else:
+        elif 'house' in self.fields:
             del self.fields['house']
+
+        # Residence type - show only for SHS classes
+        # For new students in schools with SHS: show field (they might select SHS class)
+        # For existing students: show only if their class is SHS
+        if self.instance and self.instance.pk:
+            # Editing existing student - show only if class is SHS
+            if student_class_is_shs:
+                self.fields['residence_type'].required = False
+            elif 'residence_type' in self.fields:
+                del self.fields['residence_type']
+        else:
+            # New student - show if school has SHS capability
+            if school_has_shs:
+                self.fields['residence_type'].required = False
+            elif 'residence_type' in self.fields:
+                del self.fields['residence_type']
 
     def clean_photo(self):
         """Validate photo file size."""

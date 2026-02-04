@@ -200,6 +200,9 @@
                             {% if tenant.has_houses %}
                             {% floating_field form.house %}
                             {% endif %}
+                            {% if form.residence_type %}
+                            {% floating_field form.residence_type %}
+                            {% endif %}
                         </div>
                     </div>
                 </div>

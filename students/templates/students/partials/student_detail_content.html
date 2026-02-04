@@ -120,6 +120,15 @@
                             </p>
                         </div>
                         {% endif %}
+                        {% if student.residence_type %}
+                        <div>
+                            <p class="text-[10px] uppercase text-base-content/50 font-medium">Residence</p>
+                            <p class="font-medium flex items-center gap-1">
+                                <i class="fa-solid {% if student.residence_type == 'boarding' %}fa-bed text-primary{% else %}fa-home text-success{% endif %} text-xs"></i>
+                                {{ student.get_residence_type_display }}
+                            </p>
+                        </div>
+                        {% endif %}
                         {% with primary_guardian=student.get_primary_guardian %}
                         {% if primary_guardian %}
                         <div>
