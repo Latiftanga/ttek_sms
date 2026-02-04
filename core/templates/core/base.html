@@ -880,6 +880,16 @@
             });
 
             // ========================================
+            // Toast Handler (HX-Trigger: showToast)
+            // ========================================
+            document.body.addEventListener('showToast', function(e) {
+                const detail = e.detail || {};
+                const message = detail.message || 'Operation completed';
+                const type = detail.type || 'success';
+                NetworkManager.showToast(type, '', message);
+            });
+
+            // ========================================
             // Custom Confirm Dialog
             // ========================================
             document.body.addEventListener('htmx:confirm', function(e) {
