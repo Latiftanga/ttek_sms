@@ -1,4 +1,5 @@
 """House management views."""
+import json
 import logging
 from io import BytesIO
 
@@ -96,12 +97,15 @@ def house_create(request):
         form = HouseForm(request.POST)
         if form.is_valid():
             house = form.save()
-            messages.success(request, f'House "{house.name}" created successfully.')
 
             if request.headers.get('HX-Request'):
                 response = HttpResponse(status=204)
-                response['HX-Trigger'] = 'houseChanged'
+                response['HX-Trigger'] = json.dumps({
+                    'houseChanged': True,
+                    'showToast': {'message': f'House "{house.name}" created', 'type': 'success'}
+                })
                 return response
+            messages.success(request, f'House "{house.name}" created successfully.')
             return redirect('students:houses')
     else:
         form = HouseForm()
@@ -127,12 +131,15 @@ def house_edit(request, pk):
         form = HouseForm(request.POST, instance=house)
         if form.is_valid():
             form.save()
-            messages.success(request, f'House "{house.name}" updated successfully.')
 
             if request.headers.get('HX-Request'):
                 response = HttpResponse(status=204)
-                response['HX-Trigger'] = 'houseChanged'
+                response['HX-Trigger'] = json.dumps({
+                    'houseChanged': True,
+                    'showToast': {'message': f'House "{house.name}" updated', 'type': 'success'}
+                })
                 return response
+            messages.success(request, f'House "{house.name}" updated successfully.')
             return redirect('students:houses')
     else:
         form = HouseForm(instance=house)
@@ -159,20 +166,30 @@ def house_delete(request, pk):
         # Check if house has students
         student_count = house.students.filter(status='active').count()
         if student_count > 0:
-            messages.error(
-                request,
+            error_msg = (
                 f'Cannot delete "{house.name}": {student_count} active student(s) assigned. '
                 'Reassign students first.'
             )
+            if request.headers.get('HX-Request'):
+                response = HttpResponse(status=204)
+                response['HX-Trigger'] = json.dumps({
+                    'showToast': {'message': error_msg, 'type': 'error'}
+                })
+                return response
+            messages.error(request, error_msg)
         else:
             name = house.name
             house.delete()
+
+            if request.headers.get('HX-Request'):
+                response = HttpResponse(status=204)
+                response['HX-Trigger'] = json.dumps({
+                    'houseChanged': True,
+                    'showToast': {'message': f'House "{name}" deleted', 'type': 'success'}
+                })
+                return response
             messages.success(request, f'House "{name}" deleted.')
 
-        if request.headers.get('HX-Request'):
-            response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'houseChanged'
-            return response
         return redirect('students:houses')
 
     return HttpResponse(status=405)
@@ -185,21 +202,28 @@ def house_assign_master(request, pk):
     """Assign a housemaster to a house."""
     house = get_object_or_404(House, pk=pk)
     current_year = AcademicYear.get_current()
+    is_htmx = request.headers.get('HX-Request')
 
     if not current_year:
-        messages.error(request, "No active academic year. Cannot assign housemaster.")
-        if request.headers.get('HX-Request'):
+        error_msg = "No active academic year. Cannot assign housemaster."
+        if is_htmx:
             response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'houseChanged'
+            response['HX-Trigger'] = json.dumps({
+                'showToast': {'message': error_msg, 'type': 'error'}
+            })
             return response
+        messages.error(request, error_msg)
         return redirect('students:houses')
 
     if request.method == 'POST':
         teacher_id = request.POST.get('teacher')
         is_senior = request.POST.get('is_senior') == 'true'
+        toast_msg = None
+        toast_type = 'success'
 
         if not teacher_id:
-            messages.error(request, "Please select a teacher.")
+            toast_msg = "Please select a teacher."
+            toast_type = 'error'
         else:
             from teachers.models import Teacher
             teacher = get_object_or_404(Teacher, pk=teacher_id)
@@ -212,10 +236,8 @@ def house_assign_master(request, pk):
             ).exclude(house=house).first()
 
             if existing:
-                messages.error(
-                    request,
-                    f"{teacher.full_name} is already assigned to {existing.house.name}."
-                )
+                toast_msg = f"{teacher.full_name} is already assigned to {existing.house.name}."
+                toast_type = 'error'
             else:
                 # Remove existing assignment for this house
                 HouseMaster.objects.filter(
@@ -231,11 +253,6 @@ def house_assign_master(request, pk):
                         is_active=True
                     ).first()
                     if existing_senior:
-                        messages.warning(
-                            request,
-                            f"Note: {existing_senior.teacher.full_name} was the senior housemaster. "
-                            f"{teacher.full_name} is now the senior housemaster."
-                        )
                         existing_senior.is_senior = False
                         existing_senior.save(update_fields=['is_senior'])
 
@@ -247,15 +264,20 @@ def house_assign_master(request, pk):
                     is_senior=is_senior,
                     is_active=True
                 )
-                messages.success(
-                    request,
-                    f"{teacher.full_name} assigned as {'senior ' if is_senior else ''}housemaster for {house.name}."
-                )
+                toast_msg = f"{teacher.full_name} assigned as {'senior ' if is_senior else ''}housemaster for {house.name}."
 
-        if request.headers.get('HX-Request'):
+        if is_htmx:
             response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'houseChanged'
+            response['HX-Trigger'] = json.dumps({
+                'houseChanged': True,
+                'showToast': {'message': toast_msg, 'type': toast_type}
+            })
             return response
+
+        if toast_type == 'error':
+            messages.error(request, toast_msg)
+        else:
+            messages.success(request, toast_msg)
         return redirect('students:houses')
 
     # GET request - show form
@@ -296,14 +318,24 @@ def house_remove_master(request, pk):
         ).delete()[0]
 
         if deleted:
-            messages.success(request, f"Housemaster removed from {house.name}.")
+            msg = f"Housemaster removed from {house.name}."
+            msg_type = 'success'
         else:
-            messages.info(request, "No housemaster was assigned.")
+            msg = "No housemaster was assigned."
+            msg_type = 'info'
 
         if request.headers.get('HX-Request'):
             response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'houseChanged'
+            response['HX-Trigger'] = json.dumps({
+                'houseChanged': True,
+                'showToast': {'message': msg, 'type': msg_type}
+            })
             return response
+
+        if msg_type == 'success':
+            messages.success(request, msg)
+        else:
+            messages.info(request, msg)
         return redirect('students:houses')
 
     return HttpResponse(status=405)
