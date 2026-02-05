@@ -7,7 +7,7 @@
         <div class="flex items-center justify-between gap-2 mb-4">
             <!-- Prev button -->
             {% if prev_student %}
-            <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px]"
+            <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px] touch-manipulation"
                     hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk prev_student.pk %}"
                     hx-target="#score-form-container"
                     hx-swap="innerHTML"
@@ -37,7 +37,7 @@
 
             <!-- Next button -->
             {% if next_student %}
-            <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px]"
+            <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px] touch-manipulation"
                     hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk next_student.pk %}"
                     hx-target="#score-form-container"
                     hx-swap="innerHTML"
@@ -52,27 +52,55 @@
         </div>
 
         <!-- Subject badge and actions -->
-        <div class="flex flex-wrap items-center justify-center gap-2 mb-4">
+        <div class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 mb-4">
             <span class="badge badge-primary badge-lg">{{ subject.name }}</span>
-            <a href="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
-               hx-get="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
-               hx-target="#score-form-container"
-               hx-swap="innerHTML"
-               hx-push-url="true"
-               class="btn btn-sm btn-ghost min-h-[44px]">
-                <i class="fa-solid fa-table-cells"></i>
-                Table View
-            </a>
-            {% if is_class_teacher %}
-            <a href="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
-               hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-sm btn-warning gap-1 min-h-[44px]">
-                <i class="fa-solid fa-comment-dots"></i>
-                Enter Remarks
-            </a>
-            {% endif %}
+            <div class="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
+                <a href="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
+                   hx-get="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
+                   hx-target="#score-form-container"
+                   hx-swap="innerHTML"
+                   hx-push-url="true"
+                   class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] px-3 touch-manipulation"
+                   title="Table View">
+                    <i class="fa-solid fa-table-cells"></i>
+                    <span class="action-text">Table View</span>
+                </a>
+                <div class="dropdown dropdown-end">
+                    <button type="button" tabindex="0" class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] touch-manipulation" title="More options">
+                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </button>
+                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
+                        <li>
+                            <button class="min-h-[44px] touch-manipulation"
+                                    hx-get="{% url 'gradebook:assignments' subject.pk %}"
+                                    hx-target="#assignments-container"
+                                    hx-swap="innerHTML"
+                                    hx-on::after-request="modal_assignments.showModal()">
+                                <i class="fa-solid fa-list-check text-primary"></i> Manage Assignments
+                            </button>
+                        </li>
+                        <li>
+                            <button class="min-h-[44px] touch-manipulation"
+                                    hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
+                                    hx-target="#changes-container"
+                                    onclick="modal_changes.showModal()">
+                                <i class="fa-solid fa-clock-rotate-left text-info"></i> View Changes
+                            </button>
+                        </li>
+                        {% if is_class_teacher %}
+                        <li>
+                            <a href="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+                               hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="min-h-[44px] touch-manipulation">
+                                <i class="fa-solid fa-comment-dots text-warning"></i> Enter Remarks
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
         </div>
 
         {% if not can_edit %}
@@ -152,7 +180,7 @@
                hx-get="{% url 'gradebook:assignments' subject.pk %}"
                hx-target="#assignments-container"
                onclick="modal_assignments.showModal()"
-               class="btn btn-sm btn-primary mt-3">
+               class="btn btn-primary mt-3 min-h-[44px] min-w-[44px] touch-manipulation">
                 <i class="fa-solid fa-plus"></i>
                 Add Assignments
             </a>
@@ -193,6 +221,22 @@
 </div>
 
 <style>
+/* Touch-friendly action buttons */
+.touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Show button text on screens >= 480px */
+.action-text {
+    display: none;
+}
+@media (min-width: 480px) {
+    .action-text {
+        display: inline;
+    }
+}
+
 .score-input-mobile {
     font-variant-numeric: tabular-nums;
     -webkit-appearance: none;

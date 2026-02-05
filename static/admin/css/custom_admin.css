@@ -483,6 +483,19 @@ body {
     box-shadow: 0 8px 24px oklch(var(--bc) / 0.12);
 }
 
+/* Safari dropdown fix - ensure clickable elements work correctly */
+.dropdown > button,
+.dropdown > [tabindex] {
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+}
+
+/* Ensure dropdown content stays open when interacting with it on Safari */
+.dropdown:focus-within .dropdown-content {
+    visibility: visible;
+    opacity: 1;
+}
+
 /* ============================================
    Alerts and Messages
    ============================================ */

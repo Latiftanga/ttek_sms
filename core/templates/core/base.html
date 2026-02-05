@@ -178,6 +178,19 @@
             transition: opacity 0.2s;
         }
 
+        /* Safari dropdown fix - ensure clickable elements work correctly */
+        .dropdown > button,
+        .dropdown > [tabindex] {
+            -webkit-tap-highlight-color: transparent;
+            cursor: pointer;
+        }
+
+        /* Ensure dropdown content stays open when interacting with it on Safari */
+        .dropdown:focus-within .dropdown-content {
+            visibility: visible;
+            opacity: 1;
+        }
+
         .htmx-request #loading-indicator {
             display: flex !important;
         }

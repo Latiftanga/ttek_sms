@@ -10,25 +10,27 @@
                 </h2>
                 <p class="text-sm text-base-content/60">{{ students|length }} students</p>
             </div>
-            <div class="flex items-center gap-1">
+            <div class="flex flex-wrap items-center justify-end gap-2">
                 {% if students %}
                 <a href="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
                    hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
                    hx-target="#score-form-container"
                    hx-swap="innerHTML"
                    hx-push-url="true"
-                   class="btn btn-ghost btn-sm btn-square"
+                   class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] px-3 touch-action-manipulation"
                    title="Student View">
                     <i class="fa-solid fa-id-card"></i>
+                    <span class="action-text">Student View</span>
                 </a>
                 {% endif %}
                 <div class="dropdown dropdown-end">
-                    <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square" title="More options">
+                    <button type="button" tabindex="0" class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] touch-action-manipulation" title="More options">
                         <i class="fa-solid fa-ellipsis-vertical"></i>
-                    </div>
-                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-52 p-2 shadow-lg border border-base-200">
+                    </button>
+                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
                         <li>
-                            <button hx-get="{% url 'gradebook:assignments' subject.pk %}"
+                            <button class="min-h-[44px] touch-action-manipulation"
+                                    hx-get="{% url 'gradebook:assignments' subject.pk %}"
                                     hx-target="#assignments-container"
                                     hx-swap="innerHTML"
                                     hx-on::after-request="modal_assignments.showModal()">
@@ -36,7 +38,8 @@
                             </button>
                         </li>
                         <li>
-                            <button hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
+                            <button class="min-h-[44px] touch-action-manipulation"
+                                    hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
                                     hx-target="#changes-container"
                                     onclick="modal_changes.showModal()">
                                 <i class="fa-solid fa-clock-rotate-left text-info"></i> View Changes
@@ -47,19 +50,20 @@
                             <a href="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
                                hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
                                hx-target="#main-content"
-                               hx-push-url="true">
+                               hx-push-url="true"
+                               class="min-h-[44px] touch-action-manipulation">
                                 <i class="fa-solid fa-comment-dots text-warning"></i> Enter Remarks
                             </a>
                         </li>
                         {% endif %}
                         {% if editing_allowed %}
                         <li class="border-t border-base-200 mt-1 pt-1">
-                            <a href="{% url 'gradebook:import_template' class_obj.pk subject.pk %}">
+                            <a href="{% url 'gradebook:import_template' class_obj.pk subject.pk %}" class="min-h-[44px] touch-action-manipulation">
                                 <i class="fa-solid fa-file-arrow-down text-success"></i> Download Template
                             </a>
                         </li>
                         <li>
-                            <button onclick="modal_import.showModal()">
+                            <button class="min-h-[44px] touch-action-manipulation" onclick="modal_import.showModal()">
                                 <i class="fa-solid fa-upload text-primary"></i> Import Scores
                             </button>
                         </li>
@@ -188,6 +192,22 @@
 </div>
 
 <style>
+/* Touch-friendly action buttons */
+.touch-action-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Show button text on screens >= 480px */
+.action-text {
+    display: none;
+}
+@media (min-width: 480px) {
+    .action-text {
+        display: inline;
+    }
+}
+
 /* Hide number input spinners for cleaner look */
 .score-input {
     font-variant-numeric: tabular-nums;
