@@ -1,5 +1,23 @@
 {% load core_tags %}
 
+<style>
+/* Touch-friendly buttons for mobile */
+.touch-action-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth transitions for status buttons */
+.status-label {
+    transition: all 0.15s ease;
+}
+
+/* Chevron rotation for help toggle */
+#help-chevron {
+    transition: transform 0.2s ease;
+}
+</style>
+
 <!-- Page Header -->
 <div class="flex items-center gap-2 sm:gap-3 mb-4">
     <a href="{% url 'core:my_attendance' %}"
@@ -38,27 +56,34 @@
 
             <!-- Quick Actions Bar - Sticky on mobile -->
             <div class="sticky top-0 z-10 flex flex-col gap-2 p-3 md:p-4 border-b border-base-200 bg-base-100/95 backdrop-blur-sm">
-                <!-- Search and Quick Actions Row -->
-                <div class="flex flex-wrap items-center justify-between gap-2">
+                <!-- Primary Action: Mark All Present -->
+                <button type="button" onclick="setAllStatus('P')" class="btn btn-success btn-lg w-full gap-2 text-lg font-bold shadow-md touch-action-manipulation">
+                    <i class="fa-solid fa-check-double"></i>
+                    Mark All Present
+                </button>
+
+                <!-- Secondary Actions Row -->
+                <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium hidden sm:inline">Quick:</span>
-                        <button type="button" onclick="setAllStatus('P')" class="btn btn-success btn-xs sm:btn-sm gap-1">
-                            <i class="fa-solid fa-check"></i>
-                            <span class="hidden xs:inline">All</span> Present
-                        </button>
-                        <button type="button" onclick="setAllStatus('A')" class="btn btn-error btn-xs sm:btn-sm gap-1">
+                        <button type="button" onclick="setAllStatus('A')" class="btn btn-outline btn-error btn-sm gap-1 touch-action-manipulation">
                             <i class="fa-solid fa-xmark"></i>
-                            <span class="hidden xs:inline">All</span> Absent
+                            All Absent
+                        </button>
+                        <button type="button" onclick="setAllStatus('L')" class="btn btn-outline btn-warning btn-sm gap-1 touch-action-manipulation">
+                            <i class="fa-solid fa-clock"></i>
+                            All Late
                         </button>
                     </div>
-                    <div class="flex items-center gap-1 text-xs sm:text-sm">
-                        <span class="text-success font-bold" id="present-count">{{ student_list|length }}</span>
-                        <span class="text-base-content/40">/</span>
-                        <span class="text-warning font-bold" id="late-count">0</span>
-                        <span class="text-base-content/40">/</span>
-                        <span class="text-error font-bold" id="absent-count">0</span>
+                    <!-- Live Counter -->
+                    <div class="flex items-center gap-2 text-sm font-medium bg-base-200 rounded-lg px-3 py-1.5">
+                        <span class="text-success" id="present-count">{{ student_list|length }}</span>
+                        <span class="text-base-content/30">|</span>
+                        <span class="text-warning" id="late-count">0</span>
+                        <span class="text-base-content/30">|</span>
+                        <span class="text-error" id="absent-count">0</span>
                     </div>
                 </div>
+
                 <!-- Search Input (for large classes) -->
                 {% if student_list|length > 15 %}
                 <div class="flex items-center gap-2">
@@ -67,18 +92,47 @@
                         <input type="text"
                                id="student-search"
                                placeholder="Search student..."
-                               class="input input-sm input-bordered w-full pl-9"
+                               class="input input-bordered w-full pl-9 touch-action-manipulation"
                                onkeyup="filterStudents(this.value)">
                     </div>
                     <span id="search-count" class="text-xs text-base-content/60 hidden"></span>
                 </div>
                 {% endif %}
+
+                <!-- Mobile Help Toggle -->
+                <div class="md:hidden">
+                    <button type="button" onclick="toggleHelp()" class="btn btn-ghost btn-xs gap-1 w-full text-base-content/60">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <span id="help-toggle-text">Show Help</span>
+                        <i class="fa-solid fa-chevron-down text-xs" id="help-chevron"></i>
+                    </button>
+                    <div id="mobile-help" class="hidden mt-2 p-3 bg-base-200 rounded-lg text-sm">
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div class="flex flex-col items-center gap-1">
+                                <span class="btn btn-success btn-circle btn-sm"><i class="fa-solid fa-check"></i></span>
+                                <span class="text-xs font-medium">Present</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1">
+                                <span class="btn btn-warning btn-circle btn-sm"><i class="fa-solid fa-clock"></i></span>
+                                <span class="text-xs font-medium">Late</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1">
+                                <span class="btn btn-error btn-circle btn-sm"><i class="fa-solid fa-xmark"></i></span>
+                                <span class="text-xs font-medium">Absent</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-base-content/60 mt-2 text-center">
+                            <i class="fa-solid fa-lightbulb text-warning"></i>
+                            Tip: Tap "Mark All Present" then mark only absentees
+                        </p>
+                    </div>
+                </div>
             </div>
 
             <!-- Student List -->
             {% if student_list %}
 
-            <!-- Mobile Card View - Touch Optimized -->
+            <!-- Mobile Card View - Touch Optimized for Novice Users -->
             <div class="md:hidden divide-y divide-base-200">
                 {% for item in student_list %}
                 <div class="student-row p-3 transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% endif %}"
@@ -86,48 +140,51 @@
                     <div class="flex items-center gap-3">
                         <!-- Student Photo -->
                         <div class="avatar placeholder shrink-0">
-                            <div class="w-12 h-12 rounded-full bg-base-300 text-base-content flex items-center justify-center">
+                            <div class="w-14 h-14 rounded-full bg-base-300 text-base-content flex items-center justify-center">
                                 {% if item.obj.photo %}
                                 <img src="{{ item.obj.photo.url }}" alt="{{ item.obj.full_name }}" class="object-cover" loading="lazy" decoding="async" />
                                 {% else %}
-                                <span class="text-base font-medium">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
+                                <span class="text-lg font-bold">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
                                 {% endif %}
                             </div>
                         </div>
 
                         <!-- Student Info -->
                         <div class="flex-1 min-w-0">
-                            <p class="font-medium text-sm truncate">{{ item.obj.full_name }}</p>
+                            <p class="font-semibold text-base truncate">{{ item.obj.full_name }}</p>
                             <p class="text-xs text-base-content/50 font-mono">{{ item.obj.admission_number }}</p>
                         </div>
 
-                        <!-- Status Buttons - Large Touch Targets -->
-                        <div class="flex items-center gap-1">
+                        <!-- Status Buttons - Extra Large Touch Targets with Labels -->
+                        <div class="flex items-center gap-1.5">
                             <input type="radio" name="status_{{ item.obj.pk }}" value="P"
                                    id="m_p_{{ item.obj.pk }}" {% if item.status == 'P' %}checked{% endif %}
                                    class="hidden">
                             <label for="m_p_{{ item.obj.pk }}"
-                                   class="btn btn-circle w-11 h-11 min-h-0 {% if item.status == 'P' %}btn-success{% else %}btn-ghost border-base-300{% endif %} status-label"
+                                   class="flex flex-col items-center justify-center w-14 h-14 rounded-xl {% if item.status == 'P' %}bg-success text-success-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform"
                                    data-status="P">
-                                <i class="fa-solid fa-check text-lg"></i>
+                                <i class="fa-solid fa-check text-xl"></i>
+                                <span class="text-[10px] font-bold mt-0.5">P</span>
                             </label>
 
                             <input type="radio" name="status_{{ item.obj.pk }}" value="L"
                                    id="m_l_{{ item.obj.pk }}" {% if item.status == 'L' %}checked{% endif %}
                                    class="hidden">
                             <label for="m_l_{{ item.obj.pk }}"
-                                   class="btn btn-circle w-11 h-11 min-h-0 {% if item.status == 'L' %}btn-warning{% else %}btn-ghost border-base-300{% endif %} status-label"
+                                   class="flex flex-col items-center justify-center w-14 h-14 rounded-xl {% if item.status == 'L' %}bg-warning text-warning-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform"
                                    data-status="L">
-                                <i class="fa-solid fa-clock text-lg"></i>
+                                <i class="fa-solid fa-clock text-xl"></i>
+                                <span class="text-[10px] font-bold mt-0.5">L</span>
                             </label>
 
                             <input type="radio" name="status_{{ item.obj.pk }}" value="A"
                                    id="m_a_{{ item.obj.pk }}" {% if item.status == 'A' %}checked{% endif %}
                                    class="hidden">
                             <label for="m_a_{{ item.obj.pk }}"
-                                   class="btn btn-circle w-11 h-11 min-h-0 {% if item.status == 'A' %}btn-error{% else %}btn-ghost border-base-300{% endif %} status-label"
+                                   class="flex flex-col items-center justify-center w-14 h-14 rounded-xl {% if item.status == 'A' %}bg-error text-error-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform"
                                    data-status="A">
-                                <i class="fa-solid fa-xmark text-lg"></i>
+                                <i class="fa-solid fa-xmark text-xl"></i>
+                                <span class="text-[10px] font-bold mt-0.5">A</span>
                             </label>
                         </div>
                     </div>
@@ -215,18 +272,19 @@
 
             <!-- Submit Button - Sticky on mobile -->
             {% if student_list %}
-            <div class="sticky bottom-0 flex items-center justify-between p-3 md:p-4 border-t border-base-200 bg-base-100/95 backdrop-blur-sm">
+            <div class="sticky bottom-0 flex items-center justify-between gap-3 p-3 md:p-4 border-t border-base-200 bg-base-100/95 backdrop-blur-sm">
                 <a href="{% url 'core:my_attendance' %}"
                    hx-get="{% url 'core:my_attendance' %}"
                    hx-target="#main-content"
                    hx-push-url="true"
-                   class="btn btn-ghost btn-sm md:btn-md">
-                    Cancel
+                   class="btn btn-ghost min-h-[48px] touch-action-manipulation">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span class="hidden sm:inline">Cancel</span>
                 </a>
-                <button type="submit" class="btn btn-primary btn-sm md:btn-md gap-2">
-                    <span class="loading loading-spinner loading-sm htmx-indicator"></span>
-                    <i class="fa-solid fa-save htmx-hide-on-request"></i>
-                    <span class="htmx-hide-on-request">Save</span>
+                <button type="submit" class="btn btn-primary flex-1 sm:flex-none sm:min-w-[160px] min-h-[48px] gap-2 text-lg font-bold shadow-md touch-action-manipulation">
+                    <span class="loading loading-spinner loading-md htmx-indicator"></span>
+                    <i class="fa-solid fa-cloud-arrow-up htmx-hide-on-request"></i>
+                    <span class="htmx-hide-on-request">Save Attendance</span>
                     <span class="hidden htmx-show-on-request">Saving...</span>
                 </button>
             </div>
@@ -264,6 +322,23 @@
 </div>
 
 <script>
+// Help toggle for mobile
+function toggleHelp() {
+    const helpDiv = document.getElementById('mobile-help');
+    const toggleText = document.getElementById('help-toggle-text');
+    const chevron = document.getElementById('help-chevron');
+
+    if (helpDiv.classList.contains('hidden')) {
+        helpDiv.classList.remove('hidden');
+        toggleText.textContent = 'Hide Help';
+        chevron.classList.add('rotate-180');
+    } else {
+        helpDiv.classList.add('hidden');
+        toggleText.textContent = 'Show Help';
+        chevron.classList.remove('rotate-180');
+    }
+}
+
 function setAllStatus(status) {
     // Get unique student IDs (avoid double-counting mobile + desktop)
     const studentIds = new Set();
@@ -283,36 +358,63 @@ function setAllStatus(status) {
     });
 
     updateSummary();
+
+    // Haptic feedback if available
+    if (navigator.vibrate) {
+        navigator.vibrate(50);
+    }
 }
 
 function updateRowStyle(row, status) {
     row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10');
 
+    // Check if this is the mobile view (new rounded button style)
+    const isMobile = row.closest('.md\\:hidden') !== null;
+
     // Update label styles within this row
     row.querySelectorAll('.status-label').forEach(label => {
         const labelStatus = label.dataset.status;
-        label.classList.remove('btn-success', 'btn-warning', 'btn-error');
 
-        // On mobile, unselected buttons have border; on desktop they're ghost
-        const isMobile = row.closest('.md\\:hidden') !== null;
         if (isMobile) {
-            label.classList.remove('btn-ghost');
-            label.classList.add('btn-ghost', 'border-base-300');
-        } else {
-            label.classList.add('btn-ghost');
-        }
+            // Mobile: new rounded box style with shadow
+            label.classList.remove(
+                'bg-success', 'text-success-content', 'shadow-md',
+                'bg-warning', 'text-warning-content',
+                'bg-error', 'text-error-content',
+                'bg-base-200', 'text-base-content/60', 'border-2', 'border-base-300'
+            );
 
-        if (labelStatus === status) {
-            label.classList.remove('btn-ghost', 'border-base-300');
-            if (status === 'P') {
-                label.classList.add('btn-success');
-                row.classList.add('bg-success/10');
-            } else if (status === 'L') {
-                label.classList.add('btn-warning');
-                row.classList.add('bg-warning/10');
-            } else if (status === 'A') {
-                label.classList.add('btn-error');
-                row.classList.add('bg-error/10');
+            if (labelStatus === status) {
+                if (status === 'P') {
+                    label.classList.add('bg-success', 'text-success-content', 'shadow-md');
+                    row.classList.add('bg-success/10');
+                } else if (status === 'L') {
+                    label.classList.add('bg-warning', 'text-warning-content', 'shadow-md');
+                    row.classList.add('bg-warning/10');
+                } else if (status === 'A') {
+                    label.classList.add('bg-error', 'text-error-content', 'shadow-md');
+                    row.classList.add('bg-error/10');
+                }
+            } else {
+                label.classList.add('bg-base-200', 'text-base-content/60', 'border-2', 'border-base-300');
+            }
+        } else {
+            // Desktop: original button style
+            label.classList.remove('btn-success', 'btn-warning', 'btn-error', 'btn-ghost');
+
+            if (labelStatus === status) {
+                if (status === 'P') {
+                    label.classList.add('btn-success');
+                    row.classList.add('bg-success/10');
+                } else if (status === 'L') {
+                    label.classList.add('btn-warning');
+                    row.classList.add('bg-warning/10');
+                } else if (status === 'A') {
+                    label.classList.add('btn-error');
+                    row.classList.add('bg-error/10');
+                }
+            } else {
+                label.classList.add('btn-ghost');
             }
         }
     });

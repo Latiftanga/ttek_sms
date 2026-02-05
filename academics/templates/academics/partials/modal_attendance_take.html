@@ -1,4 +1,12 @@
 {% load core_tags %}
+
+<style>
+.touch-action-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+</style>
+
 <div class="flex justify-between items-center mb-4 sticky top-0 bg-base-100 z-10 pb-2 border-b border-base-200">
     <div>
         <h3 class="text-xl font-bold">{% if is_edit %}Edit Attendance{% else %}Mark Attendance{% endif %}</h3>
@@ -15,17 +23,20 @@
     </div>
 </div>
 
-<!-- Bulk Actions -->
-<div class="flex items-center justify-between mb-4 p-3 bg-base-200/50 rounded-lg">
-    <span class="text-sm font-medium text-base-content/70">Mark All:</span>
+<!-- Primary Action: Mark All Present -->
+<button type="button" onclick="markAll('P')" class="btn btn-success btn-lg w-full gap-2 text-lg font-bold shadow-md mb-3 touch-action-manipulation">
+    <i class="fa-solid fa-check-double"></i>
+    Mark All Present
+</button>
+
+<!-- Secondary Bulk Actions -->
+<div class="flex items-center justify-between mb-4 p-2 bg-base-200/50 rounded-lg">
+    <span class="text-xs font-medium text-base-content/60">Or mark all:</span>
     <div class="flex gap-2">
-        <button type="button" onclick="markAll('P')" class="btn btn-sm btn-success btn-outline gap-1">
-            <i class="fa-solid fa-check"></i> Present
-        </button>
-        <button type="button" onclick="markAll('L')" class="btn btn-sm btn-warning btn-outline gap-1">
+        <button type="button" onclick="markAll('L')" class="btn btn-xs btn-warning btn-outline gap-1 touch-action-manipulation">
             <i class="fa-solid fa-clock"></i> Late
         </button>
-        <button type="button" onclick="markAll('A')" class="btn btn-sm btn-error btn-outline gap-1">
+        <button type="button" onclick="markAll('A')" class="btn btn-xs btn-error btn-outline gap-1 touch-action-manipulation">
             <i class="fa-solid fa-xmark"></i> Absent
         </button>
     </div>
@@ -46,42 +57,42 @@
       hx-swap="beforeend">
     {% csrf_token %}
 
-    <div class="h-[50vh] overflow-y-auto pr-2 space-y-2">
+    <div class="h-[50vh] overflow-y-auto pr-1 space-y-2">
         {% for item in student_list %}
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 border border-base-200 rounded-lg hover:bg-base-200/50 gap-3">
-            <div class="flex items-center gap-3">
-                <div class="avatar placeholder">
-                    <div class="w-8 h-8 rounded-full bg-base-300 flex items-center justify-center">
-                        <span class="text-xs">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
+        <div class="flex items-center justify-between p-3 border border-base-200 rounded-lg hover:bg-base-200/30 gap-3 student-row transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% endif %}">
+            <div class="flex items-center gap-3 flex-1 min-w-0">
+                <div class="avatar placeholder shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-base-300 flex items-center justify-center">
+                        <span class="text-base font-bold">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
                     </div>
                 </div>
-                <div>
-                    <div class="font-bold text-sm">{{ item.obj.full_name }}</div>
-                    <div class="text-xs opacity-50">{{ item.obj.admission_number }}</div>
+                <div class="min-w-0">
+                    <div class="font-semibold text-base truncate">{{ item.obj.full_name }}</div>
+                    <div class="text-xs text-base-content/50 font-mono">{{ item.obj.admission_number }}</div>
                 </div>
             </div>
 
-            <!-- Touch-friendly status buttons with 44px minimum touch targets -->
-            <div class="flex items-center gap-2">
-                <label class="flex-1 sm:flex-none">
+            <!-- Extra Large Touch Targets with Labels -->
+            <div class="flex items-center gap-1.5 shrink-0">
+                <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="P" class="peer hidden" {% if item.status == 'P' %}checked{% endif %} />
-                    <span class="flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg cursor-pointer text-xs font-medium border-2 border-transparent bg-base-200 peer-checked:bg-success/20 peer-checked:border-success peer-checked:text-success transition-all">
-                        <i class="fa-solid fa-check"></i>
-                        <span class="hidden xs:inline">Present</span>
+                    <span class="flex flex-col items-center justify-center w-14 h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-success peer-checked:text-success-content peer-checked:border-success peer-checked:shadow-md transition-all active:scale-95">
+                        <i class="fa-solid fa-check text-xl"></i>
+                        <span class="text-[10px] font-bold mt-0.5">P</span>
                     </span>
                 </label>
-                <label class="flex-1 sm:flex-none">
+                <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="L" class="peer hidden" {% if item.status == 'L' %}checked{% endif %} />
-                    <span class="flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg cursor-pointer text-xs font-medium border-2 border-transparent bg-base-200 peer-checked:bg-warning/20 peer-checked:border-warning peer-checked:text-warning transition-all">
-                        <i class="fa-solid fa-clock"></i>
-                        <span class="hidden xs:inline">Late</span>
+                    <span class="flex flex-col items-center justify-center w-14 h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-warning peer-checked:text-warning-content peer-checked:border-warning peer-checked:shadow-md transition-all active:scale-95">
+                        <i class="fa-solid fa-clock text-xl"></i>
+                        <span class="text-[10px] font-bold mt-0.5">L</span>
                     </span>
                 </label>
-                <label class="flex-1 sm:flex-none">
+                <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="A" class="peer hidden" {% if item.status == 'A' %}checked{% endif %} />
-                    <span class="flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg cursor-pointer text-xs font-medium border-2 border-transparent bg-base-200 peer-checked:bg-error/20 peer-checked:border-error peer-checked:text-error transition-all">
-                        <i class="fa-solid fa-xmark"></i>
-                        <span class="hidden xs:inline">Absent</span>
+                    <span class="flex flex-col items-center justify-center w-14 h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-error peer-checked:text-error-content peer-checked:border-error peer-checked:shadow-md transition-all active:scale-95">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                        <span class="text-[10px] font-bold mt-0.5">A</span>
                     </span>
                 </label>
             </div>
@@ -89,9 +100,14 @@
         {% endfor %}
     </div>
 
-    <div class="modal-action border-t border-base-200 pt-4 mt-4">
-        <button type="button" class="btn" onclick="var d=this.closest('dialog'); if(d) d.close(); else history.back();">Cancel</button>
-        <button type="submit" class="btn btn-primary px-8">Save Register</button>
+    <div class="modal-action border-t border-base-200 pt-4 mt-4 gap-3">
+        <button type="button" class="btn min-h-[48px] touch-action-manipulation" onclick="var d=this.closest('dialog'); if(d) d.close(); else history.back();">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary flex-1 min-h-[48px] gap-2 text-lg font-bold shadow-md touch-action-manipulation">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            Save Attendance
+        </button>
     </div>
 </form>
 
@@ -101,6 +117,21 @@ function markAll(status) {
     const radios = form.querySelectorAll(`input[type="radio"][value="${status}"]`);
     radios.forEach(radio => {
         radio.checked = true;
+        // Trigger change event for visual update
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
     });
+
+    // Update row backgrounds
+    form.querySelectorAll('.student-row').forEach(row => {
+        row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10');
+        if (status === 'P') row.classList.add('bg-success/10');
+        else if (status === 'L') row.classList.add('bg-warning/10');
+        else if (status === 'A') row.classList.add('bg-error/10');
+    });
+
+    // Haptic feedback if available
+    if (navigator.vibrate) {
+        navigator.vibrate(50);
+    }
 }
 </script>
