@@ -374,6 +374,41 @@
         // Passive scroll listeners for better performance
         document.addEventListener('scroll', function() {}, { passive: true });
         document.addEventListener('touchmove', function() {}, { passive: true });
+
+        // Safari Dropdown Fix - Close dropdowns on outside click
+        document.addEventListener('click', (e) => {
+            const clickedDropdown = e.target.closest('.dropdown');
+
+            // Close all other dropdowns by removing focus
+            document.querySelectorAll('.dropdown').forEach(dropdown => {
+                if (dropdown !== clickedDropdown) {
+                    const trigger = dropdown.querySelector('[tabindex]');
+                    if (trigger && document.activeElement === trigger) {
+                        trigger.blur();
+                    }
+                }
+            });
+
+            // If clicking on a dropdown item, close the dropdown
+            if (e.target.closest('.dropdown-content a, .dropdown-content button')) {
+                const dropdown = e.target.closest('.dropdown');
+                if (dropdown) {
+                    const trigger = dropdown.querySelector('[tabindex]');
+                    if (trigger) {
+                        setTimeout(() => trigger.blur(), 100);
+                    }
+                }
+            }
+        });
+
+        // Close dropdown on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.dropdown [tabindex]').forEach(trigger => {
+                    trigger.blur();
+                });
+            }
+        });
     </script>
     {% block extrajs %}{% endblock %}
 </body>
