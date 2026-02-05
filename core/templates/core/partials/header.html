@@ -94,7 +94,7 @@
 
         <!-- User dropdown -->
         <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
+            <button type="button" tabindex="0" class="btn btn-ghost btn-circle avatar">
                 <div class="w-9 rounded-full ring-2 ring-offset-2 ring-offset-base-100" style="--tw-ring-color: var(--school-primary);">
                     {% if user.profile_image %}
                         <img src="{{ user.profile_image.url }}" alt="{{ user.get_full_name }}" />
@@ -104,7 +104,7 @@
                         </div>
                     {% endif %}
                 </div>
-            </div>
+            </button>
             <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow-lg bg-base-100 rounded-box w-60 border border-base-200">
                 <!-- School branding in dropdown -->
                 <li class="pointer-events-none">

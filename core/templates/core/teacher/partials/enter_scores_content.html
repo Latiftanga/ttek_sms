@@ -16,7 +16,7 @@
         <h1 class="text-base sm:text-xl font-bold truncate">{{ subject.name }}</h1>
         <p class="text-[10px] sm:text-xs text-base-content/60">{{ class_obj.name }}</p>
     </div>
-    <div class="flex items-center gap-1 shrink-0">
+    <div class="flex flex-wrap items-center gap-2 shrink-0">
         {% if grades_locked %}
         <span class="badge badge-warning badge-sm gap-1">
             <i class="fa-solid fa-lock text-xs"></i>
@@ -29,9 +29,10 @@
            hx-target="#main-content"
            hx-push-url="true"
            hx-swap="innerHTML"
-           class="btn btn-ghost btn-sm btn-square"
-           title="Switch to table view">
+           class="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] px-3 touch-action-manipulation"
+           title="Table View">
             <i class="fa-solid fa-table-cells"></i>
+            <span class="action-text">Table View</span>
         </a>
         {% else %}
         <a href="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student"
@@ -39,19 +40,21 @@
            hx-target="#main-content"
            hx-push-url="true"
            hx-swap="innerHTML"
-           class="btn btn-ghost btn-sm btn-square"
-           title="Switch to student view">
+           class="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] px-3 touch-action-manipulation"
+           title="Student View">
             <i class="fa-solid fa-id-card"></i>
+            <span class="action-text">Student View</span>
         </a>
         {% endif %}
         <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square" title="More options">
+            <button type="button" tabindex="0" class="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] touch-action-manipulation" title="More options">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
-            </div>
-            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-52 p-2 shadow-lg border border-base-200">
+            </button>
+            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
                 {% if not grades_locked %}
                 <li>
-                    <button hx-get="{% url 'gradebook:assignments' subject.pk %}"
+                    <button class="min-h-[44px] touch-action-manipulation"
+                            hx-get="{% url 'gradebook:assignments' subject.pk %}"
                             hx-target="#assignments-container"
                             hx-swap="innerHTML"
                             hx-on::after-request="modal_assignments.showModal()">
@@ -60,7 +63,8 @@
                 </li>
                 {% endif %}
                 <li>
-                    <button hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
+                    <button class="min-h-[44px] touch-action-manipulation"
+                            hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
                             hx-target="#changes-container"
                             onclick="modal_changes.showModal()">
                         <i class="fa-solid fa-clock-rotate-left text-info"></i> View Changes
@@ -71,20 +75,27 @@
                     <a href="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
                        hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
                        hx-target="#main-content"
-                       hx-push-url="true">
+                       hx-push-url="true"
+                       class="min-h-[44px] touch-action-manipulation">
                         <i class="fa-solid fa-comment-dots text-warning"></i> Enter Remarks
                     </a>
                 </li>
                 {% endif %}
                 <li class="border-t border-base-200 mt-1 pt-1">
-                    <a href="{% url 'core:export_scores' class_obj.pk subject.pk %}"><i class="fa-solid fa-file-csv text-success"></i> Export CSV</a>
+                    <a href="{% url 'core:export_scores' class_obj.pk subject.pk %}" class="min-h-[44px] touch-action-manipulation">
+                        <i class="fa-solid fa-file-csv text-success"></i> Export CSV
+                    </a>
                 </li>
                 <li>
-                    <a href="{% url 'core:export_scores' class_obj.pk subject.pk %}?format=xlsx"><i class="fa-solid fa-file-excel text-success"></i> Export Excel</a>
+                    <a href="{% url 'core:export_scores' class_obj.pk subject.pk %}?format=xlsx" class="min-h-[44px] touch-action-manipulation">
+                        <i class="fa-solid fa-file-excel text-success"></i> Export Excel
+                    </a>
                 </li>
                 {% if not grades_locked %}
                 <li class="border-t border-base-200 mt-1 pt-1">
-                    <button onclick="modal_import.showModal()"><i class="fa-solid fa-upload text-primary"></i> Import Scores</button>
+                    <button class="min-h-[44px] touch-action-manipulation" onclick="modal_import.showModal()">
+                        <i class="fa-solid fa-upload text-primary"></i> Import Scores
+                    </button>
                 </li>
                 {% endif %}
             </ul>
@@ -157,7 +168,7 @@
                hx-push-url="true"
                hx-swap="innerHTML"
                hx-select="unset"
-               class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px]"
+               class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px] touch-action-manipulation"
                title="Previous student">
                 <i class="fa-solid fa-chevron-left"></i>
             </a>
@@ -190,7 +201,7 @@
                hx-push-url="true"
                hx-swap="innerHTML"
                hx-select="unset"
-               class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px]"
+               class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px] touch-action-manipulation"
                title="Next student">
                 <i class="fa-solid fa-chevron-right"></i>
             </a>
@@ -365,6 +376,22 @@
 
 <!-- Styles for score input feedback -->
 <style>
+/* Touch-friendly action buttons */
+.touch-action-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Show button text on screens >= 480px */
+.action-text {
+    display: none;
+}
+@media (min-width: 480px) {
+    .action-text {
+        display: inline;
+    }
+}
+
 .score-input.input-error, .score-input-desktop.input-error {
     border-color: oklch(var(--er)) !important;
     background-color: oklch(var(--er) / 0.1) !important;

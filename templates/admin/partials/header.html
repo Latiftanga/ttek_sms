@@ -46,13 +46,13 @@
 
         <!-- User dropdown -->
         <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-ghost btn-circle btn-sm sm:btn-md avatar" aria-label="{% trans 'User menu' %}">
+            <button type="button" tabindex="0" class="btn btn-ghost btn-circle btn-sm sm:btn-md avatar" aria-label="{% trans 'User menu' %}">
                 <div class="w-8 sm:w-9 rounded-full ring-2 ring-primary ring-offset-1 sm:ring-offset-2 ring-offset-base-100">
                     <div class="admin-gradient text-white w-full h-full flex items-center justify-center text-base sm:text-lg font-bold rounded-full">
                         {{ user.first_name|slice:":1"|default:user.username|slice:":1"|upper }}
                     </div>
                 </div>
-            </div>
+            </button>
             <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow-lg bg-base-100 rounded-box w-56 sm:w-60 border border-base-200 max-h-[80vh] overflow-y-auto">
                 <!-- Admin branding in dropdown -->
                 <li class="pointer-events-none">
