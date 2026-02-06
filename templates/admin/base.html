@@ -390,12 +390,22 @@
             });
 
             // If clicking on a dropdown item, close the dropdown
-            if (e.target.closest('.dropdown-content a, .dropdown-content button')) {
+            const clickedItem = e.target.closest('.dropdown-content a, .dropdown-content button');
+            if (clickedItem) {
                 const dropdown = e.target.closest('.dropdown');
                 if (dropdown) {
                     const trigger = dropdown.querySelector('[tabindex]');
                     if (trigger) {
-                        setTimeout(() => trigger.blur(), 100);
+                        // Check if this element opens a modal after HTMX request
+                        const opensModal = clickedItem.getAttribute('hx-on::after-request')?.includes('showModal') ||
+                                          clickedItem.getAttribute('hx-on:htmx:after-request')?.includes('showModal');
+                        if (opensModal) {
+                            // For modal-opening elements, delay blur to let modal open first
+                            setTimeout(() => trigger.blur(), 300);
+                        } else {
+                            // For regular elements, small delay to allow click action
+                            setTimeout(() => trigger.blur(), 100);
+                        }
                     }
                 }
             }

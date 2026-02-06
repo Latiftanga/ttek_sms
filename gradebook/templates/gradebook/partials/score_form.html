@@ -27,13 +27,13 @@
                     <button type="button" tabindex="0" class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] touch-action-manipulation" title="More options">
                         <i class="fa-solid fa-ellipsis-vertical"></i>
                     </button>
-                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
+                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 sm:w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
                         <li>
                             <button class="min-h-[44px] touch-action-manipulation"
                                     hx-get="{% url 'gradebook:assignments' subject.pk %}"
                                     hx-target="#assignments-container"
-                                    hx-swap="innerHTML"
-                                    hx-on::after-request="modal_assignments.showModal()">
+                                    hx-swap="outerHTML"
+                                    onclick="document.getElementById('modal_assignments').showModal()">
                                 <i class="fa-solid fa-list-check text-primary"></i> Manage Assignments
                             </button>
                         </li>
@@ -41,7 +41,7 @@
                             <button class="min-h-[44px] touch-action-manipulation"
                                     hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
                                     hx-target="#changes-container"
-                                    onclick="modal_changes.showModal()">
+                                    onclick="document.getElementById('modal_changes').showModal()">
                                 <i class="fa-solid fa-clock-rotate-left text-info"></i> View Changes
                             </button>
                         </li>
@@ -63,7 +63,7 @@
                             </a>
                         </li>
                         <li>
-                            <button class="min-h-[44px] touch-action-manipulation" onclick="modal_import.showModal()">
+                            <button class="min-h-[44px] touch-action-manipulation" onclick="document.getElementById('modal_import').showModal()">
                                 <i class="fa-solid fa-upload text-primary"></i> Import Scores
                             </button>
                         </li>
@@ -96,9 +96,9 @@
         <!-- Scroll hint for table -->
         <div class="md:hidden flex items-center justify-end gap-2 text-xs text-base-content/50 mb-2">
             <i class="fa-solid fa-arrows-left-right"></i>
-            <span>Scroll for more</span>
+            <span>Scroll for more &rarr;</span>
         </div>
-        <div class="overflow-x-auto -mx-3 px-3 md:-mx-4 md:px-4 lg:mx-0 lg:px-0">
+        <div class="overflow-x-auto -mx-3 px-3 md:-mx-4 md:px-4 lg:mx-0 lg:px-0 scroll-shadow-container">
             <table class="table table-sm table-pin-rows">
                 <thead>
                     <tr class="bg-base-200">
@@ -140,6 +140,7 @@
                                    data-assignment="{{ assign.pk }}"
                                    data-max="{{ assign.points_possible }}"
                                    data-save-url="{% url 'gradebook:score_save' %}"
+                                   aria-label="Score for {{ student.full_name }} - {{ assign.name }}"
                                    min="0"
                                    max="{{ assign.points_possible }}"
                                    step="0.5"
@@ -205,6 +206,28 @@
 @media (min-width: 480px) {
     .action-text {
         display: inline;
+    }
+}
+
+/* Scroll shadow indicator for horizontal scrollable tables */
+.scroll-shadow-container {
+    position: relative;
+}
+.scroll-shadow-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    background: linear-gradient(to left, oklch(var(--b1)) 0%, transparent 100%);
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.2s;
+}
+@media (min-width: 768px) {
+    .scroll-shadow-container::after {
+        display: none;
     }
 }
 
