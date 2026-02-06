@@ -268,10 +268,25 @@
             </div>
         `;
 
+        // Determine which view to load based on device and preference
+        var isMobile = window.innerWidth < 768;
+        var storedPref = localStorage.getItem('gradebookViewMode');
+        // Default: mobile uses student view, desktop uses table view
+        var preferStudentView = storedPref === 'student' || (isMobile && !storedPref);
+
+        // Build URL - table view is default, student view needs first student
+        var url = `/gradebook/scores/${classId}/${subjectId}/`;
+        if (preferStudentView) {
+            // We need to fetch students list first to get first student ID
+            // Or use table view URL and let server handle it
+            // For simplicity, load table view first, it will show mobile hint
+            url = `/gradebook/scores/${classId}/${subjectId}/`;
+        }
+
         // Load score entry form via HTMX with error handling
-        htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
+        htmx.ajax('GET', url, {
             target: '#score-form-container',
-            swap: 'innerHTML'
+            swap: 'innerHTML transition:true'
         }).catch(function(error) {
             console.error('Error loading score form:', error);
             scoreContainer.innerHTML = `
