@@ -1,5 +1,12 @@
 {% load core_tags %}
 <div class="space-y-4" id="houses-list"
+     x-data="{
+         viewMode: localStorage.getItem('housesViewMode') || 'list',
+         setView(mode) {
+             this.viewMode = mode;
+             localStorage.setItem('housesViewMode', mode);
+         }
+     }"
      hx-get="{% url 'students:houses' %}"
      hx-trigger="houseChanged from:body"
      hx-target="this"
@@ -15,6 +22,16 @@
                 {{ total_houses }} house{{ total_houses|pluralize }}
                 {% if current_year %}• {{ current_year.name }}{% endif %}
             </p>
+        </div>
+        <!-- View Toggle (hidden on mobile) -->
+        <div class="hidden md:block">
+            <label class="btn btn-ghost btn-sm btn-square swap swap-rotate" title="Toggle view">
+                <input type="checkbox"
+                       x-bind:checked="viewMode === 'table'"
+                       @click="setView(viewMode === 'table' ? 'list' : 'table')" />
+                <i class="swap-off fa-solid fa-grip"></i>
+                <i class="swap-on fa-solid fa-list"></i>
+            </label>
         </div>
         <div class="dropdown dropdown-end">
             <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
@@ -64,77 +81,184 @@
 
     <!-- Houses List -->
     {% if houses %}
-    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+    <!-- Mobile List View (always visible on mobile) -->
+    <div class="md:hidden card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
         <div class="divide-y divide-base-200">
             {% for house in houses %}
-            <div class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors group">
-                <!-- Clickable area -->
-                <a href="{% url 'students:house_students' house.pk %}"
-                   hx-get="{% url 'students:house_students' house.pk %}"
-                   hx-target="#main-content"
-                   hx-swap="innerHTML"
-                   hx-push-url="true"
-                   class="flex items-center gap-3 flex-1 min-w-0">
-
-                    <!-- Color indicator -->
-                    <div class="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold shadow-sm shrink-0"
-                         style="background-color: {{ house.color_code|default:'#6b7280' }}">
-                        {{ house.name|slice:":1"|upper }}
-                    </div>
-
-                    <!-- Info -->
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-0.5">
-                            <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                                {{ house.name }}
-                            </h3>
-                            {% if house.is_active %}
-                            <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Active"></span>
-                            {% else %}
-                            <span class="badge badge-ghost badge-xs shrink-0">Inactive</span>
-                            {% endif %}
-                        </div>
-                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
-                            <span><i class="fa-solid fa-users mr-1"></i>{{ house.student_count_val }} student{{ house.student_count_val|pluralize }}</span>
-                            {% if house.housemaster_assignment %}
-                            <span class="hidden xs:inline">•</span>
-                            <span class="hidden xs:inline">
-                                <i class="fa-solid fa-user-tie mr-1"></i>{{ house.housemaster_assignment.teacher.full_name }}
-                                {% if house.housemaster_assignment.is_senior %}
-                                <span class="badge badge-primary badge-xs ml-1">Senior</span>
-                                {% endif %}
-                            </span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Quick Actions (outside anchor) -->
-                <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button type="button" class="btn btn-ghost btn-xs btn-square"
-                            hx-get="{% url 'students:house_assign_master' house.pk %}"
-                            hx-target="#modal-housemaster-content"
-                            hx-swap="innerHTML"
-                            hx-on::after-request="document.getElementById('modal_housemaster').showModal()"
-                            title="{% if house.housemaster_assignment %}Change{% else %}Assign{% endif %} Housemaster">
-                        <i class="fa-solid fa-user-tie text-base-content/50"></i>
-                    </button>
-                    <button type="button" class="btn btn-ghost btn-xs btn-square"
-                            hx-get="{% url 'students:house_edit' house.pk %}"
-                            hx-target="#modal-house-content"
-                            hx-swap="innerHTML"
-                            hx-on::after-request="document.getElementById('modal_house').showModal()"
-                            title="Edit">
-                        <i class="fa-solid fa-pen text-base-content/50"></i>
-                    </button>
+            <a href="{% url 'students:house_students' house.pk %}"
+               hx-get="{% url 'students:house_students' house.pk %}"
+               hx-target="#main-content"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors group">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold shadow-sm shrink-0"
+                     style="background-color: {{ house.color_code|default:'#6b7280' }}">
+                    {{ house.name|slice:":1"|upper }}
                 </div>
-
-                <!-- Chevron -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                            {{ house.name }}
+                        </h3>
+                        {% if house.is_active %}
+                        <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Active"></span>
+                        {% else %}
+                        <span class="badge badge-ghost badge-xs shrink-0">Inactive</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                        <span><i class="fa-solid fa-users mr-1"></i>{{ house.student_count_val }} student{{ house.student_count_val|pluralize }}</span>
+                    </div>
+                </div>
                 <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
-            </div>
+            </a>
             {% endfor %}
         </div>
     </div>
+
+    <!-- Desktop Views (toggle controlled) -->
+    <div class="hidden md:block">
+        <!-- Desktop List View -->
+        <div x-show="viewMode === 'list'" x-cloak class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+            <div class="divide-y divide-base-200">
+                {% for house in houses %}
+                <div class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors group">
+                    <a href="{% url 'students:house_students' house.pk %}"
+                       hx-get="{% url 'students:house_students' house.pk %}"
+                       hx-target="#main-content"
+                       hx-swap="innerHTML"
+                       hx-push-url="true"
+                       class="flex items-center gap-3 flex-1 min-w-0">
+                        <div class="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold shadow-sm shrink-0"
+                             style="background-color: {{ house.color_code|default:'#6b7280' }}">
+                            {{ house.name|slice:":1"|upper }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                                    {{ house.name }}
+                                </h3>
+                                {% if house.is_active %}
+                                <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Active"></span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-xs shrink-0">Inactive</span>
+                                {% endif %}
+                            </div>
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                                <span><i class="fa-solid fa-users mr-1"></i>{{ house.student_count_val }} student{{ house.student_count_val|pluralize }}</span>
+                                {% if house.housemaster_assignment %}
+                                <span>•</span>
+                                <span>
+                                    <i class="fa-solid fa-user-tie mr-1"></i>{{ house.housemaster_assignment.teacher.full_name }}
+                                    {% if house.housemaster_assignment.is_senior %}
+                                    <span class="badge badge-primary badge-xs ml-1">Senior</span>
+                                    {% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a>
+                    <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button type="button" class="btn btn-ghost btn-xs btn-square"
+                                hx-get="{% url 'students:house_assign_master' house.pk %}"
+                                hx-target="#modal-housemaster-content"
+                                hx-swap="innerHTML"
+                                hx-on::after-request="document.getElementById('modal_housemaster').showModal()"
+                                title="{% if house.housemaster_assignment %}Change{% else %}Assign{% endif %} Housemaster">
+                            <i class="fa-solid fa-user-tie text-base-content/50"></i>
+                        </button>
+                        <button type="button" class="btn btn-ghost btn-xs btn-square"
+                                hx-get="{% url 'students:house_edit' house.pk %}"
+                                hx-target="#modal-house-content"
+                                hx-swap="innerHTML"
+                                hx-on::after-request="document.getElementById('modal_house').showModal()"
+                                title="Edit">
+                            <i class="fa-solid fa-pen text-base-content/50"></i>
+                        </button>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Desktop Table View -->
+        <div x-show="viewMode === 'table'" x-cloak class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>House</th>
+                            <th class="text-center">Students</th>
+                            <th>Housemaster</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for house in houses %}
+                        <tr class="hover:bg-base-200/30 cursor-pointer"
+                            hx-get="{% url 'students:house_students' house.pk %}"
+                            hx-target="#main-content"
+                            hx-push-url="true">
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm"
+                                         style="background-color: {{ house.color_code|default:'#6b7280' }}">
+                                        {{ house.name|slice:":1"|upper }}
+                                    </div>
+                                    <span class="font-medium">{{ house.name }}</span>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-ghost badge-sm">{{ house.student_count_val }}</span>
+                            </td>
+                            <td>
+                                {% if house.housemaster_assignment %}
+                                <div class="flex items-center gap-1">
+                                    <span class="text-sm">{{ house.housemaster_assignment.teacher.full_name }}</span>
+                                    {% if house.housemaster_assignment.is_senior %}
+                                    <span class="badge badge-primary badge-xs">Senior</span>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <span class="text-base-content/40 text-sm italic">Not assigned</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if house.is_active %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="flex items-center gap-1" onclick="event.stopPropagation();">
+                                    <button type="button" class="btn btn-ghost btn-xs btn-square"
+                                            hx-get="{% url 'students:house_assign_master' house.pk %}"
+                                            hx-target="#modal-housemaster-content"
+                                            hx-swap="innerHTML"
+                                            hx-on::after-request="document.getElementById('modal_housemaster').showModal()"
+                                            title="{% if house.housemaster_assignment %}Change{% else %}Assign{% endif %} Housemaster">
+                                        <i class="fa-solid fa-user-tie text-base-content/50"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-ghost btn-xs btn-square"
+                                            hx-get="{% url 'students:house_edit' house.pk %}"
+                                            hx-target="#modal-house-content"
+                                            hx-swap="innerHTML"
+                                            hx-on::after-request="document.getElementById('modal_house').showModal()"
+                                            title="Edit">
+                                        <i class="fa-solid fa-pen text-base-content/50"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div><!-- end desktop views -->
     {% else %}
     <!-- Empty State -->
     <div class="card bg-base-100 shadow-sm border border-base-200">

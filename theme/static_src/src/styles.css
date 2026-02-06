@@ -53,4 +53,9 @@
   *::-webkit-scrollbar-thumb:hover {
     background: oklch(0.6 0 0 / 0.6);
   }
+
+  /* Alpine.js x-cloak: hide elements until Alpine initializes */
+  [x-cloak] {
+    display: none !important;
+  }
 }

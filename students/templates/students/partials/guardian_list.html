@@ -1,5 +1,12 @@
 {% load core_tags %}
 <div class="space-y-4" id="guardian-list"
+     x-data="{
+         viewMode: localStorage.getItem('guardiansViewMode') || 'list',
+         setView(mode) {
+             this.viewMode = mode;
+             localStorage.setItem('guardiansViewMode', mode);
+         }
+     }"
      hx-get="{% url 'students:guardian_index' %}{% if search %}?search={{ search }}{% endif %}"
      hx-trigger="guardianChanged from:body"
      hx-target="this"
@@ -21,6 +28,16 @@
 
         <!-- Actions -->
         <div class="flex items-center gap-2">
+            <!-- View Toggle (hidden on mobile) -->
+            <div class="hidden md:block">
+                <label class="btn btn-ghost btn-sm btn-square swap swap-rotate" title="Toggle view">
+                    <input type="checkbox"
+                           x-bind:checked="viewMode === 'table'"
+                           @click="setView(viewMode === 'table' ? 'list' : 'table')" />
+                    <i class="swap-off fa-solid fa-grip"></i>
+                    <i class="swap-on fa-solid fa-list"></i>
+                </label>
+            </div>
             <button class="btn btn-primary btn-sm gap-1"
                     hx-get="{% url 'students:guardian_create' %}"
                     hx-target="#modal-guardian-content"
@@ -81,66 +98,148 @@
     <!-- Guardian Results (targeted by search) -->
     <div id="guardian-results">
     {% if guardians %}
-    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+    <!-- Mobile List View (always visible on mobile) -->
+    <div class="md:hidden card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
         <div class="divide-y divide-base-200">
             {% for guardian in guardians %}
-            <div class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors group">
-                <!-- Clickable area -->
-                <a href="{% url 'students:guardian_detail' guardian.pk %}"
-                   hx-get="{% url 'students:guardian_detail' guardian.pk %}"
-                   hx-target="#main-content"
-                   hx-swap="innerHTML"
-                   hx-push-url="true"
-                   class="flex items-center gap-3 flex-1 min-w-0">
-
-                    <!-- Avatar -->
-                    <div class="avatar placeholder shrink-0">
-                        <div class="w-11 h-11 rounded-full bg-success/20 text-success flex items-center justify-center">
-                            <span class="text-sm font-bold">{{ guardian.full_name|slice:":2"|upper }}</span>
-                        </div>
+            <a href="{% url 'students:guardian_detail' guardian.pk %}"
+               hx-get="{% url 'students:guardian_detail' guardian.pk %}"
+               hx-target="#main-content"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors group">
+                <div class="avatar placeholder shrink-0">
+                    <div class="w-11 h-11 rounded-full bg-success/20 text-success flex items-center justify-center">
+                        <span class="text-sm font-bold">{{ guardian.full_name|slice:":2"|upper }}</span>
                     </div>
-
-                    <!-- Info -->
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-0.5">
-                            <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                                {{ guardian.full_name }}
-                            </h3>
-                            <span class="badge badge-ghost badge-xs shrink-0">
-                                {{ guardian.ward_count }} ward{{ guardian.ward_count|pluralize }}
-                            </span>
-                            {% if guardian.user %}
-                            <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Has account"></span>
-                            {% endif %}
-                        </div>
-                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
-                            <span class="font-mono">{{ guardian.phone_number }}</span>
-                            {% if guardian.email %}
-                            <span class="hidden xs:inline">•</span>
-                            <span class="hidden xs:inline truncate max-w-[180px]">{{ guardian.email }}</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Quick Actions - visible on mobile, hover on desktop -->
-                <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <button type="button" class="btn btn-ghost btn-xs btn-square"
-                            hx-get="{% url 'students:guardian_edit' guardian.pk %}"
-                            hx-target="#modal-guardian-content"
-                            hx-swap="innerHTML"
-                            hx-on::after-request="document.getElementById('modal_guardian').showModal()"
-                            title="Edit">
-                        <i class="fa-solid fa-pen text-base-content/50"></i>
-                    </button>
                 </div>
-
-                <!-- Chevron -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                            {{ guardian.full_name }}
+                        </h3>
+                        <span class="badge badge-ghost badge-xs shrink-0">
+                            {{ guardian.ward_count }} ward{{ guardian.ward_count|pluralize }}
+                        </span>
+                        {% if guardian.user %}
+                        <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Has account"></span>
+                        {% endif %}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                        <span class="font-mono">{{ guardian.phone_number }}</span>
+                    </div>
+                </div>
                 <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
-            </div>
+            </a>
             {% endfor %}
         </div>
     </div>
+
+    <!-- Desktop Views (toggle controlled) -->
+    <div class="hidden md:block">
+        <!-- Desktop List View -->
+        <div x-show="viewMode === 'list'" x-cloak class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+            <div class="divide-y divide-base-200">
+                {% for guardian in guardians %}
+                <div class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors group">
+                    <a href="{% url 'students:guardian_detail' guardian.pk %}"
+                       hx-get="{% url 'students:guardian_detail' guardian.pk %}"
+                       hx-target="#main-content"
+                       hx-swap="innerHTML"
+                       hx-push-url="true"
+                       class="flex items-center gap-3 flex-1 min-w-0">
+                        <div class="avatar placeholder shrink-0">
+                            <div class="w-11 h-11 rounded-full bg-success/20 text-success flex items-center justify-center">
+                                <span class="text-sm font-bold">{{ guardian.full_name|slice:":2"|upper }}</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                                    {{ guardian.full_name }}
+                                </h3>
+                                <span class="badge badge-ghost badge-xs shrink-0">
+                                    {{ guardian.ward_count }} ward{{ guardian.ward_count|pluralize }}
+                                </span>
+                                {% if guardian.user %}
+                                <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Has account"></span>
+                                {% endif %}
+                            </div>
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                                <span class="font-mono">{{ guardian.phone_number }}</span>
+                                {% if guardian.email %}
+                                <span>•</span>
+                                <span class="truncate max-w-[180px]">{{ guardian.email }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a>
+                    <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button type="button" class="btn btn-ghost btn-xs btn-square"
+                                hx-get="{% url 'students:guardian_edit' guardian.pk %}"
+                                hx-target="#modal-guardian-content"
+                                hx-swap="innerHTML"
+                                hx-on::after-request="document.getElementById('modal_guardian').showModal()"
+                                title="Edit">
+                            <i class="fa-solid fa-pen text-base-content/50"></i>
+                        </button>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Desktop Table View -->
+        <div x-show="viewMode === 'table'" x-cloak class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Guardian</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th class="text-center">Wards</th>
+                            <th>Account</th>
+                            <th>Occupation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for guardian in guardians %}
+                        <tr class="hover:bg-base-200/30 cursor-pointer"
+                            hx-get="{% url 'students:guardian_detail' guardian.pk %}"
+                            hx-target="#main-content"
+                            hx-push-url="true">
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div class="avatar placeholder">
+                                        <div class="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center">
+                                            <span class="text-xs font-bold">{{ guardian.full_name|slice:":2"|upper }}</span>
+                                        </div>
+                                    </div>
+                                    <span class="font-medium">{{ guardian.full_name }}</span>
+                                </div>
+                            </td>
+                            <td><span class="font-mono text-xs">{{ guardian.phone_number }}</span></td>
+                            <td class="text-sm text-base-content/70">{{ guardian.email|default:"-" }}</td>
+                            <td class="text-center">
+                                <span class="badge badge-ghost badge-sm">{{ guardian.ward_count }}</span>
+                            </td>
+                            <td>
+                                {% if guardian.user %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">None</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-sm text-base-content/70">{{ guardian.occupation|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div><!-- end desktop views -->
 
     <!-- Pagination -->
     {% if page_obj.paginator.num_pages > 1 %}

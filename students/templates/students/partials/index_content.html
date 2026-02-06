@@ -1,5 +1,12 @@
 {% load core_tags %}
 <div class="space-y-4" id="students-list"
+     x-data="{
+         viewMode: localStorage.getItem('studentsViewMode') || 'list',
+         setView(mode) {
+             this.viewMode = mode;
+             localStorage.setItem('studentsViewMode', mode);
+         }
+     }"
      hx-get="{% url 'students:index' %}{% if search or class_filter or status_filter %}?{% if search %}search={{ search }}{% endif %}{% if class_filter %}{% if search %}&{% endif %}class={{ class_filter }}{% endif %}{% if status_filter %}{% if search or class_filter %}&{% endif %}status={{ status_filter }}{% endif %}{% endif %}"
      hx-trigger="studentChanged from:body"
      hx-target="this"
@@ -15,6 +22,16 @@
                 {% if paginator.count %}{{ paginator.count }} student{{ paginator.count|pluralize }}{% else %}No students{% endif %}
                 {% if search or class_filter or status_filter %}<span class="text-primary">(filtered)</span>{% endif %}
             </p>
+        </div>
+        <!-- View Toggle (hidden on mobile) -->
+        <div class="hidden md:block">
+            <label class="btn btn-ghost btn-sm btn-square swap swap-rotate" title="Toggle view">
+                <input type="checkbox"
+                       x-bind:checked="viewMode === 'table'"
+                       @click="setView(viewMode === 'table' ? 'list' : 'table')" />
+                <i class="swap-off fa-solid fa-grip"></i>
+                <i class="swap-on fa-solid fa-list"></i>
+            </label>
         </div>
         <div class="dropdown dropdown-end">
             <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
@@ -126,7 +143,8 @@
     <!-- Students Results (targeted by search) -->
     <div id="student-results">
     {% if students %}
-    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+    <!-- Mobile List View (always visible on mobile) -->
+    <div class="md:hidden card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
         <div class="divide-y divide-base-200">
             {% for student in students %}
             <a href="{% url 'students:student_detail' student.pk %}"
@@ -135,8 +153,6 @@
                hx-swap="innerHTML"
                hx-push-url="true"
                class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
-
-                <!-- Avatar with gender indicator -->
                 <div class="avatar placeholder shrink-0">
                     <div class="w-11 h-11 rounded-full {{ student.gender|yesno:'bg-blue-100 text-blue-600,bg-pink-100 text-pink-600' }} flex items-center justify-center relative">
                         {% if student.photo %}
@@ -144,14 +160,11 @@
                         {% else %}
                         <span class="text-sm font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                         {% endif %}
-                        <!-- Gender icon -->
                         <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-base-100 border border-base-200 flex items-center justify-center">
                             <i class="fa-solid {{ student.gender|yesno:'fa-mars text-blue-500,fa-venus text-pink-500' }} text-[10px]"></i>
                         </span>
                     </div>
                 </div>
-
-                <!-- Info -->
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-0.5">
                         <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">{{ student.full_name }}</h3>
@@ -170,30 +183,142 @@
                     <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
                         <span class="font-mono">{{ student.admission_number }}</span>
                         {% if student.current_class %}
-                        <span class="hidden xs:inline">•</span>
-                        <span class="hidden xs:inline">{{ student.current_class.name }}</span>
+                        <span>•</span>
+                        <span>{{ student.current_class.name }}</span>
                         {% endif %}
                     </div>
                 </div>
-
-                <!-- Quick Actions - visible on mobile, hover on desktop -->
-                <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
-                          hx-get="{% url 'students:student_edit' student.pk %}"
-                          hx-target="#main-content"
-                          hx-swap="innerHTML"
-                          hx-push-url="true"
-                          title="Edit">
-                        <i class="fa-solid fa-pen text-base-content/50"></i>
-                    </span>
-                </div>
-
-                <!-- Chevron -->
                 <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
             </a>
             {% endfor %}
         </div>
     </div>
+
+    <!-- Desktop Views (toggle controlled) -->
+    <div class="hidden md:block">
+        <!-- Desktop List View -->
+        <div x-show="viewMode === 'list'" x-cloak class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+            <div class="divide-y divide-base-200">
+                {% for student in students %}
+                <a href="{% url 'students:student_detail' student.pk %}"
+                   hx-get="{% url 'students:student_detail' student.pk %}"
+                   hx-target="#main-content"
+                   hx-swap="innerHTML"
+                   hx-push-url="true"
+                   class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
+                    <div class="avatar placeholder shrink-0">
+                        <div class="w-11 h-11 rounded-full {{ student.gender|yesno:'bg-blue-100 text-blue-600,bg-pink-100 text-pink-600' }} flex items-center justify-center relative">
+                            {% if student.photo %}
+                            <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
+                            {% else %}
+                            <span class="text-sm font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                            {% endif %}
+                            <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-base-100 border border-base-200 flex items-center justify-center">
+                                <i class="fa-solid {{ student.gender|yesno:'fa-mars text-blue-500,fa-venus text-pink-500' }} text-[10px]"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">{{ student.full_name }}</h3>
+                            {% if student.status == 'active' %}
+                            <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Active"></span>
+                            {% elif student.status == 'graduated' %}
+                            <span class="badge badge-info badge-xs shrink-0">Grad</span>
+                            {% elif student.status == 'withdrawn' %}
+                            <span class="badge badge-warning badge-xs shrink-0">Left</span>
+                            {% elif student.status == 'suspended' %}
+                            <span class="badge badge-error badge-xs shrink-0">Susp</span>
+                            {% elif student.status == 'transferred' %}
+                            <span class="badge badge-ghost badge-xs shrink-0">Trans</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                            <span class="font-mono">{{ student.admission_number }}</span>
+                            {% if student.current_class %}
+                            <span>•</span>
+                            <span>{{ student.current_class.name }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
+                              hx-get="{% url 'students:student_edit' student.pk %}"
+                              hx-target="#main-content"
+                              hx-swap="innerHTML"
+                              hx-push-url="true"
+                              title="Edit">
+                            <i class="fa-solid fa-pen text-base-content/50"></i>
+                        </span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Desktop Table View -->
+        <div x-show="viewMode === 'table'" x-cloak class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Student</th>
+                            <th>Admission #</th>
+                            <th>Class</th>
+                            <th>Gender</th>
+                            <th>Status</th>
+                            <th>Guardian</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr class="hover:bg-base-200/30 cursor-pointer"
+                            hx-get="{% url 'students:student_detail' student.pk %}"
+                            hx-target="#main-content"
+                            hx-push-url="true">
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div class="avatar placeholder">
+                                        <div class="w-8 h-8 rounded-full {{ student.gender|yesno:'bg-blue-100 text-blue-600,bg-pink-100 text-pink-600' }} flex items-center justify-center">
+                                            {% if student.photo %}
+                                            <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
+                                            {% else %}
+                                            <span class="text-xs font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <span class="font-medium">{{ student.full_name }}</span>
+                                </div>
+                            </td>
+                            <td><span class="font-mono text-xs">{{ student.admission_number }}</span></td>
+                            <td>{{ student.current_class.name|default:"-" }}</td>
+                            <td>
+                                <i class="fa-solid {{ student.gender|yesno:'fa-mars text-blue-500,fa-venus text-pink-500' }}"></i>
+                            </td>
+                            <td>
+                                {% if student.status == 'active' %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% elif student.status == 'graduated' %}
+                                <span class="badge badge-info badge-sm">Graduated</span>
+                                {% elif student.status == 'withdrawn' %}
+                                <span class="badge badge-warning badge-sm">Withdrawn</span>
+                                {% elif student.status == 'suspended' %}
+                                <span class="badge badge-error badge-sm">Suspended</span>
+                                {% elif student.status == 'transferred' %}
+                                <span class="badge badge-ghost badge-sm">Transferred</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">{{ student.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-sm text-base-content/70">{{ student.guardian_name|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div><!-- end desktop views -->
 
     <!-- Pagination -->
     {% if page_obj.paginator.num_pages > 1 %}
