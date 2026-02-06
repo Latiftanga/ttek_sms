@@ -17,34 +17,34 @@
     </div>
 
     <!-- Stats Summary -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div class="stat bg-base-200 rounded-lg p-3">
-            <div class="stat-title text-xs">Total</div>
-            <div class="stat-value text-lg">{{ stats.total }}</div>
+    <div class="grid grid-cols-5 gap-2">
+        <div class="text-center p-2 rounded-lg bg-base-200">
+            <div class="text-lg md:text-xl font-bold">{{ stats.total }}</div>
+            <div class="text-[10px] md:text-xs text-base-content/60">Total</div>
         </div>
-        <div class="stat bg-success/10 rounded-lg p-3">
-            <div class="stat-title text-xs">Present</div>
-            <div class="stat-value text-lg text-success">{{ stats.present }}</div>
+        <div class="text-center p-2 rounded-lg bg-success/10">
+            <div class="text-lg md:text-xl font-bold text-success">{{ stats.present }}</div>
+            <div class="text-[10px] md:text-xs text-base-content/60">Present</div>
         </div>
-        <div class="stat bg-error/10 rounded-lg p-3">
-            <div class="stat-title text-xs">Absent</div>
-            <div class="stat-value text-lg text-error">{{ stats.absent }}</div>
+        <div class="text-center p-2 rounded-lg bg-error/10">
+            <div class="text-lg md:text-xl font-bold text-error">{{ stats.absent }}</div>
+            <div class="text-[10px] md:text-xs text-base-content/60">Absent</div>
         </div>
-        <div class="stat bg-warning/10 rounded-lg p-3">
-            <div class="stat-title text-xs">Late</div>
-            <div class="stat-value text-lg text-warning">{{ stats.late }}</div>
+        <div class="text-center p-2 rounded-lg bg-warning/10">
+            <div class="text-lg md:text-xl font-bold text-warning">{{ stats.late }}</div>
+            <div class="text-[10px] md:text-xs text-base-content/60">Late</div>
         </div>
-        <div class="stat bg-primary/10 rounded-lg p-3">
-            <div class="stat-title text-xs">Rate</div>
-            <div class="stat-value text-lg {% if stats.rate >= 80 %}text-success{% elif stats.rate >= 60 %}text-warning{% else %}text-error{% endif %}">
+        <div class="text-center p-2 rounded-lg {% if stats.rate >= 80 %}bg-success/10{% elif stats.rate >= 60 %}bg-warning/10{% else %}bg-error/10{% endif %}">
+            <div class="text-lg md:text-xl font-bold {% if stats.rate >= 80 %}text-success{% elif stats.rate >= 60 %}text-warning{% else %}text-error{% endif %}">
                 {{ stats.rate }}%
             </div>
+            <div class="text-[10px] md:text-xs text-base-content/60">Rate</div>
         </div>
     </div>
 
     <!-- Attendance Rate Bar -->
-    <div class="w-full bg-base-200 rounded-full h-3">
-        <div class="h-3 rounded-full {% if stats.rate >= 80 %}bg-success{% elif stats.rate >= 60 %}bg-warning{% else %}bg-error{% endif %}"
+    <div class="w-full bg-base-200 rounded-full h-2.5 overflow-hidden">
+        <div class="h-2.5 rounded-full transition-all duration-500 {% if stats.rate >= 80 %}bg-success{% elif stats.rate >= 60 %}bg-warning{% else %}bg-error{% endif %}"
              style="width: {{ stats.rate }}%"></div>
     </div>
 
@@ -57,19 +57,48 @@
         </h4>
 
         {% if attendance_data %}
-        <!-- Calendar Grid View -->
-        <div class="grid grid-cols-7 gap-1 mb-4">
-            <div class="text-center text-xs text-base-content/50 font-medium">Sun</div>
-            <div class="text-center text-xs text-base-content/50 font-medium">Mon</div>
-            <div class="text-center text-xs text-base-content/50 font-medium">Tue</div>
-            <div class="text-center text-xs text-base-content/50 font-medium">Wed</div>
-            <div class="text-center text-xs text-base-content/50 font-medium">Thu</div>
-            <div class="text-center text-xs text-base-content/50 font-medium">Fri</div>
-            <div class="text-center text-xs text-base-content/50 font-medium">Sat</div>
+        <!-- Mobile: Card Layout -->
+        <div class="md:hidden space-y-2 max-h-64 overflow-y-auto">
+            {% for record in attendance_data %}
+            <div class="flex items-center justify-between p-3 rounded-lg border border-base-200
+                        {% if record.status == 'P' %}bg-success/5{% elif record.status == 'A' %}bg-error/5{% elif record.status == 'L' %}bg-warning/5{% else %}bg-base-100{% endif %}">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-base-200 flex flex-col items-center justify-center">
+                        <span class="text-xs font-bold leading-none" id="day-{{ forloop.counter }}">--</span>
+                        <span class="text-[10px] text-base-content/60" id="month-{{ forloop.counter }}">---</span>
+                    </div>
+                    <div>
+                        <span class="text-sm font-medium" id="dayname-{{ forloop.counter }}">---</span>
+                        {% if record.remarks %}
+                        <p class="text-xs text-base-content/60">{{ record.remarks }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if record.status == 'P' %}
+                <span class="badge badge-success gap-1"><i class="fa-solid fa-check"></i> Present</span>
+                {% elif record.status == 'A' %}
+                <span class="badge badge-error gap-1"><i class="fa-solid fa-xmark"></i> Absent</span>
+                {% elif record.status == 'L' %}
+                <span class="badge badge-warning gap-1"><i class="fa-solid fa-clock"></i> Late</span>
+                {% elif record.status == 'E' %}
+                <span class="badge badge-info gap-1"><i class="fa-solid fa-calendar-check"></i> Excused</span>
+                {% else %}
+                <span class="badge badge-ghost">{{ record.status_display }}</span>
+                {% endif %}
+            </div>
+            <script>
+                (function() {
+                    const d = new Date('{{ record.date }}');
+                    document.getElementById('day-{{ forloop.counter }}').textContent = d.getDate();
+                    document.getElementById('month-{{ forloop.counter }}').textContent = d.toLocaleDateString('en-US', { month: 'short' });
+                    document.getElementById('dayname-{{ forloop.counter }}').textContent = d.toLocaleDateString('en-US', { weekday: 'long' });
+                })();
+            </script>
+            {% endfor %}
         </div>
 
-        <!-- Recent Records Table -->
-        <div class="overflow-x-auto max-h-64">
+        <!-- Desktop: Table Layout -->
+        <div class="hidden md:block overflow-x-auto max-h-64">
             <table class="table table-xs">
                 <thead class="sticky top-0 bg-base-100">
                     <tr class="text-xs uppercase text-base-content/50">
@@ -80,7 +109,7 @@
                 </thead>
                 <tbody>
                     {% for record in attendance_data %}
-                    <tr class="hover">
+                    <tr class="hover {% if record.status == 'A' %}bg-error/5{% elif record.status == 'L' %}bg-warning/5{% endif %}">
                         <td class="font-mono text-sm">{{ record.date }}</td>
                         <td class="text-center">
                             {% if record.status == 'P' %}
@@ -100,6 +129,26 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex flex-wrap gap-3 mt-3 pt-3 border-t border-base-200">
+            <div class="flex items-center gap-1.5 text-xs">
+                <span class="w-3 h-3 rounded bg-success"></span>
+                <span>Present</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-xs">
+                <span class="w-3 h-3 rounded bg-warning"></span>
+                <span>Late</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-xs">
+                <span class="w-3 h-3 rounded bg-error"></span>
+                <span>Absent</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-xs">
+                <span class="w-3 h-3 rounded bg-info"></span>
+                <span>Excused</span>
+            </div>
         </div>
         {% else %}
         <div class="text-center py-8 text-base-content/40">

@@ -164,19 +164,57 @@
 </dialog>
 
 <script>
+// Score Entry initialization - designed to work with HTMX history restore
 (function() {
-    const classSelect = document.getElementById('class-select');
-    const subjectSelect = document.getElementById('subject-select');
-    const scoreContainer = document.getElementById('score-form-container');
+    // Prevent multiple initializations
+    if (window._scoreEntryInitialized) return;
 
-    if (!classSelect || !subjectSelect) return;
+    function initScoreEntry() {
+        const classSelect = document.getElementById('class-select');
+        const subjectSelect = document.getElementById('subject-select');
+        const scoreContainer = document.getElementById('score-form-container');
 
-    // Load subjects when class is selected
-    classSelect.addEventListener('change', function() {
-        const classId = this.value;
+        if (!classSelect || !subjectSelect) return;
+
+        // Remove old listeners by cloning elements (clean slate)
+        const newClassSelect = classSelect.cloneNode(true);
+        const newSubjectSelect = subjectSelect.cloneNode(true);
+        classSelect.parentNode.replaceChild(newClassSelect, classSelect);
+        subjectSelect.parentNode.replaceChild(newSubjectSelect, subjectSelect);
+
+        // Get fresh references after cloning
+        const classEl = document.getElementById('class-select');
+        const subjectEl = document.getElementById('subject-select');
+
+        // Check URL for pre-selected class
+        const urlParams = new URLSearchParams(window.location.search);
+        const preselectedClass = urlParams.get('class');
+
+        if (preselectedClass && classEl.querySelector(`option[value="${preselectedClass}"]`)) {
+            classEl.value = preselectedClass;
+            // Trigger change to load subjects
+            loadSubjectsForClass(preselectedClass, subjectEl, scoreContainer);
+        }
+
+        // Load subjects when class is selected
+        classEl.addEventListener('change', function() {
+            const classId = this.value;
+            loadSubjectsForClass(classId, subjectEl, scoreContainer);
+        });
+
+        // Load score form when subject is selected
+        subjectEl.addEventListener('change', function() {
+            const classId = classEl.value;
+            const subjectId = this.value;
+            loadScoreForm(classId, subjectId, scoreContainer);
+            updateImportForm(classId, subjectId);
+        });
+    }
+
+    function loadSubjectsForClass(classId, subjectEl, scoreContainer) {
         if (!classId) {
-            subjectSelect.innerHTML = '<option value="">Select a class first...</option>';
-            subjectSelect.disabled = true;
+            subjectEl.innerHTML = '<option value="">Select a class first...</option>';
+            subjectEl.disabled = true;
             scoreContainer.innerHTML = `
                 <div class="text-center py-12 text-base-content/40">
                     <i class="fa-solid fa-pen-to-square text-4xl mb-3"></i>
@@ -187,42 +225,36 @@
         }
 
         // Show loading state
-        subjectSelect.innerHTML = '<option value="">Loading subjects...</option>';
-        subjectSelect.disabled = true;
+        subjectEl.innerHTML = '<option value="">Loading subjects...</option>';
+        subjectEl.disabled = true;
 
         // Fetch subjects for this class
         fetch(`/academics/api/class/${classId}/subjects/`)
             .then(response => response.json())
             .then(data => {
                 if (data.subjects && data.subjects.length > 0) {
-                    subjectSelect.innerHTML = '<option value="">Select a subject...</option>';
+                    subjectEl.innerHTML = '<option value="">Select a subject...</option>';
                     data.subjects.forEach(subject => {
                         const option = document.createElement('option');
                         option.value = subject.id;
                         option.textContent = subject.name;
-                        subjectSelect.appendChild(option);
+                        subjectEl.appendChild(option);
                     });
-                    subjectSelect.disabled = false;
+                    subjectEl.disabled = false;
                 } else {
-                    subjectSelect.innerHTML = '<option value="">No subjects assigned to this class</option>';
-                    subjectSelect.disabled = true;
+                    subjectEl.innerHTML = '<option value="">No subjects assigned to this class</option>';
+                    subjectEl.disabled = true;
                 }
             })
             .catch(error => {
                 console.error('Error fetching subjects:', error);
-                subjectSelect.innerHTML = '<option value="">Error loading subjects</option>';
-                subjectSelect.disabled = true;
+                subjectEl.innerHTML = '<option value="">Error loading subjects</option>';
+                subjectEl.disabled = true;
             });
-    });
+    }
 
-    // Load score form when subject is selected
-    subjectSelect.addEventListener('change', function() {
-        const classId = classSelect.value;
-        const subjectId = this.value;
-
-        if (!classId || !subjectId) {
-            return;
-        }
+    function loadScoreForm(classId, subjectId, scoreContainer) {
+        if (!classId || !subjectId) return;
 
         // Show loading state immediately for mobile feedback
         scoreContainer.innerHTML = `
@@ -256,101 +288,119 @@
                 </div>
             `;
         });
-    });
+    }
 
-    // Refresh score form when assignments change
-    document.body.addEventListener('assignmentsChanged', function(e) {
-        const classId = classSelect.value;
-        const subjectId = subjectSelect.value;
-
-        if (classId && subjectId) {
-            // Show brief loading indicator
-            const existingCard = scoreContainer.querySelector('.card');
-            if (existingCard) {
-                existingCard.classList.add('opacity-50');
-            }
-
-            htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
-                target: '#score-form-container',
-                swap: 'innerHTML'
-            });
-        }
-    });
-
-    // Refresh page when lock status changes
-    document.body.addEventListener('refreshLockStatus', function(e) {
-        // Reload the entire page to reflect lock status changes
-        window.location.reload();
-    });
-
-    // Update import form action when subject changes
-    subjectSelect.addEventListener('change', function() {
-        const classId = classSelect.value;
-        const subjectId = this.value;
+    function updateImportForm(classId, subjectId) {
         const importForm = document.getElementById('import-form');
-
         if (importForm && classId && subjectId) {
             importForm.setAttribute('hx-post', `/gradebook/scores/${classId}/${subjectId}/import/upload/`);
             htmx.process(importForm);
         }
-    });
+    }
 
-    // Refresh score form after successful import
-    document.body.addEventListener('scoresImported', function(e) {
-        const classId = classSelect.value;
-        const subjectId = subjectSelect.value;
+    // Event handlers that need to be set up once
+    if (!window._scoreEntryEventsAttached) {
+        window._scoreEntryEventsAttached = true;
 
-        if (classId && subjectId) {
-            // Show loading state
-            const existingCard = scoreContainer.querySelector('.card');
-            if (existingCard) {
-                existingCard.classList.add('opacity-50');
+        // Refresh score form when assignments change
+        document.body.addEventListener('assignmentsChanged', function(e) {
+            const classSelect = document.getElementById('class-select');
+            const subjectSelect = document.getElementById('subject-select');
+            const scoreContainer = document.getElementById('score-form-container');
+
+            if (classSelect && subjectSelect && scoreContainer) {
+                const classId = classSelect.value;
+                const subjectId = subjectSelect.value;
+
+                if (classId && subjectId) {
+                    const existingCard = scoreContainer.querySelector('.card');
+                    if (existingCard) existingCard.classList.add('opacity-50');
+
+                    htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
+                        target: '#score-form-container',
+                        swap: 'innerHTML'
+                    });
+                }
+            }
+        });
+
+        // Refresh page when lock status changes
+        document.body.addEventListener('refreshLockStatus', function(e) {
+            window.location.reload();
+        });
+
+        // Refresh score form after successful import
+        document.body.addEventListener('scoresImported', function(e) {
+            const classSelect = document.getElementById('class-select');
+            const subjectSelect = document.getElementById('subject-select');
+            const scoreContainer = document.getElementById('score-form-container');
+
+            if (classSelect && subjectSelect && scoreContainer) {
+                const classId = classSelect.value;
+                const subjectId = subjectSelect.value;
+
+                if (classId && subjectId) {
+                    const existingCard = scoreContainer.querySelector('.card');
+                    if (existingCard) existingCard.classList.add('opacity-50');
+
+                    htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
+                        target: '#score-form-container',
+                        swap: 'innerHTML'
+                    });
+                }
             }
 
-            htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
-                target: '#score-form-container',
-                swap: 'innerHTML'
-            });
-        }
+            // Reset import modal content
+            const importContainer = document.getElementById('import-container');
+            const classId = classSelect?.value;
+            const subjectId = subjectSelect?.value;
+            if (importContainer && classId && subjectId) {
+                importContainer.innerHTML = `
+                    <h3 class="font-bold text-lg mb-4">
+                        <i class="fa-solid fa-file-import text-primary"></i>
+                        Import Scores
+                    </h3>
+                    <p class="text-sm text-base-content/60 mb-4">
+                        Upload an Excel file (.xlsx) with scores. Use the "Download Template" option to get the correct format.
+                    </p>
+                    <form id="import-form" class="space-y-4"
+                          hx-post="/gradebook/scores/${classId}/${subjectId}/import/upload/"
+                          hx-encoding="multipart/form-data"
+                          hx-target="#import-container"
+                          hx-swap="innerHTML">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Select Excel file</span>
+                            </label>
+                            <input type="file"
+                                   name="file"
+                                   accept=".xlsx"
+                                   class="file-input file-input-bordered w-full"
+                                   required />
+                        </div>
+                        <div class="modal-action">
+                            <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa-solid fa-upload"></i>
+                                Upload & Preview
+                            </button>
+                        </div>
+                    </form>
+                `;
+                htmx.process(importContainer);
+            }
+        });
 
-        // Reset import modal content
-        const importContainer = document.getElementById('import-container');
-        if (importContainer) {
-            importContainer.innerHTML = `
-                <h3 class="font-bold text-lg mb-4">
-                    <i class="fa-solid fa-file-import text-primary"></i>
-                    Import Scores
-                </h3>
-                <p class="text-sm text-base-content/60 mb-4">
-                    Upload an Excel file (.xlsx) with scores. Use the "Download Template" option to get the correct format.
-                </p>
-                <form id="import-form" class="space-y-4"
-                      hx-post="/gradebook/scores/${classId}/${subjectId}/import/upload/"
-                      hx-encoding="multipart/form-data"
-                      hx-target="#import-container"
-                      hx-swap="innerHTML">
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text">Select Excel file</span>
-                        </label>
-                        <input type="file"
-                               name="file"
-                               accept=".xlsx"
-                               class="file-input file-input-bordered w-full"
-                               required />
-                    </div>
-                    <div class="modal-action">
-                        <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fa-solid fa-upload"></i>
-                            Upload & Preview
-                        </button>
-                    </div>
-                </form>
-            `;
-            htmx.process(importContainer);
-        }
-    });
+        // Re-initialize on HTMX history restore (browser back/forward)
+        document.body.addEventListener('htmx:historyRestore', function(e) {
+            // Small delay to ensure DOM is ready
+            setTimeout(initScoreEntry, 50);
+        });
+    }
+
+    // Initialize on page load
+    initScoreEntry();
+    window._scoreEntryInitialized = true;
 })();
 </script>
 

@@ -139,9 +139,9 @@
 
                 <div class="p-4">
                     {% if class_summary %}
-                    <div class="space-y-2">
+                    <div class="space-y-2" id="classes-list">
                         {% for item in class_summary %}
-                        <div class="flex items-center gap-3 p-3 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/30 transition-all">
+                        <div class="flex items-center gap-3 p-3 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/30 transition-all class-item {% if forloop.counter > 6 %}hidden md:flex{% endif %}">
                             <!-- Class Info -->
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
@@ -199,6 +199,14 @@
                         </div>
                         {% endfor %}
                     </div>
+                    {% if class_summary|length > 6 %}
+                    <div class="md:hidden text-center mt-3">
+                        <button type="button" onclick="toggleClassesList(this)" class="btn btn-sm btn-ghost" data-expanded="false">
+                            Show All {{ class_summary|length }} Classes
+                            <i class="fa-solid fa-chevron-down ml-1"></i>
+                        </button>
+                    </div>
+                    {% endif %}
                     {% else %}
                     <div class="text-center py-12">
                         <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
@@ -226,7 +234,54 @@
 
                 <div class="p-4">
                     {% if daily_data %}
-                    <div class="overflow-x-auto">
+                    <!-- Mobile: Card Layout -->
+                    <div class="md:hidden space-y-2" id="sessions-mobile">
+                        {% for item in daily_data %}
+                        <div class="p-3 border border-base-200 rounded-lg hover:bg-base-200/30 session-item {% if forloop.counter > 5 %}hidden{% endif %}">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-lg bg-base-200 flex flex-col items-center justify-center text-xs">
+                                        <span class="font-bold">{{ item.session.date|date:"d" }}</span>
+                                        <span class="text-base-content/60">{{ item.session.date|date:"M" }}</span>
+                                    </div>
+                                    <div>
+                                        {% if is_admin %}
+                                        <a href="{% url 'academics:class_detail' item.session.class_assigned.pk %}"
+                                           hx-get="{% url 'academics:class_detail' item.session.class_assigned.pk %}"
+                                           hx-target="#main-content"
+                                           hx-push-url="true"
+                                           class="font-medium hover:text-primary">
+                                            {{ item.session.class_assigned.name }}
+                                        </a>
+                                        {% else %}
+                                        <span class="font-medium">{{ item.session.class_assigned.name }}</span>
+                                        {% endif %}
+                                        <div class="text-xs text-base-content/60">{{ item.session.date|date:"l" }}</div>
+                                    </div>
+                                </div>
+                                <span class="badge {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                                    {{ item.rate }}%
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-4 text-sm">
+                                <span class="text-success"><i class="fa-solid fa-check mr-1"></i>{{ item.present }}</span>
+                                <span class="text-error"><i class="fa-solid fa-xmark mr-1"></i>{{ item.absent }}</span>
+                                <progress class="progress flex-1 h-2 {% if item.rate >= 80 %}progress-success{% elif item.rate >= 60 %}progress-warning{% else %}progress-error{% endif %}" value="{{ item.rate }}" max="100"></progress>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if daily_data|length > 5 %}
+                    <div class="md:hidden text-center mt-3">
+                        <button type="button" onclick="toggleSessionsList(this)" class="btn btn-sm btn-ghost" data-expanded="false">
+                            Show All {{ daily_data|length }} Sessions
+                            <i class="fa-solid fa-chevron-down ml-1"></i>
+                        </button>
+                    </div>
+                    {% endif %}
+
+                    <!-- Desktop: Table Layout -->
+                    <div class="hidden md:block overflow-x-auto">
                         <table class="table table-sm">
                             <thead>
                                 <tr class="text-xs uppercase text-base-content/60">
@@ -291,12 +346,47 @@
                 </div>
 
                 <div class="p-4">
-                    <div class="overflow-x-auto">
+                    <!-- Mobile: Card Layout -->
+                    <div class="md:hidden space-y-2">
+                        {% for item in low_attendance_students|slice:":5" %}
+                        <button onclick="showStudentAttendance('{{ item.student.pk }}')"
+                                class="w-full p-3 border border-base-200 rounded-lg hover:bg-base-200/30 text-left transition-colors">
+                            <div class="flex items-center gap-3">
+                                <div class="avatar placeholder shrink-0">
+                                    <div class="w-10 h-10 rounded-full bg-error/10 text-error flex items-center justify-center">
+                                        <span class="text-sm font-bold">{{ item.student.first_name|slice:":1" }}{{ item.student.last_name|slice:":1" }}</span>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-medium truncate">{{ item.student.full_name }}</div>
+                                    <div class="flex items-center gap-2 text-xs text-base-content/60">
+                                        {% if item.student.current_class %}
+                                        <span>{{ item.student.current_class.name }}</span>
+                                        <span>•</span>
+                                        {% endif %}
+                                        <span class="text-error">{{ item.absent }} absent</span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-end gap-1">
+                                    <span class="badge {% if item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                                        {{ item.rate }}%
+                                    </span>
+                                    <div class="w-16">
+                                        <progress class="progress h-1.5 {% if item.rate >= 60 %}progress-warning{% else %}progress-error{% endif %}" value="{{ item.rate }}" max="100"></progress>
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Desktop: Table Layout -->
+                    <div class="hidden md:block overflow-x-auto">
                         <table class="table table-sm">
                             <thead>
                                 <tr class="text-xs uppercase text-base-content/60">
                                     <th>Student</th>
-                                    <th class="hidden sm:table-cell">Class</th>
+                                    <th>Class</th>
                                     <th class="text-center">Present</th>
                                     <th class="text-center">Absent</th>
                                     <th class="text-center">Rate</th>
@@ -320,7 +410,7 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="hidden sm:table-cell">
+                                    <td>
                                         {% if item.student.current_class %}
                                         <span class="badge badge-sm badge-ghost">{{ item.student.current_class.name }}</span>
                                         {% else %}
@@ -415,10 +505,10 @@
                     <i class="fa-solid fa-chart-line text-primary"></i>
                     Attendance Trend
                 </h2>
-                <div class="h-32">
+                <div class="h-40">
                     <canvas id="attendanceTrendChart"></canvas>
                 </div>
-                <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-base-200">
+                <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-base-200">
                     <div class="text-center">
                         <p class="text-xs text-base-content/50">Highest</p>
                         <p class="text-sm font-bold text-success" id="trend-highest">-</p>
@@ -427,6 +517,15 @@
                         <p class="text-xs text-base-content/50">Average</p>
                         <p class="text-sm font-bold text-primary" id="trend-average">-</p>
                     </div>
+                    <div class="text-center">
+                        <p class="text-xs text-base-content/50">Lowest</p>
+                        <p class="text-sm font-bold text-error" id="trend-lowest">-</p>
+                    </div>
+                </div>
+                <!-- Trend indicator -->
+                <div class="flex items-center justify-center gap-2 mt-3 p-2 bg-base-200/50 rounded-lg" id="trend-indicator">
+                    <i class="fa-solid fa-arrow-trend-up text-success" id="trend-icon"></i>
+                    <span class="text-sm" id="trend-text">Loading...</span>
                 </div>
             </div>
         </div>
@@ -465,8 +564,8 @@
 </div>
 
 <!-- Low Attendance Students Modal -->
-<dialog id="low_attendance_modal" class="modal modal-middle">
-    <div class="modal-box max-w-2xl">
+<dialog id="low_attendance_modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box max-w-2xl max-h-[90vh]">
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
                 <i class="fa-solid fa-times"></i>
@@ -474,16 +573,52 @@
         </form>
         <h3 class="font-bold text-lg flex items-center gap-2">
             <i class="fa-solid fa-user-xmark text-error"></i>
-            Students with Low Attendance (&lt;80%)
+            Low Attendance (&lt;80%)
         </h3>
         <p class="text-sm text-base-content/60 mt-1">{{ low_attendance_students|length }} students below 80% attendance rate</p>
 
-        <div class="overflow-x-auto mt-4">
-            <table class="table table-sm">
+        <!-- Mobile: Card Layout -->
+        <div class="md:hidden mt-4 space-y-2 max-h-[60vh] overflow-y-auto">
+            {% for item in low_attendance_students %}
+            <button onclick="showStudentAttendance('{{ item.student.pk }}')"
+                    class="w-full p-3 border border-base-200 rounded-lg hover:bg-base-200/30 text-left transition-colors">
+                <div class="flex items-center gap-3">
+                    <div class="avatar placeholder shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-error/10 text-error flex items-center justify-center">
+                            <span class="text-sm font-bold">{{ item.student.first_name|slice:":1" }}{{ item.student.last_name|slice:":1" }}</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium truncate">{{ item.student.full_name }}</div>
+                        <div class="flex items-center gap-2 text-xs text-base-content/60">
+                            {% if item.student.current_class %}
+                            <span>{{ item.student.current_class.name }}</span>
+                            <span>•</span>
+                            {% endif %}
+                            <span class="text-success">{{ item.present }}P</span>
+                            <span class="text-error">{{ item.absent }}A</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="badge {% if item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                            {{ item.rate }}%
+                        </span>
+                        <div class="w-12">
+                            <progress class="progress h-1.5 {% if item.rate >= 60 %}progress-warning{% else %}progress-error{% endif %}" value="{{ item.rate }}" max="100"></progress>
+                        </div>
+                    </div>
+                </div>
+            </button>
+            {% endfor %}
+        </div>
+
+        <!-- Desktop: Table Layout -->
+        <div class="hidden md:block overflow-x-auto mt-4 max-h-[60vh]">
+            <table class="table table-sm table-pin-rows">
                 <thead>
                     <tr class="text-xs uppercase text-base-content/60">
                         <th>Student</th>
-                        <th class="hidden sm:table-cell">Class</th>
+                        <th>Class</th>
                         <th class="text-center">Total</th>
                         <th class="text-center">Present</th>
                         <th class="text-center">Absent</th>
@@ -509,7 +644,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td class="hidden sm:table-cell">
+                        <td>
                             {% if item.student.current_class %}
                             <span class="badge badge-sm badge-ghost">{{ item.student.current_class.name }}</span>
                             {% else %}
@@ -542,8 +677,8 @@
 </dialog>
 
 <!-- Consecutive Absences Modal -->
-<dialog id="consecutive_absences_modal" class="modal modal-middle">
-    <div class="modal-box max-w-2xl">
+<dialog id="consecutive_absences_modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box max-w-2xl max-h-[90vh]">
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
                 <i class="fa-solid fa-times"></i>
@@ -551,12 +686,57 @@
         </form>
         <h3 class="font-bold text-lg flex items-center gap-2">
             <i class="fa-solid fa-user-clock text-warning"></i>
-            Students with Consecutive Absences
+            Consecutive Absences
         </h3>
-        <p class="text-sm text-base-content/60 mt-1">Students who have been absent for 3 or more consecutive days</p>
+        <p class="text-sm text-base-content/60 mt-1">Students absent for 3+ consecutive days</p>
 
-        <div class="overflow-x-auto mt-4">
-            <table class="table table-sm">
+        <!-- Mobile: Card Layout -->
+        <div class="md:hidden mt-4 space-y-2 max-h-[60vh] overflow-y-auto">
+            {% for item in students_with_consecutive_absences %}
+            <div class="p-3 border border-warning/30 bg-warning/5 rounded-lg">
+                <div class="flex items-start gap-3">
+                    <div class="avatar placeholder shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-warning/10 text-warning flex items-center justify-center">
+                            <span class="text-sm font-bold">{{ item.student.first_name|slice:":1" }}{{ item.student.last_name|slice:":1" }}</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <button onclick="showStudentAttendance('{{ item.student.pk }}')"
+                                    class="font-medium hover:text-primary text-left truncate">
+                                {{ item.student.full_name }}
+                            </button>
+                            <span class="badge badge-warning font-bold shrink-0">{{ item.consecutive_days }} days</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-base-content/60 mt-1">
+                            {% if item.student.current_class %}
+                            <span>{{ item.student.current_class.name }}</span>
+                            <span>•</span>
+                            {% endif %}
+                            {% if item.last_present %}
+                            <span>Last seen: {{ item.last_present|date:"M d" }}</span>
+                            {% endif %}
+                        </div>
+                        {% if item.student.guardian_phone %}
+                        <a href="tel:{{ item.student.guardian_phone }}" class="btn btn-xs btn-ghost btn-primary mt-2">
+                            <i class="fa-solid fa-phone"></i>
+                            {{ item.student.guardian_phone }}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-8 text-base-content/40">
+                <i class="fa-solid fa-check-circle text-2xl text-success mb-2"></i>
+                <p>No students with consecutive absences</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Desktop: Table Layout -->
+        <div class="hidden md:block overflow-x-auto mt-4 max-h-[60vh]">
+            <table class="table table-sm table-pin-rows">
                 <thead>
                     <tr class="text-xs uppercase text-base-content/60">
                         <th>Student</th>
@@ -631,8 +811,8 @@
 </dialog>
 
 <!-- Notify Parents Modal -->
-<dialog id="notify_parents_modal" class="modal modal-middle">
-    <div class="modal-box max-w-xl">
+<dialog id="notify_parents_modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box max-w-xl max-h-[90vh]">
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
                 <i class="fa-solid fa-times"></i>
@@ -722,8 +902,8 @@
 </dialog>
 
 <!-- Student Attendance Detail Modal -->
-<dialog id="student_attendance_modal" class="modal modal-middle">
-    <div class="modal-box max-w-2xl">
+<dialog id="student_attendance_modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box max-w-2xl max-h-[90vh]">
         <form method="dialog">
             <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
                 <i class="fa-solid fa-times"></i>
@@ -731,7 +911,7 @@
         </form>
         <h3 class="font-bold text-lg flex items-center gap-2 mb-4">
             <i class="fa-solid fa-user-clock text-primary"></i>
-            Student Attendance Details
+            Student Attendance
         </h3>
         <div id="student_attendance_content">
             <div class="flex justify-center py-12">
@@ -766,10 +946,35 @@
 
             // Calculate summary stats
             const highest = Math.max(...rates);
+            const lowest = Math.min(...rates);
             const average = (rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(1);
 
             document.getElementById('trend-highest').textContent = highest + '%';
             document.getElementById('trend-average').textContent = average + '%';
+            document.getElementById('trend-lowest').textContent = lowest + '%';
+
+            // Calculate trend direction (compare first half to second half)
+            const midPoint = Math.floor(rates.length / 2);
+            const firstHalfAvg = rates.slice(0, midPoint).reduce((a, b) => a + b, 0) / midPoint || 0;
+            const secondHalfAvg = rates.slice(midPoint).reduce((a, b) => a + b, 0) / (rates.length - midPoint) || 0;
+            const trendDiff = (secondHalfAvg - firstHalfAvg).toFixed(1);
+
+            const trendIcon = document.getElementById('trend-icon');
+            const trendText = document.getElementById('trend-text');
+
+            if (trendDiff > 1) {
+                trendIcon.className = 'fa-solid fa-arrow-trend-up text-success';
+                trendText.innerHTML = `<span class="text-success font-medium">+${trendDiff}%</span> improvement trend`;
+            } else if (trendDiff < -1) {
+                trendIcon.className = 'fa-solid fa-arrow-trend-down text-error';
+                trendText.innerHTML = `<span class="text-error font-medium">${trendDiff}%</span> declining trend`;
+            } else {
+                trendIcon.className = 'fa-solid fa-minus text-base-content/50';
+                trendText.innerHTML = '<span class="text-base-content/70">Stable attendance</span>';
+            }
+
+            // Dynamic gradient based on average
+            const gradientColor = average >= 80 ? '34, 197, 94' : average >= 60 ? '234, 179, 8' : '239, 68, 68';
 
             new Chart(ctx.getContext('2d'), {
                 type: 'line',
@@ -777,19 +982,45 @@
                     labels: labels,
                     datasets: [{
                         data: rates,
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderColor: `rgb(${gradientColor})`,
+                        backgroundColor: (context) => {
+                            const chart = context.chart;
+                            const { ctx, chartArea } = chart;
+                            if (!chartArea) return null;
+                            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                            gradient.addColorStop(0, `rgba(${gradientColor}, 0)`);
+                            gradient.addColorStop(1, `rgba(${gradientColor}, 0.3)`);
+                            return gradient;
+                        },
                         fill: true,
-                        tension: 0.3,
-                        pointRadius: 2,
-                        pointHoverRadius: 4
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: `rgb(${gradientColor})`,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        borderWidth: 3
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
                     plugins: {
-                        legend: { display: false }
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleFont: { size: 12 },
+                            bodyFont: { size: 14, weight: 'bold' },
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: (context) => `${context.parsed.y}% attendance`
+                            }
+                        }
                     },
                     scales: {
                         y: {
@@ -797,12 +1028,19 @@
                             max: 100,
                             ticks: {
                                 callback: v => v + '%',
-                                stepSize: 25
+                                stepSize: 25,
+                                font: { size: 10 }
                             },
                             grid: { color: 'rgba(0,0,0,0.05)' }
                         },
                         x: {
-                            display: false
+                            display: true,
+                            ticks: {
+                                maxRotation: 0,
+                                font: { size: 9 },
+                                maxTicksLimit: 5
+                            },
+                            grid: { display: false }
                         }
                     }
                 }
@@ -850,6 +1088,50 @@
         .catch(error => {
             content.innerHTML = '<div class="text-center py-8 text-error"><i class="fa-solid fa-exclamation-circle text-2xl mb-2"></i><p>Failed to load attendance details</p></div>';
         });
+    }
+
+    function toggleSessionsList(btn) {
+        const container = document.getElementById('sessions-mobile');
+        const items = container.querySelectorAll('.session-item');
+        const isExpanded = btn.dataset.expanded === 'true';
+
+        items.forEach((item, index) => {
+            if (index > 4) {
+                item.classList.toggle('hidden', isExpanded);
+            }
+        });
+
+        btn.dataset.expanded = (!isExpanded).toString();
+        if (isExpanded) {
+            btn.innerHTML = 'Show All {{ daily_data|length }} Sessions <i class="fa-solid fa-chevron-down ml-1"></i>';
+        } else {
+            btn.innerHTML = 'Show Less <i class="fa-solid fa-chevron-up ml-1"></i>';
+        }
+    }
+
+    function toggleClassesList(btn) {
+        const container = document.getElementById('classes-list');
+        const items = container.querySelectorAll('.class-item');
+        const isExpanded = btn.dataset.expanded === 'true';
+
+        items.forEach((item, index) => {
+            if (index > 5) {
+                if (isExpanded) {
+                    item.classList.add('hidden');
+                    item.classList.add('md:flex');
+                } else {
+                    item.classList.remove('hidden');
+                    item.classList.remove('md:flex');
+                }
+            }
+        });
+
+        btn.dataset.expanded = (!isExpanded).toString();
+        if (isExpanded) {
+            btn.innerHTML = 'Show All {{ class_summary|length }} Classes <i class="fa-solid fa-chevron-down ml-1"></i>';
+        } else {
+            btn.innerHTML = 'Show Less <i class="fa-solid fa-chevron-up ml-1"></i>';
+        }
     }
 
     document.getElementById('sms_message')?.addEventListener('input', updateCharCount);
