@@ -80,7 +80,7 @@
 {% endif %}
 
 <div class="modal-action">
-    <button type="button" class="btn btn-ghost" onclick="modal_import.close()">Cancel</button>
+    <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
     {% if total_scores > 0 %}
     <button class="btn btn-primary"
             hx-post="{% url 'gradebook:import_confirm' class_obj.pk subject.pk %}"

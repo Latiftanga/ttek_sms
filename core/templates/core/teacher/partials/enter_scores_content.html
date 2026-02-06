@@ -28,7 +28,7 @@
            hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}"
            hx-target="#main-content"
            hx-push-url="true"
-           hx-swap="innerHTML"
+           hx-swap="outerHTML"
            class="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] px-3 touch-action-manipulation"
            title="Table View">
             <i class="fa-solid fa-table-cells"></i>
@@ -39,7 +39,7 @@
            hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student"
            hx-target="#main-content"
            hx-push-url="true"
-           hx-swap="innerHTML"
+           hx-swap="outerHTML"
            class="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] px-3 touch-action-manipulation"
            title="Student View">
             <i class="fa-solid fa-id-card"></i>
@@ -50,14 +50,14 @@
             <button type="button" tabindex="0" class="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] touch-action-manipulation" title="More options">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
             </button>
-            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
+            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
                 {% if not grades_locked %}
                 <li>
                     <button class="min-h-[44px] touch-action-manipulation"
                             hx-get="{% url 'gradebook:assignments' subject.pk %}"
                             hx-target="#assignments-container"
-                            hx-swap="innerHTML"
-                            hx-on::after-request="modal_assignments.showModal()">
+                            hx-swap="outerHTML"
+                            onclick="document.getElementById('modal_assignments').showModal()">
                         <i class="fa-solid fa-cog text-primary"></i> Manage Assignments
                     </button>
                 </li>
@@ -66,7 +66,7 @@
                     <button class="min-h-[44px] touch-action-manipulation"
                             hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
                             hx-target="#changes-container"
-                            onclick="modal_changes.showModal()">
+                            onclick="document.getElementById('modal_changes').showModal()">
                         <i class="fa-solid fa-clock-rotate-left text-info"></i> View Changes
                     </button>
                 </li>
@@ -93,7 +93,7 @@
                 </li>
                 {% if not grades_locked %}
                 <li class="border-t border-base-200 mt-1 pt-1">
-                    <button class="min-h-[44px] touch-action-manipulation" onclick="modal_import.showModal()">
+                    <button class="min-h-[44px] touch-action-manipulation" onclick="document.getElementById('modal_import').showModal()">
                         <i class="fa-solid fa-upload text-primary"></i> Import Scores
                     </button>
                 </li>
@@ -129,11 +129,8 @@
             Create assignments (tests, quizzes) to start entering scores.
         </p>
         {% if not grades_locked %}
-        <button class="btn btn-primary"
-                hx-get="{% url 'gradebook:assignments' subject.pk %}"
-                hx-target="#assignments-container"
-                hx-swap="innerHTML"
-                hx-on::after-request="modal_assignments.showModal()">
+        <button type="button" class="btn btn-primary"
+                onclick="document.getElementById('modal_assignments').showModal(); htmx.ajax('GET', '{% url "gradebook:assignments" subject.pk %}', {target: '#assignments-container', swap: 'outerHTML'});">
             <i class="fa-solid fa-plus"></i>
             Create Assignments
         </button>
@@ -166,7 +163,7 @@
                hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ prev_student.pk }}"
                hx-target="#main-content"
                hx-push-url="true"
-               hx-swap="innerHTML"
+               hx-swap="outerHTML"
                hx-select="unset"
                class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px] touch-action-manipulation"
                title="Previous student">
@@ -199,7 +196,7 @@
                hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ next_student.pk }}"
                hx-target="#main-content"
                hx-push-url="true"
-               hx-swap="innerHTML"
+               hx-swap="outerHTML"
                hx-select="unset"
                class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px] touch-action-manipulation"
                title="Next student">
@@ -268,7 +265,7 @@
                     hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}"
                     hx-target="#main-content"
                     hx-push-url="true"
-                    hx-swap="innerHTML"
+                    hx-swap="outerHTML"
                     hx-select="unset"
                     hx-trigger="change"
                     hx-include="this"
@@ -784,7 +781,7 @@ document.body.addEventListener('htmx:afterSwap', function() {
 
             <form hx-post="{% url 'core:import_scores' class_obj.pk subject.pk %}"
                   hx-target="#import-content"
-                  hx-swap="innerHTML"
+                  hx-swap="outerHTML"
                   hx-encoding="multipart/form-data">
                 {% csrf_token %}
                 <div class="form-control">
@@ -798,7 +795,7 @@ document.body.addEventListener('htmx:afterSwap', function() {
                     </label>
                 </div>
                 <div class="modal-action">
-                    <button type="button" class="btn btn-ghost" onclick="modal_import.close()">Cancel</button>
+                    <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fa-solid fa-upload"></i>
                         Upload

@@ -30,6 +30,8 @@
     <!-- HTMX (from django-htmx) -->
     <script src="{% static 'django_htmx/htmx.min.js' %}"></script>
     <script src="{% static 'js/htmx-preload.js' %}"></script>
+    <!-- Hyperscript - designed to work with HTMX for declarative event handling -->
+    <script src="{% static 'js/_hyperscript.min.js' %}"></script>
     <!-- Alpine.js - Collapse plugin must load before Alpine core -->
     <script defer src="{% static 'js/alpine-collapse.min.js' %}"></script>
     <script defer src="{% static 'js/alpine.min.js' %}"></script>
@@ -863,13 +865,22 @@
                 });
 
                 // If clicking on a dropdown item (link/button inside dropdown-content), close the dropdown
-                if (e.target.closest('.dropdown-content a, .dropdown-content button')) {
+                const clickedItem = e.target.closest('.dropdown-content a, .dropdown-content button');
+                if (clickedItem) {
                     const dropdown = e.target.closest('.dropdown');
                     if (dropdown) {
                         const trigger = dropdown.querySelector('[tabindex]');
                         if (trigger) {
-                            // Small delay to allow the click action to complete
-                            setTimeout(() => trigger.blur(), 100);
+                            // Check if this element opens a modal after HTMX request
+                            const opensModal = clickedItem.getAttribute('hx-on::after-request')?.includes('showModal') ||
+                                              clickedItem.getAttribute('hx-on:htmx:after-request')?.includes('showModal');
+                            if (opensModal) {
+                                // For modal-opening elements, delay blur to let modal open first
+                                setTimeout(() => trigger.blur(), 300);
+                            } else {
+                                // For regular elements, small delay to allow click action
+                                setTimeout(() => trigger.blur(), 100);
+                            }
                         }
                     }
                 }

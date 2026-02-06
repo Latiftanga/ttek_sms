@@ -58,7 +58,7 @@
         <form hx-post="{% url 'gradebook:import_upload' class_obj.pk subject.pk %}"
               hx-target="#score-form-container"
               hx-swap="innerHTML"
-              hx-on::after-request="if(event.detail.successful) modal_import.close()"
+              hx-on::after-request="if(event.detail.successful) this.closest('dialog').close()"
               enctype="multipart/form-data">
             {% csrf_token %}
             <div class="form-control mb-4">
@@ -72,7 +72,7 @@
                 <span class="text-sm">Download the template first to see the expected format.</span>
             </div>
             <div class="modal-action">
-                <button type="button" class="btn btn-ghost" onclick="modal_import.close()">Cancel</button>
+                <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
                 <button type="submit" class="btn btn-primary">
                     <i class="fa-solid fa-upload"></i>
                     Import

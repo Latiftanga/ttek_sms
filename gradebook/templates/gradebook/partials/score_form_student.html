@@ -69,13 +69,13 @@
                     <button type="button" tabindex="0" class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] touch-manipulation" title="More options">
                         <i class="fa-solid fa-ellipsis-vertical"></i>
                     </button>
-                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-30 w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
+                    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 sm:w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
                         <li>
                             <button class="min-h-[44px] touch-manipulation"
                                     hx-get="{% url 'gradebook:assignments' subject.pk %}"
                                     hx-target="#assignments-container"
-                                    hx-swap="innerHTML"
-                                    hx-on::after-request="modal_assignments.showModal()">
+                                    hx-swap="outerHTML"
+                                    onclick="document.getElementById('modal_assignments').showModal()">
                                 <i class="fa-solid fa-list-check text-primary"></i> Manage Assignments
                             </button>
                         </li>
@@ -83,7 +83,7 @@
                             <button class="min-h-[44px] touch-manipulation"
                                     hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
                                     hx-target="#changes-container"
-                                    onclick="modal_changes.showModal()">
+                                    onclick="document.getElementById('modal_changes').showModal()">
                                 <i class="fa-solid fa-clock-rotate-left text-info"></i> View Changes
                             </button>
                         </li>
@@ -143,6 +143,7 @@
                                    data-student="{{ student.pk }}"
                                    data-assignment="{{ assignment.pk }}"
                                    data-max="{{ assignment.points_possible }}"
+                                   aria-label="Score for {{ assignment.name }}"
                                    min="0"
                                    max="{{ assignment.points_possible }}"
                                    step="0.5"
@@ -176,14 +177,12 @@
         <div class="text-center py-8 text-base-content/40">
             <i class="fa-solid fa-clipboard text-4xl mb-3"></i>
             <p>No assignments for this subject</p>
-            <a href="#"
-               hx-get="{% url 'gradebook:assignments' subject.pk %}"
-               hx-target="#assignments-container"
-               onclick="modal_assignments.showModal()"
-               class="btn btn-primary mt-3 min-h-[44px] min-w-[44px] touch-manipulation">
+            <button type="button"
+                onclick="document.getElementById('modal_assignments').showModal(); htmx.ajax('GET', '{% url "gradebook:assignments" subject.pk %}', {target: '#assignments-container', swap: 'outerHTML'});"
+                class="btn btn-primary mt-3 min-h-[44px] min-w-[44px] touch-manipulation">
                 <i class="fa-solid fa-plus"></i>
                 Add Assignments
-            </a>
+            </button>
         </div>
         {% endif %}
 
