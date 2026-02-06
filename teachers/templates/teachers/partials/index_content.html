@@ -1,5 +1,12 @@
 {% load core_tags %}
 <div class="space-y-4" id="teachers-list"
+     x-data="{
+         viewMode: localStorage.getItem('teachersViewMode') || 'list',
+         setView(mode) {
+             this.viewMode = mode;
+             localStorage.setItem('teachersViewMode', mode);
+         }
+     }"
      hx-get="{% url 'teachers:index' %}{% if search or status_filter %}?{% if search %}search={{ search }}{% endif %}{% if status_filter %}{% if search %}&{% endif %}status={{ status_filter }}{% endif %}{% endif %}"
      hx-trigger="teacherChanged from:body"
      hx-target="this"
@@ -15,6 +22,16 @@
                 {% if paginator.count %}{{ paginator.count }} teacher{{ paginator.count|pluralize }}{% else %}No teachers{% endif %}
                 {% if search or status_filter %}<span class="text-primary">(filtered)</span>{% endif %}
             </p>
+        </div>
+        <!-- View Toggle (hidden on mobile) -->
+        <div class="hidden md:block">
+            <label class="btn btn-ghost btn-sm btn-square swap swap-rotate" title="Toggle view">
+                <input type="checkbox"
+                       x-bind:checked="viewMode === 'table'"
+                       @click="setView(viewMode === 'table' ? 'list' : 'table')" />
+                <i class="swap-off fa-solid fa-grip"></i>
+                <i class="swap-on fa-solid fa-list"></i>
+            </label>
         </div>
         <div class="dropdown dropdown-end">
             <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
@@ -109,7 +126,8 @@
     <!-- Teacher Results (targeted by search) -->
     <div id="teacher-results">
     {% if teachers %}
-    <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+    <!-- Mobile List View (always visible on mobile) -->
+    <div class="md:hidden card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
         <div class="divide-y divide-base-200">
             {% for teacher in teachers %}
             <a href="{% url 'teachers:teacher_detail' teacher.pk %}"
@@ -118,8 +136,6 @@
                hx-swap="innerHTML"
                hx-push-url="true"
                class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
-
-                <!-- Avatar with gender indicator -->
                 <div class="avatar placeholder shrink-0">
                     <div class="w-11 h-11 rounded-full {{ teacher.gender|yesno:'bg-blue-100 text-blue-600,bg-pink-100 text-pink-600' }} flex items-center justify-center relative">
                         {% if teacher.photo %}
@@ -127,14 +143,11 @@
                         {% else %}
                         <span class="text-sm font-bold">{{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}</span>
                         {% endif %}
-                        <!-- Gender icon -->
                         <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-base-100 border border-base-200 flex items-center justify-center">
                             <i class="fa-solid {{ teacher.gender|yesno:'fa-mars text-blue-500,fa-venus text-pink-500' }} text-[10px]"></i>
                         </span>
                     </div>
                 </div>
-
-                <!-- Info -->
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-0.5">
                         <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
@@ -152,29 +165,135 @@
                     </div>
                     <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
                         <span class="font-mono">{{ teacher.staff_id }}</span>
-                        <span class="hidden xs:inline">•</span>
-                        <span class="hidden xs:inline">{{ teacher.subject_specialization }}</span>
+                        <span>•</span>
+                        <span>{{ teacher.subject_specialization }}</span>
                     </div>
                 </div>
-
-                <!-- Quick Actions - visible on mobile, hover on desktop -->
-                <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
-                          hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
-                          hx-target="#main-content"
-                          hx-swap="innerHTML"
-                          hx-push-url="true"
-                          title="Edit">
-                        <i class="fa-solid fa-pen text-base-content/50"></i>
-                    </span>
-                </div>
-
-                <!-- Chevron -->
                 <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
             </a>
             {% endfor %}
         </div>
     </div>
+
+    <!-- Desktop Views (toggle controlled) -->
+    <div class="hidden md:block">
+        <!-- Desktop List View -->
+        <div x-show="viewMode === 'list'" x-cloak class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+            <div class="divide-y divide-base-200">
+                {% for teacher in teachers %}
+                <a href="{% url 'teachers:teacher_detail' teacher.pk %}"
+                   hx-get="{% url 'teachers:teacher_detail' teacher.pk %}"
+                   hx-target="#main-content"
+                   hx-swap="innerHTML"
+                   hx-push-url="true"
+                   class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
+                    <div class="avatar placeholder shrink-0">
+                        <div class="w-11 h-11 rounded-full {{ teacher.gender|yesno:'bg-blue-100 text-blue-600,bg-pink-100 text-pink-600' }} flex items-center justify-center relative">
+                            {% if teacher.photo %}
+                            <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
+                            {% else %}
+                            <span class="text-sm font-bold">{{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}</span>
+                            {% endif %}
+                            <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-base-100 border border-base-200 flex items-center justify-center">
+                                <i class="fa-solid {{ teacher.gender|yesno:'fa-mars text-blue-500,fa-venus text-pink-500' }} text-[10px]"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                                {{ teacher.get_title_display }} {{ teacher.full_name }}
+                            </h3>
+                            {% if teacher.status == 'active' %}
+                            <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Active"></span>
+                            {% elif teacher.status == 'inactive' %}
+                            <span class="badge badge-error badge-xs shrink-0">Inactive</span>
+                            {% elif teacher.status == 'pending' %}
+                            <span class="badge badge-warning badge-xs shrink-0">Pending</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-xs shrink-0">{{ teacher.get_status_display }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                            <span class="font-mono">{{ teacher.staff_id }}</span>
+                            <span>•</span>
+                            <span>{{ teacher.subject_specialization }}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
+                              hx-get="{% url 'teachers:teacher_edit' teacher.pk %}"
+                              hx-target="#main-content"
+                              hx-swap="innerHTML"
+                              hx-push-url="true"
+                              title="Edit">
+                            <i class="fa-solid fa-pen text-base-content/50"></i>
+                        </span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Desktop Table View -->
+        <div x-show="viewMode === 'table'" x-cloak class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Teacher</th>
+                            <th>Staff ID</th>
+                            <th>Specialization</th>
+                            <th>Gender</th>
+                            <th>Status</th>
+                            <th>Phone</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for teacher in teachers %}
+                        <tr class="hover:bg-base-200/30 cursor-pointer"
+                            hx-get="{% url 'teachers:teacher_detail' teacher.pk %}"
+                            hx-target="#main-content"
+                            hx-push-url="true">
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div class="avatar placeholder">
+                                        <div class="w-8 h-8 rounded-full {{ teacher.gender|yesno:'bg-blue-100 text-blue-600,bg-pink-100 text-pink-600' }} flex items-center justify-center">
+                                            {% if teacher.photo %}
+                                            <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
+                                            {% else %}
+                                            <span class="text-xs font-bold">{{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <span class="font-medium">{{ teacher.get_title_display }} {{ teacher.full_name }}</span>
+                                </div>
+                            </td>
+                            <td><span class="font-mono text-xs">{{ teacher.staff_id }}</span></td>
+                            <td>{{ teacher.subject_specialization|default:"-" }}</td>
+                            <td>
+                                <i class="fa-solid {{ teacher.gender|yesno:'fa-mars text-blue-500,fa-venus text-pink-500' }}"></i>
+                            </td>
+                            <td>
+                                {% if teacher.status == 'active' %}
+                                <span class="badge badge-success badge-sm">Active</span>
+                                {% elif teacher.status == 'inactive' %}
+                                <span class="badge badge-error badge-sm">Inactive</span>
+                                {% elif teacher.status == 'pending' %}
+                                <span class="badge badge-warning badge-sm">Pending</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">{{ teacher.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-sm text-base-content/70">{{ teacher.phone|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div><!-- end desktop views -->
 
     <!-- Pagination -->
     {% if page_obj.paginator.num_pages > 1 %}
