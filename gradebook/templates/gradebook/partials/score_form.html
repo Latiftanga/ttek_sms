@@ -1,6 +1,8 @@
 {% load core_tags %}
 
-<div class="card bg-base-100 shadow-sm border border-base-200">
+<div class="card bg-base-100 shadow-sm border border-base-200"
+     x-data="{ init() { localStorage.setItem('gradebookViewMode', 'table'); } }"
+     x-init="init()">
     <div class="card-body p-3 md:p-4">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-4">
             <div>
@@ -12,16 +14,20 @@
             </div>
             <div class="flex flex-wrap items-center justify-end gap-2">
                 {% if students %}
-                <a href="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
-                   hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
-                   hx-target="#score-form-container"
-                   hx-swap="innerHTML"
-                   hx-push-url="true"
-                   class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] px-3 touch-action-manipulation"
-                   title="Student View">
-                    <i class="fa-solid fa-id-card"></i>
-                    <span class="action-text">Student View</span>
-                </a>
+                <!-- View Toggle - DaisyUI swap -->
+                <label class="btn btn-ghost btn-sm btn-square swap swap-rotate min-h-[44px] min-w-[44px] touch-action-manipulation"
+                       title="Switch to Student View">
+                    <input type="checkbox"
+                           hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
+                           hx-target="#score-form-container"
+                           hx-swap="innerHTML transition:true"
+                           hx-push-url="true"
+                           hx-trigger="change" />
+                    <!-- swap-off: Table icon (current view) -->
+                    <i class="swap-off fa-solid fa-table-cells text-primary"></i>
+                    <!-- swap-on: Student icon (target view) -->
+                    <i class="swap-on fa-solid fa-id-card"></i>
+                </label>
                 {% endif %}
                 <div class="dropdown dropdown-end">
                     <button type="button" tabindex="0" class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] touch-action-manipulation" title="More options">
@@ -90,8 +96,16 @@
         {% if students %}
         <!-- Mobile hint - suggest student view for easier entry -->
         <div class="md:hidden alert alert-info py-2 mb-3">
-            <i class="fa-solid fa-lightbulb text-sm"></i>
-            <span class="text-sm">Tip: Use <strong>Student View</strong> for easier mobile score entry</span>
+            <i class="fa-solid fa-lightbulb text-sm shrink-0"></i>
+            <span class="text-sm flex-1">Tip: Student View is easier on mobile</span>
+            <a href="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
+               hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
+               hx-target="#score-form-container"
+               hx-swap="innerHTML transition:true"
+               hx-push-url="true"
+               class="btn btn-info btn-xs shrink-0">
+                Switch <i class="fa-solid fa-arrow-right ml-1"></i>
+            </a>
         </div>
         <!-- Scroll hint for table -->
         <div class="md:hidden flex items-center justify-end gap-2 text-xs text-base-content/50 mb-2">
