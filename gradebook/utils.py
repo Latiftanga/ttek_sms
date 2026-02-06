@@ -395,12 +395,13 @@ def calculate_score_entry_progress(current_term):
     return scores_entered, total_possible_scores, score_progress
 
 
-def get_classes_needing_scores(current_term, classes):
+def get_classes_needing_scores(current_term, classes, limit=None):
     """Get a list of classes with incomplete score entries."""
     if not current_term:
         return []
 
-    top_classes = classes[:6]
+    # Get all classes if no limit, otherwise respect the limit
+    top_classes = list(classes[:limit]) if limit else list(classes)
     top_class_ids = [c.id for c in top_classes]
 
     class_student_counts = dict(
@@ -449,6 +450,9 @@ def get_classes_needing_scores(current_term, classes):
                     'student_count': student_count,
                     'progress': progress,
                     'assignments': total_assignments,
+                    'expected_scores': expected_scores,
+                    'actual_scores': actual_scores,
+                    'remaining_scores': expected_scores - actual_scores,
                 })
     return classes_needing_scores
 

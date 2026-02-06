@@ -23,6 +23,23 @@
     </div>
 </div>
 
+<!-- Progress Indicator -->
+<div class="mb-4 p-3 bg-base-200/50 rounded-lg">
+    <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium">Progress</span>
+        <span class="text-sm font-bold" id="progress-text">
+            <span class="text-success" id="present-count">0</span> P /
+            <span class="text-warning" id="late-count">0</span> L /
+            <span class="text-error" id="absent-count">0</span> A
+        </span>
+    </div>
+    <div class="flex gap-0.5 h-2 rounded-full overflow-hidden bg-base-300">
+        <div class="bg-success transition-all duration-300" id="progress-present" style="width: 0%"></div>
+        <div class="bg-warning transition-all duration-300" id="progress-late" style="width: 0%"></div>
+        <div class="bg-error transition-all duration-300" id="progress-absent" style="width: 0%"></div>
+    </div>
+</div>
+
 <!-- Primary Action: Mark All Present -->
 <button type="button" onclick="markAll('P')" class="btn btn-success btn-lg w-full gap-2 text-lg font-bold shadow-md mb-3 touch-action-manipulation">
     <i class="fa-solid fa-check-double"></i>
@@ -112,26 +129,73 @@
 </form>
 
 <script>
+const totalStudents = {{ student_list|length }};
+
+function updateProgress() {
+    const form = document.getElementById('attendance-form');
+    let present = 0, late = 0, absent = 0;
+
+    form.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+        if (radio.value === 'P') present++;
+        else if (radio.value === 'L') late++;
+        else if (radio.value === 'A') absent++;
+    });
+
+    // Update counts
+    document.getElementById('present-count').textContent = present;
+    document.getElementById('late-count').textContent = late;
+    document.getElementById('absent-count').textContent = absent;
+
+    // Update progress bars
+    const presentPct = (present / totalStudents) * 100;
+    const latePct = (late / totalStudents) * 100;
+    const absentPct = (absent / totalStudents) * 100;
+
+    document.getElementById('progress-present').style.width = presentPct + '%';
+    document.getElementById('progress-late').style.width = latePct + '%';
+    document.getElementById('progress-absent').style.width = absentPct + '%';
+}
+
+function updateRowBackground(radio) {
+    const row = radio.closest('.student-row');
+    if (!row) return;
+
+    row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10');
+    if (radio.value === 'P') row.classList.add('bg-success/10');
+    else if (radio.value === 'L') row.classList.add('bg-warning/10');
+    else if (radio.value === 'A') row.classList.add('bg-error/10');
+}
+
 function markAll(status) {
     const form = document.getElementById('attendance-form');
     const radios = form.querySelectorAll(`input[type="radio"][value="${status}"]`);
     radios.forEach(radio => {
         radio.checked = true;
-        // Trigger change event for visual update
-        radio.dispatchEvent(new Event('change', { bubbles: true }));
+        updateRowBackground(radio);
     });
 
-    // Update row backgrounds
-    form.querySelectorAll('.student-row').forEach(row => {
-        row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10');
-        if (status === 'P') row.classList.add('bg-success/10');
-        else if (status === 'L') row.classList.add('bg-warning/10');
-        else if (status === 'A') row.classList.add('bg-error/10');
-    });
+    // Update progress
+    updateProgress();
 
     // Haptic feedback if available
     if (navigator.vibrate) {
         navigator.vibrate(50);
     }
 }
+
+// Add event listeners to all radio buttons
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('attendance-form');
+    form.querySelectorAll('input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            updateRowBackground(this);
+            updateProgress();
+            // Light haptic feedback
+            if (navigator.vibrate) navigator.vibrate(20);
+        });
+    });
+
+    // Initialize progress
+    updateProgress();
+});
 </script>

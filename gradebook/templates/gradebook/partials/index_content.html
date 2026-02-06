@@ -256,63 +256,281 @@
                         <i class="fa-solid fa-chart-simple text-success"></i>
                         Score Entry Progress
                     </h2>
-                    <a href="{% url 'gradebook:score_entry' %}"
-                       hx-get="{% url 'gradebook:score_entry' %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-xs">
-                        View All
-                    </a>
+                    <div class="flex items-center gap-2">
+                        {% if classes_needing_scores %}
+                        <div class="badge badge-ghost text-xs">
+                            <span id="progress-summary-complete">0</span>/{{ classes_needing_scores|length }} complete
+                        </div>
+                        {% endif %}
+                        <a href="{% url 'gradebook:score_entry' %}"
+                           hx-get="{% url 'gradebook:score_entry' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-ghost btn-xs">
+                            View All
+                        </a>
+                    </div>
                 </div>
 
                 {% if classes_needing_scores %}
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- Filter/Sort Controls -->
+                <div class="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-base-200">
+                    <div class="flex items-center gap-1">
+                        <button type="button" onclick="filterProgressList('all')" class="btn btn-xs progress-filter active" data-filter="all">
+                            All
+                        </button>
+                        <button type="button" onclick="filterProgressList('pending')" class="btn btn-xs btn-ghost progress-filter" data-filter="pending">
+                            <i class="fa-solid fa-clock text-warning"></i> Pending
+                        </button>
+                        <button type="button" onclick="filterProgressList('complete')" class="btn btn-xs btn-ghost progress-filter" data-filter="complete">
+                            <i class="fa-solid fa-check text-success"></i> Complete
+                        </button>
+                    </div>
+                    <div class="flex-1"></div>
+                    <div class="text-xs text-base-content/60">
+                        <span id="visible-count">{{ classes_needing_scores|length }}</span> classes
+                    </div>
+                </div>
+
+                <!-- Mobile: List Layout -->
+                <div class="md:hidden space-y-2 max-h-[50vh] overflow-y-auto" id="progress-list-mobile">
                     {% for item in classes_needing_scores %}
                     <a href="{% url 'gradebook:score_entry' %}?class={{ item.class.pk }}"
                        hx-get="{% url 'gradebook:score_entry' %}?class={{ item.class.pk }}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="p-4 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/50 transition-all group">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                    <i class="fa-solid fa-chalkboard-user text-primary text-sm"></i>
-                                </div>
-                                <div>
-                                    <div class="font-semibold">{{ item.class.name }}</div>
-                                    <div class="text-xs text-base-content/60">{{ item.student_count }} students</div>
-                                </div>
-                            </div>
-                            <div class="radial-progress text-sm
+                       class="block p-3 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/30 transition-all progress-item {% if forloop.counter > 6 %}hidden{% endif %}"
+                       data-progress="{{ item.progress }}"
+                       data-status="{% if item.progress == 100 %}complete{% else %}pending{% endif %}">
+                        <div class="flex items-center gap-3">
+                            <!-- Progress Ring -->
+                            <div class="radial-progress text-xs shrink-0
                                 {% if item.progress == 100 %}text-success
                                 {% elif item.progress >= 50 %}text-info
                                 {% elif item.progress > 0 %}text-warning
-                                {% else %}text-base-content/30{% endif %}"
-                                style="--value:{{ item.progress }};--size:2.5rem;--thickness:3px;">
-                                <span class="text-xs font-bold">{{ item.progress }}%</span>
+                                {% else %}text-error{% endif %}"
+                                style="--value:{{ item.progress }};--size:3rem;--thickness:4px;">
+                                <span class="text-[10px] font-bold">{{ item.progress }}%</span>
                             </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <progress class="progress flex-1 h-2
-                                {% if item.progress == 100 %}progress-success
-                                {% elif item.progress >= 50 %}progress-info
-                                {% elif item.progress > 0 %}progress-warning
-                                {% else %}progress-error{% endif %}"
-                                value="{{ item.progress }}" max="100"></progress>
-                        </div>
-                        <div class="flex items-center justify-between mt-2 text-xs text-base-content/60">
-                            <span>{{ item.assignments }} assignments</span>
-                            {% if item.progress == 100 %}
-                            <span class="text-success"><i class="fa-solid fa-check-circle mr-1"></i>Complete</span>
-                            {% elif item.progress == 0 %}
-                            <span class="text-error">Not started</span>
-                            {% else %}
-                            <span class="text-info">In progress</span>
-                            {% endif %}
+                            <!-- Class Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="font-semibold truncate">{{ item.class.name }}</div>
+                                <div class="flex items-center gap-2 text-xs text-base-content/60">
+                                    <span><i class="fa-solid fa-users mr-1"></i>{{ item.student_count }}</span>
+                                    <span><i class="fa-solid fa-clipboard-list mr-1"></i>{{ item.assignments }}</span>
+                                </div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <progress class="progress flex-1 h-1.5
+                                        {% if item.progress == 100 %}progress-success
+                                        {% elif item.progress >= 50 %}progress-info
+                                        {% elif item.progress > 0 %}progress-warning
+                                        {% else %}progress-error{% endif %}"
+                                        value="{{ item.progress }}" max="100"></progress>
+                                </div>
+                            </div>
+                            <!-- Status Badge -->
+                            <div class="shrink-0">
+                                {% if item.progress == 100 %}
+                                <span class="badge badge-success badge-sm gap-1">
+                                    <i class="fa-solid fa-check"></i>
+                                </span>
+                                {% elif item.progress == 0 %}
+                                <span class="badge badge-error badge-sm gap-1">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </span>
+                                {% else %}
+                                <span class="badge badge-info badge-sm">
+                                    {{ item.remaining_scores }}
+                                </span>
+                                {% endif %}
+                            </div>
                         </div>
                     </a>
                     {% endfor %}
                 </div>
+                {% if classes_needing_scores|length > 6 %}
+                <div class="md:hidden text-center mt-3" id="show-more-mobile">
+                    <button type="button" onclick="toggleProgressList(this)" class="btn btn-sm btn-ghost" data-expanded="false">
+                        Show All {{ classes_needing_scores|length }} Classes
+                        <i class="fa-solid fa-chevron-down ml-1"></i>
+                    </button>
+                </div>
+                {% endif %}
+
+                <!-- Desktop: Table Layout -->
+                <div class="hidden md:block overflow-x-auto max-h-[400px]" id="progress-list-desktop">
+                    <table class="table table-sm table-pin-rows">
+                        <thead>
+                            <tr class="text-xs uppercase text-base-content/60">
+                                <th>Class</th>
+                                <th class="text-center">Students</th>
+                                <th class="text-center">Assign.</th>
+                                <th class="text-center">Entered</th>
+                                <th class="text-center">Progress</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in classes_needing_scores %}
+                            <tr class="hover cursor-pointer progress-item-row"
+                                onclick="window.location.href='{% url 'gradebook:score_entry' %}?class={{ item.class.pk }}'"
+                                data-progress="{{ item.progress }}"
+                                data-status="{% if item.progress == 100 %}complete{% else %}pending{% endif %}">
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 rounded-lg
+                                            {% if item.progress == 100 %}bg-success/10
+                                            {% elif item.progress >= 50 %}bg-info/10
+                                            {% elif item.progress > 0 %}bg-warning/10
+                                            {% else %}bg-error/10{% endif %}
+                                            flex items-center justify-center">
+                                            <i class="fa-solid fa-chalkboard-user text-sm
+                                                {% if item.progress == 100 %}text-success
+                                                {% elif item.progress >= 50 %}text-info
+                                                {% elif item.progress > 0 %}text-warning
+                                                {% else %}text-error{% endif %}"></i>
+                                        </div>
+                                        <span class="font-medium">{{ item.class.name }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">{{ item.student_count }}</td>
+                                <td class="text-center">{{ item.assignments }}</td>
+                                <td class="text-center">
+                                    <span class="font-mono text-sm">{{ item.actual_scores }}/{{ item.expected_scores }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="flex items-center gap-2 justify-center">
+                                        <progress class="progress w-16 h-2
+                                            {% if item.progress == 100 %}progress-success
+                                            {% elif item.progress >= 50 %}progress-info
+                                            {% elif item.progress > 0 %}progress-warning
+                                            {% else %}progress-error{% endif %}"
+                                            value="{{ item.progress }}" max="100"></progress>
+                                        <span class="text-xs font-bold w-8
+                                            {% if item.progress == 100 %}text-success
+                                            {% elif item.progress >= 50 %}text-info
+                                            {% elif item.progress > 0 %}text-warning
+                                            {% else %}text-error{% endif %}">{{ item.progress }}%</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    {% if item.progress == 100 %}
+                                    <span class="badge badge-success badge-sm gap-1">
+                                        <i class="fa-solid fa-check"></i> Done
+                                    </span>
+                                    {% elif item.progress == 0 %}
+                                    <span class="badge badge-error badge-sm gap-1">
+                                        <i class="fa-solid fa-xmark"></i> None
+                                    </span>
+                                    {% else %}
+                                    <span class="badge badge-info badge-sm">
+                                        {{ item.remaining_scores }} left
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Summary Footer -->
+                <div class="flex items-center justify-between mt-4 pt-3 border-t border-base-200">
+                    <div class="flex items-center gap-4 text-xs">
+                        <span class="flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-success"></span>
+                            Complete
+                        </span>
+                        <span class="flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-info"></span>
+                            In Progress
+                        </span>
+                        <span class="flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-error"></span>
+                            Not Started
+                        </span>
+                    </div>
+                    <a href="{% url 'gradebook:score_entry' %}"
+                       hx-get="{% url 'gradebook:score_entry' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-primary btn-sm">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        Enter Scores
+                    </a>
+                </div>
+
+                <script>
+                (function() {
+                    // Count complete classes
+                    const items = document.querySelectorAll('[data-status]');
+                    let complete = 0;
+                    items.forEach(item => {
+                        if (item.dataset.status === 'complete') complete++;
+                    });
+                    const summaryEl = document.getElementById('progress-summary-complete');
+                    if (summaryEl) summaryEl.textContent = complete;
+                })();
+
+                function filterProgressList(filter) {
+                    const mobileItems = document.querySelectorAll('#progress-list-mobile .progress-item');
+                    const desktopItems = document.querySelectorAll('#progress-list-desktop .progress-item-row');
+                    const buttons = document.querySelectorAll('.progress-filter');
+                    let visibleCount = 0;
+
+                    buttons.forEach(btn => {
+                        btn.classList.remove('btn-primary');
+                        btn.classList.add('btn-ghost');
+                        if (btn.dataset.filter === filter) {
+                            btn.classList.remove('btn-ghost');
+                            btn.classList.add('btn-primary');
+                        }
+                    });
+
+                    [...mobileItems, ...desktopItems].forEach(item => {
+                        const status = item.dataset.status;
+                        const shouldShow = filter === 'all' || status === filter;
+
+                        if (item.classList.contains('progress-item')) {
+                            // Mobile item
+                            item.classList.toggle('hidden', !shouldShow);
+                        } else {
+                            // Desktop row
+                            item.style.display = shouldShow ? '' : 'none';
+                        }
+
+                        if (shouldShow) visibleCount++;
+                    });
+
+                    // Update visible count (divide by 2 since we count both mobile and desktop)
+                    document.getElementById('visible-count').textContent = Math.ceil(visibleCount / 2);
+
+                    // Hide show more button when filtering
+                    const showMoreBtn = document.getElementById('show-more-mobile');
+                    if (showMoreBtn) {
+                        showMoreBtn.style.display = filter === 'all' ? '' : 'none';
+                    }
+                }
+
+                function toggleProgressList(btn) {
+                    const container = document.getElementById('progress-list-mobile');
+                    const items = container.querySelectorAll('.progress-item');
+                    const isExpanded = btn.dataset.expanded === 'true';
+
+                    items.forEach((item, index) => {
+                        if (index > 5) {
+                            item.classList.toggle('hidden', isExpanded);
+                        }
+                    });
+
+                    btn.dataset.expanded = (!isExpanded).toString();
+                    if (isExpanded) {
+                        btn.innerHTML = 'Show All {{ classes_needing_scores|length }} Classes <i class="fa-solid fa-chevron-down ml-1"></i>';
+                    } else {
+                        btn.innerHTML = 'Show Less <i class="fa-solid fa-chevron-up ml-1"></i>';
+                    }
+                }
+                </script>
                 {% elif classes %}
                 <div class="text-center py-8">
                     <div class="w-16 h-16 rounded-full bg-info/10 flex items-center justify-center mx-auto mb-4">
@@ -405,8 +623,8 @@
                         {% for score in recent_scores %}
                         <div class="flex items-center gap-3">
                             <div class="avatar placeholder">
-                                <div class="bg-neutral text-neutral-content rounded-full w-8">
-                                    <span class="text-xs">{{ score.student.first_name.0 }}{{ score.student.last_name.0 }}</span>
+                                <div class="bg-neutral text-neutral-content rounded-full w-8 h-8 flex items-center justify-center">
+                                    <span class="text-xs font-medium">{{ score.student.first_name.0 }}{{ score.student.last_name.0 }}</span>
                                 </div>
                             </div>
                             <div class="flex-1 min-w-0">
