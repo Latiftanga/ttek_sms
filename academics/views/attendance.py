@@ -1280,7 +1280,6 @@ def weekly_attendance_register_pdf(request, pk):
 
     # Build days structure for the date range (weekdays only, max 31 days)
     report_days = []
-    current_date = date_from
     max_days = min((date_to - date_from).days + 1, 31)  # Limit to 31 days
 
     for i in range(max_days):

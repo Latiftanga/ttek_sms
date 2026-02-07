@@ -179,12 +179,6 @@ def teacher_detail(request, pk):
         class_subject__teacher=teacher
     ).count()
 
-    # Students in homeroom classes
-    homeroom_students = Student.objects.filter(
-        current_class__in=homeroom_classes,
-        status='active'
-    ).count()
-
     workload = {
         'classes_taught': classes_taught,
         'subjects_taught': subjects_taught,
