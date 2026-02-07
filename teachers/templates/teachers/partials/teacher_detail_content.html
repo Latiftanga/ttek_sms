@@ -284,29 +284,22 @@
                 {% include "teachers/partials/workload_stats.html" %}
             </div>
 
-            <!-- Homeroom Classes -->
-            {% if homeroom_classes %}
-            <div class="mb-6">
-                <h3 class="font-bold text-xs uppercase text-base-content/50 mb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-house-user text-primary"></i> Homeroom Classes
+            <!-- Classes & Assignments -->
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-xs uppercase text-base-content/50 flex items-center gap-2">
+                    <i class="fa-solid fa-chalkboard-user text-primary"></i> Classes
+                    {% if classes_list %}<span class="badge badge-xs badge-ghost">{{ classes_list|length }}</span>{% endif %}
                 </h3>
-                <div class="flex flex-wrap gap-2">
-                    {% for class in homeroom_classes %}
-                    <a href="{% url 'academics:class_detail' class.pk %}"
-                       hx-get="{% url 'academics:class_detail' class.pk %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="badge badge-lg badge-primary gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-                        <i class="fa-solid fa-chalkboard"></i>
-                        {{ class.name }}
-                    </a>
-                    {% endfor %}
-                </div>
+                <button class="btn btn-primary btn-sm"
+                        hx-get="{% url 'teachers:assign_lesson' teacher.pk %}"
+                        hx-target="#modal-container"
+                        onclick="modal_form.showModal()">
+                    <i class="fa-solid fa-plus"></i>
+                    <span class="hidden sm:inline">Assign</span>
+                </button>
             </div>
-            {% endif %}
 
-            <!-- Teaching Assignments -->
-            <div id="teaching-assignments-list">
+            <div class="space-y-2" id="teaching-assignments-list">
                 {% include "teachers/partials/teaching_assignments_list.html" %}
             </div>
         </div>
