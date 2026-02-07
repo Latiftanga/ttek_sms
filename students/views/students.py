@@ -3,6 +3,7 @@ import secrets
 import string
 
 from django.shortcuts import redirect, get_object_or_404, render
+from django.urls import reverse
 from django.http import HttpResponse
 from django.db import IntegrityError, transaction
 from django.db.models import Q
@@ -253,11 +254,14 @@ def student_delete(request, pk):
         return HttpResponse(status=405)
 
     student = get_object_or_404(Student, pk=pk)
+    student_name = student.full_name
     student.delete()
+
+    messages.success(request, f'Student "{student_name}" has been deleted.')
 
     if request.htmx:
         response = HttpResponse(status=200)
-        response['HX-Refresh'] = 'true'
+        response['HX-Redirect'] = reverse('students:index')
         return response
     return redirect('students:index')
 
