@@ -1,6 +1,7 @@
 """Attendance management views including taking attendance, reports, and exports."""
 import logging
 from datetime import timedelta, datetime
+from io import BytesIO
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -149,13 +150,18 @@ def class_attendance_take(request, pk):
             'status': records.get(student.id, 'P')  # Default to Present if new
         })
 
-    return render(request, 'academics/partials/modal_attendance_take.html', {
+    context = {
         'class': class_obj,
         'session': session,
         'student_list': student_list,
         'date': target_date,
         'is_lesson': False,
-    })
+    }
+
+    # Use partial for HTMX, full page for direct access/refresh
+    if request.htmx:
+        return render(request, 'academics/partials/modal_attendance_take.html', context)
+    return render(request, 'academics/class_attendance_take.html', context)
 
 
 @login_required
@@ -236,13 +242,18 @@ def class_attendance_edit(request, pk, session_pk):
             'status': records.get(student.id, 'P')
         })
 
-    return render(request, 'academics/partials/modal_attendance_take.html', {
+    context = {
         'class': class_obj,
         'session': session,
         'student_list': student_list,
         'date': session.date,
         'is_edit': True
-    })
+    }
+
+    # Use partial for HTMX, full page for direct access/refresh
+    if request.htmx:
+        return render(request, 'academics/partials/modal_attendance_take.html', context)
+    return render(request, 'academics/class_attendance_take.html', context)
 
 
 @admin_required
@@ -494,7 +505,7 @@ def take_lesson_attendance(request, timetable_entry_id):
 
     is_edit = not created and session.records.exists()
 
-    return render(request, 'academics/partials/modal_attendance_take.html', {
+    context = {
         'class': class_obj,
         'session': session,
         'student_list': student_list,
@@ -505,7 +516,12 @@ def take_lesson_attendance(request, timetable_entry_id):
         'subject': class_subject.subject,
         'period': entry.period,
         'timetable_entry_id': timetable_entry_id,
-    })
+    }
+
+    # Use partial for HTMX, full page for direct access/refresh
+    if request.htmx:
+        return render(request, 'academics/partials/modal_attendance_take.html', context)
+    return render(request, 'academics/class_attendance_take.html', context)
 
 
 @login_required
@@ -683,9 +699,19 @@ def attendance_reports(request):
             'has_today': cls.id in today_sessions,
         })
 
-    # Daily breakdown - use annotated queryset instead of N+1
-    daily_sessions = sessions.order_by('-date')[:20]
-    session_ids = [s.id for s in daily_sessions]
+    # Daily breakdown with pagination
+    from django.core.paginator import Paginator
+
+    history_page = request.GET.get('history_page', 1)
+    all_sessions = sessions.order_by('-date')
+    paginator = Paginator(all_sessions, 15)  # 15 sessions per page
+
+    try:
+        paginated_sessions = paginator.page(history_page)
+    except Exception:
+        paginated_sessions = paginator.page(1)
+
+    session_ids = [s.id for s in paginated_sessions]
 
     # Get stats per session in a single query
     session_stats = AttendanceRecord.objects.filter(
@@ -698,7 +724,7 @@ def attendance_reports(request):
     session_stats_dict = {s['session_id']: s for s in session_stats}
 
     daily_data = []
-    for session in daily_sessions:
+    for session in paginated_sessions:
         stats = session_stats_dict.get(session.id, {'total': 0, 'present': 0, 'absent': 0})
         s_total = stats['total']
         s_present = stats['present']
@@ -826,6 +852,18 @@ def attendance_reports(request):
         except (ValueError, TypeError):
             pass
 
+    # Get terms and academic years for PDF register modal
+    from core.models import Term, AcademicYear
+    terms = Term.objects.select_related('academic_year').order_by(
+        '-academic_year__start_date', '-term_number'
+    )
+    academic_years = AcademicYear.objects.order_by('-start_date')
+    current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
+
+    # Calculate done/pending counts for today's attendance
+    classes_done_today = sum(1 for item in class_summary if item['has_today'])
+    classes_pending_today = len(class_summary) - classes_done_today
+
     context = {
         'classes': classes,
         'class_filter': class_filter,
@@ -849,6 +887,12 @@ def attendance_reports(request):
         'students_with_consecutive_absences': students_with_consecutive_absences,
         'prev_period_rate': prev_period_rate,
         'rate_change': rate_change,
+        'terms': terms,
+        'academic_years': academic_years,
+        'current_term': current_term,
+        'classes_done_today': classes_done_today,
+        'classes_pending_today': classes_pending_today,
+        'history_page': paginated_sessions,
     }
 
     return htmx_render(
@@ -1171,3 +1215,198 @@ def notify_absent_parents(request):
         messages.warning(request, f"{failed_count} notification(s) failed to send.")
 
     return redirect('academics:attendance_reports')
+
+
+@login_required
+@admin_required
+def weekly_attendance_register_pdf(request, pk):
+    """
+    Generate a printable attendance register PDF for a class.
+    Used by schools for documentation and record-keeping.
+    Supports custom date ranges.
+    """
+    from django.template.loader import render_to_string
+    from django.conf import settings as django_settings
+    from gradebook.utils import get_school_context
+    from core.models import Term
+
+    class_obj = get_object_or_404(Class, pk=pk)
+    today = timezone.now().date()
+
+    # Get date range parameters
+    date_from_str = request.GET.get('date_from', '')
+    date_to_str = request.GET.get('date_to', '')
+    term_id = request.GET.get('term', '')
+
+    # If term is specified, use term dates
+    selected_term = None
+    if term_id:
+        try:
+            selected_term = Term.objects.select_related('academic_year').get(pk=term_id)
+            if not date_from_str:
+                date_from_str = selected_term.start_date.isoformat()
+            if not date_to_str:
+                date_to_str = selected_term.end_date.isoformat()
+        except Term.DoesNotExist:
+            pass
+
+    # Parse dates or default to current week
+    try:
+        date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date() if date_from_str else today - timedelta(days=today.weekday())
+    except ValueError:
+        date_from = today - timedelta(days=today.weekday())
+
+    try:
+        date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date() if date_to_str else date_from + timedelta(days=4)
+    except ValueError:
+        date_to = date_from + timedelta(days=4)
+
+    # Ensure date_from <= date_to
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+
+    # Get current term if not specified
+    current_term = selected_term or Term.objects.filter(is_current=True).select_related('academic_year').first()
+
+    # Get school context with branding
+    school_ctx = get_school_context(include_logo_base64=True)
+    school = school_ctx.get('school') or request.tenant
+
+    # Get students in this class
+    students = Student.objects.filter(
+        current_class=class_obj,
+        status='active'
+    ).order_by('last_name', 'first_name')
+
+    # Build days structure for the date range (weekdays only, max 31 days)
+    report_days = []
+    current_date = date_from
+    max_days = min((date_to - date_from).days + 1, 31)  # Limit to 31 days
+
+    for i in range(max_days):
+        day_date = date_from + timedelta(days=i)
+        if day_date > date_to:
+            break
+
+        # Skip weekends
+        if day_date.weekday() >= 5:
+            continue
+
+        day_name = day_date.strftime('%a')  # Mon, Tue, etc.
+
+        # Get attendance session for this day
+        session = AttendanceSession.objects.filter(
+            class_assigned=class_obj,
+            date=day_date,
+            session_type=AttendanceSession.SessionType.DAILY
+        ).first()
+
+        day_records = {}
+        present_count = 0
+        absent_count = 0
+        late_count = 0
+
+        if session:
+            records = AttendanceRecord.objects.filter(session=session)
+            for record in records:
+                day_records[record.student_id] = record.status
+                if record.status == 'P':
+                    present_count += 1
+                elif record.status == 'A':
+                    absent_count += 1
+                elif record.status == 'L':
+                    late_count += 1
+
+        report_days.append({
+            'name': day_name,
+            'date': day_date,
+            'records': day_records,
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'late_count': late_count,
+            'total_records': present_count + absent_count + late_count,
+        })
+
+    # Build student attendance data
+    student_data = []
+    totals = {
+        'present': 0,
+        'absent': 0,
+        'late': 0,
+        'total': 0,
+    }
+
+    for student in students:
+        daily_status = []
+        present_count = 0
+        absent_count = 0
+        late_count = 0
+
+        for day in report_days:
+            status = day['records'].get(student.id, '')
+            daily_status.append(status)
+
+            if status == 'P':
+                present_count += 1
+                totals['present'] += 1
+            elif status == 'A':
+                absent_count += 1
+                totals['absent'] += 1
+            elif status == 'L':
+                late_count += 1
+                totals['late'] += 1
+
+        totals['total'] += present_count + absent_count + late_count
+
+        student_data.append({
+            'obj': student,
+            'daily_status': daily_status,
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'late_count': late_count,
+        })
+
+    # Calculate attendance rate
+    totals['rate'] = round((totals['present'] + totals['late']) / totals['total'] * 100, 1) if totals['total'] > 0 else 0
+
+    # Calculate total expected sessions (days with attendance taken)
+    total_sessions = sum(1 for day in report_days if day['total_records'] > 0)
+
+    try:
+        from weasyprint import HTML
+
+        context = {
+            'class': class_obj,
+            'students': student_data,
+            'week_days': report_days,  # Keep template variable name for compatibility
+            'week_start': date_from,
+            'week_end': date_to,
+            'total_sessions': total_sessions,
+            'totals': totals,
+            'school': school,
+            'school_settings': school_ctx.get('school_settings'),
+            'logo_base64': school_ctx.get('logo_base64'),
+            'current_term': current_term,
+            'generated_at': timezone.now(),
+            'generated_by': request.user,
+        }
+
+        html_string = render_to_string('academics/attendance_register_pdf.html', context)
+        html = HTML(string=html_string, base_url=str(django_settings.BASE_DIR))
+        pdf_buffer = BytesIO()
+        html.write_pdf(pdf_buffer)
+        pdf_buffer.seek(0)
+
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        filename = f"{class_obj.name.replace(' ', '_')}_Attendance_{date_from.strftime('%Y%m%d')}-{date_to.strftime('%Y%m%d')}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    except ImportError:
+        logger.error("WeasyPrint not installed")
+        messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
+        return redirect('academics:attendance_reports')
+    except Exception as e:
+        logger.error(f"Error generating attendance PDF: {e}")
+        messages.error(request, f'Error generating PDF: {str(e)}')
+        return redirect('academics:attendance_reports')

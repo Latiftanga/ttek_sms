@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% load core_tags %}
+
+{% block title %}Take Attendance - {{ class.name }} - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "academics/partials/modal_attendance_take.html" %}
+{% endblock %}
