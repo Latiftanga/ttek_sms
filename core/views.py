@@ -2575,7 +2575,10 @@ def my_attendance(request):
     """Teacher's attendance dashboard - view and take attendance for assigned classes."""
     from django.db.models import Count, Q
     from datetime import timedelta
-    from academics.models import Class, ClassSubject, AttendanceSession, AttendanceRecord
+    from academics.models import (
+        Class, ClassSubject, AttendanceSession, AttendanceRecord,
+        TimetableEntry
+    )
 
     user = request.user
 
@@ -2657,6 +2660,52 @@ def my_attendance(request):
         ).values_list('class_assigned_id', flat=True)
     )
 
+    # Get today's timetable entries for the teacher (for per-lesson attendance)
+    today_weekday = today.weekday()
+    teacher_timetable_entries = TimetableEntry.objects.filter(
+        class_subject__teacher=teacher,
+        weekday=today_weekday,
+    ).select_related('class_subject__class_assigned', 'class_subject__subject', 'period').order_by('period__start_time')
+
+    # Get which lessons have attendance taken today (session_type='Lesson')
+    lessons_with_attendance = set(
+        AttendanceSession.objects.filter(
+            timetable_entry__in=teacher_timetable_entries,
+            date=today,
+            session_type='Lesson'
+        ).values_list('timetable_entry_id', flat=True)
+    )
+
+    # Build lessons list for per-lesson attendance classes
+    today_lessons = []
+    for entry in teacher_timetable_entries:
+        class_obj = entry.class_subject.class_assigned
+        if class_obj.attendance_type == Class.AttendanceType.PER_LESSON:
+            today_lessons.append({
+                'entry': entry,
+                'class': class_obj,
+                'subject': entry.class_subject.subject,
+                'period': entry.period,
+                'has_attendance': entry.id in lessons_with_attendance,
+            })
+
+    # Get form class for per-lesson attendance (where teacher is form master)
+    # This allows form masters to view reports even if they don't teach lessons
+    form_class = None
+    for cls in homeroom_classes:
+        if cls.attendance_type == Class.AttendanceType.PER_LESSON:
+            # Get stats for this class
+            cls_stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0})
+            cls_total = cls_stats['total']
+            cls_present = cls_stats['present']
+            cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
+            form_class = {
+                'class': cls,
+                'student_count': cls.students.filter(status='active').count(),
+                'rate': cls_rate,
+            }
+            break  # Only one form class per teacher
+
     # Build class summary without additional queries
     class_summary = []
     for cls in classes:
@@ -2665,6 +2714,9 @@ def my_attendance(request):
         cls_present = stats['present']
         cls_absent = stats['absent']
         cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
+
+        # Check if this is a per-lesson class
+        is_per_lesson = cls.attendance_type == Class.AttendanceType.PER_LESSON
 
         class_summary.append({
             'class': cls,
@@ -2675,6 +2727,7 @@ def my_attendance(request):
             'is_homeroom': cls.id in homeroom_ids,
             'has_today': cls.id in today_sessions,
             'student_count': cls.active_student_count,
+            'is_per_lesson': is_per_lesson,
         })
 
     # Base sessions queryset with filters
@@ -2708,6 +2761,20 @@ def my_attendance(request):
             'rate': round((session.present_records / session.total_records) * 100, 1) if session.total_records > 0 else 0,
         })
 
+    # Calculate today's completion stats
+    # For daily classes, count completed sessions
+    daily_classes = [c for c in class_summary if not c['is_per_lesson']]
+    daily_done = len([c for c in daily_classes if c['has_today']])
+    daily_pending = len(daily_classes) - daily_done
+
+    # For per-lesson classes, count completed lessons
+    lessons_done = len([lesson for lesson in today_lessons if lesson['has_attendance']])
+    lessons_pending = len(today_lessons) - lessons_done
+
+    # Combined stats
+    classes_done_today = daily_done
+    classes_pending_today = daily_pending
+
     context = {
         'teacher': teacher,
         'classes': classes,
@@ -2715,6 +2782,12 @@ def my_attendance(request):
         'date_from': date_from,
         'date_to': date_to,
         'today': today,
+        'classes_done_today': classes_done_today,
+        'classes_pending_today': classes_pending_today,
+        'lessons_done_today': lessons_done,
+        'lessons_pending_today': lessons_pending,
+        'today_lessons': today_lessons,
+        'form_class': form_class,
         'stats': {
             'total_sessions': total_sessions,
             'total_records': total_records,
