@@ -1,0 +1,81 @@
+{% load core_tags %}
+
+<div class="card-body p-4">
+    {% if activities %}
+    <div class="space-y-3">
+        {% for activity in activities %}
+        <div class="flex items-start gap-3 p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors group">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0
+                {% if activity.status == 'completed' %}bg-success/10 text-success
+                {% elif activity.status == 'in_progress' %}bg-info/10 text-info
+                {% elif activity.status == 'cancelled' %}bg-error/10 text-error
+                {% else %}bg-base-300 text-base-content/50{% endif %}">
+                {% if activity.activity_type == 'certification' %}<i class="fa-solid fa-certificate"></i>
+                {% elif activity.activity_type == 'course' %}<i class="fa-solid fa-book-open"></i>
+                {% elif activity.activity_type == 'workshop' %}<i class="fa-solid fa-screwdriver-wrench"></i>
+                {% elif activity.activity_type == 'conference' %}<i class="fa-solid fa-users"></i>
+                {% elif activity.activity_type == 'webinar' %}<i class="fa-solid fa-video"></i>
+                {% else %}<i class="fa-solid fa-graduation-cap"></i>{% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <div class="font-medium">{{ activity.title }}</div>
+                        <div class="text-xs text-base-content/60 flex flex-wrap items-center gap-2 mt-0.5">
+                            <span>{{ activity.get_activity_type_display }}</span>
+                            {% if activity.provider %}<span class="text-base-content/40">|</span><span>{{ activity.provider }}</span>{% endif %}
+                        </div>
+                    </div>
+                    <span class="badge badge-sm shrink-0
+                        {% if activity.status == 'completed' %}badge-success
+                        {% elif activity.status == 'in_progress' %}badge-info
+                        {% elif activity.status == 'cancelled' %}badge-error
+                        {% else %}badge-ghost{% endif %}">{{ activity.get_status_display }}</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-base-content/60">
+                    <span><i class="fa-regular fa-calendar mr-1"></i>{{ activity.duration_display }}</span>
+                    {% if activity.hours %}<span><i class="fa-regular fa-clock mr-1"></i>{{ activity.hours }} hrs</span>{% endif %}
+                    {% if activity.certificate_expiry %}
+                    <span class="{% if activity.is_certification_expired %}text-error{% elif activity.is_certification_expiring_soon %}text-warning{% endif %}">
+                        <i class="fa-solid fa-hourglass-end mr-1"></i>Expires {{ activity.certificate_expiry|date:"M Y" }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="btn btn-ghost btn-xs btn-square"
+                        hx-get="{% url 'core:my_pd_edit' activity.pk %}"
+                        hx-target="#modal-container"
+                        onclick="modal_form.showModal()">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                </button>
+                <form hx-post="{% url 'core:my_pd_delete' activity.pk %}"
+                      hx-target="#pd-content"
+                      hx-swap="innerHTML"
+                      hx-confirm="Delete '{{ activity.title }}'?">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-ghost btn-xs btn-square text-error">
+                        <i class="fa-solid fa-trash text-xs"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12 text-base-content/50">
+        <div class="w-20 h-20 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-graduation-cap text-3xl"></i>
+        </div>
+        <h3 class="font-semibold text-lg mb-2">No Activities Yet</h3>
+        <p class="text-sm mb-4">Start tracking your professional development activities</p>
+        <button class="btn btn-primary"
+                hx-get="{% url 'core:my_pd_create' %}"
+                hx-target="#modal-container"
+                onclick="modal_form.showModal()">
+            <i class="fa-solid fa-plus"></i>
+            Add First Activity
+        </button>
+    </div>
+    {% endif %}
+</div>

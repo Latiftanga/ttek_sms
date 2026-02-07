@@ -2578,6 +2578,34 @@ def my_workload(request):
 
 
 @login_required
+def my_pd(request):
+    """Teacher's professional development - imported from teachers app."""
+    from teachers.views.professional_development import my_pd as teacher_my_pd
+    return teacher_my_pd(request)
+
+
+@login_required
+def my_pd_create(request):
+    """Create new PD activity - imported from teachers app."""
+    from teachers.views.professional_development import my_pd_create as teacher_my_pd_create
+    return teacher_my_pd_create(request)
+
+
+@login_required
+def my_pd_edit(request, pd_pk):
+    """Edit PD activity - imported from teachers app."""
+    from teachers.views.professional_development import my_pd_edit as teacher_my_pd_edit
+    return teacher_my_pd_edit(request, pd_pk)
+
+
+@login_required
+def my_pd_delete(request, pd_pk):
+    """Delete PD activity - imported from teachers app."""
+    from teachers.views.professional_development import my_pd_delete as teacher_my_pd_delete
+    return teacher_my_pd_delete(request, pd_pk)
+
+
+@login_required
 def my_attendance(request):
     """Teacher's attendance dashboard - view and take attendance for assigned classes."""
     from django.db.models import Count, Q

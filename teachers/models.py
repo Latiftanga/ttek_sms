@@ -191,3 +191,113 @@ class TeacherInvitation(models.Model):
             return invitation if invitation.is_valid else None
         except cls.DoesNotExist:
             return None
+
+
+class ProfessionalDevelopment(models.Model):
+    """
+    Track teacher professional development activities:
+    workshops, courses, certifications, training, etc.
+    """
+
+    class ActivityType(models.TextChoices):
+        WORKSHOP = 'workshop', _('Workshop')
+        COURSE = 'course', _('Course')
+        CONFERENCE = 'conference', _('Conference')
+        CERTIFICATION = 'certification', _('Certification')
+        TRAINING = 'training', _('Training')
+        WEBINAR = 'webinar', _('Webinar')
+        SEMINAR = 'seminar', _('Seminar')
+        OTHER = 'other', _('Other')
+
+    class Status(models.TextChoices):
+        PLANNED = 'planned', _('Planned')
+        IN_PROGRESS = 'in_progress', _('In Progress')
+        COMPLETED = 'completed', _('Completed')
+        CANCELLED = 'cancelled', _('Cancelled')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name='pd_activities'
+    )
+    title = models.CharField(max_length=255, help_text="Name of the activity/course")
+    activity_type = models.CharField(
+        max_length=20,
+        choices=ActivityType.choices,
+        default=ActivityType.TRAINING
+    )
+    provider = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Institution or organization providing the training"
+    )
+    description = models.TextField(blank=True)
+
+    # Dates
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    hours = models.DecimalField(
+        max_digits=6,
+        decimal_places=1,
+        default=0,
+        help_text="CPD hours/credits earned"
+    )
+
+    # Status and certification
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PLANNED
+    )
+    certificate_number = models.CharField(max_length=100, blank=True)
+    certificate_expiry = models.DateField(
+        null=True,
+        blank=True,
+        help_text="When this certification expires (if applicable)"
+    )
+    certificate_file = models.FileField(
+        upload_to='pd_certificates/',
+        blank=True,
+        help_text="Upload certificate document"
+    )
+
+    # Metadata
+    notes = models.TextField(blank=True, help_text="Additional notes or learnings")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-start_date', '-created_at']
+        verbose_name = "Professional Development"
+        verbose_name_plural = "Professional Development Activities"
+        indexes = [
+            models.Index(fields=['teacher', 'status'], name='pd_teacher_status_idx'),
+            models.Index(fields=['start_date'], name='pd_start_date_idx'),
+            models.Index(fields=['certificate_expiry'], name='pd_cert_expiry_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.teacher.full_name}"
+
+    @property
+    def is_certification_expiring_soon(self):
+        """Check if certification expires within 90 days."""
+        if not self.certificate_expiry:
+            return False
+        days_until_expiry = (self.certificate_expiry - timezone.now().date()).days
+        return 0 < days_until_expiry <= 90
+
+    @property
+    def is_certification_expired(self):
+        """Check if certification has expired."""
+        if not self.certificate_expiry:
+            return False
+        return self.certificate_expiry < timezone.now().date()
+
+    @property
+    def duration_display(self):
+        """Return formatted duration."""
+        if self.end_date and self.end_date != self.start_date:
+            return f"{self.start_date.strftime('%b %d')} - {self.end_date.strftime('%b %d, %Y')}"
+        return self.start_date.strftime('%b %d, %Y')

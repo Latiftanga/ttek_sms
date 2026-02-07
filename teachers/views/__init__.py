@@ -44,6 +44,18 @@ from .analytics import (
     school_workload_overview,
 )
 
+# Professional Development views
+from .professional_development import (
+    pd_list,
+    pd_create,
+    pd_edit,
+    pd_delete,
+    my_pd,
+    my_pd_create,
+    my_pd_edit,
+    my_pd_delete,
+)
+
 __all__ = [
     # Teachers
     'index',
@@ -76,4 +88,13 @@ __all__ = [
     # Analytics
     'my_workload',
     'school_workload_overview',
+    # Professional Development
+    'pd_list',
+    'pd_create',
+    'pd_edit',
+    'pd_delete',
+    'my_pd',
+    'my_pd_create',
+    'my_pd_edit',
+    'my_pd_delete',
 ]
