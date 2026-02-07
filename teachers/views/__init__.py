@@ -38,6 +38,12 @@ from .bulk_import import (
     bulk_export,
 )
 
+# Analytics views
+from .analytics import (
+    my_workload,
+    school_workload_overview,
+)
+
 __all__ = [
     # Teachers
     'index',
@@ -67,4 +73,7 @@ __all__ = [
     'bulk_import_confirm',
     'bulk_import_template',
     'bulk_export',
+    # Analytics
+    'my_workload',
+    'school_workload_overview',
 ]

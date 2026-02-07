@@ -1,3 +1,5 @@
+{% load core_tags %}
+
 <!-- Compact Stats Row -->
 <div class="flex flex-wrap gap-4 mb-4 text-sm">
     <div class="flex items-center gap-2">
@@ -57,6 +59,7 @@
         <span class="text-[10px] text-base-content/50">{{ school_averages.teacher_count }} teachers</span>
     </div>
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <!-- Classes -->
         <div>
             <div class="flex items-center justify-between text-[10px] mb-1">
                 <span class="text-base-content/60">Classes</span>
@@ -67,6 +70,7 @@
                      style="width: min({{ comparisons.classes }}%, 100%)"></div>
             </div>
         </div>
+        <!-- Subjects -->
         <div>
             <div class="flex items-center justify-between text-[10px] mb-1">
                 <span class="text-base-content/60">Subjects</span>
@@ -77,6 +81,7 @@
                      style="width: min({{ comparisons.subjects }}%, 100%)"></div>
             </div>
         </div>
+        <!-- Periods -->
         <div>
             <div class="flex items-center justify-between text-[10px] mb-1">
                 <span class="text-base-content/60">Periods</span>
@@ -87,6 +92,7 @@
                      style="width: min({{ comparisons.periods }}%, 100%)"></div>
             </div>
         </div>
+        <!-- Students -->
         <div>
             <div class="flex items-center justify-between text-[10px] mb-1">
                 <span class="text-base-content/60">Students</span>
@@ -98,5 +104,56 @@
             </div>
         </div>
     </div>
+    <div class="flex items-center gap-4 mt-2 text-[10px] text-base-content/50">
+        <span><span class="inline-block w-2 h-2 rounded-full bg-success mr-1"></span>Normal</span>
+        <span><span class="inline-block w-2 h-2 rounded-full bg-warning mr-1"></span>Above avg</span>
+        <span><span class="inline-block w-2 h-2 rounded-full bg-info mr-1"></span>Below avg</span>
+    </div>
+</div>
+{% endif %}
+
+<!-- Class Breakdown -->
+{% if class_breakdown %}
+<div class="overflow-x-auto">
+    <table class="table table-xs">
+        <thead>
+            <tr class="text-[10px] uppercase text-base-content/50">
+                <th>Class</th>
+                <th>Subjects</th>
+                <th class="text-center w-16">Students</th>
+                <th class="text-center w-16">Periods</th>
+            </tr>
+        </thead>
+        <tbody class="text-sm">
+            {% for item in class_breakdown %}
+            <tr class="hover:bg-base-200/30">
+                <td class="py-2">
+                    <a href="{% url 'academics:class_detail' item.class.pk %}"
+                       hx-get="{% url 'academics:class_detail' item.class.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="link link-hover font-medium text-sm">
+                        {{ item.class.name }}
+                        {% if item.is_homeroom %}<i class="fa-solid fa-star text-warning text-[10px] ml-1" title="Homeroom"></i>{% endif %}
+                    </a>
+                </td>
+                <td class="py-2">
+                    <div class="flex flex-wrap gap-1">
+                        {% for subject in item.subjects %}
+                        <span class="text-xs text-base-content/70">{{ subject.short_name|default:subject.name }}{% if not forloop.last %},{% endif %}</span>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td class="text-center py-2 text-base-content/70">{{ item.student_count }}</td>
+                <td class="text-center py-2 text-base-content/70">{{ item.periods }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-6 text-base-content/50">
+    <i class="fa-solid fa-chalkboard-user text-2xl mb-2"></i>
+    <p class="text-sm">No classes assigned</p>
 </div>
 {% endif %}
