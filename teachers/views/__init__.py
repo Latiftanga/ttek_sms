@@ -56,6 +56,19 @@ from .professional_development import (
     my_pd_delete,
 )
 
+# Document management views
+from .documents import (
+    document_list,
+    document_create,
+    document_edit,
+    document_delete,
+    document_verify,
+    my_documents,
+    my_documents_create,
+    my_documents_edit,
+    my_documents_delete,
+)
+
 __all__ = [
     # Teachers
     'index',
@@ -97,4 +110,14 @@ __all__ = [
     'my_pd_create',
     'my_pd_edit',
     'my_pd_delete',
+    # Documents
+    'document_list',
+    'document_create',
+    'document_edit',
+    'document_delete',
+    'document_verify',
+    'my_documents',
+    'my_documents_create',
+    'my_documents_edit',
+    'my_documents_delete',
 ]

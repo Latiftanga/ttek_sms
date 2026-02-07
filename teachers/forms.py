@@ -1,7 +1,7 @@
 import re
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from .models import Teacher, ProfessionalDevelopment
+from .models import Teacher, ProfessionalDevelopment, TeacherDocument
 
 
 def validate_phone_number(phone):
@@ -90,3 +90,34 @@ class ProfessionalDevelopmentForm(forms.ModelForm):
             raise forms.ValidationError(_("End date cannot be before start date."))
 
         return cleaned_data
+
+
+class TeacherDocumentForm(forms.ModelForm):
+    """Form for uploading/editing teacher documents."""
+
+    class Meta:
+        model = TeacherDocument
+        fields = [
+            'title', 'document_type', 'file', 'description',
+            'issue_date', 'expiry_date'
+        ]
+        widgets = {
+            'issue_date': forms.DateInput(attrs={'type': 'date'}),
+            'expiry_date': forms.DateInput(attrs={'type': 'date'}),
+            'description': forms.Textarea(attrs={'rows': 2}),
+        }
+
+    def clean_file(self):
+        file = self.cleaned_data.get('file')
+        if file:
+            # Check file size (max 10MB)
+            if file.size > 10 * 1024 * 1024:
+                raise forms.ValidationError(_("File size must be under 10MB."))
+            # Check file extension
+            ext = file.name.split('.')[-1].lower()
+            allowed_extensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']
+            if ext not in allowed_extensions:
+                raise forms.ValidationError(
+                    _("File type not allowed. Accepted: PDF, JPG, PNG, DOC, DOCX")
+                )
+        return file

@@ -2606,6 +2606,34 @@ def my_pd_delete(request, pd_pk):
 
 
 @login_required
+def my_documents(request):
+    """View documents - imported from teachers app."""
+    from teachers.views.documents import my_documents as teacher_my_documents
+    return teacher_my_documents(request)
+
+
+@login_required
+def my_documents_create(request):
+    """Upload document - imported from teachers app."""
+    from teachers.views.documents import my_documents_create as teacher_my_documents_create
+    return teacher_my_documents_create(request)
+
+
+@login_required
+def my_documents_edit(request, doc_pk):
+    """Edit document - imported from teachers app."""
+    from teachers.views.documents import my_documents_edit as teacher_my_documents_edit
+    return teacher_my_documents_edit(request, doc_pk)
+
+
+@login_required
+def my_documents_delete(request, doc_pk):
+    """Delete document - imported from teachers app."""
+    from teachers.views.documents import my_documents_delete as teacher_my_documents_delete
+    return teacher_my_documents_delete(request, doc_pk)
+
+
+@login_required
 def my_attendance(request):
     """Teacher's attendance dashboard - view and take attendance for assigned classes."""
     from django.db.models import Count, Q

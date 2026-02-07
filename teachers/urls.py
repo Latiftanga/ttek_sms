@@ -40,4 +40,11 @@ urlpatterns = [
     path('<uuid:pk>/pd/create/', views.pd_create, name='pd_create'),
     path('<uuid:pk>/pd/<uuid:pd_pk>/edit/', views.pd_edit, name='pd_edit'),
     path('<uuid:pk>/pd/<uuid:pd_pk>/delete/', views.pd_delete, name='pd_delete'),
+
+    # Document management routes
+    path('<uuid:pk>/documents/', views.document_list, name='document_list'),
+    path('<uuid:pk>/documents/create/', views.document_create, name='document_create'),
+    path('<uuid:pk>/documents/<uuid:doc_pk>/edit/', views.document_edit, name='document_edit'),
+    path('<uuid:pk>/documents/<uuid:doc_pk>/delete/', views.document_delete, name='document_delete'),
+    path('<uuid:pk>/documents/<uuid:doc_pk>/verify/', views.document_verify, name='document_verify'),
 ]
