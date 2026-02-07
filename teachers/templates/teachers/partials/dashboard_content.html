@@ -539,6 +539,21 @@
                         </div>
                         <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
+
+                    <a href="{% url 'core:my_pd' %}"
+                       hx-get="{% url 'core:my_pd' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="flex items-center gap-3 p-3 rounded-xl bg-accent/5 hover:bg-accent/10 border border-accent/10 hover:border-accent/20 transition-all group">
+                        <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-graduation-cap text-accent"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium">My Development</div>
+                            <div class="text-xs text-base-content/50">CPD & certifications</div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
+                    </a>
                 </div>
             </div>
         </div>
