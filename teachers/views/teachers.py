@@ -10,7 +10,6 @@ from teachers.forms import TeacherForm
 from academics.models import Class, ClassSubject, TimetableEntry
 from students.models import Student
 from .utils import admin_required, htmx_render
-from .analytics import calculate_school_averages
 
 
 @admin_required
@@ -191,24 +190,6 @@ def teacher_detail(request, pk):
         'subjects_taught': subjects_taught,
         'total_students': total_students,
         'periods_per_week': periods_per_week,
-        'homeroom_classes': homeroom_classes.count(),
-        'homeroom_students': homeroom_students,
-    }
-
-    # School averages for comparison
-    school_averages = calculate_school_averages()
-
-    # Calculate comparison percentages
-    def calc_comparison(value, avg):
-        if avg == 0:
-            return 100 if value > 0 else 0
-        return round((value / avg) * 100)
-
-    comparisons = {
-        'classes': calc_comparison(classes_taught, school_averages['avg_classes']),
-        'subjects': calc_comparison(subjects_taught, school_averages['avg_subjects']),
-        'periods': calc_comparison(periods_per_week, school_averages['avg_periods']),
-        'students': calc_comparison(total_students, school_averages['avg_students']),
     }
 
     # Get pending invitation if teacher has no account
@@ -219,6 +200,24 @@ def teacher_detail(request, pk):
             status=TeacherInvitation.Status.PENDING
         ).first()
 
+    # Group assignments by class for cleaner display
+    homeroom_ids = set(homeroom_classes.values_list('id', flat=True))
+    classes_grouped = {}
+    for assignment in subject_assignments:
+        cls = assignment.class_assigned
+        if cls.id not in classes_grouped:
+            classes_grouped[cls.id] = {
+                'class': cls,
+                'is_homeroom': cls.id in homeroom_ids,
+                'subjects': [],
+                'assignments': [],
+            }
+        classes_grouped[cls.id]['subjects'].append(assignment.subject)
+        classes_grouped[cls.id]['assignments'].append(assignment)
+
+    # Sort by class name
+    classes_list = sorted(classes_grouped.values(), key=lambda x: x['class'].name)
+
     return htmx_render(
         request,
         'teachers/teacher_detail.html',
@@ -227,9 +226,8 @@ def teacher_detail(request, pk):
             'teacher': teacher,
             'homeroom_classes': homeroom_classes,
             'subject_assignments': subject_assignments,
+            'classes_list': classes_list,
             'workload': workload,
-            'school_averages': school_averages,
-            'comparisons': comparisons,
             'pending_invitation': pending_invitation,
             # Navigation
             'breadcrumbs': [
@@ -428,31 +426,30 @@ def get_teacher_assignments_context(teacher):
         'subjects_taught': subjects_taught,
         'total_students': total_students,
         'periods_per_week': periods_per_week,
-        'homeroom_classes': homeroom_classes.count(),
     }
 
-    # School averages for comparison
-    school_averages = calculate_school_averages()
+    # Group assignments by class
+    homeroom_ids = set(homeroom_classes.values_list('id', flat=True))
+    classes_grouped = {}
+    for assignment in subject_assignments:
+        cls = assignment.class_assigned
+        if cls.id not in classes_grouped:
+            classes_grouped[cls.id] = {
+                'class': cls,
+                'is_homeroom': cls.id in homeroom_ids,
+                'subjects': [],
+                'assignments': [],
+            }
+        classes_grouped[cls.id]['subjects'].append(assignment.subject)
+        classes_grouped[cls.id]['assignments'].append(assignment)
 
-    # Calculate comparison percentages
-    def calc_comparison(value, avg):
-        if avg == 0:
-            return 100 if value > 0 else 0
-        return round((value / avg) * 100)
-
-    comparisons = {
-        'classes': calc_comparison(classes_taught, school_averages['avg_classes']),
-        'subjects': calc_comparison(subjects_taught, school_averages['avg_subjects']),
-        'periods': calc_comparison(periods_per_week, school_averages['avg_periods']),
-        'students': calc_comparison(total_students, school_averages['avg_students']),
-    }
+    classes_list = sorted(classes_grouped.values(), key=lambda x: x['class'].name)
 
     return {
         'teacher': teacher,
         'subject_assignments': subject_assignments,
+        'classes_list': classes_list,
         'workload': workload,
-        'school_averages': school_averages,
-        'comparisons': comparisons,
     }
 
 

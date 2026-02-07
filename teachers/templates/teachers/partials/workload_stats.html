@@ -1,102 +1,39 @@
-<!-- Compact Stats Row -->
-<div class="flex flex-wrap gap-4 mb-4 text-sm">
-    <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <i class="fa-solid fa-chalkboard text-primary text-xs"></i>
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+    <div class="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <i class="fa-solid fa-chalkboard text-primary"></i>
         </div>
         <div>
-            <div class="font-bold text-lg leading-none">{{ workload.classes_taught }}</div>
-            <div class="text-[10px] text-base-content/50 uppercase">Classes</div>
+            <div class="font-bold text-xl leading-none">{{ workload.classes_taught }}</div>
+            <div class="text-xs text-base-content/50">Classes</div>
         </div>
     </div>
-    <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center">
-            <i class="fa-solid fa-book text-secondary text-xs"></i>
+    <div class="flex items-center gap-3 p-3 rounded-xl bg-secondary/5 border border-secondary/10">
+        <div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+            <i class="fa-solid fa-book text-secondary"></i>
         </div>
         <div>
-            <div class="font-bold text-lg leading-none">{{ workload.subjects_taught }}</div>
-            <div class="text-[10px] text-base-content/50 uppercase">Subjects</div>
+            <div class="font-bold text-xl leading-none">{{ workload.subjects_taught }}</div>
+            <div class="text-xs text-base-content/50">Subjects</div>
         </div>
     </div>
-    <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-            <i class="fa-solid fa-users text-accent text-xs"></i>
+    <div class="flex items-center gap-3 p-3 rounded-xl bg-accent/5 border border-accent/10">
+        <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+            <i class="fa-solid fa-users text-accent"></i>
         </div>
         <div>
-            <div class="font-bold text-lg leading-none">{{ workload.total_students }}</div>
-            <div class="text-[10px] text-base-content/50 uppercase">Students</div>
+            <div class="font-bold text-xl leading-none">{{ workload.total_students }}</div>
+            <div class="text-xs text-base-content/50">Students</div>
         </div>
     </div>
-    <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
-            <i class="fa-solid fa-clock text-info text-xs"></i>
+    <div class="flex items-center gap-3 p-3 rounded-xl bg-info/5 border border-info/10">
+        <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+            <i class="fa-solid fa-clock text-info"></i>
         </div>
         <div>
-            <div class="font-bold text-lg leading-none">{{ workload.periods_per_week }}</div>
-            <div class="text-[10px] text-base-content/50 uppercase">Periods/Wk</div>
-        </div>
-    </div>
-    {% if workload.homeroom_classes > 0 %}
-    <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
-            <i class="fa-solid fa-house-user text-success text-xs"></i>
-        </div>
-        <div>
-            <div class="font-bold text-lg leading-none">{{ workload.homeroom_classes }}</div>
-            <div class="text-[10px] text-base-content/50 uppercase">Homeroom</div>
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-{% if school_averages.teacher_count > 0 %}
-<!-- Comparison Bars -->
-<div class="bg-base-200/30 rounded-lg p-3 mb-4">
-    <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-medium text-base-content/70">vs School Average</span>
-        <span class="text-[10px] text-base-content/50">{{ school_averages.teacher_count }} teachers</span>
-    </div>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-            <div class="flex items-center justify-between text-[10px] mb-1">
-                <span class="text-base-content/60">Classes</span>
-                <span class="font-medium">{{ workload.classes_taught }}<span class="text-base-content/40">/{{ school_averages.avg_classes }}</span></span>
-            </div>
-            <div class="h-1.5 bg-base-300 rounded-full overflow-hidden">
-                <div class="h-full rounded-full transition-all {% if comparisons.classes > 120 %}bg-warning{% elif comparisons.classes < 80 %}bg-info{% else %}bg-success{% endif %}"
-                     style="width: min({{ comparisons.classes }}%, 100%)"></div>
-            </div>
-        </div>
-        <div>
-            <div class="flex items-center justify-between text-[10px] mb-1">
-                <span class="text-base-content/60">Subjects</span>
-                <span class="font-medium">{{ workload.subjects_taught }}<span class="text-base-content/40">/{{ school_averages.avg_subjects }}</span></span>
-            </div>
-            <div class="h-1.5 bg-base-300 rounded-full overflow-hidden">
-                <div class="h-full rounded-full transition-all {% if comparisons.subjects > 120 %}bg-warning{% elif comparisons.subjects < 80 %}bg-info{% else %}bg-success{% endif %}"
-                     style="width: min({{ comparisons.subjects }}%, 100%)"></div>
-            </div>
-        </div>
-        <div>
-            <div class="flex items-center justify-between text-[10px] mb-1">
-                <span class="text-base-content/60">Periods</span>
-                <span class="font-medium">{{ workload.periods_per_week }}<span class="text-base-content/40">/{{ school_averages.avg_periods }}</span></span>
-            </div>
-            <div class="h-1.5 bg-base-300 rounded-full overflow-hidden">
-                <div class="h-full rounded-full transition-all {% if comparisons.periods > 120 %}bg-warning{% elif comparisons.periods < 80 %}bg-info{% else %}bg-success{% endif %}"
-                     style="width: min({{ comparisons.periods }}%, 100%)"></div>
-            </div>
-        </div>
-        <div>
-            <div class="flex items-center justify-between text-[10px] mb-1">
-                <span class="text-base-content/60">Students</span>
-                <span class="font-medium">{{ workload.total_students }}<span class="text-base-content/40">/{{ school_averages.avg_students }}</span></span>
-            </div>
-            <div class="h-1.5 bg-base-300 rounded-full overflow-hidden">
-                <div class="h-full rounded-full transition-all {% if comparisons.students > 120 %}bg-warning{% elif comparisons.students < 80 %}bg-info{% else %}bg-success{% endif %}"
-                     style="width: min({{ comparisons.students }}%, 100%)"></div>
-            </div>
+            <div class="font-bold text-xl leading-none">{{ workload.periods_per_week }}</div>
+            <div class="text-xs text-base-content/50">Periods/Wk</div>
         </div>
     </div>
 </div>
-{% endif %}
