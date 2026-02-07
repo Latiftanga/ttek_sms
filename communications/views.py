@@ -2,6 +2,7 @@ from functools import wraps
 from io import BytesIO
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages as django_messages
 from django.core.paginator import Paginator
@@ -704,11 +705,14 @@ def template_delete(request, pk):
         return HttpResponse(status=405)
 
     template = get_object_or_404(SMSTemplate, pk=pk)
+    template_name = template.name
     template.delete()
 
+    django_messages.success(request, f'Template "{template_name}" has been deleted.')
+
     if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
+        response = HttpResponse(status=200)
+        response['HX-Redirect'] = reverse('communications:templates')
         return response
 
     return redirect('communications:templates')

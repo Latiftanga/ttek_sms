@@ -8,6 +8,7 @@ from io import BytesIO
 import pandas as pd
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, FileResponse
 from django.utils import timezone
@@ -75,8 +76,17 @@ def classes_list(request):
 
     # Build subtitle - cache total_students to avoid querying twice
     total_classes = paginator.count
-    total_students = Student.objects.filter(status='active').count()
     all_classes_count = Class.objects.count()
+
+    # Calculate comprehensive stats
+    all_classes_for_stats = Class.objects.annotate(
+        student_count=Count('students', filter=models.Q(students__status='active'))
+    )
+    total_students = sum(c.student_count for c in all_classes_for_stats)
+    total_capacity = sum(c.capacity for c in all_classes_for_stats)
+    classes_with_teacher = all_classes_for_stats.filter(class_teacher__isnull=False).count()
+    fill_rate = round((total_students / total_capacity * 100), 1) if total_capacity > 0 else 0
+
     subtitle = f"{total_classes} class{'es' if total_classes != 1 else ''} • {total_students} student{'s' if total_students != 1 else ''}"
     if search or level_filter:
         subtitle += " (filtered)"
@@ -112,6 +122,9 @@ def classes_list(request):
         'stats': {
             'total_classes': all_classes_count,
             'total_students': total_students,
+            'total_capacity': total_capacity,
+            'fill_rate': fill_rate,
+            'classes_with_teacher': classes_with_teacher,
         },
         'class_form': ClassForm(),
         # Navigation
@@ -206,11 +219,14 @@ def class_delete(request, pk):
         return HttpResponse(status=405)
 
     cls = get_object_or_404(Class, pk=pk)
+    class_name = cls.name
     cls.delete()
 
+    messages.success(request, f'Class "{class_name}" has been deleted.')
+
     if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
+        response = HttpResponse(status=200)
+        response['HX-Redirect'] = reverse('academics:classes')
         return response
     return redirect('academics:classes')
 

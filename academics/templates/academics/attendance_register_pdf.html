@@ -1,0 +1,531 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Attendance Register - {{ class.name }} - {{ week_start|date:"M j" }} to {{ week_end|date:"M j, Y" }}</title>
+    <style>
+        :root {
+            --primary: {{ school.primary_color|default:"#4F46E5" }};
+            --secondary: {{ school.secondary_color|default:"#7C3AED" }};
+            --accent: {{ school.accent_color|default:"#F59E0B" }};
+        }
+
+        @page {
+            size: A4 landscape;
+            margin: 1cm;
+            @bottom-center {
+                content: "Page " counter(page) " of " counter(pages);
+                font-family: 'Helvetica', sans-serif;
+                font-size: 8pt;
+                color: #666;
+            }
+        }
+
+        body {
+            font-family: 'Helvetica', sans-serif;
+            font-size: 9pt;
+            line-height: 1.3;
+            color: #333;
+        }
+
+        /* Header Branding */
+        .header {
+            margin-bottom: 1rem;
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 0.5rem;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .school-info h1 {
+            margin: 0;
+            font-size: 14pt;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .school-info p {
+            margin: 2px 0;
+            font-size: 8pt;
+            color: #666;
+        }
+
+        .school-info .motto {
+            font-style: italic;
+            color: var(--secondary);
+        }
+
+        /* Document Title */
+        .doc-title {
+            text-align: center;
+            margin-bottom: 0.75rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+        }
+
+        .doc-title h2 {
+            font-size: 13pt;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .doc-title p {
+            margin: 5px 0 0 0;
+            font-size: 10pt;
+            opacity: 0.95;
+        }
+
+        /* Meta Info */
+        .meta-info {
+            display: table;
+            width: 100%;
+            margin-bottom: 0.75rem;
+            font-size: 9pt;
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 6px 0;
+        }
+
+        .meta-row {
+            display: table-row;
+        }
+
+        .meta-cell {
+            display: table-cell;
+            padding: 3px 10px;
+        }
+
+        .meta-label {
+            font-weight: bold;
+            color: var(--primary);
+            width: 110px;
+        }
+
+        /* Attendance Table */
+        .attendance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+            border: 2px solid var(--primary);
+        }
+
+        .attendance-table th,
+        .attendance-table td {
+            border: 1px solid #ccc;
+            padding: 5px 6px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .attendance-table thead th {
+            background: var(--primary);
+            color: white;
+            font-size: 8pt;
+            text-transform: uppercase;
+            font-weight: bold;
+            border-color: var(--primary);
+        }
+
+        .attendance-table thead th.day-header {
+            width: 70px;
+            background: linear-gradient(180deg, var(--primary), var(--secondary));
+        }
+
+        .attendance-table thead th.day-header .day-name {
+            font-size: 9pt;
+            font-weight: bold;
+        }
+
+        .attendance-table thead th.day-header .day-date {
+            font-size: 7pt;
+            font-weight: normal;
+            opacity: 0.9;
+        }
+
+        .attendance-table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .attendance-table td.sn {
+            width: 28px;
+            font-weight: bold;
+            background-color: #f3f4f6;
+            color: var(--primary);
+        }
+
+        .attendance-table td.name {
+            text-align: left;
+            white-space: nowrap;
+            font-size: 8pt;
+            padding-left: 8px;
+        }
+
+        .attendance-table td.adm-no {
+            font-family: monospace;
+            font-size: 7pt;
+            color: #666;
+            width: 85px;
+        }
+
+        .attendance-table td.status-cell {
+            width: 70px;
+            height: 22px;
+            font-size: 11pt;
+            font-weight: bold;
+        }
+
+        .status-present {
+            color: #16a34a;
+        }
+
+        .status-absent {
+            color: #dc2626;
+            background-color: #fef2f2 !important;
+        }
+
+        .status-late {
+            color: #ca8a04;
+            background-color: #fefce8 !important;
+        }
+
+        .status-empty {
+            color: #d1d5db;
+        }
+
+        .attendance-table td.total-cell {
+            width: 35px;
+            font-weight: bold;
+            background-color: #f3f4f6;
+            font-size: 9pt;
+        }
+
+        .total-present { color: #16a34a; }
+        .total-absent { color: #dc2626; }
+        .total-late { color: #ca8a04; }
+
+        .attendance-table tfoot td {
+            background-color: var(--primary) !important;
+            color: white !important;
+            font-weight: bold;
+            border-color: var(--primary);
+        }
+
+        .attendance-table tfoot .day-total {
+            font-size: 8pt;
+        }
+
+        .attendance-table tfoot .day-total .present { color: #86efac; }
+        .attendance-table tfoot .day-total .absent { color: #fca5a5; }
+
+        /* Legend */
+        .legend {
+            margin-top: 0.75rem;
+            padding: 8px 12px;
+            background: linear-gradient(90deg, #f8f9fa, #fff);
+            border-left: 4px solid var(--accent);
+            border-radius: 0 4px 4px 0;
+            font-size: 8pt;
+        }
+
+        .legend-title {
+            font-weight: bold;
+            color: var(--primary);
+            margin-right: 15px;
+        }
+
+        .legend-item {
+            display: inline-block;
+            margin-right: 18px;
+        }
+
+        .legend-symbol {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            text-align: center;
+            line-height: 18px;
+            font-weight: bold;
+            margin-right: 4px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 9pt;
+        }
+
+        /* Summary Section */
+        .summary-section {
+            margin-top: 1rem;
+            page-break-inside: avoid;
+        }
+
+        .summary-title {
+            font-size: 10pt;
+            margin-bottom: 8px;
+            color: var(--primary);
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 4px;
+            display: inline-block;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 2px solid var(--primary);
+        }
+
+        .summary-table th,
+        .summary-table td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: center;
+        }
+
+        .summary-table th {
+            background: var(--primary);
+            color: white;
+            font-size: 8pt;
+            text-transform: uppercase;
+        }
+
+        .summary-table td {
+            font-size: 12pt;
+            font-weight: bold;
+        }
+
+        .summary-table .rate-cell {
+            font-size: 14pt;
+        }
+
+        /* Signatures */
+        .signatures {
+            margin-top: 1.5rem;
+            display: table;
+            width: 100%;
+        }
+
+        .signature-box {
+            display: table-cell;
+            width: 33%;
+            padding: 10px 15px;
+            text-align: center;
+        }
+
+        .signature-line {
+            border-bottom: 2px solid var(--primary);
+            height: 35px;
+            margin-bottom: 6px;
+        }
+
+        .signature-label {
+            font-size: 8pt;
+            color: #666;
+            font-weight: bold;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 1rem;
+            font-size: 7pt;
+            color: #888;
+            text-align: center;
+            border-top: 1px solid #eee;
+            padding-top: 0.5rem;
+        }
+
+        .footer .brand {
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        /* Print helpers */
+        @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <table style="width: 100%; border: none;">
+            <tr>
+                {% if logo_base64 %}
+                <td style="width: 70px; border: none; vertical-align: top;">
+                    <img src="{{ logo_base64 }}" class="logo" alt="School Logo">
+                </td>
+                {% endif %}
+                <td style="border: none; vertical-align: top;">
+                    <div class="school-info">
+                        <h1>{{ school.name|default:school_settings.display_name }}</h1>
+                        {% if school.motto %}
+                        <p class="motto">"{{ school.motto }}"</p>
+                        {% endif %}
+                        {% if school.address %}
+                        <p>{{ school.address }}</p>
+                        {% endif %}
+                        {% if school.phone or school.email %}
+                        <p>
+                            {% if school.phone %}<strong>Tel:</strong> {{ school.phone }}{% endif %}
+                            {% if school.phone and school.email %} | {% endif %}
+                            {% if school.email %}<strong>Email:</strong> {{ school.email }}{% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+                </td>
+                <td style="width: 180px; border: none; text-align: right; vertical-align: top; font-size: 8pt;">
+                    <div style="background: #f8f9fa; padding: 8px; border-radius: 4px;">
+                        <strong style="color: {{ school.primary_color|default:'#4F46E5' }};">Term:</strong> {{ current_term.name|default:"N/A" }}<br>
+                        <strong style="color: {{ school.primary_color|default:'#4F46E5' }};">Year:</strong> {{ current_term.academic_year.name|default:"N/A" }}<br>
+                        <strong style="color: {{ school.primary_color|default:'#4F46E5' }};">Printed:</strong> {{ generated_at|date:"M j, Y" }}
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Title -->
+    <div class="doc-title">
+        <h2>Attendance Register</h2>
+        <p>{{ class.name }} &bull; {{ week_start|date:"M j" }} - {{ week_end|date:"M j, Y" }}</p>
+    </div>
+
+    <!-- Meta Info -->
+    <div class="meta-info">
+        <div class="meta-row">
+            <div class="meta-cell meta-label">Class Teacher:</div>
+            <div class="meta-cell">{{ class.class_teacher.full_name|default:"Not Assigned" }}</div>
+            <div class="meta-cell meta-label">Total Students:</div>
+            <div class="meta-cell">{{ students|length }}</div>
+            <div class="meta-cell meta-label">Sessions Recorded:</div>
+            <div class="meta-cell">{{ total_sessions }}</div>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <table class="attendance-table">
+        <thead>
+            <tr>
+                <th style="width: 28px;">S/N</th>
+                <th style="width: 85px;">Adm. No</th>
+                <th style="text-align: left; min-width: 140px;">Student Name</th>
+                {% for day in week_days %}
+                <th class="day-header">
+                    <div class="day-name">{{ day.name }}</div>
+                    <div class="day-date">{{ day.date|date:"M j" }}</div>
+                </th>
+                {% endfor %}
+                <th style="width: 32px;" title="Present">P</th>
+                <th style="width: 32px;" title="Absent">A</th>
+                <th style="width: 32px;" title="Late">L</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr>
+                <td class="sn">{{ forloop.counter }}</td>
+                <td class="adm-no">{{ student.obj.admission_number }}</td>
+                <td class="name">{{ student.obj.last_name }}, {{ student.obj.first_name }}</td>
+                {% for day_status in student.daily_status %}
+                <td class="status-cell {% if day_status == 'P' %}status-present{% elif day_status == 'A' %}status-absent{% elif day_status == 'L' %}status-late{% else %}status-empty{% endif %}">
+                    {% if day_status %}{{ day_status }}{% else %}-{% endif %}
+                </td>
+                {% endfor %}
+                <td class="total-cell total-present">{{ student.present_count }}</td>
+                <td class="total-cell total-absent">{{ student.absent_count }}</td>
+                <td class="total-cell total-late">{{ student.late_count }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="{{ week_days|length|add:6 }}" style="text-align: center; padding: 20px; color: #666;">
+                    No students enrolled in this class
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" style="text-align: right; padding-right: 10px;">Daily Totals:</td>
+                {% for day in week_days %}
+                <td class="day-total">
+                    {% if day.total_records > 0 %}
+                    <span class="present">{{ day.present_count }}</span>/<span class="absent">{{ day.absent_count }}</span>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                {% endfor %}
+                <td>{{ totals.present }}</td>
+                <td>{{ totals.absent }}</td>
+                <td>{{ totals.late }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- Legend -->
+    <div class="legend">
+        <span class="legend-title">Legend:</span>
+        <span class="legend-item"><span class="legend-symbol status-present">P</span> Present</span>
+        <span class="legend-item"><span class="legend-symbol status-absent">A</span> Absent</span>
+        <span class="legend-item"><span class="legend-symbol status-late">L</span> Late</span>
+        <span class="legend-item"><span class="legend-symbol status-empty">-</span> No Record</span>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-section">
+        <h3 class="summary-title">Weekly Summary</h3>
+        <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>Total Records</th>
+                    <th>Present</th>
+                    <th>Absent</th>
+                    <th>Late</th>
+                    <th>Attendance Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ totals.total }}</td>
+                    <td class="total-present">{{ totals.present }}</td>
+                    <td class="total-absent">{{ totals.absent }}</td>
+                    <td class="total-late">{{ totals.late }}</td>
+                    <td class="rate-cell" style="{% if totals.rate >= 80 %}color: #16a34a;{% elif totals.rate >= 60 %}color: #ca8a04;{% else %}color: #dc2626;{% endif %}">
+                        {{ totals.rate }}%
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Signatures -->
+    <div class="signatures">
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-label">Class Teacher's Signature</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-label">Head Teacher's Signature</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div class="signature-label">Date</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        Generated by <span class="brand">{{ generated_by.get_full_name|default:generated_by.username }}</span> &bull;
+        {{ school.name|default:"School Management System" }}
+    </div>
+
+</body>
+</html>

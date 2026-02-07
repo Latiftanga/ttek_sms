@@ -85,6 +85,7 @@ from .attendance import (
     attendance_export,
     student_attendance_detail,
     notify_absent_parents,
+    weekly_attendance_register_pdf,
 )
 
 # Timetable
@@ -177,6 +178,7 @@ __all__ = [
     'attendance_export',
     'student_attendance_detail',
     'notify_absent_parents',
+    'weekly_attendance_register_pdf',
     # Timetable
     'timetable_index',
     'class_timetable',
