@@ -1,4 +1,5 @@
 from django.shortcuts import redirect, get_object_or_404
+from django.urls import reverse
 from django.http import HttpResponse
 from django.db.models import Q
 from django.contrib import messages
@@ -6,9 +7,10 @@ from django.core.paginator import Paginator
 
 from teachers.models import Teacher, TeacherInvitation
 from teachers.forms import TeacherForm
-from academics.models import Class, ClassSubject
+from academics.models import Class, ClassSubject, TimetableEntry
 from students.models import Student
 from .utils import admin_required, htmx_render
+from .analytics import calculate_school_averages
 
 
 @admin_required
@@ -173,6 +175,11 @@ def teacher_detail(request, pk):
         status='active'
     ).count()
 
+    # Periods per week from timetable
+    periods_per_week = TimetableEntry.objects.filter(
+        class_subject__teacher=teacher
+    ).count()
+
     # Students in homeroom classes
     homeroom_students = Student.objects.filter(
         current_class__in=homeroom_classes,
@@ -183,8 +190,25 @@ def teacher_detail(request, pk):
         'classes_taught': classes_taught,
         'subjects_taught': subjects_taught,
         'total_students': total_students,
+        'periods_per_week': periods_per_week,
         'homeroom_classes': homeroom_classes.count(),
         'homeroom_students': homeroom_students,
+    }
+
+    # School averages for comparison
+    school_averages = calculate_school_averages()
+
+    # Calculate comparison percentages
+    def calc_comparison(value, avg):
+        if avg == 0:
+            return 100 if value > 0 else 0
+        return round((value / avg) * 100)
+
+    comparisons = {
+        'classes': calc_comparison(classes_taught, school_averages['avg_classes']),
+        'subjects': calc_comparison(subjects_taught, school_averages['avg_subjects']),
+        'periods': calc_comparison(periods_per_week, school_averages['avg_periods']),
+        'students': calc_comparison(total_students, school_averages['avg_students']),
     }
 
     # Get pending invitation if teacher has no account
@@ -204,6 +228,8 @@ def teacher_detail(request, pk):
             'homeroom_classes': homeroom_classes,
             'subject_assignments': subject_assignments,
             'workload': workload,
+            'school_averages': school_averages,
+            'comparisons': comparisons,
             'pending_invitation': pending_invitation,
             # Navigation
             'breadcrumbs': [
@@ -357,11 +383,14 @@ def teacher_delete(request, pk):
         return HttpResponse(status=405)
 
     teacher = get_object_or_404(Teacher, pk=pk)
+    teacher_name = teacher.full_name
     teacher.delete()
+
+    messages.success(request, f'Teacher "{teacher_name}" has been deleted.')
 
     if request.htmx:
         response = HttpResponse(status=200)
-        response['HX-Refresh'] = 'true'
+        response['HX-Redirect'] = reverse('teachers:index')
         return response
     return redirect('teachers:index')
 
@@ -385,6 +414,10 @@ def get_teacher_assignments_context(teacher):
         status='active'
     ).count()
 
+    periods_per_week = TimetableEntry.objects.filter(
+        class_subject__teacher=teacher
+    ).count()
+
     homeroom_classes = Class.objects.filter(
         class_teacher=teacher,
         is_active=True
@@ -394,13 +427,32 @@ def get_teacher_assignments_context(teacher):
         'classes_taught': classes_taught,
         'subjects_taught': subjects_taught,
         'total_students': total_students,
+        'periods_per_week': periods_per_week,
         'homeroom_classes': homeroom_classes.count(),
+    }
+
+    # School averages for comparison
+    school_averages = calculate_school_averages()
+
+    # Calculate comparison percentages
+    def calc_comparison(value, avg):
+        if avg == 0:
+            return 100 if value > 0 else 0
+        return round((value / avg) * 100)
+
+    comparisons = {
+        'classes': calc_comparison(classes_taught, school_averages['avg_classes']),
+        'subjects': calc_comparison(subjects_taught, school_averages['avg_subjects']),
+        'periods': calc_comparison(periods_per_week, school_averages['avg_periods']),
+        'students': calc_comparison(total_students, school_averages['avg_students']),
     }
 
     return {
         'teacher': teacher,
         'subject_assignments': subject_assignments,
         'workload': workload,
+        'school_averages': school_averages,
+        'comparisons': comparisons,
     }
 
 

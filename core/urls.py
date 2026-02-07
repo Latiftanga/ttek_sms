@@ -79,6 +79,7 @@ urlpatterns = [
     path('my-grading/<int:class_id>/<int:subject_id>/import/', views.import_scores, name='import_scores'),
     path('my-grading/<int:class_id>/<int:subject_id>/import/confirm/', views.import_scores_confirm, name='import_scores_confirm'),
     path('my-timetable/', views.my_timetable, name='my_timetable'),
+    path('my-workload/', views.my_workload, name='my_workload'),
 
     # Student routes
     path('my-results/', views.my_results, name='my_results'),

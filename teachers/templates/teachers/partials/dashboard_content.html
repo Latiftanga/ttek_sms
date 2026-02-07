@@ -524,6 +524,21 @@
                         </div>
                         <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
+
+                    <a href="{% url 'core:my_workload' %}"
+                       hx-get="{% url 'core:my_workload' %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="flex items-center gap-3 p-3 rounded-xl bg-warning/5 hover:bg-warning/10 border border-warning/10 hover:border-warning/20 transition-all group">
+                        <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-chart-pie text-warning"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium">My Workload</div>
+                            <div class="text-xs text-base-content/50">Teaching analytics</div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
+                    </a>
                 </div>
             </div>
         </div>

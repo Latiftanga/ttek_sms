@@ -1,0 +1,157 @@
+{% load core_tags %}
+
+<div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{{ back_url }}"
+           hx-get="{{ back_url }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+           title="Go back">
+            <i class="fa-solid fa-arrow-left text-white"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-xl font-bold truncate">Teacher Workload Overview</h1>
+            <p class="text-sm text-base-content/60">Compare workload across all teachers</p>
+        </div>
+    </div>
+
+    <!-- School Average Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4 text-center">
+                <div class="text-2xl font-bold text-primary">{{ school_averages.avg_classes }}</div>
+                <div class="text-xs text-base-content/60 uppercase">Avg Classes</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4 text-center">
+                <div class="text-2xl font-bold text-secondary">{{ school_averages.avg_subjects }}</div>
+                <div class="text-xs text-base-content/60 uppercase">Avg Subjects</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4 text-center">
+                <div class="text-2xl font-bold text-accent">{{ school_averages.avg_students }}</div>
+                <div class="text-xs text-base-content/60 uppercase">Avg Students</div>
+            </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4 text-center">
+                <div class="text-2xl font-bold text-info">{{ school_averages.avg_periods }}</div>
+                <div class="text-xs text-base-content/60 uppercase">Avg Periods/Week</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teachers Table -->
+    {% if teacher_workloads %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            <div class="p-4 border-b border-base-200">
+                <h2 class="font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-users text-primary"></i>
+                    All Teachers ({{ teacher_workloads|length }})
+                </h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr class="bg-base-200/50">
+                            <th>Teacher</th>
+                            <th class="text-center">Classes</th>
+                            <th class="text-center">Subjects</th>
+                            <th class="text-center">Students</th>
+                            <th class="text-center">Periods/Week</th>
+                            <th class="text-center">Homeroom</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in teacher_workloads %}
+                        <tr class="hover:bg-base-200/30">
+                            <td>
+                                <div class="flex items-center gap-3">
+                                    <div class="avatar">
+                                        <div class="w-10 h-10 rounded-full bg-primary/10">
+                                            {% if item.teacher.photo %}
+                                            <img src="{{ item.teacher.photo.url }}" alt="{{ item.teacher.full_name }}" />
+                                            {% else %}
+                                            <div class="flex items-center justify-center h-full text-primary font-bold text-sm">
+                                                {{ item.teacher.first_name|slice:":1" }}{{ item.teacher.last_name|slice:":1" }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium">{{ item.teacher.full_name }}</div>
+                                        <div class="text-xs text-base-content/50">{{ item.teacher.subject_specialization }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="{% if item.classes_taught > school_averages.avg_classes %}text-warning font-medium{% endif %}">
+                                    {{ item.classes_taught }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="{% if item.subjects_taught > school_averages.avg_subjects %}text-warning font-medium{% endif %}">
+                                    {{ item.subjects_taught }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="{% if item.total_students > school_averages.avg_students %}text-warning font-medium{% endif %}">
+                                    {{ item.total_students }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="{% if item.periods_per_week > school_averages.avg_periods %}text-warning font-medium{% endif %}">
+                                    {{ item.periods_per_week }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {% if item.homeroom_classes > 0 %}
+                                <span class="badge badge-sm badge-success">{{ item.homeroom_classes }}</span>
+                                {% else %}
+                                <span class="text-base-content/30">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'teachers:teacher_workload_analytics' item.teacher.pk %}"
+                                   hx-get="{% url 'teachers:teacher_workload_analytics' item.teacher.pk %}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   class="btn btn-ghost btn-xs btn-square">
+                                    <i class="fa-solid fa-chart-pie"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card bg-base-200/50 border border-base-300">
+        <div class="card-body items-center text-center py-12">
+            <div class="w-20 h-20 rounded-full bg-base-300 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-users-slash text-3xl text-base-content/40"></i>
+            </div>
+            <h3 class="font-semibold text-lg text-base-content/70">No Teacher Assignments</h3>
+            <p class="text-sm text-base-content/50 max-w-md">
+                No teachers have been assigned to classes yet. Assign teachers to classes to view workload analytics.
+            </p>
+            <a href="{% url 'teachers:index' %}"
+               hx-get="{% url 'teachers:index' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-primary btn-sm mt-4">
+                <i class="fa-solid fa-users"></i>
+                Manage Teachers
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>

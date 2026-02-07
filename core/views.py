@@ -2571,6 +2571,13 @@ def my_timetable(request):
 
 
 @login_required
+def my_workload(request):
+    """Teacher's workload analytics - imported from teachers app."""
+    from teachers.views.analytics import my_workload as teacher_my_workload
+    return teacher_my_workload(request)
+
+
+@login_required
 def my_attendance(request):
     """Teacher's attendance dashboard - view and take attendance for assigned classes."""
     from django.db.models import Count, Q
