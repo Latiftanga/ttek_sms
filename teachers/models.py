@@ -301,3 +301,98 @@ class ProfessionalDevelopment(models.Model):
         if self.end_date and self.end_date != self.start_date:
             return f"{self.start_date.strftime('%b %d')} - {self.end_date.strftime('%b %d, %Y')}"
         return self.start_date.strftime('%b %d, %Y')
+
+
+class TeacherDocument(models.Model):
+    """Model for storing teacher documents."""
+
+    class DocumentType(models.TextChoices):
+        CONTRACT = 'contract', _('Employment Contract')
+        QUALIFICATION = 'qualification', _('Qualification/Degree')
+        CERTIFICATION = 'certification', _('Professional Certification')
+        ID_DOCUMENT = 'id_document', _('ID Document')
+        REFERENCE = 'reference', _('Reference Letter')
+        MEDICAL = 'medical', _('Medical Certificate')
+        BACKGROUND_CHECK = 'background_check', _('Background Check')
+        OTHER = 'other', _('Other')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name='documents'
+    )
+    title = models.CharField(max_length=255)
+    document_type = models.CharField(
+        max_length=20,
+        choices=DocumentType.choices,
+        default=DocumentType.OTHER
+    )
+    file = models.FileField(
+        upload_to='teacher_documents/',
+        help_text="Accepted formats: PDF, JPG, PNG, DOC, DOCX"
+    )
+    description = models.TextField(blank=True)
+    issue_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Leave blank if document doesn't expire"
+    )
+    is_verified = models.BooleanField(
+        default=False,
+        help_text="Has this document been verified by admin?"
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='uploaded_teacher_documents'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Teacher Document"
+        verbose_name_plural = "Teacher Documents"
+        indexes = [
+            models.Index(fields=['teacher', 'document_type'], name='doc_teacher_type_idx'),
+            models.Index(fields=['expiry_date'], name='doc_expiry_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.teacher.full_name}"
+
+    @property
+    def is_expiring_soon(self):
+        """Check if document expires within 30 days."""
+        if not self.expiry_date:
+            return False
+        days_until_expiry = (self.expiry_date - timezone.now().date()).days
+        return 0 < days_until_expiry <= 30
+
+    @property
+    def is_expired(self):
+        """Check if document has expired."""
+        if not self.expiry_date:
+            return False
+        return self.expiry_date < timezone.now().date()
+
+    @property
+    def file_extension(self):
+        """Return file extension."""
+        if self.file:
+            return self.file.name.split('.')[-1].lower()
+        return ''
+
+    @property
+    def is_image(self):
+        """Check if file is an image."""
+        return self.file_extension in ['jpg', 'jpeg', 'png', 'gif']
+
+    @property
+    def is_pdf(self):
+        """Check if file is a PDF."""
+        return self.file_extension == 'pdf'

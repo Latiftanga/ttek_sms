@@ -166,6 +166,12 @@
                     <span class="hidden sm:inline">Development</span>
                 </button>
                 <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
+                        :class="activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                        @click="setTab('documents')">
+                    <i class="fa-solid fa-folder-open sm:mr-1.5"></i>
+                    <span class="hidden sm:inline">Documents</span>
+                </button>
+                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
                         :class="activeTab === 'account' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                         @click="setTab('account')">
                     <i class="fa-solid fa-user-shield sm:mr-1.5"></i>
@@ -314,6 +320,21 @@
                 }
              })">
             <div id="pd-content">
+                <div class="flex justify-center py-8">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Documents -->
+        <div x-show="activeTab === 'documents'" x-cloak class="p-4 sm:p-6" style="display: none;"
+             x-init="$watch('activeTab', value => {
+                if (value === 'documents' && !$el.dataset.loaded) {
+                    $el.dataset.loaded = 'true';
+                    htmx.ajax('GET', '{% url 'teachers:document_list' teacher.pk %}', {target: '#doc-content', swap: 'innerHTML'});
+                }
+             })">
+            <div id="doc-content">
                 <div class="flex justify-center py-8">
                     <span class="loading loading-spinner loading-lg text-primary"></span>
                 </div>
