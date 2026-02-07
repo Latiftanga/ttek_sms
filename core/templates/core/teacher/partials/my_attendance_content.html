@@ -88,60 +88,63 @@
                     <span class="badge badge-ghost">{{ today|date:"D, M d" }}</span>
                 </div>
 
-                <div class="p-4">
+                <div class="divide-y divide-base-200">
                     {% if class_summary %}
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {% for item in class_summary %}
-                        <div class="p-4 rounded-xl border border-base-200 hover:border-primary/30 hover:bg-base-200/30 transition-all">
-                            <div class="flex items-start justify-between mb-3">
-                                <div>
-                                    <h3 class="font-bold flex items-center gap-2">
-                                        {{ item.class.name }}
-                                        {% if item.is_homeroom %}
-                                        <span class="badge badge-primary badge-xs">Homeroom</span>
-                                        {% endif %}
-                                    </h3>
-                                    <p class="text-xs text-base-content/60">
-                                        <i class="fa-solid fa-users mr-1"></i>
-                                        {{ item.student_count }} students
-                                    </p>
+                        <a href="{% url 'core:take_attendance' item.class.pk %}"
+                           hx-get="{% url 'core:take_attendance' item.class.pk %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="flex items-center gap-4 p-4 hover:bg-base-200/50 transition-colors group">
+                            <!-- Class Avatar -->
+                            <div class="relative shrink-0">
+                                <div class="w-14 h-14 rounded-xl bg-gradient-to-br {% if item.has_today %}from-success/20 to-success/10{% else %}from-primary/20 to-primary/10{% endif %} flex items-center justify-center">
+                                    <span class="text-lg font-bold {% if item.has_today %}text-success{% else %}text-primary{% endif %}">
+                                        {{ item.class.name|slice:":2" }}
+                                    </span>
                                 </div>
-                                {% if item.has_today %}
-                                <span class="badge badge-success badge-sm gap-1">
-                                    <i class="fa-solid fa-check text-xs"></i>
-                                    Done
-                                </span>
-                                {% else %}
-                                <span class="badge badge-warning badge-sm gap-1">
-                                    <i class="fa-solid fa-clock text-xs"></i>
-                                    Pending
-                                </span>
-                                {% endif %}
+                                <!-- Status indicator dot -->
+                                <div class="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-base-100 {% if item.has_today %}bg-success{% else %}bg-warning{% endif %}"></div>
                             </div>
 
-                            <div class="flex items-center gap-2 mb-3">
-                                <progress class="progress flex-1 h-2 {% if item.rate >= 80 %}progress-success{% elif item.rate >= 60 %}progress-warning{% else %}progress-error{% endif %}" value="{{ item.rate }}" max="100"></progress>
-                                <span class="text-xs font-medium">{{ item.rate }}%</span>
+                            <!-- Class Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <h3 class="font-semibold truncate group-hover:text-primary transition-colors">
+                                        {{ item.class.name }}
+                                    </h3>
+                                    {% if item.is_homeroom %}
+                                    <span class="badge badge-primary badge-xs shrink-0">Homeroom</span>
+                                    {% endif %}
+                                </div>
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-base-content/60">
+                                    <span class="flex items-center gap-1">
+                                        <i class="fa-solid fa-users"></i>
+                                        {{ item.student_count }} students
+                                    </span>
+                                    <span class="{% if item.has_today %}text-success{% else %}text-warning{% endif %}">
+                                        {% if item.has_today %}
+                                        <i class="fa-solid fa-circle-check mr-1"></i>Done
+                                        {% else %}
+                                        <i class="fa-solid fa-clock mr-1"></i>Pending
+                                        {% endif %}
+                                    </span>
+                                </div>
                             </div>
 
-                            <a href="{% url 'core:take_attendance' item.class.pk %}"
-                               hx-get="{% url 'core:take_attendance' item.class.pk %}"
-                               hx-target="#main-content"
-                               hx-push-url="true"
-                               class="btn btn-primary btn-sm btn-block">
-                                {% if item.has_today %}
-                                <i class="fa-solid fa-pen"></i>
-                                Edit Today
-                                {% else %}
-                                <i class="fa-solid fa-clipboard-check"></i>
-                                Take Attendance
-                                {% endif %}
-                            </a>
-                        </div>
+                            <!-- Radial Progress & Arrow -->
+                            <div class="flex items-center gap-2 shrink-0">
+                                <div class="radial-progress text-xs {% if item.rate >= 80 %}text-success{% elif item.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
+                                     style="--value:{{ item.rate }}; --size:2.5rem; --thickness:3px;"
+                                     role="progressbar">
+                                    {{ item.rate }}%
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-base-content/30"></i>
+                            </div>
+                        </a>
                         {% endfor %}
-                    </div>
                     {% else %}
-                    <div class="text-center py-12">
+                    <div class="text-center py-12 px-4">
                         <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
                             <i class="fa-solid fa-chalkboard text-base-content/30 text-2xl"></i>
                         </div>
