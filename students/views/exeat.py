@@ -604,8 +604,21 @@ def exeat_detail(request, pk):
         (is_school_admin(user) or (assignment and assignment.is_senior))
     )
 
-    can_mark_departed = exeat.status == 'approved'
-    can_mark_returned = exeat.status == 'active'
+    is_admin_or_senior = is_school_admin(user) or (assignment and assignment.is_senior)
+    is_house_housemaster = assignment and exeat.student.house == assignment.house
+
+    can_mark_departed = (
+        exeat.status == 'approved' and
+        (is_admin_or_senior or is_house_housemaster)
+    )
+    can_mark_returned = (
+        exeat.status in ['active', 'overdue'] and
+        (is_admin_or_senior or is_house_housemaster)
+    )
+    can_reject = (
+        exeat.status in ['pending', 'recommended', 'overdue'] and
+        (is_admin_or_senior or is_house_housemaster)
+    )
 
     context = {
         'exeat': exeat,
@@ -614,6 +627,7 @@ def exeat_detail(request, pk):
         'can_approve_external': can_approve_external,
         'can_mark_departed': can_mark_departed,
         'can_mark_returned': can_mark_returned,
+        'can_reject': can_reject,
         'is_senior': is_senior_housemaster(user) or is_school_admin(user),
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
@@ -709,7 +723,7 @@ def exeat_reject(request, pk):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    if exeat.status not in ['pending', 'recommended']:
+    if exeat.status not in ['pending', 'recommended', 'overdue']:
         messages.error(request, "This exeat cannot be rejected.")
         return redirect('students:exeat_detail', pk=pk)
 
@@ -740,9 +754,20 @@ def exeat_reject(request, pk):
 def exeat_depart(request, pk):
     """Mark student as departed."""
     exeat = get_object_or_404(Exeat, pk=pk)
+    user = request.user
+    assignment = get_housemaster_assignment(user)
 
     if request.method != 'POST':
         return HttpResponse(status=405)
+
+    can_depart = (
+        is_school_admin(user) or
+        (assignment and assignment.is_senior) or
+        (assignment and exeat.student.house == assignment.house)
+    )
+    if not can_depart:
+        messages.error(request, "You don't have permission to mark this exeat as departed.")
+        return redirect('students:exeat_detail', pk=pk)
 
     if exeat.status != 'approved':
         messages.error(request, "Only approved exeats can be marked as departed.")
@@ -763,12 +788,23 @@ def exeat_depart(request, pk):
 def exeat_return(request, pk):
     """Mark student as returned."""
     exeat = get_object_or_404(Exeat, pk=pk)
+    user = request.user
+    assignment = get_housemaster_assignment(user)
 
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    if exeat.status != 'active':
-        messages.error(request, "Only active exeats can be marked as returned.")
+    can_return = (
+        is_school_admin(user) or
+        (assignment and assignment.is_senior) or
+        (assignment and exeat.student.house == assignment.house)
+    )
+    if not can_return:
+        messages.error(request, "You don't have permission to mark this exeat as returned.")
+        return redirect('students:exeat_detail', pk=pk)
+
+    if exeat.status not in ['active', 'overdue']:
+        messages.error(request, "Only active or overdue exeats can be marked as returned.")
         return redirect('students:exeat_detail', pk=pk)
 
     exeat.mark_returned()
