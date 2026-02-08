@@ -379,7 +379,6 @@ def exeat_index(request):
         )
 
     # Stats - filtered by house for regular housemasters (single query with aggregate)
-    today = timezone.now().date()
     stats_qs = Exeat.objects.all()
     if assignment and not assignment.is_senior and not is_school_admin(user):
         stats_qs = stats_qs.filter(student__house=assignment.house)
@@ -516,7 +515,7 @@ def exeat_create(request):
             if exeat.status == 'approved':
                 messages.success(request, f'Exeat approved for {student.full_name}.')
             else:
-                messages.success(request, f'External exeat submitted for senior housemaster approval.')
+                messages.success(request, 'External exeat submitted for senior housemaster approval.')
 
             if request.headers.get('HX-Request'):
                 response = HttpResponse(status=204)
