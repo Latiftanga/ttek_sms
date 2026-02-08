@@ -857,7 +857,9 @@ class Exeat(models.Model):
 
     @property
     def is_overdue(self):
-        """Check if the exeat is overdue."""
+        """Check if the exeat is overdue (already marked or past expected return)."""
+        if self.status == self.Status.OVERDUE:
+            return True
         if self.status not in [self.Status.ACTIVE, self.Status.APPROVED]:
             return False
         from datetime import datetime
