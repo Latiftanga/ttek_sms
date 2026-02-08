@@ -70,8 +70,8 @@ def check_overdue_exeats(self):
                         from communications.utils import send_sms
 
                         message = (
-                            f"ALERT: {exeat.student.full_name} has not returned "
-                            f"from exeat. Expected return was "
+                            f"{tenant.name}: ALERT - {exeat.student.full_name} has not "
+                            f"returned from exeat. Expected return was "
                             f"{exeat.expected_return_date.strftime('%d/%m/%Y')} "
                             f"at {exeat.expected_return_time.strftime('%H:%M')}. "
                             f"Please contact the school immediately."

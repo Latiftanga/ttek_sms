@@ -107,16 +107,20 @@ def send_exeat_approval_sms(exeat, user=None):
             logger.warning(f"SMS gateway not ready: {gateway_status.get('message')}")
             return SMSResult(SMSResult.SMS_NOT_CONFIGURED, error=gateway_status.get('message'))
 
+        # Get school name for branding
+        from django.db import connection
+        school_name = getattr(connection.tenant, 'name', 'School') if hasattr(connection, 'tenant') else 'School'
+
         # Format message based on exeat type - keep concise for SMS
         if exeat.exeat_type == 'internal':
             message = (
-                f"Dear {guardian.full_name}, {student.full_name} has been "
+                f"{school_name}: Dear {guardian.full_name}, {student.full_name} has been "
                 f"granted internal exeat. Dest: {exeat.destination[:30]}. "
                 f"Return by {exeat.expected_return_time.strftime('%I:%M%p')}."
             )
         else:
             message = (
-                f"Dear {guardian.full_name}, {student.full_name} has been "
+                f"{school_name}: Dear {guardian.full_name}, {student.full_name} has been "
                 f"granted external exeat. Dest: {exeat.destination[:30]}. "
                 f"Leaving {exeat.departure_date.strftime('%d/%m')}. "
                 f"Return {exeat.expected_return_date.strftime('%d/%m')}."
@@ -202,9 +206,13 @@ def send_exeat_return_sms(exeat, user=None):
             logger.warning(f"SMS gateway not ready: {gateway_status.get('message')}")
             return SMSResult(SMSResult.SMS_NOT_CONFIGURED, error=gateway_status.get('message'))
 
+        # Get school name for branding
+        from django.db import connection
+        school_name = getattr(connection.tenant, 'name', 'School') if hasattr(connection, 'tenant') else 'School'
+
         # Keep message concise
         message = (
-            f"Dear {guardian.full_name}, {student.full_name} has safely "
+            f"{school_name}: Dear {guardian.full_name}, {student.full_name} has safely "
             f"returned to campus. Thank you."
         )
 
