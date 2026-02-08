@@ -45,7 +45,7 @@
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <!-- Student Search -->
-                    <div x-data="{ open: false, selectedId: '{{ form.student.value|default:'' }}', selectedName: '' }"
+                    <div x-data="{ open: false, selectedId: '{{ form.student.value|default:'' }}', selectedName: '{% if selected_student %}{{ selected_student.full_name|escapejs }} ({{ selected_student.house.name|escapejs }}){% endif %}' }"
                          @click.away="open = false"
                          class="relative">
                         <label class="floating-label block">
@@ -62,6 +62,7 @@
                                        hx-target="#student_search_results"
                                        name="q"
                                        autocomplete="off"
+                                       x-bind:value="selectedName"
                                        class="grow bg-transparent border-none focus:outline-none" />
                             </div>
                         </label>

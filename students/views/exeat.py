@@ -450,6 +450,7 @@ def exeat_create(request):
     else:
         students = Student.objects.none()
 
+    selected_student = None
     if request.method == 'POST':
         form = ExeatForm(request.POST, students=students)
         if form.is_valid():
@@ -476,17 +477,24 @@ def exeat_create(request):
                 response['HX-Redirect'] = f'/students/exeats/{exeat.pk}/'
                 return response
             return redirect('students:exeat_detail', pk=exeat.pk)
+        else:
+            # Preserve selected student for re-rendering the form
+            student_id = request.POST.get('student')
+            if student_id:
+                selected_student = students.filter(pk=student_id).first()
     else:
         # Pre-select student if provided in query param
         initial = {}
         student_id = request.GET.get('student')
         if student_id:
             initial['student'] = student_id
+            selected_student = students.filter(pk=student_id).first()
         form = ExeatForm(initial=initial, students=students)
 
     context = {
         'form': form,
         'students': students,
+        'selected_student': selected_student,
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
             {'label': 'Exeats', 'url': '/students/exeats/'},
@@ -509,19 +517,17 @@ def exeat_student_search(request):
 
     students = Student.objects.none()
     if len(query) >= 2:
-        # Base queryset - active students (house assignment optional for search)
+        # Base queryset - active students
         base_qs = Student.objects.filter(status='active')
 
         # Filter by house based on user role
         if is_school_admin(user):
-            # Admin can search all active students
+            # Admin can search all active students (those without houses shown as disabled)
             students = base_qs
         elif assignment:
             # Housemaster can only search students in their house
             students = base_qs.filter(house=assignment.house)
         else:
-            # Fallback: if user passed housemaster_required but has no assignment
-            # (e.g., no current academic year), allow search for students with houses
             students = base_qs.filter(house__isnull=False)
 
         # Apply search filter

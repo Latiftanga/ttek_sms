@@ -1,5 +1,6 @@
 {% if students %}
 {% for student in students %}
+{% if student.house %}
 <div class="p-2 hover:bg-base-200 cursor-pointer rounded flex items-center gap-2"
      onclick="selectStudent('{{ student.pk }}', '{{ student.full_name|escapejs }}', '{{ student.house.name|escapejs }}')">
     <div class="avatar placeholder flex-shrink-0">
@@ -16,6 +17,23 @@
         <p class="text-xs text-base-content/60">{{ student.house.name }} &middot; {{ student.current_class.name|default:"No class" }}</p>
     </div>
 </div>
+{% else %}
+<div class="p-2 rounded flex items-center gap-2 opacity-50 cursor-not-allowed">
+    <div class="avatar placeholder flex-shrink-0">
+        <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center text-xs">
+            {% if student.photo %}
+            <img src="{{ student.photo.url }}" alt="" class="rounded-full" />
+            {% else %}
+            {{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}
+            {% endif %}
+        </div>
+    </div>
+    <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">{{ student.full_name }}</p>
+        <p class="text-xs text-error">No house assigned — assign a house before requesting exeat</p>
+    </div>
+</div>
+{% endif %}
 {% endfor %}
 {% else %}
 <div class="p-3 text-sm text-base-content/50 text-center">
