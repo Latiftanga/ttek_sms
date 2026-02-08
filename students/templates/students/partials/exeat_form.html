@@ -83,9 +83,11 @@
                             <option value="internal" {% if form.exeat_type.value == 'internal' %}selected{% endif %}>
                                 Internal (Same day, within town)
                             </option>
+                            {% if is_senior %}
                             <option value="external" {% if form.exeat_type.value == 'external' %}selected{% endif %}>
                                 External (Outside school location)
                             </option>
+                            {% endif %}
                         </select>
                     </label>
                 </div>
