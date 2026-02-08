@@ -877,6 +877,11 @@ class Exeat(models.Model):
         self.status = self.Status.COMPLETED
         self.save(update_fields=['actual_return', 'status', 'updated_at'])
 
+    def mark_overdue(self):
+        """Mark exeat as overdue."""
+        self.status = self.Status.OVERDUE
+        self.save(update_fields=['status', 'updated_at'])
+
     def recommend(self, teacher):
         """Housemaster recommends external exeat for senior approval."""
         self.recommended_by = teacher

@@ -55,9 +55,9 @@
             <div class="text-xl font-bold text-success">{{ stats.active }}</div>
             <div class="text-xs text-success/80">Active</div>
         </div>
-        <div class="bg-primary/10 border border-primary/20 rounded-lg p-3 text-center">
-            <div class="text-xl font-bold text-primary">{{ stats.today_departures }}</div>
-            <div class="text-xs text-primary/80">Today</div>
+        <div class="bg-error/10 border border-error/20 rounded-lg p-3 text-center">
+            <div class="text-xl font-bold text-error">{{ stats.overdue }}</div>
+            <div class="text-xs text-error/80">Overdue</div>
         </div>
     </div>
 
@@ -188,6 +188,91 @@
             {% endfor %}
         </div>
     </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <!-- Page info -->
+                <div class="text-sm text-base-content/60 order-2 sm:order-1">
+                    {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }}
+                </div>
+
+                <!-- Pagination controls -->
+                <div class="join order-1 sm:order-2">
+                    {% if page_obj.has_previous %}
+                    <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:exeat_index' %}?page=1{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#exeat-results"
+                       hx-select="#exeat-results"
+                       hx-swap="outerHTML"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-angles-left"></i>
+                    </a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:exeat_index' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#exeat-results"
+                       hx-select="#exeat-results"
+                       hx-swap="outerHTML"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-left"></i></button>
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-left"></i></button>
+                    {% endif %}
+
+                    <button class="join-item btn btn-sm btn-active">{{ page_obj.number }}/{{ paginator.num_pages }}</button>
+
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:exeat_index' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#exeat-results"
+                       hx-select="#exeat-results"
+                       hx-swap="outerHTML"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </a>
+                    <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:exeat_index' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-target="#exeat-results"
+                       hx-select="#exeat-results"
+                       hx-swap="outerHTML"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-angles-right"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-right"></i></button>
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-right"></i></button>
+                    {% endif %}
+                </div>
+
+                <!-- Per page selector -->
+                <div class="hidden sm:flex items-center gap-2 order-3">
+                    <span class="text-xs text-base-content/60">Show:</span>
+                    <select class="select select-xs select-bordered w-16"
+                            hx-get="{% url 'students:exeat_index' %}"
+                            hx-target="#exeat-results"
+                            hx-select="#exeat-results"
+                            hx-swap="outerHTML"
+                            hx-push-url="true"
+                            hx-include="[name='search'], [name='status'], [name='type'], [name='house']"
+                            name="per_page">
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% else %}
     <!-- Empty State -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
