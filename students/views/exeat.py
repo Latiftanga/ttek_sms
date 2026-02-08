@@ -378,8 +378,8 @@ def exeat_index(request):
 
     # Use aggregate for single query instead of 4 separate COUNT queries
     stats = stats_qs.aggregate(
-        pending=Count('id', filter=Q(status='pending')),
-        recommended=Count('id', filter=Q(status='recommended')),
+        awaiting=Count('id', filter=Q(status__in=['pending', 'recommended'])),
+        approved=Count('id', filter=Q(status='approved')),
         active=Count('id', filter=Q(status='active')),
         overdue=Count('id', filter=Q(status='overdue')),
     )
@@ -450,11 +450,20 @@ def exeat_create(request):
     else:
         students = Student.objects.none()
 
+    is_admin_or_senior = is_school_admin(user) or (assignment and assignment.is_senior)
+
     selected_student = None
     if request.method == 'POST':
         form = ExeatForm(request.POST, students=students)
         if form.is_valid():
             exeat = form.save(commit=False)
+            teacher = get_teacher_profile(user)
+
+            # Regular housemasters can only create internal exeats
+            if not is_admin_or_senior and exeat.exeat_type == 'external':
+                messages.error(request, "Only senior housemasters or admin can create external exeats.")
+                return redirect('students:exeat_create')
+
             exeat.requested_by = user
 
             # Set housemaster from student's house
@@ -469,8 +478,37 @@ def exeat_create(request):
                 exeat.contact_person = guardian.full_name
                 exeat.contact_phone = guardian.phone_number or ''
 
+            # Internal exeats: auto-approve (creating IS the approval)
+            # External exeats by senior/admin: auto-approve
+            # External exeats by regular housemaster: auto-recommend for senior approval
+            if exeat.exeat_type == 'internal' or is_admin_or_senior:
+                exeat.approved_by = teacher
+                exeat.approved_at = timezone.now()
+                exeat.status = Exeat.Status.APPROVED
+            else:
+                # Regular housemaster creating external → auto-recommend
+                exeat.recommended_by = teacher
+                exeat.recommended_at = timezone.now()
+                exeat.status = Exeat.Status.RECOMMENDED
+
             exeat.save()
-            messages.success(request, f'Exeat request created for {student.full_name}.')
+
+            # Send approval SMS for auto-approved exeats
+            if exeat.status == 'approved':
+                sms_result = send_exeat_approval_sms(exeat, user)
+                if sms_result.is_success:
+                    messages.info(request, f"SMS sent to guardian ({sms_result.guardian_phone}).")
+                elif sms_result.status == SMSResult.SMS_DISABLED:
+                    messages.warning(request, "SMS notifications are disabled. Guardian not notified.")
+                elif sms_result.status in [SMSResult.NO_GUARDIAN, SMSResult.NO_PHONE]:
+                    messages.warning(request, sms_result.user_message)
+                else:
+                    messages.error(request, f"SMS failed: {sms_result.user_message}")
+
+            if exeat.status == 'approved':
+                messages.success(request, f'Exeat approved for {student.full_name}.')
+            else:
+                messages.success(request, f'External exeat submitted for senior housemaster approval.')
 
             if request.headers.get('HX-Request'):
                 response = HttpResponse(status=204)
@@ -495,6 +533,7 @@ def exeat_create(request):
         'form': form,
         'students': students,
         'selected_student': selected_student,
+        'is_senior': is_admin_or_senior,
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
             {'label': 'Exeats', 'url': '/students/exeats/'},
