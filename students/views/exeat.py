@@ -2,6 +2,7 @@
 import logging
 from functools import wraps
 
+from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
@@ -380,7 +381,7 @@ def exeat_index(request):
         pending=Count('id', filter=Q(status='pending')),
         recommended=Count('id', filter=Q(status='recommended')),
         active=Count('id', filter=Q(status='active')),
-        today_departures=Count('id', filter=Q(status__in=['approved', 'active'], departure_date=today)),
+        overdue=Count('id', filter=Q(status='overdue')),
     )
 
     # Get houses for filter dropdown (admin/senior only)
@@ -389,8 +390,24 @@ def exeat_index(request):
         is_school_admin(user) or (assignment and assignment.is_senior)
     ) else []
 
+    # Pagination
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in [25, 50, 100]:
+            per_page = 25
+    except ValueError:
+        per_page = 25
+
+    paginator = Paginator(exeats, per_page)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'exeats': exeats[:50],  # Limit for performance
+        'exeats': page_obj,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'per_page': per_page,
         'stats': stats,
         'status_filter': status_filter,
         'type_filter': type_filter,
