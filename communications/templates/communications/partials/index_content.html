@@ -150,7 +150,7 @@
                         <a href="#"
                            hx-get="{% url 'communications:send_single' %}"
                            hx-target="#modal-sms-content"
-                           onclick="modal_sms.showModal()"
+                           onclick="document.getElementById('modal_sms').showModal()"
                            class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer">
                             <i class="fa-solid fa-user text-primary w-5"></i>
                             <div>
@@ -161,7 +161,7 @@
                         <a href="#"
                            hx-get="{% url 'communications:send_to_class' %}"
                            hx-target="#modal-sms-content"
-                           onclick="modal_sms.showModal()"
+                           onclick="document.getElementById('modal_sms').showModal()"
                            class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer">
                             <i class="fa-solid fa-users text-secondary w-5"></i>
                             <div>
@@ -172,7 +172,7 @@
                         <a href="#"
                            hx-get="{% url 'communications:notify_absent' %}"
                            hx-target="#modal-sms-content"
-                           onclick="modal_sms.showModal()"
+                           onclick="document.getElementById('modal_sms').showModal()"
                            class="flex items-center gap-3 p-2 rounded-lg hover:bg-error/10 transition-colors cursor-pointer">
                             <i class="fa-solid fa-user-xmark text-error w-5"></i>
                             <div>

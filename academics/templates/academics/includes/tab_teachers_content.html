@@ -46,7 +46,7 @@
                     <button class="btn btn-ghost btn-xs btn-square"
                             hx-get="{% url 'academics:class_subject_create' class.pk %}?subject_id={{ alloc.pk }}"
                             hx-target="#modal-edit-content"
-                            onclick="modal_edit.showModal()"
+                            onclick="document.getElementById('modal_edit').showModal()"
                             title="Edit">
                         <i class="fa-solid fa-pen"></i>
                     </button>
@@ -71,7 +71,7 @@
     <button class="btn btn-xs btn-primary"
             hx-get="{% url 'academics:class_subject_create' class.pk %}"
             hx-target="#modal-edit-content"
-            onclick="modal_edit.showModal()">
+            onclick="document.getElementById('modal_edit').showModal()">
         <i class="fa-solid fa-plus"></i> Add Subject
     </button>
 </div>
@@ -88,7 +88,7 @@
     <button class="btn btn-primary btn-sm"
             hx-get="{% url 'academics:class_subject_create' class.pk %}"
             hx-target="#modal-edit-content"
-            onclick="modal_edit.showModal()">
+            onclick="document.getElementById('modal_edit').showModal()">
         <i class="fa-solid fa-plus"></i> Assign Subject
     </button>
 </div>

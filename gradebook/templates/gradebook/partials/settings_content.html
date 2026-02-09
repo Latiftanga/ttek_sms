@@ -33,7 +33,7 @@
                 <button class="btn btn-sm btn-primary"
                         hx-get="{% url 'gradebook:category_create' %}"
                         hx-target="#modal-content"
-                        onclick="modal_gradebook.showModal()">
+                        onclick="document.getElementById('modal_gradebook').showModal()">
                     <i class="fa-solid fa-plus"></i>
                     Add
                 </button>
@@ -82,7 +82,7 @@
                         <button class="btn btn-ghost btn-sm btn-square"
                                 hx-get="{% url 'gradebook:category_edit' cat.pk %}"
                                 hx-target="#modal-content"
-                                onclick="modal_gradebook.showModal()">
+                                onclick="document.getElementById('modal_gradebook').showModal()">
                             <i class="fa-solid fa-pen text-xs"></i>
                         </button>
                         <button class="btn btn-ghost btn-sm btn-square text-error"
@@ -115,7 +115,7 @@
                 <button class="btn btn-sm btn-primary"
                         hx-get="{% url 'gradebook:grading_system_create' %}"
                         hx-target="#modal-content"
-                        onclick="modal_gradebook.showModal()">
+                        onclick="document.getElementById('modal_gradebook').showModal()">
                     <i class="fa-solid fa-plus"></i>
                     Add
                 </button>
@@ -140,13 +140,13 @@
                             <button class="btn btn-ghost btn-xs"
                                     hx-get="{% url 'gradebook:grading_system_edit' system.pk %}"
                                     hx-target="#modal-content"
-                                    onclick="modal_gradebook.showModal()">
+                                    onclick="document.getElementById('modal_gradebook').showModal()">
                                 <i class="fa-solid fa-pen"></i> Edit
                             </button>
                             <button class="btn btn-ghost btn-xs"
                                     hx-get="{% url 'gradebook:grade_scale_create' system.pk %}"
                                     hx-target="#modal-content"
-                                    onclick="modal_gradebook.showModal()">
+                                    onclick="document.getElementById('modal_gradebook').showModal()">
                                 <i class="fa-solid fa-plus"></i> Add Grade
                             </button>
                         </div>
@@ -174,7 +174,7 @@
                                             <button class="btn btn-ghost btn-xs btn-square"
                                                     hx-get="{% url 'gradebook:grade_scale_edit' scale.pk %}"
                                                     hx-target="#modal-content"
-                                                    onclick="modal_gradebook.showModal()">
+                                                    onclick="document.getElementById('modal_gradebook').showModal()">
                                                 <i class="fa-solid fa-pen text-xs"></i>
                                             </button>
                                         </td>

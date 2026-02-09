@@ -64,7 +64,7 @@
                 <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
                       hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
                       hx-target="#modal-edit-content"
-                      hx-on::after-request="modal_edit.showModal()"
+                      hx-on::after-request="document.getElementById('modal_edit').showModal()"
                       title="Assign Subjects">
                     <i class="fa-solid fa-book-bookmark text-base-content/50"></i>
                 </span>
@@ -151,7 +151,7 @@
             <button class="btn btn-primary btn-sm"
                     hx-get="{% url 'academics:class_student_enroll' class.pk %}"
                     hx-target="#modal-edit-content"
-                    onclick="modal_edit.showModal()">
+                    onclick="document.getElementById('modal_edit').showModal()">
                 <i class="fa-solid fa-user-plus"></i> Enroll Students
             </button>
         </div>

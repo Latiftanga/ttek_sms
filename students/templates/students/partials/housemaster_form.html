@@ -82,7 +82,7 @@
     {% endif %}
 
     <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="modal_housemaster.close()">Cancel</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal_housemaster').close()">Cancel</button>
         <button type="submit" class="btn btn-primary">
             <i class="fa-solid fa-check"></i> {{ action|default:"Assign" }}
         </button>

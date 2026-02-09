@@ -31,7 +31,7 @@
         <button class="btn btn-xs btn-warning"
                 hx-get="{% url 'academics:class_bulk_electives' class.pk %}"
                 hx-target="#modal-edit-content"
-                onclick="modal_edit.showModal()">
+                onclick="document.getElementById('modal_edit').showModal()">
             <i class="fa-solid fa-users-gear"></i> Assign Now
         </button>
     </div>
