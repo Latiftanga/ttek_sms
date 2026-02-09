@@ -46,7 +46,7 @@
                 <button class="btn btn-ghost btn-xs btn-square"
                         hx-get="{% url 'core:my_pd_edit' activity.pk %}"
                         hx-target="#modal-container"
-                        onclick="modal_form.showModal()">
+                        onclick="document.getElementById('modal_form').showModal()">
                     <i class="fa-solid fa-pen text-xs"></i>
                 </button>
                 <form hx-post="{% url 'core:my_pd_delete' activity.pk %}"
@@ -72,7 +72,7 @@
         <button class="btn btn-primary"
                 hx-get="{% url 'core:my_pd_create' %}"
                 hx-target="#modal-container"
-                onclick="modal_form.showModal()">
+                onclick="document.getElementById('modal_form').showModal()">
             <i class="fa-solid fa-plus"></i>
             Add First Activity
         </button>

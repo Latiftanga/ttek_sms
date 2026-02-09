@@ -69,7 +69,7 @@
 
         <!-- Actions -->
         <div class="flex justify-end gap-2 pt-2">
-            <button type="button" class="btn btn-ghost" onclick="modal_form.close()">Cancel</button>
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal_form').close()">Cancel</button>
             <button type="submit"
                     class="btn btn-primary"
                     :disabled="isAlreadyAssigned()"

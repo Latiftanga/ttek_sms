@@ -28,14 +28,14 @@
                     <li>
                         <button hx-get="{% url 'academics:apply_template' class.pk %}"
                                 hx-target="#modal-container"
-                                hx-on::after-request="modal_form.showModal()">
+                                hx-on::after-request="document.getElementById('modal_form').showModal()">
                             <i class="fa-solid fa-layer-group text-primary"></i> Apply Template
                         </button>
                     </li>
                     <li>
                         <button hx-get="{% url 'academics:copy_subjects' class.pk %}"
                                 hx-target="#modal-container"
-                                hx-on::after-request="modal_form.showModal()">
+                                hx-on::after-request="document.getElementById('modal_form').showModal()">
                             <i class="fa-solid fa-copy text-secondary"></i> Copy from Class
                         </button>
                     </li>
@@ -91,7 +91,7 @@
             <button class="btn btn-sm btn-primary"
                     hx-get="{% url 'academics:class_subject_create' class.pk %}"
                     hx-target="#modal-container"
-                    hx-on::after-request="modal_form.showModal()">
+                    hx-on::after-request="document.getElementById('modal_form').showModal()">
                 <i class="fa-solid fa-plus"></i>
                 <span class="hidden sm:inline">Add Subject</span>
             </button>
@@ -143,7 +143,7 @@
                     <button class="btn btn-ghost btn-sm btn-square"
                             hx-get="{% url 'academics:class_subject_create' class.pk %}?subject_id={{ alloc.pk }}"
                             hx-target="#modal-container"
-                            hx-on::after-request="modal_form.showModal()"
+                            hx-on::after-request="document.getElementById('modal_form').showModal()"
                             title="Edit">
                         <i class="fa-solid fa-pen text-xs"></i>
                     </button>
@@ -170,13 +170,13 @@
                 <button class="btn btn-secondary btn-sm"
                         hx-get="{% url 'academics:apply_template' class.pk %}"
                         hx-target="#modal-container"
-                        hx-on::after-request="modal_form.showModal()">
+                        hx-on::after-request="document.getElementById('modal_form').showModal()">
                     <i class="fa-solid fa-layer-group"></i> Use Template
                 </button>
                 <button class="btn btn-primary btn-sm"
                         hx-get="{% url 'academics:class_subject_create' class.pk %}"
                         hx-target="#modal-container"
-                        hx-on::after-request="modal_form.showModal()">
+                        hx-on::after-request="document.getElementById('modal_form').showModal()">
                     <i class="fa-solid fa-plus"></i> Add Manually
                 </button>
             </div>

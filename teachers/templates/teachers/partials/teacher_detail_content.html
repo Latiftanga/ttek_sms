@@ -293,7 +293,7 @@
                 <button class="btn btn-primary btn-sm"
                         hx-get="{% url 'teachers:assign_lesson' teacher.pk %}"
                         hx-target="#modal-container"
-                        onclick="modal_form.showModal()">
+                        onclick="document.getElementById('modal_form').showModal()">
                     <i class="fa-solid fa-plus"></i>
                     <span class="hidden sm:inline">Assign</span>
                 </button>
@@ -456,13 +456,13 @@
                     <button class="btn btn-sm btn-primary"
                             hx-get="{% url 'teachers:send_invitation' teacher.pk %}"
                             hx-target="#modal-container"
-                            onclick="modal_form.showModal()">
+                            onclick="document.getElementById('modal_form').showModal()">
                         <i class="fa-solid fa-envelope"></i> Send Invite
                     </button>
                     <button class="btn btn-sm btn-outline"
                             hx-get="{% url 'teachers:create_account' teacher.pk %}"
                             hx-target="#modal-container"
-                            onclick="modal_form.showModal()">
+                            onclick="document.getElementById('modal_form').showModal()">
                         <i class="fa-solid fa-user-plus"></i> Create Instant
                     </button>
                 </div>

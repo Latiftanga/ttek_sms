@@ -24,7 +24,7 @@
                     <a hx-get="{% url 'students:guardian_edit' guardian.pk %}"
                        hx-target="#modal-guardian-content"
                        hx-swap="innerHTML"
-                       onclick="modal_guardian.showModal()">
+                       onclick="document.getElementById('modal_guardian').showModal()">
                         <i class="fa-solid fa-pen"></i> Edit
                     </a>
                 </li>
@@ -168,7 +168,7 @@
                         <button class="btn btn-sm btn-success w-full"
                                 hx-get="{% url 'students:guardian_send_invitation' guardian.pk %}"
                                 hx-target="#modal-container"
-                                onclick="modal_form.showModal()">
+                                onclick="document.getElementById('modal_form').showModal()">
                             <i class="fa-solid fa-envelope"></i>
                             Send Portal Invite
                         </button>
@@ -341,6 +341,7 @@
 
 <script>
 document.body.addEventListener('guardianChanged', function() {
-    if (typeof modal_guardian !== 'undefined') modal_guardian.close();
+    var el = document.getElementById('modal_guardian');
+    if (el) el.close();
 });
 </script>

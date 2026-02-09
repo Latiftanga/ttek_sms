@@ -55,7 +55,7 @@
     <button class="btn btn-primary btn-sm"
             hx-get="{% url 'teachers:document_create' teacher.pk %}"
             hx-target="#modal-container"
-            onclick="modal_form.showModal()">
+            onclick="document.getElementById('modal_form').showModal()">
         <i class="fa-solid fa-upload"></i>
         <span class="hidden sm:inline">Upload Document</span>
     </button>
@@ -137,7 +137,7 @@
             <button class="btn btn-ghost btn-xs btn-square"
                     hx-get="{% url 'teachers:document_edit' teacher.pk doc.pk %}"
                     hx-target="#modal-container"
-                    onclick="modal_form.showModal()"
+                    onclick="document.getElementById('modal_form').showModal()"
                     title="Edit">
                 <i class="fa-solid fa-pen text-xs"></i>
             </button>
@@ -163,7 +163,7 @@
     <button class="btn btn-primary btn-sm"
             hx-get="{% url 'teachers:document_create' teacher.pk %}"
             hx-target="#modal-container"
-            onclick="modal_form.showModal()">
+            onclick="document.getElementById('modal_form').showModal()">
         <i class="fa-solid fa-upload"></i>
         Upload First Document
     </button>

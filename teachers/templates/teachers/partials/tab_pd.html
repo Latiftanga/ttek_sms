@@ -55,7 +55,7 @@
     <button class="btn btn-primary btn-sm"
             hx-get="{% url 'teachers:pd_create' teacher.pk %}"
             hx-target="#modal-container"
-            onclick="modal_form.showModal()">
+            onclick="document.getElementById('modal_form').showModal()">
         <i class="fa-solid fa-plus"></i>
         <span class="hidden sm:inline">Add Activity</span>
     </button>
@@ -141,7 +141,7 @@
             <button class="btn btn-ghost btn-xs btn-square"
                     hx-get="{% url 'teachers:pd_edit' teacher.pk activity.pk %}"
                     hx-target="#modal-container"
-                    onclick="modal_form.showModal()"
+                    onclick="document.getElementById('modal_form').showModal()"
                     title="Edit">
                 <i class="fa-solid fa-pen text-xs"></i>
             </button>
@@ -167,7 +167,7 @@
     <button class="btn btn-primary btn-sm"
             hx-get="{% url 'teachers:pd_create' teacher.pk %}"
             hx-target="#modal-container"
-            onclick="modal_form.showModal()">
+            onclick="document.getElementById('modal_form').showModal()">
         <i class="fa-solid fa-plus"></i>
         Add First Activity
     </button>

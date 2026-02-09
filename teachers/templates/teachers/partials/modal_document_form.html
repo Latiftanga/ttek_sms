@@ -81,7 +81,7 @@
 
         <!-- Actions -->
         <div class="flex justify-end gap-2 pt-2">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="modal_form.close()">Cancel</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('modal_form').close()">Cancel</button>
             <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fa-solid fa-{% if is_edit %}check{% else %}upload{% endif %}"></i>
                 {% if is_edit %}Save Changes{% else %}Upload{% endif %}
