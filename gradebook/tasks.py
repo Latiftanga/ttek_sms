@@ -11,6 +11,8 @@ from django.core.mail import EmailMessage
 from django.utils import timezone
 from django.conf import settings
 
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import IntegrityError
 from django_tenants.utils import schema_context
 
 from core.email_backend import get_from_email
@@ -123,7 +125,7 @@ def generate_report_pdf(term_report, tenant_schema):
                         logo_base64 = f"data:image/gif;base64,{logo_base64}"
                     else:
                         logo_base64 = f"data:image/jpeg;base64,{logo_base64}"
-        except Exception:
+        except (IOError, OSError):
             pass
 
         # Create verification record and generate QR code
@@ -143,7 +145,7 @@ def generate_report_pdf(term_report, tenant_schema):
             # Get domain from school for QR code URL
             domain = school.domain_url if school and hasattr(school, 'domain_url') else None
             qr_code_base64 = generate_verification_qr(verification.verification_code, domain=domain)
-        except Exception as e:
+        except (ValueError, ValidationError, IntegrityError) as e:
             logger.warning(f"Could not create verification record: {e}")
 
         context = {
@@ -195,7 +197,7 @@ def build_feedback_context(term_report):
         from core.models import SchoolSettings
         settings = SchoolSettings.load()
         school_name = settings.display_name if settings else ''
-    except Exception:
+    except ObjectDoesNotExist:
         pass
 
     return {
@@ -281,7 +283,13 @@ FEEDBACK_TEMPLATES = {
 }
 
 
-@shared_task(bind=True, max_retries=config.TASK_MAX_RETRIES, default_retry_delay=config.TASK_RETRY_DELAY)
+@shared_task(
+    bind=True,
+    max_retries=config.TASK_MAX_RETRIES,
+    default_retry_delay=config.TASK_RETRY_DELAY,
+    soft_time_limit=config.TASK_SOFT_TIME_LIMIT,
+    time_limit=config.TASK_TIME_LIMIT,
+)
 def distribute_single_report(self, term_report_id, distribution_type, tenant_schema, sent_by_id=None, sms_template=None):
     """
     Distribute a single student report via email and/or SMS.
@@ -451,7 +459,12 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
         }
 
 
-@shared_task(bind=True)
+@shared_task(
+    bind=True,
+    max_retries=config.TASK_MAX_RETRIES,
+    soft_time_limit=config.BULK_TASK_SOFT_TIME_LIMIT,
+    time_limit=config.BULK_TASK_TIME_LIMIT,
+)
 def distribute_bulk_reports(self, class_id, distribution_type, tenant_schema, sent_by_id=None, sms_template=None):
     """
     Distribute reports for all students in a class.

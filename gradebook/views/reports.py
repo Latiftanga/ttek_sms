@@ -6,11 +6,13 @@ from django.utils import timezone
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Avg, Count, Q
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django_ratelimit.decorators import ratelimit
 
 from .base import (
     admin_required, htmx_render, is_school_admin, teacher_or_admin_required
@@ -470,7 +472,7 @@ def calculate_class_grades(request, class_id):
                 f'using {grading_system.name if grading_system else "default"} grading system'
             )
 
-    except Exception as e:
+    except (ValueError, ValidationError, IntegrityError) as e:
         logger.error(f'Error calculating grades for class {class_id}: {str(e)}')
         return HttpResponse(f'Error: {str(e)}', status=500)
 
@@ -900,7 +902,7 @@ def report_card_print(request, student_id):
         from django.db import connection
         school = School.objects.get(schema_name=connection.schema_name)
         school_settings = SchoolSettings.objects.first()
-    except Exception:
+    except ObjectDoesNotExist:
         pass
 
     # Create verification record and generate QR code
@@ -919,7 +921,7 @@ def report_card_print(request, student_id):
             academic_year=current_term.academic_year.name if current_term and current_term.academic_year else '',
         )
         qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
-    except Exception as e:
+    except (ValidationError, IntegrityError) as e:
         logger.warning(f"Could not create verification record: {e}")
 
     context = {
@@ -945,6 +947,7 @@ def report_card_print(request, student_id):
 
 @login_required
 @admin_required
+@ratelimit(key='user', rate='60/h', block=True)
 def analytics(request):
     """Analytics dashboard with grade trends and statistics (Admin only)."""
     current_term = Term.get_current()
@@ -978,6 +981,7 @@ def analytics(request):
 
 
 @login_required
+@ratelimit(key='user', rate='60/h', block=True)
 def analytics_class_data(request, class_id):
     """Get analytics data for a specific class (HTMX partial)."""
     current_term = Term.get_current()
@@ -1050,6 +1054,7 @@ def analytics_class_data(request, class_id):
 
 @login_required
 @admin_required
+@ratelimit(key='user', rate='60/h', block=True)
 def analytics_overview(request):
     """School-wide analytics overview (HTMX partial, Admin only)."""
     current_term = Term.get_current()
@@ -1129,6 +1134,7 @@ def analytics_overview(request):
 
 @login_required
 @admin_required
+@ratelimit(key='user', rate='60/h', block=True)
 def analytics_term_comparison(request):
     """Compare performance across terms (HTMX partial, Admin only)."""
     # Get all terms from current academic year
@@ -1860,7 +1866,7 @@ def download_report_pdf(request, student_id):
         response['Content-Disposition'] = f'attachment; filename="report_card_{student.admission_number}.pdf"'
         return response
 
-    except Exception as e:
+    except (ValueError, ValidationError, IOError) as e:
         logger.error(f"Failed to generate PDF: {str(e)}")
         messages.error(request, f'Failed to generate PDF: {str(e)}')
         return redirect('gradebook:reports')
@@ -1972,7 +1978,7 @@ def transcript_print(request, student_id):
             user=request.user,
         )
         qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
-    except Exception as e:
+    except (ValidationError, IntegrityError) as e:
         logger.warning(f"Could not create verification record: {e}")
 
     context = {
@@ -2066,7 +2072,7 @@ def download_transcript_pdf(request, student_id):
         logger.error("WeasyPrint not installed")
         messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
         return redirect('gradebook:transcript', student_id=student_id)
-    except Exception as e:
+    except (ValueError, ValidationError, IOError) as e:
         import traceback
         logger.error(f"Failed to generate transcript PDF: {str(e)}\n{traceback.format_exc()}")
         messages.error(request, f'Failed to generate PDF: {str(e)}')
