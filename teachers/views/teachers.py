@@ -23,8 +23,7 @@ def index(request):
         teachers = teachers.filter(
             Q(first_name__icontains=search) |
             Q(last_name__icontains=search) |
-            Q(staff_id__icontains=search) |
-            Q(subject_specialization__icontains=search)
+            Q(staff_id__icontains=search)
         )
 
     # Filter by status

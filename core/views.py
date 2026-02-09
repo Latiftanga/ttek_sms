@@ -2578,59 +2578,37 @@ def my_workload(request):
 
 
 @login_required
-def my_pd(request):
-    """Teacher's professional development - imported from teachers app."""
-    from teachers.views.professional_development import my_pd as teacher_my_pd
-    return teacher_my_pd(request)
+def my_promotions(request):
+    """Teacher manages their own promotions."""
+    from teachers.models import Promotion
+    user = request.user
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('core:index')
+    teacher = user.teacher_profile
+    promotions = Promotion.objects.filter(teacher=teacher).order_by('-date_promoted')
+    context = {'teacher': teacher, 'promotions': promotions}
+    template = 'teachers/partials/my_promotions_content.html'
+    if request.headers.get('HX-Request'):
+        return render(request, template, context)
+    return render(request, 'teachers/my_promotions.html', context)
 
 
 @login_required
-def my_pd_create(request):
-    """Create new PD activity - imported from teachers app."""
-    from teachers.views.professional_development import my_pd_create as teacher_my_pd_create
-    return teacher_my_pd_create(request)
-
-
-@login_required
-def my_pd_edit(request, pd_pk):
-    """Edit PD activity - imported from teachers app."""
-    from teachers.views.professional_development import my_pd_edit as teacher_my_pd_edit
-    return teacher_my_pd_edit(request, pd_pk)
-
-
-@login_required
-def my_pd_delete(request, pd_pk):
-    """Delete PD activity - imported from teachers app."""
-    from teachers.views.professional_development import my_pd_delete as teacher_my_pd_delete
-    return teacher_my_pd_delete(request, pd_pk)
-
-
-@login_required
-def my_documents(request):
-    """View documents - imported from teachers app."""
-    from teachers.views.documents import my_documents as teacher_my_documents
-    return teacher_my_documents(request)
-
-
-@login_required
-def my_documents_create(request):
-    """Upload document - imported from teachers app."""
-    from teachers.views.documents import my_documents_create as teacher_my_documents_create
-    return teacher_my_documents_create(request)
-
-
-@login_required
-def my_documents_edit(request, doc_pk):
-    """Edit document - imported from teachers app."""
-    from teachers.views.documents import my_documents_edit as teacher_my_documents_edit
-    return teacher_my_documents_edit(request, doc_pk)
-
-
-@login_required
-def my_documents_delete(request, doc_pk):
-    """Delete document - imported from teachers app."""
-    from teachers.views.documents import my_documents_delete as teacher_my_documents_delete
-    return teacher_my_documents_delete(request, doc_pk)
+def my_qualifications(request):
+    """Teacher manages their own qualifications."""
+    from teachers.models import Qualification
+    user = request.user
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('core:index')
+    teacher = user.teacher_profile
+    qualifications = Qualification.objects.filter(teacher=teacher).order_by('-date_ended')
+    context = {'teacher': teacher, 'qualifications': qualifications}
+    template = 'teachers/partials/my_qualifications_content.html'
+    if request.headers.get('HX-Request'):
+        return render(request, template, context)
+    return render(request, 'teachers/my_qualifications.html', context)
 
 
 @login_required

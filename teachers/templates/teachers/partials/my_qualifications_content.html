@@ -1,0 +1,40 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex items-center gap-2 sm:gap-3 mb-4">
+    <a href="{% url 'core:profile' %}"
+       hx-get="{% url 'core:profile' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Profile">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">My Qualifications</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">Manage your academic qualifications</p>
+    </div>
+</div>
+
+<!-- Qualifications List -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-4 sm:p-6">
+        <div id="qualifications-content">
+            {% include 'teachers/partials/tab_qualifications.html' %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<dialog id="modal_form" class="modal">
+    <div class="modal-box">
+        <div id="modal-container"></div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script>
+document.addEventListener('closeModal', function() {
+    document.getElementById('modal_form').close();
+});
+</script>

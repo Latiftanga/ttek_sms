@@ -18,6 +18,10 @@ class Teacher(Person):
         INACTIVE = 'inactive', _('Inactive')
         PENDING = 'pending', _('Pending')
 
+    class StaffCategory(models.TextChoices):
+        TEACHING = 'teaching', _('Teaching')
+        NON_TEACHING = 'non_teaching', _('Non-Teaching')
+
     # Link to User account
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -35,12 +39,34 @@ class Teacher(Person):
         default=Title.MR
     )
     staff_id = models.CharField(max_length=20, unique=True, help_text="Unique Employee ID")
-    subject_specialization = models.CharField(max_length=100, help_text="e.g. Mathematics, Science")
     employment_date = models.DateField(default=timezone.now)
     status = models.CharField(
-        max_length=10, 
-        choices=Status.choices, 
+        max_length=10,
+        choices=Status.choices,
         default=Status.ACTIVE
+    )
+
+    # Staff category
+    staff_category = models.CharField(
+        max_length=15,
+        choices=StaffCategory.choices,
+        default=StaffCategory.TEACHING,
+    )
+
+    # Ghana-specific IDs
+    ghana_card_number = models.CharField(
+        max_length=20, blank=True, default='',
+    )
+    ssnit_number = models.CharField(
+        max_length=20, blank=True, default='',
+    )
+
+    # Additional employment fields
+    licence_number = models.CharField(
+        max_length=30, blank=True, default='',
+    )
+    date_posted_to_current_school = models.DateField(
+        null=True, blank=True,
     )
 
     # Timestamps
@@ -58,6 +84,11 @@ class Teacher(Person):
     def full_name(self):
         parts = [self.first_name, self.middle_name, self.last_name]
         return " ".join(filter(None, parts))
+
+    @property
+    def current_rank(self):
+        latest = self.promotions.first()
+        return latest.get_rank_display() if latest else "\u2014"
 
     def __str__(self):
         return f"{self.get_title_display()} {self.full_name}"
@@ -193,206 +224,67 @@ class TeacherInvitation(models.Model):
             return None
 
 
-class ProfessionalDevelopment(models.Model):
-    """
-    Track teacher professional development activities:
-    workshops, courses, certifications, training, etc.
-    """
+class Promotion(models.Model):
+    """Track teacher rank/promotion history."""
 
-    class ActivityType(models.TextChoices):
-        WORKSHOP = 'workshop', _('Workshop')
-        COURSE = 'course', _('Course')
-        CONFERENCE = 'conference', _('Conference')
-        CERTIFICATION = 'certification', _('Certification')
-        TRAINING = 'training', _('Training')
-        WEBINAR = 'webinar', _('Webinar')
-        SEMINAR = 'seminar', _('Seminar')
-        OTHER = 'other', _('Other')
+    class Rank(models.TextChoices):
+        SUPERINTENDENT_II = 'supt_ii', _('Superintendent II')
+        SUPERINTENDENT_I = 'supt_i', _('Superintendent I')
+        SENIOR_SUPERINTENDENT_II = 'snr_supt_ii', _('Senior Superintendent II')
+        SENIOR_SUPERINTENDENT_I = 'snr_supt_i', _('Senior Superintendent I')
+        PRINCIPAL_SUPERINTENDENT = 'prin_supt', _('Principal Superintendent')
+        ASSISTANT_DIRECTOR_II = 'asst_dir_ii', _('Assistant Director II')
+        ASSISTANT_DIRECTOR_I = 'asst_dir_i', _('Assistant Director I')
+        DEPUTY_DIRECTOR = 'dep_dir', _('Deputy Director')
+        DIRECTOR = 'director', _('Director')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    teacher = models.ForeignKey(
+        Teacher, on_delete=models.CASCADE, related_name='promotions'
+    )
+    rank = models.CharField(max_length=30, choices=Rank.choices)
+    date_promoted = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date_promoted']
+        indexes = [
+            models.Index(fields=['teacher', 'date_promoted'], name='promo_teacher_date_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.get_rank_display()} - {self.teacher.full_name}"
+
+
+class Qualification(models.Model):
+    """Track teacher academic qualifications."""
 
     class Status(models.TextChoices):
-        PLANNED = 'planned', _('Planned')
-        IN_PROGRESS = 'in_progress', _('In Progress')
+        PENDING = 'pending', _('Pending')
         COMPLETED = 'completed', _('Completed')
-        CANCELLED = 'cancelled', _('Cancelled')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     teacher = models.ForeignKey(
-        Teacher,
-        on_delete=models.CASCADE,
-        related_name='pd_activities'
+        Teacher, on_delete=models.CASCADE, related_name='qualifications'
     )
-    title = models.CharField(max_length=255, help_text="Name of the activity/course")
-    activity_type = models.CharField(
-        max_length=20,
-        choices=ActivityType.choices,
-        default=ActivityType.TRAINING
-    )
-    provider = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Institution or organization providing the training"
-    )
-    description = models.TextField(blank=True)
-
-    # Dates
-    start_date = models.DateField()
-    end_date = models.DateField(null=True, blank=True)
-    hours = models.DecimalField(
-        max_digits=6,
-        decimal_places=1,
-        default=0,
-        help_text="CPD hours/credits earned"
-    )
-
-    # Status and certification
+    title = models.CharField(max_length=255, help_text="e.g. B.Ed, M.Phil, Diploma in Education")
+    institution = models.CharField(max_length=255, help_text="Awarding institution")
+    date_started = models.DateField(null=True, blank=True)
+    date_ended = models.DateField(null=True, blank=True)
     status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PLANNED
-    )
-    certificate_number = models.CharField(max_length=100, blank=True)
-    certificate_expiry = models.DateField(
-        null=True,
-        blank=True,
-        help_text="When this certification expires (if applicable)"
-    )
-    certificate_file = models.FileField(
-        upload_to='pd_certificates/',
-        blank=True,
-        help_text="Upload certificate document"
-    )
-
-    # Metadata
-    notes = models.TextField(blank=True, help_text="Additional notes or learnings")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['-start_date', '-created_at']
-        verbose_name = "Professional Development"
-        verbose_name_plural = "Professional Development Activities"
-        indexes = [
-            models.Index(fields=['teacher', 'status'], name='pd_teacher_status_idx'),
-            models.Index(fields=['start_date'], name='pd_start_date_idx'),
-            models.Index(fields=['certificate_expiry'], name='pd_cert_expiry_idx'),
-        ]
-
-    def __str__(self):
-        return f"{self.title} - {self.teacher.full_name}"
-
-    @property
-    def is_certification_expiring_soon(self):
-        """Check if certification expires within 90 days."""
-        if not self.certificate_expiry:
-            return False
-        days_until_expiry = (self.certificate_expiry - timezone.now().date()).days
-        return 0 < days_until_expiry <= 90
-
-    @property
-    def is_certification_expired(self):
-        """Check if certification has expired."""
-        if not self.certificate_expiry:
-            return False
-        return self.certificate_expiry < timezone.now().date()
-
-    @property
-    def duration_display(self):
-        """Return formatted duration."""
-        if self.end_date and self.end_date != self.start_date:
-            return f"{self.start_date.strftime('%b %d')} - {self.end_date.strftime('%b %d, %Y')}"
-        return self.start_date.strftime('%b %d, %Y')
-
-
-class TeacherDocument(models.Model):
-    """Model for storing teacher documents."""
-
-    class DocumentType(models.TextChoices):
-        CONTRACT = 'contract', _('Employment Contract')
-        QUALIFICATION = 'qualification', _('Qualification/Degree')
-        CERTIFICATION = 'certification', _('Professional Certification')
-        ID_DOCUMENT = 'id_document', _('ID Document')
-        REFERENCE = 'reference', _('Reference Letter')
-        MEDICAL = 'medical', _('Medical Certificate')
-        BACKGROUND_CHECK = 'background_check', _('Background Check')
-        OTHER = 'other', _('Other')
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    teacher = models.ForeignKey(
-        Teacher,
-        on_delete=models.CASCADE,
-        related_name='documents'
-    )
-    title = models.CharField(max_length=255)
-    document_type = models.CharField(
-        max_length=20,
-        choices=DocumentType.choices,
-        default=DocumentType.OTHER
-    )
-    file = models.FileField(
-        upload_to='teacher_documents/',
-        help_text="Accepted formats: PDF, JPG, PNG, DOC, DOCX"
-    )
-    description = models.TextField(blank=True)
-    issue_date = models.DateField(null=True, blank=True)
-    expiry_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Leave blank if document doesn't expire"
-    )
-    is_verified = models.BooleanField(
-        default=False,
-        help_text="Has this document been verified by admin?"
-    )
-    uploaded_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='uploaded_teacher_documents'
+        max_length=10, choices=Status.choices, default=Status.COMPLETED
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created_at']
-        verbose_name = "Teacher Document"
-        verbose_name_plural = "Teacher Documents"
+        ordering = ['-date_ended', '-date_started']
         indexes = [
-            models.Index(fields=['teacher', 'document_type'], name='doc_teacher_type_idx'),
-            models.Index(fields=['expiry_date'], name='doc_expiry_idx'),
+            models.Index(fields=['teacher', 'status'], name='qual_teacher_status_idx'),
         ]
 
     def __str__(self):
         return f"{self.title} - {self.teacher.full_name}"
 
-    @property
-    def is_expiring_soon(self):
-        """Check if document expires within 30 days."""
-        if not self.expiry_date:
-            return False
-        days_until_expiry = (self.expiry_date - timezone.now().date()).days
-        return 0 < days_until_expiry <= 30
 
-    @property
-    def is_expired(self):
-        """Check if document has expired."""
-        if not self.expiry_date:
-            return False
-        return self.expiry_date < timezone.now().date()
-
-    @property
-    def file_extension(self):
-        """Return file extension."""
-        if self.file:
-            return self.file.name.split('.')[-1].lower()
-        return ''
-
-    @property
-    def is_image(self):
-        """Check if file is an image."""
-        return self.file_extension in ['jpg', 'jpeg', 'png', 'gif']
-
-    @property
-    def is_pdf(self):
-        """Check if file is a PDF."""
-        return self.file_extension == 'pdf'

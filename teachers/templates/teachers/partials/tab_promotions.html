@@ -1,0 +1,77 @@
+{% load core_tags %}
+
+<!-- Add Button -->
+<div class="flex justify-between items-center mb-4">
+    <h3 class="font-bold text-xs uppercase text-base-content/50 flex items-center gap-2">
+        <i class="fa-solid fa-ranking-star text-primary"></i> Promotion History
+        {% if promotions %}
+        <span class="badge badge-xs badge-ghost">{{ promotions|length }}</span>
+        {% endif %}
+    </h3>
+    <button class="btn btn-primary btn-sm"
+            hx-get="{% url 'teachers:promotion_create' teacher.pk %}"
+            hx-target="#modal-container"
+            onclick="document.getElementById('modal_form').showModal()">
+        <i class="fa-solid fa-plus"></i>
+        <span class="hidden sm:inline">Add Promotion</span>
+    </button>
+</div>
+
+<!-- Promotions List -->
+{% if promotions %}
+<div class="space-y-2">
+    {% for promotion in promotions %}
+    <div class="flex items-start gap-3 p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors group">
+        <!-- Icon -->
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">
+            <i class="fa-solid fa-ranking-star"></i>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 min-w-0">
+            <div class="font-medium text-sm">{{ promotion.get_rank_display }}</div>
+            <div class="flex flex-wrap items-center gap-3 mt-1 text-xs text-base-content/60">
+                <span class="flex items-center gap-1">
+                    <i class="fa-regular fa-calendar"></i>
+                    {{ promotion.date_promoted|date:"M j, Y" }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button class="btn btn-ghost btn-xs btn-square"
+                    hx-get="{% url 'teachers:promotion_edit' teacher.pk promotion.pk %}"
+                    hx-target="#modal-container"
+                    onclick="document.getElementById('modal_form').showModal()"
+                    title="Edit">
+                <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+            <form hx-post="{% url 'teachers:promotion_delete' teacher.pk promotion.pk %}"
+                  hx-target="#promotions-content"
+                  hx-swap="innerHTML"
+                  hx-confirm="Delete promotion '{{ promotion.get_rank_display }}'?">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-xs btn-square text-error" title="Delete">
+                    <i class="fa-solid fa-trash text-xs"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-8 text-base-content/50">
+    <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-3">
+        <i class="fa-solid fa-ranking-star text-2xl"></i>
+    </div>
+    <p class="text-sm mb-3">No promotion records yet</p>
+    <button class="btn btn-primary btn-sm"
+            hx-get="{% url 'teachers:promotion_create' teacher.pk %}"
+            hx-target="#modal-container"
+            onclick="document.getElementById('modal_form').showModal()">
+        <i class="fa-solid fa-plus"></i>
+        Add First Promotion
+    </button>
+</div>
+{% endif %}

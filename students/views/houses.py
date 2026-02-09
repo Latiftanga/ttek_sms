@@ -49,15 +49,12 @@ def house_index(request):
         house.housemaster_assignment = housemaster_map.get(house.pk)
 
     # Get aggregate stats in a single query instead of iterating
-    stats = House.objects.aggregate(
-        total_houses=Count('id'),
-        active_houses=Count('id', filter=Q(is_active=True)),
-        total_students=Count('students', filter=Q(students__status='active'))
-    )
+    total_houses = houses.count()
+    active_houses = houses.filter(is_active=True).count()
+    total_students = Student.objects.filter(
+        status='active', house__isnull=False
+    ).count()
 
-    total_houses = stats['total_houses'] or 0
-    active_houses = stats['active_houses'] or 0
-    total_students = stats['total_students'] or 0
     avg_per_house = round(total_students / active_houses) if active_houses > 0 else 0
 
     # Get teachers for assignment dropdown

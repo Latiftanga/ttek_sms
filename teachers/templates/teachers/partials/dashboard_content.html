@@ -540,35 +540,36 @@
                         <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
 
-                    <a href="{% url 'core:my_pd' %}"
-                       hx-get="{% url 'core:my_pd' %}"
+                    <a href="{% url 'core:my_promotions' %}"
+                       hx-get="{% url 'core:my_promotions' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
                        class="flex items-center gap-3 p-3 rounded-xl bg-accent/5 hover:bg-accent/10 border border-accent/10 hover:border-accent/20 transition-all group">
                         <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <i class="fa-solid fa-graduation-cap text-accent"></i>
+                            <i class="fa-solid fa-ranking-star text-accent"></i>
                         </div>
                         <div class="flex-1">
-                            <div class="font-medium">My Development</div>
-                            <div class="text-xs text-base-content/50">CPD & certifications</div>
+                            <div class="font-medium">My Promotions</div>
+                            <div class="text-xs text-base-content/50">Rank history</div>
                         </div>
                         <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
 
-                    <a href="{% url 'core:my_documents' %}"
-                       hx-get="{% url 'core:my_documents' %}"
+                    <a href="{% url 'core:my_qualifications' %}"
+                       hx-get="{% url 'core:my_qualifications' %}"
                        hx-target="#main-content"
                        hx-push-url="true"
                        class="flex items-center gap-3 p-3 rounded-xl bg-info/5 hover:bg-info/10 border border-info/10 hover:border-info/20 transition-all group">
                         <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <i class="fa-solid fa-folder-open text-info"></i>
+                            <i class="fa-solid fa-award text-info"></i>
                         </div>
                         <div class="flex-1">
-                            <div class="font-medium">My Documents</div>
-                            <div class="text-xs text-base-content/50">Upload & manage files</div>
+                            <div class="font-medium">My Qualifications</div>
+                            <div class="text-xs text-base-content/50">Academic records</div>
                         </div>
                         <i class="fa-solid fa-chevron-right text-xs text-base-content/30"></i>
                     </a>
+
                 </div>
             </div>
         </div>
@@ -590,7 +591,6 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="font-bold truncate">{{ teacher.full_name }}</div>
-                        <div class="text-xs text-base-content/50 truncate">{{ teacher.subject_specialization }}</div>
                     </div>
                 </div>
 

@@ -36,7 +36,7 @@
                 <option value="">-- Select Teacher --</option>
                 {% for teacher in form.teacher.field.queryset %}
                 <option value="{{ teacher.pk }}" {% if teacher.pk|stringformat:"s" == form.teacher.value|default:""|stringformat:"s" %}selected{% endif %}>
-                    {{ teacher.full_name }} {% if teacher.subject_specialization %}({{ teacher.subject_specialization }}){% endif %}
+                    {{ teacher.full_name }}
                 </option>
                 {% endfor %}
             </select>

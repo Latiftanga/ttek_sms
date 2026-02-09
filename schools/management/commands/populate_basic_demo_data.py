@@ -31,7 +31,7 @@ BASIC_TEACHERS = [
         'last_name': 'Asante',
         'gender': 'M',
         'title': 'MR',
-        'subject_specialization': 'Mathematics',
+
         'staff_id': 'BT001',
     },
     {
@@ -39,7 +39,7 @@ BASIC_TEACHERS = [
         'last_name': 'Mensah',
         'gender': 'F',
         'title': 'MRS',
-        'subject_specialization': 'English Language',
+
         'staff_id': 'BT002',
     },
     {
@@ -47,7 +47,7 @@ BASIC_TEACHERS = [
         'last_name': 'Boateng',
         'gender': 'M',
         'title': 'MR',
-        'subject_specialization': 'Integrated Science',
+
         'staff_id': 'BT003',
     },
     {
@@ -55,7 +55,7 @@ BASIC_TEACHERS = [
         'last_name': 'Owusu',
         'gender': 'F',
         'title': 'MS',
-        'subject_specialization': 'Social Studies',
+
         'staff_id': 'BT004',
     },
     {
@@ -63,7 +63,7 @@ BASIC_TEACHERS = [
         'last_name': 'Frimpong',
         'gender': 'M',
         'title': 'MR',
-        'subject_specialization': 'ICT',
+
         'staff_id': 'BT005',
     },
     {
@@ -71,7 +71,7 @@ BASIC_TEACHERS = [
         'last_name': 'Darko',
         'gender': 'F',
         'title': 'MRS',
-        'subject_specialization': 'Religious and Moral Education',
+
         'staff_id': 'BT006',
     },
     {
@@ -79,7 +79,7 @@ BASIC_TEACHERS = [
         'last_name': 'Adjei',
         'gender': 'M',
         'title': 'MR',
-        'subject_specialization': 'Creative Arts',
+
         'staff_id': 'BT007',
     },
     {
@@ -87,7 +87,7 @@ BASIC_TEACHERS = [
         'last_name': 'Quartey',
         'gender': 'F',
         'title': 'MS',
-        'subject_specialization': 'French',
+
         'staff_id': 'BT008',
     },
 ]

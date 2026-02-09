@@ -24,6 +24,23 @@ def admin_required(view_func):
     return _wrapped_view
 
 
+def admin_or_owner(view_func):
+    """Allow school admin OR the teacher accessing their own data (pk match)."""
+    @wraps(view_func)
+    def _wrapped_view(request, pk, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if is_school_admin(request.user):
+            return view_func(request, pk, *args, **kwargs)
+        if (getattr(request.user, 'is_teacher', False)
+                and hasattr(request.user, 'teacher_profile')
+                and str(request.user.teacher_profile.pk) == str(pk)):
+            return view_func(request, pk, *args, **kwargs)
+        messages.error(request, "You don't have permission to access this page.")
+        return redirect('core:index')
+    return _wrapped_view
+
+
 def htmx_render(request, full_template, partial_template, context=None):
     """Render full template for regular requests, partial for HTMX requests."""
     context = context or {}

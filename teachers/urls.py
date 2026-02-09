@@ -35,16 +35,15 @@ urlpatterns = [
     # Analytics routes
     path('workload/overview/', views.school_workload_overview, name='school_workload_overview'),
 
-    # Professional Development routes
-    path('<uuid:pk>/pd/', views.pd_list, name='pd_list'),
-    path('<uuid:pk>/pd/create/', views.pd_create, name='pd_create'),
-    path('<uuid:pk>/pd/<uuid:pd_pk>/edit/', views.pd_edit, name='pd_edit'),
-    path('<uuid:pk>/pd/<uuid:pd_pk>/delete/', views.pd_delete, name='pd_delete'),
+    # Promotion routes
+    path('<uuid:pk>/promotions/', views.promotion_list, name='promotion_list'),
+    path('<uuid:pk>/promotions/create/', views.promotion_create, name='promotion_create'),
+    path('<uuid:pk>/promotions/<uuid:promo_pk>/edit/', views.promotion_edit, name='promotion_edit'),
+    path('<uuid:pk>/promotions/<uuid:promo_pk>/delete/', views.promotion_delete, name='promotion_delete'),
 
-    # Document management routes
-    path('<uuid:pk>/documents/', views.document_list, name='document_list'),
-    path('<uuid:pk>/documents/create/', views.document_create, name='document_create'),
-    path('<uuid:pk>/documents/<uuid:doc_pk>/edit/', views.document_edit, name='document_edit'),
-    path('<uuid:pk>/documents/<uuid:doc_pk>/delete/', views.document_delete, name='document_delete'),
-    path('<uuid:pk>/documents/<uuid:doc_pk>/verify/', views.document_verify, name='document_verify'),
+    # Qualification routes
+    path('<uuid:pk>/qualifications/', views.qualification_list, name='qualification_list'),
+    path('<uuid:pk>/qualifications/create/', views.qualification_create, name='qualification_create'),
+    path('<uuid:pk>/qualifications/<uuid:qual_pk>/edit/', views.qualification_edit, name='qualification_edit'),
+    path('<uuid:pk>/qualifications/<uuid:qual_pk>/delete/', views.qualification_delete, name='qualification_delete'),
 ]
