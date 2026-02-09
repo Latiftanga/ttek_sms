@@ -116,7 +116,7 @@ class StudentForm(forms.ModelForm):
             'middle_name': forms.TextInput(attrs={'placeholder': 'Middle name (optional)'}),
             'last_name': forms.TextInput(attrs={'placeholder': 'Last name'}),
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
-            'address': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Student address'}),
+            'address': forms.TextInput(attrs={'placeholder': 'Student address'}),
             'phone': forms.TextInput(attrs={'placeholder': 'Phone number (optional)', 'type': 'tel'}),
             'admission_number': forms.TextInput(attrs={'placeholder': 'e.g., STU-2024-001'}),
             'admission_date': forms.DateInput(attrs={'type': 'date'}),

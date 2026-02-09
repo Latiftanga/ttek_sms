@@ -1,7 +1,7 @@
 import re
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from .models import Teacher, ProfessionalDevelopment, TeacherDocument
+from .models import Teacher, Promotion, Qualification
 
 
 def validate_phone_number(phone):
@@ -43,14 +43,17 @@ class TeacherForm(forms.ModelForm):
         # We can list fields explicitly to control order
         fields = [
             'title', 'first_name', 'middle_name', 'last_name', 'gender',
-            'date_of_birth', 'staff_id', 'status',
-            'subject_specialization', 'employment_date',
+            'date_of_birth', 'ghana_card_number', 'ssnit_number',
+            'staff_id', 'staff_category', 'status',
+            'licence_number',
+            'employment_date', 'date_posted_to_current_school',
             'phone_number', 'email', 'address', 'photo', 'nationality'
         ]
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'employment_date': forms.DateInput(attrs={'type': 'date'}),
-            'address': forms.Textarea(attrs={'rows': 3}),
+            'date_posted_to_current_school': forms.DateInput(attrs={'type': 'date'}),
+            'address': forms.TextInput(),
         }
 
     def clean_phone_number(self):
@@ -61,63 +64,30 @@ class TeacherForm(forms.ModelForm):
         return phone
 
 
-class ProfessionalDevelopmentForm(forms.ModelForm):
-    """Form for creating/editing professional development activities."""
-
+class PromotionForm(forms.ModelForm):
     class Meta:
-        model = ProfessionalDevelopment
-        fields = [
-            'title', 'activity_type', 'provider', 'description',
-            'start_date', 'end_date', 'hours', 'status',
-            'certificate_number', 'certificate_expiry', 'certificate_file',
-            'notes'
-        ]
+        model = Promotion
+        fields = ['rank', 'date_promoted']
         widgets = {
-            'start_date': forms.DateInput(attrs={'type': 'date'}),
-            'end_date': forms.DateInput(attrs={'type': 'date'}),
-            'certificate_expiry': forms.DateInput(attrs={'type': 'date'}),
-            'description': forms.Textarea(attrs={'rows': 3}),
-            'notes': forms.Textarea(attrs={'rows': 3}),
-            'hours': forms.NumberInput(attrs={'step': '0.5', 'min': '0'}),
+            'date_promoted': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+
+class QualificationForm(forms.ModelForm):
+    class Meta:
+        model = Qualification
+        fields = ['title', 'institution', 'date_started', 'date_ended', 'status']
+        widgets = {
+            'date_started': forms.DateInput(attrs={'type': 'date'}),
+            'date_ended': forms.DateInput(attrs={'type': 'date'}),
         }
 
     def clean(self):
         cleaned_data = super().clean()
-        start_date = cleaned_data.get('start_date')
-        end_date = cleaned_data.get('end_date')
+        date_started = cleaned_data.get('date_started')
+        date_ended = cleaned_data.get('date_ended')
 
-        if start_date and end_date and end_date < start_date:
+        if date_started and date_ended and date_ended < date_started:
             raise forms.ValidationError(_("End date cannot be before start date."))
 
         return cleaned_data
-
-
-class TeacherDocumentForm(forms.ModelForm):
-    """Form for uploading/editing teacher documents."""
-
-    class Meta:
-        model = TeacherDocument
-        fields = [
-            'title', 'document_type', 'file', 'description',
-            'issue_date', 'expiry_date'
-        ]
-        widgets = {
-            'issue_date': forms.DateInput(attrs={'type': 'date'}),
-            'expiry_date': forms.DateInput(attrs={'type': 'date'}),
-            'description': forms.Textarea(attrs={'rows': 2}),
-        }
-
-    def clean_file(self):
-        file = self.cleaned_data.get('file')
-        if file:
-            # Check file size (max 10MB)
-            if file.size > 10 * 1024 * 1024:
-                raise forms.ValidationError(_("File size must be under 10MB."))
-            # Check file extension
-            ext = file.name.split('.')[-1].lower()
-            allowed_extensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']
-            if ext not in allowed_extensions:
-                raise forms.ValidationError(
-                    _("File type not allowed. Accepted: PDF, JPG, PNG, DOC, DOCX")
-                )
-        return file

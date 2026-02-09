@@ -163,10 +163,8 @@
                         <span class="badge badge-ghost badge-xs shrink-0">{{ teacher.get_status_display }}</span>
                         {% endif %}
                     </div>
-                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                    <div class="text-xs text-base-content/60">
                         <span class="font-mono">{{ teacher.staff_id }}</span>
-                        <span>•</span>
-                        <span>{{ teacher.subject_specialization }}</span>
                     </div>
                 </div>
                 <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
@@ -214,10 +212,8 @@
                             <span class="badge badge-ghost badge-xs shrink-0">{{ teacher.get_status_display }}</span>
                             {% endif %}
                         </div>
-                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                        <div class="text-xs text-base-content/60">
                             <span class="font-mono">{{ teacher.staff_id }}</span>
-                            <span>•</span>
-                            <span>{{ teacher.subject_specialization }}</span>
                         </div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -244,7 +240,6 @@
                         <tr class="bg-base-200/50">
                             <th>Teacher</th>
                             <th>Staff ID</th>
-                            <th>Specialization</th>
                             <th>Gender</th>
                             <th>Status</th>
                             <th>Phone</th>
@@ -271,7 +266,6 @@
                                 </div>
                             </td>
                             <td><span class="font-mono text-xs">{{ teacher.staff_id }}</span></td>
-                            <td>{{ teacher.subject_specialization|default:"-" }}</td>
                             <td>
                                 <i class="fa-solid {{ teacher.gender|yesno:'fa-mars text-blue-500,fa-venus text-pink-500' }}"></i>
                             </td>

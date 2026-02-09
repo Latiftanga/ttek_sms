@@ -170,7 +170,7 @@ def create_teachers(teacher_data, schema_name, stdout):
     Create teachers from a deterministic list.
 
     teacher_data: list of dicts with keys:
-        first_name, last_name, gender, title, subject_specialization, staff_id
+        first_name, last_name, gender, title, staff_id
     """
     stdout.write('  Creating teachers...')
     created_count = 0
@@ -206,7 +206,6 @@ def create_teachers(teacher_data, schema_name, stdout):
                 days=hash(staff_id) % 3650
             ),
             staff_id=staff_id,
-            subject_specialization=td['subject_specialization'],
             phone_number=f'+23324{abs(hash(staff_id)) % 9000000 + 1000000}',
             email=email,
             employment_date=date.today() - timedelta(days=365),

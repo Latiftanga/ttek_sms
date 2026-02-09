@@ -390,7 +390,6 @@
             <div class="teacher-name">{{ teacher.get_title_display }} {{ teacher.full_name }}</div>
             <div class="staff-id">{{ teacher.staff_id }}</div>
             <span class="status-badge status-{{ teacher.status }}">{{ teacher.get_status_display }}</span>
-            <span class="status-badge" style="background: #e2e3e5; color: #383d41; margin-left: 5px;">{{ teacher.subject_specialization }}</span>
             <div class="info-grid" style="margin-top: 15px;">
                 <div class="info-row">
                     <div class="info-cell" style="width: 33%; border: none;">
@@ -494,10 +493,6 @@
                 <div class="info-cell">
                     <span class="label">Employment Date</span>
                     <span class="value">{{ teacher.employment_date|date:"F j, Y" }}</span>
-                </div>
-                <div class="info-cell">
-                    <span class="label">Subject Specialization</span>
-                    <span class="value">{{ teacher.subject_specialization }}</span>
                 </div>
                 <div class="info-cell">
                     <span class="label">Status</span>

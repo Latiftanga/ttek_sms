@@ -25,8 +25,6 @@
             <h1 class="text-base sm:text-xl font-bold truncate">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
             <p class="text-[10px] sm:text-xs text-base-content/60 flex items-center gap-1 sm:gap-2">
                 <span class="font-mono">{{ teacher.staff_id }}</span>
-                <span class="hidden sm:inline">•</span>
-                <span class="hidden sm:inline">{{ teacher.subject_specialization }}</span>
             </p>
         </div>
         <div class="dropdown dropdown-end">
@@ -64,7 +62,7 @@
         <div class="text-center">
             <h1 class="text-lg font-bold uppercase">Staff Record</h1>
             <h2 class="text-xl font-bold mt-2">{{ teacher.get_title_display }} {{ teacher.full_name }}</h2>
-            <p class="text-sm">{{ teacher.staff_id }} | {{ teacher.subject_specialization }}</p>
+            <p class="text-sm">{{ teacher.staff_id }}</p>
         </div>
     </div>
 
@@ -97,7 +95,6 @@
                         {% else %}
                         <span class="badge badge-ghost badge-sm">{{ teacher.get_status_display }}</span>
                         {% endif %}
-                        <span class="badge badge-primary badge-outline badge-sm">{{ teacher.subject_specialization }}</span>
                     </div>
 
                     <!-- Quick Stats -->
@@ -160,16 +157,16 @@
                     <span class="hidden sm:inline">Classes</span>
                 </button>
                 <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
-                        :class="activeTab === 'pd' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
-                        @click="setTab('pd')">
-                    <i class="fa-solid fa-graduation-cap sm:mr-1.5"></i>
-                    <span class="hidden sm:inline">Development</span>
+                        :class="activeTab === 'promotions' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                        @click="setTab('promotions')">
+                    <i class="fa-solid fa-ranking-star sm:mr-1.5"></i>
+                    <span class="hidden sm:inline">Promotions</span>
                 </button>
                 <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
-                        :class="activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
-                        @click="setTab('documents')">
-                    <i class="fa-solid fa-folder-open sm:mr-1.5"></i>
-                    <span class="hidden sm:inline">Documents</span>
+                        :class="activeTab === 'qualifications' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                        @click="setTab('qualifications')">
+                    <i class="fa-solid fa-award sm:mr-1.5"></i>
+                    <span class="hidden sm:inline">Qualifications</span>
                 </button>
                 <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
                         :class="activeTab === 'account' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
@@ -213,6 +210,18 @@
                                 <p class="font-medium text-sm">{{ teacher.nationality|default:"Not specified" }}</p>
                             </div>
                         </div>
+                        {% if teacher.ghana_card_number %}
+                        <div class="bg-base-200/50 rounded-lg p-3">
+                            <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Ghana Card</p>
+                            <p class="font-mono font-medium text-sm">{{ teacher.ghana_card_number }}</p>
+                        </div>
+                        {% endif %}
+                        {% if teacher.ssnit_number %}
+                        <div class="bg-base-200/50 rounded-lg p-3">
+                            <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">SSNIT Number</p>
+                            <p class="font-mono font-medium text-sm">{{ teacher.ssnit_number }}</p>
+                        </div>
+                        {% endif %}
                         {% if teacher.address %}
                         <div class="bg-base-200/50 rounded-lg p-3">
                             <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Address</p>
@@ -257,9 +266,15 @@
                             <i class="fa-solid fa-briefcase text-accent"></i> Employment Details
                         </h3>
                         <div class="space-y-3">
-                            <div class="bg-base-200/50 rounded-lg p-3">
-                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Staff ID</p>
-                                <p class="font-mono font-medium text-sm tracking-wide">{{ teacher.staff_id }}</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-base-200/50 rounded-lg p-3">
+                                    <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Staff ID</p>
+                                    <p class="font-mono font-medium text-sm tracking-wide">{{ teacher.staff_id }}</p>
+                                </div>
+                                <div class="bg-base-200/50 rounded-lg p-3">
+                                    <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Category</p>
+                                    <p class="font-medium text-sm">{{ teacher.get_staff_category_display }}</p>
+                                </div>
                             </div>
                             <div class="grid grid-cols-2 gap-3">
                                 <div class="bg-base-200/50 rounded-lg p-3">
@@ -271,6 +286,24 @@
                                     <p class="font-medium text-sm">{{ teacher.employment_date|timesince }}</p>
                                 </div>
                             </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-base-200/50 rounded-lg p-3">
+                                    <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Current Rank</p>
+                                    <p class="font-medium text-sm">{{ teacher.current_rank }}</p>
+                                </div>
+                                {% if teacher.licence_number %}
+                                <div class="bg-base-200/50 rounded-lg p-3">
+                                    <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Licence No.</p>
+                                    <p class="font-mono font-medium text-sm">{{ teacher.licence_number }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% if teacher.date_posted_to_current_school %}
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Date Posted to Current School</p>
+                                <p class="font-medium text-sm">{{ teacher.date_posted_to_current_school|date:"M j, Y" }}</p>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -304,30 +337,28 @@
             </div>
         </div>
 
-        <!-- Tab: Professional Development -->
-        <div x-show="activeTab === 'pd'" x-cloak class="p-4 sm:p-6" style="display: none;"
-             x-init="$watch('activeTab', value => {
-                if (value === 'pd' && !$el.dataset.loaded) {
-                    $el.dataset.loaded = 'true';
-                    htmx.ajax('GET', '{% url 'teachers:pd_list' teacher.pk %}', {target: '#pd-content', swap: 'innerHTML'});
-                }
-             })">
-            <div id="pd-content">
+        <!-- Tab: Promotions -->
+        <div x-show="activeTab === 'promotions'" x-cloak class="p-4 sm:p-6" style="display: none;"
+             x-init="
+                let loadPromo = () => { if (!$el.dataset.loaded) { $el.dataset.loaded = 'true'; htmx.ajax('GET', '{% url 'teachers:promotion_list' teacher.pk %}', {target: '#promotions-content', swap: 'innerHTML'}); } };
+                if (activeTab === 'promotions') loadPromo();
+                $watch('activeTab', value => { if (value === 'promotions') loadPromo(); });
+             ">
+            <div id="promotions-content">
                 <div class="flex justify-center py-8">
                     <span class="loading loading-spinner loading-lg text-primary"></span>
                 </div>
             </div>
         </div>
 
-        <!-- Tab: Documents -->
-        <div x-show="activeTab === 'documents'" x-cloak class="p-4 sm:p-6" style="display: none;"
-             x-init="$watch('activeTab', value => {
-                if (value === 'documents' && !$el.dataset.loaded) {
-                    $el.dataset.loaded = 'true';
-                    htmx.ajax('GET', '{% url 'teachers:document_list' teacher.pk %}', {target: '#doc-content', swap: 'innerHTML'});
-                }
-             })">
-            <div id="doc-content">
+        <!-- Tab: Qualifications -->
+        <div x-show="activeTab === 'qualifications'" x-cloak class="p-4 sm:p-6" style="display: none;"
+             x-init="
+                let loadQual = () => { if (!$el.dataset.loaded) { $el.dataset.loaded = 'true'; htmx.ajax('GET', '{% url 'teachers:qualification_list' teacher.pk %}', {target: '#qualifications-content', swap: 'innerHTML'}); } };
+                if (activeTab === 'qualifications') loadQual();
+                $watch('activeTab', value => { if (value === 'qualifications') loadQual(); });
+             ">
+            <div id="qualifications-content">
                 <div class="flex justify-center py-8">
                     <span class="loading loading-spinner loading-lg text-primary"></span>
                 </div>

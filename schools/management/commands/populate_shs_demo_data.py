@@ -36,7 +36,7 @@ SHS_TEACHERS = [
         'last_name': 'Appiah',
         'gender': 'M',
         'title': 'MR',
-        'subject_specialization': 'Core Mathematics',
+
         'staff_id': 'ST001',
     },
     {
@@ -44,7 +44,7 @@ SHS_TEACHERS = [
         'last_name': 'Osei',
         'gender': 'F',
         'title': 'MRS',
-        'subject_specialization': 'English Language',
+
         'staff_id': 'ST002',
     },
     {
@@ -52,7 +52,7 @@ SHS_TEACHERS = [
         'last_name': 'Bonsu',
         'gender': 'M',
         'title': 'MR',
-        'subject_specialization': 'Physics',
+
         'staff_id': 'ST003',
     },
     {
@@ -60,7 +60,7 @@ SHS_TEACHERS = [
         'last_name': 'Gyamfi',
         'gender': 'F',
         'title': 'MS',
-        'subject_specialization': 'Chemistry',
+
         'staff_id': 'ST004',
     },
     {
@@ -68,7 +68,7 @@ SHS_TEACHERS = [
         'last_name': 'Antwi',
         'gender': 'M',
         'title': 'MR',
-        'subject_specialization': 'Biology',
+
         'staff_id': 'ST005',
     },
     {
@@ -76,7 +76,7 @@ SHS_TEACHERS = [
         'last_name': 'Tetteh',
         'gender': 'F',
         'title': 'MRS',
-        'subject_specialization': 'Economics',
+
         'staff_id': 'ST006',
     },
     {
@@ -84,7 +84,7 @@ SHS_TEACHERS = [
         'last_name': 'Larbi',
         'gender': 'M',
         'title': 'MR',
-        'subject_specialization': 'Government',
+
         'staff_id': 'ST007',
     },
     {
@@ -92,7 +92,7 @@ SHS_TEACHERS = [
         'last_name': 'Addo',
         'gender': 'F',
         'title': 'MS',
-        'subject_specialization': 'Literature in English',
+
         'staff_id': 'ST008',
     },
     {
@@ -100,7 +100,7 @@ SHS_TEACHERS = [
         'last_name': 'Ofori',
         'gender': 'M',
         'title': 'MR',
-        'subject_specialization': 'Financial Accounting',
+
         'staff_id': 'ST009',
     },
     {
@@ -108,7 +108,7 @@ SHS_TEACHERS = [
         'last_name': 'Poku',
         'gender': 'F',
         'title': 'MRS',
-        'subject_specialization': 'Social Studies',
+
         'staff_id': 'ST010',
     },
     {
@@ -116,7 +116,7 @@ SHS_TEACHERS = [
         'last_name': 'Kumi',
         'gender': 'M',
         'title': 'DR',
-        'subject_specialization': 'Integrated Science',
+
         'staff_id': 'ST011',
     },
     {
@@ -124,7 +124,7 @@ SHS_TEACHERS = [
         'last_name': 'Afriyie',
         'gender': 'F',
         'title': 'MRS',
-        'subject_specialization': 'Elective Mathematics',
+
         'staff_id': 'ST012',
     },
 ]

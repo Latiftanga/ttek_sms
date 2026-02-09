@@ -1,0 +1,44 @@
+<div class="max-w-2xl">
+    <h3 class="font-bold text-lg mb-1">
+        {% if is_edit %}Edit Promotion{% else %}Add Promotion{% endif %}
+    </h3>
+    <p class="text-sm text-base-content/60 mb-4">Record a rank or promotion change</p>
+
+    <form hx-post="{% if is_edit %}{% url 'teachers:promotion_edit' teacher.pk promotion.pk %}{% else %}{% url 'teachers:promotion_create' teacher.pk %}{% endif %}"
+          hx-target="#promotions-content"
+          hx-swap="innerHTML"
+          class="space-y-4">
+        {% csrf_token %}
+
+        <div class="bg-base-200/30 rounded-lg p-4">
+            <h4 class="text-xs font-semibold uppercase text-base-content/50 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-ranking-star"></i> Promotion Details
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="label py-1"><span class="label-text text-xs font-medium">Rank *</span></label>
+                    <select name="rank" class="select select-bordered select-sm w-full" required>
+                        <option value="" disabled {% if not form.rank.value %}selected{% endif %}>Select rank...</option>
+                        {% for value, label in form.fields.rank.choices %}
+                        <option value="{{ value }}" {% if form.rank.value == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="label py-1"><span class="label-text text-xs font-medium">Date Promoted *</span></label>
+                    <input type="date" name="date_promoted" value="{{ form.date_promoted.value|date:'Y-m-d' }}"
+                           class="input input-bordered input-sm w-full" required>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-2 pt-2">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('modal_form').close()">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-check"></i>
+                {% if is_edit %}Save Changes{% else %}Add Promotion{% endif %}
+            </button>
+        </div>
+    </form>
+</div>

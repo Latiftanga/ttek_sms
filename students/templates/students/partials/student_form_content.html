@@ -41,45 +41,74 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <!-- Left Column: Photo & Status -->
+            <!-- Left Column: Photo & Enrollment -->
             <div class="lg:col-span-1 space-y-4">
                 <!-- Photo Card -->
                 <div class="card bg-base-100 shadow-sm border border-base-200">
                     <div class="card-body p-4 flex flex-col items-center text-center">
-                        <div class="flex justify-center w-full mb-3">
-                            <div class="avatar">
-                                <div class="w-32 h-32 rounded-full bg-base-200 flex items-center justify-center ring ring-primary ring-offset-base-100 ring-offset-2">
-                                    {% if student.photo %}
-                                    <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="rounded-full" loading="lazy" />
-                                    {% else %}
+                        <div class="avatar mb-3">
+                            <div class="w-28 h-28 rounded-full bg-base-200 ring ring-primary ring-offset-base-100 ring-offset-2">
+                                {% if student.photo %}
+                                <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="rounded-full" loading="lazy" />
+                                {% else %}
+                                <div class="w-full h-full flex items-center justify-center">
                                     <i class="fa-solid fa-user text-4xl text-base-content/30"></i>
-                                    {% endif %}
                                 </div>
+                                {% endif %}
                             </div>
                         </div>
                         <input type="file" name="photo" accept="image/*"
                                class="file-input file-input-bordered file-input-sm w-full max-w-xs" />
-                        <p class="text-xs text-base-content/50 mt-1">JPG, PNG, WebP (max 5MB, auto-resized)</p>
+                        <p class="text-xs text-base-content/50 mt-1">JPG, PNG, WebP</p>
                     </div>
                 </div>
 
-                <!-- Status Card -->
+                <!-- Enrollment Card -->
                 <div class="card bg-base-100 shadow-sm border border-base-200">
                     <div class="card-body p-4">
-                        <h3 class="font-semibold text-sm mb-3">Status</h3>
-                        {% floating_field form.status %}
-                        <label class="label cursor-pointer justify-start gap-3 mt-2">
-                            <input type="checkbox" name="is_active"
-                                   class="checkbox checkbox-primary"
-                                   {% if form.is_active.value %}checked{% endif %} />
-                            <span class="label-text">Active Student</span>
-                        </label>
+                        <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                            <i class="fa-solid fa-school text-primary text-xs"></i>
+                            Enrollment
+                        </h3>
+                        <div class="space-y-3">
+                            {% floating_field form.status %}
+                            <label class="label cursor-pointer justify-start gap-3">
+                                <input type="checkbox" name="is_active"
+                                       class="checkbox checkbox-primary checkbox-sm"
+                                       {% if form.is_active.value %}checked{% endif %} />
+                                <span class="label-text text-sm">Active Student</span>
+                            </label>
+                            {% floating_field form.admission_number %}
+                            {% floating_field form.admission_date %}
+                            {% floating_field form.current_class %}
+                            {% if tenant.has_houses %}
+                            {% floating_field form.house %}
+                            {% endif %}
+                            {% if form.residence_type %}
+                            {% floating_field form.residence_type %}
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Right Column: Main Form -->
             <div class="lg:col-span-2 space-y-4">
+
+                <!-- Name -->
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-5">
+                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                            <i class="fa-solid fa-id-card text-primary"></i>
+                            Name
+                        </h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {% floating_field form.first_name %}
+                            {% floating_field form.last_name %}
+                            {% floating_field form.middle_name %}
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Personal Information -->
                 <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -88,15 +117,10 @@
                             <i class="fa-solid fa-user text-primary"></i>
                             Personal Information
                         </h2>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {% floating_field form.first_name %}
-                            {% floating_field form.middle_name %}
-                            {% floating_field form.last_name %}
-                            {% floating_field form.gender %}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {% floating_field form.date_of_birth %}
+                            {% floating_field form.gender %}
                             {% floating_field form.phone %}
-                        </div>
-                        <div class="mt-4">
                             {% floating_field form.address %}
                         </div>
                     </div>
@@ -186,41 +210,14 @@
                     </div>
                 </div>
 
-                <!-- Admission Details -->
-                <div class="card bg-base-100 shadow-sm border border-base-200">
-                    <div class="card-body p-5">
-                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
-                            <i class="fa-solid fa-id-card text-primary"></i>
-                            Admission Details
-                        </h2>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {% floating_field form.admission_number %}
-                            {% floating_field form.admission_date %}
-                            {% floating_field form.current_class %}
-                            {% if tenant.has_houses %}
-                            {% floating_field form.house %}
-                            {% endif %}
-                            {% if form.residence_type %}
-                            {% floating_field form.residence_type %}
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </div>
 
-        {% if form.errors %}
+        {% if form.non_field_errors %}
         <div class="alert alert-error py-3 mt-6">
             <i class="fa-solid fa-exclamation-circle"></i>
             <div>
-                <p class="font-medium text-sm">Please fix the following errors:</p>
-                <ul class="text-xs mt-1 list-disc list-inside">
-                    {% for field in form %}
-                        {% for error in field.errors %}
-                        <li>{{ field.label }}: {{ error }}</li>
-                        {% endfor %}
-                    {% endfor %}
+                <ul class="text-xs list-disc list-inside">
                     {% for error in form.non_field_errors %}
                     <li>{{ error }}</li>
                     {% endfor %}

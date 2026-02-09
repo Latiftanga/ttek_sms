@@ -80,15 +80,8 @@ urlpatterns = [
     path('my-grading/<int:class_id>/<int:subject_id>/import/confirm/', views.import_scores_confirm, name='import_scores_confirm'),
     path('my-timetable/', views.my_timetable, name='my_timetable'),
     path('my-workload/', views.my_workload, name='my_workload'),
-    path('my-pd/', views.my_pd, name='my_pd'),
-    path('my-pd/create/', views.my_pd_create, name='my_pd_create'),
-    path('my-pd/<uuid:pd_pk>/edit/', views.my_pd_edit, name='my_pd_edit'),
-    path('my-pd/<uuid:pd_pk>/delete/', views.my_pd_delete, name='my_pd_delete'),
-    path('my-documents/', views.my_documents, name='my_documents'),
-    path('my-documents/create/', views.my_documents_create, name='my_documents_create'),
-    path('my-documents/<uuid:doc_pk>/edit/', views.my_documents_edit, name='my_documents_edit'),
-    path('my-documents/<uuid:doc_pk>/delete/', views.my_documents_delete, name='my_documents_delete'),
-
+    path('my-promotions/', views.my_promotions, name='my_promotions'),
+    path('my-qualifications/', views.my_qualifications, name='my_qualifications'),
     # Student routes
     path('my-results/', views.my_results, name='my_results'),
     path('timetable/', views.timetable, name='timetable'),

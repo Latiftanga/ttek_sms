@@ -22,7 +22,6 @@
                     <th>Name</th>
                     <th>Staff ID</th>
                     <th>Gender</th>
-                    <th>Subject</th>
                     <th>Invite</th>
                 </tr>
             </thead>
@@ -33,7 +32,6 @@
                     <td class="font-medium">{{ row.title }} {{ row.first_name }} {{ row.last_name }}</td>
                     <td>{{ row.staff_id }}</td>
                     <td>{{ row.gender }}</td>
-                    <td>{{ row.subject_specialization }}</td>
                     <td>
                         {% if row.send_invitation %}
                         <span class="badge badge-info badge-xs" title="{{ row.email }}">

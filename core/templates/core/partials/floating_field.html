@@ -1,3 +1,4 @@
+<div>
 {% if is_checkbox %}
 {# Checkbox doesn't use floating label #}
 <label class="label cursor-pointer justify-start gap-3">
@@ -6,7 +7,7 @@
 </label>
 {% elif is_date %}
 {# Date/time inputs use wrapper class pattern in DaisyUI v5 #}
-<label class="input input-bordered w-full{% if size_class %} {{ size_class }}{% endif %}">
+<label class="input input-bordered w-full{% if size_class %} {{ size_class }}{% endif %}{% if field.errors %} input-error{% endif %}">
     <span class="label">{{ label }}</span>
     <input type="{{ input_type }}"
            name="{{ field.html_name }}"
@@ -15,7 +16,7 @@
 </label>
 {% elif is_select %}
 {# Select in DaisyUI v5 #}
-<label class="select select-bordered w-full{% if size_class %} {{ size_class }}{% endif %}">
+<label class="select select-bordered w-full{% if size_class %} {{ size_class }}{% endif %}{% if field.errors %} select-error{% endif %}">
     <span class="label">{{ label }}</span>
     <select name="{{ field.html_name }}" {% if field.field.required %}required{% endif %}>
         {% for choice in field.field.choices %}
@@ -46,7 +47,7 @@
     {% if is_textarea %}
     <textarea name="{{ field.html_name }}"
               placeholder="{{ field.field.widget.attrs.placeholder|default:label }}"
-              class="{{ input_class }}{% if size_class %} {{ size_class }}{% endif %}"
+              class="{{ input_class }}{% if size_class %} {{ size_class }}{% endif %}{% if field.errors %} input-error{% endif %}"
               {% if field.field.required %}required{% endif %}
               {% if field.field.widget.attrs.rows %}rows="{{ field.field.widget.attrs.rows }}"{% endif %}
               {% if field.field.widget.attrs.maxlength %}maxlength="{{ field.field.widget.attrs.maxlength }}"{% endif %}>{{ field.value|default:'' }}</textarea>
@@ -55,7 +56,7 @@
            name="{{ field.html_name }}"
            value="{{ field.value|default:'' }}"
            placeholder="{{ field.field.widget.attrs.placeholder|default:label }}"
-           class="{{ input_class }}{% if size_class %} {{ size_class }}{% endif %}"
+           class="{{ input_class }}{% if size_class %} {{ size_class }}{% endif %}{% if field.errors %} input-error{% endif %}"
            {% if field.field.required %}required{% endif %}
            {% if field.field.max_length %}maxlength="{{ field.field.max_length }}"{% endif %}
            {% if field.field.min_length %}minlength="{{ field.field.min_length }}"{% endif %} />
@@ -66,8 +67,9 @@
 <p class="text-xs text-base-content/60 mt-1 ml-1">{{ help_text }}</p>
 {% endif %}
 {% if field.errors %}
-<div class="text-xs text-error mt-1 ml-1 flex items-center gap-1">
+<p class="text-xs text-error mt-1 ml-1 flex items-center gap-1">
     <i class="fa-solid fa-circle-exclamation"></i>
-    <span>{{ field.errors.0 }}</span>
-</div>
+    {{ field.errors.0 }}
+</p>
 {% endif %}
+</div>

@@ -44,29 +44,20 @@ from .analytics import (
     school_workload_overview,
 )
 
-# Professional Development views
-from .professional_development import (
-    pd_list,
-    pd_create,
-    pd_edit,
-    pd_delete,
-    my_pd,
-    my_pd_create,
-    my_pd_edit,
-    my_pd_delete,
+# Promotion views
+from .promotions import (
+    promotion_list,
+    promotion_create,
+    promotion_edit,
+    promotion_delete,
 )
 
-# Document management views
-from .documents import (
-    document_list,
-    document_create,
-    document_edit,
-    document_delete,
-    document_verify,
-    my_documents,
-    my_documents_create,
-    my_documents_edit,
-    my_documents_delete,
+# Qualification views
+from .qualifications import (
+    qualification_list,
+    qualification_create,
+    qualification_edit,
+    qualification_delete,
 )
 
 __all__ = [
@@ -101,23 +92,14 @@ __all__ = [
     # Analytics
     'my_workload',
     'school_workload_overview',
-    # Professional Development
-    'pd_list',
-    'pd_create',
-    'pd_edit',
-    'pd_delete',
-    'my_pd',
-    'my_pd_create',
-    'my_pd_edit',
-    'my_pd_delete',
-    # Documents
-    'document_list',
-    'document_create',
-    'document_edit',
-    'document_delete',
-    'document_verify',
-    'my_documents',
-    'my_documents_create',
-    'my_documents_edit',
-    'my_documents_delete',
+    # Promotions
+    'promotion_list',
+    'promotion_create',
+    'promotion_edit',
+    'promotion_delete',
+    # Qualifications
+    'qualification_list',
+    'qualification_create',
+    'qualification_edit',
+    'qualification_delete',
 ]

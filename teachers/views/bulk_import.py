@@ -19,7 +19,9 @@ from .accounts import send_invitation_email
 EXPECTED_COLUMNS = [
     'title', 'first_name', 'last_name', 'middle_name', 'gender',
     'date_of_birth', 'staff_id', 'email', 'phone',
-    'subject_specialization', 'employment_date', 'address',
+    'employment_date', 'address',
+    'staff_category', 'ghana_card_number', 'ssnit_number',
+    'licence_number', 'date_posted_to_current_school',
     'send_invitation'  # Optional - if 'yes', sends invitation email to create account
 ]
 
@@ -98,12 +100,16 @@ def bulk_import(request):
             staff_id = clean_value(row.get('staff_id', ''))
             email = clean_value(row.get('email', '')).lower()
             phone = clean_value(row.get('phone', ''))
-            subject = clean_value(row.get('subject_specialization', ''))
             address = clean_value(row.get('address', ''))
+            staff_category = clean_value(row.get('staff_category', '')).lower() or 'teaching'
+            ghana_card_number = clean_value(row.get('ghana_card_number', ''))
+            ssnit_number = clean_value(row.get('ssnit_number', ''))
+            licence_number = clean_value(row.get('licence_number', ''))
             send_invitation = clean_value(row.get('send_invitation', '')).lower() in ['yes', 'true', '1', 'y']
 
             emp_date = parse_date(row.get('employment_date'))
             dob = parse_date(row.get('date_of_birth'))
+            date_posted = parse_date(row.get('date_posted_to_current_school'))
 
             # Normalize gender
             if gender.startswith('M'):
@@ -149,9 +155,13 @@ def bulk_import(request):
                     'staff_id': staff_id,
                     'email': email,
                     'phone_number': phone,
-                    'subject_specialization': subject or 'General',
                     'employment_date': str(emp_date) if emp_date else str(datetime.now().date()),
                     'address': address,
+                    'staff_category': staff_category if staff_category in ('teaching', 'non_teaching') else 'teaching',
+                    'ghana_card_number': ghana_card_number,
+                    'ssnit_number': ssnit_number,
+                    'licence_number': licence_number,
+                    'date_posted_to_current_school': str(date_posted) if date_posted else '',
                     'send_invitation': send_invitation,
                 })
                 # Track to catch duplicates within the file
@@ -207,6 +217,13 @@ def bulk_import_confirm(request):
             emp_date = datetime.strptime(row['employment_date'], '%Y-%m-%d').date()
             dob = datetime.strptime(row['date_of_birth'], '%Y-%m-%d').date()
 
+            date_posted_val = None
+            if row.get('date_posted_to_current_school'):
+                try:
+                    date_posted_val = datetime.strptime(row['date_posted_to_current_school'], '%Y-%m-%d').date()
+                except (ValueError, TypeError):
+                    pass
+
             teachers_to_create.append(Teacher(
                 title=row.get('title', 'Mr'),
                 first_name=row['first_name'],
@@ -217,9 +234,13 @@ def bulk_import_confirm(request):
                 staff_id=row['staff_id'],
                 email=row.get('email') or None,
                 phone_number=row.get('phone_number', ''),
-                subject_specialization=row.get('subject_specialization', 'General'),
                 employment_date=emp_date,
                 address=row.get('address', ''),
+                staff_category=row.get('staff_category', 'teaching'),
+                ghana_card_number=row.get('ghana_card_number', ''),
+                ssnit_number=row.get('ssnit_number', ''),
+                licence_number=row.get('licence_number', ''),
+                date_posted_to_current_school=date_posted_val,
                 status='active'
             ))
 
@@ -286,9 +307,13 @@ def bulk_import_template(request):
         'staff_id': ['TCH001', 'TCH002', 'TCH003'],
         'email': ['john@school.com', 'jane@school.com', 'robert@school.com'],
         'phone': ['0244123456', '0501234567', ''],
-        'subject_specialization': ['Mathematics', 'English', 'Science'],
         'employment_date': ['2024-01-01', '2024-01-15', '2024-02-01'],
         'address': ['Accra', 'Kumasi', 'Tamale'],
+        'staff_category': ['teaching', 'teaching', 'non_teaching'],
+        'ghana_card_number': ['GHA-123456789-0', '', 'GHA-987654321-0'],
+        'ssnit_number': ['A12345678', '', 'B98765432'],
+        'licence_number': ['LIC-001', 'LIC-002', ''],
+        'date_posted_to_current_school': ['2024-01-01', '', '2024-02-01'],
         'send_invitation': ['yes', 'yes', ''],  # Optional - sends invite email if 'yes'
     }
 
@@ -337,8 +362,7 @@ def bulk_export(request):
         teachers = teachers.filter(
             Q(first_name__icontains=search) |
             Q(last_name__icontains=search) |
-            Q(staff_id__icontains=search) |
-            Q(subject_specialization__icontains=search)
+            Q(staff_id__icontains=search)
         )
 
     if status_filter:
@@ -359,10 +383,14 @@ def bulk_export(request):
             'Date of Birth': teacher.date_of_birth.strftime('%Y-%m-%d') if teacher.date_of_birth else '',
             'Phone Number': teacher.phone_number or '',
             'Email': teacher.email or '',
-            'Subject Specialization': teacher.subject_specialization or '',
             'Employment Date': teacher.employment_date.strftime('%Y-%m-%d') if teacher.employment_date else '',
             'Address': teacher.address or '',
             'Nationality': teacher.nationality or '',
+            'Staff Category': teacher.get_staff_category_display(),
+            'Ghana Card Number': teacher.ghana_card_number or '',
+            'SSNIT Number': teacher.ssnit_number or '',
+            'Licence Number': teacher.licence_number or '',
+            'Date Posted to Current School': teacher.date_posted_to_current_school.strftime('%Y-%m-%d') if teacher.date_posted_to_current_school else '',
             'Status': teacher.get_status_display(),
             'Has Portal Account': 'Yes' if teacher.user else 'No',
         })
