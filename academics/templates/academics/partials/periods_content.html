@@ -30,7 +30,7 @@
                     <button hx-get="{% url 'academics:period_create' %}"
                             hx-target="#modal-container"
                             hx-swap="innerHTML"
-                            onclick="modal_form.showModal()">
+                            onclick="document.getElementById('modal_form').showModal()">
                         <i class="fa-solid fa-plus text-primary"></i> Add Period
                     </button>
                 </li>
@@ -69,7 +69,7 @@
                                     hx-get="{% url 'academics:period_edit' period.pk %}"
                                     hx-target="#modal-container"
                                     hx-swap="innerHTML"
-                                    onclick="modal_form.showModal()">
+                                    onclick="document.getElementById('modal_form').showModal()">
                                 <i class="fa-solid fa-pen-to-square text-primary"></i>
                             </button>
                             <button class="btn btn-ghost btn-xs btn-square"
@@ -150,7 +150,7 @@
                                             hx-get="{% url 'academics:period_edit' period.pk %}"
                                             hx-target="#modal-container"
                                             hx-swap="innerHTML"
-                                            onclick="modal_form.showModal()"
+                                            onclick="document.getElementById('modal_form').showModal()"
                                             title="Edit">
                                         <i class="fa-solid fa-pen-to-square text-primary"></i>
                                     </button>
@@ -180,7 +180,7 @@
                         hx-get="{% url 'academics:period_create' %}"
                         hx-target="#modal-container"
                         hx-swap="innerHTML"
-                        onclick="modal_form.showModal()">
+                        onclick="document.getElementById('modal_form').showModal()">
                     <i class="fa-solid fa-plus"></i>
                     Add First Period
                 </button>

@@ -51,7 +51,7 @@
                 <button class="btn btn-ghost btn-xs btn-square"
                         hx-get="{% url 'core:my_documents_edit' doc.pk %}"
                         hx-target="#modal-container"
-                        onclick="modal_form.showModal()">
+                        onclick="document.getElementById('modal_form').showModal()">
                     <i class="fa-solid fa-pen text-xs"></i>
                 </button>
                 <form hx-post="{% url 'core:my_documents_delete' doc.pk %}"
@@ -77,7 +77,7 @@
         <button class="btn btn-primary"
                 hx-get="{% url 'core:my_documents_create' %}"
                 hx-target="#modal-container"
-                onclick="modal_form.showModal()">
+                onclick="document.getElementById('modal_form').showModal()">
             <i class="fa-solid fa-upload"></i>
             Upload First Document
         </button>

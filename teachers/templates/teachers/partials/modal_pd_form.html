@@ -125,7 +125,7 @@
 
         <!-- Actions -->
         <div class="flex justify-end gap-2 pt-2">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="modal_form.close()">Cancel</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('modal_form').close()">Cancel</button>
             <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fa-solid fa-check"></i>
                 {% if is_edit %}Save Changes{% else %}Add Activity{% endif %}

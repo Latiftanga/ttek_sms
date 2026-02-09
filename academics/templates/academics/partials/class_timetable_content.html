@@ -76,21 +76,21 @@
                 <li>
                     <button hx-get="{% url 'academics:bulk_timetable_entry' class_obj.pk %}"
                             hx-target="#modal-container"
-                            onclick="modal_form.showModal()">
+                            onclick="document.getElementById('modal_form').showModal()">
                         <i class="fa-solid fa-calendar-plus text-primary"></i> Bulk Add Lessons
                     </button>
                 </li>
                 <li>
                     <button hx-get="{% url 'academics:copy_timetable' class_obj.pk %}"
                             hx-target="#modal-container"
-                            onclick="modal_form.showModal()">
+                            onclick="document.getElementById('modal_form').showModal()">
                         <i class="fa-solid fa-copy"></i> Copy Timetable
                     </button>
                 </li>
                 <li>
                     <button hx-get="{% url 'academics:class_subjects_modal' class_obj.pk %}"
                             hx-target="#modal-container"
-                            onclick="modal_form.showModal()">
+                            onclick="document.getElementById('modal_form').showModal()">
                         <i class="fa-solid fa-book"></i> Manage Subjects
                     </button>
                 </li>
@@ -244,7 +244,7 @@
                                 {% endif %}
                                 <div class="action-buttons flex gap-1 mt-1 print:!hidden">
                                     {% for entry in entries %}
-                                    <button class="btn btn-sm sm:btn-xs btn-circle min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-white/20 hover:bg-info border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="modal_form.showModal()" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                                    <button class="btn btn-sm sm:btn-xs btn-circle min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-white/20 hover:bg-info border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="document.getElementById('modal_form').showModal()" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
                                     <button class="btn btn-sm sm:btn-xs btn-circle min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-white/20 hover:bg-error border-0" hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}" hx-confirm="Remove {{ entry.class_subject.subject.name }}?" title="Remove"><i class="fa-solid fa-trash text-[10px]"></i></button>
                                     {% endfor %}
                                 </div>
@@ -255,7 +255,7 @@
                             </div>
                             {% else %}
                             <button class="empty-slot print-empty w-full h-14 border border-dashed border-base-300 hover:border-primary hover:bg-primary/5 rounded-lg text-base-content/30 hover:text-primary flex items-center justify-center cursor-pointer print:border-gray-200 print:rounded-none"
-                                    hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}?weekday={{ day_num }}&period={{ period.pk }}" hx-target="#modal-container" onclick="modal_form.showModal()" title="Add lesson">
+                                    hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}?weekday={{ day_num }}&period={{ period.pk }}" hx-target="#modal-container" onclick="document.getElementById('modal_form').showModal()" title="Add lesson">
                                 <i class="fa-solid fa-plus print:hidden"></i>
                             </button>
                             {% endif %}
@@ -296,7 +296,7 @@
                             </div>
                             <div class="action-buttons flex gap-1 ml-2">
                                 {% for entry in entries %}
-                                <button class="btn btn-sm btn-circle min-w-[44px] min-h-[44px] bg-white/20 border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="modal_form.showModal()"><i class="fa-solid fa-pen text-xs"></i></button>
+                                <button class="btn btn-sm btn-circle min-w-[44px] min-h-[44px] bg-white/20 border-0" hx-get="{% url 'academics:timetable_entry_edit' entry.pk %}" hx-target="#modal-container" onclick="document.getElementById('modal_form').showModal()"><i class="fa-solid fa-pen text-xs"></i></button>
                                 <button class="btn btn-sm btn-circle min-w-[44px] min-h-[44px] bg-white/20 border-0" hx-post="{% url 'academics:timetable_entry_delete' entry.pk %}" hx-confirm="Remove?"><i class="fa-solid fa-trash text-xs"></i></button>
                                 {% endfor %}
                             </div>
@@ -307,7 +307,7 @@
                         </div>
                         {% else %}
                         <button class="empty-slot w-full h-12 border border-dashed border-base-300 hover:border-primary hover:bg-primary/5 rounded-lg text-base-content/30 hover:text-primary flex items-center justify-center"
-                                hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}?weekday={{ day_num }}&period={{ period.pk }}" hx-target="#modal-container" onclick="modal_form.showModal()">
+                                hx-get="{% url 'academics:timetable_entry_create' class_obj.pk %}?weekday={{ day_num }}&period={{ period.pk }}" hx-target="#modal-container" onclick="document.getElementById('modal_form').showModal()">
                             <i class="fa-solid fa-plus mr-2"></i> Add Lesson
                         </button>
                         {% endif %}

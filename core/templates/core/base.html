@@ -827,9 +827,10 @@
 
             // Initialize Alpine.js on HTMX swapped content and update page title
             document.body.addEventListener('htmx:afterSwap', (event) => {
-                if (window.Alpine && event.detail.target) {
+                var target = event.detail && event.detail.target;
+                if (window.Alpine && target) {
                     try {
-                        Alpine.initTree(event.detail.target);
+                        Alpine.initTree(target);
                     } catch (e) {
                         // Alpine may fail if content was already initialized
                         console.debug('Alpine initTree skipped:', e.message);
@@ -837,8 +838,8 @@
                 }
 
                 // Update page title from swapped content
-                if (event.detail.target.id === 'main-content') {
-                    const h1 = event.detail.target.querySelector('h1');
+                if (target && target.id === 'main-content') {
+                    const h1 = target.querySelector('h1');
                     const schoolName = '{{ school.display_name|default:tenant.short_name|default:tenant.name|default:"School" }}';
                     if (h1) {
                         document.title = h1.textContent.trim() + ' - ' + schoolName;
