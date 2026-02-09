@@ -174,7 +174,7 @@
             <button class="btn btn-ghost btn-xs"
                     hx-get="{% url 'gradebook:report_remarks' student.pk %}"
                     hx-target="#remarks-modal-content"
-                    onclick="modal_remarks.showModal()">
+                    onclick="document.getElementById('modal_remarks').showModal()">
                 <i class="fa-solid fa-pen-to-square"></i>
                 Edit
             </button>

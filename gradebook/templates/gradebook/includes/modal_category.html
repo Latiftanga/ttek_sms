@@ -59,7 +59,7 @@
 
     <!-- Actions -->
     <div class="flex justify-end gap-2 pt-2">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="modal_gradebook.close()">Cancel</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('modal_gradebook').close()">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-check"></i>
             {% if category %}Save{% else %}Add{% endif %}

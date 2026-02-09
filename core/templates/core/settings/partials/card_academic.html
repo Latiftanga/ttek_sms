@@ -18,12 +18,12 @@
                 </label>
                 <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-48 border border-base-200">
                     <li>
-                        <button onclick="modal_academic_year.showModal()" class="text-sm">
+                        <button onclick="document.getElementById('modal_academic_year').showModal()" class="text-sm">
                             <i class="fa-solid fa-calendar-plus w-4"></i> New Academic Year
                         </button>
                     </li>
                     <li>
-                        <button onclick="modal_term.showModal()" {% if not academic_years %}disabled{% endif %} class="text-sm">
+                        <button onclick="document.getElementById('modal_term').showModal()" {% if not academic_years %}disabled{% endif %} class="text-sm">
                             <i class="fa-solid fa-calendar-week w-4"></i> New {{ period_label|default:"Term" }}
                         </button>
                     </li>
@@ -108,7 +108,7 @@
                                         hx-get="{% url 'core:academic_year_edit' year.pk %}"
                                         hx-target="#modal-edit-content"
                                         hx-swap="innerHTML"
-                                        onclick="modal_edit.showModal()">
+                                        onclick="document.getElementById('modal_edit').showModal()">
                                     <i class="fa-solid fa-pen w-4 text-info"></i> Edit Year
                                 </button>
                             </li>
@@ -149,7 +149,7 @@
                                     hx-get="{% url 'core:term_edit' term.pk %}"
                                     hx-target="#modal-edit-content"
                                     hx-swap="innerHTML"
-                                    onclick="modal_edit.showModal()">
+                                    onclick="document.getElementById('modal_edit').showModal()">
                                 <i class="fa-solid fa-pen text-[10px]"></i>
                             </button>
                         </div>
@@ -159,7 +159,7 @@
                     <div class="text-center py-4 text-base-content/40">
                         <i class="fa-solid fa-calendar-xmark text-lg mb-1"></i>
                         <p class="text-xs">No {{ period_label_plural|default:"terms"|lower }} defined</p>
-                        <button class="btn btn-ghost btn-xs mt-2" onclick="modal_term.showModal()">
+                        <button class="btn btn-ghost btn-xs mt-2" onclick="document.getElementById('modal_term').showModal()">
                             <i class="fa-solid fa-plus text-xs"></i> Add {{ period_label|default:"Term" }}
                         </button>
                     </div>
@@ -175,7 +175,7 @@
             </div>
             <p class="text-sm font-medium mb-1">No Academic Years</p>
             <p class="text-xs text-base-content/50 mb-3">Create your first academic year to get started</p>
-            <button class="btn btn-primary btn-sm" onclick="modal_academic_year.showModal()">
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal_academic_year').showModal()">
                 <i class="fa-solid fa-plus text-xs"></i> Create Academic Year
             </button>
         </div>

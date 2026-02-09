@@ -96,7 +96,7 @@
               hx-post="{% url 'core:settings_update_contact' %}"
               hx-target="#card-contact"
               hx-swap="outerHTML"
-              hx-on::after-request="if(event.detail.successful) modal_contact.close()">
+              hx-on::after-request="if(event.detail.successful) document.getElementById('modal_contact').close()">
             {% csrf_token %}
             <div class="space-y-6 pt-2">
                 <div class="grid grid-cols-2 gap-4">
@@ -111,7 +111,7 @@
                 </div>
             </div>
             <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_contact.close()">Cancel</button>
+                <button type="button" class="btn" onclick="document.getElementById('modal_contact').close()">Cancel</button>
                 <button type="submit" class="btn btn-primary">Save Changes</button>
             </div>
         </form>
@@ -130,14 +130,14 @@
               hx-post="{% url 'core:settings_update_admin' %}"
               hx-target="#card-admin"
               hx-swap="outerHTML"
-              hx-on::after-request="if(event.detail.successful) modal_admin.close()">
+              hx-on::after-request="if(event.detail.successful) document.getElementById('modal_admin').close()">
             {% csrf_token %}
             <div class="space-y-6 pt-2">
                 {% floating_field admin_form.headmaster_name %}
                 {% floating_field admin_form.headmaster_title %}
             </div>
             <div class="modal-action">
-                <button type="button" class="btn" onclick="modal_admin.close()">Cancel</button>
+                <button type="button" class="btn" onclick="document.getElementById('modal_admin').close()">Cancel</button>
                 <button type="submit" class="btn btn-primary">Save Changes</button>
             </div>
         </form>
@@ -284,7 +284,7 @@
                 <div id="test-sms-result" class="mt-2"></div>
             </div>
             <div class="modal-action pt-2">
-                <button type="button" class="btn btn-sm" onclick="modal_sms_settings.close()">Cancel</button>
+                <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_sms_settings').close()">Cancel</button>
                 <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
             </div>
         </form>
@@ -410,7 +410,7 @@
                 <div id="test-email-result" class="mt-2"></div>
             </div>
             <div class="modal-action pt-2">
-                <button type="button" class="btn btn-sm" onclick="modal_email_settings.close()">Cancel</button>
+                <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_email_settings').close()">Cancel</button>
                 <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
             </div>
         </form>
@@ -421,13 +421,13 @@
 (function() {
     // Listen for modal close triggers from server (HX-Trigger header)
     document.body.addEventListener('closeEmailModal', function() {
-        if (typeof modal_email_settings !== 'undefined') modal_email_settings.close();
+        var el = document.getElementById('modal_email_settings'); if (el) el.close();
     }, { once: true });
     document.body.addEventListener('closeSmsModal', function() {
-        if (typeof modal_sms_settings !== 'undefined') modal_sms_settings.close();
+        var el = document.getElementById('modal_sms_settings'); if (el) el.close();
     }, { once: true });
     document.body.addEventListener('closePaymentModal', function() {
-        if (typeof modal_payment_settings !== 'undefined') modal_payment_settings.close();
+        var el = document.getElementById('modal_payment_settings'); if (el) el.close();
     }, { once: true });
 
     // Email provider presets
@@ -597,7 +597,7 @@
             </div>
 
             <div class="modal-action mt-4 pt-3 border-t border-base-200">
-                <button type="button" class="btn btn-sm" onclick="modal_payment_settings.close()">Cancel</button>
+                <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_payment_settings').close()">Cancel</button>
                 <button type="submit" class="btn btn-sm btn-primary gap-1">
                     <i class="fa-solid fa-save text-xs"></i>
                     Save
@@ -627,7 +627,7 @@
             </div>
         </div>
         <div class="modal-action mt-3">
-            <button type="button" class="btn btn-sm" onclick="modal_payment_settings.close()">Close</button>
+            <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_payment_settings').close()">Close</button>
         </div>
         {% endif %}
     </div>

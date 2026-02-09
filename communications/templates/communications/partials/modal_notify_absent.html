@@ -25,7 +25,7 @@
         </div>
     </div>
     <p class="text-sm text-base-content/60 mb-4">Parents have been notified of their child's absence.</p>
-    <button type="button" class="btn btn-primary" onclick="modal_sms.close(); location.reload();">
+    <button type="button" class="btn btn-primary" onclick="document.getElementById('modal_sms').close(); location.reload();">
         Done
     </button>
 </div>
@@ -114,7 +114,7 @@
     </div>
 
     <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="modal_sms.close()">Cancel</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal_sms').close()">Cancel</button>
         <button type="submit" class="btn btn-error gap-2">
             <span id="notify-absent-indicator" class="loading loading-spinner loading-sm htmx-indicator"></span>
             <i class="fa-solid fa-paper-plane"></i>
@@ -171,6 +171,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <div class="modal-action">
-    <button type="button" class="btn btn-ghost" onclick="modal_sms.close()">Close</button>
+    <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal_sms').close()">Close</button>
 </div>
 {% endif %}

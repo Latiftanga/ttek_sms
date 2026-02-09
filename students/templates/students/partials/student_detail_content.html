@@ -403,7 +403,7 @@
                             <button class="btn btn-sm btn-primary"
                                     hx-get="{% url 'students:student_create_account' student.pk %}"
                                     hx-target="#create-account-container"
-                                    onclick="modal_create_account.showModal()">
+                                    onclick="document.getElementById('modal_create_account').showModal()">
                                 Create Account
                             </button>
                         </div>

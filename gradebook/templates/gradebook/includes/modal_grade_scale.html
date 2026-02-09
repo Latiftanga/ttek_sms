@@ -42,7 +42,7 @@
     </div>
 
     <div class="modal-action">
-        <button type="button" class="btn btn-sm btn-ghost" onclick="modal_gradebook.close()">Cancel</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('modal_gradebook').close()">Cancel</button>
         <button type="submit" class="btn btn-sm btn-primary">
             {% if scale %}Save{% else %}Add{% endif %}
         </button>

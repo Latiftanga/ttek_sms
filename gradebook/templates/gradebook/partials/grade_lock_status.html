@@ -20,7 +20,7 @@
 
     {% if is_admin %}
     <button class="btn btn-xs {% if current_term.grades_locked %}btn-warning{% else %}btn-error{% endif %}"
-            onclick="modal_grade_lock.showModal()">
+            onclick="document.getElementById('modal_grade_lock').showModal()">
         {% if current_term.grades_locked %}
         <i class="fa-solid fa-lock-open"></i>
         Unlock
@@ -56,7 +56,7 @@
                 <button class="btn {% if current_term.grades_locked %}btn-warning{% else %}btn-error{% endif %}"
                         hx-post="{% url 'gradebook:toggle_lock' current_term.pk %}"
                         hx-swap="none"
-                        onclick="modal_grade_lock.close()">
+                        onclick="document.getElementById('modal_grade_lock').close()">
                     {% if current_term.grades_locked %}
                     <i class="fa-solid fa-lock-open"></i>
                     Unlock Grades

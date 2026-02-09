@@ -96,7 +96,7 @@
                 </div>
                 <button type="button"
                         class="btn btn-outline btn-primary btn-sm gap-2"
-                        onclick="modal_sms_feedback.showModal()">
+                        onclick="document.getElementById('modal_sms_feedback').showModal()">
                     <i class="fa-solid fa-edit"></i>
                     Customize SMS Message
                 </button>
@@ -236,7 +236,7 @@
         <form id="sms-feedback-form"
               hx-post="{% url 'gradebook:send_bulk_reports' class_obj.pk %}"
               hx-swap="none"
-              hx-on::after-request="if(event.detail.successful) modal_sms_feedback.close()">
+              hx-on::after-request="if(event.detail.successful) document.getElementById('modal_sms_feedback').close()">
 
             <input type="hidden" name="type" value="SMS">
 
@@ -333,7 +333,7 @@
             </div>
 
             <div class="modal-action">
-                <button type="button" class="btn btn-ghost" onclick="modal_sms_feedback.close()">Cancel</button>
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal_sms_feedback').close()">Cancel</button>
                 <button type="submit" class="btn btn-primary gap-2">
                     <i class="fa-solid fa-paper-plane"></i>
                     Send SMS to All Parents

@@ -465,7 +465,7 @@
                     </a>
 
                     <a href="{% url 'students:bulk_import' %}" hx-get="{% url 'students:bulk_import' %}"
-                        hx-target="#modal-bulk-content" hx-swap="innerHTML" onclick="modal_bulk.showModal()"
+                        hx-target="#modal-bulk-content" hx-swap="innerHTML" onclick="document.getElementById('modal_bulk').showModal()"
                         class="flex flex-col items-center justify-center p-3 rounded-xl bg-base-200/50 hover:bg-success/10 border border-transparent hover:border-success/20 transition-all group">
                         <div class="w-10 h-10 rounded-full bg-success/10 group-hover:bg-success group-hover:text-white flex items-center justify-center mb-2 transition-colors">
                             <i class="fa-solid fa-file-import text-sm"></i>

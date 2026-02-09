@@ -17,7 +17,7 @@
         </div>
     </div>
     <div class="modal-action border-t border-base-200 pt-4 shrink-0">
-        <button type="button" class="btn" onclick="modal_edit.close()">Close</button>
+        <button type="button" class="btn" onclick="document.getElementById('modal_edit').close()">Close</button>
     </div>
     {% elif not students %}
     <div class="flex-1 flex items-center justify-center">
@@ -27,7 +27,7 @@
         </div>
     </div>
     <div class="modal-action border-t border-base-200 pt-4 shrink-0">
-        <button type="button" class="btn" onclick="modal_edit.close()">Close</button>
+        <button type="button" class="btn" onclick="document.getElementById('modal_edit').close()">Close</button>
     </div>
     {% else %}
     <form method="post"
@@ -99,7 +99,7 @@
 
         <!-- Fixed Footer -->
         <div class="modal-action border-t border-base-200 pt-4 mt-4 shrink-0">
-            <button type="button" class="btn" onclick="modal_edit.close()">Cancel</button>
+            <button type="button" class="btn" onclick="document.getElementById('modal_edit').close()">Cancel</button>
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-check"></i> Assign Subjects
             </button>

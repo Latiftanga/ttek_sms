@@ -86,10 +86,10 @@
 <form method="post"
       action="{% url 'students:bulk_import_confirm' %}"
       hx-post="{% url 'students:bulk_import_confirm' %}"
-      hx-on::after-request="if(event.detail.successful) modal_bulk.close()">
+      hx-on::after-request="if(event.detail.successful) document.getElementById('modal_bulk').close()">
     {% csrf_token %}
     <div class="modal-action">
-        <button type="button" class="btn" onclick="modal_bulk.close()">Cancel</button>
+        <button type="button" class="btn" onclick="document.getElementById('modal_bulk').close()">Cancel</button>
         <button type="submit" class="btn btn-primary">
             <i class="fa-solid fa-check"></i>
             Import {{ valid_count }} Student{{ valid_count|pluralize }}
@@ -102,6 +102,6 @@
     <span>No valid rows to import. Please fix the errors and try again.</span>
 </div>
 <div class="modal-action">
-    <button type="button" class="btn" onclick="modal_bulk.close()">Close</button>
+    <button type="button" class="btn" onclick="document.getElementById('modal_bulk').close()">Close</button>
 </div>
 {% endif %}

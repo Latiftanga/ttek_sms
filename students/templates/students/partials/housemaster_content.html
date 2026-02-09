@@ -20,7 +20,7 @@
                 hx-get="{% url 'students:housemaster_assign' %}"
                 hx-target="#modal-housemaster-content"
                 hx-swap="innerHTML"
-                onclick="modal_housemaster.showModal()">
+                onclick="document.getElementById('modal_housemaster').showModal()">
             <i class="fa-solid fa-plus"></i>
             <span class="hidden sm:inline">Assign Master</span>
         </button>
@@ -88,7 +88,7 @@
                         hx-get="{% url 'students:housemaster_assign' %}"
                         hx-target="#modal-housemaster-content"
                         hx-swap="innerHTML"
-                                                onclick="modal_housemaster.showModal()">
+                                                onclick="document.getElementById('modal_housemaster').showModal()">
                     <i class="fa-solid fa-plus"></i> Assign Master
                 </button>
             </div>
@@ -139,6 +139,6 @@
 </style>
 <script>
 document.body.addEventListener('housemasterChanged', function() {
-    if (typeof modal_housemaster !== 'undefined') modal_housemaster.close();
+    var el = document.getElementById('modal_housemaster'); if (el) el.close();
 });
 </script>

@@ -93,7 +93,7 @@
         {% endif %}
 
         <div class="modal-action">
-            <button type="button" class="btn btn-ghost" onclick="if(typeof modal_guardian !== 'undefined') modal_guardian.close(); else history.back();">Cancel</button>
+            <button type="button" class="btn btn-ghost" onclick="var el = document.getElementById('modal_guardian'); if (el) el.close(); else history.back();">Cancel</button>
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-save"></i>
                 {% if guardian %}Save Changes{% else %}Add Guardian{% endif %}

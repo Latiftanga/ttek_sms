@@ -24,7 +24,7 @@
             <i class="fa-solid fa-users"></i>
             {{ student_count }}
         </span>
-        <button class="btn btn-primary btn-xs sm:btn-sm gap-1" onclick="modal_enroll.showModal()">
+        <button class="btn btn-primary btn-xs sm:btn-sm gap-1" onclick="document.getElementById('modal_enroll').showModal()">
             <i class="fa-solid fa-user-plus"></i>
             <span class="hidden sm:inline">Enroll</span>
         </button>
@@ -50,7 +50,7 @@
             There are no students enrolled in {{ class_obj.name }}.
             Use the "Enroll Student" button to add students to this class.
         </p>
-        <button class="btn btn-primary" onclick="modal_enroll.showModal()">
+        <button class="btn btn-primary" onclick="document.getElementById('modal_enroll').showModal()">
             <i class="fa-solid fa-user-plus"></i>
             Enroll First Student
         </button>
@@ -126,7 +126,7 @@
     <button class="btn btn-sm btn-warning"
             hx-get="{% url 'core:bulk_assign_electives' class_obj.pk %}"
             hx-target="#modal-bulk-content"
-            onclick="modal_bulk_electives.showModal()">
+            onclick="document.getElementById('modal_bulk_electives').showModal()">
         <i class="fa-solid fa-users-gear"></i>
         Bulk Assign
     </button>
@@ -285,7 +285,7 @@
         {% if available_students %}
         <form hx-post="{% url 'core:enroll_student' class_obj.pk %}"
               hx-swap="none"
-              hx-on::after-request="if(event.detail.successful) modal_enroll.close()">
+              hx-on::after-request="if(event.detail.successful) document.getElementById('modal_enroll').close()">
             {% csrf_token %}
 
             <div class="form-control mb-4">
@@ -322,7 +322,7 @@
             </div>
 
             <div class="modal-action">
-                <button type="button" class="btn btn-ghost" onclick="modal_enroll.close()">Cancel</button>
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal_enroll').close()">Cancel</button>
                 <button type="submit" class="btn btn-primary gap-2">
                     <i class="fa-solid fa-user-plus"></i>
                     Enroll Student
@@ -339,7 +339,7 @@
                 All active students are already assigned to classes.
                 New students must be registered first before they can be enrolled.
             </p>
-            <button type="button" class="btn btn-ghost" onclick="modal_enroll.close()">Close</button>
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal_enroll').close()">Close</button>
         </div>
         {% endif %}
     </div>
@@ -369,7 +369,7 @@
         <form id="electives-form"
               hx-post=""
               hx-swap="none"
-              hx-on::after-request="if(event.detail.successful) modal_electives.close()">
+              hx-on::after-request="if(event.detail.successful) document.getElementById('modal_electives').close()">
             {% csrf_token %}
 
             {% if elective_subjects %}
@@ -400,7 +400,7 @@
             {% endif %}
 
             <div class="modal-action">
-                <button type="button" class="btn btn-ghost" onclick="modal_electives.close()">Cancel</button>
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal_electives').close()">Cancel</button>
                 <button type="submit" class="btn btn-secondary gap-2">
                     <i class="fa-solid fa-check"></i>
                     Save Electives
@@ -441,8 +441,8 @@ window.studentElectives[{{ item.student.pk }}] = [{% for id in item.enrolled_ele
 
 // Listen for closeModal trigger to close dialogs
 document.body.addEventListener('closeModal', function() {
-    if (typeof modal_bulk_electives !== 'undefined') modal_bulk_electives.close();
-    if (typeof modal_electives !== 'undefined') modal_electives.close();
+    var el1 = document.getElementById('modal_bulk_electives'); if (el1) el1.close();
+    var el2 = document.getElementById('modal_electives'); if (el2) el2.close();
 });
 
 function openElectivesModal(studentId, studentName) {
@@ -464,7 +464,7 @@ function openElectivesModal(studentId, studentName) {
         if (checkbox) checkbox.checked = true;
     });
 
-    modal_electives.showModal();
+    document.getElementById('modal_electives').showModal();
 }
 </script>
 {% endif %}

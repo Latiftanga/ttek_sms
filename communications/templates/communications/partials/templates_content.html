@@ -22,7 +22,7 @@
             <li>
                 <button hx-get="{% url 'communications:template_create' %}"
                         hx-target="#modal-template-content"
-                        onclick="modal_template.showModal()">
+                        onclick="document.getElementById('modal_template').showModal()">
                     <i class="fa-solid fa-plus text-primary"></i> Add Template
                 </button>
             </li>
@@ -74,7 +74,7 @@
         <button class="btn btn-primary btn-sm mt-4"
                 hx-get="{% url 'communications:template_create' %}"
                 hx-target="#modal-template-content"
-                onclick="modal_template.showModal()">
+                onclick="document.getElementById('modal_template').showModal()">
             <i class="fa-solid fa-plus"></i>
             Create First Template
         </button>

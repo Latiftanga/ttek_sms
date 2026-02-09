@@ -638,7 +638,7 @@
                     <button hx-get="{% url 'accounts:password_change' %}"
                             hx-target="#password-change-container"
                             hx-swap="innerHTML"
-                            onclick="modal_password_change.showModal()"
+                            onclick="document.getElementById('modal_password_change').showModal()"
                             class="btn btn-xs btn-ghost flex-1">
                         <i class="fa-solid fa-key"></i>
                         Change Password

@@ -40,7 +40,7 @@
                 <button hx-get="{% url 'accounts:password_change' %}"
                         hx-target="#password-change-container"
                         hx-swap="innerHTML"
-                        onclick="modal_password_change.showModal()"
+                        onclick="document.getElementById('modal_password_change').showModal()"
                         class="w-full text-left">
                     <i class="fa-solid fa-key text-warning"></i> Change Password
                 </button>
@@ -393,7 +393,7 @@
                         <button hx-get="{% url 'accounts:password_change' %}"
                                 hx-target="#password-change-container"
                                 hx-swap="innerHTML"
-                                onclick="modal_password_change.showModal()"
+                                onclick="document.getElementById('modal_password_change').showModal()"
                                 class="btn btn-ghost btn-sm btn-block justify-start">
                             <i class="fa-solid fa-key"></i>
                             Change Password
