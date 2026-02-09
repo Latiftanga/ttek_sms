@@ -1,6 +1,7 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.db import models
 
@@ -166,7 +167,7 @@ def grade_scale_create(request, system_id):
             is_credit=request.POST.get('is_credit') == 'on',
             order=int(request.POST.get('order') or 0),
         )
-    except Exception as e:
+    except (ValueError, InvalidOperation, ValidationError) as e:
         return render(request, 'gradebook/includes/modal_grade_scale.html', {
             'system': system,
             'error': str(e),
@@ -202,7 +203,7 @@ def grade_scale_edit(request, pk):
         scale.is_credit = request.POST.get('is_credit') == 'on'
         scale.order = int(request.POST.get('order') or 0)
         scale.save()
-    except Exception as e:
+    except (ValueError, InvalidOperation, ValidationError) as e:
         return render(request, 'gradebook/includes/modal_grade_scale.html', {
             'system': scale.grading_system,
             'scale': scale,

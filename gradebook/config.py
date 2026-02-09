@@ -35,8 +35,8 @@ _DEFAULTS = {
     'AT_RISK_STUDENTS_LIMIT': 5,
     'TOP_SUBJECTS_LIMIT': 10,
 
-    # SMS settings
-    'SMS_MAX_LENGTH': 160,
+    # SMS settings (153 chars/segment for multipart/concatenated SMS)
+    'SMS_MAX_LENGTH': 153,
 
     # Export settings
     'EXCEL_HEADER_COLOR': '4F46E5',
@@ -44,10 +44,12 @@ _DEFAULTS = {
     # Celery task settings
     'TASK_MAX_RETRIES': 3,
     'TASK_RETRY_DELAY': 60,  # seconds
+    'TASK_SOFT_TIME_LIMIT': 300,  # 5 min for single-report tasks
+    'TASK_TIME_LIMIT': 360,  # 6 min hard limit
+    'BULK_TASK_SOFT_TIME_LIMIT': 1800,  # 30 min for bulk tasks
+    'BULK_TASK_TIME_LIMIT': 1860,  # 31 min hard limit
 
     # Ghana-specific defaults
-    'GHANA_CA_PERCENTAGE': 30,
-    'GHANA_EXAM_PERCENTAGE': 70,
     'WASSCE_AGGREGATE_SUBJECTS': 6,
 }
 
