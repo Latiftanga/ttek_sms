@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.contrib import messages
 from django.core.paginator import Paginator
 
-from teachers.models import Teacher, TeacherInvitation
+from teachers.models import Teacher, TeacherInvitation, Promotion, Qualification
 from teachers.forms import TeacherForm
 from academics.models import Class, ClassSubject, TimetableEntry
 from students.models import Student
@@ -185,6 +185,10 @@ def teacher_detail(request, pk):
         'periods_per_week': periods_per_week,
     }
 
+    # Promotions and qualifications for detail tabs
+    promotions = Promotion.objects.filter(teacher=teacher).order_by('-date_promoted')
+    qualifications = Qualification.objects.filter(teacher=teacher).order_by('-date_ended')
+
     # Get pending invitation if teacher has no account
     pending_invitation = None
     if not teacher.user:
@@ -221,6 +225,8 @@ def teacher_detail(request, pk):
             'subject_assignments': subject_assignments,
             'classes_list': classes_list,
             'workload': workload,
+            'promotions': promotions,
+            'qualifications': qualifications,
             'pending_invitation': pending_invitation,
             # Navigation
             'breadcrumbs': [
@@ -329,11 +335,17 @@ def teacher_detail_pdf(request, pk):
     # Generate QR code for verification
     qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
 
+    # Promotions and qualifications
+    promotions = Promotion.objects.filter(teacher=teacher).order_by('-date_promoted')
+    qualifications = Qualification.objects.filter(teacher=teacher).order_by('-date_ended')
+
     context = {
         'teacher': teacher,
         'homeroom_classes': homeroom_classes,
         'subject_assignments': subject_assignments,
         'workload': workload,
+        'promotions': promotions,
+        'qualifications': qualifications,
         'school': school_ctx['school'],
         'school_settings': school_ctx['school_settings'],
         'logo_base64': school_ctx.get('logo_base64'),
