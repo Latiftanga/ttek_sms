@@ -898,8 +898,10 @@ def profile(request):
 
     # Teacher profile
     if getattr(user, 'is_teacher', False):
+        from django.db.models import Count, Q
         from academics.models import Class, ClassSubject
         from students.models import Student
+        from teachers.models import Promotion, Qualification
 
         teacher = getattr(user, 'teacher_profile', None)
         if not teacher:
@@ -910,6 +912,10 @@ def profile(request):
         homeroom_classes = Class.objects.filter(
             class_teacher=teacher,
             is_active=True
+        ).annotate(
+            student_count=Count(
+                'students', filter=Q(students__status='active')
+            )
         ).order_by('name')
 
         subject_assignments = ClassSubject.objects.filter(
@@ -918,18 +924,32 @@ def profile(request):
             'class_assigned__level_number', 'class_assigned__name'
         )
 
-        classes_taught = list({sa.class_assigned for sa in subject_assignments})
+        class_ids_taught = list(
+            subject_assignments.values_list(
+                'class_assigned_id', flat=True
+            ).distinct()
+        )
         total_students = Student.objects.filter(
-            current_class_id__in=[c.id for c in classes_taught],
+            current_class_id__in=class_ids_taught,
             status='active'
-        ).count()
+        ).count() if class_ids_taught else 0
+
+        promotions = Promotion.objects.filter(
+            teacher=teacher
+        ).order_by('-date_promoted')
+
+        qualifications = Qualification.objects.filter(
+            teacher=teacher
+        ).order_by('-date_ended')
 
         context = {
             'teacher': teacher,
             'homeroom_classes': homeroom_classes,
             'subject_assignments': subject_assignments,
+            'promotions': promotions,
+            'qualifications': qualifications,
             'workload': {
-                'classes_taught': len(classes_taught),
+                'classes_taught': len(class_ids_taught),
                 'subjects_taught': subject_assignments.count(),
                 'total_students': total_students,
                 'homeroom_classes': homeroom_classes.count(),

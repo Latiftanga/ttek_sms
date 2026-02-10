@@ -470,9 +470,9 @@ def exeat_create(request):
 
             exeat.requested_by = user
 
-            # Set housemaster from student's house
+            # Set housemaster from student's house (use first assignment)
             student = exeat.student
-            hm_assignment = HouseMaster.get_for_house(student.house)
+            hm_assignment = HouseMaster.get_for_house(student.house).first()
             if hm_assignment:
                 exeat.housemaster = hm_assignment.teacher
 
@@ -862,6 +862,90 @@ def exeat_return(request, pk):
         response['HX-Redirect'] = f'/students/exeats/{pk}/'
         return response
     return redirect('students:exeat_detail', pk=pk)
+
+
+# ============ Exeat Landing (route by role) ============
+
+def exeat_landing(request):
+    """Route teachers to the appropriate exeat page based on role."""
+    user = request.user
+    if not user.is_authenticated:
+        return redirect('accounts:login')
+    if is_school_admin(user) or is_housemaster(user):
+        return redirect('students:exeat_index')
+    return redirect('students:exeat_verify')
+
+
+# ============ Verify Exeat (Read-only for all teachers) ============
+
+def exeat_verify(request):
+    """
+    Verify if a student is currently on exeat.
+    Read-only, search-first view accessible to any authenticated teacher or admin.
+    Designed for mobile use — a teacher spots a student off-campus and needs to check.
+    """
+    user = request.user
+    if not user.is_authenticated:
+        if getattr(request, 'htmx', None):
+            return HttpResponse(status=401)
+        return redirect('accounts:login')
+
+    # Any teacher or school admin can access
+    if not (getattr(user, 'is_teacher', False) or is_school_admin(user)):
+        if getattr(request, 'htmx', None):
+            return HttpResponse(
+                '<div class="text-error text-sm p-2">Access denied. Teacher role required.</div>',
+                status=403
+            )
+        messages.error(request, "You don't have permission to access this page.")
+        return redirect('core:index')
+
+    query = request.GET.get('q', '').strip()
+    results = None
+
+    if len(query) >= 2:
+        # Search all active students across all houses
+        students = Student.objects.filter(
+            status='active'
+        ).filter(
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(admission_number__icontains=query)
+        ).select_related('house', 'current_class')[:20]
+
+        # Check for active/approved/overdue exeats for matched students
+        student_ids = [s.pk for s in students]
+        active_exeats = Exeat.objects.filter(
+            student_id__in=student_ids,
+            status__in=['active', 'approved', 'overdue']
+        ).select_related('approved_by')
+
+        exeat_map = {}
+        for exeat in active_exeats:
+            # Keep the most relevant exeat per student (active > approved > overdue)
+            existing = exeat_map.get(exeat.student_id)
+            if not existing or exeat.status == 'active':
+                exeat_map[exeat.student_id] = exeat
+
+        results = [
+            {'student': student, 'exeat': exeat_map.get(student.pk)}
+            for student in students
+        ]
+
+    context = {
+        'query': query,
+        'results': results,
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Verify Exeat'},
+        ],
+    }
+
+    if request.headers.get('HX-Request'):
+        if 'search_only' in request.GET:
+            return render(request, 'students/partials/exeat_verify_results.html', context)
+        return render(request, 'students/partials/exeat_verify_content.html', context)
+    return render(request, 'students/exeat_verify.html', context)
 
 
 # ============ HouseMaster Assignment Views ============

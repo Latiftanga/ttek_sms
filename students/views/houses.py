@@ -19,6 +19,17 @@ from .utils import admin_required
 logger = logging.getLogger(__name__)
 
 
+def htmx_render(request, full_template, partial_template, context=None):
+    """Render full template for regular requests, partial for HTMX."""
+    context = context or {}
+    is_htmx = (
+        bool(getattr(request, 'htmx', False))
+        or request.headers.get('HX-Request') == 'true'
+    )
+    template = partial_template if is_htmx else full_template
+    return render(request, template, context)
+
+
 @login_required
 @admin_required
 @requires_houses
@@ -42,11 +53,11 @@ def house_index(request):
             is_active=True
         ).select_related('teacher', 'house')
         for assignment in assignments:
-            housemaster_map[assignment.house_id] = assignment
+            housemaster_map.setdefault(assignment.house_id, []).append(assignment)
 
-    # Attach housemaster to each house
+    # Attach housemasters to each house
     for house in houses:
-        house.housemaster_assignment = housemaster_map.get(house.pk)
+        house.current_housemasters = housemaster_map.get(house.pk, [])
 
     # Get aggregate stats in a single query instead of iterating
     total_houses = houses.count()
@@ -80,9 +91,12 @@ def house_index(request):
         'back_url': '/students/',
     }
 
-    if request.headers.get('HX-Request'):
-        return render(request, 'students/partials/houses_content.html', context)
-    return render(request, 'students/houses.html', context)
+    return htmx_render(
+        request,
+        'students/houses.html',
+        'students/partials/houses_content.html',
+        context,
+    )
 
 
 @login_required
@@ -236,38 +250,68 @@ def house_assign_master(request, pk):
                 toast_msg = f"{teacher.full_name} is already assigned to {existing.house.name}."
                 toast_type = 'error'
             else:
-                # Remove existing assignment for this house
-                HouseMaster.objects.filter(
-                    house=house,
-                    academic_year=current_year
-                ).delete()
-
-                # Check if marking as senior when another senior exists
-                if is_senior:
-                    existing_senior = HouseMaster.objects.filter(
-                        academic_year=current_year,
-                        is_senior=True,
-                        is_active=True
-                    ).first()
-                    if existing_senior:
-                        existing_senior.is_senior = False
-                        existing_senior.save(update_fields=['is_senior'])
-
-                # Create new assignment
-                HouseMaster.objects.create(
+                # Check if teacher already assigned to this house
+                already_assigned = HouseMaster.objects.filter(
                     teacher=teacher,
                     house=house,
                     academic_year=current_year,
-                    is_senior=is_senior,
                     is_active=True
-                )
-                toast_msg = f"{teacher.full_name} assigned as {'senior ' if is_senior else ''}housemaster for {house.name}."
+                ).exists()
+
+                if already_assigned:
+                    toast_msg = f"{teacher.full_name} is already assigned to {house.name}."
+                    toast_type = 'error'
+                else:
+                    # Check if marking as senior when another senior exists
+                    if is_senior:
+                        existing_senior = HouseMaster.objects.filter(
+                            academic_year=current_year,
+                            is_senior=True,
+                            is_active=True
+                        ).first()
+                        if existing_senior:
+                            existing_senior.is_senior = False
+                            existing_senior.save(update_fields=['is_senior'])
+
+                    # Create new assignment
+                    HouseMaster.objects.create(
+                        teacher=teacher,
+                        house=house,
+                        academic_year=current_year,
+                        is_senior=is_senior,
+                        is_active=True
+                    )
+                    toast_msg = f"{teacher.full_name} assigned as {'senior ' if is_senior else ''}housemaster for {house.name}."
 
         if is_htmx:
-            response = HttpResponse(status=204)
+            if toast_type == 'error':
+                # Error: return 204 with toast only
+                response = HttpResponse(status=204)
+                response['HX-Trigger'] = json.dumps({
+                    'showToast': {'message': toast_msg, 'type': toast_type}
+                })
+                return response
+
+            # Success: re-render modal content so user can add more
+            from teachers.models import Teacher
+            teachers = Teacher.objects.filter(
+                status='active'
+            ).select_related('user').order_by('last_name', 'first_name')
+            current_assignments = HouseMaster.objects.filter(
+                house=house,
+                academic_year=current_year,
+                is_active=True
+            ).select_related('teacher')
+            context = {
+                'house': house,
+                'teachers': teachers,
+                'current_assignments': current_assignments,
+                'current_year': current_year,
+                'toast_message': toast_msg,
+            }
+            response = render(request, 'students/partials/house_assign_master.html', context)
             response['HX-Trigger'] = json.dumps({
-                'houseChanged': True,
-                'showToast': {'message': toast_msg, 'type': toast_type}
+                'showToast': {'message': toast_msg, 'type': 'success'}
             })
             return response
 
@@ -283,17 +327,17 @@ def house_assign_master(request, pk):
         status='active'
     ).select_related('user').order_by('last_name', 'first_name')
 
-    # Get current assignment
-    current_assignment = HouseMaster.objects.filter(
+    # Get current assignments for this house
+    current_assignments = HouseMaster.objects.filter(
         house=house,
         academic_year=current_year,
         is_active=True
-    ).select_related('teacher').first()
+    ).select_related('teacher')
 
     context = {
         'house': house,
         'teachers': teachers,
-        'current_assignment': current_assignment,
+        'current_assignments': current_assignments,
         'current_year': current_year,
     }
 
@@ -304,35 +348,44 @@ def house_assign_master(request, pk):
 @admin_required
 @requires_houses
 def house_remove_master(request, pk):
-    """Remove housemaster assignment from a house."""
-    house = get_object_or_404(House, pk=pk)
-    current_year = AcademicYear.get_current()
+    """Remove a specific housemaster assignment."""
+    assignment = get_object_or_404(HouseMaster, pk=pk)
 
     if request.method == 'POST':
-        deleted = HouseMaster.objects.filter(
-            house=house,
-            academic_year=current_year
-        ).delete()[0]
+        teacher_name = assignment.teacher.full_name
+        house = assignment.house
+        house_name = house.name
+        current_year = assignment.academic_year
+        assignment.delete()
 
-        if deleted:
-            msg = f"Housemaster removed from {house.name}."
-            msg_type = 'success'
-        else:
-            msg = "No housemaster was assigned."
-            msg_type = 'info'
+        msg = f"{teacher_name} removed from {house_name}."
 
         if request.headers.get('HX-Request'):
-            response = HttpResponse(status=204)
+            # Re-render the modal content so user can continue managing
+            from teachers.models import Teacher
+            teachers = Teacher.objects.filter(
+                status='active'
+            ).select_related('user').order_by('last_name', 'first_name')
+            current_assignments = HouseMaster.objects.filter(
+                house=house,
+                academic_year=current_year,
+                is_active=True
+            ).select_related('teacher')
+            context = {
+                'house': house,
+                'teachers': teachers,
+                'current_assignments': current_assignments,
+                'current_year': current_year,
+            }
+            response = render(request, 'students/partials/house_assign_master.html', context)
             response['HX-Trigger'] = json.dumps({
-                'houseChanged': True,
-                'showToast': {'message': msg, 'type': msg_type}
+                'showToast': {'message': msg, 'type': 'success'}
             })
+            response['HX-Retarget'] = '#modal-housemaster-content'
+            response['HX-Reswap'] = 'innerHTML'
             return response
 
-        if msg_type == 'success':
-            messages.success(request, msg)
-        else:
-            messages.info(request, msg)
+        messages.success(request, msg)
         return redirect('students:houses')
 
     return HttpResponse(status=405)
@@ -356,22 +409,21 @@ def house_students(request, pk):
         female_count=Count('id', filter=Q(gender='F'))
     )
 
-    # Get housemaster
+    # Get housemasters
     current_year = AcademicYear.get_current()
-    housemaster = None
+    housemasters = []
     if current_year:
-        assignment = HouseMaster.objects.filter(
+        assignments = HouseMaster.objects.filter(
             house=house,
             academic_year=current_year,
             is_active=True
-        ).select_related('teacher').first()
-        if assignment:
-            housemaster = assignment.teacher
+        ).select_related('teacher')
+        housemasters = assignments
 
     context = {
         'house': house,
         'students': students,
-        'housemaster': housemaster,
+        'housemasters': housemasters,
         'male_count': gender_counts['male_count'],
         'female_count': gender_counts['female_count'],
         'current_year': current_year,
@@ -383,9 +435,12 @@ def house_students(request, pk):
         ],
     }
 
-    if request.headers.get('HX-Request'):
-        return render(request, 'students/partials/house_students_content.html', context)
-    return render(request, 'students/house_students.html', context)
+    return htmx_render(
+        request,
+        'students/house_students.html',
+        'students/partials/house_students_content.html',
+        context,
+    )
 
 
 @login_required
@@ -409,15 +464,14 @@ def house_students_pdf(request, pk):
     tenant = getattr(connection, 'tenant', None)
     current_year = AcademicYear.get_current()
 
-    housemaster = None
+    housemasters = []
     if current_year:
-        assignment = HouseMaster.objects.filter(
+        assignments = HouseMaster.objects.filter(
             house=house,
             academic_year=current_year,
             is_active=True
-        ).select_related('teacher').first()
-        if assignment:
-            housemaster = assignment.teacher
+        ).select_related('teacher')
+        housemasters = assignments
 
     # Build absolute URL for logo
     logo_url = None
@@ -430,7 +484,7 @@ def house_students_pdf(request, pk):
         'school': school,
         'tenant': tenant,
         'logo_url': logo_url,
-        'housemaster': housemaster,
+        'housemasters': housemasters,
         'current_year': current_year,
         'generated_at': timezone.now(),
         'generated_by': request.user,

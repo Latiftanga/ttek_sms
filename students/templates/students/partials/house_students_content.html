@@ -23,7 +23,7 @@
             <h1 class="text-base sm:text-xl font-bold truncate">{{ house.name }}</h1>
             <p class="text-[10px] sm:text-xs text-base-content/60">
                 {{ students|length }} student{{ students|length|pluralize }}
-                {% if housemaster %}<span class="hidden sm:inline">• {{ housemaster.full_name }}</span>{% endif %}
+                {% for a in housemasters %}<span class="hidden sm:inline">• {{ a.teacher.full_name }}</span>{% endfor %}
             </p>
         </div>
         <div class="flex items-center gap-2">
@@ -57,19 +57,19 @@
     </div>
 
     <!-- House Info (collapsed on mobile) -->
-    {% if housemaster or house.motto %}
+    {% if housemasters or house.motto %}
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-3">
             <div class="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-                {% if housemaster %}
+                {% for assignment in housemasters %}
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-user-tie text-base-content/40"></i>
-                    <span class="font-medium">{{ housemaster.full_name }}</span>
-                    {% if housemaster.phone_number %}
-                    <span class="text-xs text-base-content/60 font-mono hidden xs:inline">{{ housemaster.phone_number }}</span>
+                    <span class="font-medium">{{ assignment.teacher.full_name }}</span>
+                    {% if assignment.is_senior %}
+                    <span class="badge badge-primary badge-xs">Senior</span>
                     {% endif %}
                 </div>
-                {% endif %}
+                {% endfor %}
                 {% if house.motto %}
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-quote-left text-base-content/40"></i>

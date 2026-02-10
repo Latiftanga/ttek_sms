@@ -165,12 +165,13 @@ def create_semesters(academic_year, stdout):
 # ---------------------------------------------------------------------------
 # Teachers
 # ---------------------------------------------------------------------------
-def create_teachers(teacher_data, schema_name, stdout):
+def create_teachers(teacher_data, domain, stdout):
     """
     Create teachers from a deterministic list.
 
     teacher_data: list of dicts with keys:
         first_name, last_name, gender, title, staff_id
+    domain: the tenant's primary domain (e.g., 'demoshs.localhost')
     """
     stdout.write('  Creating teachers...')
     created_count = 0
@@ -182,12 +183,12 @@ def create_teachers(teacher_data, schema_name, stdout):
 
         email = (
             f"{td['first_name'].lower()}.{td['last_name'].lower()}"
-            f"@{schema_name}.edu.gh"
+            f"@{domain}"
         )
         # Ensure unique email
         if User.objects.filter(email=email).exists():
             email = f"{td['first_name'].lower()}.{td['last_name'].lower()}"
-            email += f".{staff_id.lower()}@{schema_name}.edu.gh"
+            email += f".{staff_id.lower()}@{domain}"
 
         user = User.objects.create_teacher(
             email=email,

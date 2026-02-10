@@ -672,7 +672,7 @@ class HouseMaster(models.Model):
 
     class Meta:
         ordering = ['-academic_year__start_date', 'house__name']
-        unique_together = ['house', 'academic_year']  # One housemaster per house per year
+        unique_together = ['house', 'academic_year', 'teacher']  # One assignment per teacher per house per year
         verbose_name = "House Master"
         verbose_name_plural = "House Masters"
 
@@ -696,17 +696,17 @@ class HouseMaster(models.Model):
 
     @classmethod
     def get_for_house(cls, house, academic_year=None):
-        """Get the housemaster for a specific house."""
+        """Get housemaster assignments for a specific house. Returns queryset."""
         from core.models import AcademicYear
         if not academic_year:
             academic_year = AcademicYear.get_current()
         if not academic_year:
-            return None
+            return cls.objects.none()
         return cls.objects.filter(
             house=house,
             academic_year=academic_year,
             is_active=True
-        ).select_related('teacher').first()
+        ).select_related('teacher')
 
 
 class Exeat(models.Model):

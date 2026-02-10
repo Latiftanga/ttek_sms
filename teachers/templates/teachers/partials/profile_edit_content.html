@@ -56,7 +56,7 @@
                             </div>
                         </div>
 
-                        {% file_input "photo" label="" accept="image/*" helper_text="JPG, PNG - Max 5MB" %}
+                        {% file_input "photo" label="" accept="image/*" help_text="JPG, PNG - Max 5MB" %}
                     </div>
                 </div>
             </div>
@@ -139,10 +139,10 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {% text_input "phone_number" label="Phone Number" value=teacher.phone_number placeholder="e.g., 0244123456" icon="fa-solid fa-phone" %}
 
-                        {% date_input "date_of_birth" label="Date of Birth" value=teacher.date_of_birth icon="fa-solid fa-cake-candles" %}
+                        {% date_input "date_of_birth" label="Date of Birth" value=teacher.date_of_birth %}
                     </div>
 
-                    {% textarea_input "address" label="Address" value=teacher.address placeholder="Enter your residential address" icon="fa-solid fa-location-dot" rows=2 %}
+                    {% textarea_input "address" label="Address" value=teacher.address placeholder="Enter your residential address" rows=2 %}
                 </div>
             </div>
 

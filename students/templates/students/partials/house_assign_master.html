@@ -7,24 +7,42 @@
             {{ house.name|slice:":1"|upper }}
         </div>
         <div>
-            <h3 class="font-bold text-lg">Assign Housemaster</h3>
+            <h3 class="font-bold text-lg">Manage Housemasters</h3>
             <p class="text-sm text-base-content/60">{{ house.name }}{% if current_year %} &middot; {{ current_year.name }}{% endif %}</p>
         </div>
     </div>
 
-    {% if current_assignment %}
-    <div class="alert alert-info py-3 mb-4">
-        <i class="fa-solid fa-user-tie"></i>
-        <div>
-            <p class="text-sm"><span class="font-medium">Currently assigned:</span> {{ current_assignment.teacher.full_name }}</p>
-            {% if current_assignment.is_senior %}<span class="badge badge-primary badge-sm mt-1">Senior Housemaster</span>{% endif %}
+    {% if current_assignments %}
+    <div class="space-y-2 mb-4">
+        <p class="text-xs font-medium text-base-content/60 uppercase tracking-wide">Current Assignments</p>
+        {% for assignment in current_assignments %}
+        <div class="flex items-center justify-between gap-2 bg-base-200/50 border border-base-300 rounded-lg p-3">
+            <div class="flex items-center gap-2 min-w-0">
+                <i class="fa-solid fa-user-tie text-base-content/50 shrink-0"></i>
+                <span class="font-medium text-sm truncate">{{ assignment.teacher.full_name }}</span>
+                {% if assignment.is_senior %}
+                <span class="badge badge-primary badge-xs shrink-0">Senior</span>
+                {% endif %}
+            </div>
+            <button type="button" class="btn btn-ghost btn-xs btn-square text-error shrink-0"
+                    hx-post="{% url 'students:house_remove_master' assignment.pk %}"
+                    hx-target="#modal-housemaster-content"
+                    hx-swap="innerHTML"
+                    hx-confirm="Remove {{ assignment.teacher.full_name }} as housemaster?"
+                    title="Remove">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
+        {% endfor %}
     </div>
+    <div class="divider text-xs text-base-content/40 my-3">Add Another</div>
     {% endif %}
 
     <form method="post"
           action="{% url 'students:house_assign_master' house.pk %}"
-          hx-post="{% url 'students:house_assign_master' house.pk %}">
+          hx-post="{% url 'students:house_assign_master' house.pk %}"
+          hx-target="#modal-housemaster-content"
+          hx-swap="innerHTML">
         {% csrf_token %}
 
         <div class="space-y-4">
@@ -36,7 +54,7 @@
                 <select name="teacher" class="select select-bordered w-full" required>
                     <option value="">-- Choose a teacher --</option>
                     {% for teacher in teachers %}
-                    <option value="{{ teacher.pk }}" {% if current_assignment and current_assignment.teacher_id == teacher.pk %}selected{% endif %}>
+                    <option value="{{ teacher.pk }}">
                         {{ teacher.get_title_display }} {{ teacher.full_name }}
                     </option>
                     {% endfor %}
@@ -46,8 +64,7 @@
             <!-- Senior Housemaster Checkbox -->
             <div class="form-control">
                 <label class="label cursor-pointer justify-start gap-4 bg-base-200/50 border border-base-300 rounded-lg p-4">
-                    <input type="checkbox" name="is_senior" value="true" class="checkbox checkbox-primary"
-                           {% if current_assignment and current_assignment.is_senior %}checked{% endif %} />
+                    <input type="checkbox" name="is_senior" value="true" class="checkbox checkbox-primary" />
                     <div>
                         <span class="label-text font-medium">Senior Housemaster</span>
                         <p class="text-xs text-base-content/60 mt-0.5">Can approve external exeats for all houses</p>
@@ -57,22 +74,15 @@
         </div>
 
         <!-- Actions -->
-        <div class="flex items-center {% if current_assignment %}justify-between{% else %}justify-end{% endif %} gap-2 mt-6 pt-4 border-t border-base-200">
-            {% if current_assignment %}
-            <button type="button" class="btn btn-ghost btn-sm text-error"
-                    hx-post="{% url 'students:house_remove_master' house.pk %}"
-                    hx-confirm="Remove {{ current_assignment.teacher.full_name|escapejs }} as housemaster?">
-                <i class="fa-solid fa-user-minus"></i>
-                Remove
+        <div class="flex items-center justify-between gap-2 mt-6 pt-4 border-t border-base-200">
+            <button type="button" class="btn btn-ghost btn-sm"
+                    onclick="document.getElementById('modal_housemaster').close(); htmx.trigger(document.body, 'houseChanged');">
+                Done
             </button>
-            {% endif %}
-            <div class="flex gap-2">
-                <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('modal_housemaster').close()">Cancel</button>
-                <button type="submit" class="btn btn-primary btn-sm">
-                    <i class="fa-solid fa-check"></i>
-                    Assign
-                </button>
-            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i>
+                Add Housemaster
+            </button>
         </div>
     </form>
 </div>

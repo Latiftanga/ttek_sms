@@ -54,11 +54,13 @@ urlpatterns = [
     path('houses/<int:pk>/edit/', views.house_edit, name='house_edit'),
     path('houses/<int:pk>/delete/', views.house_delete, name='house_delete'),
     path('houses/<int:pk>/assign-master/', views.house_assign_master, name='house_assign_master'),
-    path('houses/<int:pk>/remove-master/', views.house_remove_master, name='house_remove_master'),
+    path('houses/remove-master/<int:pk>/', views.house_remove_master, name='house_remove_master'),
     path('houses/<int:pk>/students/pdf/', views.house_students_pdf, name='house_students_pdf'),
     path('houses/<int:pk>/students/excel/', views.house_students_excel, name='house_students_excel'),
 
     # Exeats
+    path('exeats/verify/', views.exeat_verify, name='exeat_verify'),
+    path('exeats/go/', views.exeat_landing, name='exeat_landing'),
     path('exeats/', views.exeat_index, name='exeat_index'),
     path('exeats/create/', views.exeat_create, name='exeat_create'),
     path('exeats/student-search/', views.exeat_student_search, name='exeat_student_search'),

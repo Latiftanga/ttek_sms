@@ -46,7 +46,7 @@
         <div class="school-name">{{ school.display_name|default:tenant.name|default:"School" }}</div>
         <div class="report-title">{{ house.name }} - Student List</div>
         <div class="report-subtitle">
-            {% if housemaster %}Housemaster: {{ housemaster.full_name }} | {% endif %}
+            {% for a in housemasters %}Housemaster: {{ a.teacher.full_name }}{% if a.is_senior %} (Senior){% endif %} | {% endfor %}
             Total Students: {{ total_students }}
             {% if current_year %} | Academic Year: {{ current_year.name }}{% endif %}
         </div>

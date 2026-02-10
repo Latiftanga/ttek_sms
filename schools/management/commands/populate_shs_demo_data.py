@@ -161,12 +161,14 @@ class Command(BaseCommand):
             return
 
         schema = school.schema_name
+        primary_domain = school.domains.filter(is_primary=True).first()
+        domain = primary_domain.domain if primary_domain else f'{schema}.localhost'
         self.stdout.write(self.style.NOTICE(
-            f'\nPopulating "{school.name}" (schema: {schema}) '
-            f'with SHS demo data...\n'
+            f'\nPopulating "{school.name}" (schema: {schema}, '
+            f'domain: {domain}) with SHS demo data...\n'
         ))
 
-        admin_email = 'admin@demoshs.com'
+        admin_email = f'admin@{domain}'
         admin_password = 'Demo@2026'
 
         with schema_context(schema):
@@ -190,7 +192,7 @@ class Command(BaseCommand):
             self._create_shs_classes()
 
             # 7. Teachers
-            create_teachers(SHS_TEACHERS, schema, self.stdout)
+            create_teachers(SHS_TEACHERS, domain, self.stdout)
 
             # 8. Students + guardians (with house assignment)
             create_students_and_guardians(
