@@ -26,15 +26,13 @@
 </div>
 
 <!-- Modal -->
-<dialog id="modal_form" class="modal">
-    <div class="modal-box">
-        <div id="modal-container"></div>
+<dialog id="modal_form" class="modal modal-bottom sm:modal-middle" hx-on::closeModal="this.close()">
+    <div class="modal-box max-w-md" id="modal-container">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
-
-<script>
-document.addEventListener('closeModal', function() {
-    document.getElementById('modal_form').close();
-});
-</script>
