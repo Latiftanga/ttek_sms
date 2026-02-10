@@ -10,95 +10,18 @@
                 <i class="fa-solid fa-bell text-white"></i>
             </div>
             <div>
-                <h2 class="text-xl font-bold">Communication Preferences</h2>
-                <p class="text-sm text-base-content/60">Choose how you'd like to receive updates</p>
+                <h2 class="text-xl font-bold">Notifications</h2>
+                <p class="text-sm text-base-content/60">Stay informed about your ward's progress</p>
             </div>
         </div>
 
         <form method="post" class="space-y-5">
             {% csrf_token %}
 
-            <!-- Notification Channels -->
-            <div class="space-y-3">
-                <h3 class="text-sm font-semibold text-base-content/70">Notification Channels</h3>
-
-                <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-envelope text-base-content/60"></i>
-                        <div>
-                            <div class="font-medium text-sm">Email Notifications</div>
-                            <div class="text-xs text-base-content/50">Receive updates via email</div>
-                        </div>
-                    </div>
-                    <input type="checkbox" name="email_notifications" class="toggle toggle-primary toggle-sm" {% if guardian.email_notifications %}checked{% endif %}>
-                </label>
-
-                <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-comment-sms text-base-content/60"></i>
-                        <div>
-                            <div class="font-medium text-sm">SMS Notifications</div>
-                            <div class="text-xs text-base-content/50">Receive urgent updates via SMS</div>
-                        </div>
-                    </div>
-                    <input type="checkbox" name="sms_notifications" class="toggle toggle-primary toggle-sm" {% if guardian.sms_notifications %}checked{% endif %}>
-                </label>
-            </div>
-
-            <!-- Alert Types -->
-            <div class="space-y-3">
-                <h3 class="text-sm font-semibold text-base-content/70">Alert Types</h3>
-
-                <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-graduation-cap text-base-content/60"></i>
-                        <div>
-                            <div class="font-medium text-sm">Academic Updates</div>
-                            <div class="text-xs text-base-content/50">Grades, assessments, report cards</div>
-                        </div>
-                    </div>
-                    <input type="checkbox" name="academic_alerts" class="toggle toggle-primary toggle-sm" {% if guardian.academic_alerts %}checked{% endif %}>
-                </label>
-
-                <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-calendar-check text-base-content/60"></i>
-                        <div>
-                            <div class="font-medium text-sm">Attendance Alerts</div>
-                            <div class="text-xs text-base-content/50">Daily attendance notifications</div>
-                        </div>
-                    </div>
-                    <input type="checkbox" name="attendance_alerts" class="toggle toggle-primary toggle-sm" {% if guardian.attendance_alerts %}checked{% endif %}>
-                </label>
-
-                <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-credit-card text-base-content/60"></i>
-                        <div>
-                            <div class="font-medium text-sm">Fee Reminders</div>
-                            <div class="text-xs text-base-content/50">Payment due dates and receipts</div>
-                        </div>
-                    </div>
-                    <input type="checkbox" name="fee_alerts" class="toggle toggle-primary toggle-sm" {% if guardian.fee_alerts %}checked{% endif %}>
-                </label>
-
-                <label class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg cursor-pointer hover:bg-base-200 transition-colors">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-bullhorn text-base-content/60"></i>
-                        <div>
-                            <div class="font-medium text-sm">School Announcements</div>
-                            <div class="text-xs text-base-content/50">Events, holidays, general news</div>
-                        </div>
-                    </div>
-                    <input type="checkbox" name="announcement_alerts" class="toggle toggle-primary toggle-sm" {% if guardian.announcement_alerts %}checked{% endif %}>
-                </label>
-            </div>
-
-            <!-- Note -->
-            <div class="bg-info/10 rounded-lg p-3 border border-info/30">
+            <div class="bg-info/10 rounded-lg p-4 border border-info/30">
                 <p class="text-sm text-info flex items-start gap-2">
                     <i class="fa-solid fa-circle-info mt-0.5"></i>
-                    <span>You can change these preferences anytime from your profile settings.</span>
+                    <span>You will receive SMS notifications for important updates like exeat approvals, report cards, and school announcements.</span>
                 </p>
             </div>
 

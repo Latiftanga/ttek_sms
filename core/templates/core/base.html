@@ -101,6 +101,20 @@
             --desktop-width: 17rem;
         }
 
+        /* Gender colors — theme-aware, not school-branded */
+        :root, [data-theme="light"] {
+            --male-bg: #dbeafe; --male-border: #bfdbfe; --male-text: #2563eb; --male-text-muted: #2563ebc0;
+            --female-bg: #fce7f3; --female-border: #fbcfe8; --female-text: #db2777; --female-text-muted: #db2777c0;
+        }
+        [data-theme="dark"] {
+            --male-bg: #1e3a5f30; --male-border: #1e3a5f50; --male-text: #60a5fa; --male-text-muted: #60a5fac0;
+            --female-bg: #5b213930; --female-border: #5b213950; --female-text: #f472b6; --female-text-muted: #f472b6c0;
+        }
+        .gender-male   { background: var(--male-bg);   color: var(--male-text); }
+        .gender-female { background: var(--female-bg); color: var(--female-text); }
+        .gender-male-icon   { color: var(--male-text); }
+        .gender-female-icon { color: var(--female-text); }
+
         /* School branding utilities */
         .school-gradient {
             background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);

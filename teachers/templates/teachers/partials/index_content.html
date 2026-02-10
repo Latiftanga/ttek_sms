@@ -137,14 +137,14 @@
                hx-push-url="true"
                class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
                 <div class="avatar placeholder shrink-0">
-                    <div class="w-11 h-11 rounded-full {{ teacher.gender|yesno:'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400,bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400' }} flex items-center justify-center relative">
+                    <div class="w-11 h-11 rounded-full {{ teacher.gender|yesno:'gender-male,gender-female' }} flex items-center justify-center relative">
                         {% if teacher.photo %}
                         <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
                         {% else %}
                         <span class="text-sm font-bold">{{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}</span>
                         {% endif %}
                         <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-base-100 border border-base-200 flex items-center justify-center">
-                            <i class="fa-solid {{ teacher.gender|yesno:'fa-mars text-blue-500 dark:text-blue-400,fa-venus text-pink-500 dark:text-pink-400' }} text-[10px]"></i>
+                            <i class="fa-solid {{ teacher.gender|yesno:'fa-mars gender-male-icon,fa-venus gender-female-icon' }} text-[10px]"></i>
                         </span>
                     </div>
                 </div>
@@ -186,14 +186,14 @@
                    hx-push-url="true"
                    class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
                     <div class="avatar placeholder shrink-0">
-                        <div class="w-11 h-11 rounded-full {{ teacher.gender|yesno:'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400,bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400' }} flex items-center justify-center relative">
+                        <div class="w-11 h-11 rounded-full {{ teacher.gender|yesno:'gender-male,gender-female' }} flex items-center justify-center relative">
                             {% if teacher.photo %}
                             <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
                             {% else %}
                             <span class="text-sm font-bold">{{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}</span>
                             {% endif %}
                             <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-base-100 border border-base-200 flex items-center justify-center">
-                                <i class="fa-solid {{ teacher.gender|yesno:'fa-mars text-blue-500 dark:text-blue-400,fa-venus text-pink-500 dark:text-pink-400' }} text-[10px]"></i>
+                                <i class="fa-solid {{ teacher.gender|yesno:'fa-mars gender-male-icon,fa-venus gender-female-icon' }} text-[10px]"></i>
                             </span>
                         </div>
                     </div>
@@ -254,7 +254,7 @@
                             <td>
                                 <div class="flex items-center gap-2">
                                     <div class="avatar placeholder">
-                                        <div class="w-8 h-8 rounded-full {{ teacher.gender|yesno:'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400,bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400' }} flex items-center justify-center">
+                                        <div class="w-8 h-8 rounded-full {{ teacher.gender|yesno:'gender-male,gender-female' }} flex items-center justify-center">
                                             {% if teacher.photo %}
                                             <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
                                             {% else %}
@@ -267,7 +267,7 @@
                             </td>
                             <td><span class="font-mono text-xs">{{ teacher.staff_id }}</span></td>
                             <td>
-                                <i class="fa-solid {{ teacher.gender|yesno:'fa-mars text-blue-500 dark:text-blue-400,fa-venus text-pink-500 dark:text-pink-400' }}"></i>
+                                <i class="fa-solid {{ teacher.gender|yesno:'fa-mars gender-male-icon,fa-venus gender-female-icon' }}"></i>
                             </td>
                             <td>
                                 {% if teacher.status == 'active' %}

@@ -1,6 +1,4 @@
 import logging
-import secrets
-import string
 
 from django.shortcuts import redirect, get_object_or_404, render
 from django.urls import reverse
@@ -18,15 +16,9 @@ from core.email_backend import get_from_email
 from academics.models import Class
 from students.models import Student, Guardian, StudentGuardian
 from students.forms import StudentForm, GuardianForm
-from .utils import admin_required, htmx_render, create_enrollment_for_student
+from .utils import admin_required, htmx_render, create_enrollment_for_student, generate_temp_password
 
 logger = logging.getLogger(__name__)
-
-
-def generate_temp_password(length=10):
-    """Generate a random temporary password."""
-    chars = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(chars) for _ in range(length))
 
 
 def send_student_credentials(user, password, student):

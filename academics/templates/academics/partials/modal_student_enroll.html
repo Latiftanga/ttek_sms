@@ -72,7 +72,7 @@
                             <td>
                                 <div class="flex items-center gap-2 sm:gap-3">
                                     <div class="avatar placeholder shrink-0">
-                                        <div class="w-8 h-8 rounded-full {{ student.gender|yesno:'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400,bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400' }} flex items-center justify-center">
+                                        <div class="w-8 h-8 rounded-full {{ student.gender|yesno:'gender-male,gender-female' }} flex items-center justify-center">
                                             <span class="text-xs font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                                         </div>
                                     </div>

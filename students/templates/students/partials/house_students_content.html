@@ -46,13 +46,13 @@
             <div class="text-lg font-bold text-primary">{{ students|length }}</div>
             <div class="text-xs text-base-content/60">Students</div>
         </div>
-        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800/30 p-3 text-center">
-            <div class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ male_count|default:0 }}</div>
-            <div class="text-xs text-blue-600/80 dark:text-blue-400/80">Male</div>
+        <div class="rounded-lg p-3 text-center" style="background: var(--male-bg); border: 1px solid var(--male-border);">
+            <div class="text-lg font-bold" style="color: var(--male-text);">{{ male_count|default:0 }}</div>
+            <div class="text-xs" style="color: var(--male-text-subtle);">Male</div>
         </div>
-        <div class="bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-200 dark:border-pink-800/30 p-3 text-center">
-            <div class="text-lg font-bold text-pink-600 dark:text-pink-400">{{ female_count|default:0 }}</div>
-            <div class="text-xs text-pink-600/80 dark:text-pink-400/80">Female</div>
+        <div class="rounded-lg p-3 text-center" style="background: var(--female-bg); border: 1px solid var(--female-border);">
+            <div class="text-lg font-bold" style="color: var(--female-text);">{{ female_count|default:0 }}</div>
+            <div class="text-xs" style="color: var(--female-text-subtle);">Female</div>
         </div>
     </div>
 
@@ -95,7 +95,7 @@
 
                 <!-- Avatar with gender color -->
                 <div class="avatar placeholder shrink-0">
-                    <div class="w-11 h-11 rounded-full {{ student.gender|yesno:'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400,bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400' }} flex items-center justify-center">
+                    <div class="w-11 h-11 rounded-full {{ student.gender|yesno:'gender-male,gender-female' }} flex items-center justify-center">
                         {% if student.photo %}
                         <img src="{{ student.photo.url }}" alt="" class="w-full h-full object-cover rounded-full" loading="lazy" />
                         {% else %}
@@ -111,9 +111,9 @@
                             {{ student.full_name }}
                         </h3>
                         {% if student.gender == 'M' %}
-                        <i class="fa-solid fa-mars text-blue-500 dark:text-blue-400 text-xs shrink-0"></i>
+                        <i class="fa-solid fa-mars gender-male-icon text-xs shrink-0"></i>
                         {% elif student.gender == 'F' %}
-                        <i class="fa-solid fa-venus text-pink-500 dark:text-pink-400 text-xs shrink-0"></i>
+                        <i class="fa-solid fa-venus gender-female-icon text-xs shrink-0"></i>
                         {% endif %}
                     </div>
                     <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">

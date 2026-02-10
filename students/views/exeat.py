@@ -5,7 +5,6 @@ from functools import wraps
 from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
 from django.utils import timezone
@@ -332,7 +331,6 @@ def admin_or_senior_required(view_func):
 
 # ============ Exeat Views ============
 
-@login_required
 @housemaster_required
 def exeat_index(request):
     """List exeats - filtered by housemaster's house or all for admin/senior."""
@@ -436,7 +434,6 @@ def exeat_index(request):
     return render(request, 'students/exeat_index.html', context)
 
 
-@login_required
 @housemaster_required
 def exeat_create(request):
     """Create a new exeat request."""
@@ -553,7 +550,6 @@ def exeat_create(request):
     return render(request, 'students/exeat_form.html', context)
 
 
-@login_required
 @housemaster_required
 def exeat_student_search(request):
     """Search for students for exeat form (AJAX endpoint)."""
@@ -588,7 +584,6 @@ def exeat_student_search(request):
     })
 
 
-@login_required
 @housemaster_required
 def exeat_student_guardian(request, pk):
     """Get student's guardian info for exeat form (HTMX endpoint)."""
@@ -604,7 +599,6 @@ def exeat_student_guardian(request, pk):
     return render(request, 'students/partials/exeat_guardian_info.html', context)
 
 
-@login_required
 @housemaster_required
 def exeat_detail(request, pk):
     """View exeat details."""
@@ -687,7 +681,6 @@ def exeat_detail(request, pk):
     return render(request, 'students/exeat_detail.html', context)
 
 
-@login_required
 @housemaster_required
 def exeat_approve(request, pk):
     """Approve an exeat (internal) or recommend (external pending)."""
@@ -758,7 +751,6 @@ def exeat_approve(request, pk):
     return redirect('students:exeat_detail', pk=pk)
 
 
-@login_required
 @housemaster_required
 def exeat_reject(request, pk):
     """Reject an exeat request."""
@@ -795,7 +787,6 @@ def exeat_reject(request, pk):
     return redirect('students:exeat_detail', pk=pk)
 
 
-@login_required
 @housemaster_required
 def exeat_depart(request, pk):
     """Mark student as departed."""
@@ -829,7 +820,6 @@ def exeat_depart(request, pk):
     return redirect('students:exeat_detail', pk=pk)
 
 
-@login_required
 @housemaster_required
 def exeat_return(request, pk):
     """Mark student as returned."""
@@ -876,7 +866,6 @@ def exeat_return(request, pk):
 
 # ============ HouseMaster Assignment Views ============
 
-@login_required
 @admin_required
 def housemaster_index(request):
     """List housemaster assignments."""
@@ -901,7 +890,6 @@ def housemaster_index(request):
     return render(request, 'students/housemaster_index.html', context)
 
 
-@login_required
 @admin_required
 def housemaster_assign(request):
     """Assign a teacher as housemaster."""
@@ -932,7 +920,6 @@ def housemaster_assign(request):
     return render(request, 'students/housemaster_form.html', context)
 
 
-@login_required
 @admin_required
 def housemaster_remove(request, pk):
     """Remove a housemaster assignment."""
@@ -1043,7 +1030,6 @@ def get_exeat_report_data(start_date, end_date, house_filter=None, type_filter=N
     }
 
 
-@login_required
 @housemaster_required
 def exeat_report(request):
     """Exeat report with statistics and export options."""
@@ -1108,7 +1094,6 @@ def exeat_report(request):
     return render(request, 'students/exeat_report.html', context)
 
 
-@login_required
 @housemaster_required
 def exeat_report_pdf(request):
     """Export exeat report as PDF."""
@@ -1269,7 +1254,6 @@ def exeat_report_pdf(request):
     return response
 
 
-@login_required
 @housemaster_required
 def exeat_report_excel(request):
     """Export exeat report as Excel."""

@@ -72,12 +72,6 @@
                         </h3>
                         <div class="space-y-3">
                             {% floating_field form.status %}
-                            <label class="label cursor-pointer justify-start gap-3">
-                                <input type="checkbox" name="is_active"
-                                       class="checkbox checkbox-primary checkbox-sm"
-                                       {% if form.is_active.value %}checked{% endif %} />
-                                <span class="label-text text-sm">Active Student</span>
-                            </label>
                             {% floating_field form.admission_number %}
                             {% floating_field form.admission_date %}
                             {% floating_field form.current_class %}
