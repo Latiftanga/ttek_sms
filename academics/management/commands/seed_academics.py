@@ -13,7 +13,7 @@ Usage:
     python manage.py tenant_command seed_academics --schema=demo --force
 """
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import connection, transaction
 from django_tenants.utils import schema_context
 from datetime import time
 
@@ -57,21 +57,41 @@ class Command(BaseCommand):
         # If no specific option, seed all
         seed_all = not (options['programmes'] or options['periods'] or options['subjects'])
 
+        # Determine education system before entering schema context
+        education_system = 'both'
+        if schema:
+            from schools.models import School
+            try:
+                school = School.objects.get(schema_name=schema)
+                education_system = school.education_system
+            except School.DoesNotExist:
+                pass
+        else:
+            tenant = getattr(connection, 'tenant', None)
+            if tenant and hasattr(tenant, 'education_system'):
+                education_system = tenant.education_system
+
         if schema:
             with schema_context(schema):
-                self._seed_data(force, options, seed_all)
+                self._seed_data(force, options, seed_all, education_system)
         else:
-            self._seed_data(force, options, seed_all)
+            self._seed_data(force, options, seed_all, education_system)
 
-    def _seed_data(self, force, options, seed_all):
-        """Seed the academic data."""
+    def _seed_data(self, force, options, seed_all, education_system='both'):
+        """Seed the academic data based on school type."""
+        has_shs = education_system in ('shs', 'both')
+        has_basic = education_system in ('basic', 'both')
+
         with transaction.atomic():
             if seed_all or options['programmes']:
-                self.create_programmes(force)
+                if has_shs:
+                    self.create_programmes(force)
+                else:
+                    self.stdout.write('  Skipping programmes (not an SHS school)')
             if seed_all or options['periods']:
                 self.create_periods(force)
             if seed_all or options['subjects']:
-                self.create_subjects(force)
+                self.create_subjects(force, has_basic=has_basic, has_shs=has_shs)
 
         self.stdout.write(self.style.SUCCESS('Successfully seeded academic data'))
 
@@ -133,8 +153,8 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f'Created {len(periods)} periods'))
 
-    def create_subjects(self, force):
-        """Create Ghana curriculum subjects."""
+    def create_subjects(self, force, has_basic=True, has_shs=True):
+        """Create Ghana curriculum subjects based on school type."""
         if Subject.objects.exists() and not force:
             self.stdout.write('Subjects already exist. Use --force to overwrite.')
             return
@@ -220,7 +240,11 @@ class Command(BaseCommand):
             {'name': 'Applied Electricity', 'short_name': 'AE', 'is_core': False},
         ]
 
-        all_subjects = core_subjects + basic_subjects + shs_subjects
+        all_subjects = core_subjects
+        if has_basic:
+            all_subjects += basic_subjects
+        if has_shs:
+            all_subjects += shs_subjects
 
         for subj_data in all_subjects:
             Subject.objects.create(**subj_data)
