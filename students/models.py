@@ -91,14 +91,6 @@ class Guardian(models.Model):
     occupation = models.CharField(_("occupation"), max_length=100, blank=True)
     address = models.TextField(_("address"), blank=True)
 
-    # Notification Preferences
-    email_notifications = models.BooleanField(_("email notifications"), default=True)
-    sms_notifications = models.BooleanField(_("SMS notifications"), default=True)
-    academic_alerts = models.BooleanField(_("academic alerts"), default=True)
-    attendance_alerts = models.BooleanField(_("attendance alerts"), default=True)
-    fee_alerts = models.BooleanField(_("fee alerts"), default=True)
-    announcement_alerts = models.BooleanField(_("announcement alerts"), default=True)
-
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -280,7 +272,6 @@ class Student(models.Model):
     )
 
     # Metadata
-    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -295,10 +286,6 @@ class Student(models.Model):
             models.Index(fields=['current_class']),
             # Common filter: active students in a class
             models.Index(fields=['current_class', 'status']),
-            # Common filter: is_active flag
-            models.Index(fields=['is_active']),
-            # Compound index for active students queries
-            models.Index(fields=['is_active', 'status']),
             # Admission number lookups
             models.Index(fields=['admission_number']),
         ]
@@ -461,6 +448,7 @@ class Enrollment(models.Model):
     This provides historical record of student progression through classes.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     class Status(models.TextChoices):
         ACTIVE = 'active', _('Active')
         PROMOTED = 'promoted', _('Promoted')

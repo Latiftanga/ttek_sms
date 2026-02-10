@@ -1,8 +1,5 @@
 import json
 import io
-import re
-import secrets
-import string
 from datetime import datetime
 
 from django.shortcuts import render, redirect
@@ -16,41 +13,10 @@ from academics.models import Class
 from core.models import AcademicYear
 from gradebook.utils import get_school_context
 from students.models import Student, Enrollment, Guardian, StudentGuardian, House
-from .utils import admin_required, parse_date, clean_value
-
-
-def validate_phone_number(phone):
-    """
-    Validate phone number format.
-    Accepts formats like: 0241234567, +233241234567, 233241234567
-    Returns (is_valid, normalized_phone, error_message)
-    """
-    if not phone:
-        return False, None, "Phone number is required"
-
-    # Remove all non-digit characters except +
-    cleaned = re.sub(r'[^\d+]', '', phone)
-
-    # Remove leading + if present
-    if cleaned.startswith('+'):
-        cleaned = cleaned[1:]
-
-    # Check for Ghana numbers (can be extended for other countries)
-    # Ghana: +233XXXXXXXXX (10 digits after country code) or 0XXXXXXXXX (10 digits)
-    if cleaned.startswith('233'):
-        cleaned = '0' + cleaned[3:]  # Convert to local format
-
-    # Validate length (most phone numbers are 10-15 digits)
-    if len(cleaned) < 10:
-        return False, None, "Phone number too short (minimum 10 digits)"
-    if len(cleaned) > 15:
-        return False, None, "Phone number too long (maximum 15 digits)"
-
-    # Validate it contains only digits
-    if not cleaned.isdigit():
-        return False, None, "Phone number should contain only digits"
-
-    return True, cleaned, None
+from .utils import (
+    admin_required, parse_date, clean_value, generate_temp_password,
+    normalize_phone_number,
+)
 
 
 BASE_COLUMNS = [
@@ -79,12 +45,6 @@ def is_shs_school(school=None):
         school_ctx = get_school_context()
         school = school_ctx.get('school')
     return school and school.education_system in ('shs', 'both')
-
-
-def generate_temp_password(length=10):
-    """Generate a random temporary password."""
-    chars = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(chars) for _ in range(length))
 
 
 @admin_required
@@ -192,7 +152,7 @@ def bulk_import(request):
             if not guardian_name:
                 errors.append('Guardian name is required')
             # Validate guardian phone
-            phone_valid, normalized_phone, phone_error = validate_phone_number(guardian_phone)
+            phone_valid, normalized_phone, phone_error = normalize_phone_number(guardian_phone)
             if not phone_valid:
                 errors.append(phone_error)
             else:
@@ -377,7 +337,6 @@ def bulk_import_confirm(request):
                 house=house,
                 residence_type=row.get('residence_type', ''),
                 status='active',
-                is_active=True,
             ))
 
             # Store guardian info for linking after student creation

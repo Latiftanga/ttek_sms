@@ -62,6 +62,7 @@ class GuardianForm(forms.ModelForm):
         label=_("Phone Number"),
         widget=forms.TextInput(attrs={'placeholder': 'Phone number', 'required': True, 'type': 'tel'})
     )
+
     class Meta:
         model = Guardian
         fields = [
@@ -109,7 +110,7 @@ class StudentForm(forms.ModelForm):
             # House & Residence (SHS)
             'house', 'residence_type',
             # Status
-            'status', 'is_active',
+            'status',
         ]
         widgets = {
             'first_name': forms.TextInput(attrs={'placeholder': 'First name'}),
@@ -264,19 +265,6 @@ class ExeatForm(forms.ModelForm):
                 self.add_error('expected_return_date', _("Return date cannot be before departure date."))
 
         return cleaned_data
-
-
-class ExeatApprovalForm(forms.Form):
-    """Form for approving/rejecting exeat."""
-    action = forms.ChoiceField(choices=[
-        ('approve', _('Approve')),
-        ('recommend', _('Recommend')),
-        ('reject', _('Reject')),
-    ])
-    reason = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={'rows': 2, 'placeholder': 'Reason for rejection'})
-    )
 
 
 class HouseMasterForm(forms.ModelForm):

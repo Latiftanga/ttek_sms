@@ -1,3 +1,6 @@
+import re
+import secrets
+import string
 from functools import wraps
 from datetime import datetime
 
@@ -8,6 +11,37 @@ import pandas as pd
 
 from core.models import AcademicYear
 from students.models import Enrollment
+
+
+def generate_temp_password(length=10):
+    """Generate a random temporary password."""
+    chars = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(length))
+
+
+def normalize_phone_number(phone):
+    """
+    Normalize a phone number to local format.
+    Accepts: 0241234567, +233241234567, 233241234567
+    Returns (is_valid, normalized_phone, error_message) tuple.
+    """
+    if not phone:
+        return False, None, "Phone number is required"
+
+    cleaned = re.sub(r'[^\d+]', '', phone)
+    if cleaned.startswith('+'):
+        cleaned = cleaned[1:]
+    if cleaned.startswith('233'):
+        cleaned = '0' + cleaned[3:]
+
+    if len(cleaned) < 10:
+        return False, None, "Phone number too short (minimum 10 digits)"
+    if len(cleaned) > 15:
+        return False, None, "Phone number too long (maximum 15 digits)"
+    if not cleaned.isdigit():
+        return False, None, "Phone number should contain only digits"
+
+    return True, cleaned, None
 
 
 def is_school_admin(user):
