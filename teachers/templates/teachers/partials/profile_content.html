@@ -1,425 +1,327 @@
 {% load core_tags %}
 
-<!-- Page Header -->
-<div class="flex items-center gap-2 sm:gap-3 mb-4">
-    <a href="{% url 'core:index' %}"
-       hx-get="{% url 'core:index' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
-       title="Back to Dashboard">
-        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
-    </a>
-    <div class="flex-1 min-w-0">
-        <h1 class="text-base sm:text-xl font-bold">My Profile</h1>
-        <p class="text-[10px] sm:text-xs text-base-content/60">View and manage your information</p>
-    </div>
-    <div class="dropdown dropdown-end shrink-0">
-        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
-            <i class="fa-solid fa-ellipsis-vertical"></i>
-        </label>
-        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50">
-            <li>
-                <a href="{% url 'core:profile_edit' %}"
-                   hx-get="{% url 'core:profile_edit' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true">
-                    <i class="fa-solid fa-pen text-primary"></i> Edit Profile
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'core:schedule' %}"
-                   hx-get="{% url 'core:schedule' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true">
-                    <i class="fa-solid fa-calendar-days text-secondary"></i> My Schedule
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'core:my_promotions' %}"
-                   hx-get="{% url 'core:my_promotions' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true">
-                    <i class="fa-solid fa-ranking-star text-accent"></i> My Promotions
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'core:my_qualifications' %}"
-                   hx-get="{% url 'core:my_qualifications' %}"
-                   hx-target="#main-content"
-                   hx-push-url="true">
-                    <i class="fa-solid fa-award text-info"></i> My Qualifications
-                </a>
-            </li>
-            <div class="divider my-1"></div>
-            <li>
-                <button hx-get="{% url 'accounts:password_change' %}"
-                        hx-target="#password-change-container"
-                        hx-swap="innerHTML"
-                        onclick="document.getElementById('modal_password_change').showModal()"
-                        class="w-full text-left">
-                    <i class="fa-solid fa-key text-warning"></i> Change Password
-                </button>
-            </li>
-        </ul>
-    </div>
-</div>
+<div x-data="{
+        tab: 'overview',
+        init() {
+            const hash = window.location.hash.substring(1);
+            if (['overview', 'assignments', 'promotions', 'qualifications'].includes(hash)) {
+                this.tab = hash;
+            }
+            this.$watch('tab', val => history.replaceState(null, '', '#' + val));
+        }
+     }">
 
-<!-- Profile Header -->
-<div class="card bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/10 mb-6">
-    <div class="card-body p-4 sm:p-6">
-        <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <!-- Avatar -->
-            <div class="avatar mx-auto sm:mx-0">
-                <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary text-primary-content ring-4 ring-primary/20 ring-offset-base-100 ring-offset-2">
-                    {% if teacher.photo %}
-                    <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" loading="lazy" />
-                    {% else %}
-                    <div class="flex items-center justify-center h-full text-2xl sm:text-3xl font-bold">
-                        {{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+    <!-- Profile Card -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-4">
+        <!-- Accent stripe -->
+        <div class="h-1.5 bg-gradient-to-r from-primary via-secondary to-accent rounded-t-xl"></div>
 
-            <!-- Info -->
-            <div class="flex-1 text-center sm:text-left">
-                <div class="flex flex-col gap-4">
-                    <div>
-                        <h1 class="text-xl sm:text-2xl font-bold">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
-                        <div class="flex flex-wrap gap-2 mt-2 justify-center sm:justify-start">
-                            <span class="badge badge-ghost badge-sm gap-1">
-                                <i class="fa-solid fa-id-badge text-xs"></i>
-                                {{ teacher.staff_id }}
-                            </span>
-                            <span class="badge badge-sm {% if teacher.status == 'active' %}badge-success{% else %}badge-warning{% endif %}">
-                                {{ teacher.get_status_display }}
-                            </span>
+        <div class="card-body p-4 sm:p-6">
+            <div class="flex items-start gap-4">
+                <!-- Avatar -->
+                <div class="avatar shrink-0">
+                    <div class="w-16 sm:w-20 rounded-full ring-2 ring-primary ring-offset-base-100 ring-offset-2">
+                        {% if teacher.photo %}
+                        <img src="{{ teacher.photo.url }}" alt="{{ teacher.full_name }}" class="rounded-full object-cover" loading="lazy" />
+                        {% else %}
+                        <div class="w-full h-full flex items-center justify-center {{ teacher.gender|yesno:'gender-male,gender-female' }}">
+                            <span class="text-xl sm:text-2xl font-bold">{{ teacher.first_name|slice:":1" }}{{ teacher.last_name|slice:":1" }}</span>
                         </div>
+                        {% endif %}
                     </div>
+                </div>
 
-                    <div class="flex flex-wrap gap-2 justify-center sm:justify-start">
-                        <a href="{% url 'core:my_promotions' %}"
-                           hx-get="{% url 'core:my_promotions' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-ghost btn-sm">
-                            <i class="fa-solid fa-ranking-star"></i>
-                            Promotions
-                        </a>
-                        <a href="{% url 'core:my_qualifications' %}"
-                           hx-get="{% url 'core:my_qualifications' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-ghost btn-sm">
-                            <i class="fa-solid fa-award"></i>
-                            Qualifications
-                        </a>
+                <!-- Info -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                            <h1 class="text-lg sm:text-xl font-bold">{{ teacher.get_title_display }} {{ teacher.full_name }}</h1>
+                            <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                                <span class="badge badge-ghost badge-sm font-mono">{{ teacher.staff_id }}</span>
+                                <span class="badge badge-sm {% if teacher.status == 'active' %}badge-success{% elif teacher.status == 'inactive' %}badge-error{% else %}badge-warning{% endif %}">
+                                    {{ teacher.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
                         <a href="{% url 'core:profile_edit' %}"
                            hx-get="{% url 'core:profile_edit' %}"
                            hx-target="#main-content"
                            hx-push-url="true"
-                           class="btn btn-primary btn-sm">
-                            <i class="fa-solid fa-pen-to-square"></i>
-                            <span class="hidden sm:inline">Edit Profile</span>
-                            <span class="sm:hidden">Edit</span>
+                           class="btn btn-primary btn-sm gap-1">
+                            <i class="fa-solid fa-pen text-xs"></i>
+                            <span class="hidden sm:inline">Edit</span>
                         </a>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Stats Row -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 sm:p-4">
-            <div class="flex items-center gap-2 sm:gap-3">
-                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-chalkboard text-primary text-lg sm:text-xl"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-xl sm:text-2xl font-bold text-primary">{{ workload.classes_taught }}</div>
-                    <div class="text-xs text-base-content/60">Classes</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 sm:p-4">
-            <div class="flex items-center gap-2 sm:gap-3">
-                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-book text-secondary text-lg sm:text-xl"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-xl sm:text-2xl font-bold text-secondary">{{ workload.subjects_taught }}</div>
-                    <div class="text-xs text-base-content/60">Subjects</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 sm:p-4">
-            <div class="flex items-center gap-2 sm:gap-3">
-                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-users text-accent text-lg sm:text-xl"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-xl sm:text-2xl font-bold text-accent">{{ workload.total_students }}</div>
-                    <div class="text-xs text-base-content/60">Students</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-3 sm:p-4">
-            <div class="flex items-center gap-2 sm:gap-3">
-                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-info/10 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-house-user text-info text-lg sm:text-xl"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-xl sm:text-2xl font-bold text-info">{{ workload.homeroom_classes }}</div>
-                    <div class="text-xs text-base-content/60">Homeroom</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Left Column - Main Info -->
-    <div class="lg:col-span-2 space-y-6">
-
-        <!-- Personal Information -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-0">
-                <div class="flex items-center gap-2 p-4 border-b border-base-200">
-                    <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <i class="fa-solid fa-user text-primary"></i>
-                    </div>
-                    <h2 class="font-bold">Personal Information</h2>
-                </div>
-
-                <div class="p-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="p-3 rounded-lg bg-base-200/30">
-                            <span class="text-xs text-base-content/50 block mb-1">Full Name</span>
-                            <p class="font-medium">{{ teacher.get_title_display }} {{ teacher.full_name }}</p>
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mt-3">
+                        <div>
+                            <p class="text-[10px] uppercase text-base-content/50 font-medium">Classes</p>
+                            <p class="font-bold text-primary">{{ workload.classes_taught }}</p>
                         </div>
-                        <div class="p-3 rounded-lg bg-base-200/30">
-                            <span class="text-xs text-base-content/50 block mb-1">Gender</span>
-                            <p class="font-medium">{{ teacher.get_gender_display }}</p>
+                        <div>
+                            <p class="text-[10px] uppercase text-base-content/50 font-medium">Subjects</p>
+                            <p class="font-bold text-secondary">{{ workload.subjects_taught }}</p>
                         </div>
-                        <div class="p-3 rounded-lg bg-base-200/30">
-                            <span class="text-xs text-base-content/50 block mb-1">Date of Birth</span>
-                            <p class="font-medium">{{ teacher.date_of_birth|date:"F j, Y"|default:"Not set" }}</p>
+                        <div>
+                            <p class="text-[10px] uppercase text-base-content/50 font-medium">Students</p>
+                            <p class="font-bold text-accent">{{ workload.total_students }}</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] uppercase text-base-content/50 font-medium">Homeroom</p>
+                            <p class="font-bold text-info">{{ workload.homeroom_classes }}</p>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Contact Info -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-3 border-t border-base-200 text-sm">
+                <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-7 h-7 rounded-full bg-base-200/60 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-envelope text-base-content/50 text-[10px]"></i>
+                    </div>
+                    <span class="truncate text-base-content/70">{{ teacher.email|default:request.user.email }}</span>
+                </div>
+                {% if teacher.phone_number %}
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-full bg-base-200/60 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-phone text-base-content/50 text-[10px]"></i>
+                    </div>
+                    <span class="text-base-content/70">{{ teacher.phone_number }}</span>
+                </div>
+                {% endif %}
+                {% if teacher.date_of_birth %}
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-full bg-base-200/60 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-cake-candles text-base-content/50 text-[10px]"></i>
+                    </div>
+                    <span class="text-base-content/70">{{ teacher.date_of_birth|date:"M j, Y" }}</span>
+                </div>
+                {% endif %}
+                {% if teacher.employment_date %}
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-full bg-base-200/60 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-briefcase text-base-content/50 text-[10px]"></i>
+                    </div>
+                    <span class="text-base-content/70">Since {{ teacher.employment_date|date:"M Y" }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabbed Content -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+
+        <!-- Tab Navigation -->
+        <div class="border-b border-base-200 px-2 sm:px-4 pt-1">
+            <div class="flex overflow-x-auto scrollbar-none -mb-px">
+                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
+                        :class="tab === 'overview' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                        @click="tab = 'overview'">
+                    <i class="fa-regular fa-id-card sm:mr-1.5"></i>
+                    <span class="hidden sm:inline">Overview</span>
+                </button>
+                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
+                        :class="tab === 'assignments' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                        @click="tab = 'assignments'">
+                    <i class="fa-solid fa-chalkboard-user sm:mr-1.5"></i>
+                    <span class="hidden sm:inline">Assignments</span>
+                    {% if subject_assignments %}<span class="badge badge-xs badge-ghost ml-1">{{ subject_assignments|length }}</span>{% endif %}
+                </button>
+                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
+                        :class="tab === 'promotions' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                        @click="tab = 'promotions'">
+                    <i class="fa-solid fa-ranking-star sm:mr-1.5"></i>
+                    <span class="hidden sm:inline">Promotions</span>
+                    {% if promotions %}<span class="badge badge-xs badge-ghost ml-1">{{ promotions|length }}</span>{% endif %}
+                </button>
+                <button class="flex-1 sm:flex-none px-3 sm:px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
+                        :class="tab === 'qualifications' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                        @click="tab = 'qualifications'">
+                    <i class="fa-solid fa-award sm:mr-1.5"></i>
+                    <span class="hidden sm:inline">Qualifications</span>
+                    {% if qualifications %}<span class="badge badge-xs badge-ghost ml-1">{{ qualifications|length }}</span>{% endif %}
+                </button>
+            </div>
         </div>
 
-        <!-- Contact Information -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-0">
-                <div class="flex items-center gap-2 p-4 border-b border-base-200">
-                    <div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center">
-                        <i class="fa-solid fa-address-book text-secondary"></i>
-                    </div>
-                    <h2 class="font-bold">Contact Information</h2>
-                </div>
-
-                <div class="p-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="flex items-center gap-3 p-3 rounded-lg bg-base-200/30">
-                            <div class="w-10 h-10 rounded-full bg-base-100 flex items-center justify-center">
-                                <i class="fa-solid fa-envelope text-base-content/50"></i>
+        <!-- Tab: Overview -->
+        <div x-show="tab === 'overview'" x-cloak class="p-4 sm:p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Personal Information -->
+                <div>
+                    <h3 class="font-bold text-xs uppercase text-base-content/50 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-user text-primary"></i> Personal Information
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Full Name</p>
+                                <p class="font-medium text-sm">{{ teacher.get_title_display }} {{ teacher.full_name }}</p>
                             </div>
-                            <div>
-                                <span class="text-xs text-base-content/50 block">Email</span>
-                                <p class="font-medium text-sm">{{ teacher.email|default:"Not set" }}</p>
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Gender</p>
+                                <p class="font-medium text-sm">{{ teacher.get_gender_display }}</p>
                             </div>
-                        </div>
-                        <div class="flex items-center gap-3 p-3 rounded-lg bg-base-200/30">
-                            <div class="w-10 h-10 rounded-full bg-base-100 flex items-center justify-center">
-                                <i class="fa-solid fa-phone text-base-content/50"></i>
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Date of Birth</p>
+                                <p class="font-medium text-sm">{{ teacher.date_of_birth|date:"M j, Y"|default:"Not set" }}</p>
                             </div>
-                            <div>
-                                <span class="text-xs text-base-content/50 block">Phone</span>
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Phone</p>
                                 <p class="font-medium text-sm">{{ teacher.phone_number|default:"Not set" }}</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3 p-3 rounded-lg bg-base-200/30 md:col-span-2">
-                            <div class="w-10 h-10 rounded-full bg-base-100 flex items-center justify-center">
-                                <i class="fa-solid fa-location-dot text-base-content/50"></i>
-                            </div>
-                            <div>
-                                <span class="text-xs text-base-content/50 block">Address</span>
-                                <p class="font-medium text-sm">{{ teacher.address|default:"Not set" }}</p>
-                            </div>
+                        {% if teacher.address %}
+                        <div class="bg-base-200/50 rounded-lg p-3">
+                            <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Address</p>
+                            <p class="font-medium text-sm">{{ teacher.address }}</p>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Teaching Assignments -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-0">
-                <div class="flex items-center justify-between p-4 border-b border-base-200">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                            <i class="fa-solid fa-chalkboard-user text-accent"></i>
-                        </div>
-                        <h2 class="font-bold">Teaching Assignments</h2>
-                    </div>
-                    {% if subject_assignments %}
-                    <span class="badge badge-ghost">{{ subject_assignments|length }} assignments</span>
-                    {% endif %}
-                </div>
-
-                <div class="p-4">
-                    {% if subject_assignments %}
-                    <div class="space-y-2">
-                        {% for assignment in subject_assignments %}
-                        <div class="flex items-center justify-between p-3 rounded-xl bg-base-200/30 hover:bg-base-200/50 transition-colors">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                    <i class="fa-solid fa-book text-primary text-sm"></i>
+                <!-- Employment & Homeroom -->
+                <div class="space-y-6">
+                    <!-- Employment Details -->
+                    <div>
+                        <h3 class="font-bold text-xs uppercase text-base-content/50 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-briefcase text-accent"></i> Employment
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-base-200/50 rounded-lg p-3">
+                                    <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Staff ID</p>
+                                    <p class="font-mono font-medium text-sm">{{ teacher.staff_id }}</p>
                                 </div>
-                                <div>
-                                    <p class="font-semibold">{{ assignment.subject.name }}</p>
-                                    <p class="text-xs text-base-content/50">{{ assignment.class_assigned.name }}</p>
+                                <div class="bg-base-200/50 rounded-lg p-3">
+                                    <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Employed</p>
+                                    <p class="font-medium text-sm">{{ teacher.employment_date|date:"M j, Y"|default:"Not set" }}</p>
                                 </div>
                             </div>
-                            <a href="{% url 'core:enter_scores' assignment.class_assigned.pk assignment.subject.pk %}"
-                               hx-get="{% url 'core:enter_scores' assignment.class_assigned.pk assignment.subject.pk %}"
-                               hx-target="#main-content"
-                               hx-push-url="true"
-                               class="btn btn-ghost btn-sm min-h-[44px]">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                                Grades
-                            </a>
+                            {% if teacher.employment_date %}
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Service Duration</p>
+                                <p class="font-medium text-sm">{{ teacher.employment_date|timesince }}</p>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
-                    {% else %}
-                    <div class="text-center py-8">
-                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-base-200 flex items-center justify-center">
-                            <i class="fa-solid fa-clipboard-list text-base-content/30 text-2xl"></i>
+
+                    <!-- Homeroom Classes -->
+                    {% if homeroom_classes %}
+                    <div>
+                        <h3 class="font-bold text-xs uppercase text-base-content/50 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-house-user text-info"></i> Homeroom Classes
+                        </h3>
+                        <div class="space-y-2">
+                            {% for cls in homeroom_classes %}
+                            <div class="bg-base-200/50 rounded-lg p-3 flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center shrink-0">
+                                    <span class="text-xs font-bold text-info">{{ cls.name|slice:":3" }}</span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-medium text-sm">{{ cls.name }}</p>
+                                    <p class="text-[10px] text-base-content/50">{{ cls.student_count }} active students</p>
+                                </div>
+                            </div>
+                            {% endfor %}
                         </div>
-                        <h3 class="font-semibold text-base-content/70">No Assignments</h3>
-                        <p class="text-sm text-base-content/50">No teaching assignments yet.</p>
                     </div>
                     {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Right Column -->
-    <div class="space-y-6">
-
-        <!-- Homeroom Classes -->
-        {% if homeroom_classes %}
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-0">
-                <div class="flex items-center gap-2 p-4 border-b border-base-200">
-                    <div class="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
-                        <i class="fa-solid fa-house-user text-info"></i>
-                    </div>
-                    <h2 class="font-bold">Homeroom Classes</h2>
-                </div>
-
-                <div class="divide-y divide-base-200">
-                    {% for cls in homeroom_classes %}
-                    <div class="flex items-center justify-between p-4 hover:bg-base-200/30 transition-colors">
-                        <div class="flex items-center gap-3">
-                            <div class="avatar placeholder">
-                                <div class="bg-info/10 text-info rounded-full w-10">
-                                    <span class="text-sm font-bold">{{ cls.name|slice:":2" }}</span>
+                    <!-- Account Security -->
+                    <div>
+                        <h3 class="font-bold text-xs uppercase text-base-content/50 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved text-success"></i> Account
+                        </h3>
+                        <div class="bg-success/5 border border-success/20 rounded-lg p-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center shrink-0">
+                                        <i class="fa-solid fa-check text-success"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-sm">Account Active</p>
+                                        <p class="text-xs text-base-content/60 truncate">{{ request.user.email }}</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <p class="font-medium">{{ cls.name }}</p>
-                                <p class="text-xs text-base-content/50">{{ cls.student_count }} students</p>
+                                <button hx-get="{% url 'accounts:password_change' %}"
+                                        hx-target="#password-change-container"
+                                        hx-swap="innerHTML"
+                                        onclick="document.getElementById('modal_password_change').showModal()"
+                                        class="btn btn-ghost btn-sm shrink-0">
+                                    <i class="fa-solid fa-key text-xs"></i>
+                                    <span class="hidden sm:inline">Password</span>
+                                </button>
                             </div>
                         </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Employment Info -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-0">
-                <div class="flex items-center gap-2 p-4 border-b border-base-200">
-                    <div class="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
-                        <i class="fa-solid fa-briefcase text-warning"></i>
-                    </div>
-                    <h2 class="font-bold">Employment</h2>
-                </div>
-
-                <div class="p-4 space-y-3">
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-base-content/50">Staff ID</span>
-                        <span class="font-mono font-medium">{{ teacher.staff_id }}</span>
-                    </div>
-                    <div class="divider my-1"></div>
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-base-content/50">Employment Date</span>
-                        <span class="font-medium">{{ teacher.employment_date|date:"M j, Y"|default:"Not set" }}</span>
-                    </div>
-                    <div class="divider my-1"></div>
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-base-content/50">Status</span>
-                        <span class="badge badge-sm {% if teacher.status == 'active' %}badge-success{% else %}badge-warning{% endif %}">
-                            {{ teacher.get_status_display }}
-                        </span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Account Info -->
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-0">
-                <div class="flex items-center gap-2 p-4 border-b border-base-200">
-                    <div class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
-                        <i class="fa-solid fa-user-shield text-success"></i>
-                    </div>
-                    <h2 class="font-bold">Account</h2>
-                </div>
-
-                <div class="p-4">
-                    <div class="flex items-center gap-3 p-3 rounded-xl bg-success/5 border border-success/10">
-                        <div class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                            <i class="fa-solid fa-check text-success"></i>
+        <!-- Tab: Assignments -->
+        <div x-show="tab === 'assignments'" x-cloak class="p-4 sm:p-6" style="display: none;">
+            <h3 class="font-bold text-xs uppercase text-base-content/50 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-chalkboard-user text-primary"></i> Teaching Assignments
+                {% if subject_assignments %}<span class="badge badge-xs badge-ghost">{{ subject_assignments|length }}</span>{% endif %}
+            </h3>
+            {% if subject_assignments %}
+            <div class="space-y-2">
+                {% for assignment in subject_assignments %}
+                <div class="bg-base-200/50 rounded-lg p-3 flex items-center justify-between hover:bg-base-200/70 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-book text-primary text-sm"></i>
                         </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-medium text-sm truncate">{{ request.user.email }}</p>
-                            <p class="text-xs text-success">
-                                <i class="fa-solid fa-circle-check mr-1"></i>
-                                Active Account
-                            </p>
+                        <div>
+                            <p class="font-semibold text-sm">{{ assignment.subject.name }}</p>
+                            <p class="text-[10px] text-base-content/50">{{ assignment.class_assigned.name }}</p>
                         </div>
                     </div>
-
-                    <div class="mt-4 space-y-2">
-                        <button hx-get="{% url 'accounts:password_change' %}"
-                                hx-target="#password-change-container"
-                                hx-swap="innerHTML"
-                                onclick="document.getElementById('modal_password_change').showModal()"
-                                class="btn btn-ghost btn-sm btn-block justify-start">
-                            <i class="fa-solid fa-key"></i>
-                            Change Password
-                        </button>
-                    </div>
+                    <a href="{% url 'core:enter_scores' assignment.class_assigned.pk assignment.subject.pk %}"
+                       hx-get="{% url 'core:enter_scores' assignment.class_assigned.pk assignment.subject.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-sm gap-1">
+                        <i class="fa-solid fa-pen-to-square text-xs"></i>
+                        <span class="hidden sm:inline">Grades</span>
+                    </a>
                 </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-10">
+                <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-base-200 flex items-center justify-center">
+                    <i class="fa-solid fa-clipboard-list text-base-content/30 text-xl"></i>
+                </div>
+                <p class="text-sm font-medium text-base-content/60">No teaching assignments yet</p>
+                <p class="text-xs text-base-content/40 mt-1">Assignments will appear here once configured by admin.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab: Promotions -->
+        <div x-show="tab === 'promotions'" x-cloak class="p-4 sm:p-6" style="display: none;">
+            <div id="promotions-content">
+                {% include 'teachers/partials/tab_promotions.html' %}
+            </div>
+        </div>
+
+        <!-- Tab: Qualifications -->
+        <div x-show="tab === 'qualifications'" x-cloak class="p-4 sm:p-6" style="display: none;">
+            <div id="qualifications-content">
+                {% include 'teachers/partials/tab_qualifications.html' %}
             </div>
         </div>
     </div>
 </div>
+
+<!-- Promotion/Qualification Modal -->
+<dialog id="modal_form" class="modal modal-bottom sm:modal-middle" hx-on::closeModal="this.close()">
+    <div class="modal-box max-w-md" id="modal-container"></div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>

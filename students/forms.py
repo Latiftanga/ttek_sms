@@ -298,17 +298,18 @@ class HouseMasterForm(forms.ModelForm):
         is_senior = cleaned_data.get('is_senior')
 
         if teacher and house and academic_year:
-            # Check for existing assignment for this house/year
-            existing = HouseMaster.objects.filter(
+            # Check if this teacher is already assigned to this house
+            duplicate = HouseMaster.objects.filter(
+                teacher=teacher,
                 house=house,
                 academic_year=academic_year,
                 is_active=True
             )
             if self.instance.pk:
-                existing = existing.exclude(pk=self.instance.pk)
-            if existing.exists():
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
                 raise forms.ValidationError(
-                    _("This house already has a housemaster for this academic year.")
+                    _("This teacher is already assigned to this house.")
                 )
 
             # Check if teacher already assigned to another house
@@ -316,7 +317,7 @@ class HouseMasterForm(forms.ModelForm):
                 teacher=teacher,
                 academic_year=academic_year,
                 is_active=True
-            )
+            ).exclude(house=house)
             if self.instance.pk:
                 teacher_assignment = teacher_assignment.exclude(pk=self.instance.pk)
             if teacher_assignment.exists():

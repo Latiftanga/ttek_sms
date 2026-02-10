@@ -169,10 +169,9 @@ NAVIGATION_CONFIG = [
     {
         'label': 'Exeats',
         'icon': 'fa-solid fa-ticket',
-        'url_name': 'students:exeat_index',
+        'url_name': 'students:exeat_landing',
         'roles': ['teacher'],
         'requires': 'has_houses',
-        'user_requires': 'is_housemaster',
     },
     # Student navigation
     {

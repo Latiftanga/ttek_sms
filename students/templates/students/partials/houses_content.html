@@ -10,7 +10,8 @@
      hx-get="{% url 'students:houses' %}"
      hx-trigger="houseChanged from:body"
      hx-target="this"
-     hx-swap="outerHTML transition:true">
+     hx-swap="outerHTML transition:true"
+     hx-disinherit="hx-target hx-swap">
     <!-- Page Header -->
     <div class="flex items-center gap-2 sm:gap-3">
         <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
@@ -146,15 +147,15 @@
                             </div>
                             <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
                                 <span><i class="fa-solid fa-users mr-1"></i>{{ house.student_count_val }} student{{ house.student_count_val|pluralize }}</span>
-                                {% if house.housemaster_assignment %}
+                                {% for assignment in house.current_housemasters %}
                                 <span>•</span>
                                 <span>
-                                    <i class="fa-solid fa-user-tie mr-1"></i>{{ house.housemaster_assignment.teacher.full_name }}
-                                    {% if house.housemaster_assignment.is_senior %}
+                                    <i class="fa-solid fa-user-tie mr-1"></i>{{ assignment.teacher.full_name }}
+                                    {% if assignment.is_senior %}
                                     <span class="badge badge-primary badge-xs ml-1">Senior</span>
                                     {% endif %}
                                 </span>
-                                {% endif %}
+                                {% endfor %}
                             </div>
                         </div>
                     </a>
@@ -164,7 +165,7 @@
                                 hx-target="#modal-housemaster-content"
                                 hx-swap="innerHTML"
                                 hx-on::after-request="document.getElementById('modal_housemaster').showModal()"
-                                title="{% if house.housemaster_assignment %}Change{% else %}Assign{% endif %} Housemaster">
+                                title="Manage Housemasters">
                             <i class="fa-solid fa-user-tie text-base-content/50"></i>
                         </button>
                         <button type="button" class="btn btn-ghost btn-xs btn-square"
@@ -190,7 +191,7 @@
                         <tr class="bg-base-200/50">
                             <th>House</th>
                             <th class="text-center">Students</th>
-                            <th>Housemaster</th>
+                            <th>Housemasters</th>
                             <th>Status</th>
                             <th></th>
                         </tr>
@@ -200,6 +201,7 @@
                         <tr class="hover:bg-base-200/30 cursor-pointer"
                             hx-get="{% url 'students:house_students' house.pk %}"
                             hx-target="#main-content"
+                            hx-swap="innerHTML"
                             hx-push-url="true">
                             <td>
                                 <div class="flex items-center gap-2">
@@ -214,12 +216,16 @@
                                 <span class="badge badge-ghost badge-sm">{{ house.student_count_val }}</span>
                             </td>
                             <td>
-                                {% if house.housemaster_assignment %}
-                                <div class="flex items-center gap-1">
-                                    <span class="text-sm">{{ house.housemaster_assignment.teacher.full_name }}</span>
-                                    {% if house.housemaster_assignment.is_senior %}
-                                    <span class="badge badge-primary badge-xs">Senior</span>
-                                    {% endif %}
+                                {% if house.current_housemasters %}
+                                <div class="space-y-0.5">
+                                    {% for assignment in house.current_housemasters %}
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-sm">{{ assignment.teacher.full_name }}</span>
+                                        {% if assignment.is_senior %}
+                                        <span class="badge badge-primary badge-xs">Senior</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
                                 </div>
                                 {% else %}
                                 <span class="text-base-content/40 text-sm italic">Not assigned</span>
@@ -233,13 +239,13 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="flex items-center gap-1" onclick="event.stopPropagation();">
+                                <div class="flex items-center gap-1" onclick="event.stopPropagation();" hx-disinherit="*">
                                     <button type="button" class="btn btn-ghost btn-xs btn-square"
                                             hx-get="{% url 'students:house_assign_master' house.pk %}"
                                             hx-target="#modal-housemaster-content"
                                             hx-swap="innerHTML"
                                             hx-on::after-request="document.getElementById('modal_housemaster').showModal()"
-                                            title="{% if house.housemaster_assignment %}Change{% else %}Assign{% endif %} Housemaster">
+                                            title="Manage Housemasters">
                                         <i class="fa-solid fa-user-tie text-base-content/50"></i>
                                     </button>
                                     <button type="button" class="btn btn-ghost btn-xs btn-square"
@@ -333,3 +339,4 @@ document.body.addEventListener('houseChanged', function() {
     if (housemasterModal) housemasterModal.close();
 });
 </script>
+
