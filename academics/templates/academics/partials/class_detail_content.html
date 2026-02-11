@@ -1,6 +1,6 @@
 {% load core_tags %}
 
-<div class="print:max-w-none"
+<div class="space-y-4 print:max-w-none"
      x-data="{
         showFilters: false,
         gender: '{{ gender_filter|default:'' }}',
@@ -12,7 +12,7 @@
      hx-swap="innerHTML">
 
     <!-- Compact Header -->
-    <div class="flex items-center gap-2 sm:gap-3 mb-4 print:!hidden">
+    <div class="flex items-center gap-2 sm:gap-3 print:!hidden">
         <a href="{% url 'academics:classes' %}"
            hx-get="{% url 'academics:classes' %}"
            hx-target="#main-content"
@@ -132,7 +132,7 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{% url 'academics:class_detail_pdf' class.pk %}">
+                        <a href="{% url 'academics:class_detail_pdf' class.pk %}" download>
                             <i class="fa-solid fa-file-pdf w-4 text-error"></i> Download PDF
                         </a>
                     </li>

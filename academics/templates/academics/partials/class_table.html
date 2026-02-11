@@ -21,6 +21,7 @@
                         <a href="{% url 'academics:class_detail' cls.pk %}"
                            hx-get="{% url 'academics:class_detail' cls.pk %}"
                            hx-target="#main-content"
+                           hx-swap="innerHTML"
                            hx-push-url="true"
                            class="font-semibold text-sm hover:text-primary transition-colors truncate block">
                             {{ cls.name }}
