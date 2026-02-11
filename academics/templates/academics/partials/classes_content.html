@@ -184,6 +184,7 @@
         <a href="{% url 'academics:class_detail' cls.pk %}"
            hx-get="{% url 'academics:class_detail' cls.pk %}"
            hx-target="#main-content"
+           hx-swap="innerHTML"
            hx-push-url="true"
            class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group">
             <div class="card-body p-4">
@@ -260,6 +261,7 @@
         <a href="{% url 'academics:class_detail' cls.pk %}"
            hx-get="{% url 'academics:class_detail' cls.pk %}"
            hx-target="#main-content"
+           hx-swap="innerHTML"
            hx-push-url="true"
            class="card bg-base-100 shadow-sm border border-base-200 hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group">
             <div class="card-body p-4">
@@ -348,6 +350,7 @@
                     <tr class="hover:bg-base-200/30 cursor-pointer"
                         hx-get="{% url 'academics:class_detail' cls.pk %}"
                         hx-target="#main-content"
+                        hx-swap="innerHTML"
                         hx-push-url="true">
                         <td>
                             <div class="flex items-center gap-2">

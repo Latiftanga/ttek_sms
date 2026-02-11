@@ -11,7 +11,7 @@ from django.contrib import messages
 import pandas as pd
 
 from accounts.models import User
-from teachers.models import Teacher, TeacherInvitation
+from teachers.models import Teacher, TeacherInvitation, Promotion, Qualification
 from .utils import admin_required, clean_value, parse_date
 from .accounts import send_invitation_email
 
@@ -355,7 +355,9 @@ def bulk_export(request):
     status_filter = request.GET.get('status', '')
 
     # Build queryset
-    teachers = Teacher.objects.select_related('user')
+    teachers = Teacher.objects.select_related('user').prefetch_related(
+        'promotions', 'qualifications'
+    )
 
     # Apply filters
     if search:
@@ -372,6 +374,9 @@ def bulk_export(request):
 
     # Build export data
     export_data = []
+    promotions_data = []
+    qualifications_data = []
+
     for teacher in teachers:
         export_data.append({
             'Staff ID': teacher.staff_id,
@@ -395,21 +400,51 @@ def bulk_export(request):
             'Has Portal Account': 'Yes' if teacher.user else 'No',
         })
 
+        for promo in teacher.promotions.all():
+            promotions_data.append({
+                'Staff ID': teacher.staff_id,
+                'Teacher Name': teacher.full_name,
+                'Rank': promo.get_rank_display(),
+                'Date Promoted': promo.date_promoted.strftime('%Y-%m-%d'),
+            })
+
+        for qual in teacher.qualifications.all():
+            qualifications_data.append({
+                'Staff ID': teacher.staff_id,
+                'Teacher Name': teacher.full_name,
+                'Qualification': qual.title,
+                'Institution': qual.institution,
+                'Date Started': qual.date_started.strftime('%Y-%m-%d') if qual.date_started else '',
+                'Date Ended': qual.date_ended.strftime('%Y-%m-%d') if qual.date_ended else '',
+                'Status': qual.get_status_display(),
+            })
+
     # Create Excel file
-    df = pd.DataFrame(export_data)
+    df_teachers = pd.DataFrame(export_data)
+    df_promotions = pd.DataFrame(promotions_data)
+    df_qualifications = pd.DataFrame(qualifications_data)
     output = io.BytesIO()
 
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Teachers')
-
-        # Auto-adjust column widths
-        worksheet = writer.sheets['Teachers']
-        for idx, col in enumerate(df.columns):
+    def auto_adjust_columns(worksheet, dataframe):
+        for idx, col in enumerate(dataframe.columns):
             max_length = max(
-                df[col].astype(str).map(len).max() if len(df) > 0 else 0,
+                dataframe[col].astype(str).map(len).max() if len(dataframe) > 0 else 0,
                 len(col)
             ) + 2
-            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+            col_letter = chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)
+            worksheet.column_dimensions[col_letter].width = min(max_length, 50)
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_teachers.to_excel(writer, index=False, sheet_name='Teachers')
+        auto_adjust_columns(writer.sheets['Teachers'], df_teachers)
+
+        if not df_promotions.empty:
+            df_promotions.to_excel(writer, index=False, sheet_name='Promotions')
+            auto_adjust_columns(writer.sheets['Promotions'], df_promotions)
+
+        if not df_qualifications.empty:
+            df_qualifications.to_excel(writer, index=False, sheet_name='Qualifications')
+            auto_adjust_columns(writer.sheets['Qualifications'], df_qualifications)
 
     output.seek(0)
 

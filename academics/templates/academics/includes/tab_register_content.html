@@ -1,137 +1,133 @@
 {% load core_tags %}
 
 {% if students %}
-<div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
-    <div class="divide-y divide-base-200">
-        {% for student in students %}
-        <a href="{% url 'students:student_detail' student.pk %}"
-           hx-get="{% url 'students:student_detail' student.pk %}"
-           hx-target="#main-content"
-           hx-swap="innerHTML"
-           hx-push-url="true"
-           class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
+<div class="divide-y divide-base-200">
+    {% for student in students %}
+    <a href="{% url 'students:student_detail' student.pk %}"
+       hx-get="{% url 'students:student_detail' student.pk %}"
+       hx-target="#main-content"
+       hx-swap="innerHTML"
+       hx-push-url="true"
+       class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
 
-            <!-- Avatar with gender indicator -->
-            <div class="avatar placeholder shrink-0">
-                <div class="w-11 h-11 rounded-full {{ student.gender|yesno:'gender-male,gender-female' }} flex items-center justify-center relative">
-                    {% if student.photo %}
-                    <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
-                    {% else %}
-                    <span class="text-sm font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
-                    {% endif %}
-                    <!-- Gender icon -->
-                    <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-base-100 border border-base-200 flex items-center justify-center">
-                        <i class="fa-solid {{ student.gender|yesno:'fa-mars gender-male-icon,fa-venus gender-female-icon' }} text-[10px]"></i>
-                    </span>
-                </div>
-            </div>
-
-            <!-- Info -->
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-0.5">
-                    <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">{{ student.full_name }}</h3>
-                    {% if student.status == 'active' %}
-                    <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Active"></span>
-                    {% elif student.status == 'graduated' %}
-                    <span class="badge badge-info badge-xs shrink-0">Grad</span>
-                    {% elif student.status == 'withdrawn' %}
-                    <span class="badge badge-warning badge-xs shrink-0">Left</span>
-                    {% elif student.status == 'suspended' %}
-                    <span class="badge badge-error badge-xs shrink-0">Susp</span>
-                    {% elif student.status == 'transferred' %}
-                    <span class="badge badge-ghost badge-xs shrink-0">Trans</span>
-                    {% endif %}
-                </div>
-                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
-                    <span class="font-mono">{{ student.admission_number }}</span>
-                    {% if student.guardian_name %}
-                    <span class="hidden xs:inline">•</span>
-                    <span class="hidden xs:inline">{{ student.guardian_name }}</span>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Quick Actions - visible on mobile, hover on desktop -->
-            <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
-                      hx-get="{% url 'students:student_edit' student.pk %}"
-                      hx-target="#main-content"
-                      hx-push-url="true"
-                      title="Edit">
-                    <i class="fa-solid fa-pen text-base-content/50"></i>
-                </span>
-                {% if manual_subjects %}
-                <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
-                      hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
-                      hx-target="#modal-edit-content"
-                      hx-on::after-request="document.getElementById('modal_edit').showModal()"
-                      title="Assign Subjects">
-                    <i class="fa-solid fa-book-bookmark text-base-content/50"></i>
-                </span>
+        <!-- Avatar with gender indicator -->
+        <div class="avatar placeholder shrink-0">
+            <div class="w-11 h-11 rounded-full {{ student.gender|yesno:'gender-male,gender-female' }} flex items-center justify-center relative">
+                {% if student.photo %}
+                <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
+                {% else %}
+                <span class="text-sm font-bold">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
                 {% endif %}
-                <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
-                      hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
-                      hx-target="#tab-register"
-                      hx-swap="innerHTML"
-                      hx-confirm="Remove {{ student.first_name }} from this class?"
-                      title="Remove from class">
-                    <i class="fa-solid fa-user-minus text-error/50"></i>
+                <!-- Gender icon -->
+                <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-base-100 border border-base-200 flex items-center justify-center">
+                    <i class="fa-solid {{ student.gender|yesno:'fa-mars gender-male-icon,fa-venus gender-female-icon' }} text-[10px]"></i>
                 </span>
             </div>
+        </div>
 
-            <!-- Chevron -->
-            <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
-        </a>
-        {% endfor %}
-    </div>
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+                <h3 class="font-semibold text-sm truncate group-hover:text-primary transition-colors">{{ student.full_name }}</h3>
+                {% if student.status == 'active' %}
+                <span class="w-2 h-2 rounded-full bg-success shrink-0" title="Active"></span>
+                {% elif student.status == 'graduated' %}
+                <span class="badge badge-info badge-xs shrink-0">Grad</span>
+                {% elif student.status == 'withdrawn' %}
+                <span class="badge badge-warning badge-xs shrink-0">Left</span>
+                {% elif student.status == 'suspended' %}
+                <span class="badge badge-error badge-xs shrink-0">Susp</span>
+                {% elif student.status == 'transferred' %}
+                <span class="badge badge-ghost badge-xs shrink-0">Trans</span>
+                {% endif %}
+            </div>
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+                <span class="font-mono">{{ student.admission_number }}</span>
+                {% if student.guardian_name %}
+                <span class="hidden xs:inline">•</span>
+                <span class="hidden xs:inline">{{ student.guardian_name }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions - visible on mobile, hover on desktop -->
+        <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
+                  hx-get="{% url 'students:student_edit' student.pk %}"
+                  hx-target="#main-content"
+                  hx-push-url="true"
+                  title="Edit">
+                <i class="fa-solid fa-pen text-base-content/50"></i>
+            </span>
+            {% if manual_subjects %}
+            <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
+                  hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
+                  hx-target="#modal-edit-content"
+                  hx-on::after-request="document.getElementById('modal_edit').showModal()"
+                  title="Assign Subjects">
+                <i class="fa-solid fa-book-bookmark text-base-content/50"></i>
+            </span>
+            {% endif %}
+            <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
+                  hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
+                  hx-target="#tab-register"
+                  hx-swap="innerHTML"
+                  hx-confirm="Remove {{ student.first_name }} from this class?"
+                  title="Remove from class">
+                <i class="fa-solid fa-user-minus text-error/50"></i>
+            </span>
+        </div>
+
+        <!-- Chevron -->
+        <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
+    </a>
+    {% endfor %}
 </div>
 
 {% with qs=search_query|default:'' gender=gender_filter|default:'' sort=sort_by|default:'name' %}
 {% if students.paginator.num_pages > 1 %}
-<div class="card bg-base-100 shadow-sm border border-base-200 mt-4">
-    <div class="card-body p-3">
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <!-- Page info -->
-            <div class="text-sm text-base-content/60 order-2 sm:order-1">
-                {{ students.start_index }}-{{ students.end_index }} of {{ students.paginator.count }}
-            </div>
+<div class="border-t border-base-200 p-3">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <!-- Page info -->
+        <div class="text-sm text-base-content/60 order-2 sm:order-1">
+            {{ students.start_index }}-{{ students.end_index }} of {{ students.paginator.count }}
+        </div>
 
-            <!-- Pagination controls -->
-            <div class="join order-1 sm:order-2">
-                {% if students.has_previous %}
-                <button class="join-item btn btn-sm"
-                        hx-get="{% url 'academics:class_register' class.pk %}?page=1{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
-                        hx-target="#tab-register">
-                    <i class="fa-solid fa-angles-left"></i>
-                </button>
-                <button class="join-item btn btn-sm"
-                        hx-get="{% url 'academics:class_register' class.pk %}?page={{ students.previous_page_number }}{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
-                        hx-target="#tab-register">
-                    <i class="fa-solid fa-chevron-left"></i>
-                </button>
-                {% else %}
-                <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-left"></i></button>
-                <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-left"></i></button>
-                {% endif %}
+        <!-- Pagination controls -->
+        <div class="join order-1 sm:order-2">
+            {% if students.has_previous %}
+            <button class="join-item btn btn-sm"
+                    hx-get="{% url 'academics:class_register' class.pk %}?page=1{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
+                    hx-target="#tab-register">
+                <i class="fa-solid fa-angles-left"></i>
+            </button>
+            <button class="join-item btn btn-sm"
+                    hx-get="{% url 'academics:class_register' class.pk %}?page={{ students.previous_page_number }}{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
+                    hx-target="#tab-register">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            {% else %}
+            <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-left"></i></button>
+            <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-left"></i></button>
+            {% endif %}
 
-                <button class="join-item btn btn-sm btn-active">{{ students.number }}/{{ students.paginator.num_pages }}</button>
+            <button class="join-item btn btn-sm btn-active">{{ students.number }}/{{ students.paginator.num_pages }}</button>
 
-                {% if students.has_next %}
-                <button class="join-item btn btn-sm"
-                        hx-get="{% url 'academics:class_register' class.pk %}?page={{ students.next_page_number }}{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
-                        hx-target="#tab-register">
-                    <i class="fa-solid fa-chevron-right"></i>
-                </button>
-                <button class="join-item btn btn-sm"
-                        hx-get="{% url 'academics:class_register' class.pk %}?page={{ students.paginator.num_pages }}{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
-                        hx-target="#tab-register">
-                    <i class="fa-solid fa-angles-right"></i>
-                </button>
-                {% else %}
-                <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-right"></i></button>
-                <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-right"></i></button>
-                {% endif %}
-            </div>
+            {% if students.has_next %}
+            <button class="join-item btn btn-sm"
+                    hx-get="{% url 'academics:class_register' class.pk %}?page={{ students.next_page_number }}{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
+                    hx-target="#tab-register">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+            <button class="join-item btn btn-sm"
+                    hx-get="{% url 'academics:class_register' class.pk %}?page={{ students.paginator.num_pages }}{% if qs %}&q={{ qs|urlencode }}{% endif %}{% if gender %}&gender={{ gender }}{% endif %}&sort={{ sort }}"
+                    hx-target="#tab-register">
+                <i class="fa-solid fa-angles-right"></i>
+            </button>
+            {% else %}
+            <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-chevron-right"></i></button>
+            <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angles-right"></i></button>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -140,21 +136,19 @@
 
 {% else %}
 <!-- Empty State -->
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body py-12">
-        <div class="text-center">
-            <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
-                <i class="fa-solid fa-user-graduate text-2xl text-base-content/30"></i>
-            </div>
-            <h3 class="font-bold text-lg mb-1">No students found</h3>
-            <p class="text-sm text-base-content/60 mb-4">Enroll students to get started</p>
-            <button class="btn btn-primary btn-sm"
-                    hx-get="{% url 'academics:class_student_enroll' class.pk %}"
-                    hx-target="#modal-edit-content"
-                    onclick="document.getElementById('modal_edit').showModal()">
-                <i class="fa-solid fa-user-plus"></i> Enroll Students
-            </button>
+<div class="py-12">
+    <div class="text-center">
+        <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-user-graduate text-2xl text-base-content/30"></i>
         </div>
+        <h3 class="font-bold text-lg mb-1">No students found</h3>
+        <p class="text-sm text-base-content/60 mb-4">Enroll students to get started</p>
+        <button class="btn btn-primary btn-sm"
+                hx-get="{% url 'academics:class_student_enroll' class.pk %}"
+                hx-target="#modal-edit-content"
+                onclick="document.getElementById('modal_edit').showModal()">
+            <i class="fa-solid fa-user-plus"></i> Enroll Students
+        </button>
     </div>
 </div>
 {% endif %}
