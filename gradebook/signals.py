@@ -244,6 +244,7 @@ def recalculate_term_report(student, term):
         report.total_marks = total_marks
         report.subjects_taken = subjects_taken
         report.subjects_passed = subjects_passed
+        report.subjects_failed = subjects_taken - subjects_passed
         report.average = round(total_marks / subjects_taken, 2) if subjects_taken > 0 else Decimal('0.0')
 
         report.save()

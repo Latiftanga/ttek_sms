@@ -9,16 +9,38 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.html import escape
-from django.db.models import Q
+from django.db.models import Count, Q
 from core.utils import cache_page_per_tenant
 
 import pandas as pd
 
 from .models import SMSMessage, SMSTemplate
-from .utils import send_sms, validate_phone_number, normalize_phone_number, get_sms_gateway_status, get_email_gateway_status
-from students.models import Student
+from .utils import validate_phone_number, normalize_phone_number, get_sms_gateway_status, get_email_gateway_status
+from students.models import Student, StudentGuardian
 from academics.models import Class, AttendanceRecord
 from core.models import SchoolSettings
+
+
+def _prefetch_primary_guardians(students):
+    """
+    Prefetch primary guardians for a list of students and set the cache
+    so that student.guardian_phone / guardian_name don't trigger N+1 queries.
+    Returns the same list with caches populated.
+    """
+    # Build lookup: student_id -> guardian
+    sg_qs = StudentGuardian.objects.filter(
+        student__in=students,
+        is_primary=True
+    ).select_related('guardian')
+
+    guardian_map = {}
+    for sg in sg_qs:
+        guardian_map[sg.student_id] = sg.guardian
+
+    for student in students:
+        student._cached_primary_guardian = guardian_map.get(student.id)
+
+    return students
 
 
 # =============================================================================
@@ -78,13 +100,19 @@ def index(request):
     messages = SMSMessage.objects.select_related('student', 'created_by')[:50]
     templates = SMSTemplate.objects.filter(is_active=True)
 
-    # Stats
+    # Stats — single aggregate query instead of 4 separate counts
     today = timezone.now().date()
+    today_stats = SMSMessage.objects.filter(
+        created_at__date=today
+    ).aggregate(
+        total_today=Count('id'),
+        sent_today=Count('id', filter=Q(status='sent')),
+        failed_today=Count('id', filter=Q(status='failed')),
+    )
+    pending_count = SMSMessage.objects.filter(status='pending').count()
     stats = {
-        'total_today': SMSMessage.objects.filter(created_at__date=today).count(),
-        'sent_today': SMSMessage.objects.filter(created_at__date=today, status='sent').count(),
-        'failed_today': SMSMessage.objects.filter(created_at__date=today, status='failed').count(),
-        'pending': SMSMessage.objects.filter(status='pending').count(),
+        **today_stats,
+        'pending': pending_count,
     }
 
     # Gateway status
@@ -156,7 +184,7 @@ def send_single(request):
             'recipient_name': recipient_name,
         })
 
-    # Create SMS record
+    # Create SMS record and queue via Celery (don't use send_sms() to avoid duplicate record)
     sms = SMSMessage.objects.create(
         recipient_phone=phone,
         recipient_name=recipient_name,
@@ -165,14 +193,19 @@ def send_single(request):
         created_by=request.user,
     )
 
-    # Send SMS
     try:
-        send_sms(phone, message)
-        sms.mark_sent()
+        from .tasks import send_communication_task
+        from django.db import connection as db_connection
+        send_communication_task.delay(
+            db_connection.schema_name,
+            phone,
+            message,
+            sms_record_id=str(sms.pk)
+        )
     except Exception as e:
         sms.mark_failed(str(e))
         return render(request, 'communications/partials/modal_send_single.html', {
-            'error': f'Failed to send: {str(e)}',
+            'error': f'Failed to queue: {str(e)}',
             'templates': templates,
             'phone': phone,
             'message': message,
@@ -215,8 +248,9 @@ def send_to_class(request):
 
     class_obj = get_object_or_404(Class, pk=class_id)
 
-    # Fetch all students with phone numbers in a single query
+    # Fetch all students and prefetch guardians to avoid N+1
     all_students = list(Student.objects.filter(current_class=class_obj, status='active'))
+    _prefetch_primary_guardians(all_students)
     students_with_phone = [s for s in all_students if s.guardian_phone]
     skipped_count = len(all_students) - len(students_with_phone)
 
@@ -256,45 +290,29 @@ def send_to_class(request):
     # Bulk create all SMS records (single INSERT)
     SMSMessage.objects.bulk_create(sms_records)
 
-    # Send SMS and track results
-    sent_count = 0
-    failed_count = 0
-    sent_ids = []
-    failed_updates = []
+    # Queue Celery tasks directly (don't use send_sms() which creates duplicate records)
+    from .tasks import send_communication_task
+    from django.db import connection as db_connection
 
+    queued_count = 0
     for student in students_with_phone:
         if student.pk not in student_sms_map:
             continue
 
         sms, phone, personalized = student_sms_map[student.pk]
-        try:
-            send_sms(phone, personalized)
-            sms.status = SMSMessage.Status.SENT
-            sms.sent_at = timezone.now()
-            sent_ids.append(sms.pk)
-            sent_count += 1
-        except Exception as e:
-            sms.status = SMSMessage.Status.FAILED
-            sms.error_message = str(e)[:500]
-            failed_updates.append(sms)
-            failed_count += 1
-
-    # Bulk update sent records
-    if sent_ids:
-        SMSMessage.objects.filter(pk__in=sent_ids).update(
-            status=SMSMessage.Status.SENT,
-            sent_at=timezone.now()
+        send_communication_task.delay(
+            db_connection.schema_name,
+            phone,
+            personalized,
+            sms_record_id=str(sms.pk)
         )
-
-    # Bulk update failed records
-    if failed_updates:
-        SMSMessage.objects.bulk_update(failed_updates, ['status', 'error_message'])
+        queued_count += 1
 
     # Show success state with counts
     return render(request, 'communications/partials/modal_send_class.html', {
         'success': True,
-        'sent_count': sent_count,
-        'failed_count': failed_count,
+        'sent_count': queued_count,
+        'failed_count': 0,
         'skipped_count': skipped_count,
     })
 
@@ -369,8 +387,12 @@ def notify_absent(request):
             status='A'
         ).select_related('student', 'session__class_assigned')
 
+        # Prefetch guardians to avoid N+1 on guardian_phone
+        absent_record_list = list(absent_records)
+        _prefetch_primary_guardians([r.student for r in absent_record_list])
+
         absent_students = []
-        for record in absent_records:
+        for record in absent_record_list:
             if record.student.guardian_phone:
                 absent_students.append({
                     'student': record.student,
@@ -413,10 +435,11 @@ def notify_absent(request):
             'date': today,
         })
 
-    # Fetch all students in a single query with related class
-    students = Student.objects.filter(
+    # Fetch all students and prefetch guardians to avoid N+1
+    students = list(Student.objects.filter(
         pk__in=student_ids
-    ).select_related('current_class')
+    ).select_related('current_class'))
+    _prefetch_primary_guardians(students)
 
     # Filter to students with valid phone numbers
     students_with_phone = [s for s in students if s.guardian_phone]
@@ -462,45 +485,29 @@ def notify_absent(request):
     # Bulk create all SMS records (single INSERT)
     SMSMessage.objects.bulk_create(sms_records)
 
-    # Send SMS and track results
-    sent_count = 0
-    failed_count = 0
-    sent_ids = []
-    failed_updates = []
+    # Queue Celery tasks directly (don't use send_sms() which creates duplicate records)
+    from .tasks import send_communication_task
+    from django.db import connection as db_connection
 
+    queued_count = 0
     for student in students_with_phone:
         if student.pk not in student_sms_map:
             continue
 
         sms, phone, message = student_sms_map[student.pk]
-        try:
-            send_sms(phone, message)
-            sms.status = SMSMessage.Status.SENT
-            sms.sent_at = timezone.now()
-            sent_ids.append(sms.pk)
-            sent_count += 1
-        except Exception as e:
-            sms.status = SMSMessage.Status.FAILED
-            sms.error_message = str(e)[:500]
-            failed_updates.append(sms)
-            failed_count += 1
-
-    # Bulk update sent records
-    if sent_ids:
-        SMSMessage.objects.filter(pk__in=sent_ids).update(
-            status=SMSMessage.Status.SENT,
-            sent_at=timezone.now()
+        send_communication_task.delay(
+            db_connection.schema_name,
+            phone,
+            message,
+            sms_record_id=str(sms.pk)
         )
-
-    # Bulk update failed records
-    if failed_updates:
-        SMSMessage.objects.bulk_update(failed_updates, ['status', 'error_message'])
+        queued_count += 1
 
     # Show success state with counts
     return render(request, 'communications/partials/modal_notify_absent.html', {
         'success': True,
-        'sent_count': sent_count,
-        'failed_count': failed_count,
+        'sent_count': queued_count,
+        'failed_count': 0,
         'date': today,
     })
 

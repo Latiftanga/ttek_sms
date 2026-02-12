@@ -13,7 +13,8 @@ import pandas as pd
 from students.models import Student, Guardian, Enrollment
 from students.views.utils import parse_date, clean_value
 from students.views.bulk_import import BASE_COLUMNS
-from academics.models import Class, Programme
+from academics.models import Class, ClassSubject, Programme, Subject, StudentSubjectEnrollment
+from teachers.models import Teacher
 from core.models import AcademicYear
 
 User = get_user_model()
@@ -637,7 +638,7 @@ class BulkImportIntegrationTests(BulkImportTestCase):
 
 
 # =============================================================================
-# PROMOTION TESTS
+# PROMOTION TESTS (Static Bucket Model)
 # =============================================================================
 
 class PromotionTestCase(TenantTestCase):
@@ -668,28 +669,35 @@ class PromotionTestCase(TenantTestCase):
             code='ART'
         )
 
-        # Create classes
+        # Create classes (both source and target must exist)
         self.class_b1 = Class.objects.create(
             level_type=Class.LevelType.BASIC,
             level_number=1,
             section='A',
-            name='B1-A',
             is_active=True
         )
         self.class_b2 = Class.objects.create(
             level_type=Class.LevelType.BASIC,
             level_number=2,
             section='A',
-            name='B2-A',
             is_active=True
         )
         self.class_shs3 = Class.objects.create(
             level_type=Class.LevelType.SHS,
             level_number=3,
             section='A',
-            name='3ART-A',
             programme=self.programme,
             is_active=True
+        )
+
+        # Create a teacher for subject assignments
+        self.teacher = Teacher.objects.create(
+            first_name='Test',
+            last_name='Teacher',
+            email='teacher@school.com',
+            phone_number='233201111111',
+            date_of_birth=date(1985, 1, 1),
+            gender='M',
         )
 
         # Create current academic year
@@ -739,6 +747,14 @@ class PromotionTestCase(TenantTestCase):
 class PromotionViewTests(PromotionTestCase):
     """Tests for the promotion view."""
 
+    def _find_option_label(self, class_options, class_obj):
+        """Helper to find a class label in the flat class_options list."""
+        url_suffix = f'/promotion/{class_obj.pk}/detail/'
+        for url, label in class_options:
+            if url_suffix in url:
+                return label
+        return None
+
     def test_promotion_requires_authentication(self):
         """Test view requires authentication."""
         self.client.logout()
@@ -766,9 +782,8 @@ class PromotionViewTests(PromotionTestCase):
         self.assertIn('error', response.context)
         self.assertIn('No current academic year', response.context['error'])
 
-    def test_promotion_shows_students_grouped_by_class(self):
-        """Test promotion page groups students by class."""
-        # Create students in different classes
+    def test_promotion_shows_classes_with_counts(self):
+        """Test promotion page shows classes with enrolled counts in options."""
         self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
         self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
         self.create_student_with_enrollment('Bob', 'STU-003', self.class_b2)
@@ -776,27 +791,26 @@ class PromotionViewTests(PromotionTestCase):
         response = self.client.get(reverse('students:promotion'))
         self.assertEqual(response.status_code, 200)
 
-        class_students = response.context['class_students']
-        self.assertEqual(len(class_students), 2)  # Two classes
+        class_options = response.context['class_options']
+        b1_label = self._find_option_label(class_options, self.class_b1)
+        b2_label = self._find_option_label(class_options, self.class_b2)
 
-        # Find B1-A class group
-        b1_group = next(g for g in class_students if g['class'] == self.class_b1)
-        self.assertEqual(b1_group['count'], 2)
+        self.assertIsNotNone(b1_label)
+        self.assertIn('2 students', b1_label)
+        self.assertIsNotNone(b2_label)
+        self.assertIn('1 student', b2_label)
 
-        # Find B2-A class group
-        b2_group = next(g for g in class_students if g['class'] == self.class_b2)
-        self.assertEqual(b2_group['count'], 1)
-
-    def test_promotion_identifies_final_year_students(self):
-        """Test promotion page identifies SHS3 as final year."""
+    def test_promotion_identifies_final_level(self):
+        """Test promotion page identifies SHS3 as final level in label."""
         self.create_student_with_enrollment('Senior', 'STU-001', self.class_shs3)
 
         response = self.client.get(reverse('students:promotion'))
         self.assertEqual(response.status_code, 200)
 
-        class_students = response.context['class_students']
-        shs3_group = next(g for g in class_students if g['class'] == self.class_shs3)
-        self.assertTrue(shs3_group['is_final_year'])
+        class_options = response.context['class_options']
+        shs3_label = self._find_option_label(class_options, self.class_shs3)
+        self.assertIsNotNone(shs3_label)
+        self.assertIn('Final year', shs3_label)
 
     def test_promotion_shows_next_academic_year(self):
         """Test promotion page shows next academic year."""
@@ -805,19 +819,34 @@ class PromotionViewTests(PromotionTestCase):
         self.assertEqual(response.context['next_year'], self.next_year)
         self.assertEqual(response.context['current_year'], self.current_year)
 
-    def test_promotion_shows_all_active_classes(self):
-        """Test promotion page includes all active classes for target selection."""
-        response = self.client.get(reverse('students:promotion'))
+    def test_promotion_detects_has_target(self):
+        """Test promotion_detail detects when a natural target class exists."""
+        self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+
+        response = self.client.get(
+            reverse('students:promotion_detail', args=[self.class_b1.pk])
+        )
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['has_target'])
+        self.assertEqual(response.context['natural_target_pk'], str(self.class_b2.pk))
 
-        all_classes = response.context['all_classes']
-        self.assertEqual(all_classes.count(), 3)  # B1-A, B2-A, 3ART-A
+    def test_promotion_no_target_when_missing(self):
+        """Test promotion_detail shows no target when next-level class doesn't exist."""
+        # Delete B2 so B1 has no target
+        self.class_b2.delete()
+        self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
 
-    def test_promotion_excludes_inactive_students(self):
-        """Test promotion excludes students with non-active status."""
-        student, enrollment = self.create_student_with_enrollment('Active', 'STU-001', self.class_b1)
+        response = self.client.get(
+            reverse('students:promotion_detail', args=[self.class_b1.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['has_target'])
 
-        # Create inactive student
+    def test_promotion_excludes_inactive_students_from_count(self):
+        """Test promotion excludes students with non-active status from counts."""
+        self.create_student_with_enrollment('Active', 'STU-001', self.class_b1)
+
+        # Create inactive student with enrollment
         inactive_student = Student.objects.create(
             first_name='Inactive',
             last_name='Test',
@@ -837,327 +866,364 @@ class PromotionViewTests(PromotionTestCase):
         )
 
         response = self.client.get(reverse('students:promotion'))
-        class_students = response.context['class_students']
+        class_options = response.context['class_options']
 
-        # Only active student should be shown
-        b1_group = next(g for g in class_students if g['class'] == self.class_b1)
-        self.assertEqual(b1_group['count'], 1)
-        self.assertEqual(b1_group['students'][0].first_name, 'Active')
+        b1_label = self._find_option_label(class_options, self.class_b1)
+        self.assertIn('1 student', b1_label)  # Only active student counted
 
 
 class PromotionProcessViewTests(PromotionTestCase):
-    """Tests for the promotion_process view."""
+    """Tests for the class-level promotion_process view."""
 
     def test_promotion_process_get_not_allowed(self):
         """Test GET request is not allowed."""
         response = self.client.get(reverse('students:promotion_process'))
         self.assertEqual(response.status_code, 405)
 
-    def test_promotion_process_requires_next_year(self):
-        """Test POST without next_year returns error."""
+    def test_promotion_process_requires_params(self):
+        """Test POST without required params returns error."""
         response = self.client.post(reverse('students:promotion_process'), {})
         self.assertEqual(response.status_code, 302)
-        # Should redirect back to promotion page
 
-    def test_promotion_process_invalid_next_year(self):
-        """Test POST with invalid next_year returns error."""
-        response = self.client.post(reverse('students:promotion_process'), {
-            'next_year': '00000000-0000-0000-0000-000000000000'
-        })
-        self.assertEqual(response.status_code, 302)
-
-    def test_promotion_process_no_students_selected(self):
-        """Test POST with no students selected."""
-        response = self.client.post(reverse('students:promotion_process'), {
-            'next_year': str(self.next_year.pk)
-        })
-        self.assertEqual(response.status_code, 302)
-
-    def test_promote_student(self):
-        """Test promoting a student to next class."""
+    def test_promote_students_to_target_class(self):
+        """Test promoting students moves them to the target class (static bucket)."""
         student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
 
         response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
             'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
             f'action_{student.pk}': 'promote',
-            f'target_class_{student.pk}': str(self.class_b2.pk),
         })
-
         self.assertEqual(response.status_code, 302)
 
-        # Refresh from database
-        student.refresh_from_db()
-        enrollment.refresh_from_db()
+        # Source class should be UNCHANGED
+        self.class_b1.refresh_from_db()
+        self.assertEqual(self.class_b1.level_number, 1)
+        self.assertEqual(self.class_b1.name, 'B1-A')
 
-        # Check enrollment status updated
+        # Old enrollment should be PROMOTED
+        enrollment.refresh_from_db()
         self.assertEqual(enrollment.status, Enrollment.Status.PROMOTED)
 
-        # Check new enrollment created
+        # New enrollment created in the TARGET class (B2-A)
         new_enrollment = Enrollment.objects.get(
-            student=student,
-            academic_year=self.next_year
+            student=student, academic_year=self.next_year
         )
         self.assertEqual(new_enrollment.class_assigned, self.class_b2)
         self.assertEqual(new_enrollment.status, Enrollment.Status.ACTIVE)
-        self.assertEqual(new_enrollment.promoted_from, enrollment)
 
-        # Check student's current class updated
+        # Student's current_class should be the target
+        student.refresh_from_db()
         self.assertEqual(student.current_class, self.class_b2)
-        self.assertEqual(student.status, Student.Status.ACTIVE)
 
-    def test_repeat_student(self):
-        """Test repeating a student in same class."""
-        student, enrollment = self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
-
-        response = self.client.post(reverse('students:promotion_process'), {
-            'next_year': str(self.next_year.pk),
-            f'action_{student.pk}': 'repeat',
-        })
-
-        self.assertEqual(response.status_code, 302)
-
-        # Refresh from database
-        student.refresh_from_db()
-        enrollment.refresh_from_db()
-
-        # Check enrollment status updated
-        self.assertEqual(enrollment.status, Enrollment.Status.REPEATED)
-
-        # Check new enrollment created in SAME class
-        new_enrollment = Enrollment.objects.get(
-            student=student,
-            academic_year=self.next_year
-        )
-        self.assertEqual(new_enrollment.class_assigned, self.class_b1)  # Same class
-        self.assertEqual(new_enrollment.status, Enrollment.Status.ACTIVE)
-        self.assertEqual(new_enrollment.remarks, 'Repeated year')
-
-    def test_graduate_student(self):
-        """Test graduating a student."""
-        student, enrollment = self.create_student_with_enrollment('Senior', 'STU-003', self.class_shs3)
-
-        response = self.client.post(reverse('students:promotion_process'), {
-            'next_year': str(self.next_year.pk),
-            f'action_{student.pk}': 'graduate',
-        })
-
-        self.assertEqual(response.status_code, 302)
-
-        # Refresh from database
-        student.refresh_from_db()
-        enrollment.refresh_from_db()
-
-        # Check enrollment status updated
-        self.assertEqual(enrollment.status, Enrollment.Status.GRADUATED)
-
-        # Check no new enrollment created
-        self.assertFalse(
-            Enrollment.objects.filter(
-                student=student,
-                academic_year=self.next_year
-            ).exists()
-        )
-
-        # Check student status and class
-        self.assertEqual(student.status, Student.Status.GRADUATED)
-        self.assertIsNone(student.current_class)
-
-    def test_skip_student(self):
-        """Test skipping a student (no action)."""
-        student, enrollment = self.create_student_with_enrollment('Skip', 'STU-004', self.class_b1)
-        original_status = enrollment.status
-
-        response = self.client.post(reverse('students:promotion_process'), {
-            'next_year': str(self.next_year.pk),
-            f'action_{student.pk}': 'skip',
-        })
-
-        self.assertEqual(response.status_code, 302)
-
-        # Refresh from database
-        enrollment.refresh_from_db()
-
-        # Status should be unchanged
-        self.assertEqual(enrollment.status, original_status)
-
-        # No new enrollment should be created
-        self.assertFalse(
-            Enrollment.objects.filter(
-                student=student,
-                academic_year=self.next_year
-            ).exists()
-        )
-
-    def test_promote_without_target_class(self):
-        """Test promoting without selecting target class."""
+    def test_promote_fails_without_target_class(self):
+        """Test promotion fails when no target_class_id is provided."""
         student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
 
         response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
             'next_year': str(self.next_year.pk),
             f'action_{student.pk}': 'promote',
-            # No target_class provided
         })
-
         self.assertEqual(response.status_code, 302)
 
         # Enrollment should be unchanged
         enrollment.refresh_from_db()
         self.assertEqual(enrollment.status, Enrollment.Status.ACTIVE)
 
-    def test_bulk_promotion_multiple_students(self):
-        """Test promoting multiple students at once."""
-        student1, enrollment1 = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
-        student2, enrollment2 = self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
-        student3, enrollment3 = self.create_student_with_enrollment('Bob', 'STU-003', self.class_shs3)
+        # Class should be unchanged
+        self.class_b1.refresh_from_db()
+        self.assertEqual(self.class_b1.level_number, 1)
+
+    def test_promote_subject_enrollments_transferred(self):
+        """Test that subject enrollments are deactivated in source and created in target."""
+        # Create subjects for B1
+        math = Subject.objects.create(name='Math', code='MATH', short_name='Math', is_core=True)
+        eng = Subject.objects.create(name='English', code='ENG', short_name='Eng', is_core=True)
+        cs_b1_math = ClassSubject.objects.create(class_assigned=self.class_b1, subject=math, teacher=self.teacher)
+        cs_b1_eng = ClassSubject.objects.create(class_assigned=self.class_b1, subject=eng, teacher=self.teacher)
+
+        # Create subjects for B2 (target)
+        ClassSubject.objects.create(class_assigned=self.class_b2, subject=math, teacher=self.teacher)
+        ClassSubject.objects.create(class_assigned=self.class_b2, subject=eng, teacher=self.teacher)
+
+        student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+
+        # Enroll student in B1 subjects
+        StudentSubjectEnrollment.objects.create(student=student, class_subject=cs_b1_math)
+        StudentSubjectEnrollment.objects.create(student=student, class_subject=cs_b1_eng)
 
         response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
             'next_year': str(self.next_year.pk),
-            # Promote student1
-            f'action_{student1.pk}': 'promote',
-            f'target_class_{student1.pk}': str(self.class_b2.pk),
-            # Repeat student2
-            f'action_{student2.pk}': 'repeat',
-            # Graduate student3
-            f'action_{student3.pk}': 'graduate',
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'promote',
         })
-
         self.assertEqual(response.status_code, 302)
 
-        # Refresh all from database
-        enrollment1.refresh_from_db()
-        enrollment2.refresh_from_db()
-        enrollment3.refresh_from_db()
-        student1.refresh_from_db()
+        # Old subject enrollments should be deactivated
+        old_subj = StudentSubjectEnrollment.objects.filter(
+            student=student, class_subject__class_assigned=self.class_b1
+        )
+        self.assertTrue(all(not s.is_active for s in old_subj))
+
+        # New subject enrollments should exist in target class
+        new_subj = StudentSubjectEnrollment.objects.filter(
+            student=student, class_subject__class_assigned=self.class_b2, is_active=True
+        )
+        self.assertEqual(new_subj.count(), 2)
+
+    def test_promote_already_processed_guard(self):
+        """Test that double-processing is blocked."""
+        student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+
+        # First promotion
+        self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'promote',
+        })
+
+        # Second attempt should be blocked
+        response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'promote',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        # Should still only have one next-year enrollment
+        next_enrollments = Enrollment.objects.filter(
+            student=student, academic_year=self.next_year
+        )
+        self.assertEqual(next_enrollments.count(), 1)
+
+    def test_repeat_student_moved_to_target(self):
+        """Test repeater is moved to a target class at the same level."""
+        # Create another B1 class for the repeater
+        class_b1b = Class.objects.create(
+            level_type=Class.LevelType.BASIC,
+            level_number=1, section='B', is_active=True,
+        )
+
+        student1, enrollment1 = self.create_student_with_enrollment('Promote', 'STU-001', self.class_b1)
+        student2, enrollment2 = self.create_student_with_enrollment('Repeat', 'STU-002', self.class_b1)
+
+        response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student1.pk}': 'promote',
+            f'action_{student2.pk}': 'repeat',
+            f'repeat_target_{student2.pk}': str(class_b1b.pk),
+        })
+        self.assertEqual(response.status_code, 302)
+
+        # Repeater should be moved to B1-B
         student2.refresh_from_db()
-        student3.refresh_from_db()
-
-        # Check student1 promoted
-        self.assertEqual(enrollment1.status, Enrollment.Status.PROMOTED)
-        self.assertEqual(student1.current_class, self.class_b2)
-
-        # Check student2 repeated
+        enrollment2.refresh_from_db()
+        self.assertEqual(student2.current_class, class_b1b)
         self.assertEqual(enrollment2.status, Enrollment.Status.REPEATED)
 
-        # Check student3 graduated
-        self.assertEqual(enrollment3.status, Enrollment.Status.GRADUATED)
-        self.assertEqual(student3.status, Student.Status.GRADUATED)
-        self.assertIsNone(student3.current_class)
+        # New enrollment for repeater in B1-B
+        new_enrollment = Enrollment.objects.get(
+            student=student2, academic_year=self.next_year
+        )
+        self.assertEqual(new_enrollment.class_assigned, class_b1b)
 
-    def test_promotion_atomic_transaction(self):
-        """Test that promotion is atomic - all or nothing."""
-        student1, enrollment1 = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
-        student2, enrollment2 = self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
+    def test_repeat_student_in_same_class(self):
+        """Test repeater can stay in the same class."""
+        student, enrollment = self.create_student_with_enrollment('Repeat', 'STU-001', self.class_b1)
 
-        # Both valid promotions should succeed
         response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
             'next_year': str(self.next_year.pk),
-            f'action_{student1.pk}': 'promote',
-            f'target_class_{student1.pk}': str(self.class_b2.pk),
-            f'action_{student2.pk}': 'promote',
-            f'target_class_{student2.pk}': str(self.class_b2.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'repeat',
+            f'repeat_target_{student.pk}': str(self.class_b1.pk),
         })
-
         self.assertEqual(response.status_code, 302)
 
-        # Both should be promoted
-        new_enrollments = Enrollment.objects.filter(academic_year=self.next_year)
-        self.assertEqual(new_enrollments.count(), 2)
+        student.refresh_from_db()
+        enrollment.refresh_from_db()
+        self.assertEqual(student.current_class, self.class_b1)
+        self.assertEqual(enrollment.status, Enrollment.Status.REPEATED)
+
+        new_enrollment = Enrollment.objects.get(
+            student=student, academic_year=self.next_year
+        )
+        self.assertEqual(new_enrollment.class_assigned, self.class_b1)
+
+    def test_graduate_student_from_final_class(self):
+        """Test graduating students from a final-year class."""
+        student, enrollment = self.create_student_with_enrollment('Senior', 'STU-003', self.class_shs3)
+
+        response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_shs3.pk),
+            'next_year': str(self.next_year.pk),
+            f'action_{student.pk}': 'graduate',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        student.refresh_from_db()
+        enrollment.refresh_from_db()
+
+        self.assertEqual(enrollment.status, Enrollment.Status.GRADUATED)
+        self.assertEqual(student.status, Student.Status.GRADUATED)
+        self.assertIsNone(student.current_class)
+
+        # No new enrollment created for graduates
+        self.assertFalse(
+            Enrollment.objects.filter(
+                student=student, academic_year=self.next_year
+            ).exists()
+        )
+
+    def test_skip_student_unchanged(self):
+        """Test skipping a student leaves enrollment unchanged."""
+        student, enrollment = self.create_student_with_enrollment('Skip', 'STU-004', self.class_b1)
+
+        response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'skip',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, Enrollment.Status.ACTIVE)
+
+    def test_class_name_snapshot_saved(self):
+        """Test that enrollment class_name snapshot is saved."""
+        student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+
+        response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'promote',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        # New enrollment should have the target class name snapshot
+        new_enrollment = Enrollment.objects.get(
+            student=student, academic_year=self.next_year
+        )
+        self.assertEqual(new_enrollment.class_name, 'B2-A')
 
 
 class PromotionIntegrationTests(PromotionTestCase):
-    """Integration tests for the complete promotion workflow."""
+    """Integration tests for the complete promotion workflow (static bucket model)."""
 
-    def test_full_promotion_workflow(self):
-        """Test complete workflow: view -> select actions -> process."""
-        # Create students
+    def test_full_class_promotion_workflow(self):
+        """Test complete workflow: view -> promote -> verify students in target class."""
         student1, _ = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
         student2, _ = self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
 
         # Step 1: View promotion page
         response = self.client.get(reverse('students:promotion'))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context['class_students']), 1)
+        self.assertIn('class_options', response.context)
 
-        # Step 2: Process promotions
+        # Step 2: Process promotion with target_class_id
         response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
             'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
             f'action_{student1.pk}': 'promote',
-            f'target_class_{student1.pk}': str(self.class_b2.pk),
             f'action_{student2.pk}': 'promote',
-            f'target_class_{student2.pk}': str(self.class_b2.pk),
         })
         self.assertEqual(response.status_code, 302)
 
         # Step 3: Verify results
-        # Old enrollments should be marked as promoted
         old_enrollments = Enrollment.objects.filter(
             academic_year=self.current_year,
             status=Enrollment.Status.PROMOTED
         )
         self.assertEqual(old_enrollments.count(), 2)
 
-        # New enrollments should exist
         new_enrollments = Enrollment.objects.filter(
             academic_year=self.next_year,
             status=Enrollment.Status.ACTIVE
         )
         self.assertEqual(new_enrollments.count(), 2)
 
-        # Students should have updated current_class
+        # Source class is UNCHANGED
+        self.class_b1.refresh_from_db()
+        self.assertEqual(self.class_b1.level_number, 1)
+        self.assertEqual(self.class_b1.name, 'B1-A')
+
+        # Students are now in B2-A
         student1.refresh_from_db()
         student2.refresh_from_db()
         self.assertEqual(student1.current_class, self.class_b2)
         self.assertEqual(student2.current_class, self.class_b2)
 
     def test_enrollment_history_tracking(self):
-        """Test that promotion creates proper enrollment history."""
+        """Test that promotion creates proper enrollment history with separate classes."""
         student, original_enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
 
-        # Promote student
         self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
             'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
             f'action_{student.pk}': 'promote',
-            f'target_class_{student.pk}': str(self.class_b2.pk),
         })
 
-        # Check enrollment history
         enrollments = student.enrollments.order_by('academic_year__start_date')
         self.assertEqual(enrollments.count(), 2)
 
-        # First enrollment (current year)
         first = enrollments[0]
         self.assertEqual(first.academic_year, self.current_year)
-        self.assertEqual(first.class_assigned, self.class_b1)
         self.assertEqual(first.status, Enrollment.Status.PROMOTED)
+        self.assertEqual(first.class_assigned, self.class_b1)
+        self.assertEqual(first.class_name, 'B1-A')
 
-        # Second enrollment (next year)
         second = enrollments[1]
         self.assertEqual(second.academic_year, self.next_year)
+        # New enrollment points to the TARGET class
         self.assertEqual(second.class_assigned, self.class_b2)
+        self.assertEqual(second.class_name, 'B2-A')
         self.assertEqual(second.status, Enrollment.Status.ACTIVE)
         self.assertEqual(second.promoted_from, first)
 
     def test_mixed_actions_in_same_class(self):
         """Test different actions for students in the same class."""
+        # Create another B1 class for repeaters
+        class_b1b = Class.objects.create(
+            level_type=Class.LevelType.BASIC,
+            level_number=1, section='B', is_active=True,
+        )
+
         student1, _ = self.create_student_with_enrollment('Promote', 'STU-001', self.class_b1)
         student2, _ = self.create_student_with_enrollment('Repeat', 'STU-002', self.class_b1)
         student3, _ = self.create_student_with_enrollment('Skip', 'STU-003', self.class_b1)
 
         self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
             'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
             f'action_{student1.pk}': 'promote',
-            f'target_class_{student1.pk}': str(self.class_b2.pk),
             f'action_{student2.pk}': 'repeat',
+            f'repeat_target_{student2.pk}': str(class_b1b.pk),
             f'action_{student3.pk}': 'skip',
         })
 
-        # Student1: promoted to B2
+        # Student1: moved to B2-A (target class)
         student1.refresh_from_db()
         self.assertEqual(student1.current_class, self.class_b2)
 
-        # Student2: still in B1 (repeated)
-        new_enrollment = Enrollment.objects.get(student=student2, academic_year=self.next_year)
-        self.assertEqual(new_enrollment.class_assigned, self.class_b1)
+        # Source class unchanged
+        self.class_b1.refresh_from_db()
+        self.assertEqual(self.class_b1.name, 'B1-A')
+
+        # Student2: moved to B1-B (repeated)
+        student2.refresh_from_db()
+        self.assertEqual(student2.current_class, class_b1b)
 
         # Student3: no new enrollment
         self.assertFalse(

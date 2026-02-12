@@ -18,6 +18,7 @@ from .base import (
 from ..models import (
     Assignment, Score, ScoreAuditLog
 )
+from ..signals import signals_disabled
 from .. import config
 from academics.models import Class, Subject
 from students.models import Student
@@ -161,9 +162,8 @@ def score_import_upload(request, class_id, subject_id):
             'error': 'No file uploaded.'
         })
 
-    # File size validation (max 5MB)
-    MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5MB
-    if file.size > MAX_UPLOAD_SIZE:
+    # File size validation
+    if file.size > config.MAX_FILE_SIZE:
         return render(request, 'gradebook/partials/import_error.html', {
             'error': 'File too large. Maximum size is 5MB.'
         })
@@ -373,8 +373,9 @@ def score_import_confirm(request, class_id, subject_id):
     # Import scores
     created_count = 0
     updated_count = 0
+    affected_combos = set()  # Track (student_id, subject_id, term_id) for batch recalc
 
-    with transaction.atomic():
+    with signals_disabled(), transaction.atomic():
         for item in import_data:
             student_id = item['student_id']
             assignment_id = item['assignment_id']
@@ -393,6 +394,9 @@ def score_import_confirm(request, class_id, subject_id):
                 defaults={'points': points}
             )
 
+            # Track affected combos for batch recalculation
+            affected_combos.add((student_id, str(subject.id), str(current_term.id)))
+
             # Audit log
             ScoreAuditLog.objects.create(
                 score=score,
@@ -410,6 +414,23 @@ def score_import_confirm(request, class_id, subject_id):
                 created_count += 1
             else:
                 updated_count += 1
+
+    # Batch recalculate grades for all affected students after signals re-enabled
+    from ..signals import recalculate_subject_grade, recalculate_term_report
+    affected_students = set()
+    for student_id, subj_id, term_id in affected_combos:
+        recalculate_subject_grade(
+            student=Student.objects.get(pk=student_id),
+            subject=subject,
+            term=current_term
+        )
+        affected_students.add(student_id)
+
+    for student_id in affected_students:
+        recalculate_term_report(
+            student=Student.objects.get(pk=student_id),
+            term=current_term
+        )
 
     # Clear session data
     request.session.pop('import_data', None)

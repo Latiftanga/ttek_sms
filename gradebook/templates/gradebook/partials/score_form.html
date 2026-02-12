@@ -1,5 +1,6 @@
 {% load core_tags %}
 
+<div id="score-form-container">
 <div class="card bg-base-100 shadow-sm border border-base-200"
      x-data="{ init() { localStorage.setItem('gradebookViewMode', 'table'); } }"
      x-init="init()">
@@ -20,7 +21,7 @@
                     <input type="checkbox"
                            hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
                            hx-target="#score-form-container"
-                           hx-swap="innerHTML transition:true"
+                           hx-swap="outerHTML transition:true"
                            hx-push-url="true"
                            hx-trigger="change" />
                     <!-- swap-off: Table icon (current view) -->
@@ -93,6 +94,12 @@
         </div>
         {% endif %}
 
+        <!-- Offline warning banner -->
+        <div id="offline-banner" class="alert alert-warning mb-3 hidden">
+            <i class="fa-solid fa-wifi-slash"></i>
+            <span>You are offline. Scores will not save until your connection is restored.</span>
+        </div>
+
         {% if students %}
         <!-- Mobile hint - suggest student view for easier entry -->
         <div class="md:hidden alert alert-info py-2 mb-3">
@@ -101,7 +108,7 @@
             <a href="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
                hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
                hx-target="#score-form-container"
-               hx-swap="innerHTML transition:true"
+               hx-swap="outerHTML transition:true"
                hx-push-url="true"
                class="btn btn-info btn-xs shrink-0">
                 Switch <i class="fa-solid fa-arrow-right ml-1"></i>
@@ -137,7 +144,7 @@
                             <a href="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk student.pk %}"
                                hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk student.pk %}"
                                hx-target="#score-form-container"
-                               hx-swap="innerHTML"
+                               hx-swap="outerHTML"
                                class="md:pointer-events-none md:no-underline block">
                                 <div class="font-medium text-sm md:text-base">
                                     <span class="md:hidden">{{ student.last_name|slice:":8" }}, {{ student.first_name.0 }}.</span>
@@ -262,8 +269,13 @@
     outline-offset: 0;
 }
 .score-input.saving {
-    background-color: oklch(var(--wa) / 0.2);
+    background-color: oklch(var(--wa) / 0.15);
     border-color: oklch(var(--wa));
+    animation: pulse-saving 0.8s ease-in-out infinite;
+}
+@keyframes pulse-saving {
+    0%, 100% { border-color: oklch(var(--wa)); opacity: 1; }
+    50% { border-color: oklch(var(--wa) / 0.4); opacity: 0.7; }
 }
 .score-input.input-error {
     border-color: oklch(var(--er)) !important;
@@ -445,8 +457,35 @@
         return { valid: true };
     }
 
-    // Save score via AJAX
-    function saveScore(input) {
+    // Offline detection
+    var isOffline = !navigator.onLine;
+
+    function updateOfflineBanner() {
+        var banner = document.getElementById('offline-banner');
+        if (banner) {
+            banner.classList.toggle('hidden', !isOffline);
+        }
+    }
+
+    window.addEventListener('online', function() {
+        isOffline = false;
+        updateOfflineBanner();
+        showToast('Back online', 'success');
+    });
+
+    window.addEventListener('offline', function() {
+        isOffline = true;
+        updateOfflineBanner();
+        showToast('You are offline', 'error');
+    });
+
+    updateOfflineBanner();
+
+    // Save score via AJAX with retry
+    function saveScore(input, retryCount) {
+        retryCount = retryCount || 0;
+        var MAX_RETRIES = 2;
+
         const studentId = input.dataset.student;
         const assignmentId = input.dataset.assignment;
         const max = parseFloat(input.dataset.max);
@@ -455,6 +494,13 @@
 
         // Skip if unchanged
         if (value === originalValue) {
+            return;
+        }
+
+        // Block saves while offline
+        if (isOffline) {
+            markInputError(input, 'Offline', 'Score will not save until you reconnect');
+            showToast('Cannot save while offline', 'error');
             return;
         }
 
@@ -545,9 +591,16 @@
         })
         .catch(error => {
             input.classList.remove('saving');
-            markInputError(input, 'Network error', 'Check your connection and try again');
-            showToast('Network error - score not saved', 'error');
-            console.error('Score save error:', error);
+
+            if (retryCount < MAX_RETRIES) {
+                var delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
+                showToast('Retrying save... (' + (retryCount + 1) + '/' + MAX_RETRIES + ')', 'error');
+                setTimeout(function() { saveScore(input, retryCount + 1); }, delay);
+            } else {
+                markInputError(input, 'Save failed', 'Check your connection and try again');
+                showToast('Save failed after retries — check your connection', 'error');
+            }
+            console.error('Score save error (attempt ' + (retryCount + 1) + '):', error);
         });
     }
 
@@ -638,3 +691,4 @@
     console.log('Score inputs initialized:', document.querySelectorAll('.score-input:not([disabled])').length);
 })();
 </script>
+</div>

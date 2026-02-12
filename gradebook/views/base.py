@@ -45,19 +45,26 @@ def ratelimit(key='user', rate='100/h', block=True):
             else:
                 cache_key = f"ratelimit:{view_func.__name__}:ip:{get_client_ip(request)}"
 
-            # Check current count
-            current = cache.get(cache_key, 0)
+            # Atomically create the key if it doesn't exist
+            if cache.add(cache_key, 1, period_seconds):
+                # Key was newly created with value 1, proceed
+                pass
+            else:
+                # Key exists, atomically increment
+                try:
+                    current = cache.incr(cache_key)
+                except ValueError:
+                    # Key expired between add and incr, recreate
+                    cache.set(cache_key, 1, period_seconds)
+                    current = 1
 
-            if current >= limit:
-                logger.warning(f"Rate limit exceeded for {cache_key}")
-                if block:
-                    return JsonResponse(
-                        {'error': 'Too many requests. Please try again later.'},
-                        status=429
-                    )
-
-            # Increment counter
-            cache.set(cache_key, current + 1, period_seconds)
+                if current > limit:
+                    logger.warning(f"Rate limit exceeded for {cache_key}")
+                    if block:
+                        return JsonResponse(
+                            {'error': 'Too many requests. Please try again later.'},
+                            status=429
+                        )
 
             return view_func(request, *args, **kwargs)
         return wrapper

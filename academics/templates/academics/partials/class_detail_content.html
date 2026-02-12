@@ -112,12 +112,12 @@
                         </button>
                     </li>
                     <li>
-                        <button hx-get="{% url 'academics:class_promote' class.pk %}"
-                                hx-target="#modal-edit-content"
-                                hx-swap="innerHTML"
-                                hx-on::after-request="document.getElementById('modal_edit').showModal()">
-                            <i class="fa-solid fa-arrow-up-right-dots w-4 text-success"></i> Promote Students
-                        </button>
+                        <a href="{% url 'students:promotion' %}"
+                           hx-get="{% url 'students:promotion' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true">
+                            <i class="fa-solid fa-arrow-up-right-dots w-4 text-success"></i> Promote Classes
+                        </a>
                     </li>
                     <li>
                         <button hx-post="{% url 'academics:class_sync_subjects' class.pk %}"

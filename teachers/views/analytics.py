@@ -4,6 +4,9 @@ Teacher Workload Analytics Views.
 Provides workload metrics, comparisons with school averages,
 and analytics visualizations.
 """
+from collections import defaultdict
+
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
 
@@ -15,7 +18,7 @@ from .utils import admin_required, htmx_render
 
 def calculate_teacher_workload(teacher):
     """
-    Calculate workload metrics for a teacher.
+    Calculate workload metrics for a single teacher.
 
     Returns:
         dict with classes_taught, subjects_taught, periods_per_week,
@@ -52,33 +55,102 @@ def calculate_teacher_workload(teacher):
     }
 
 
-def calculate_school_averages():
+def _bulk_workload_data():
+    """
+    Compute workload metrics for ALL active teachers with assignments
+    using bulk queries (4 queries total instead of 4 per teacher).
+
+    Returns:
+        dict mapping teacher_id -> workload dict
+    """
+    # 1. Classes + subjects per teacher (1 query)
+    assignment_stats = ClassSubject.objects.values('teacher_id').annotate(
+        classes_taught=Count('class_assigned_id', distinct=True),
+        subjects_taught=Count('subject_id', distinct=True),
+    )
+    stats_by_teacher = {
+        row['teacher_id']: row for row in assignment_stats
+    }
+
+    if not stats_by_teacher:
+        return {}
+
+    # 2. Periods per week per teacher (1 query)
+    period_stats = TimetableEntry.objects.values(
+        'class_subject__teacher_id'
+    ).annotate(
+        periods=Count('id')
+    )
+    periods_by_teacher = {
+        row['class_subject__teacher_id']: row['periods']
+        for row in period_stats
+    }
+
+    # 3. Student counts per class, then map to teachers (2 queries)
+    # First get teacher -> class_ids mapping
+    teacher_classes = defaultdict(set)
+    for row in ClassSubject.objects.values_list('teacher_id', 'class_assigned_id'):
+        teacher_classes[row[0]].add(row[1])
+
+    # Get student counts per class in one query
+    all_class_ids = set()
+    for cids in teacher_classes.values():
+        all_class_ids.update(cids)
+
+    students_per_class = {}
+    if all_class_ids:
+        students_per_class = dict(
+            Student.objects.filter(
+                current_class_id__in=all_class_ids,
+                status='active'
+            ).values('current_class_id').annotate(
+                count=Count('id')
+            ).values_list('current_class_id', 'count')
+        )
+
+    # 4. Homeroom counts per teacher (1 query)
+    homeroom_stats = dict(
+        Class.objects.filter(
+            is_active=True,
+            class_teacher_id__isnull=False
+        ).values('class_teacher_id').annotate(
+            count=Count('id')
+        ).values_list('class_teacher_id', 'count')
+    )
+
+    # Build result
+    result = {}
+    for teacher_id, stats in stats_by_teacher.items():
+        teacher_class_ids = teacher_classes.get(teacher_id, set())
+        total_students = sum(
+            students_per_class.get(cid, 0) for cid in teacher_class_ids
+        )
+        result[teacher_id] = {
+            'classes_taught': stats['classes_taught'],
+            'subjects_taught': stats['subjects_taught'],
+            'periods_per_week': periods_by_teacher.get(teacher_id, 0),
+            'total_students': total_students,
+            'homeroom_classes': homeroom_stats.get(teacher_id, 0),
+        }
+
+    return result
+
+
+def calculate_school_averages(bulk_data=None):
     """
     Calculate school-wide average workload across all active teachers
     with assignments.
 
+    Args:
+        bulk_data: Optional pre-computed bulk workload data from _bulk_workload_data().
+
     Returns:
         dict with avg_classes, avg_subjects, avg_periods, avg_students
     """
-    active_teachers = Teacher.objects.filter(status='active')
+    if bulk_data is None:
+        bulk_data = _bulk_workload_data()
 
-    total_classes = 0
-    total_subjects = 0
-    total_periods = 0
-    total_students = 0
-    count = 0
-
-    for teacher in active_teachers:
-        workload = calculate_teacher_workload(teacher)
-        # Only count teachers with assignments
-        if workload['classes_taught'] > 0:
-            total_classes += workload['classes_taught']
-            total_subjects += workload['subjects_taught']
-            total_periods += workload['periods_per_week']
-            total_students += workload['total_students']
-            count += 1
-
-    if count == 0:
+    if not bulk_data:
         return {
             'avg_classes': 0,
             'avg_subjects': 0,
@@ -86,6 +158,12 @@ def calculate_school_averages():
             'avg_students': 0,
             'teacher_count': 0,
         }
+
+    count = len(bulk_data)
+    total_classes = sum(w['classes_taught'] for w in bulk_data.values())
+    total_subjects = sum(w['subjects_taught'] for w in bulk_data.values())
+    total_periods = sum(w['periods_per_week'] for w in bulk_data.values())
+    total_students = sum(w['total_students'] for w in bulk_data.values())
 
     return {
         'avg_classes': round(total_classes / count, 1),
@@ -108,34 +186,47 @@ def get_class_breakdown(teacher):
         'class_assigned__level_number', 'class_assigned__name'
     )
 
-    # Group by class
+    # Collect unique class IDs first
+    class_ids = set()
+    for assignment in assignments:
+        class_ids.add(assignment.class_assigned_id)
+
+    if not class_ids:
+        return []
+
+    # Prefetch student counts for all classes in one query
+    student_counts = dict(
+        Student.objects.filter(
+            current_class_id__in=class_ids,
+            status='active'
+        ).values('current_class_id').annotate(
+            count=Count('id')
+        ).values_list('current_class_id', 'count')
+    )
+
+    # Prefetch period counts for all classes in one query
+    period_counts = dict(
+        TimetableEntry.objects.filter(
+            class_subject__teacher=teacher,
+            class_subject__class_assigned_id__in=class_ids
+        ).values('class_subject__class_assigned_id').annotate(
+            count=Count('id')
+        ).values_list('class_subject__class_assigned_id', 'count')
+    )
+
+    # Group by class using prefetched data
     class_data = {}
     for assignment in assignments:
         class_obj = assignment.class_assigned
         class_id = class_obj.pk
 
         if class_id not in class_data:
-            # Count students in this class
-            student_count = Student.objects.filter(
-                current_class=class_obj,
-                status='active'
-            ).count()
-
-            # Count periods for this teacher in this class
-            periods = TimetableEntry.objects.filter(
-                class_subject__teacher=teacher,
-                class_subject__class_assigned=class_obj
-            ).count()
-
-            # Check if homeroom
-            is_homeroom = class_obj.class_teacher_id == teacher.pk
-
             class_data[class_id] = {
                 'class': class_obj,
                 'subjects': [],
-                'student_count': student_count,
-                'periods': periods,
-                'is_homeroom': is_homeroom,
+                'student_count': student_counts.get(class_id, 0),
+                'periods': period_counts.get(class_id, 0),
+                'is_homeroom': class_obj.class_teacher_id == teacher.pk,
             }
 
         class_data[class_id]['subjects'].append(assignment.subject)
@@ -153,7 +244,11 @@ def my_workload(request):
 
     # Calculate workload
     workload = calculate_teacher_workload(teacher)
-    school_averages = calculate_school_averages()
+
+    # Bulk-compute school averages (single set of queries for all teachers)
+    bulk_data = _bulk_workload_data()
+    school_averages = calculate_school_averages(bulk_data)
+
     class_breakdown = get_class_breakdown(teacher)
 
     # Calculate comparison percentages
@@ -196,20 +291,25 @@ def school_workload_overview(request):
     Admin view: Overview of all teachers' workload.
     Shows comparison table of all teachers with their metrics.
     """
-    active_teachers = Teacher.objects.filter(status='active').order_by('first_name', 'last_name')
+    active_teachers = Teacher.objects.filter(
+        status='active'
+    ).order_by('first_name', 'last_name')
 
-    # Calculate workload for each teacher
+    # Single bulk computation for ALL teachers (replaces N+1 loop)
+    bulk_data = _bulk_workload_data()
+
+    # Build workload list from bulk data
     teacher_workloads = []
     for teacher in active_teachers:
-        workload = calculate_teacher_workload(teacher)
-        # Only include teachers with assignments
-        if workload['classes_taught'] > 0:
+        workload = bulk_data.get(teacher.pk)
+        if workload and workload['classes_taught'] > 0:
             teacher_workloads.append({
                 'teacher': teacher,
                 **workload
             })
 
-    school_averages = calculate_school_averages()
+    # Reuse same bulk data for averages (no extra queries)
+    school_averages = calculate_school_averages(bulk_data)
 
     context = {
         'teacher_workloads': teacher_workloads,

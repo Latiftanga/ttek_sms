@@ -57,13 +57,28 @@ def check_overdue_exeats(self):
                     f"[{tenant.schema_name}] Marked {len(overdue_ids)} exeat(s) as overdue"
                 )
 
+                # Prefetch primary guardians for all overdue students (avoid N+1)
+                from students.models import StudentGuardian
+                overdue_student_ids = [e.student_id for e in overdue_exeats]
+                guardian_map = {}
+                for sg in StudentGuardian.objects.filter(
+                    student_id__in=overdue_student_ids, is_primary=True
+                ).select_related('guardian'):
+                    guardian_map[sg.student_id] = sg.guardian
+
+                # Set cache on each student to prevent extra queries
+                for exeat in overdue_exeats:
+                    exeat.student._cached_primary_guardian = guardian_map.get(
+                        exeat.student_id
+                    )
+
                 # Send SMS notifications for exeats not yet notified
                 for exeat in overdue_exeats:
                     if exeat.guardian_notified_overdue:
                         continue
 
                     try:
-                        guardian = exeat.student.get_primary_guardian()
+                        guardian = guardian_map.get(exeat.student_id)
                         if not guardian or not guardian.phone_number:
                             continue
 

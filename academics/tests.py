@@ -599,170 +599,30 @@ class ClassSyncSubjectsViewTests(AcademicsTestCase):
 
 
 # =============================================================================
-# VIEW TESTS: class_promote
+# VIEW TESTS: class_promote (now redirects to students:promotion)
 # =============================================================================
 
 class ClassPromoteViewTests(AcademicsTestCase):
-    """Tests for the class_promote view with subject enrollment handling."""
+    """Tests for the class_promote view redirect."""
 
-    def test_promote_deactivates_old_subject_enrollments(self):
-        """Test that promotion deactivates old class subject enrollments."""
-        # Create source and target classes
+    def test_class_promote_redirects_to_promotion_page(self):
+        """Test that class_promote now redirects to the students promotion page."""
         class_b1 = self.create_class(Class.LevelType.BASIC, 1)
-        class_b2 = self.create_class(Class.LevelType.BASIC, 2)
-
-        # Create subjects for both classes
-        math_b1 = self.create_subject('Math B1', 'MTB1', is_core=True)
-        math_b2 = self.create_subject('Math B2', 'MTB2', is_core=True)
-        self.create_class_subject(class_b1, math_b1)
-        self.create_class_subject(class_b2, math_b2)
-
-        # Create student with enrollment
-        student = self.create_student('PromoStudent', 'STU-019', class_obj=class_b1)
-        self.create_enrollment(student, class_b1)
-
-        # Enroll in B1 subjects
-        StudentSubjectEnrollment.enroll_student_in_class_subjects(student, class_b1)
-        b1_enrollment = StudentSubjectEnrollment.objects.get(
-            student=student,
-            class_subject__class_assigned=class_b1
+        response = self.client.get(
+            reverse('academics:class_promote', args=[class_b1.pk])
         )
-        self.assertTrue(b1_enrollment.is_active)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/students/promotion/', response.url)
 
-        # Promote student
-        self.client.post(
+    def test_class_promote_post_redirects(self):
+        """Test that POST to class_promote also redirects."""
+        class_b1 = self.create_class(Class.LevelType.BASIC, 1)
+        response = self.client.post(
             reverse('academics:class_promote', args=[class_b1.pk]),
-            {
-                f'action_{student.pk}': 'promote',
-                f'target_class_{student.pk}': str(class_b2.pk),
-            }
+            {}
         )
-
-        # Old subject enrollment should be deactivated
-        b1_enrollment.refresh_from_db()
-        self.assertFalse(b1_enrollment.is_active)
-
-    def test_promote_creates_new_subject_enrollments(self):
-        """Test that promotion creates subject enrollments in new class."""
-        # Create source and target classes
-        class_b3 = self.create_class(Class.LevelType.BASIC, 3)
-        class_b4 = self.create_class(Class.LevelType.BASIC, 4)
-
-        # Create subjects for target class
-        math_b4 = self.create_subject('Math B4', 'MTB4', is_core=True)
-        english_b4 = self.create_subject('English B4', 'ENB4', is_core=True)
-        self.create_class_subject(class_b4, math_b4)
-        self.create_class_subject(class_b4, english_b4)
-
-        # Create student with enrollment
-        student = self.create_student('PromoStudent2', 'STU-020', class_obj=class_b3)
-        self.create_enrollment(student, class_b3)
-
-        # Promote student
-        self.client.post(
-            reverse('academics:class_promote', args=[class_b3.pk]),
-            {
-                f'action_{student.pk}': 'promote',
-                f'target_class_{student.pk}': str(class_b4.pk),
-            }
-        )
-
-        # New subject enrollments should exist
-        new_enrollments = StudentSubjectEnrollment.objects.filter(
-            student=student,
-            class_subject__class_assigned=class_b4,
-            is_active=True
-        )
-        self.assertEqual(new_enrollments.count(), 2)
-
-    def test_promote_shs_enrolls_all_subjects(self):
-        """Test that SHS promotion enrolls in ALL subjects."""
-        # Create SHS classes
-        shs1 = self.create_class(Class.LevelType.SHS, 1, programme=self.programme)
-        shs2 = self.create_class(Class.LevelType.SHS, 2, programme=self.programme)
-
-        # Create subjects for SHS2
-        core = self.create_subject('SHS2 Core', 'S2C', is_core=True)
-        elective = self.create_subject('SHS2 Elective', 'S2E', is_core=False)
-        self.create_class_subject(shs2, core)
-        self.create_class_subject(shs2, elective)
-
-        # Create student with enrollment
-        student = self.create_student('SHSPromo', 'STU-021', class_obj=shs1)
-        self.create_enrollment(student, shs1)
-
-        # Promote student
-        self.client.post(
-            reverse('academics:class_promote', args=[shs1.pk]),
-            {
-                f'action_{student.pk}': 'promote',
-                f'target_class_{student.pk}': str(shs2.pk),
-            }
-        )
-
-        # All subjects should be enrolled (no core/elective distinction)
-        new_enrollments = StudentSubjectEnrollment.objects.filter(
-            student=student,
-            class_subject__class_assigned=shs2,
-            is_active=True
-        )
-        self.assertEqual(new_enrollments.count(), 2)
-
-    def test_repeat_keeps_same_class_subjects(self):
-        """Test that repeating a student doesn't change subject enrollments."""
-        # Create class with subjects
-        basic_class = self.create_class(Class.LevelType.BASIC, 5)
-        math = self.create_subject('Math B5 Repeat', 'MB5R', is_core=True)
-        self.create_class_subject(basic_class, math)
-
-        # Create student with enrollment and subject enrollment
-        student = self.create_student('RepeatStudent', 'STU-022', class_obj=basic_class)
-        self.create_enrollment(student, basic_class)
-        StudentSubjectEnrollment.enroll_student_in_class_subjects(student, basic_class)
-
-        original_enrollment = StudentSubjectEnrollment.objects.get(
-            student=student,
-            class_subject__class_assigned=basic_class
-        )
-
-        # Repeat student
-        self.client.post(
-            reverse('academics:class_promote', args=[basic_class.pk]),
-            {
-                f'action_{student.pk}': 'repeat',
-            }
-        )
-
-        # Subject enrollment should still be active (same class)
-        original_enrollment.refresh_from_db()
-        self.assertTrue(original_enrollment.is_active)
-
-    def test_graduate_deactivates_subject_enrollments(self):
-        """Test that graduating a student deactivates subject enrollments."""
-        # Create final year class
-        shs3 = self.create_class(Class.LevelType.SHS, 3, programme=self.programme)
-        core = self.create_subject('SHS3 Core', 'S3C', is_core=True)
-        self.create_class_subject(shs3, core)
-
-        # Create student with enrollment
-        student = self.create_student('GradStudent', 'STU-023', class_obj=shs3)
-        self.create_enrollment(student, shs3)
-        StudentSubjectEnrollment.enroll_student_in_class_subjects(student, shs3)
-
-        # Graduate student
-        self.client.post(
-            reverse('academics:class_promote', args=[shs3.pk]),
-            {
-                f'action_{student.pk}': 'graduate',
-            }
-        )
-
-        # Subject enrollment should be deactivated
-        enrollment = StudentSubjectEnrollment.objects.get(
-            student=student,
-            class_subject__class_assigned=shs3
-        )
-        self.assertFalse(enrollment.is_active)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/students/promotion/', response.url)
 
 
 # =============================================================================
@@ -773,19 +633,23 @@ class EnrollmentIntegrationTests(AcademicsTestCase):
     """Integration tests for the complete enrollment workflow."""
 
     def test_full_student_lifecycle_basic_school(self):
-        """Test complete student lifecycle in Basic school."""
-        # Create classes
+        """Test complete student lifecycle in Basic school using static bucket promotion."""
+        from core.models import AcademicYear
+
+        # Create both source and target classes
         b1 = self.create_class(Class.LevelType.BASIC, 1)
         b2 = self.create_class(Class.LevelType.BASIC, 2)
 
-        # Create subjects for both classes
-        math_b1 = self.create_subject('Math B1 Int', 'MB1I', is_core=True)
-        english_b1 = self.create_subject('English B1 Int', 'EB1I', is_core=False)
-        math_b2 = self.create_subject('Math B2 Int', 'MB2I', is_core=True)
+        # Create subjects for B1
+        math = self.create_subject('Math B1 Int', 'MB1I', is_core=True)
+        english = self.create_subject('English B1 Int', 'EB1I', is_core=False)
 
-        self.create_class_subject(b1, math_b1)
-        self.create_class_subject(b1, english_b1)
-        self.create_class_subject(b2, math_b2)
+        self.create_class_subject(b1, math)
+        self.create_class_subject(b1, english)
+
+        # Create subjects for B2 (target needs subjects)
+        self.create_class_subject(b2, math)
+        self.create_class_subject(b2, english)
 
         # 1. Create and enroll student in B1
         student = self.create_student('LifecycleStudent', 'STU-024')
@@ -809,33 +673,41 @@ class EnrollmentIntegrationTests(AcademicsTestCase):
         # 2. Create enrollment record
         self.create_enrollment(student, b1)
 
-        # 3. Promote to B2
+        # 3. Static bucket promote: B1-A students → B2-A
+        next_year = AcademicYear.objects.filter(is_current=False).first()
         self.client.post(
-            reverse('academics:class_promote', args=[b1.pk]),
+            reverse('students:promotion_process'),
             {
+                'class_id': str(b1.pk),
+                'next_year': str(next_year.pk),
+                'target_class_id': str(b2.pk),
                 f'action_{student.pk}': 'promote',
-                f'target_class_{student.pk}': str(b2.pk),
             }
         )
 
-        student.refresh_from_db()
-        self.assertEqual(student.current_class, b2)
+        # B1 class is UNCHANGED (static bucket)
+        b1.refresh_from_db()
+        self.assertEqual(b1.level_number, 1)
 
-        # B1 enrollments should be inactive
-        b1_enrollments = StudentSubjectEnrollment.objects.filter(
+        # Old subject enrollments in B1 deactivated
+        old_b1_enrollments = StudentSubjectEnrollment.objects.filter(
             student=student,
             class_subject__class_assigned=b1,
             is_active=True
         )
-        self.assertEqual(b1_enrollments.count(), 0)
+        self.assertEqual(old_b1_enrollments.count(), 0)
 
-        # B2 enrollments should be active
+        # New subject enrollments created in B2
         b2_enrollments = StudentSubjectEnrollment.objects.filter(
             student=student,
             class_subject__class_assigned=b2,
             is_active=True
         )
-        self.assertEqual(b2_enrollments.count(), 1)
+        self.assertEqual(b2_enrollments.count(), 2)
+
+        # Student moved to B2
+        student.refresh_from_db()
+        self.assertEqual(student.current_class, b2)
 
     def test_full_student_lifecycle_shs(self):
         """Test complete SHS student lifecycle - all subjects auto-enrolled."""

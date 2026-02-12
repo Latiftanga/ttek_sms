@@ -8,7 +8,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.http import HttpResponse, JsonResponse
-from django.db.models import Avg, Count, Q
+from django.db.models import Avg, Count, OuterRef, Q, Subquery
 from django.db import IntegrityError, transaction
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -279,6 +279,7 @@ def calculate_class_grades(request, class_id):
                     grade.class_score = category_totals.get('_type_CLASS_SCORE', category_totals.get('CA', Decimal('0.0')))
                     grade.exam_score = category_totals.get('_type_EXAM', category_totals.get('EXAM', Decimal('0.0')))
                     grade.total_score = round(total, 2)
+                    grade.category_scores = {short_name: val for short_name, val in category_totals.items() if not short_name.startswith('_type_')}
 
                     # Determine grade from scale (no DB query - uses prefetched scales)
                     grade.is_passing = False  # Default to not passing
@@ -295,7 +296,7 @@ def calculate_class_grades(request, class_id):
             # Bulk update all grades
             SubjectTermGrade.objects.bulk_update(
                 grades_to_update,
-                ['class_score', 'exam_score', 'total_score', 'grade', 'grade_remark', 'is_passing'],
+                ['class_score', 'exam_score', 'total_score', 'category_scores', 'grade', 'grade_remark', 'is_passing'],
                 batch_size=config.BULK_UPDATE_BATCH_SIZE
             )
 
@@ -307,7 +308,7 @@ def calculate_class_grades(request, class_id):
                 subject_id__in=subject_ids,
                 term=current_term,
                 total_score__isnull=False
-            ))
+            ).select_related('subject'))
 
             # Group by subject and calculate positions
             grades_by_subject = defaultdict(list)
@@ -421,7 +422,9 @@ def calculate_class_grades(request, class_id):
 
                 # Check promotion eligibility for final term
                 if is_final_term and grading_system:
-                    is_eligible, reasons = grading_system.check_promotion_eligibility(report)
+                    is_eligible, reasons = grading_system.check_promotion_eligibility(
+                        report, core_grades=core_grades
+                    )
                     report.promoted = is_eligible
                     report.promotion_remarks = '; '.join(reasons) if reasons else 'Meets all requirements'
 
@@ -508,7 +511,10 @@ def toggle_grade_lock(request, term_id):
         message = f"Grades locked for {term.name}"
 
     response = HttpResponse(status=204)
-    response['HX-Trigger'] = f'{{"showToast": {{"message": "{message}", "type": "success"}}, "refreshLockStatus": true}}'
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {'message': message, 'type': 'success'},
+        'refreshLockStatus': True
+    })
     return response
 
 
@@ -981,6 +987,7 @@ def analytics(request):
 
 
 @login_required
+@admin_required
 @ratelimit(key='user', rate='60/h', block=True)
 def analytics_class_data(request, class_id):
     """Get analytics data for a specific class (HTMX partial)."""
@@ -1068,31 +1075,32 @@ def analytics_overview(request):
     default_grading_system = GradingSystem.objects.filter(is_active=True).first()
     default_pass_mark = default_grading_system.pass_mark if default_grading_system else config.DEFAULT_PASS_MARK
 
-    # Get all classes with their stats
-    classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
+    # Get all class stats in a single grouped query (avoids N+1 per class)
+    class_report_stats = TermReport.objects.filter(
+        term=current_term,
+        student__current_class__is_active=True
+    ).values(
+        'student__current_class', 'student__current_class__name',
+        'student__current_class__level_number'
+    ).annotate(
+        avg_score=Avg('average'),
+        total_students=Count('id'),
+        passed=Count('id', filter=Q(subjects_failed=0)),
+    ).filter(total_students__gt=0).order_by('-avg_score')
 
     class_stats = []
-    for cls in classes:
-        reports = TermReport.objects.filter(
-            student__current_class=cls,
-            term=current_term
-        ).aggregate(
-            avg_score=Avg('average'),
-            total_students=Count('id'),
-            passed=Count('id', filter=Q(subjects_failed=0)),
-        )
-
-        if reports['total_students'] > 0:
-            class_stats.append({
-                'class': cls,
-                'average': round(reports['avg_score'] or 0, 1),
-                'total_students': reports['total_students'],
-                'passed': reports['passed'],
-                'pass_rate': round((reports['passed'] / reports['total_students']) * 100, 1) if reports['total_students'] > 0 else 0,
-            })
-
-    # Sort by average descending
-    class_stats.sort(key=lambda x: x['average'], reverse=True)
+    for row in class_report_stats:
+        total = row['total_students']
+        passed = row['passed']
+        # Use a simple namespace so template can access stat.class.name
+        class_obj = type('ClassInfo', (), {'name': row['student__current_class__name']})()
+        class_stats.append({
+            'class': class_obj,
+            'average': round(row['avg_score'] or 0, 1),
+            'total_students': total,
+            'passed': passed,
+            'pass_rate': round((passed / total) * 100, 1) if total > 0 else 0,
+        })
 
     # Overall school stats
     all_reports = TermReport.objects.filter(term=current_term)
@@ -1653,6 +1661,15 @@ def report_distribution(request, class_id):
         messages.info(request, 'No active students found in this class.')
         return redirect('gradebook:reports')
 
+    # Prefetch primary guardians to avoid N+1 on guardian_phone/guardian_email
+    from students.models import StudentGuardian
+    sg_qs = StudentGuardian.objects.filter(
+        student__in=students, is_primary=True
+    ).select_related('guardian')
+    guardian_map = {sg.student_id: sg.guardian for sg in sg_qs}
+    for student in students:
+        student._cached_primary_guardian = guardian_map.get(student.id)
+
     # Prefetch term reports and distribution logs
     student_ids = [s.id for s in students]
     reports = {
@@ -1662,15 +1679,21 @@ def report_distribution(request, class_id):
         )
     }
 
-    # Get latest distribution logs per student
-    distribution_logs = {}
-    for log in ReportDistributionLog.objects.filter(
-        term_report__student_id__in=student_ids,
-        term_report__term=current_term
-    ).select_related('term_report').order_by('-created_at'):
-        student_id = log.term_report.student_id
-        if student_id not in distribution_logs:
-            distribution_logs[student_id] = log
+    # Get latest distribution log per student via subquery (returns 1 row per student)
+    latest_log_id = Subquery(
+        ReportDistributionLog.objects.filter(
+            term_report__student_id=OuterRef('term_report__student_id'),
+            term_report__term=current_term
+        ).order_by('-created_at').values('pk')[:1]
+    )
+    distribution_logs = {
+        log.term_report.student_id: log
+        for log in ReportDistributionLog.objects.filter(
+            term_report__student_id__in=student_ids,
+            term_report__term=current_term,
+            pk=latest_log_id
+        ).select_related('term_report')
+    }
 
     # Calculate stats
     with_email = 0

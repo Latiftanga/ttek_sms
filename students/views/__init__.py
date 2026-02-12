@@ -44,6 +44,7 @@ from .bulk_import import (
 # Promotion views
 from .promotion import (
     promotion,
+    promotion_detail,
     promotion_process,
 )
 
@@ -114,6 +115,7 @@ __all__ = [
     'bulk_export',
     # Promotion
     'promotion',
+    'promotion_detail',
     'promotion_process',
     # Houses
     'house_index',

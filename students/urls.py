@@ -45,6 +45,7 @@ urlpatterns = [
 
     # Promotion
     path('promotion/', views.promotion, name='promotion'),
+    path('promotion/<int:pk>/', views.promotion_detail, name='promotion_detail'),
     path('promotion/process/', views.promotion_process, name='promotion_process'),
 
     # Houses
