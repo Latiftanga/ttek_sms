@@ -72,6 +72,11 @@
     </div>
 </div>
 
+<!-- Hidden HTMX trigger for loading score forms (native HTMX lifecycle = smooth swap) -->
+<a id="score-form-loader" class="hidden"
+   hx-target="#score-form-container"
+   hx-swap="outerHTML"></a>
+
 <!-- Score Form Container -->
 <div id="score-form-container">
     <div class="text-center py-12 text-base-content/40">
@@ -252,57 +257,14 @@
 
     function loadScoreForm(classId, subjectId) {
         if (!classId || !subjectId) return;
-        var scoreContainer = document.getElementById('score-form-container');
-        if (!scoreContainer) return;
 
-        // Show loading state immediately for mobile feedback
-        scoreContainer.innerHTML = `
-            <div class="card bg-base-100 shadow-sm border border-base-200">
-                <div class="card-body p-6">
-                    <div class="flex flex-col items-center justify-center py-8">
-                        <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
-                        <p class="text-sm text-base-content/60">Loading score entry...</p>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Determine which view to load based on device and preference
-        var isMobile = window.innerWidth < 768;
-        var storedPref = localStorage.getItem('gradebookViewMode');
-        // Default: mobile uses student view, desktop uses table view
-        var preferStudentView = storedPref === 'student' || (isMobile && !storedPref);
-
-        // Build URL - table view is default, student view needs first student
         var url = `/gradebook/scores/${classId}/${subjectId}/`;
-        if (preferStudentView) {
-            // We need to fetch students list first to get first student ID
-            // Or use table view URL and let server handle it
-            // For simplicity, load table view first, it will show mobile hint
-            url = `/gradebook/scores/${classId}/${subjectId}/`;
-        }
 
-        // Load score entry form via HTMX with error handling
-        htmx.ajax('GET', url, {
-            target: '#score-form-container',
-            swap: 'outerHTML transition:true'
-        }).catch(function(error) {
-            console.error('Error loading score form:', error);
-            var el = document.getElementById('score-form-container');
-            if (el) el.innerHTML = `
-                <div class="card bg-base-100 shadow-sm border border-base-200">
-                    <div class="card-body p-6">
-                        <div class="alert alert-error">
-                            <i class="fa-solid fa-circle-exclamation"></i>
-                            <span>Failed to load score entry. Please try again.</span>
-                        </div>
-                        <button class="btn btn-primary btn-sm mt-4" onclick="document.getElementById('subject-select').dispatchEvent(new Event('change'))">
-                            <i class="fa-solid fa-rotate-right"></i> Retry
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
+        // Use native HTMX trigger — same lifecycle as next/prev buttons for smooth swap
+        var loader = document.getElementById('score-form-loader');
+        loader.setAttribute('hx-get', url);
+        htmx.process(loader);
+        loader.click();
     }
 
     function updateImportForm(classId, subjectId) {
