@@ -5,78 +5,83 @@
 <div class="card bg-base-100 shadow-sm border border-base-200"
      x-data="{ init() { localStorage.setItem('gradebookViewMode', 'student'); } }"
      x-init="init()">
-    <div class="card-body p-3 md:p-4">
-        <!-- Header with student info and navigation -->
-        <div class="flex items-center justify-between gap-2 mb-4">
-            <!-- Prev button -->
-            {% if prev_student %}
-            <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px] touch-manipulation"
-                    hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk prev_student.pk %}"
-                    hx-target="#score-form-container"
-                    hx-swap="outerHTML"
-                    hx-push-url="true">
-                <i class="fa-solid fa-chevron-left"></i>
-            </button>
-            {% else %}
-            <button class="btn btn-circle btn-ghost btn-disabled min-w-[44px] min-h-[44px]">
-                <i class="fa-solid fa-chevron-left"></i>
-            </button>
-            {% endif %}
+    <div class="card-body p-2 sm:p-3 md:p-4">
+        <!-- Sticky header with student info and navigation -->
+        <div class="sticky top-0 z-10 bg-base-100 -mx-2 sm:-mx-3 md:-mx-4 px-2 sm:px-3 md:px-4 pt-1 pb-2 mb-3 border-b border-transparent transition-[border-color] duration-200" id="student-sticky-header">
+            <div class="flex items-center gap-1">
+                <!-- Prev button -->
+                {% if prev_student %}
+                <button id="prev-student-btn" class="btn btn-circle btn-ghost btn-sm min-w-[40px] min-h-[40px] touch-manipulation"
+                        hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk prev_student.pk %}"
+                        hx-target="#score-form-container"
+                        hx-swap="outerHTML"
+                        hx-push-url="true">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                {% else %}
+                <button class="btn btn-circle btn-ghost btn-sm btn-disabled min-w-[40px] min-h-[40px]">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                {% endif %}
 
-            <!-- Student info -->
-            <div class="flex-1 text-center">
-                <div class="avatar placeholder mb-1">
-                    <div class="bg-primary text-primary-content rounded-full w-12">
-                        <span class="text-lg">{{ student.first_name.0 }}{{ student.last_name.0 }}</span>
+                <!-- Student info — tap name to jump -->
+                <div class="flex-1 min-w-0 text-center">
+                    <div class="dropdown dropdown-bottom">
+                        <label tabindex="0" class="font-bold text-sm sm:text-base cursor-pointer hover:text-primary transition-colors truncate inline-flex items-center gap-1 touch-manipulation" title="Tap to jump to student">
+                            {{ student.full_name }}
+                            <i class="fa-solid fa-caret-down text-[10px] text-base-content/40"></i>
+                        </label>
+                        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-64 max-h-60 overflow-y-auto p-2 shadow-xl border border-base-200 flex-nowrap">
+                            {% for s in students %}
+                            <li>
+                                {% if s.pk == student.pk %}
+                                <span class="bg-primary/10 text-primary font-semibold min-h-[40px] text-sm">{{ s.first_name }} {{ s.last_name }}</span>
+                                {% else %}
+                                <a hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk s.pk %}"
+                                   hx-target="#score-form-container"
+                                   hx-swap="outerHTML"
+                                   hx-push-url="true"
+                                   class="min-h-[40px] text-sm">{{ s.first_name }} {{ s.last_name }}</a>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
                     </div>
+                    <p class="text-[11px] text-base-content/50 leading-tight">
+                        {{ subject.name }} · {{ current_index|add:1 }}/{{ students|length }}{% if assignments_by_category %} · <span id="score-progress" class="font-medium"></span>{% endif %}
+                    </p>
                 </div>
-                <h3 class="font-bold text-lg">{{ student.full_name }}</h3>
-                <p class="text-sm text-base-content/60">
-                    {{ current_index|add:1 }} of {{ students|length }}
-                    <span class="mx-1">|</span>
-                    {{ student.admission_number }}
-                </p>
-            </div>
 
-            <!-- Next button -->
-            {% if next_student %}
-            <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px] touch-manipulation"
-                    hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk next_student.pk %}"
-                    hx-target="#score-form-container"
-                    hx-swap="outerHTML"
-                    hx-push-url="true">
-                <i class="fa-solid fa-chevron-right"></i>
-            </button>
-            {% else %}
-            <button class="btn btn-circle btn-ghost btn-disabled min-w-[44px] min-h-[44px]">
-                <i class="fa-solid fa-chevron-right"></i>
-            </button>
-            {% endif %}
-        </div>
+                <!-- Next button -->
+                {% if next_student %}
+                <button id="next-student-btn" class="btn btn-circle btn-ghost btn-sm min-w-[40px] min-h-[40px] touch-manipulation"
+                        hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk next_student.pk %}"
+                        hx-target="#score-form-container"
+                        hx-swap="outerHTML"
+                        hx-push-url="true">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+                {% else %}
+                <button class="btn btn-circle btn-ghost btn-sm btn-disabled min-w-[40px] min-h-[40px]">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+                {% endif %}
 
-        <!-- Subject badge and actions -->
-        <div class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 mb-4">
-            <span class="badge badge-primary badge-lg">{{ subject.name }}</span>
-            <div class="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
-                <!-- View Toggle - DaisyUI swap (checked = student view active) -->
-                <label class="btn btn-ghost btn-sm btn-square swap swap-rotate min-h-[44px] min-w-[44px] touch-manipulation"
-                       title="Switch to Table View">
-                    <input type="checkbox" checked
-                           hx-get="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
-                           hx-target="#score-form-container"
-                           hx-swap="outerHTML transition:true"
-                           hx-push-url="true"
-                           hx-trigger="change" />
-                    <!-- swap-off: Table icon -->
-                    <i class="swap-off fa-solid fa-table-cells"></i>
-                    <!-- swap-on: Student icon (current view - highlighted) -->
-                    <i class="swap-on fa-solid fa-id-card text-primary"></i>
-                </label>
+                <!-- Overflow menu -->
                 <div class="dropdown dropdown-end">
-                    <button type="button" tabindex="0" class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] touch-manipulation" title="More options">
-                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                    <button type="button" tabindex="0" class="btn btn-circle btn-ghost btn-sm min-h-[40px] min-w-[40px] touch-manipulation" title="More options">
+                        <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                     </button>
                     <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 sm:w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
+                        <li>
+                            <button class="min-h-[44px] touch-manipulation"
+                                    hx-get="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
+                                    hx-target="#score-form-container"
+                                    hx-swap="outerHTML transition:true"
+                                    hx-push-url="true">
+                                <i class="fa-solid fa-table-cells text-secondary"></i> Table View
+                            </button>
+                        </li>
                         <li>
                             <button class="min-h-[44px] touch-manipulation"
                                     hx-get="{% url 'gradebook:assignments' subject.pk %}"
@@ -132,10 +137,10 @@
 
         <!-- Score Entry Cards by Category -->
         {% if assignments_by_category %}
-        <div class="space-y-4">
+        <div class="space-y-3 sm:space-y-4">
             {% for category, category_assignments in assignments_by_category.items %}
-            <div class="bg-base-200/50 rounded-xl p-3">
-                <div class="flex items-center justify-between mb-3">
+            <div class="bg-base-200/50 rounded-xl p-2 sm:p-3">
+                <div class="flex items-center justify-between mb-2 sm:mb-3">
                     <h4 class="font-bold text-sm flex items-center gap-2">
                         <span class="badge badge-ghost badge-sm">{{ category.short_name }}</span>
                         {{ category.name }}
@@ -143,16 +148,16 @@
                     <span class="text-xs text-base-content/60">{{ category.percentage }}%</span>
                 </div>
 
-                <div class="space-y-2">
+                <div class="space-y-1.5 sm:space-y-2">
                     {% for assignment in category_assignments %}
-                    <div class="bg-base-100 rounded-lg p-3 flex items-center gap-3">
+                    <div class="bg-base-100 rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
                         <div class="flex-1 min-w-0">
                             <div class="font-medium text-sm truncate">{{ assignment.name }}</div>
                             <div class="text-xs text-base-content/60">Max: {{ assignment.points_possible }}</div>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1.5 sm:gap-2">
                             <input type="number"
-                                   class="input input-bordered w-20 h-12 text-center text-lg font-bold score-input-mobile {% if not editing_allowed %}input-disabled{% endif %}"
+                                   class="input input-bordered w-20 h-11 sm:h-12 text-center text-lg font-bold score-input-mobile {% if not editing_allowed %}input-disabled{% endif %}"
                                    data-student="{{ student.pk }}"
                                    data-assignment="{{ assignment.pk }}"
                                    data-max="{{ assignment.points_possible }}"
@@ -163,28 +168,13 @@
                                    inputmode="decimal"
                                    value="{{ scores_dict|get_item:assignment.pk|default:'' }}"
                                    {% if not editing_allowed %}disabled{% endif %}>
-                            <span class="text-base-content/40 text-sm">/ {{ assignment.points_possible }}</span>
+                            <span class="text-base-content/40 text-xs sm:text-sm">/ {{ assignment.points_possible }}</span>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
             {% endfor %}
-        </div>
-
-        <!-- Quick Student Selector -->
-        <div class="divider my-4">Jump to Student</div>
-        <div class="form-control">
-            <select class="select select-bordered w-full"
-                    hx-on::change="if(this.value) htmx.ajax('GET', this.value, {target:'#score-form-container', swap:'outerHTML', pushUrl:true})">
-                <option value="">Select a student...</option>
-                {% for s in students %}
-                <option value="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk s.pk %}"
-                        {% if s.pk == student.pk %}selected{% endif %}>
-                    {{ s.last_name }}, {{ s.first_name }}
-                </option>
-                {% endfor %}
-            </select>
         </div>
         {% else %}
         <div class="text-center py-8 text-base-content/40">
@@ -584,6 +574,70 @@ function hideErrorTooltipMobile() {
             }
         });
     });
+
+    // Score progress indicator
+    function updateScoreProgress() {
+        var inputs = document.querySelectorAll('.score-input-mobile');
+        var total = inputs.length;
+        var filled = 0;
+        inputs.forEach(function(inp) {
+            if (inp.value.trim() !== '') filled++;
+        });
+        var el = document.getElementById('score-progress');
+        if (el) {
+            el.textContent = filled + '/' + total;
+            el.className = 'font-medium ' + (filled === total && total > 0 ? 'text-success' : '');
+        }
+    }
+
+    // Update progress on input changes
+    document.querySelectorAll('.score-input-mobile').forEach(function(inp) {
+        inp.addEventListener('input', updateScoreProgress);
+    });
+    updateScoreProgress();
+
+    // Sticky header shadow on scroll
+    var stickyHeader = document.getElementById('student-sticky-header');
+    if (stickyHeader) {
+        var cardBody = stickyHeader.parentElement;
+        function onScroll() {
+            if (cardBody.scrollTop > 4 || window.scrollY > stickyHeader.getBoundingClientRect().top + 4) {
+                stickyHeader.classList.replace('border-transparent', 'border-base-300');
+            } else {
+                stickyHeader.classList.replace('border-base-300', 'border-transparent');
+            }
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        cardBody.addEventListener('scroll', onScroll, { passive: true });
+    }
+
+    // Swipe navigation between students
+    (function() {
+        var container = document.getElementById('score-form-container');
+        if (!container) return;
+        var startX = 0, startY = 0;
+        container.addEventListener('touchstart', function(e) {
+            startX = e.changedTouches[0].screenX;
+            startY = e.changedTouches[0].screenY;
+        }, { passive: true });
+        container.addEventListener('touchend', function(e) {
+            var dx = e.changedTouches[0].screenX - startX;
+            var dy = e.changedTouches[0].screenY - startY;
+            // Only trigger if horizontal swipe is dominant and exceeds threshold
+            if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+            // Don't trigger if touch started on an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if (dx > 0) {
+                // Swipe right = previous student
+                var prev = document.getElementById('prev-student-btn');
+                if (prev) prev.click();
+            } else {
+                // Swipe left = next student
+                var next = document.getElementById('next-student-btn');
+                if (next) next.click();
+            }
+        }, { passive: true });
+    })();
 
     console.log('Mobile score inputs initialized:', document.querySelectorAll('.score-input-mobile:not([disabled])').length);
 })();

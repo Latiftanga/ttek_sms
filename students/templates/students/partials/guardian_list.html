@@ -209,6 +209,7 @@
                         <tr class="hover:bg-base-200/30 cursor-pointer"
                             hx-get="{% url 'students:guardian_detail' guardian.pk %}"
                             hx-target="#main-content"
+                            hx-swap="innerHTML"
                             hx-push-url="true">
                             <td>
                                 <div class="flex items-center gap-2">

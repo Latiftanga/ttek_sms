@@ -4,37 +4,31 @@
 <div class="card bg-base-100 shadow-sm border border-base-200"
      x-data="{ init() { localStorage.setItem('gradebookViewMode', 'table'); } }"
      x-init="init()">
-    <div class="card-body p-3 md:p-4">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 mb-4">
-            <div>
-                <h2 class="font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-table text-primary"></i>
-                    <span class="truncate">{{ class_obj.name }} - {{ subject.name }}</span>
-                </h2>
-                <p class="text-sm text-base-content/60">{{ students|length }} students</p>
-            </div>
-            <div class="flex flex-wrap items-center justify-end gap-2">
-                {% if students %}
-                <!-- View Toggle - DaisyUI swap -->
-                <label class="btn btn-ghost btn-sm btn-square swap swap-rotate min-h-[44px] min-w-[44px] touch-action-manipulation"
-                       title="Switch to Student View">
-                    <input type="checkbox"
-                           hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
-                           hx-target="#score-form-container"
-                           hx-swap="outerHTML transition:true"
-                           hx-push-url="true"
-                           hx-trigger="change" />
-                    <!-- swap-off: Table icon (current view) -->
-                    <i class="swap-off fa-solid fa-table-cells text-primary"></i>
-                    <!-- swap-on: Student icon (target view) -->
-                    <i class="swap-on fa-solid fa-id-card"></i>
-                </label>
-                {% endif %}
+    <div class="card-body p-2 sm:p-3 md:p-4">
+        <!-- Header -->
+        <div class="mb-3" id="table-sticky-header">
+            <div class="flex items-center gap-2">
+                <div class="flex-1 min-w-0">
+                    <h2 class="font-bold text-sm sm:text-base truncate">{{ class_obj.name }} — {{ subject.name }}</h2>
+                    <p class="text-[11px] text-base-content/50 leading-tight">{{ students|length }} students{% if assignments %} · {{ assignments|length }} assignments{% endif %}</p>
+                </div>
+                <!-- Overflow menu -->
                 <div class="dropdown dropdown-end">
-                    <button type="button" tabindex="0" class="btn btn-sm btn-ghost min-h-[44px] min-w-[44px] touch-action-manipulation" title="More options">
-                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                    <button type="button" tabindex="0" class="btn btn-circle btn-ghost btn-sm min-h-[40px] min-w-[40px] touch-action-manipulation" title="More options">
+                        <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                     </button>
                     <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 sm:w-64 p-2 shadow-lg border border-base-200 whitespace-nowrap">
+                        {% if students %}
+                        <li>
+                            <button class="min-h-[44px] touch-action-manipulation"
+                                    hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
+                                    hx-target="#score-form-container"
+                                    hx-swap="outerHTML transition:true"
+                                    hx-push-url="true">
+                                <i class="fa-solid fa-id-card text-secondary"></i> Student View
+                            </button>
+                        </li>
+                        {% endif %}
                         <li>
                             <button class="min-h-[44px] touch-action-manipulation"
                                     hx-get="{% url 'gradebook:assignments' subject.pk %}"
@@ -81,56 +75,38 @@
         </div>
 
         {% if not can_edit %}
-        <div class="alert alert-warning mb-4">
-            <i class="fa-solid fa-user-lock"></i>
-            <span>You are not assigned to teach this subject for this class. Scores are read-only.</span>
+        <div class="alert alert-warning mb-3 py-2">
+            <i class="fa-solid fa-user-lock text-sm"></i>
+            <span class="text-sm">Read-only: You are not assigned to teach this subject.</span>
         </div>
         {% endif %}
 
         {% if not assignments %}
-        <div class="alert alert-info mb-4">
-            <i class="fa-solid fa-circle-info"></i>
-            <span>No assignments created for this subject yet. Click "Manage Assignments" to add some.</span>
+        <div class="alert alert-info mb-3 py-2">
+            <i class="fa-solid fa-circle-info text-sm"></i>
+            <span class="text-sm">No assignments yet. Tap the menu to add some.</span>
         </div>
         {% endif %}
 
         <!-- Offline warning banner -->
-        <div id="offline-banner" class="alert alert-warning mb-3 hidden">
-            <i class="fa-solid fa-wifi-slash"></i>
-            <span>You are offline. Scores will not save until your connection is restored.</span>
+        <div id="offline-banner" class="alert alert-warning py-2 mb-3 hidden">
+            <i class="fa-solid fa-wifi-slash text-sm"></i>
+            <span class="text-sm">You are offline. Scores will not save until you reconnect.</span>
         </div>
 
         {% if students %}
-        <!-- Mobile hint - suggest student view for easier entry -->
-        <div class="md:hidden alert alert-info py-2 mb-3">
-            <i class="fa-solid fa-lightbulb text-sm shrink-0"></i>
-            <span class="text-sm flex-1">Tip: Student View is easier on mobile</span>
-            <a href="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
-               hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
-               hx-target="#score-form-container"
-               hx-swap="outerHTML transition:true"
-               hx-push-url="true"
-               class="btn btn-info btn-xs shrink-0">
-                Switch <i class="fa-solid fa-arrow-right ml-1"></i>
-            </a>
-        </div>
-        <!-- Scroll hint for table -->
-        <div class="md:hidden flex items-center justify-end gap-2 text-xs text-base-content/50 mb-2">
-            <i class="fa-solid fa-arrows-left-right"></i>
-            <span>Scroll for more &rarr;</span>
-        </div>
-        <div class="overflow-x-auto -mx-3 px-3 md:-mx-4 md:px-4 lg:mx-0 lg:px-0 scroll-shadow-container">
-            <table class="table table-sm table-pin-rows">
+        <div class="overflow-x-auto -mx-2 sm:-mx-3 md:-mx-4 px-2 sm:px-3 md:px-4 lg:mx-0 lg:px-0 scroll-shadow-container">
+            <table class="table table-xs sm:table-sm table-pin-rows">
                 <thead>
                     <tr class="bg-base-200">
-                        <th class="sticky left-0 bg-base-200 z-10 min-w-[120px] md:min-w-[160px]">
+                        <th class="sticky left-0 bg-base-200 z-10 min-w-[100px] sm:min-w-[120px] md:min-w-[160px]">
                             <span class="hidden md:inline">Student</span>
                             <span class="md:hidden">Name</span>
                         </th>
                         {% for assign in assignments %}
-                        <th class="text-center min-w-[70px] md:min-w-20">
+                        <th class="text-center min-w-[64px] sm:min-w-[70px] md:min-w-20">
                             <div class="text-xs">{{ assign.assessment_category.short_name }}</div>
-                            <div class="text-xs font-normal text-base-content/60 truncate max-w-[60px] md:max-w-none" title="{{ assign.name }}">{{ assign.name }}</div>
+                            <div class="text-xs font-normal text-base-content/60 truncate max-w-[56px] sm:max-w-[60px] md:max-w-none" title="{{ assign.name }}">{{ assign.name }}</div>
                             <div class="text-xs font-normal text-base-content/40">/ {{ assign.points_possible }}</div>
                         </th>
                         {% endfor %}
@@ -139,14 +115,13 @@
                 <tbody>
                     {% for student in students %}
                     <tr class="hover">
-                        <td class="sticky left-0 bg-base-100 z-10 py-2">
-                            <!-- Mobile: Clickable to open student view -->
+                        <td class="sticky left-0 bg-base-100 z-10 py-1 sm:py-2">
                             <a href="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk student.pk %}"
                                hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk student.pk %}"
                                hx-target="#score-form-container"
                                hx-swap="outerHTML"
                                class="md:pointer-events-none md:no-underline block">
-                                <div class="font-medium text-sm md:text-base">
+                                <div class="font-medium text-xs sm:text-sm md:text-base">
                                     <span class="md:hidden">{{ student.last_name|slice:":8" }}, {{ student.first_name.0 }}.</span>
                                     <span class="hidden md:inline">{{ student.last_name }}, {{ student.first_name }}</span>
                                 </div>
@@ -154,9 +129,9 @@
                             </a>
                         </td>
                         {% for assign in assignments %}
-                        <td class="text-center p-1">
+                        <td class="text-center p-0.5 sm:p-1">
                             <input type="number"
-                                   class="input input-bordered w-16 h-10 md:w-16 md:h-8 text-center text-base md:text-sm font-medium score-input {% if not editing_allowed %}input-disabled{% endif %}"
+                                   class="input input-bordered w-14 h-9 sm:w-16 sm:h-10 md:h-8 text-center text-sm sm:text-base md:text-sm font-medium score-input {% if not editing_allowed %}input-disabled{% endif %}"
                                    data-student="{{ student.pk }}"
                                    data-assignment="{{ assign.pk }}"
                                    data-max="{{ assign.points_possible }}"
@@ -176,7 +151,7 @@
             </table>
         </div>
 
-        <div class="mt-4 text-center text-xs md:text-sm text-base-content/60">
+        <div class="mt-3 text-center text-[11px] text-base-content/40">
             <i class="fa-solid fa-cloud-arrow-up"></i>
             Scores save automatically
         </div>
