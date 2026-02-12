@@ -1133,20 +1133,31 @@
         }
     }
 
-    function showStudentAttendance(studentId) {
+    function showStudentAttendance(studentId, retryCount) {
+        retryCount = retryCount || 0;
+        var MAX_RETRIES = 2;
         const modal = document.getElementById('student_attendance_modal');
         const content = document.getElementById('student_attendance_content');
 
         content.innerHTML = '<div class="flex justify-center py-12"><span class="loading loading-spinner loading-lg text-primary"></span></div>';
-        modal.showModal();
+        if (!modal.open) modal.showModal();
 
         fetch(`/academics/attendance/student/${studentId}/?date_from={{ date_from }}&date_to={{ date_to }}`, {
             headers: { 'HX-Request': 'true' }
         })
-        .then(response => response.text())
-        .then(html => { content.innerHTML = html; })
-        .catch(error => {
-            content.innerHTML = '<div class="text-center py-8 text-error"><i class="fa-solid fa-exclamation-circle text-2xl mb-2"></i><p>Failed to load details</p></div>';
+        .then(function(response) {
+            if (!response.ok) throw new Error('Server error');
+            return response.text();
+        })
+        .then(function(html) { content.innerHTML = html; })
+        .catch(function(error) {
+            if (retryCount < MAX_RETRIES) {
+                var delay = Math.pow(2, retryCount) * 1000;
+                content.innerHTML = '<div class="flex justify-center py-12"><span class="loading loading-spinner loading-lg text-warning"></span><p class="text-sm text-base-content/60 mt-2">Retrying...</p></div>';
+                setTimeout(function() { showStudentAttendance(studentId, retryCount + 1); }, delay);
+            } else {
+                content.innerHTML = '<div class="text-center py-8 text-error"><i class="fa-solid fa-exclamation-circle text-2xl mb-2"></i><p>Failed to load details</p><button class="btn btn-sm btn-ghost mt-2" onclick="showStudentAttendance(\'' + studentId + '\')">Try again</button></div>';
+            }
         });
     }
 

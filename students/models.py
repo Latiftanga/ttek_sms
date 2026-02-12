@@ -480,6 +480,12 @@ class Enrollment(models.Model):
     )
     remarks = models.TextField(blank=True, help_text="Notes about this enrollment")
 
+    # Historical snapshot — captures the class name at enrollment time
+    class_name = models.CharField(
+        max_length=20, blank=True,
+        help_text="Snapshot of class name at time of enrollment"
+    )
+
     # Track promotion source
     promoted_from = models.ForeignKey(
         'self',
@@ -508,6 +514,11 @@ class Enrollment(models.Model):
             # Lookup enrollments by class
             models.Index(fields=['class_assigned']),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.class_name and self.class_assigned_id:
+            self.class_name = self.class_assigned.name
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.student.full_name} - {self.class_assigned.name} ({self.academic_year})"

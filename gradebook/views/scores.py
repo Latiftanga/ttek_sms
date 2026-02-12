@@ -549,15 +549,13 @@ def _get_assignments_context(subject, term):
         ).values_list('assessment_category', 'count')
     )
 
-    # Add count and next number to each category
+    # Add count to each category
     categories_with_counts = []
     for cat in categories:
         count = category_counts.get(cat.pk, 0)
-        label = cat.short_name if len(cat.short_name) <= 6 else cat.name
         categories_with_counts.append({
             'obj': cat,
             'count': count,
-            'next_name': f"{label} {count + 1}",
         })
 
     return {
@@ -606,25 +604,35 @@ def assignment_create(request):
     except ValueError:
         return HttpResponse('Invalid date format', status=400)
 
-    # Auto-generate assignment name based on category
-    # Count existing assignments in this category for this subject/term
-    existing_count = Assignment.objects.filter(
+    # Auto-generate name: "CA (Jan 10)", "EXAM (Feb 15)"
+    # If collision (same category+date), append number: "CA (Jan 10) 2"
+    category_label = category.short_name if len(category.short_name) <= 6 else category.name
+    date_display = assignment_date.strftime('%b %d')
+    base_name = f"{category_label} ({date_display})"
+    name = base_name
+    counter = 2
+    while Assignment.objects.filter(
         assessment_category=category,
         subject=subject,
-        term=current_term
-    ).count()
+        term=current_term,
+        name=name
+    ).exists():
+        name = f"{base_name} {counter}"
+        counter += 1
 
-    # Generate name like "Quiz 1", "Quiz 2", "Project 1", etc.
-    # Use short_name if it's a single word, otherwise use name
-    category_label = category.short_name if len(category.short_name) <= 6 else category.name
-    name = f"{category_label} {existing_count + 1}"
+    try:
+        points = Decimal(points_possible)
+        if points < 1 or points > 9999:
+            return HttpResponse('Points must be between 1 and 9999', status=400)
+    except Exception:
+        return HttpResponse('Invalid points value', status=400)
 
     Assignment.objects.create(
         assessment_category=category,
         subject=subject,
         term=current_term,
         name=name,
-        points_possible=int(points_possible),
+        points_possible=points,
         date=assignment_date,
     )
 
@@ -643,21 +651,11 @@ def assignment_edit(request, pk):
     subject = assignment.subject
     current_term = assignment.term
 
+    is_admin = is_school_admin(request.user)
+
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        points_possible = request.POST.get('points_possible', '100')
-        category_id = request.POST.get('category_id')
         date_str = request.POST.get('date', '').strip()
-
-        if not name:
-            return HttpResponse('Name is required', status=400)
-
-        try:
-            points = Decimal(points_possible)
-            if points < 1:
-                return HttpResponse('Points must be at least 1', status=400)
-        except Exception:
-            return HttpResponse('Invalid points value', status=400)
+        points_possible = request.POST.get('points_possible', '').strip()
 
         # Parse date if provided
         if date_str:
@@ -667,12 +665,29 @@ def assignment_edit(request, pk):
             except ValueError:
                 return HttpResponse('Invalid date format', status=400)
 
-        # Update assignment
-        assignment.name = name
-        assignment.points_possible = points
-        if category_id:
-            category = get_object_or_404(AssessmentCategory, pk=category_id)
-            assignment.assessment_category = category
+        # All users can update points_possible
+        if points_possible:
+            try:
+                points = Decimal(points_possible)
+                if points < 1 or points > 9999:
+                    return HttpResponse('Points must be between 1 and 9999', status=400)
+            except Exception:
+                return HttpResponse('Invalid points value', status=400)
+            assignment.points_possible = points
+
+        # Admins can also edit name and category
+        if is_admin:
+            name = request.POST.get('name', '').strip()
+            category_id = request.POST.get('category_id')
+
+            if not name:
+                return HttpResponse('Name is required', status=400)
+
+            assignment.name = name
+            if category_id:
+                category = get_object_or_404(AssessmentCategory, pk=category_id)
+                assignment.assessment_category = category
+
         assignment.save()
 
         # Return updated assignments list
@@ -686,6 +701,7 @@ def assignment_edit(request, pk):
     return render(request, 'gradebook/partials/assignment_edit_form.html', {
         'assignment': assignment,
         'categories': categories,
+        'is_admin': is_admin,
     })
 
 

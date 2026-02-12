@@ -1,6 +1,7 @@
 {% load core_tags %}
 
 <!-- Student Score Entry - Mobile Optimized -->
+<div id="score-form-container">
 <div class="card bg-base-100 shadow-sm border border-base-200"
      x-data="{ init() { localStorage.setItem('gradebookViewMode', 'student'); } }"
      x-init="init()">
@@ -12,7 +13,7 @@
             <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px] touch-manipulation"
                     hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk prev_student.pk %}"
                     hx-target="#score-form-container"
-                    hx-swap="innerHTML"
+                    hx-swap="outerHTML"
                     hx-push-url="true">
                 <i class="fa-solid fa-chevron-left"></i>
             </button>
@@ -42,7 +43,7 @@
             <button class="btn btn-circle btn-ghost min-w-[44px] min-h-[44px] touch-manipulation"
                     hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk next_student.pk %}"
                     hx-target="#score-form-container"
-                    hx-swap="innerHTML"
+                    hx-swap="outerHTML"
                     hx-push-url="true">
                 <i class="fa-solid fa-chevron-right"></i>
             </button>
@@ -63,7 +64,7 @@
                     <input type="checkbox" checked
                            hx-get="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
                            hx-target="#score-form-container"
-                           hx-swap="innerHTML transition:true"
+                           hx-swap="outerHTML transition:true"
                            hx-push-url="true"
                            hx-trigger="change" />
                     <!-- swap-off: Table icon -->
@@ -123,6 +124,12 @@
         </div>
         {% endif %}
 
+        <!-- Offline warning banner -->
+        <div id="offline-banner-mobile" class="alert alert-warning py-2 mb-3 hidden">
+            <i class="fa-solid fa-wifi-slash text-sm"></i>
+            <span class="text-sm">You are offline. Scores will not save until you reconnect.</span>
+        </div>
+
         <!-- Score Entry Cards by Category -->
         {% if assignments_by_category %}
         <div class="space-y-4">
@@ -169,7 +176,7 @@
         <div class="divider my-4">Jump to Student</div>
         <div class="form-control">
             <select class="select select-bordered w-full"
-                    hx-on::change="if(this.value) htmx.ajax('GET', this.value, {target:'#score-form-container', swap:'innerHTML', pushUrl:true})">
+                    hx-on::change="if(this.value) htmx.ajax('GET', this.value, {target:'#score-form-container', swap:'outerHTML', pushUrl:true})">
                 <option value="">Select a student...</option>
                 {% for s in students %}
                 <option value="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk s.pk %}"
@@ -258,8 +265,13 @@
     outline-offset: 0;
 }
 .score-input-mobile.saving {
-    background-color: oklch(var(--wa) / 0.2);
+    background-color: oklch(var(--wa) / 0.15);
     border-color: oklch(var(--wa));
+    animation: pulse-saving-mobile 0.8s ease-in-out infinite;
+}
+@keyframes pulse-saving-mobile {
+    0%, 100% { border-color: oklch(var(--wa)); opacity: 1; }
+    50% { border-color: oklch(var(--wa) / 0.4); opacity: 0.7; }
 }
 .score-input-mobile.input-success {
     border-color: oklch(var(--su)) !important;
@@ -375,8 +387,35 @@ function hideErrorTooltipMobile() {
         return { valid: true };
     }
 
-    // Save score via AJAX
-    function saveScore(input) {
+    // Offline detection
+    var isOffline = !navigator.onLine;
+
+    function updateOfflineBanner() {
+        var banner = document.getElementById('offline-banner-mobile');
+        if (banner) {
+            banner.classList.toggle('hidden', !isOffline);
+        }
+    }
+
+    window.addEventListener('online', function() {
+        isOffline = false;
+        updateOfflineBanner();
+        showToast('Back online', 'success');
+    });
+
+    window.addEventListener('offline', function() {
+        isOffline = true;
+        updateOfflineBanner();
+        showToast('You are offline', 'error');
+    });
+
+    updateOfflineBanner();
+
+    // Save score via AJAX with retry
+    function saveScore(input, retryCount) {
+        retryCount = retryCount || 0;
+        var MAX_RETRIES = 2;
+
         const studentId = input.dataset.student;
         const assignmentId = input.dataset.assignment;
         const max = parseFloat(input.dataset.max);
@@ -384,6 +423,13 @@ function hideErrorTooltipMobile() {
         const originalValue = input.dataset.originalValue || '';
 
         if (value === originalValue) return;
+
+        // Block saves while offline
+        if (isOffline) {
+            markInputError(input, 'Offline', 'Score will not save until you reconnect');
+            showToast('Cannot save while offline', 'error');
+            return;
+        }
 
         // Client-side validation
         const validation = validateScore(value, max);
@@ -461,9 +507,16 @@ function hideErrorTooltipMobile() {
         })
         .catch(error => {
             input.classList.remove('saving');
-            markInputError(input, 'Network error', 'Check your connection');
-            showToast('Network error', 'error');
-            console.error('Score save error:', error);
+
+            if (retryCount < MAX_RETRIES) {
+                var delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
+                showToast('Retrying save... (' + (retryCount + 1) + '/' + MAX_RETRIES + ')', 'error');
+                setTimeout(function() { saveScore(input, retryCount + 1); }, delay);
+            } else {
+                markInputError(input, 'Save failed', 'Check your connection and try again');
+                showToast('Save failed after retries — check connection', 'error');
+            }
+            console.error('Score save error (attempt ' + (retryCount + 1) + '):', error);
         });
     }
 
@@ -535,3 +588,4 @@ function hideErrorTooltipMobile() {
     console.log('Mobile score inputs initialized:', document.querySelectorAll('.score-input-mobile:not([disabled])').length);
 })();
 </script>
+</div>

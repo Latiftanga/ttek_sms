@@ -452,29 +452,35 @@ def create_assignments_and_scores(stdout):
         if not students.exists():
             continue
 
-        # 1 Class Assessment
+        # 1 Class Assessment — date-based name matching app convention
+        ca_date = term.start_date + timedelta(days=30)
+        ca_label = ca_category.short_name if len(ca_category.short_name) <= 6 else ca_category.name
+        ca_name = f"{ca_label} ({ca_date.strftime('%b %d')})"
         ca_assignment, ca_created = Assignment.objects.get_or_create(
             assessment_category=ca_category,
             subject=cs.subject,
             term=term,
-            name='Class Assessment 1',
+            name=ca_name,
             defaults={
                 'points_possible': Decimal('30'),
-                'date': term.start_date + timedelta(days=30),
+                'date': ca_date,
             },
         )
         if ca_created:
             assignment_count += 1
 
         # 1 Exam
+        exam_date = term.start_date + timedelta(days=80)
+        exam_label = exam_category.short_name if len(exam_category.short_name) <= 6 else exam_category.name
+        exam_name = f"{exam_label} ({exam_date.strftime('%b %d')})"
         exam_assignment, ex_created = Assignment.objects.get_or_create(
             assessment_category=exam_category,
             subject=cs.subject,
             term=term,
-            name='End of Term Exam',
+            name=exam_name,
             defaults={
                 'points_possible': Decimal('70'),
-                'date': term.start_date + timedelta(days=80),
+                'date': exam_date,
             },
         )
         if ex_created:

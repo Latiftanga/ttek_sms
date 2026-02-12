@@ -22,6 +22,11 @@ class Command(BaseCommand):
             help='Subdomain/schema for the school (e.g., "demo")'
         )
         parser.add_argument(
+            '--type',
+            choices=['basic', 'shs', 'both'],
+            help='Education system: basic, shs, or both'
+        )
+        parser.add_argument(
             '--admin-email',
             help='School admin email address'
         )
@@ -45,6 +50,7 @@ class Command(BaseCommand):
         # Get school details
         name = options.get('name')
         subdomain = options.get('subdomain')
+        school_type = options.get('type')
         admin_email = options.get('admin_email')
         admin_password = options.get('admin_password')
 
@@ -54,6 +60,18 @@ class Command(BaseCommand):
             if not subdomain:
                 suggested = name.lower().replace(' ', '_')[:20] if name else 'school'
                 subdomain = input(f'  Subdomain [{suggested}]: ').strip() or suggested
+            if not school_type:
+                self.stdout.write('\n  School type:')
+                self.stdout.write('    1) basic - Basic Only (Creche - Basic 9)')
+                self.stdout.write('    2) shs   - SHS Only')
+                self.stdout.write('    3) both  - Both Basic and SHS')
+                type_input = input('  Select [1/2/3]: ').strip()
+                type_map = {'1': 'basic', '2': 'shs', '3': 'both'}
+                school_type = type_map.get(type_input)
+                while school_type not in ('basic', 'shs', 'both'):
+                    self.stdout.write(self.style.ERROR('  Invalid choice. Enter 1, 2, or 3.'))
+                    type_input = input('  Select [1/2/3]: ').strip()
+                    school_type = type_map.get(type_input)
             if not admin_email:
                 admin_email = input('  Admin email: ').strip()
             if not admin_password:
@@ -68,6 +86,10 @@ class Command(BaseCommand):
                         break
                     except ValidationError as e:
                         self.stdout.write(self.style.ERROR(f'  {"; ".join(e.messages)}'))
+
+        # Default school_type for --no-input mode
+        if not school_type:
+            school_type = 'both'
 
         # Validate inputs
         if not all([name, subdomain, admin_email, admin_password]):
@@ -84,7 +106,9 @@ class Command(BaseCommand):
         else:
             full_domain = f'{subdomain}.{base_domain}'
 
+        type_labels = {'basic': 'Basic Only', 'shs': 'SHS Only', 'both': 'Both Basic and SHS'}
         self.stdout.write(f'\n  Creating school: {name}')
+        self.stdout.write(f'  Type: {type_labels[school_type]}')
         self.stdout.write(f'  Schema: {subdomain}')
         self.stdout.write(f'  Domain: {full_domain}\n')
 
@@ -103,6 +127,7 @@ class Command(BaseCommand):
             schema_name=subdomain,
             name=name,
             short_name=subdomain.upper()[:20],
+            education_system=school_type,
         )
         self.stdout.write(self.style.SUCCESS(f'  ✓ School created: {school.name}'))
 

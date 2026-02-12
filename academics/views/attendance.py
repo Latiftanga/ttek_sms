@@ -1,5 +1,6 @@
 """Attendance management views including taking attendance, reports, and exports."""
 import logging
+from collections import defaultdict
 from datetime import timedelta, datetime
 from io import BytesIO
 
@@ -1152,7 +1153,6 @@ def notify_absent_parents(request):
         return redirect('academics:attendance_reports')
 
     # Batch fetch all recent attendance records for these students (avoid N+1)
-    from collections import defaultdict
     all_records = AttendanceRecord.objects.filter(
         student__in=students
     ).select_related('session').order_by('student_id', '-session__date')
@@ -1279,6 +1279,22 @@ def weekly_attendance_register_pdf(request, pk):
     ).order_by('last_name', 'first_name')
 
     # Build days structure for the date range (weekdays only, max 31 days)
+    # Prefetch ALL sessions and records for the date range in 2 queries
+    sessions_by_date = {}
+    for session in AttendanceSession.objects.filter(
+        class_assigned=class_obj,
+        date__range=(date_from, date_to),
+        session_type=AttendanceSession.SessionType.DAILY
+    ):
+        sessions_by_date[session.date] = session
+
+    # Prefetch all records for these sessions in one query
+    session_ids = [s.id for s in sessions_by_date.values()]
+    records_by_session = defaultdict(list)
+    if session_ids:
+        for record in AttendanceRecord.objects.filter(session_id__in=session_ids):
+            records_by_session[record.session_id].append(record)
+
     report_days = []
     max_days = min((date_to - date_from).days + 1, 31)  # Limit to 31 days
 
@@ -1293,21 +1309,14 @@ def weekly_attendance_register_pdf(request, pk):
 
         day_name = day_date.strftime('%a')  # Mon, Tue, etc.
 
-        # Get attendance session for this day
-        session = AttendanceSession.objects.filter(
-            class_assigned=class_obj,
-            date=day_date,
-            session_type=AttendanceSession.SessionType.DAILY
-        ).first()
-
         day_records = {}
         present_count = 0
         absent_count = 0
         late_count = 0
 
+        session = sessions_by_date.get(day_date)
         if session:
-            records = AttendanceRecord.objects.filter(session=session)
-            for record in records:
+            for record in records_by_session.get(session.id, []):
                 day_records[record.student_id] = record.status
                 if record.status == 'P':
                     present_count += 1

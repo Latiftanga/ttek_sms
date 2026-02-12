@@ -1051,168 +1051,8 @@ def class_sync_subjects(request, pk):
 
 @admin_required
 def class_promote(request, pk):
-    """Promote students from a specific class (HTMX modal endpoint)."""
-    from students.models import Enrollment
-    from core.models import AcademicYear
-
-    class_obj = get_object_or_404(Class, pk=pk)
-
-    # Non-HTMX GET (direct URL access/refresh) - redirect to class detail
-    if request.method == 'GET' and not request.htmx:
-        return redirect('academics:class_detail', pk=pk)
-
-    current_year = AcademicYear.get_current()
-
-    if not current_year:
-        return render(request, 'academics/partials/modal_class_promote.html', {
-            'class': class_obj,
-            'error': 'No current academic year set.',
-        })
-
-    # Get next academic year
-    next_year = AcademicYear.objects.filter(
-        start_date__gt=current_year.end_date
-    ).order_by('start_date').first()
-
-    if not next_year:
-        return render(request, 'academics/partials/modal_class_promote.html', {
-            'class': class_obj,
-            'error': 'No next academic year configured. Please create one first.',
-        })
-
-    # Determine if this is a final-year class
-    is_final_year = (
-        class_obj.level_type == Class.LevelType.SHS and class_obj.level_number == 3
-    )
-
-    # Get students with active enrollments in this class for current year
-    students = Student.objects.filter(
-        enrollments__class_assigned=class_obj,
-        enrollments__academic_year=current_year,
-        enrollments__status=Enrollment.Status.ACTIVE,
-        status=Student.Status.ACTIVE
-    ).select_related('current_class').order_by('last_name', 'first_name')
-
-    if request.method == 'POST':
-        promoted_count = 0
-        repeated_count = 0
-        graduated_count = 0
-        errors = []
-
-        # Wrap all promotion operations in a transaction for atomicity
-        with transaction.atomic():
-            for key, value in request.POST.items():
-                if key.startswith('action_'):
-                    student_id = key.replace('action_', '')
-                    action = value
-
-                    if action == 'skip':
-                        continue
-
-                    try:
-                        student = Student.objects.get(pk=student_id)
-                        current_enrollment = student.enrollments.filter(
-                            academic_year=current_year,
-                            class_assigned=class_obj,
-                            status=Enrollment.Status.ACTIVE
-                        ).first()
-
-                        if not current_enrollment:
-                            continue
-
-                        if action == 'promote':
-                            target_class_id = request.POST.get(f'target_class_{student_id}')
-                            if not target_class_id:
-                                errors.append(f'{student.full_name}: No target class selected')
-                                continue
-
-                            try:
-                                target_class = Class.objects.get(pk=target_class_id)
-                            except Class.DoesNotExist:
-                                errors.append(f'{student.full_name}: Invalid target class')
-                                continue
-
-                            current_enrollment.status = Enrollment.Status.PROMOTED
-                            current_enrollment.save()
-
-                            Enrollment.objects.create(
-                                student=student,
-                                academic_year=next_year,
-                                class_assigned=target_class,
-                                status=Enrollment.Status.ACTIVE,
-                                promoted_from=current_enrollment,
-                            )
-
-                            # Deactivate old class subject enrollments
-                            StudentSubjectEnrollment.objects.filter(
-                                student=student,
-                                class_subject__class_assigned=class_obj
-                            ).update(is_active=False)
-
-                            student.current_class = target_class
-                            student.save()
-
-                            # Enroll in new class subjects
-                            StudentSubjectEnrollment.enroll_student_in_class_subjects(
-                                student, target_class
-                            )
-                            promoted_count += 1
-
-                        elif action == 'repeat':
-                            current_enrollment.status = Enrollment.Status.REPEATED
-                            current_enrollment.save()
-
-                            Enrollment.objects.create(
-                                student=student,
-                                academic_year=next_year,
-                                class_assigned=class_obj,
-                                status=Enrollment.Status.ACTIVE,
-                                promoted_from=current_enrollment,
-                                remarks='Repeated year',
-                            )
-                            repeated_count += 1
-
-                        elif action == 'graduate':
-                            current_enrollment.status = Enrollment.Status.GRADUATED
-                            current_enrollment.save()
-
-                            # Deactivate subject enrollments
-                            StudentSubjectEnrollment.objects.filter(
-                                student=student,
-                                class_subject__class_assigned=class_obj
-                            ).update(is_active=False)
-
-                            student.status = Student.Status.GRADUATED
-                            student.current_class = None
-                            student.save()
-                            graduated_count += 1
-
-                    except Student.DoesNotExist:
-                        errors.append(f'Student ID {student_id}: Not found')
-                    except Exception as e:
-                        errors.append(f'Error: {str(e)}')
-
-        # HTMX Response: Close modal and refresh content
-        if request.htmx:
-            response = HttpResponse()
-            response['HX-Trigger'] = 'studentsPromoted, closeModal'
-            return response
-
-        return redirect('academics:class_detail', pk=pk)
-
-    # GET: Prepare form data
-    all_target_classes = Class.objects.filter(is_active=True).order_by(
-        'programme__name', 'level_number', 'name'
-    )
-
-    return render(request, 'academics/partials/modal_class_promote.html', {
-        'class': class_obj,
-        'students': students,
-        'is_final_year': is_final_year,
-        'current_year': current_year,
-        'next_year': next_year,
-        'all_classes': all_target_classes,
-    })
+    """Redirect to main promotion page (class-level promotion is now in students app)."""
+    return redirect('students:promotion')
 
 
 # ============ EXPORT ============
@@ -1240,6 +1080,15 @@ def class_export(request, pk):
         female_count=Count('id', filter=models.Q(gender='F'))
     )
     students = list(students_qs)  # Convert to list since we need both iteration and count
+
+    # Prefetch primary guardians to avoid N+1 on guardian_name/guardian_phone
+    from students.models import StudentGuardian
+    sg_qs = StudentGuardian.objects.filter(
+        student__in=students, is_primary=True
+    ).select_related('guardian')
+    guardian_map = {sg.student_id: sg.guardian for sg in sg_qs}
+    for student in students:
+        student._cached_primary_guardian = guardian_map.get(student.id)
 
     school = SchoolSettings.load()
 

@@ -166,13 +166,9 @@
 <script>
 // Score Entry initialization - designed to work with HTMX history restore
 (function() {
-    // Prevent multiple initializations
-    if (window._scoreEntryInitialized) return;
-
     function initScoreEntry() {
         const classSelect = document.getElementById('class-select');
         const subjectSelect = document.getElementById('subject-select');
-        const scoreContainer = document.getElementById('score-form-container');
 
         if (!classSelect || !subjectSelect) return;
 
@@ -193,29 +189,30 @@
         if (preselectedClass && classEl.querySelector(`option[value="${preselectedClass}"]`)) {
             classEl.value = preselectedClass;
             // Trigger change to load subjects
-            loadSubjectsForClass(preselectedClass, subjectEl, scoreContainer);
+            loadSubjectsForClass(preselectedClass, subjectEl);
         }
 
         // Load subjects when class is selected
         classEl.addEventListener('change', function() {
             const classId = this.value;
-            loadSubjectsForClass(classId, subjectEl, scoreContainer);
+            loadSubjectsForClass(classId, subjectEl);
         });
 
         // Load score form when subject is selected
         subjectEl.addEventListener('change', function() {
             const classId = classEl.value;
             const subjectId = this.value;
-            loadScoreForm(classId, subjectId, scoreContainer);
+            loadScoreForm(classId, subjectId);
             updateImportForm(classId, subjectId);
         });
     }
 
-    function loadSubjectsForClass(classId, subjectEl, scoreContainer) {
+    function loadSubjectsForClass(classId, subjectEl) {
+        var scoreContainer = document.getElementById('score-form-container');
         if (!classId) {
             subjectEl.innerHTML = '<option value="">Select a class first...</option>';
             subjectEl.disabled = true;
-            scoreContainer.innerHTML = `
+            if (scoreContainer) scoreContainer.innerHTML = `
                 <div class="text-center py-12 text-base-content/40">
                     <i class="fa-solid fa-pen-to-square text-4xl mb-3"></i>
                     <p class="text-sm">Select a class and subject to enter scores</p>
@@ -253,8 +250,10 @@
             });
     }
 
-    function loadScoreForm(classId, subjectId, scoreContainer) {
+    function loadScoreForm(classId, subjectId) {
         if (!classId || !subjectId) return;
+        var scoreContainer = document.getElementById('score-form-container');
+        if (!scoreContainer) return;
 
         // Show loading state immediately for mobile feedback
         scoreContainer.innerHTML = `
@@ -286,10 +285,11 @@
         // Load score entry form via HTMX with error handling
         htmx.ajax('GET', url, {
             target: '#score-form-container',
-            swap: 'innerHTML transition:true'
+            swap: 'outerHTML transition:true'
         }).catch(function(error) {
             console.error('Error loading score form:', error);
-            scoreContainer.innerHTML = `
+            var el = document.getElementById('score-form-container');
+            if (el) el.innerHTML = `
                 <div class="card bg-base-100 shadow-sm border border-base-200">
                     <div class="card-body p-6">
                         <div class="alert alert-error">
@@ -333,7 +333,7 @@
 
                     htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
                         target: '#score-form-container',
-                        swap: 'innerHTML'
+                        swap: 'outerHTML'
                     });
                 }
             }
@@ -360,7 +360,7 @@
 
                     htmx.ajax('GET', `/gradebook/scores/${classId}/${subjectId}/`, {
                         target: '#score-form-container',
-                        swap: 'innerHTML'
+                        swap: 'outerHTML'
                     });
                 }
             }
@@ -415,7 +415,6 @@
 
     // Initialize on page load
     initScoreEntry();
-    window._scoreEntryInitialized = true;
 })();
 </script>
 

@@ -4,7 +4,5 @@
 {% block title %}{{ student.full_name }} - Score Entry - {{ block.super }}{% endblock %}
 
 {% block content %}
-<div id="score-form-container">
 {% include "gradebook/partials/score_form_student.html" %}
-</div>
 {% endblock %}

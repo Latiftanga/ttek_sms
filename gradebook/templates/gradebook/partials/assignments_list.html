@@ -5,37 +5,35 @@
     </h3>
     <p class="text-sm text-base-content/60 mb-4">{{ subject.name }} &middot; {{ current_term.name }}</p>
 
-    <!-- Add Assignment Form (Simplified) -->
+    <!-- Add Assignment Form -->
     <form hx-post="{% url 'gradebook:assignment_create' %}"
           hx-target="#assignments-container"
           hx-swap="outerHTML"
           class="bg-base-200/50 rounded-lg p-3 mb-4 border border-base-300">
         <input type="hidden" name="subject_id" value="{{ subject.pk }}">
 
-        <div class="grid grid-cols-2 gap-2 mb-2">
+        <div class="grid grid-cols-3 gap-2 mb-2">
             <!-- Category -->
             <div class="form-control">
                 <label class="label py-0.5">
                     <span class="label-text text-xs font-medium">Category</span>
                 </label>
                 <select name="category_id"
-                        id="category-select"
                         class="select select-bordered select-sm w-full"
-                        onchange="updateNamePreview(this)"
                         required>
-                    <option value="" data-next="">Select...</option>
+                    <option value="">Select...</option>
                     {% for cat in categories %}
-                    <option value="{{ cat.obj.pk }}" data-next="{{ cat.next_name }}" data-count="{{ cat.count }}">
+                    <option value="{{ cat.obj.pk }}">
                         {{ cat.obj.name }}{% if cat.count > 0 %} ({{ cat.count }}){% endif %}
                     </option>
                     {% endfor %}
                 </select>
             </div>
 
-            <!-- Date Given -->
+            <!-- Date Administered -->
             <div class="form-control">
                 <label class="label py-0.5">
-                    <span class="label-text text-xs font-medium">Date Given</span>
+                    <span class="label-text text-xs font-medium">Date</span>
                 </label>
                 <input type="date"
                        name="date"
@@ -43,58 +41,27 @@
                        value="{% now 'Y-m-d' %}"
                        required>
             </div>
-        </div>
 
-        <div class="flex items-end gap-2">
             <!-- Max Points -->
-            <div class="form-control flex-1">
+            <div class="form-control">
                 <label class="label py-0.5">
-                    <span class="label-text text-xs font-medium">Max Points</span>
+                    <span class="label-text text-xs font-medium">Marked Over</span>
                 </label>
-                <input type="number"
-                       name="points_possible"
-                       class="input input-bordered input-sm w-full"
-                       value="100"
-                       min="1"
-                       required>
+                <div class="flex gap-1">
+                    <input type="number"
+                           name="points_possible"
+                           class="input input-bordered input-sm w-full"
+                           value="100"
+                           min="1"
+                           max="9999"
+                           required>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
             </div>
-
-            <!-- Submit Button -->
-            <button type="submit" class="btn btn-sm btn-primary">
-                <i class="fa-solid fa-plus"></i>
-                Add
-            </button>
         </div>
-
-        <!-- Name Preview -->
-        <div id="name-preview" class="text-xs mt-2 hidden">
-            <span class="text-base-content/50"><i class="fa-solid fa-tag"></i> Will create:</span>
-            <span class="font-medium text-primary" id="preview-name"></span>
-        </div>
-        <p id="name-hint" class="text-xs text-base-content/50 mt-2">
-            <i class="fa-solid fa-info-circle"></i>
-            Select a category to see the auto-generated name
-        </p>
     </form>
-
-    <script>
-    function updateNamePreview(select) {
-        var option = select.options[select.selectedIndex];
-        var nextName = option.dataset.next;
-        var preview = document.getElementById('name-preview');
-        var previewName = document.getElementById('preview-name');
-        var hint = document.getElementById('name-hint');
-
-        if (nextName) {
-            previewName.textContent = nextName;
-            preview.classList.remove('hidden');
-            hint.classList.add('hidden');
-        } else {
-            preview.classList.add('hidden');
-            hint.classList.remove('hidden');
-        }
-    }
-    </script>
 
     <div id="assignments-list">
         {% if assignments %}
@@ -109,11 +76,6 @@
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="badge badge-ghost badge-xs">{{ assign.assessment_category.short_name }}</span>
                             <span class="text-xs text-base-content/50">{{ assign.points_possible }} pts</span>
-                            {% if assign.date %}
-                            <span class="text-xs text-base-content/40">
-                                <i class="fa-regular fa-calendar"></i> {{ assign.date|date:"M d" }}
-                            </span>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -143,7 +105,7 @@
         <div class="text-center py-8 text-base-content/40">
             <i class="fa-solid fa-clipboard text-3xl mb-2"></i>
             <p class="text-sm">No assignments yet</p>
-            <p class="text-xs">Select a category and add your first assignment</p>
+            <p class="text-xs">Select a category, date and max points to add one</p>
         </div>
         {% endif %}
     </div>

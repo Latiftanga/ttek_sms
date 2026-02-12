@@ -161,10 +161,14 @@ class GradingSystem(models.Model):
 
         return aggregate, [gp['subject_grade'] for gp in best_subjects]
 
-    def check_promotion_eligibility(self, term_report):
+    def check_promotion_eligibility(self, term_report, core_grades=None):
         """
         Check if a student is eligible for promotion based on Ghana education rules.
         Returns tuple of (is_eligible, reasons).
+
+        Args:
+            core_grades: Optional prefetched core SubjectTermGrades for this student.
+                         If None, queries the database (fallback for single-student use).
         """
         reasons = []
         is_eligible = True
@@ -187,11 +191,12 @@ class GradingSystem(models.Model):
 
         # Check core subjects requirement
         if self.require_core_pass:
-            core_grades = SubjectTermGrade.objects.filter(
-                student=term_report.student,
-                term=term_report.term,
-                subject__is_core=True
-            ).select_related('subject')
+            if core_grades is None:
+                core_grades = SubjectTermGrade.objects.filter(
+                    student=term_report.student,
+                    term=term_report.term,
+                    subject__is_core=True
+                ).select_related('subject')
             failed_core = [
                 sg for sg in core_grades
                 if sg.total_score is not None and not self.is_passing_score(sg.total_score)
@@ -1083,17 +1088,17 @@ class TermReport(models.Model):
         Recalculate all aggregates from SubjectTermGrades.
         Uses grading_system for pass/credit thresholds if provided.
         """
-        subject_grades = SubjectTermGrade.objects.filter(
+        grades_list = list(SubjectTermGrade.objects.filter(
             student=self.student,
             term=self.term,
             total_score__isnull=False
-        ).select_related('subject')
+        ).select_related('subject'))
 
-        if not subject_grades.exists():
+        if not grades_list:
             return
 
-        total = sum(sg.total_score for sg in subject_grades)
-        count = subject_grades.count()
+        total = sum(sg.total_score for sg in grades_list)
+        count = len(grades_list)
 
         self.total_marks = total
         self.average = round(total / count, 2) if count > 0 else Decimal('0.0')
@@ -1109,17 +1114,17 @@ class TermReport(models.Model):
             credit_mark = Decimal('50.00')
 
         # Count passed/failed using configurable threshold
-        passed_grades = [sg for sg in subject_grades if sg.total_score >= pass_mark]
+        passed_grades = [sg for sg in grades_list if sg.total_score >= pass_mark]
         self.subjects_passed = len(passed_grades)
         self.subjects_failed = count - self.subjects_passed
 
         # Count credits (C6 or better for WASSCE)
         self.credits_count = len([
-            sg for sg in subject_grades if sg.total_score >= credit_mark
+            sg for sg in grades_list if sg.total_score >= credit_mark
         ])
 
         # Core subjects breakdown
-        core_grades = [sg for sg in subject_grades if sg.subject.is_core]
+        core_grades = [sg for sg in grades_list if sg.subject.is_core]
         self.core_subjects_total = len(core_grades)
         self.core_subjects_passed = len([
             sg for sg in core_grades if sg.total_score >= pass_mark
@@ -1127,7 +1132,7 @@ class TermReport(models.Model):
 
         # Calculate WASSCE aggregate if grading system provided
         if grading_system:
-            aggregate, _ = grading_system.calculate_aggregate(subject_grades)
+            aggregate, _ = grading_system.calculate_aggregate(grades_list)
             self.aggregate = aggregate
 
     def calculate_attendance(self):

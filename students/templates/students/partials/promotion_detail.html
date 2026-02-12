@@ -1,0 +1,260 @@
+{% load core_tags %}
+{% if not has_target and not is_final %}
+<!-- No target class warning -->
+<div class="alert alert-warning shadow-sm">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <div>
+        <h3 class="font-bold text-sm">No target class found</h3>
+        <p class="text-xs">Create a class at the next level before you can promote students from <strong>{{ class.name }}</strong>.</p>
+    </div>
+</div>
+
+{% elif not students %}
+<!-- No students -->
+<div class="alert alert-info shadow-sm">
+    <i class="fa-solid fa-info-circle"></i>
+    <span>No active students enrolled in <strong>{{ class.name }}</strong> for the current year.</span>
+</div>
+
+{% else %}
+<!-- Students Card -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-0">
+        <form x-data="promotionForm()"
+            {% csrf_token %}
+            <input type="hidden" name="class_id" value="{{ class.pk }}" />
+            <input type="hidden" name="next_year" value="{{ next_year.pk }}" />
+
+            <!-- Card header -->
+            <div class="p-4 sm:p-5 pb-0 sm:pb-0">
+                <!-- Title row -->
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-bold text-base">{{ class.name }}</h2>
+                        <div class="badge badge-ghost badge-sm">{{ students|length }} student{{ students|length|pluralize }}</div>
+                    </div>
+                    {% if is_final %}
+                    <div class="badge badge-success gap-1">
+                        <i class="fa-solid fa-graduation-cap text-xs"></i> Final Year
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if not is_final %}
+                <!-- Target class selector -->
+                <div class="mb-3">
+                    {% select_input "target_class_id" options=target_options value=natural_target_pk label="Promote to" required=True input_class="w-full" %}
+                </div>
+                {% endif %}
+
+                <!-- Bulk action buttons -->
+                <div class="flex flex-wrap gap-2 mb-3">
+                    {% if is_final %}
+                    <button type="button" @click="setAll('graduate')"
+                            class="btn btn-sm btn-outline btn-success gap-1">
+                        <i class="fa-solid fa-graduation-cap text-xs"></i> All Graduate
+                    </button>
+                    {% else %}
+                    <button type="button" @click="setAll('promote')"
+                            class="btn btn-sm btn-outline btn-primary gap-1">
+                        <i class="fa-solid fa-arrow-up text-xs"></i> All Promote
+                    </button>
+                    {% endif %}
+                    <button type="button" @click="setAll('repeat')"
+                            class="btn btn-sm btn-outline gap-1">
+                        <i class="fa-solid fa-rotate-left text-xs"></i> All Repeat
+                    </button>
+                    <button type="button" @click="setAll('skip')"
+                            class="btn btn-sm btn-outline btn-ghost gap-1">
+                        <i class="fa-solid fa-forward text-xs"></i> All Skip
+                    </button>
+                </div>
+            </div>
+
+            <div class="divider my-0"></div>
+
+            <!-- MOBILE student list -->
+            <div class="sm:hidden divide-y divide-base-200">
+                {% for student in students %}
+                <div class="p-3 space-y-2" x-show="isVisible({{ forloop.counter0 }})">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="font-medium text-sm leading-tight">{{ student.full_name }}</p>
+                            <p class="text-xs text-base-content/50 font-mono mt-0.5">{{ student.admission_number }}</p>
+                        </div>
+                        <select name="action_{{ student.pk }}"
+                                class="select select-sm select-bordered shrink-0"
+                                x-model="actions['{{ student.pk }}']">
+                            {% if is_final %}
+                            <option value="graduate">Graduate</option>
+                            {% else %}
+                            <option value="promote">Promote</option>
+                            {% endif %}
+                            <option value="repeat">Repeat</option>
+                            <option value="skip">Skip</option>
+                        </select>
+                    </div>
+                    <template x-if="actions['{{ student.pk }}'] === 'repeat'">
+                        <div class="pl-0">
+                            <select name="repeat_target_{{ student.pk }}"
+                                    class="select select-sm select-bordered w-full"
+                                    required>
+                                {% for val, label in repeat_options %}
+                                <option value="{{ val }}"{% if val == default_repeat_pk %} selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </template>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- DESKTOP table -->
+            <div class="hidden sm:block overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="w-10 text-center">#</th>
+                            <th>Student Name</th>
+                            <th>Admission #</th>
+                            <th>Action</th>
+                            <th>Repeat In</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr class="hover" x-show="isVisible({{ forloop.counter0 }})">
+                            <td class="text-center text-base-content/40" x-text="{{ forloop.counter0 }} + 1"></td>
+                            <td class="font-medium">{{ student.full_name }}</td>
+                            <td>
+                                <span class="font-mono text-sm text-base-content/60">{{ student.admission_number }}</span>
+                            </td>
+                            <td>
+                                <select name="action_{{ student.pk }}"
+                                        class="select select-sm select-bordered"
+                                        x-model="actions['{{ student.pk }}']">
+                                    {% if is_final %}
+                                    <option value="graduate">Graduate</option>
+                                    {% else %}
+                                    <option value="promote">Promote</option>
+                                    {% endif %}
+                                    <option value="repeat">Repeat</option>
+                                    <option value="skip">Skip</option>
+                                </select>
+                            </td>
+                            <td>
+                                <template x-if="actions['{{ student.pk }}'] === 'repeat'">
+                                    <select name="repeat_target_{{ student.pk }}"
+                                            class="select select-sm select-bordered"
+                                            required>
+                                        {% for val, label in repeat_options %}
+                                        <option value="{{ val }}"{% if val == default_repeat_pk %} selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </template>
+                                <template x-if="actions['{{ student.pk }}'] !== 'repeat'">
+                                    <span class="text-base-content/25">&mdash;</span>
+                                </template>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <template x-if="totalPages > 1">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-base-200">
+                    <span class="text-sm text-base-content/50"
+                          x-text="`${(page - 1) * perPage + 1}-${Math.min(page * perPage, total)} of ${total}`"></span>
+                    <div class="join">
+                        <button type="button" class="join-item btn btn-sm"
+                                :disabled="page <= 1"
+                                @click="page--">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <template x-for="p in totalPages" :key="p">
+                            <button type="button" class="join-item btn btn-sm"
+                                    :class="p === page ? 'btn-active' : ''"
+                                    @click="page = p"
+                                    x-text="p"></button>
+                        </template>
+                        <button type="button" class="join-item btn btn-sm"
+                                :disabled="page >= totalPages"
+                                @click="page++">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Footer / Submit -->
+            <div class="p-4 sm:p-5 pt-3 sm:pt-3 border-t border-base-200 bg-base-200/20">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <!-- Live summary -->
+                    <p class="text-sm text-base-content/50" x-text="summaryText()"></p>
+                    <!-- Action buttons -->
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button type="button"
+                                class="btn btn-sm btn-ghost flex-1 sm:flex-none"
+                                onclick="document.getElementById('promotion-detail-area').innerHTML=''; document.getElementById('id_class_url').selectedIndex=0;">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-sm btn-primary flex-1 sm:flex-none gap-1"
+                                hx-post="{% url 'students:promotion_process' %}"
+                                hx-include="closest form"
+                                :hx-confirm="confirmMessage()">
+                            <i class="fa-solid fa-check text-xs"></i>
+                            {% if is_final %}Process Graduation{% else %}Process Promotion{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function promotionForm() {
+    const defaultAction = '{{ is_final|yesno:"graduate,promote" }}';
+    const ids = [{% for s in students %}'{{ s.pk }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+    const actions = {};
+    ids.forEach(id => actions[id] = defaultAction);
+    return {
+        actions,
+        page: 1,
+        perPage: 25,
+        total: ids.length,
+        get totalPages() { return Math.ceil(this.total / this.perPage); },
+        isVisible(index) {
+            return index >= (this.page - 1) * this.perPage && index < this.page * this.perPage;
+        },
+        setAll(action) { ids.forEach(id => this.actions[id] = action); },
+        summaryText() {
+            const c = { promote:0, graduate:0, repeat:0, skip:0 };
+            ids.forEach(id => c[this.actions[id]]++);
+            const p = [];
+            if (c.promote) p.push(c.promote + ' promote');
+            if (c.graduate) p.push(c.graduate + ' graduate');
+            if (c.repeat) p.push(c.repeat + ' repeat');
+            if (c.skip) p.push(c.skip + ' skip');
+            return p.join(' \u00b7 ');
+        },
+        confirmMessage() {
+            const c = { promote:0, graduate:0, repeat:0, skip:0 };
+            ids.forEach(id => c[this.actions[id]]++);
+            const p = [];
+            if (c.promote) p.push(c.promote + ' promoted');
+            if (c.graduate) p.push(c.graduate + ' graduated');
+            if (c.repeat) p.push(c.repeat + ' repeated');
+            if (c.skip) p.push(c.skip + ' skipped');
+            return p.join(', ') + '. This cannot be undone.';
+        }
+    };
+}
+</script>
+{% endif %}
