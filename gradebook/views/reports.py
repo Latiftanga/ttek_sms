@@ -279,7 +279,7 @@ def calculate_class_grades(request, class_id):
                     grade.class_score = category_totals.get('_type_CLASS_SCORE', category_totals.get('CA', Decimal('0.0')))
                     grade.exam_score = category_totals.get('_type_EXAM', category_totals.get('EXAM', Decimal('0.0')))
                     grade.total_score = round(total, 2)
-                    grade.category_scores = {short_name: val for short_name, val in category_totals.items() if not short_name.startswith('_type_')}
+                    grade.category_scores = {short_name: float(val) for short_name, val in category_totals.items() if not short_name.startswith('_type_')}
 
                     # Determine grade from scale (no DB query - uses prefetched scales)
                     grade.is_passing = False  # Default to not passing
