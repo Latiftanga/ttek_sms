@@ -273,6 +273,10 @@ def score_entry_student(request, class_id, subject_id, student_id):
     for assignment in assignments:
         assignments_by_category[assignment.assessment_category].append(assignment)
 
+    # Score progress: filled / total assignments
+    total_assignments = len(assignments)
+    filled_scores = len(scores_dict)
+
     # Add student-view specific context
     context['student'] = student
     context['current_index'] = current_index
@@ -280,6 +284,8 @@ def score_entry_student(request, class_id, subject_id, student_id):
     context['next_student'] = next_student
     context['assignments_by_category'] = dict(assignments_by_category)
     context['scores_dict'] = scores_dict
+    context['total_assignments'] = total_assignments
+    context['filled_scores'] = filled_scores
 
     return htmx_render(
         request,

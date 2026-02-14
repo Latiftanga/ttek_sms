@@ -48,7 +48,7 @@
                         </ul>
                     </div>
                     <p class="text-[11px] text-base-content/50 leading-tight">
-                        {{ subject.name }} · {{ current_index|add:1 }}/{{ students|length }}{% if assignments_by_category %} · <span id="score-progress" class="font-medium"></span>{% endif %}
+                        {{ subject.name }} · {{ current_index|add:1 }}/{{ students|length }}{% if assignments_by_category %} · <span id="score-progress" class="font-medium {% if filled_scores == total_assignments and total_assignments > 0 %}text-success{% endif %}">{{ filled_scores }}/{{ total_assignments }}</span>{% endif %}
                     </p>
                 </div>
 
@@ -575,9 +575,11 @@ function hideErrorTooltipMobile() {
         });
     });
 
-    // Score progress indicator
+    // Score progress indicator — scoped to container to avoid HTMX swap double-counting
+    var scoreContainer = document.getElementById('score-form-container');
     function updateScoreProgress() {
-        var inputs = document.querySelectorAll('.score-input-mobile');
+        if (!scoreContainer) return;
+        var inputs = scoreContainer.querySelectorAll('.score-input-mobile');
         var total = inputs.length;
         var filled = 0;
         inputs.forEach(function(inp) {
@@ -591,10 +593,11 @@ function hideErrorTooltipMobile() {
     }
 
     // Update progress on input changes
-    document.querySelectorAll('.score-input-mobile').forEach(function(inp) {
-        inp.addEventListener('input', updateScoreProgress);
-    });
-    updateScoreProgress();
+    if (scoreContainer) {
+        scoreContainer.querySelectorAll('.score-input-mobile').forEach(function(inp) {
+            inp.addEventListener('input', updateScoreProgress);
+        });
+    }
 
     // Sticky header shadow on scroll
     var stickyHeader = document.getElementById('student-sticky-header');
