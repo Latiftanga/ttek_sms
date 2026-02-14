@@ -284,11 +284,23 @@
 
 <script>
 (function() {
+    var scoreContainer = document.getElementById('score-form-container');
     var SAVE_URL = document.getElementById('score-save-url').value;
     var CSRF_TOKEN = document.getElementById('score-csrf-token').value;
     var errorTooltipTimeout = null;
     var currentErrorInput = null;
     var typingDebounceTimer = null;
+
+    // AbortController to clean up global listeners when HTMX swaps this container
+    var cleanup = new AbortController();
+    var signal = cleanup.signal;
+
+    document.addEventListener('htmx:beforeSwap', function(e) {
+        var target = e.detail.target || e.target;
+        if (target === scoreContainer || (target && target.contains && target.contains(scoreContainer))) {
+            cleanup.abort();
+        }
+    }, { signal: signal });
 
     // Show toast notification (longer duration for errors)
     function showToast(message, type) {
@@ -446,13 +458,13 @@
         isOffline = false;
         updateOfflineBanner();
         showToast('Back online', 'success');
-    });
+    }, { signal: signal });
 
     window.addEventListener('offline', function() {
         isOffline = true;
         updateOfflineBanner();
         showToast('You are offline', 'error');
-    });
+    }, { signal: signal });
 
     updateOfflineBanner();
 
@@ -579,8 +591,9 @@
         });
     }
 
-    // Setup all score inputs
-    document.querySelectorAll('.score-input:not([disabled])').forEach((input, index, inputs) => {
+    // Setup all score inputs — scoped to container to avoid HTMX swap issues
+    var allInputs = scoreContainer ? scoreContainer.querySelectorAll('.score-input:not([disabled])') : [];
+    allInputs.forEach((input, index, inputs) => {
         // Store original value
         input.dataset.originalValue = input.value;
 
@@ -656,14 +669,14 @@
         if (!e.target.closest('.score-input') && !e.target.closest('#score-error-tooltip') && !e.target.closest('.error-indicator')) {
             hideErrorTooltip();
         }
-    });
+    }, { signal: signal });
 
     // Hide tooltip on scroll
     document.addEventListener('scroll', function() {
         hideErrorTooltip();
-    }, true);
+    }, { capture: true, signal: signal });
 
-    console.log('Score inputs initialized:', document.querySelectorAll('.score-input:not([disabled])').length);
+    console.log('Score inputs initialized:', allInputs.length);
 })();
 </script>
 </div>

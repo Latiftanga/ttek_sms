@@ -294,10 +294,22 @@ function hideErrorTooltipMobile() {
 }
 
 (function() {
+    var scoreContainer = document.getElementById('score-form-container');
     var SAVE_URL = document.getElementById('score-save-url-mobile').value;
     var CSRF_TOKEN = document.getElementById('score-csrf-token-mobile').value;
     var errorTooltipTimeout = null;
     var typingDebounceTimer = null;
+
+    // AbortController to clean up global listeners when HTMX swaps this container
+    var cleanup = new AbortController();
+    var signal = cleanup.signal;
+
+    document.addEventListener('htmx:beforeSwap', function(e) {
+        var target = e.detail.target || e.target;
+        if (target === scoreContainer || (target && target.contains && target.contains(scoreContainer))) {
+            cleanup.abort();
+        }
+    }, { signal: signal });
 
     // Show toast notification (longer for errors)
     function showToast(message, type) {
@@ -391,13 +403,13 @@ function hideErrorTooltipMobile() {
         isOffline = false;
         updateOfflineBanner();
         showToast('Back online', 'success');
-    });
+    }, { signal: signal });
 
     window.addEventListener('offline', function() {
         isOffline = true;
         updateOfflineBanner();
         showToast('You are offline', 'error');
-    });
+    }, { signal: signal });
 
     updateOfflineBanner();
 
@@ -510,8 +522,9 @@ function hideErrorTooltipMobile() {
         });
     }
 
-    // Setup all score inputs
-    document.querySelectorAll('.score-input-mobile:not([disabled])').forEach((input, index, inputs) => {
+    // Setup all score inputs — scoped to container to avoid HTMX swap issues
+    var allInputs = scoreContainer ? scoreContainer.querySelectorAll('.score-input-mobile:not([disabled])') : [];
+    allInputs.forEach((input, index, inputs) => {
         input.dataset.originalValue = input.value;
 
         // Real-time validation - show feedback immediately while typing
@@ -610,7 +623,7 @@ function hideErrorTooltipMobile() {
                 stickyHeader.classList.replace('border-base-300', 'border-transparent');
             }
         }
-        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('scroll', onScroll, { passive: true, signal: signal });
         cardBody.addEventListener('scroll', onScroll, { passive: true });
     }
 
@@ -642,7 +655,7 @@ function hideErrorTooltipMobile() {
         }, { passive: true });
     })();
 
-    console.log('Mobile score inputs initialized:', document.querySelectorAll('.score-input-mobile:not([disabled])').length);
+    console.log('Mobile score inputs initialized:', scoreContainer ? scoreContainer.querySelectorAll('.score-input-mobile:not([disabled])').length : 0);
 })();
 </script>
 </div>
