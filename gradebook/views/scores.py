@@ -72,7 +72,7 @@ def _get_score_entry_base_context(request, class_id, subject_id):
     Returns dict with common data needed by both table and student views:
     - class_obj, subject, current_term
     - students (filtered by enrollment if SHS)
-    - assignments, categories
+    - assignments
     - can_edit, grades_locked, editing_allowed
 
     This eliminates duplication between score_entry_form and score_entry_student.
@@ -82,30 +82,33 @@ def _get_score_entry_base_context(request, class_id, subject_id):
     subject = get_object_or_404(Subject, pk=subject_id)
     grades_locked = current_term.grades_locked if current_term else False
 
-    # Check if user can edit scores for this subject/class
-    can_edit = can_edit_scores(request.user, class_obj, subject)
-    editing_allowed = can_edit and not grades_locked
-
-    # Get the ClassSubject for this class/subject combination
+    # Single ClassSubject query — used for both permission check and enrollment filtering
     class_subject = ClassSubject.objects.filter(
         class_assigned=class_obj,
         subject=subject
-    ).first()
+    ).select_related('teacher').first()
 
-    # Check if there are subject enrollments for this class
-    # This determines whether we filter students by enrollment (SHS) or show all (Basic)
-    has_enrollments = StudentSubjectEnrollment.objects.filter(
-        class_subject__class_assigned=class_obj,
-        is_active=True
-    ).exists()
+    # Check if user can edit scores using the prefetched class_subject
+    user = request.user
+    if user.is_superuser or getattr(user, 'is_school_admin', False):
+        can_edit = True
+    elif class_subject and hasattr(user, 'teacher_profile') and user.teacher_profile:
+        can_edit = class_subject.teacher_id == user.teacher_profile.id
+    else:
+        can_edit = False
+    editing_allowed = can_edit and not grades_locked
 
-    if has_enrollments and class_subject:
-        # SHS behavior: Only show students enrolled in this specific subject
-        enrolled_student_ids = StudentSubjectEnrollment.objects.filter(
+    # Filter students by subject enrollment (SHS) or show all (Basic)
+    if class_subject:
+        enrolled_student_ids = list(StudentSubjectEnrollment.objects.filter(
             class_subject=class_subject,
             is_active=True
-        ).values_list('student_id', flat=True)
+        ).values_list('student_id', flat=True))
+    else:
+        enrolled_student_ids = []
 
+    if enrolled_student_ids:
+        # SHS behavior: Only show students enrolled in this specific subject
         students = list(Student.objects.filter(
             id__in=enrolled_student_ids,
             current_class=class_obj
@@ -126,17 +129,12 @@ def _get_score_entry_base_context(request, class_id, subject_id):
         term=current_term
     ).select_related('assessment_category').order_by('assessment_category__order', 'name'))
 
-    # Get categories (small table, usually cached)
-    categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
-
     # Check if user is the class teacher (form master) for this class
     # This determines if they can enter remarks for student reports
     is_class_teacher = False
-    if getattr(request.user, 'is_teacher', False) and hasattr(request.user, 'teacher_profile'):
-        teacher = request.user.teacher_profile
-        is_class_teacher = class_obj.class_teacher_id == teacher.id
-    elif is_school_admin(request.user):
-        # Admins can also enter remarks
+    if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
+        is_class_teacher = class_obj.class_teacher_id == user.teacher_profile.id
+    elif is_school_admin(user):
         is_class_teacher = True
 
     return {
@@ -145,7 +143,6 @@ def _get_score_entry_base_context(request, class_id, subject_id):
         'current_term': current_term,
         'students': students,
         'assignments': assignments,
-        'categories': categories,
         'grades_locked': grades_locked,
         'can_edit': can_edit,
         'editing_allowed': editing_allowed,
