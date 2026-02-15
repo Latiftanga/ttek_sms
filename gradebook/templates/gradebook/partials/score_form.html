@@ -1,4 +1,4 @@
-{% load core_tags %}
+{% load core_tags static %}
 
 <div id="score-form-container">
 <div class="card bg-base-100 shadow-sm border border-base-200"
@@ -132,17 +132,23 @@
                         <td class="text-center p-0.5 sm:p-1">
                             <input type="number"
                                    class="input input-bordered w-14 h-9 sm:w-16 sm:h-10 md:h-8 text-center text-sm sm:text-base md:text-sm font-medium score-input {% if not editing_allowed %}input-disabled{% endif %}"
+                                   name="points"
                                    data-student="{{ student.pk }}"
                                    data-assignment="{{ assign.pk }}"
                                    data-max="{{ assign.points_possible }}"
-                                   data-save-url="{% url 'gradebook:score_save' %}"
                                    aria-label="Score for {{ student.full_name }} - {{ assign.name }}"
                                    min="0"
                                    max="{{ assign.points_possible }}"
                                    step="0.5"
                                    inputmode="decimal"
                                    value="{{ scores_dict|get_item:student.pk|get_item:assign.pk|default:'' }}"
-                                   {% if not editing_allowed %}disabled{% endif %}>
+                                   {% if editing_allowed %}
+                                   hx-post="{% url 'gradebook:score_save' %}"
+                                   hx-trigger="change"
+                                   hx-vals='{"student_id": "{{ student.pk }}", "assignment_id": "{{ assign.pk }}"}'
+                                   hx-include="this"
+                                   hx-swap="none"
+                                   {% else %}disabled{% endif %}>
                         </td>
                         {% endfor %}
                     </tr>
@@ -161,17 +167,6 @@
             <p class="text-sm">No students enrolled in this class</p>
         </div>
         {% endif %}
-    </div>
-</div>
-
-<!-- Config (hidden inputs for JS to read) -->
-<input type="hidden" id="score-save-url" value="{% url 'gradebook:score_save' %}">
-<input type="hidden" id="score-csrf-token" value="{{ csrf_token }}">
-
-<!-- Toast container -->
-<div id="score-toast" class="toast toast-top toast-end z-50" style="display: none;">
-    <div class="alert alert-info">
-        <span id="score-toast-message">Test</span>
     </div>
 </div>
 
@@ -243,7 +238,7 @@
     outline: 2px solid oklch(var(--p));
     outline-offset: 0;
 }
-.score-input.saving {
+.score-input.htmx-request {
     background-color: oklch(var(--wa) / 0.15);
     border-color: oklch(var(--wa));
     animation: pulse-saving 0.8s ease-in-out infinite;
@@ -282,119 +277,67 @@
 }
 </style>
 
+<script src="{% static 'gradebook/js/score-entry.js' %}"></script>
 <script>
-(function() {
-    var scoreContainer = document.getElementById('score-form-container');
-    var SAVE_URL = document.getElementById('score-save-url').value;
-    var CSRF_TOKEN = document.getElementById('score-csrf-token').value;
-    var errorTooltipTimeout = null;
-    var currentErrorInput = null;
-    var typingDebounceTimer = null;
-
-    // AbortController to clean up global listeners when HTMX swaps this container
-    var cleanup = new AbortController();
-    var signal = cleanup.signal;
-
-    document.addEventListener('htmx:beforeSwap', function(e) {
-        var target = e.detail.target || e.target;
-        if (target === scoreContainer || (target && target.contains && target.contains(scoreContainer))) {
-            cleanup.abort();
-        }
-    }, { signal: signal });
-
-    // Show toast notification (longer duration for errors)
-    function showToast(message, type) {
-        const toast = document.getElementById('score-toast');
-        const msgEl = document.getElementById('score-toast-message');
-        if (!toast || !msgEl) {
-            console.warn('Toast elements not found');
-            return;
-        }
-
-        const alertEl = toast.querySelector('.alert');
-        msgEl.textContent = message;
-        alertEl.className = 'alert alert-' + (type === 'error' ? 'error' : 'success');
-        toast.style.display = 'block';
-        // Show errors longer (5s) so teachers don't miss them
-        const duration = type === 'error' ? 5000 : 2500;
-        setTimeout(() => { toast.style.display = 'none'; }, duration);
+(function initTableScoreForm() {
+    if (typeof window.ScoreEntry === 'undefined') {
+        setTimeout(initTableScoreForm, 10);
+        return;
     }
 
-    // Show error tooltip near the input (fixed positioning, viewport-aware)
-    function showErrorTooltip(input, message, hint) {
-        const tooltip = document.getElementById('score-error-tooltip');
-        const messageEl = document.getElementById('tooltip-message');
-        const hintEl = document.getElementById('tooltip-hint');
+    var errorTooltipTimeout = null;
+    var currentErrorInput = null;
 
+    function showErrorTooltip(input, message, hint) {
+        var tooltip = document.getElementById('score-error-tooltip');
+        var messageEl = document.getElementById('tooltip-message');
+        var hintEl = document.getElementById('tooltip-hint');
         if (!tooltip) return;
 
-        // Clear any existing timeout
-        if (errorTooltipTimeout) {
-            clearTimeout(errorTooltipTimeout);
-        }
+        if (errorTooltipTimeout) clearTimeout(errorTooltipTimeout);
 
-        // Set content
         messageEl.textContent = message;
         hintEl.textContent = hint || '';
         hintEl.style.display = hint ? 'block' : 'none';
 
-        // Get input position relative to viewport (for fixed positioning)
-        const rect = input.getBoundingClientRect();
-        const tooltipWidth = 210; // max-w-52 = 13rem = ~208px
-        const tooltipHeight = 60; // approximate height
-        const padding = 8;
+        var rect = input.getBoundingClientRect();
+        var tooltipWidth = 210;
+        var tooltipHeight = 60;
+        var padding = 8;
 
-        // Calculate position - try below the input first
-        let top = rect.bottom + padding;
-        let left = rect.left;
+        var top = rect.bottom + padding;
+        var left = rect.left;
 
-        // If tooltip would go below viewport, show above instead
         if (top + tooltipHeight > window.innerHeight) {
             top = rect.top - tooltipHeight - padding;
         }
-
-        // Keep tooltip within horizontal bounds
         if (left + tooltipWidth > window.innerWidth - padding) {
             left = window.innerWidth - tooltipWidth - padding;
         }
-        if (left < padding) {
-            left = padding;
-        }
-
-        // Keep tooltip within vertical bounds
-        if (top < padding) {
-            top = padding;
-        }
+        if (left < padding) left = padding;
+        if (top < padding) top = padding;
 
         tooltip.style.top = top + 'px';
         tooltip.style.left = left + 'px';
         tooltip.classList.remove('hidden');
-
         currentErrorInput = input;
 
-        // Auto-hide after 4 seconds
-        errorTooltipTimeout = setTimeout(() => {
+        errorTooltipTimeout = setTimeout(function() {
             hideErrorTooltip();
         }, 4000);
     }
 
-    // Hide error tooltip
     function hideErrorTooltip() {
-        const tooltip = document.getElementById('score-error-tooltip');
-        if (tooltip) {
-            tooltip.classList.add('hidden');
-        }
+        var tooltip = document.getElementById('score-error-tooltip');
+        if (tooltip) tooltip.classList.add('hidden');
         currentErrorInput = null;
     }
 
-    // Mark input as having an error (persistent until fixed)
-    function markInputError(input, message, hint) {
-        input.classList.add('input-error', 'has-error');
-        input.dataset.errorMessage = message;
-        input.dataset.errorHint = hint || '';
-
-        // Add error indicator badge
-        let indicator = input.parentElement.querySelector('.error-indicator');
+    // Wire callbacks
+    ScoreEntry.callbacks.showErrorTooltip = showErrorTooltip;
+    ScoreEntry.callbacks.hideErrorTooltip = hideErrorTooltip;
+    ScoreEntry.callbacks.markInputError = function(input, message, hint) {
+        var indicator = input.parentElement.querySelector('.error-indicator');
         if (!indicator) {
             indicator = document.createElement('div');
             indicator.className = 'error-indicator absolute -top-1 -right-1 w-4 h-4 bg-error rounded-full flex items-center justify-center cursor-help';
@@ -402,280 +345,39 @@
             indicator.title = message;
             input.parentElement.style.position = 'relative';
             input.parentElement.appendChild(indicator);
-
-            // Show tooltip on click
             indicator.addEventListener('click', function(e) {
                 e.stopPropagation();
                 showErrorTooltip(input, message, hint);
             });
         }
-    }
+    };
+    ScoreEntry.callbacks.clearInputError = function(input) {
+        var indicator = input.parentElement.querySelector('.error-indicator');
+        if (indicator) indicator.remove();
+        if (currentErrorInput === input) hideErrorTooltip();
+    };
 
-    // Clear error state from input
-    function clearInputError(input) {
-        input.classList.remove('input-error', 'has-error');
-        delete input.dataset.errorMessage;
-        delete input.dataset.errorHint;
+    ScoreEntry.setupInputs(document.getElementById('score-form-container'));
 
-        // Remove error indicator
-        const indicator = input.parentElement.querySelector('.error-indicator');
-        if (indicator) {
-            indicator.remove();
-        }
+    // Clean up previous view's global listeners
+    if (window._scoreFormCleanup) window._scoreFormCleanup();
 
-        // Hide tooltip if showing for this input
-        if (currentErrorInput === input) {
-            hideErrorTooltip();
-        }
-    }
-
-    // Validate score value (client-side pre-validation)
-    function validateScore(value, max) {
-        if (value === '') return { valid: true };
-        const num = parseFloat(value);
-        if (isNaN(num)) return { valid: false, message: 'Enter a valid number', hint: 'Use digits only (e.g., 85 or 85.5)' };
-        if (num < 0) return { valid: false, message: 'Cannot be negative', hint: 'Scores must be 0 or higher' };
-        if (num > max) return { valid: false, message: 'Maximum is ' + max, hint: 'Enter a value between 0 and ' + max };
-        // Check decimal places
-        const decimalPart = value.split('.')[1];
-        if (decimalPart && decimalPart.length > 2) {
-            return { valid: false, message: 'Max 2 decimal places', hint: 'Use at most 2 decimal places (e.g., 85.75)' };
-        }
-        return { valid: true };
-    }
-
-    // Offline detection
-    var isOffline = !navigator.onLine;
-
-    function updateOfflineBanner() {
-        var banner = document.getElementById('offline-banner');
-        if (banner) {
-            banner.classList.toggle('hidden', !isOffline);
-        }
-    }
-
-    window.addEventListener('online', function() {
-        isOffline = false;
-        updateOfflineBanner();
-        showToast('Back online', 'success');
-    }, { signal: signal });
-
-    window.addEventListener('offline', function() {
-        isOffline = true;
-        updateOfflineBanner();
-        showToast('You are offline', 'error');
-    }, { signal: signal });
-
-    updateOfflineBanner();
-
-    // Save score via AJAX with retry
-    function saveScore(input, retryCount) {
-        retryCount = retryCount || 0;
-        var MAX_RETRIES = 2;
-
-        const studentId = input.dataset.student;
-        const assignmentId = input.dataset.assignment;
-        const max = parseFloat(input.dataset.max);
-        const value = input.value.trim();
-        const originalValue = input.dataset.originalValue || '';
-
-        // Skip if unchanged
-        if (value === originalValue) {
-            return;
-        }
-
-        // Block saves while offline
-        if (isOffline) {
-            markInputError(input, 'Offline', 'Score will not save until you reconnect');
-            showToast('Cannot save while offline', 'error');
-            return;
-        }
-
-        // Client-side pre-validation
-        const validation = validateScore(value, max);
-        if (!validation.valid) {
-            markInputError(input, validation.message, validation.hint);
-            showToast(validation.message, 'error');
-            showErrorTooltip(input, validation.message, validation.hint);
-            return;
-        }
-
-        // Clear any existing errors before save attempt
-        clearInputError(input);
-
-        // Show saving state
-        input.classList.add('saving');
-        input.classList.remove('input-success');
-
-        // Send request
-        const formData = new FormData();
-        formData.append('student_id', studentId);
-        formData.append('assignment_id', assignmentId);
-        formData.append('points', value);
-        formData.append('csrfmiddlewaretoken', CSRF_TOKEN);
-
-        fetch(SAVE_URL, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': CSRF_TOKEN,
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => {
-            input.classList.remove('saving');
-
-            // Check for HX-Trigger header with error/success info
-            const trigger = response.headers.get('HX-Trigger');
-
-            if (trigger) {
-                try {
-                    const triggerData = JSON.parse(trigger);
-
-                    // Handle detailed error info
-                    if (triggerData.scoreError) {
-                        const err = triggerData.scoreError;
-                        markInputError(input, err.message, err.hint);
-                        showErrorTooltip(input, err.message, err.hint);
-                    }
-
-                    // Handle toast
-                    if (triggerData.showToast) {
-                        showToast(triggerData.showToast.message, triggerData.showToast.type);
-                    }
-
-                    // Handle revert
-                    if (triggerData.revertScore) {
-                        input.value = triggerData.revertScore.value;
-                        input.dataset.originalValue = triggerData.revertScore.value;
-                        return;
-                    }
-                } catch(e) {
-                    console.error('Error parsing trigger:', e);
-                }
-            }
-
-            if (response.ok && !trigger) {
-                // Success (no error trigger)
-                input.dataset.originalValue = value;
-                input.classList.add('input-success');
-                setTimeout(() => input.classList.remove('input-success'), 600);
-            } else if (response.ok && trigger) {
-                // Check if it was actually a success
-                try {
-                    const td = JSON.parse(trigger);
-                    if (!td.scoreError && !td.revertScore) {
-                        input.dataset.originalValue = value;
-                        input.classList.add('input-success');
-                        setTimeout(() => input.classList.remove('input-success'), 600);
-                    }
-                } catch(e) {}
-            } else if (!response.ok) {
-                // Server error without details
-                markInputError(input, 'Failed to save', 'Please try again');
-                showToast('Failed to save score', 'error');
-            }
-        })
-        .catch(error => {
-            input.classList.remove('saving');
-
-            if (retryCount < MAX_RETRIES) {
-                var delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
-                showToast('Retrying save... (' + (retryCount + 1) + '/' + MAX_RETRIES + ')', 'error');
-                setTimeout(function() { saveScore(input, retryCount + 1); }, delay);
-            } else {
-                markInputError(input, 'Save failed', 'Check your connection and try again');
-                showToast('Save failed after retries — check your connection', 'error');
-            }
-            console.error('Score save error (attempt ' + (retryCount + 1) + '):', error);
-        });
-    }
-
-    // Setup all score inputs — scoped to container to avoid HTMX swap issues
-    var allInputs = scoreContainer ? scoreContainer.querySelectorAll('.score-input:not([disabled])') : [];
-    allInputs.forEach((input, index, inputs) => {
-        // Store original value
-        input.dataset.originalValue = input.value;
-
-        // Real-time validation while typing - show feedback immediately
-        input.addEventListener('input', function() {
-            const inputEl = this;
-            const value = this.value.trim();
-            const max = parseFloat(this.dataset.max);
-            const validation = validateScore(value, max);
-
-            // Clear any pending debounce
-            if (typingDebounceTimer) {
-                clearTimeout(typingDebounceTimer);
-            }
-
-            if (!validation.valid && value !== '') {
-                this.classList.add('input-error');
-
-                // Show tooltip after brief delay (150ms) for snappy mobile feedback
-                typingDebounceTimer = setTimeout(function() {
-                    showErrorTooltip(inputEl, validation.message, validation.hint);
-                }, 150);
-            } else {
-                this.classList.remove('input-error');
-                hideErrorTooltip();
-                // Clear persistent error if value is now valid
-                if (this.classList.contains('has-error') && validation.valid) {
-                    clearInputError(this);
-                }
-            }
-        });
-
-        // Show tooltip on focus if has error
-        input.addEventListener('focus', function() {
-            if (this.classList.contains('has-error') && this.dataset.errorMessage) {
-                showErrorTooltip(this, this.dataset.errorMessage, this.dataset.errorHint);
-            }
-        });
-
-        // Save on blur (clicking outside)
-        input.addEventListener('blur', function() {
-            hideErrorTooltip();
-            saveScore(this);
-        });
-
-        // Save on change (spinner arrows, paste, etc.)
-        input.addEventListener('change', function() {
-            saveScore(this);
-        });
-
-        // Save on Enter and move to next input
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                saveScore(this);
-                const nextInput = inputs[index + 1];
-                if (nextInput) {
-                    setTimeout(() => {
-                        nextInput.focus();
-                        nextInput.select();
-                    }, 100);
-                }
-            }
-            // Escape hides tooltip
-            if (e.key === 'Escape') {
-                hideErrorTooltip();
-            }
-        });
-    });
-
-    // Hide tooltip when clicking elsewhere
-    document.addEventListener('click', function(e) {
+    function handleClick(e) {
         if (!e.target.closest('.score-input') && !e.target.closest('#score-error-tooltip') && !e.target.closest('.error-indicator')) {
             hideErrorTooltip();
         }
-    }, { signal: signal });
-
-    // Hide tooltip on scroll
-    document.addEventListener('scroll', function() {
+    }
+    function handleScroll() {
         hideErrorTooltip();
-    }, { capture: true, signal: signal });
+    }
 
+    document.addEventListener('click', handleClick);
+    document.addEventListener('scroll', handleScroll, { capture: true });
+
+    window._scoreFormCleanup = function() {
+        document.removeEventListener('click', handleClick);
+        document.removeEventListener('scroll', handleScroll, { capture: true });
+    };
 })();
 </script>
 </div>

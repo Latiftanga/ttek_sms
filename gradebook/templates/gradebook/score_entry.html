@@ -1,7 +1,11 @@
 {% extends "core/base.html" %}
-{% load core_tags %}
+{% load core_tags static %}
 
 {% block title %}Score Entry - {{ block.super }}{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'gradebook/js/score-entry.js' %}"></script>
+{% endblock %}
 
 {% block content %}
 {% include "gradebook/partials/score_entry_content.html" %}
