@@ -331,6 +331,12 @@ class Student(models.Model):
         if hasattr(self, '_cached_primary_guardian'):
             return self._cached_primary_guardian
 
+        # Use Prefetch to_attr if available
+        if hasattr(self, 'primary_guardian_list'):
+            sg = self.primary_guardian_list[0] if self.primary_guardian_list else None
+            self._cached_primary_guardian = sg.guardian if sg else None
+            return self._cached_primary_guardian
+
         sg = self.student_guardians.filter(is_primary=True).select_related('guardian').first()
         self._cached_primary_guardian = sg.guardian if sg else None
         return self._cached_primary_guardian

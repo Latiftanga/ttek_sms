@@ -10,7 +10,8 @@
      hx-get="{% url 'students:guardian_index' %}{% if search %}?search={{ search }}{% endif %}"
      hx-trigger="guardianChanged from:body"
      hx-target="this"
-     hx-swap="outerHTML transition:true">
+     hx-swap="outerHTML transition:true"
+     hx-on::after-settle="var m=document.getElementById('modal_guardian'); if(m&&m.open) m.close()"
     <!-- Page Header -->
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-3">
@@ -380,9 +381,3 @@
     /* Hide search icon when loading */
     .htmx-request #guardian-search-icon { display: none; }
 </style>
-<script>
-document.body.addEventListener('guardianChanged', function() {
-    var modal = document.getElementById('modal_guardian');
-    if (modal) modal.close();
-});
-</script>

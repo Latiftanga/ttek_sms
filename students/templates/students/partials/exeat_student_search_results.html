@@ -2,7 +2,10 @@
 {% for student in students %}
 {% if student.house %}
 <div class="p-2 hover:bg-base-200 cursor-pointer rounded flex items-center gap-2"
-     onclick="selectStudent('{{ student.pk }}', '{{ student.full_name|escapejs }}', '{{ student.house.name|escapejs }}')">
+     hx-get="{% url 'students:exeat_student_guardian' student.pk %}"
+     hx-target="#guardian-content"
+     hx-swap="innerHTML"
+     hx-on::before-request="selectStudent('{{ student.pk }}', '{{ student.full_name|escapejs }}', '{{ student.house.name|escapejs }}')">
     <div class="avatar placeholder flex-shrink-0">
         <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center text-xs">
             {% if student.photo %}

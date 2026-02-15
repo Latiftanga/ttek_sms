@@ -1181,6 +1181,7 @@ def schedule(request):
 
 def teacher_dashboard(request):
     """Dashboard for logged-in teachers."""
+    from django.db.models import Count, Q
     from django.utils import timezone
     from academics.models import Class, ClassSubject, Period, TimetableEntry
     from students.models import Student
@@ -1202,7 +1203,9 @@ def teacher_dashboard(request):
     homeroom_classes = Class.objects.filter(
         class_teacher=teacher,
         is_active=True
-    ).prefetch_related('students').order_by('name')
+    ).annotate(
+        student_count=Count('students', filter=Q(students__status='active'))
+    ).order_by('name')
 
     # Subject assignments
     subject_assignments = ClassSubject.objects.filter(
@@ -1211,20 +1214,29 @@ def teacher_dashboard(request):
         'class_assigned__level_number', 'class_assigned__name'
     )
 
-    # Get unique classes taught
-    classes_taught = list({sa.class_assigned for sa in subject_assignments})
-    classes_taught.sort(key=lambda c: (c.level_number or 0, c.name))
+    # Get unique classes taught (preserving order from queryset)
+    seen_class_ids = set()
+    classes_taught = []
+    for assignment in subject_assignments:
+        if assignment.class_assigned_id not in seen_class_ids:
+            classes_taught.append(assignment.class_assigned)
+            seen_class_ids.add(assignment.class_assigned_id)
 
     # Calculate stats
     total_students = Student.objects.filter(
-        current_class_id__in=[c.id for c in classes_taught],
-        status='active'
-    ).count()
+        current_class_id__in=seen_class_ids, status='active'
+    ).count() if seen_class_ids else 0
 
-    homeroom_students = Student.objects.filter(
-        current_class__in=homeroom_classes,
-        status='active'
-    ).count()
+    homeroom_students = sum(cls.student_count for cls in homeroom_classes)
+
+    # Batch query for per-class student counts
+    class_student_counts = dict(
+        Student.objects.filter(
+            current_class_id__in=seen_class_ids, status='active'
+        ).values('current_class_id').annotate(
+            count=Count('id')
+        ).values_list('current_class_id', 'count')
+    ) if seen_class_ids else {}
 
     # Group assignments by class for easy display
     assignments_by_class = {}
@@ -1234,10 +1246,7 @@ def teacher_dashboard(request):
             assignments_by_class[class_name] = {
                 'class': assignment.class_assigned,
                 'subjects': [],
-                'student_count': Student.objects.filter(
-                    current_class=assignment.class_assigned,
-                    status='active'
-                ).count()
+                'student_count': class_student_counts.get(assignment.class_assigned_id, 0),
             }
         assignments_by_class[class_name]['subjects'].append(assignment.subject)
 

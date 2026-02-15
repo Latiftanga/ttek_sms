@@ -43,11 +43,7 @@
     <script>
     document.getElementById('id_class_url')?.addEventListener('change', function() {
         if (!this.value) return;
-        const area = document.getElementById('promotion-detail-area');
-        area.classList.add('opacity-0');
-        htmx.ajax('GET', this.value, {target: '#promotion-detail-area', swap: 'innerHTML'}).then(() => {
-            requestAnimationFrame(() => area.classList.remove('opacity-0'));
-        });
+        htmx.ajax('GET', this.value, {target: '#promotion-detail-area', swap: 'innerHTML transition:true'});
     });
     </script>
 

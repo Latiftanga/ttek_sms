@@ -1,4 +1,5 @@
 """Exeat management views for boarding students."""
+import json
 import logging
 from functools import wraps
 
@@ -421,7 +422,7 @@ def exeat_index(request):
         'status_choices': Exeat.Status.choices,
         'type_choices': Exeat.ExeatType.choices,
         'houses': houses,
-        'is_senior': is_senior_housemaster(user) or is_school_admin(user),
+        'is_senior': (assignment and assignment.is_senior) or is_school_admin(user),
         'assignment': assignment,
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
@@ -590,13 +591,19 @@ def exeat_student_guardian(request, pk):
     student = get_object_or_404(Student, pk=pk)
     guardian = student.get_primary_guardian()
 
+    has_guardian = guardian is not None
+    has_phone = bool(guardian.phone_number) if guardian else False
     context = {
         'student': student,
         'guardian': guardian,
-        'has_guardian': guardian is not None,
-        'has_phone': bool(guardian.phone_number) if guardian else False,
+        'has_guardian': has_guardian,
+        'has_phone': has_phone,
     }
-    return render(request, 'students/partials/exeat_guardian_info.html', context)
+    response = render(request, 'students/partials/exeat_guardian_info.html', context)
+    response['HX-Trigger'] = json.dumps({
+        'guardianLoaded': {'canSubmit': has_guardian and has_phone}
+    })
+    return response
 
 
 @housemaster_required
@@ -668,7 +675,7 @@ def exeat_detail(request, pk):
         'can_mark_departed': can_mark_departed,
         'can_mark_returned': can_mark_returned,
         'can_reject': can_reject,
-        'is_senior': is_senior_housemaster(user) or is_school_admin(user),
+        'is_senior': (assignment and assignment.is_senior) or is_school_admin(user),
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
             {'label': 'Exeats', 'url': '/students/exeats/'},
@@ -684,7 +691,9 @@ def exeat_detail(request, pk):
 @housemaster_required
 def exeat_approve(request, pk):
     """Approve an exeat (internal) or recommend (external pending)."""
-    exeat = get_object_or_404(Exeat, pk=pk)
+    exeat = get_object_or_404(
+        Exeat.objects.select_related('student', 'student__house'), pk=pk
+    )
     user = request.user
     teacher = get_teacher_profile(user)
     assignment = get_housemaster_assignment(user)
@@ -754,7 +763,9 @@ def exeat_approve(request, pk):
 @housemaster_required
 def exeat_reject(request, pk):
     """Reject an exeat request."""
-    exeat = get_object_or_404(Exeat, pk=pk)
+    exeat = get_object_or_404(
+        Exeat.objects.select_related('student', 'student__house'), pk=pk
+    )
     user = request.user
     assignment = get_housemaster_assignment(user)
 
@@ -790,7 +801,9 @@ def exeat_reject(request, pk):
 @housemaster_required
 def exeat_depart(request, pk):
     """Mark student as departed."""
-    exeat = get_object_or_404(Exeat, pk=pk)
+    exeat = get_object_or_404(
+        Exeat.objects.select_related('student', 'student__house'), pk=pk
+    )
     user = request.user
     assignment = get_housemaster_assignment(user)
 
@@ -823,7 +836,9 @@ def exeat_depart(request, pk):
 @housemaster_required
 def exeat_return(request, pk):
     """Mark student as returned."""
-    exeat = get_object_or_404(Exeat, pk=pk)
+    exeat = get_object_or_404(
+        Exeat.objects.select_related('student', 'student__house'), pk=pk
+    )
     user = request.user
     assignment = get_housemaster_assignment(user)
 
@@ -1007,7 +1022,9 @@ def housemaster_assign(request):
 @admin_required
 def housemaster_remove(request, pk):
     """Remove a housemaster assignment."""
-    assignment = get_object_or_404(HouseMaster, pk=pk)
+    assignment = get_object_or_404(
+        HouseMaster.objects.select_related('teacher', 'house'), pk=pk
+    )
 
     if request.method == 'POST':
         name = f"{assignment.teacher.full_name} from {assignment.house.name}"

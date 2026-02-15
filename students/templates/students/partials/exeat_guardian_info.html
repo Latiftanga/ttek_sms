@@ -14,31 +14,16 @@
         SMS will be sent on approval
     </span>
 </div>
-<!-- Enable submit button -->
-<script>
-    const btn = document.querySelector('button[type="submit"][form="exeat-form"]');
-    if (btn) { btn.disabled = false; btn.classList.remove('btn-disabled'); }
-</script>
 {% elif has_guardian and not has_phone %}
 <!-- Guardian exists but no phone -->
 <div class="alert alert-warning py-2 text-sm">
     <i class="fa-solid fa-triangle-exclamation"></i>
     <span><strong>{{ guardian.full_name }}</strong> has no phone number. Contact School Admin to update guardian info.</span>
 </div>
-<!-- Disable submit button -->
-<script>
-    const btn = document.querySelector('button[type="submit"][form="exeat-form"]');
-    if (btn) { btn.disabled = true; btn.classList.add('btn-disabled'); }
-</script>
 {% else %}
 <!-- No guardian -->
 <div class="alert alert-warning py-2 text-sm">
     <i class="fa-solid fa-triangle-exclamation"></i>
     <span>No primary guardian assigned. Contact School Admin to add guardian information.</span>
 </div>
-<!-- Disable submit button -->
-<script>
-    const btn = document.querySelector('button[type="submit"][form="exeat-form"]');
-    if (btn) { btn.disabled = true; btn.classList.add('btn-disabled'); }
-</script>
 {% endif %}
