@@ -354,7 +354,10 @@
 
                 <div class="divide-y divide-base-200 max-h-80 overflow-y-auto">
                     {% for item in low_attendance_students|slice:":8" %}
-                    <button onclick="showStudentAttendance('{{ item.student.pk }}')"
+                    <button hx-get="{% url 'academics:student_attendance_detail' item.student.pk %}?date_from={{ date_from }}&date_to={{ date_to }}"
+                            hx-target="#student_attendance_content"
+                            hx-swap="innerHTML"
+                            onclick="openStudentModal()"
                             class="w-full flex items-center gap-3 p-3 hover:bg-base-200/30 text-left transition-colors">
                         <div class="avatar placeholder shrink-0">
                             <div class="w-9 h-9 rounded-full bg-error/10 text-error flex items-center justify-center">
@@ -722,7 +725,11 @@
                 </thead>
                 <tbody>
                     {% for item in low_attendance_students %}
-                    <tr class="hover cursor-pointer" onclick="showStudentAttendance('{{ item.student.pk }}')">
+                    <tr class="hover cursor-pointer"
+                        hx-get="{% url 'academics:student_attendance_detail' item.student.pk %}?date_from={{ date_from }}&date_to={{ date_to }}"
+                        hx-target="#student_attendance_content"
+                        hx-swap="innerHTML"
+                        onclick="openStudentModal()">
                         <td>
                             <div class="flex items-center gap-2">
                                 <div class="avatar placeholder">
@@ -802,7 +809,10 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <button onclick="showStudentAttendance('{{ item.student.pk }}')"
+                                    <button hx-get="{% url 'academics:student_attendance_detail' item.student.pk %}?date_from={{ date_from }}&date_to={{ date_to }}"
+                                            hx-target="#student_attendance_content"
+                                            hx-swap="innerHTML"
+                                            onclick="openStudentModal()"
                                             class="font-medium hover:text-primary text-left">
                                         {{ item.student.full_name }}
                                     </button>
@@ -1133,32 +1143,10 @@
         }
     }
 
-    function showStudentAttendance(studentId, retryCount) {
-        retryCount = retryCount || 0;
-        var MAX_RETRIES = 2;
-        const modal = document.getElementById('student_attendance_modal');
-        const content = document.getElementById('student_attendance_content');
-
-        content.innerHTML = '<div class="flex justify-center py-12"><span class="loading loading-spinner loading-lg text-primary"></span></div>';
-        if (!modal.open) modal.showModal();
-
-        fetch(`/academics/attendance/student/${studentId}/?date_from={{ date_from }}&date_to={{ date_to }}`, {
-            headers: { 'HX-Request': 'true' }
-        })
-        .then(function(response) {
-            if (!response.ok) throw new Error('Server error');
-            return response.text();
-        })
-        .then(function(html) { content.innerHTML = html; })
-        .catch(function(error) {
-            if (retryCount < MAX_RETRIES) {
-                var delay = Math.pow(2, retryCount) * 1000;
-                content.innerHTML = '<div class="flex justify-center py-12"><span class="loading loading-spinner loading-lg text-warning"></span><p class="text-sm text-base-content/60 mt-2">Retrying...</p></div>';
-                setTimeout(function() { showStudentAttendance(studentId, retryCount + 1); }, delay);
-            } else {
-                content.innerHTML = '<div class="text-center py-8 text-error"><i class="fa-solid fa-exclamation-circle text-2xl mb-2"></i><p>Failed to load details</p><button class="btn btn-sm btn-ghost mt-2" onclick="showStudentAttendance(\'' + studentId + '\')">Try again</button></div>';
-            }
-        });
+    function openStudentModal() {
+        var c = document.getElementById('student_attendance_content');
+        c.innerHTML = '<div class="flex justify-center py-12"><span class="loading loading-spinner loading-lg text-primary"></span></div>';
+        document.getElementById('student_attendance_modal').showModal();
     }
 
     function applyTermDates(select) {

@@ -33,7 +33,8 @@
     <form id="exeat-form"
           method="post"
           action="{% url 'students:exeat_create' %}"
-          class="space-y-4">
+          class="space-y-4"
+          hx-on:guardianLoaded="var btn=document.querySelector('button[type=submit][form=exeat-form]'); if(btn){btn.disabled=!event.detail.canSubmit; btn.classList.toggle('btn-disabled',!event.detail.canSubmit)}"
         {% csrf_token %}
 
         <!-- Student & Type -->
@@ -98,9 +99,7 @@
                         <i class="fa-solid fa-user-shield text-primary text-sm"></i>
                         <span class="font-medium text-sm">Guardian</span>
                     </div>
-                    <div id="guardian-content"
-                         hx-trigger="loadGuardian"
-                         hx-swap="innerHTML">
+                    <div id="guardian-content">
                         <!-- Content loaded via HTMX when student selected -->
                     </div>
                 </div>
@@ -186,17 +185,11 @@ function selectStudent(id, name, house) {
     document.getElementById('student_id').value = id;
     document.getElementById('student_search').value = name + ' (' + house + ')';
     document.getElementById('student_search_results').innerHTML = '';
-    // Close the Alpine.js dropdown
-    const container = document.getElementById('student_search').closest('[x-data]');
-    if (container && container.__x) {
-        container.__x.$data.open = false;
-        container.__x.$data.selectedId = id;
+    var container = document.getElementById('student_search').closest('[x-data]');
+    if (container && container._x_dataStack) {
+        container._x_dataStack[0].open = false;
+        container._x_dataStack[0].selectedId = id;
     }
-    // Show guardian section and fetch info via HTMX
     document.getElementById('guardian-section').classList.remove('hidden');
-    var guardianContent = document.getElementById('guardian-content');
-    guardianContent.setAttribute('hx-get', '/students/exeats/student/' + id + '/guardian/');
-    htmx.process(guardianContent);
-    htmx.trigger(guardianContent, 'loadGuardian');
 }
 </script>

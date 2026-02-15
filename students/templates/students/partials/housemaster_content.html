@@ -3,7 +3,8 @@
      hx-get="{% url 'students:housemaster_index' %}"
      hx-trigger="housemasterChanged from:body"
      hx-target="this"
-     hx-swap="outerHTML transition:true">
+     hx-swap="outerHTML transition:true"
+     hx-on::after-settle="var m=document.getElementById('modal_housemaster'); if(m&&m.open) m.close()"
     <!-- Page Header -->
     <div class="flex items-center gap-2 sm:gap-3">
         <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
@@ -138,8 +139,3 @@
     #housemaster-list.htmx-swapping { opacity: 0.5; transition: opacity 150ms ease-out; }
     #housemaster-list.htmx-settling { opacity: 1; transition: opacity 150ms ease-in; }
 </style>
-<script>
-document.body.addEventListener('housemasterChanged', function() {
-    var el = document.getElementById('modal_housemaster'); if (el) el.close();
-});
-</script>

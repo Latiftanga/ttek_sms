@@ -3,7 +3,7 @@ import json
 import logging
 from io import BytesIO
 
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Prefetch
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from core.utils import requires_houses
 from core.models import AcademicYear, SchoolSettings
-from ..models import House, Student, HouseMaster
+from ..models import House, Student, HouseMaster, StudentGuardian
 from ..forms import HouseForm
 from .utils import admin_required
 
@@ -349,7 +349,9 @@ def house_assign_master(request, pk):
 @requires_houses
 def house_remove_master(request, pk):
     """Remove a specific housemaster assignment."""
-    assignment = get_object_or_404(HouseMaster, pk=pk)
+    assignment = get_object_or_404(
+        HouseMaster.objects.select_related('teacher', 'house'), pk=pk
+    )
 
     if request.method == 'POST':
         teacher_name = assignment.teacher.full_name
@@ -401,7 +403,13 @@ def house_students(request, pk):
     students = Student.objects.filter(
         house=house,
         status='active'
-    ).select_related('current_class').order_by('last_name', 'first_name')
+    ).select_related('current_class').prefetch_related(
+        Prefetch(
+            'student_guardians',
+            queryset=StudentGuardian.objects.filter(is_primary=True).select_related('guardian'),
+            to_attr='primary_guardian_list'
+        )
+    ).order_by('last_name', 'first_name')
 
     # Get gender counts for stats
     gender_counts = students.aggregate(
@@ -457,7 +465,13 @@ def house_students_pdf(request, pk):
     students = Student.objects.filter(
         house=house,
         status='active'
-    ).select_related('current_class').order_by('last_name', 'first_name')
+    ).select_related('current_class').prefetch_related(
+        Prefetch(
+            'student_guardians',
+            queryset=StudentGuardian.objects.filter(is_primary=True).select_related('guardian'),
+            to_attr='primary_guardian_list'
+        )
+    ).order_by('last_name', 'first_name')
 
     # Get school settings and tenant info
     school = SchoolSettings.load()

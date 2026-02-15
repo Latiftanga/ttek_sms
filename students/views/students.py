@@ -4,7 +4,7 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.urls import reverse
 from django.http import HttpResponse
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.core.mail import send_mail
@@ -62,7 +62,13 @@ def send_student_credentials(user, password, student):
 @admin_required
 def index(request):
     """Student list page with search and filter."""
-    students = Student.objects.select_related('current_class').prefetch_related('guardians').all()
+    students = Student.objects.select_related('current_class').prefetch_related(
+        Prefetch(
+            'student_guardians',
+            queryset=StudentGuardian.objects.filter(is_primary=True).select_related('guardian'),
+            to_attr='primary_guardian_list'
+        )
+    ).all()
 
     # Search
     search = request.GET.get('search', '').strip()
@@ -267,6 +273,13 @@ def student_detail(request, pk):
         ),
         pk=pk
     )
+    # Populate cache from prefetched data to avoid extra query
+    for sg in student.student_guardians.all():
+        if sg.is_primary:
+            student._cached_primary_guardian = sg.guardian
+            break
+    else:
+        student._cached_primary_guardian = None
     enrollments = student.get_enrollment_history()
     student_guardians = student.get_guardians_with_relationships()
 

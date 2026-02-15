@@ -11,7 +11,8 @@
      hx-trigger="houseChanged from:body"
      hx-target="this"
      hx-swap="outerHTML transition:true"
-     hx-disinherit="hx-target hx-swap">
+     hx-disinherit="hx-target hx-swap"
+     hx-on::after-settle="var m=document.getElementById('modal_house'); if(m&&m.open) m.close(); m=document.getElementById('modal_housemaster'); if(m&&m.open) m.close()"
     <!-- Page Header -->
     <div class="flex items-center gap-2 sm:gap-3">
         <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
@@ -331,12 +332,4 @@
     #houses-list.htmx-swapping { opacity: 0.5; transition: opacity 150ms ease-out; }
     #houses-list.htmx-settling { opacity: 1; transition: opacity 150ms ease-in; }
 </style>
-<script>
-document.body.addEventListener('houseChanged', function() {
-    var houseModal = document.getElementById('modal_house');
-    var housemasterModal = document.getElementById('modal_housemaster');
-    if (houseModal) houseModal.close();
-    if (housemasterModal) housemasterModal.close();
-});
-</script>
 

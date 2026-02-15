@@ -76,7 +76,7 @@
         <!-- Actions -->
         <div class="flex items-center justify-between gap-2 mt-6 pt-4 border-t border-base-200">
             <button type="button" class="btn btn-ghost btn-sm"
-                    onclick="document.getElementById('modal_housemaster').close(); htmx.trigger(document.body, 'houseChanged');">
+                    hx-on:click="document.getElementById('modal_housemaster').close(); htmx.trigger(document.body, 'houseChanged');">
                 Done
             </button>
             <button type="submit" class="btn btn-primary btn-sm">
