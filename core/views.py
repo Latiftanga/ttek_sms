@@ -1918,7 +1918,7 @@ def settings_test_sms(request):
 
     try:
         if sms_backend == 'arkesel':
-            _result = send_via_arkesel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
+            send_via_arkesel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
         elif sms_backend == 'hubtel':
             if ':' not in sms_api_key:
                 return HttpResponse(
@@ -1926,7 +1926,7 @@ def settings_test_sms(request):
                     '<i class="fa-solid fa-circle-xmark"></i> Hubtel API key must be in format "client_id:client_secret"'
                     '</div>' + auto_dismiss
                 )
-            _result = send_via_hubtel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
+            send_via_hubtel(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
         elif sms_backend == 'africastalking':
             if ':' not in sms_api_key:
                 return HttpResponse(
@@ -1934,7 +1934,7 @@ def settings_test_sms(request):
                     '<i class="fa-solid fa-circle-xmark"></i> Africa\'s Talking API key must be in format "username:api_key"'
                     '</div>' + auto_dismiss
                 )
-            _result = send_via_africastalking(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
+            send_via_africastalking(phone, message, sender_id=sms_sender_id, api_key=sms_api_key)
         else:
             return HttpResponse(
                 '<div class="alert alert-warning text-sm py-2">'
