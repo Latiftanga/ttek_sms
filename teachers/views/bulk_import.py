@@ -11,7 +11,7 @@ from django.contrib import messages
 import pandas as pd
 
 from accounts.models import User
-from teachers.models import Teacher, TeacherInvitation, Promotion, Qualification
+from teachers.models import Teacher, TeacherInvitation
 from .utils import admin_required, clean_value, parse_date
 from .accounts import send_invitation_email
 
