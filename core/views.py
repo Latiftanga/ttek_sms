@@ -2435,6 +2435,8 @@ def term_set_current(request, pk):
 def my_classes(request):
     """Teacher view of their assigned classes."""
     from academics.models import Class, ClassSubject
+    from students.models import Student
+    from django.db.models import Count, Q, Prefetch
 
     user = request.user
 
@@ -2451,11 +2453,19 @@ def my_classes(request):
     # Get current term
     current_term = Term.get_current()
 
-    # Get homeroom classes (where teacher is class teacher)
+    # Get homeroom classes with annotated student counts and prefetched subjects
     homeroom_classes = Class.objects.filter(
         class_teacher=teacher,
         is_active=True
-    ).prefetch_related('students').order_by('level_number', 'name')
+    ).annotate(
+        active_student_count=Count('students', filter=Q(students__status='active'))
+    ).prefetch_related(
+        Prefetch(
+            'subjects',
+            queryset=ClassSubject.objects.select_related('subject', 'teacher').order_by('-subject__is_core', 'subject__name'),
+            to_attr='prefetched_subjects'
+        )
+    ).order_by('level_number', 'name')
 
     # Get subject assignments
     subject_assignments = ClassSubject.objects.filter(
@@ -2468,39 +2478,50 @@ def my_classes(request):
     classes_data = []
     seen_classes = set()
 
-    # Add homeroom classes
+    # Add homeroom classes (counts and subjects already prefetched)
     for cls in homeroom_classes:
-        student_count = cls.students.filter(status='active').count()
-        # Get all subjects offered by this class
-        class_subjects = ClassSubject.objects.filter(
-            class_assigned=cls
-        ).select_related('subject', 'teacher').order_by('-subject__is_core', 'subject__name')
-
         classes_data.append({
             'class': cls,
             'is_homeroom': True,
             'subjects': [],  # Subjects this teacher teaches
-            'class_subjects': list(class_subjects),  # All subjects offered
-            'student_count': student_count,
+            'class_subjects': cls.prefetched_subjects,
+            'student_count': cls.active_student_count,
         })
         seen_classes.add(cls.id)
+
+    # Batch-fetch student counts for all non-homeroom classes
+    non_homeroom_class_ids = {
+        a.class_assigned_id for a in subject_assignments
+        if a.class_assigned_id not in seen_classes
+    }
+    student_counts = {}
+    if non_homeroom_class_ids:
+        student_counts = dict(
+            Student.objects.filter(
+                current_class_id__in=non_homeroom_class_ids, status='active'
+            ).values('current_class_id').annotate(
+                count=Count('id')
+            ).values_list('current_class_id', 'count')
+        )
+
+    # Batch-prefetch ClassSubjects for non-homeroom classes
+    class_subjects_by_class = {}
+    if non_homeroom_class_ids:
+        for cs in ClassSubject.objects.filter(
+            class_assigned_id__in=non_homeroom_class_ids
+        ).select_related('subject', 'teacher').order_by('-subject__is_core', 'subject__name'):
+            class_subjects_by_class.setdefault(cs.class_assigned_id, []).append(cs)
 
     # Add classes from subject assignments
     for assignment in subject_assignments:
         cls = assignment.class_assigned
         if cls.id not in seen_classes:
-            student_count = cls.students.filter(status='active').count()
-            # Get all subjects offered by this class
-            class_subjects = ClassSubject.objects.filter(
-                class_assigned=cls
-            ).select_related('subject', 'teacher').order_by('-subject__is_core', 'subject__name')
-
             classes_data.append({
                 'class': cls,
                 'is_homeroom': False,
                 'subjects': [assignment.subject],  # Subjects this teacher teaches
-                'class_subjects': list(class_subjects),  # All subjects offered
-                'student_count': student_count,
+                'class_subjects': class_subjects_by_class.get(cls.id, []),
+                'student_count': student_counts.get(cls.id, 0),
             })
             seen_classes.add(cls.id)
         else:
@@ -3170,6 +3191,8 @@ def enter_scores(request, class_id, subject_id):
     prev_student = None
     next_student = None
     current_student_scores = {}
+    assignments_by_category = {}
+    filled_scores = 0
 
     if view_mode == 'student' and students:
         # Get specific student or default to first
@@ -3191,6 +3214,19 @@ def enter_scores(request, class_id, subject_id):
         # Get scores for current student
         current_student_scores = scores_dict.get(current_student.id, {})
 
+        # Group assignments by category for student view
+        assignments_by_category = {}
+        for assignment in assignments_list:
+            cat = assignment.assessment_category
+            if cat not in assignments_by_category:
+                assignments_by_category[cat] = []
+            assignments_by_category[cat].append(assignment)
+
+        # Score progress
+        filled_scores = sum(
+            1 for a in assignments_list if a.id in current_student_scores
+        )
+
     # Check if teacher is class teacher for this class
     is_class_teacher = class_obj.class_teacher == teacher
 
@@ -3206,6 +3242,7 @@ def enter_scores(request, class_id, subject_id):
         'grades_locked': grades_locked,
         'can_edit': not grades_locked,
         'is_class_teacher': is_class_teacher,
+        'editing_allowed': not grades_locked,
         # Student view context
         'view_mode': view_mode,
         'current_student': current_student,
@@ -3213,9 +3250,15 @@ def enter_scores(request, class_id, subject_id):
         'prev_student': prev_student,
         'next_student': next_student,
         'current_student_scores': current_student_scores,
+        'assignments_by_category': assignments_by_category if view_mode == 'student' else {},
+        'filled_scores': filled_scores if view_mode == 'student' else 0,
+        'total_assignments': len(assignments_list),
     }
 
-    return htmx_render(request, 'core/teacher/enter_scores.html', 'core/teacher/partials/enter_scores_content.html', context)
+    return htmx_render(
+        request, 'core/teacher/enter_scores.html',
+        'core/teacher/partials/enter_scores_content.html', context
+    )
 
 
 @login_required
@@ -3781,6 +3824,7 @@ def class_students(request, class_id):
     """Form teacher view to manage students in their homeroom class."""
     from academics.models import Class, ClassSubject, StudentSubjectEnrollment
     from students.models import Student
+    from django.db.models import Prefetch
 
     user = request.user
 
@@ -3799,10 +3843,18 @@ def class_students(request, class_id):
 
     current_term = Term.get_current()
 
-    # Get students in this class
+    # Get students with prefetched enrollments for this class
     students = Student.objects.filter(
         current_class=class_obj,
         status='active'
+    ).prefetch_related(
+        Prefetch(
+            'subject_enrollments',
+            queryset=StudentSubjectEnrollment.objects.filter(
+                class_subject__class_assigned=class_obj, is_active=True
+            ).select_related('class_subject__subject'),
+            to_attr='active_enrollments'
+        )
     ).order_by('last_name', 'first_name')
 
     # Get class subjects (for elective enrollment)
@@ -3831,16 +3883,12 @@ def class_students(request, class_id):
         elective_subjects = [cs for cs in class_subjects if not cs.subject.is_core]
         required_electives = 3  # Default minimum for SHS
 
-    # Get enrollment data for each student
+    # Build enrollment data from prefetched results
     students_data = []
     students_missing_electives = 0
 
     for student in students:
-        enrollments = StudentSubjectEnrollment.objects.filter(
-            student=student,
-            class_subject__class_assigned=class_obj,
-            is_active=True
-        ).select_related('class_subject__subject')
+        enrollments = student.active_enrollments
 
         enrolled_subjects = [e.class_subject.subject for e in enrollments]
         enrolled_electives = [e for e in enrollments if not e.class_subject.subject.is_core]
@@ -4347,56 +4395,70 @@ def guardian_dashboard(request):
         'student__current_class'
     ).order_by('-is_primary', 'student__first_name')
 
-    # Build ward data with academic info
+    # Collect active ward IDs for batch queries
+    active_guardians = [(sg, sg.student) for sg in student_guardians if sg.student.status == 'active']
+    active_student_ids = [s.id for _, s in active_guardians]
+
+    # Batch-fetch term reports, subject counts, and attendance data
+    term_reports = {}
+    subject_counts = {}
+    session_counts = {}
+    present_counts = {}
+
+    if current_term and active_student_ids:
+        from django.db.models import Count
+
+        for tr in TermReport.objects.filter(student_id__in=active_student_ids, term=current_term):
+            term_reports[tr.student_id] = tr
+
+        for row in SubjectTermGrade.objects.filter(
+            student_id__in=active_student_ids, term=current_term, total_score__isnull=False
+        ).values('student_id').annotate(count=Count('id')):
+            subject_counts[row['student_id']] = row['count']
+
+        # Batch attendance: session counts by class, present counts by student
+        class_ids = list({s.current_class_id for _, s in active_guardians if s.current_class_id})
+        if class_ids:
+            session_counts = dict(
+                AttendanceSession.objects.filter(
+                    class_assigned_id__in=class_ids,
+                    date__gte=current_term.start_date,
+                    date__lte=current_term.end_date
+                ).values('class_assigned_id').annotate(count=Count('id')).values_list('class_assigned_id', 'count')
+            )
+            present_counts = dict(
+                AttendanceRecord.objects.filter(
+                    student_id__in=active_student_ids,
+                    status__in=['P', 'L'],
+                    session__date__gte=current_term.start_date,
+                    session__date__lte=current_term.end_date
+                ).values('student_id').annotate(count=Count('id')).values_list('student_id', 'count')
+            )
+
+    # Build ward data from batch results
     wards_data = []
     total_average = 0
     avg_count = 0
 
-    for sg in student_guardians:
-        student = sg.student
-        if student.status != 'active':
-            continue
-
+    for sg, student in active_guardians:
         ward_data = {
             'student': student,
             'relationship': sg.get_relationship_display(),
             'is_primary': sg.is_primary,
-            'term_report': None,
-            'subject_count': 0,
+            'term_report': term_reports.get(student.id),
+            'subject_count': subject_counts.get(student.id, 0),
             'attendance_rate': None,
         }
 
         if current_term:
-            # Get term report
-            ward_data['term_report'] = TermReport.objects.filter(
-                student=student,
-                term=current_term
-            ).first()
-            ward_data['subject_count'] = SubjectTermGrade.objects.filter(
-                student=student,
-                term=current_term,
-                total_score__isnull=False
-            ).count()
-
             if ward_data['term_report'] and ward_data['term_report'].average:
                 total_average += ward_data['term_report'].average
                 avg_count += 1
 
-            # Calculate attendance rate for current term
-            if student.current_class:
-                total_sessions = AttendanceSession.objects.filter(
-                    class_assigned=student.current_class,
-                    date__gte=current_term.start_date,
-                    date__lte=current_term.end_date
-                ).count()
+            if student.current_class_id:
+                total_sessions = session_counts.get(student.current_class_id, 0)
                 if total_sessions > 0:
-                    present_count = AttendanceRecord.objects.filter(
-                        student=student,
-                        session__class_assigned=student.current_class,
-                        session__date__gte=current_term.start_date,
-                        session__date__lte=current_term.end_date,
-                        status__in=['P', 'L']
-                    ).count()
+                    present_count = present_counts.get(student.id, 0)
                     ward_data['attendance_rate'] = round((present_count / total_sessions) * 100)
 
         wards_data.append(ward_data)
@@ -4440,33 +4502,34 @@ def my_wards(request):
         'student__current_class'
     ).order_by('-is_primary', 'student__first_name')
 
-    # Get results for each ward
-    wards_data = []
-    for sg in student_guardians:
-        student = sg.student
-        if student.status != 'active':
-            continue
+    # Collect active wards for batch queries
+    active_guardians = [(sg, sg.student) for sg in student_guardians if sg.student.status == 'active']
+    active_student_ids = [s.id for _, s in active_guardians]
 
-        ward_data = {
+    # Batch-fetch term reports and subject counts
+    term_reports = {}
+    subject_counts = {}
+    if current_term and active_student_ids:
+        from django.db.models import Count
+
+        for tr in TermReport.objects.filter(student_id__in=active_student_ids, term=current_term):
+            term_reports[tr.student_id] = tr
+
+        for row in SubjectTermGrade.objects.filter(
+            student_id__in=active_student_ids, term=current_term, total_score__isnull=False
+        ).values('student_id').annotate(count=Count('id')):
+            subject_counts[row['student_id']] = row['count']
+
+    # Build ward data from batch results
+    wards_data = []
+    for sg, student in active_guardians:
+        wards_data.append({
             'student': student,
             'relationship': sg.get_relationship_display(),
             'is_primary': sg.is_primary,
-            'term_report': None,
-            'subject_count': 0,
-        }
-
-        if current_term:
-            ward_data['term_report'] = TermReport.objects.filter(
-                student=student,
-                term=current_term
-            ).first()
-            ward_data['subject_count'] = SubjectTermGrade.objects.filter(
-                student=student,
-                term=current_term,
-                total_score__isnull=False
-            ).count()
-
-        wards_data.append(ward_data)
+            'term_report': term_reports.get(student.id),
+            'subject_count': subject_counts.get(student.id, 0),
+        })
 
     context = {
         'guardian': guardian,
@@ -4521,35 +4584,41 @@ def ward_detail(request, pk):
     attendance_records = []
     attendance_stats = {'present': 0, 'absent': 0, 'late': 0, 'excused': 0, 'total': 0}
     if current_term and student.current_class:
+        from django.db.models import Count, Q
+
         sessions = AttendanceSession.objects.filter(
             class_assigned=student.current_class,
             date__gte=current_term.start_date,
             date__lte=current_term.end_date
         ).order_by('-date')[:10]
 
+        # Batch-fetch attendance records for all sessions at once
+        session_ids = [s.id for s in sessions]
+        records_by_session = {}
+        for record in AttendanceRecord.objects.filter(student=student, session_id__in=session_ids):
+            records_by_session[record.session_id] = record
+
         for session in sessions:
-            record = AttendanceRecord.objects.filter(
-                student=student,
-                session=session
-            ).first()
+            record = records_by_session.get(session.id)
             attendance_records.append({
                 'date': session.date,
                 'status': record.status if record else None,
                 'status_display': record.get_status_display() if record else 'Not Recorded'
             })
 
-        # Calculate attendance stats
-        all_records = AttendanceRecord.objects.filter(
+        # Calculate attendance stats with a single aggregate query
+        attendance_stats = AttendanceRecord.objects.filter(
             student=student,
             session__class_assigned=student.current_class,
             session__date__gte=current_term.start_date,
             session__date__lte=current_term.end_date
+        ).aggregate(
+            present=Count('id', filter=Q(status='P')),
+            late=Count('id', filter=Q(status='L')),
+            absent=Count('id', filter=Q(status='A')),
+            excused=Count('id', filter=Q(status='E')),
+            total=Count('id'),
         )
-        attendance_stats['present'] = all_records.filter(status='P').count()
-        attendance_stats['late'] = all_records.filter(status='L').count()
-        attendance_stats['absent'] = all_records.filter(status='A').count()
-        attendance_stats['excused'] = all_records.filter(status='E').count()
-        attendance_stats['total'] = all_records.count()
 
     context = {
         'student': student,
@@ -4598,38 +4667,52 @@ def fee_payments(request):
         ).select_related('student', 'student__current_class')
 
         ward_students = []
+        ward_sgs = []
         for sg in student_guardians:
-            student = sg.student
-            if student.status != 'active':
-                continue
-            ward_students.append(student)
+            if sg.student.status == 'active':
+                ward_students.append(sg.student)
+                ward_sgs.append(sg)
 
-            # Get invoices for this student
-            invoices = Invoice.objects.filter(
-                student=student
-            ).exclude(status='CANCELLED').order_by('-created_at')
+        ward_ids = [s.id for s in ward_students]
 
-            if current_year:
-                invoices = invoices.filter(academic_year=current_year)
-
-            # Calculate totals from invoices
-            totals = invoices.aggregate(
+        # Batch-fetch invoice aggregates for all wards
+        year_filter = {'academic_year': current_year} if current_year else {}
+        invoice_aggregates = {}
+        if ward_ids:
+            for row in Invoice.objects.filter(
+                student_id__in=ward_ids, **year_filter
+            ).exclude(status='CANCELLED').values('student_id').annotate(
                 total_fees=Sum('total_amount'),
                 total_paid=Sum('amount_paid'),
                 total_balance=Sum('balance')
-            )
-            total_fees = totals['total_fees'] or 0
-            total_paid = totals['total_paid'] or 0
-            balance = totals['total_balance'] or 0
+            ):
+                invoice_aggregates[row['student_id']] = row
 
-            # Get current term invoice if exists
-            current_invoice = invoices.filter(term=current_term).first() if current_term else None
-
-            # Recent payments for this student
-            recent_payments = Payment.objects.filter(
-                invoice__student=student,
+        # Batch-fetch recent payments grouped by student
+        payments_by_student = {}
+        if ward_ids:
+            for payment in Payment.objects.filter(
+                invoice__student_id__in=ward_ids,
                 status='COMPLETED'
-            ).select_related('invoice').order_by('-transaction_date')[:5]
+            ).select_related('invoice').order_by('-transaction_date'):
+                sid = payment.invoice.student_id
+                if sid not in payments_by_student:
+                    payments_by_student[sid] = []
+                if len(payments_by_student[sid]) < 5:
+                    payments_by_student[sid].append(payment)
+
+        for sg, student in zip(ward_sgs, ward_students):
+            agg = invoice_aggregates.get(student.id, {})
+            total_fees = agg.get('total_fees') or 0
+            total_paid = agg.get('total_paid') or 0
+            balance = agg.get('total_balance') or 0
+
+            # Per-student queries for sliced results (can't batch slices)
+            invoices = Invoice.objects.filter(
+                student=student, **year_filter
+            ).exclude(status='CANCELLED').order_by('-created_at')
+
+            current_invoice = invoices.filter(term=current_term).first() if current_term else None
 
             wards_fees.append({
                 'student': student,
@@ -4638,8 +4721,8 @@ def fee_payments(request):
                 'total_paid': total_paid,
                 'balance': balance,
                 'current_invoice': current_invoice,
-                'invoices': invoices[:3],  # Recent 3 invoices
-                'recent_payments': recent_payments,
+                'invoices': invoices[:3],
+                'recent_payments': payments_by_student.get(student.id, []),
             })
 
             total_outstanding += balance

@@ -1,4 +1,4 @@
-{% load core_tags %}
+{% load core_tags static %}
 
 <div id="enter-scores-page"
      x-data="{ init() { localStorage.setItem('teacherScoreViewMode', '{% if view_mode == 'student' %}student{% else %}table{% endif %}'); } }"
@@ -146,100 +146,133 @@
 
 {% else %}
 
+<!-- Offline warning banner -->
+<div id="offline-banner" class="alert alert-warning py-2 mb-3 hidden">
+    <i class="fa-solid fa-wifi-slash text-sm"></i>
+    <span class="text-sm">You are offline. Scores will not save until you reconnect.</span>
+</div>
+
 {% if view_mode == 'student' and current_student %}
-<!-- STUDENT VIEW - Per-student with navigation -->
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-4">
-        <!-- Navigation Header -->
-        <div class="flex items-center gap-2 mb-4">
-            {% if prev_student %}
-            <a href="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ prev_student.pk }}"
-               hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ prev_student.pk }}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               hx-swap="outerHTML"
-               hx-select="unset"
-               class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px] touch-action-manipulation"
-               title="Previous student">
-                <i class="fa-solid fa-chevron-left"></i>
-            </a>
-            {% else %}
-            <button class="btn btn-ghost btn-circle btn-disabled min-w-[44px] min-h-[44px]" disabled>
-                <i class="fa-solid fa-chevron-left"></i>
-            </button>
-            {% endif %}
+<!-- STUDENT VIEW - Per-student with category-grouped cards -->
+<div id="student-score-view" class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-2 sm:p-3 md:p-4">
+        <!-- Sticky header with student info and navigation -->
+        <div class="sticky top-0 z-10 bg-base-100 -mx-2 sm:-mx-3 md:-mx-4 px-2 sm:px-3 md:px-4 pt-1 pb-2 mb-3 border-b border-transparent transition-[border-color] duration-200" id="student-sticky-header">
+            <div class="flex items-center gap-1">
+                <!-- Prev button -->
+                {% if prev_student %}
+                <button id="prev-student-btn" class="btn btn-circle btn-ghost btn-sm min-w-[40px] min-h-[40px] touch-action-manipulation"
+                        hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ prev_student.pk }}"
+                        hx-target="#main-content"
+                        hx-push-url="true"
+                        hx-swap="outerHTML"
+                        hx-select="unset">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                {% else %}
+                <button class="btn btn-circle btn-ghost btn-sm btn-disabled min-w-[40px] min-h-[40px]">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                {% endif %}
 
-            <div class="flex-1 text-center min-w-0">
-                <div class="flex items-center justify-center gap-2 mb-1">
-                    <div class="avatar placeholder">
-                        <div class="w-10 h-10 rounded-full bg-base-300 text-base-content flex items-center justify-center">
-                            {% if current_student.photo %}
-                            <img src="{{ current_student.photo.url }}" alt="{{ current_student.full_name }}" class="object-cover" />
-                            {% else %}
-                            <span class="text-sm font-medium">{{ current_student.first_name|slice:":1" }}{{ current_student.last_name|slice:":1" }}</span>
-                            {% endif %}
-                        </div>
+                <!-- Student info — tap name to jump -->
+                <div class="flex-1 min-w-0 text-center">
+                    <div class="dropdown dropdown-bottom">
+                        <label tabindex="0" class="font-bold text-sm sm:text-base cursor-pointer hover:text-primary transition-colors truncate inline-flex items-center gap-1 touch-action-manipulation" title="Tap to jump to student">
+                            {{ current_student.full_name }}
+                            <i class="fa-solid fa-caret-down text-[10px] text-base-content/40"></i>
+                        </label>
+                        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-64 max-h-60 overflow-y-auto p-2 shadow-xl border border-base-200 flex-nowrap">
+                            {% for s in students %}
+                            <li>
+                                {% if s.pk == current_student.pk %}
+                                <span class="bg-primary/10 text-primary font-semibold min-h-[40px] text-sm">{{ s.first_name }} {{ s.last_name }}</span>
+                                {% else %}
+                                <a hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ s.pk }}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   hx-swap="outerHTML"
+                                   hx-select="unset"
+                                   class="min-h-[40px] text-sm">{{ s.first_name }} {{ s.last_name }}</a>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
                     </div>
-                </div>
-                <p class="font-semibold truncate">{{ current_student.full_name }}</p>
-                <p class="text-xs text-base-content/60">{{ current_student_index|add:1 }} of {{ students|length }}</p>
-            </div>
-
-            {% if next_student %}
-            <a href="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ next_student.pk }}"
-               hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ next_student.pk }}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               hx-swap="outerHTML"
-               hx-select="unset"
-               class="btn btn-ghost btn-circle min-w-[44px] min-h-[44px] touch-action-manipulation"
-               title="Next student">
-                <i class="fa-solid fa-chevron-right"></i>
-            </a>
-            {% else %}
-            <button class="btn btn-ghost btn-circle btn-disabled min-w-[44px] min-h-[44px]" disabled>
-                <i class="fa-solid fa-chevron-right"></i>
-            </button>
-            {% endif %}
-        </div>
-
-        {% if grades_locked %}
-        <div class="alert alert-warning py-2 mb-4">
-            <i class="fa-solid fa-lock text-sm"></i>
-            <span class="text-sm">Grades locked - view only</span>
-        </div>
-        {% endif %}
-
-        <!-- Assignment Scores -->
-        {% if assignments %}
-        <div class="divide-y divide-base-200">
-            {% for assignment in assignments %}
-            <div class="flex items-center justify-between gap-3 py-3">
-                <div class="flex-1 min-w-0">
-                    <p class="font-medium">{{ assignment.name }}</p>
-                    <p class="text-xs text-base-content/60 mt-0.5">
-                        <span class="badge badge-ghost badge-sm">{{ assignment.assessment_category.short_name }}</span>
-                        <span class="ml-1">Max {{ assignment.points_possible }}</span>
+                    <p class="text-[11px] text-base-content/50 leading-tight">
+                        {{ current_student_index|add:1 }}/{{ students|length }}{% if assignments_by_category %} · <span id="score-progress" class="font-medium {% if filled_scores == total_assignments and total_assignments > 0 %}text-success{% endif %}">{{ filled_scores }}/{{ total_assignments }}</span>{% endif %}
                     </p>
                 </div>
-                <input type="number"
-                       inputmode="decimal"
-                       name="points"
-                       value="{% with score=current_student_scores|get_item:assignment.id %}{{ score|default:'' }}{% endwith %}"
-                       min="0"
-                       max="{{ assignment.points_possible }}"
-                       step="0.5"
-                       placeholder="--"
-                       class="input input-bordered w-20 h-12 text-center text-lg font-bold"
-                       data-student="{{ current_student.id }}"
-                       data-assignment="{{ assignment.id }}"
-                       data-max="{{ assignment.points_possible }}"
-                       {% if grades_locked %}disabled{% endif %}
-                       hx-post="{% url 'gradebook:score_save' %}"
-                       hx-trigger="change delay:300ms, blur"
-                       hx-vals='{"student_id": "{{ current_student.id }}", "assignment_id": "{{ assignment.id }}"}'
-                       hx-include="this"
-                       hx-swap="none" />
+
+                <!-- Next button -->
+                {% if next_student %}
+                <button id="next-student-btn" class="btn btn-circle btn-ghost btn-sm min-w-[40px] min-h-[40px] touch-action-manipulation"
+                        hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ next_student.pk }}"
+                        hx-target="#main-content"
+                        hx-push-url="true"
+                        hx-swap="outerHTML"
+                        hx-select="unset">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+                {% else %}
+                <button class="btn btn-circle btn-ghost btn-sm btn-disabled min-w-[40px] min-h-[40px]">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Offline warning banner (mobile) -->
+        <div id="offline-banner-mobile" class="alert alert-warning py-2 mb-3 hidden">
+            <i class="fa-solid fa-wifi-slash text-sm"></i>
+            <span class="text-sm">You are offline. Scores will not save until you reconnect.</span>
+        </div>
+
+        <!-- Score Entry Cards by Category -->
+        {% if assignments_by_category %}
+        <div class="space-y-3 sm:space-y-4">
+            {% for category, category_assignments in assignments_by_category.items %}
+            <div class="bg-base-200/50 rounded-xl p-2 sm:p-3">
+                <div class="flex items-center justify-between mb-2 sm:mb-3">
+                    <h4 class="font-bold text-sm flex items-center gap-2">
+                        <span class="badge badge-ghost badge-sm">{{ category.short_name }}</span>
+                        {{ category.name }}
+                    </h4>
+                    <span class="text-xs text-base-content/60">{{ category.percentage }}%</span>
+                </div>
+
+                <div class="space-y-1.5 sm:space-y-2">
+                    {% for assignment in category_assignments %}
+                    <div class="bg-base-100 rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium text-sm truncate">{{ assignment.name }}</div>
+                            <div class="text-xs text-base-content/60">Max: {{ assignment.points_possible }}</div>
+                        </div>
+                        <div class="flex items-center gap-1.5 sm:gap-2">
+                            <input type="number"
+                                   class="input input-bordered w-20 h-11 sm:h-12 text-center text-lg font-bold score-input-mobile {% if not editing_allowed %}input-disabled{% endif %}"
+                                   name="points"
+                                   data-student="{{ current_student.pk }}"
+                                   data-assignment="{{ assignment.pk }}"
+                                   data-max="{{ assignment.points_possible }}"
+                                   aria-label="Score for {{ assignment.name }}"
+                                   min="0"
+                                   max="{{ assignment.points_possible }}"
+                                   step="0.5"
+                                   inputmode="decimal"
+                                   value="{% with score=current_student_scores|get_item:assignment.id %}{{ score|default:'' }}{% endwith %}"
+                                   {% if editing_allowed %}
+                                   hx-post="{% url 'gradebook:score_save' %}"
+                                   hx-trigger="change"
+                                   hx-vals='{"student_id": "{{ current_student.pk }}", "assignment_id": "{{ assignment.pk }}"}'
+                                   hx-include="this"
+                                   hx-swap="none"
+                                   {% else %}disabled{% endif %}>
+                            <span class="text-base-content/40 text-xs sm:text-sm">/ {{ assignment.points_possible }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -250,27 +283,10 @@
         </div>
         {% endif %}
 
-        <!-- Jump to Student -->
-        <div class="mt-4 pt-4 border-t border-base-200">
-            <label class="label py-1">
-                <span class="label-text text-xs">Jump to student</span>
-            </label>
-            <select class="select select-bordered select-sm w-full"
-                    hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}"
-                    hx-target="#main-content"
-                    hx-push-url="true"
-                    hx-swap="outerHTML"
-                    hx-select="unset"
-                    hx-trigger="change"
-                    hx-include="this"
-                    name="student_id"
-                    hx-vals='{"view": "student"}'>
-                {% for s in students %}
-                <option value="{{ s.pk }}" {% if s.pk == current_student.pk %}selected{% endif %}>
-                    {{ forloop.counter }}. {{ s.full_name }}
-                </option>
-                {% endfor %}
-            </select>
+        <!-- Auto-save indicator -->
+        <div class="mt-4 text-center text-[11px] text-base-content/40">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            Scores save automatically
         </div>
     </div>
 </div>
@@ -302,16 +318,19 @@
             </div>
 
             <!-- Scores Table -->
-            <div class="overflow-x-auto">
-                <table class="table table-sm table-pin-rows table-pin-cols">
+            <div class="overflow-x-auto scroll-shadow-container">
+                <table class="table table-xs sm:table-sm table-pin-rows table-pin-cols">
                     <thead>
                         <tr class="bg-base-200">
-                            <th class="bg-base-200 z-20 min-w-[180px]">Student</th>
+                            <th class="sticky left-0 bg-base-200 z-20 min-w-[100px] sm:min-w-[120px] md:min-w-[160px]">
+                                <span class="hidden md:inline">Student</span>
+                                <span class="md:hidden">Name</span>
+                            </th>
                             {% for assignment in assignments %}
-                            <th class="text-center min-w-[70px]">
-                                <div class="text-[10px] font-normal text-base-content/50">{{ assignment.assessment_category.short_name }}</div>
-                                <div class="font-medium text-xs">{{ assignment.name }}</div>
-                                <div class="text-[10px] text-base-content/50">/{{ assignment.points_possible }}</div>
+                            <th class="text-center min-w-[64px] sm:min-w-[70px] md:min-w-20">
+                                <div class="text-xs">{{ assignment.assessment_category.short_name }}</div>
+                                <div class="text-xs font-normal text-base-content/60 truncate max-w-[56px] sm:max-w-[60px] md:max-w-none" title="{{ assignment.name }}">{{ assignment.name }}</div>
+                                <div class="text-xs font-normal text-base-content/40">/ {{ assignment.points_possible }}</div>
                             </th>
                             {% endfor %}
                             <th class="text-center bg-base-200 min-w-[60px]">Total</th>
@@ -320,40 +339,42 @@
                     <tbody>
                         {% for student in students %}
                         <tr class="hover">
-                            <td class="bg-base-100 z-10">
-                                <div class="flex items-center gap-2">
-                                    <div class="avatar placeholder">
-                                        <div class="w-7 h-7 rounded-full bg-base-300 text-base-content flex items-center justify-center">
-                                            {% if student.photo %}
-                                            <img src="{{ student.photo.url }}" alt="" loading="lazy" />
-                                            {% else %}
-                                            <span class="text-[10px]">{{ student.first_name|slice:":1" }}{{ student.last_name|slice:":1" }}</span>
-                                            {% endif %}
-                                        </div>
+                            <td class="sticky left-0 bg-base-100 z-10 py-1 sm:py-2">
+                                <a href="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ student.pk }}"
+                                   hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ student.pk }}"
+                                   hx-target="#main-content"
+                                   hx-push-url="true"
+                                   hx-swap="outerHTML"
+                                   class="md:pointer-events-none md:no-underline block">
+                                    <div class="font-medium text-xs sm:text-sm md:text-base">
+                                        <span class="md:hidden">{{ student.last_name|slice:":8" }}, {{ student.first_name.0 }}.</span>
+                                        <span class="hidden md:inline">{{ student.last_name }}, {{ student.first_name }}</span>
                                     </div>
-                                    <div class="text-xs">{{ student.full_name }}</div>
-                                </div>
+                                    <div class="text-xs text-base-content/60 hidden md:block">{{ student.admission_number }}</div>
+                                </a>
                             </td>
                             {% for assignment in assignments %}
-                            <td class="text-center p-1">
+                            <td class="text-center p-0.5 sm:p-1">
                                 {% with score=scores_dict|get_item:student.id|get_item:assignment.id %}
                                 <input type="number"
-                                       inputmode="decimal"
+                                       class="input input-bordered w-14 h-9 sm:w-16 sm:h-10 md:h-8 text-center text-sm sm:text-base md:text-sm font-medium score-input {% if not editing_allowed %}input-disabled{% endif %}"
                                        name="points"
-                                       value="{{ score|default:'' }}"
-                                       min="0"
-                                       max="{{ assignment.points_possible }}"
-                                       step="0.5"
-                                       class="input input-bordered input-xs w-16 text-center score-input-desktop"
                                        data-student="{{ student.id }}"
                                        data-assignment="{{ assignment.id }}"
                                        data-max="{{ assignment.points_possible }}"
-                                       {% if grades_locked %}disabled{% endif %}
+                                       aria-label="Score for {{ student.full_name }} - {{ assignment.name }}"
+                                       min="0"
+                                       max="{{ assignment.points_possible }}"
+                                       step="0.5"
+                                       inputmode="decimal"
+                                       value="{{ score|default:'' }}"
+                                       {% if editing_allowed %}
                                        hx-post="{% url 'gradebook:score_save' %}"
-                                       hx-trigger="change delay:300ms, blur"
+                                       hx-trigger="change"
                                        hx-vals='{"student_id": "{{ student.id }}", "assignment_id": "{{ assignment.id }}"}'
                                        hx-include="this"
-                                       hx-swap="none" />
+                                       hx-swap="none"
+                                       {% else %}disabled{% endif %}>
                                 {% endwith %}
                             </td>
                             {% endfor %}
@@ -365,20 +386,47 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Auto-save indicator -->
+            <div class="py-3 text-center text-[11px] text-base-content/40">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                Scores save automatically
+            </div>
         </div>
     </div>
 </div>
 {% endif %}
 
-<!-- Auto-save indicator -->
-<div class="mt-4 p-3 bg-base-200/50 rounded-lg text-center">
-    <span class="text-xs text-base-content/60">
-        <i class="fa-solid fa-circle-check text-success"></i>
-        Scores save automatically
-    </span>
+{% endif %}
+</div><!-- end score-entry-container -->
+
+<!-- Error tooltip (table view — fixed position) -->
+<div id="score-error-tooltip" class="fixed z-[100] hidden pointer-events-none">
+    <div class="bg-error text-error-content text-xs rounded-lg shadow-lg px-3 py-2 max-w-52 pointer-events-auto">
+        <div class="flex items-start gap-2">
+            <i class="fa-solid fa-circle-exclamation mt-0.5 flex-shrink-0"></i>
+            <div>
+                <div class="font-semibold" id="tooltip-message"></div>
+                <div class="text-error-content/80 mt-0.5 text-[11px]" id="tooltip-hint"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- Styles for score input feedback -->
+<!-- Error tooltip (student view — bottom sheet) -->
+<div id="score-error-tooltip-mobile" class="fixed z-50 hidden left-4 right-4 bottom-20">
+    <div class="bg-error text-error-content text-sm rounded-xl shadow-xl px-4 py-3 flex items-start gap-3">
+        <i class="fa-solid fa-circle-exclamation mt-0.5"></i>
+        <div class="flex-1">
+            <div class="font-semibold" id="tooltip-message-mobile"></div>
+            <div class="text-error-content/80 text-xs mt-1" id="tooltip-hint-mobile"></div>
+        </div>
+        <button onclick="hideErrorTooltipMobile()" class="btn btn-ghost btn-sm btn-circle min-w-[44px] min-h-[44px]">
+            <i class="fa-solid fa-times"></i>
+        </button>
+    </div>
+</div>
+
 <style>
 /* Touch-friendly action buttons */
 .touch-action-manipulation {
@@ -396,349 +444,385 @@
     }
 }
 
-.score-input.input-error, .score-input-desktop.input-error {
+/* Scroll shadow indicator for horizontal scrollable tables */
+.scroll-shadow-container {
+    position: relative;
+}
+.scroll-shadow-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    background: linear-gradient(to left, oklch(var(--b1)) 0%, transparent 100%);
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.2s;
+}
+@media (min-width: 768px) {
+    .scroll-shadow-container::after {
+        display: none;
+    }
+}
+
+/* Table view — score-input */
+.score-input {
+    font-variant-numeric: tabular-nums;
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+    transition: all 0.15s ease;
+}
+.score-input::-webkit-inner-spin-button,
+.score-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.score-input:focus {
+    outline: 2px solid oklch(var(--p));
+    outline-offset: 0;
+}
+.score-input.htmx-request {
+    background-color: oklch(var(--wa) / 0.15);
+    border-color: oklch(var(--wa));
+    animation: pulse-saving 0.8s ease-in-out infinite;
+}
+@keyframes pulse-saving {
+    0%, 100% { border-color: oklch(var(--wa)); opacity: 1; }
+    50% { border-color: oklch(var(--wa) / 0.4); opacity: 0.7; }
+}
+.score-input.input-error {
     border-color: oklch(var(--er)) !important;
     background-color: oklch(var(--er) / 0.1) !important;
-    animation: shake-input 0.3s ease-in-out;
+    animation: shake 0.3s ease-in-out;
 }
-.score-input.input-success, .score-input-desktop.input-success {
+.score-input.input-success {
     border-color: oklch(var(--su)) !important;
     background-color: oklch(var(--su) / 0.15) !important;
+    animation: pulse-success 0.4s ease-out;
 }
-@keyframes shake-input {
+@keyframes shake {
     0%, 100% { transform: translateX(0); }
     20% { transform: translateX(-3px); }
     40% { transform: translateX(3px); }
     60% { transform: translateX(-3px); }
     80% { transform: translateX(3px); }
 }
+@keyframes pulse-success {
+    0% { box-shadow: 0 0 0 0 oklch(var(--su) / 0.5); }
+    100% { box-shadow: 0 0 0 8px oklch(var(--su) / 0); }
+}
+
+/* Ensure sticky column has proper background in dark mode */
+.table tbody tr td.sticky {
+    background-color: oklch(var(--b1));
+}
+.table tbody tr:hover td.sticky {
+    background-color: oklch(var(--b2));
+}
+
+/* Student view — score-input-mobile */
+.score-input-mobile {
+    font-variant-numeric: tabular-nums;
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+    transition: all 0.15s ease;
+}
+.score-input-mobile::-webkit-inner-spin-button,
+.score-input-mobile::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.score-input-mobile:focus {
+    outline: 2px solid oklch(var(--p));
+    outline-offset: 0;
+}
+.score-input-mobile.htmx-request {
+    background-color: oklch(var(--wa) / 0.15);
+    border-color: oklch(var(--wa));
+    animation: pulse-saving 0.8s ease-in-out infinite;
+}
+.score-input-mobile.input-success {
+    border-color: oklch(var(--su)) !important;
+    background-color: oklch(var(--su) / 0.15) !important;
+    animation: pulse-success-mobile 0.4s ease-out;
+}
+.score-input-mobile.input-error {
+    border-color: oklch(var(--er)) !important;
+    background-color: oklch(var(--er) / 0.1) !important;
+    animation: shake-mobile 0.3s ease-in-out;
+}
+@keyframes pulse-success-mobile {
+    0% { box-shadow: 0 0 0 0 oklch(var(--su) / 0.5); }
+    100% { box-shadow: 0 0 0 12px oklch(var(--su) / 0); }
+}
+@keyframes shake-mobile {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-4px); }
+    40% { transform: translateX(4px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
 </style>
 
-<!-- Error tooltip (fixed position, stays in viewport) -->
-<div id="score-error-tooltip-teacher" class="fixed z-[100] hidden pointer-events-none">
-    <div class="bg-error text-error-content text-xs rounded-lg shadow-lg px-3 py-2 max-w-52 pointer-events-auto">
-        <div class="flex items-start gap-2">
-            <i class="fa-solid fa-circle-exclamation mt-0.5 flex-shrink-0"></i>
-            <div>
-                <div class="font-semibold" id="tooltip-message-teacher"></div>
-                <div class="text-error-content/80 mt-0.5 text-[11px]" id="tooltip-hint-teacher"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Toast for errors -->
-<div id="score-toast-teacher" class="toast toast-top toast-end z-50" style="display: none;">
-    <div class="alert alert-error">
-        <span id="score-toast-message-teacher"></span>
-    </div>
-</div>
-
+<script src="{% static 'gradebook/js/score-entry.js' %}"></script>
 <script>
-// Calculate totals for desktop table view
-function calculateTotals() {
-    // Exit if not on score entry page
-    if (!document.getElementById('score-entry-container')) return;
-
-    var students = {};
-    document.querySelectorAll('.score-input-desktop').forEach(function(input) {
-        var studentId = input.dataset.student;
-        var value = parseFloat(input.value) || 0;
-        if (!students[studentId]) students[studentId] = 0;
-        students[studentId] += value;
-    });
-    document.querySelectorAll('.student-total').forEach(function(span) {
-        var studentId = span.dataset.student;
-        var total = students[studentId] || 0;
-        span.textContent = total > 0 ? total.toFixed(1) : '-';
-    });
-}
-
-// ============ Validation & Feedback System ============
-var errorTooltipTimeout = null;
-var typingDebounceTimer = null;
-
-function showToastTeacher(message, type) {
-    const toast = document.getElementById('score-toast-teacher');
-    const msgEl = document.getElementById('score-toast-message-teacher');
-    if (!toast || !msgEl) return;
-
-    const alertEl = toast.querySelector('.alert');
-    msgEl.textContent = message;
-    alertEl.className = 'alert alert-' + (type === 'error' ? 'error' : 'success');
-    toast.style.display = 'block';
-    setTimeout(() => { toast.style.display = 'none'; }, type === 'error' ? 5000 : 2500);
-}
-
-function showErrorTooltipTeacher(input, message, hint) {
-    const tooltip = document.getElementById('score-error-tooltip-teacher');
-    const messageEl = document.getElementById('tooltip-message-teacher');
-    const hintEl = document.getElementById('tooltip-hint-teacher');
-
-    if (!tooltip) return;
-
-    if (errorTooltipTimeout) clearTimeout(errorTooltipTimeout);
-
-    messageEl.textContent = message;
-    hintEl.textContent = hint || '';
-    hintEl.style.display = hint ? 'block' : 'none';
-
-    // Fixed positioning - relative to viewport
-    const rect = input.getBoundingClientRect();
-    const tooltipWidth = 210;
-    const tooltipHeight = 60;
-    const padding = 8;
-
-    let top = rect.bottom + padding;
-    let left = rect.left;
-
-    if (top + tooltipHeight > window.innerHeight) {
-        top = rect.top - tooltipHeight - padding;
-    }
-    if (left + tooltipWidth > window.innerWidth - padding) {
-        left = window.innerWidth - tooltipWidth - padding;
-    }
-    if (left < padding) left = padding;
-    if (top < padding) top = padding;
-
-    tooltip.style.top = top + 'px';
-    tooltip.style.left = left + 'px';
-    tooltip.classList.remove('hidden');
-
-    errorTooltipTimeout = setTimeout(() => {
-        tooltip.classList.add('hidden');
-    }, 4000);
-}
-
-function hideErrorTooltipTeacher() {
-    const tooltip = document.getElementById('score-error-tooltip-teacher');
+// Global function to hide mobile tooltip (called from onclick in HTML)
+function hideErrorTooltipMobile() {
+    var tooltip = document.getElementById('score-error-tooltip-mobile');
     if (tooltip) tooltip.classList.add('hidden');
 }
 
-function validateScoreTeacher(value, max) {
-    if (value === "") return { valid: true };
-    var num = parseFloat(value);
-    if (isNaN(num)) return { valid: false, message: "Enter a valid number", hint: "Use digits only, like 85 or 85.5" };
-    if (num < 0) return { valid: false, message: "Cannot be negative", hint: "Scores must be 0 or higher" };
-    if (num > max) return { valid: false, message: "Maximum is " + max, hint: "Enter a value between 0 and " + max };
-    var decimalPart = value.split(".")[1];
-    if (decimalPart && decimalPart.length > 2) {
-        return { valid: false, message: "Max 2 decimal places", hint: "Use at most 2 decimal places" };
+{% if view_mode == 'student' and current_student %}
+// ---- Student view init ----
+(function initStudentScoreForm() {
+    if (typeof window.ScoreEntry === 'undefined') {
+        setTimeout(initStudentScoreForm, 10);
+        return;
     }
-    return { valid: true };
-}
 
-// Visual feedback on save with validation
-function setupInputFeedback() {
-    // Exit if not on score entry page
-    if (!document.getElementById('score-entry-container')) return;
+    var errorTooltipTimeout = null;
+    var scoreContainer = document.getElementById('student-score-view');
 
-    document.querySelectorAll('.score-input, .score-input-desktop').forEach(input => {
-        // Skip if already initialized
-        if (input.dataset.validationInit) return;
-        input.dataset.validationInit = 'true';
+    // Bottom-sheet style tooltip for mobile
+    function showErrorTooltip(input, message, hint) {
+        var tooltip = document.getElementById('score-error-tooltip-mobile');
+        var messageEl = document.getElementById('tooltip-message-mobile');
+        var hintEl = document.getElementById('tooltip-hint-mobile');
+        if (!tooltip) return;
 
-        // Real-time validation while typing
-        input.addEventListener('input', function() {
-            const inputEl = this;
-            const max = parseFloat(this.dataset.max);
-            const value = this.value.trim();
-            const validation = validateScoreTeacher(value, max);
+        if (errorTooltipTimeout) clearTimeout(errorTooltipTimeout);
 
-            if (typingDebounceTimer) clearTimeout(typingDebounceTimer);
+        messageEl.textContent = message;
+        hintEl.textContent = hint || '';
+        hintEl.style.display = hint ? 'block' : 'none';
+        tooltip.classList.remove('hidden');
 
-            if (!validation.valid && value !== '') {
-                this.classList.add('input-error');
-                // Show tooltip after brief delay (150ms) for snappy mobile feedback
-                typingDebounceTimer = setTimeout(function() {
-                    showErrorTooltipTeacher(inputEl, validation.message, validation.hint);
-                }, 150);
-            } else {
-                this.classList.remove('input-error');
-                hideErrorTooltipTeacher();
-            }
-
-            calculateTotals();
-        });
-
-        // Validate on blur before HTMX sends
-        input.addEventListener('blur', function() {
-            const max = parseFloat(this.dataset.max);
-            const value = this.value.trim();
-            const validation = validateScoreTeacher(value, max);
-
-            if (!validation.valid && value !== '') {
-                this.classList.add('input-error');
-                showToastTeacher(validation.message, 'error');
-                showErrorTooltipTeacher(this, validation.message, validation.hint);
-                // Cancel HTMX by removing the trigger temporarily
-                this.setAttribute('data-hx-trigger-backup', this.getAttribute('hx-trigger') || '');
-                this.removeAttribute('hx-trigger');
-                // Restore after a moment
-                setTimeout(() => {
-                    const backup = this.getAttribute('data-hx-trigger-backup');
-                    if (backup) this.setAttribute('hx-trigger', backup);
-                }, 100);
-            }
-        });
-    });
-}
-
-// Intercept HTMX requests for validation
-document.body.addEventListener('htmx:beforeRequest', function(evt) {
-    const input = evt.detail.elt;
-    if (!input.classList.contains('score-input') && !input.classList.contains('score-input-desktop')) return;
-
-    const max = parseFloat(input.dataset.max);
-    const value = input.value.trim();
-    const validation = validateScoreTeacher(value, max);
-
-    if (!validation.valid && value !== '') {
-        evt.preventDefault();
-        input.classList.add('input-error');
-        showToastTeacher(validation.message, 'error');
-        showErrorTooltipTeacher(input, validation.message, validation.hint);
+        errorTooltipTimeout = setTimeout(hideErrorTooltipMobile, 5000);
     }
-});
 
-// HTMX feedback - handle both success and errors
-document.body.addEventListener('htmx:afterRequest', function(evt) {
-    const input = evt.detail.elt;
-    if (!input.classList.contains('score-input') && !input.classList.contains('score-input-desktop')) return;
-
-    if (evt.detail.successful) {
-        // Check for error in HX-Trigger header
-        const trigger = evt.detail.xhr.getResponseHeader('HX-Trigger');
-        if (trigger) {
-            try {
-                const triggerData = JSON.parse(trigger);
-                if (triggerData.scoreError) {
-                    input.classList.add('input-error');
-                    input.classList.remove('input-success');
-                    showToastTeacher(triggerData.scoreError.message, 'error');
-                    showErrorTooltipTeacher(input, triggerData.scoreError.message, triggerData.scoreError.hint);
-                    if (triggerData.revertScore) {
-                        input.value = triggerData.revertScore.value;
-                    }
-                    return;
-                }
-                if (triggerData.showToast && triggerData.showToast.type === 'error') {
-                    input.classList.add('input-error');
-                    showToastTeacher(triggerData.showToast.message, 'error');
-                    return;
-                }
-            } catch(e) {}
+    // Wire callbacks
+    ScoreEntry.callbacks.showErrorTooltip = showErrorTooltip;
+    ScoreEntry.callbacks.hideErrorTooltip = hideErrorTooltipMobile;
+    ScoreEntry.callbacks.markInputError = function(input, message, hint) {
+        var card = input.closest('.bg-base-100');
+        if (card && !card.querySelector('.error-badge')) {
+            var badge = document.createElement('div');
+            badge.className = 'error-badge absolute -top-2 -right-2 w-5 h-5 bg-error rounded-full flex items-center justify-center shadow-md';
+            badge.innerHTML = '<i class="fa-solid fa-exclamation text-[10px] text-error-content"></i>';
+            card.style.position = 'relative';
+            card.appendChild(badge);
         }
+    };
+    ScoreEntry.callbacks.clearInputError = function(input) {
+        var card = input.closest('.bg-base-100');
+        if (card) {
+            var badge = card.querySelector('.error-badge');
+            if (badge) badge.remove();
+        }
+    };
 
-        // Success
-        input.classList.remove('input-error');
-        input.classList.add('input-success');
-        setTimeout(() => input.classList.remove('input-success'), 800);
-    } else {
-        // Request failed
-        input.classList.add('input-error');
-        showToastTeacher('Failed to save score', 'error');
-        setTimeout(() => input.classList.remove('input-error'), 2000);
-    }
-});
+    ScoreEntry.setupInputs(scoreContainer);
 
-// Keyboard navigation for table view score inputs
-function setupKeyboardNavigation() {
-    var tableView = document.getElementById('table-score-view');
-    if (!tableView) return;
-
-    var inputs = Array.from(tableView.querySelectorAll('.score-input-desktop:not([disabled])'));
-    if (inputs.length === 0) return;
-
-    inputs.forEach(function(input, index) {
-        // Skip if already initialized
-        if (input.dataset.keynavInit) return;
-        input.dataset.keynavInit = 'true';
-
-        input.addEventListener('keydown', function(e) {
-            var currentIndex = inputs.indexOf(this);
-            var nextInput = null;
-
-            if (e.key === 'Tab' && !e.shiftKey) {
-                // Tab forward - move to next input
-                if (currentIndex < inputs.length - 1) {
-                    e.preventDefault();
-                    nextInput = inputs[currentIndex + 1];
-                }
-            } else if (e.key === 'Tab' && e.shiftKey) {
-                // Shift+Tab - move to previous input
-                if (currentIndex > 0) {
-                    e.preventDefault();
-                    nextInput = inputs[currentIndex - 1];
-                }
-            } else if (e.key === 'Enter') {
-                // Enter - move to next input (same as Tab)
-                e.preventDefault();
-                if (currentIndex < inputs.length - 1) {
-                    nextInput = inputs[currentIndex + 1];
-                }
-            } else if (e.key === 'ArrowRight') {
-                // Arrow right - move to next assignment (same student)
-                e.preventDefault();
-                if (currentIndex < inputs.length - 1) {
-                    nextInput = inputs[currentIndex + 1];
-                }
-            } else if (e.key === 'ArrowLeft') {
-                // Arrow left - move to previous assignment (same student)
-                e.preventDefault();
-                if (currentIndex > 0) {
-                    nextInput = inputs[currentIndex - 1];
-                }
-            } else if (e.key === 'ArrowDown') {
-                // Arrow down - move to same assignment next student
-                e.preventDefault();
-                var row = this.closest('tr');
-                var cellIndex = this.closest('td').cellIndex;
-                var nextRow = row.nextElementSibling;
-                if (nextRow) {
-                    var nextCell = nextRow.cells[cellIndex];
-                    if (nextCell) {
-                        nextInput = nextCell.querySelector('.score-input-desktop:not([disabled])');
-                    }
-                }
-            } else if (e.key === 'ArrowUp') {
-                // Arrow up - move to same assignment previous student
-                e.preventDefault();
-                var row = this.closest('tr');
-                var cellIndex = this.closest('td').cellIndex;
-                var prevRow = row.previousElementSibling;
-                if (prevRow) {
-                    var prevCell = prevRow.cells[cellIndex];
-                    if (prevCell) {
-                        nextInput = prevCell.querySelector('.score-input-desktop:not([disabled])');
-                    }
-                }
-            }
-
-            if (nextInput) {
-                nextInput.focus();
-                nextInput.select();
-            }
+    // Score progress counter
+    function updateScoreProgress() {
+        if (!scoreContainer) return;
+        var inputs = scoreContainer.querySelectorAll('.score-input-mobile');
+        var total = inputs.length;
+        var filled = 0;
+        inputs.forEach(function(inp) {
+            if (inp.value.trim() !== '') filled++;
         });
-    });
-}
-
-// Initialize immediately
-setupInputFeedback();
-calculateTotals();
-setupKeyboardNavigation();
-
-// Re-init after HTMX swaps
-document.body.addEventListener('htmx:afterSwap', function() {
-    if (document.getElementById('score-entry-container')) {
-        setupInputFeedback();
-        calculateTotals();
-        setupKeyboardNavigation();
+        var el = document.getElementById('score-progress');
+        if (el) {
+            el.textContent = filled + '/' + total;
+            el.className = 'font-medium ' + (filled === total && total > 0 ? 'text-success' : '');
+        }
     }
-});
-</script>
+
+    if (scoreContainer) {
+        scoreContainer.addEventListener('input', function(e) {
+            if (e.target.matches('.score-input-mobile')) updateScoreProgress();
+        });
+    }
+
+    // Clean up previous view's global listeners
+    if (window._scoreFormCleanup) window._scoreFormCleanup();
+
+    // Sticky header shadow on scroll
+    var stickyHeader = document.getElementById('student-sticky-header');
+    var scrollHandler = null;
+    if (stickyHeader) {
+        var cardBody = stickyHeader.parentElement;
+        scrollHandler = function() {
+            if (cardBody.scrollTop > 4 || window.scrollY > stickyHeader.getBoundingClientRect().top + 4) {
+                stickyHeader.classList.replace('border-transparent', 'border-base-300');
+            } else {
+                stickyHeader.classList.replace('border-base-300', 'border-transparent');
+            }
+        };
+        window.addEventListener('scroll', scrollHandler, { passive: true });
+        cardBody.addEventListener('scroll', scrollHandler, { passive: true });
+    }
+
+    // Swipe navigation between students
+    if (scoreContainer) {
+        var startX = 0, startY = 0;
+        scoreContainer.addEventListener('touchstart', function(e) {
+            startX = e.changedTouches[0].screenX;
+            startY = e.changedTouches[0].screenY;
+        }, { passive: true });
+        scoreContainer.addEventListener('touchend', function(e) {
+            var dx = e.changedTouches[0].screenX - startX;
+            var dy = e.changedTouches[0].screenY - startY;
+            if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if (dx > 0) {
+                var prev = document.getElementById('prev-student-btn');
+                if (prev) prev.click();
+            } else {
+                var next = document.getElementById('next-student-btn');
+                if (next) next.click();
+            }
+        }, { passive: true });
+    }
+
+    window._scoreFormCleanup = function() {
+        if (scrollHandler) window.removeEventListener('scroll', scrollHandler);
+    };
+})();
+
+{% else %}
+// ---- Table view init ----
+(function initTableScoreForm() {
+    if (typeof window.ScoreEntry === 'undefined') {
+        setTimeout(initTableScoreForm, 10);
+        return;
+    }
+
+    var errorTooltipTimeout = null;
+    var currentErrorInput = null;
+    var container = document.getElementById('table-score-view');
+
+    function showErrorTooltip(input, message, hint) {
+        var tooltip = document.getElementById('score-error-tooltip');
+        var messageEl = document.getElementById('tooltip-message');
+        var hintEl = document.getElementById('tooltip-hint');
+        if (!tooltip) return;
+
+        if (errorTooltipTimeout) clearTimeout(errorTooltipTimeout);
+
+        messageEl.textContent = message;
+        hintEl.textContent = hint || '';
+        hintEl.style.display = hint ? 'block' : 'none';
+
+        var rect = input.getBoundingClientRect();
+        var tooltipWidth = 210;
+        var tooltipHeight = 60;
+        var padding = 8;
+
+        var top = rect.bottom + padding;
+        var left = rect.left;
+
+        if (top + tooltipHeight > window.innerHeight) {
+            top = rect.top - tooltipHeight - padding;
+        }
+        if (left + tooltipWidth > window.innerWidth - padding) {
+            left = window.innerWidth - tooltipWidth - padding;
+        }
+        if (left < padding) left = padding;
+        if (top < padding) top = padding;
+
+        tooltip.style.top = top + 'px';
+        tooltip.style.left = left + 'px';
+        tooltip.classList.remove('hidden');
+        currentErrorInput = input;
+
+        errorTooltipTimeout = setTimeout(function() {
+            hideErrorTooltip();
+        }, 4000);
+    }
+
+    function hideErrorTooltip() {
+        var tooltip = document.getElementById('score-error-tooltip');
+        if (tooltip) tooltip.classList.add('hidden');
+        currentErrorInput = null;
+    }
+
+    // Wire callbacks
+    ScoreEntry.callbacks.showErrorTooltip = showErrorTooltip;
+    ScoreEntry.callbacks.hideErrorTooltip = hideErrorTooltip;
+    ScoreEntry.callbacks.markInputError = function(input, message, hint) {
+        var indicator = input.parentElement.querySelector('.error-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.className = 'error-indicator absolute -top-1 -right-1 w-4 h-4 bg-error rounded-full flex items-center justify-center cursor-help';
+            indicator.innerHTML = '<i class="fa-solid fa-exclamation text-[10px] text-error-content"></i>';
+            indicator.title = message;
+            input.parentElement.style.position = 'relative';
+            input.parentElement.appendChild(indicator);
+            indicator.addEventListener('click', function(e) {
+                e.stopPropagation();
+                showErrorTooltip(input, message, hint);
+            });
+        }
+    };
+    ScoreEntry.callbacks.clearInputError = function(input) {
+        var indicator = input.parentElement.querySelector('.error-indicator');
+        if (indicator) indicator.remove();
+        if (currentErrorInput === input) hideErrorTooltip();
+    };
+
+    ScoreEntry.setupInputs(container);
+
+    // Calculate totals for table view (teacher-specific total column)
+    function calculateTotals() {
+        if (!container) return;
+        var students = {};
+        container.querySelectorAll('.score-input').forEach(function(input) {
+            var studentId = input.dataset.student;
+            var value = parseFloat(input.value) || 0;
+            if (!students[studentId]) students[studentId] = 0;
+            students[studentId] += value;
+        });
+        container.querySelectorAll('.student-total').forEach(function(span) {
+            var studentId = span.dataset.student;
+            var total = students[studentId] || 0;
+            span.textContent = total > 0 ? total.toFixed(1) : '-';
+        });
+    }
+
+    // Update totals on input
+    if (container) {
+        container.addEventListener('input', function(e) {
+            if (e.target.matches('.score-input')) calculateTotals();
+        });
+    }
+
+    calculateTotals();
+
+    // Clean up previous view's global listeners
+    if (window._scoreFormCleanup) window._scoreFormCleanup();
+
+    function handleClick(e) {
+        if (!e.target.closest('.score-input') && !e.target.closest('#score-error-tooltip') && !e.target.closest('.error-indicator')) {
+            hideErrorTooltip();
+        }
+    }
+    function handleScroll() {
+        hideErrorTooltip();
+    }
+
+    document.addEventListener('click', handleClick);
+    document.addEventListener('scroll', handleScroll, { capture: true });
+
+    window._scoreFormCleanup = function() {
+        document.removeEventListener('click', handleClick);
+        document.removeEventListener('scroll', handleScroll, { capture: true });
+    };
+})();
 {% endif %}
-</div><!-- end score-entry-container -->
+</script>
 
 
 <!-- Assignments Modal -->
