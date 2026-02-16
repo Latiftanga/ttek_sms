@@ -80,8 +80,9 @@
                   hx-get="{% url 'students:index' %}"
                   hx-target="#student-results"
                   hx-select="#student-results"
+                  hx-swap="outerHTML"
                   hx-push-url="true"
-                  hx-trigger="submit, change from:find select"
+                  hx-trigger="submit, change from:find [name='class'], change from:find [name='status']"
                   hx-indicator="#search-indicator"
                   class="flex flex-col sm:flex-row gap-2">
                 <!-- Search -->
