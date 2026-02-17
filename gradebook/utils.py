@@ -11,7 +11,7 @@ from typing import Optional, Dict, List, Tuple, Any
 
 from django.db import connection
 from django.conf import settings as django_settings
-from django.db.models import Count
+from django.db.models import Count, Max
 
 from .models import Assignment, Score, AssessmentCategory
 from academics.models import ClassSubject
@@ -455,6 +455,71 @@ def get_classes_needing_scores(current_term, classes, limit=None):
                     'remaining_scores': expected_scores - actual_scores,
                 })
     return classes_needing_scores
+
+
+def get_class_subject_progress(current_term, class_id):
+    """Get per-subject score entry progress for a given class."""
+    if not current_term:
+        return []
+
+    class_subjects = ClassSubject.objects.filter(
+        class_assigned_id=class_id
+    ).select_related('subject', 'teacher')
+
+    if not class_subjects.exists():
+        return []
+
+    student_count = Student.objects.filter(
+        status='active', current_class_id=class_id
+    ).count()
+
+    if student_count == 0:
+        return []
+
+    subject_ids = [cs.subject_id for cs in class_subjects]
+
+    assignment_counts = dict(
+        Assignment.objects.filter(
+            term=current_term, subject_id__in=subject_ids
+        ).values('subject_id').annotate(
+            count=Count('id')
+        ).values_list('subject_id', 'count')
+    )
+
+    score_qs = Score.objects.filter(
+        assignment__term=current_term,
+        assignment__subject_id__in=subject_ids,
+        student__current_class_id=class_id,
+    ).values('assignment__subject_id').annotate(
+        count=Count('id'),
+        last_activity=Max('updated_at'),
+    )
+    score_map = {
+        row['assignment__subject_id']: {
+            'count': row['count'],
+            'last_activity': row['last_activity'],
+        }
+        for row in score_qs
+    }
+
+    results = []
+    for cs in class_subjects:
+        assignments = assignment_counts.get(cs.subject_id, 0)
+        expected = assignments * student_count
+        stats = score_map.get(cs.subject_id, {})
+        actual = stats.get('count', 0)
+        progress = round((actual / expected * 100) if expected > 0 else 0)
+        results.append({
+            'subject': cs.subject,
+            'teacher': cs.teacher,
+            'assignments': assignments,
+            'expected_scores': expected,
+            'actual_scores': actual,
+            'progress': progress,
+            'remaining_scores': expected - actual,
+            'last_activity': stats.get('last_activity'),
+        })
+    return results
 
 
 def check_transcript_permission(user, student):

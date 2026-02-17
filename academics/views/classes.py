@@ -78,13 +78,15 @@ def classes_list(request):
     total_classes = paginator.count
     all_classes_count = Class.objects.count()
 
-    # Calculate comprehensive stats
-    all_classes_for_stats = Class.objects.annotate(
-        student_count=Count('students', filter=models.Q(students__status='active'))
+    # Calculate comprehensive stats in a single aggregate query
+    stats_agg = Class.objects.aggregate(
+        total_students=Count('students', filter=models.Q(students__status='active')),
+        total_capacity=Sum('capacity'),
+        classes_with_teacher=Count('id', filter=models.Q(class_teacher__isnull=False))
     )
-    total_students = sum(c.student_count for c in all_classes_for_stats)
-    total_capacity = sum(c.capacity for c in all_classes_for_stats)
-    classes_with_teacher = all_classes_for_stats.filter(class_teacher__isnull=False).count()
+    total_students = stats_agg['total_students'] or 0
+    total_capacity = stats_agg['total_capacity'] or 0
+    classes_with_teacher = stats_agg['classes_with_teacher'] or 0
     fill_rate = round((total_students / total_capacity * 100), 1) if total_capacity > 0 else 0
 
     subtitle = f"{total_classes} class{'es' if total_classes != 1 else ''} • {total_students} student{'s' if total_students != 1 else ''}"
@@ -1605,30 +1607,40 @@ def assignment_dashboard(request):
 
     # 3. Students missing enrollments in manual subjects (auto_enroll=False)
     # Find students in classes with manual subjects they're not enrolled in
-    manual_subjects = ClassSubject.objects.filter(
+    manual_subjects = list(ClassSubject.objects.filter(
         class_assigned__is_active=True,
         auto_enroll=False
-    ).select_related('class_assigned', 'subject')
+    ).select_related('class_assigned', 'subject'))
 
     students_missing_enrollments = []
-    for cs in manual_subjects:
-        # Get students in this class not enrolled in this subject
-        enrolled_student_ids = StudentSubjectEnrollment.objects.filter(
-            class_subject=cs
-        ).values_list('student_id', flat=True)
+    if manual_subjects:
+        from collections import defaultdict
 
-        missing_students = Student.objects.filter(
-            current_class=cs.class_assigned,
-            status='active'
-        ).exclude(pk__in=enrolled_student_ids)
+        # Batch-fetch all enrollments for manual subjects in one query
+        enrolled_by_cs = defaultdict(set)
+        for cs_id, student_id in StudentSubjectEnrollment.objects.filter(
+            class_subject__in=manual_subjects
+        ).values_list('class_subject_id', 'student_id'):
+            enrolled_by_cs[cs_id].add(student_id)
 
-        if missing_students.exists():
-            students_missing_enrollments.append({
-                'class_subject': cs,
-                'missing_count': missing_students.count(),
-                'students': missing_students[:5],  # Show first 5
-                'has_more': missing_students.count() > 5,
-            })
+        # Batch-fetch all active students for relevant classes
+        class_ids = {cs.class_assigned_id for cs in manual_subjects}
+        students_by_class = defaultdict(list)
+        for s in Student.objects.filter(
+            current_class_id__in=class_ids, status='active'
+        ).only('id', 'current_class_id', 'first_name', 'last_name'):
+            students_by_class[s.current_class_id].append(s)
+
+        for cs in manual_subjects:
+            enrolled = enrolled_by_cs.get(cs.id, set())
+            missing = [s for s in students_by_class.get(cs.class_assigned_id, []) if s.id not in enrolled]
+            if missing:
+                students_missing_enrollments.append({
+                    'class_subject': cs,
+                    'missing_count': len(missing),
+                    'students': missing[:5],
+                    'has_more': len(missing) > 5,
+                })
 
     # Summary stats
     total_classes = active_classes.count()

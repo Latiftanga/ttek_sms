@@ -5,7 +5,8 @@ app_name = 'gradebook'
 
 urlpatterns = [
     path('', views.index, name='index'),
-    path('settings/', views.settings, name='settings'),
+    path('progress/<int:class_id>/', views.class_progress_detail, name='class_progress_detail'),
+    path('settings/', views.gradebook_settings, name='settings'),
 
     # Grading System CRUD
     path('grading-systems/', views.grading_systems, name='grading_systems'),
@@ -80,6 +81,11 @@ urlpatterns = [
     path('reports/send/<int:student_id>/', views.send_single_report, name='send_single_report'),
     path('reports/send-bulk/<int:class_id>/', views.send_bulk_reports, name='send_bulk_reports'),
     path('reports/<int:student_id>/pdf/', views.download_report_pdf, name='download_report_pdf'),
+
+    # Bulk PDF Export
+    path('reports/export/<int:class_id>/', views.export_class_reports, name='export_class_reports'),
+    path('reports/export/status/<str:task_id>/', views.check_export_status, name='check_export_status'),
+    path('reports/export/download/<path:filename>/', views.download_class_reports, name='download_class_reports'),
 
     # Transcripts
     path('transcript/<int:student_id>/', views.transcript, name='transcript'),

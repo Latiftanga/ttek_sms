@@ -8,6 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.db.models import OuterRef, Subquery
 from django.db import IntegrityError
+from django.conf import settings
 from django.contrib import messages
 
 from .base import (
@@ -714,3 +715,102 @@ def download_report_pdf(request, student_id):
         logger.error(f"Failed to generate PDF: {str(e)}")
         messages.error(request, f'Failed to generate PDF: {str(e)}')
         return redirect('gradebook:reports')
+
+
+# ============ Bulk PDF Export ============
+
+@login_required
+@teacher_or_admin_required
+def export_class_reports(request, class_id):
+    """Queue a Celery task to generate a ZIP of all report PDFs for a class."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    class_obj = get_object_or_404(Class, pk=class_id)
+    user = request.user
+
+    # Permission check - must be class teacher or admin
+    if not is_school_admin(user):
+        if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
+            return JsonResponse({'success': False, 'error': 'Permission denied'})
+        if class_obj.class_teacher != user.teacher_profile:
+            return JsonResponse({'success': False, 'error': 'Permission denied'})
+
+    from ..tasks import export_class_reports_zip
+    from django.db import connection
+
+    result = export_class_reports_zip.delay(class_id, connection.schema_name)
+    return JsonResponse({'success': True, 'task_id': result.id})
+
+
+@login_required
+@teacher_or_admin_required
+def check_export_status(request, task_id):
+    """Poll Celery task status for a ZIP export."""
+    from celery.result import AsyncResult
+
+    result = AsyncResult(task_id)
+    state = result.state
+
+    if state == 'PROGRESS':
+        meta = result.info or {}
+        return JsonResponse({
+            'state': 'PROGRESS',
+            'current': meta.get('current', 0),
+            'total': meta.get('total', 0),
+        })
+
+    if state == 'SUCCESS':
+        info = result.result or {}
+        if not info.get('success'):
+            return JsonResponse({
+                'state': 'FAILURE',
+                'error': info.get('error', 'Export failed'),
+            })
+        from django.urls import reverse
+        download_url = reverse(
+            'gradebook:download_class_reports',
+            kwargs={'filename': info['filename']},
+        )
+        return JsonResponse({
+            'state': 'SUCCESS',
+            'download_url': download_url,
+            'total': info.get('total', 0),
+            'errors': info.get('errors', []),
+        })
+
+    if state == 'FAILURE':
+        return JsonResponse({
+            'state': 'FAILURE',
+            'error': str(result.result) if result.result else 'Task failed',
+        })
+
+    # PENDING / STARTED / other
+    return JsonResponse({'state': state})
+
+
+@login_required
+@teacher_or_admin_required
+def download_class_reports(request, filename):
+    """Serve a generated ZIP file for download."""
+    import os
+    from pathlib import Path
+    from django.http import FileResponse
+
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    exports_root = media_root / 'exports'
+    file_path = (exports_root / filename).resolve()
+
+    # Path traversal protection
+    if not str(file_path).startswith(str(exports_root)):
+        return HttpResponse('Invalid path', status=400)
+
+    if not file_path.exists():
+        return HttpResponse('File not found', status=404)
+
+    return FileResponse(
+        open(file_path, 'rb'),
+        as_attachment=True,
+        content_type='application/zip',
+        filename=file_path.name,
+    )

@@ -50,7 +50,7 @@ RUN apt-get update && \
         libpango-1.0-0 \
         libpangocairo-1.0-0 \
         libgdk-pixbuf-2.0-0 \
-        libffi-dev \
+        libffi8 \
         shared-mime-info \
         libcairo2 \
         libgirepository-1.0-1 \

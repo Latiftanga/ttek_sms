@@ -749,9 +749,9 @@ class PromotionViewTests(PromotionTestCase):
 
     def _find_option_label(self, class_options, class_obj):
         """Helper to find a class label in the flat class_options list."""
-        url_suffix = f'/promotion/{class_obj.pk}/detail/'
+        target_url = reverse('students:promotion_detail', args=[class_obj.pk])
         for url, label in class_options:
-            if url_suffix in url:
+            if url == target_url:
                 return label
         return None
 
