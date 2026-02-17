@@ -96,6 +96,46 @@
         <i class="fa-solid fa-paper-plane"></i>
         <span class="hidden sm:inline">Distribute</span><span class="sm:hidden">Send</span> <span class="hidden md:inline">Reports</span>
     </a>
+    <div x-data="pdfExport({{ selected_class.pk }})" class="inline-flex">
+        <!-- Idle state -->
+        <template x-if="state === 'idle'">
+            <button @click="startExport()" class="btn btn-accent btn-sm md:btn-md gap-2">
+                <i class="fa-solid fa-file-zipper"></i>
+                <span class="hidden sm:inline">Download All</span> PDFs
+            </button>
+        </template>
+        <!-- Exporting state -->
+        <template x-if="state === 'exporting'">
+            <button class="btn btn-accent btn-sm md:btn-md gap-2 no-animation" disabled>
+                <span class="loading loading-spinner loading-xs"></span>
+                <span x-text="progressText">Preparing...</span>
+            </button>
+        </template>
+        <!-- Done state -->
+        <template x-if="state === 'done'">
+            <span class="inline-flex gap-1">
+                <a :href="downloadUrl" x-ref="downloadLink" class="btn btn-success btn-sm md:btn-md gap-2">
+                    <i class="fa-solid fa-download"></i>
+                    Download ZIP
+                </a>
+                <button @click="reset()" class="btn btn-ghost btn-sm md:btn-md btn-square">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </span>
+        </template>
+        <!-- Error state -->
+        <template x-if="state === 'error'">
+            <span class="inline-flex gap-1">
+                <button class="btn btn-error btn-sm md:btn-md gap-2" disabled>
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span x-text="errorText">Export failed</span>
+                </button>
+                <button @click="reset()" class="btn btn-ghost btn-sm md:btn-md btn-square">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </span>
+        </template>
+    </div>
     {% if is_admin %}
     <a href="{% url 'gradebook:remark_templates' %}"
        hx-get="{% url 'gradebook:remark_templates' %}"
@@ -255,6 +295,103 @@
     <i class="fa-solid fa-file-lines text-4xl mb-3"></i>
     <p class="text-sm">Select a class to view report cards</p>
 </div>
+{% endif %}
+
+{% if selected_class and status_filter == 'active' %}
+<script>
+function pdfExport(classId) {
+    return {
+        state: 'idle',
+        taskId: null,
+        pollInterval: null,
+        progressText: 'Preparing...',
+        downloadUrl: '',
+        errorText: 'Export failed',
+
+        getCsrfToken() {
+            return document.querySelector('body').getAttribute('hx-headers')
+                ? JSON.parse(document.querySelector('body').getAttribute('hx-headers'))['X-CSRFToken']
+                : '';
+        },
+
+        async startExport() {
+            this.state = 'exporting';
+            this.progressText = 'Preparing...';
+            try {
+                const resp = await fetch(`/gradebook/reports/export/${classId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': this.getCsrfToken(),
+                        'Content-Type': 'application/json',
+                    },
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.taskId = data.task_id;
+                    this.startPolling();
+                } else {
+                    this.errorText = data.error || 'Failed to start export';
+                    this.state = 'error';
+                }
+            } catch (e) {
+                this.errorText = 'Network error';
+                this.state = 'error';
+            }
+        },
+
+        startPolling() {
+            this.pollInterval = setInterval(() => this.checkStatus(), 2000);
+        },
+
+        async checkStatus() {
+            if (!this.taskId) return;
+            try {
+                const resp = await fetch(`/gradebook/reports/export/status/${this.taskId}/`);
+                const data = await resp.json();
+
+                if (data.state === 'PROGRESS') {
+                    this.progressText = `Generating ${data.current} of ${data.total}...`;
+                } else if (data.state === 'SUCCESS') {
+                    this.stopPolling();
+                    this.downloadUrl = data.download_url;
+                    this.state = 'done';
+                    this.$nextTick(() => {
+                        if (this.$refs.downloadLink) {
+                            this.$refs.downloadLink.click();
+                        }
+                    });
+                } else if (data.state === 'FAILURE') {
+                    this.stopPolling();
+                    this.errorText = data.error || 'Export failed';
+                    this.state = 'error';
+                }
+            } catch (e) {
+                // Silently retry on network blips
+            }
+        },
+
+        stopPolling() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+                this.pollInterval = null;
+            }
+        },
+
+        reset() {
+            this.stopPolling();
+            this.state = 'idle';
+            this.taskId = null;
+            this.downloadUrl = '';
+            this.errorText = 'Export failed';
+            this.progressText = 'Preparing...';
+        },
+
+        destroy() {
+            this.stopPolling();
+        }
+    };
+}
+</script>
 {% endif %}
 
 {% endif %}

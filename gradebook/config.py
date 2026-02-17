@@ -41,6 +41,9 @@ _DEFAULTS = {
     # Export settings
     'EXCEL_HEADER_COLOR': '4F46E5',
 
+    # Export ZIP settings
+    'EXPORT_ZIP_MAX_AGE_HOURS': 24,
+
     # Celery task settings
     'TASK_MAX_RETRIES': 3,
     'TASK_RETRY_DELAY': 60,  # seconds

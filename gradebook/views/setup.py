@@ -12,7 +12,7 @@ from ..models import (
 
 @login_required
 @admin_required
-def settings(request):
+def gradebook_settings(request):
     """Gradebook settings - grading systems and categories (Admin only)."""
     grading_systems = GradingSystem.objects.prefetch_related('scales').all()
     categories = AssessmentCategory.objects.all()

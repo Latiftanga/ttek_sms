@@ -1,0 +1,101 @@
+{% load humanize %}
+
+{% if subjects_progress %}
+<!-- Desktop layout -->
+<div class="hidden md:block pl-12 pr-4 py-2">
+    <table class="table table-xs">
+        <thead>
+            <tr class="text-[10px] uppercase text-base-content/50">
+                <th>Subject</th>
+                <th>Teacher</th>
+                <th class="text-center">Assign.</th>
+                <th class="text-center">Entered</th>
+                <th class="text-center w-32">Progress</th>
+                <th class="text-right">Last Activity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in subjects_progress %}
+            <tr class="hover:bg-base-200/50">
+                <td>
+                    <div class="flex items-center gap-1.5">
+                        <span class="badge badge-ghost badge-xs font-mono">{{ item.subject.short_name }}</span>
+                        <span class="text-sm">{{ item.subject.name }}</span>
+                    </div>
+                </td>
+                <td>
+                    {% if item.teacher %}
+                    <span class="text-sm">{{ item.teacher.full_name }}</span>
+                    {% else %}
+                    <span class="text-xs text-error font-medium">Unassigned</span>
+                    {% endif %}
+                </td>
+                <td class="text-center text-sm">{{ item.assignments }}</td>
+                <td class="text-center">
+                    <span class="font-mono text-xs">{{ item.actual_scores }}/{{ item.expected_scores }}</span>
+                </td>
+                <td class="text-center">
+                    <div class="flex items-center gap-2 justify-center">
+                        <progress class="progress w-16 h-1.5
+                            {% if item.progress == 100 %}progress-success
+                            {% elif item.progress >= 50 %}progress-info
+                            {% elif item.progress > 0 %}progress-warning
+                            {% else %}progress-error{% endif %}"
+                            value="{{ item.progress }}" max="100"></progress>
+                        <span class="text-[10px] font-bold w-7
+                            {% if item.progress == 100 %}text-success
+                            {% elif item.progress >= 50 %}text-info
+                            {% elif item.progress > 0 %}text-warning
+                            {% else %}text-error{% endif %}">{{ item.progress }}%</span>
+                    </div>
+                </td>
+                <td class="text-right text-xs text-base-content/50">
+                    {% if item.last_activity %}
+                    {{ item.last_activity|timesince }} ago
+                    {% else %}
+                    <span class="text-base-content/30">&mdash;</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Mobile layout -->
+<div class="md:hidden space-y-2 px-1 py-2">
+    {% for item in subjects_progress %}
+    <div class="flex items-center gap-3 p-2.5 rounded-lg bg-base-200/40">
+        <div class="radial-progress text-xs shrink-0
+            {% if item.progress == 100 %}text-success
+            {% elif item.progress >= 50 %}text-info
+            {% elif item.progress > 0 %}text-warning
+            {% else %}text-error{% endif %}"
+            style="--value:{{ item.progress }};--size:2.5rem;--thickness:3px;">
+            <span class="text-[9px] font-bold">{{ item.progress }}%</span>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5">
+                <span class="badge badge-ghost badge-xs font-mono">{{ item.subject.short_name }}</span>
+                <span class="text-sm font-medium truncate">{{ item.subject.name }}</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-base-content/60 mt-0.5">
+                {% if item.teacher %}
+                <span><i class="fa-solid fa-user mr-0.5"></i>{{ item.teacher.full_name }}</span>
+                {% else %}
+                <span class="text-error"><i class="fa-solid fa-user-slash mr-0.5"></i>Unassigned</span>
+                {% endif %}
+                <span class="font-mono">{{ item.actual_scores }}/{{ item.expected_scores }}</span>
+            </div>
+            {% if item.last_activity %}
+            <div class="text-[10px] text-base-content/40 mt-0.5">{{ item.last_activity|timesince }} ago</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-4 text-sm text-base-content/50">
+    <i class="fa-solid fa-clipboard-list mr-1"></i>No subjects or assignments found for this class
+</div>
+{% endif %}

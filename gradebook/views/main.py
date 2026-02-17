@@ -1,5 +1,6 @@
 
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, render
 
 from ..models import (
     GradingSystem, AssessmentCategory,
@@ -9,7 +10,11 @@ from academics.models import Class
 from students.models import Student
 from core.models import Term
 from .base import admin_required, htmx_render
-from ..utils import calculate_score_entry_progress, get_classes_needing_scores
+from ..utils import (
+    calculate_score_entry_progress,
+    get_classes_needing_scores,
+    get_class_subject_progress,
+)
 
 
 @login_required
@@ -70,4 +75,19 @@ def index(request):
         'gradebook/index.html',
         'gradebook/partials/index_content.html',
         context
+    )
+
+
+@login_required
+@admin_required
+def class_progress_detail(request, class_id):
+    """Per-subject score entry progress for a class (HTMX partial)."""
+    class_obj = get_object_or_404(Class, pk=class_id)
+    current_term = Term.get_current()
+    subjects_progress = get_class_subject_progress(current_term, class_id)
+
+    return render(
+        request,
+        'gradebook/partials/class_progress_detail.html',
+        {'subjects_progress': subjects_progress, 'class_obj': class_obj},
     )

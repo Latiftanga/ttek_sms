@@ -21,11 +21,19 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
-    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    env_file: .env.prod
+    # To enable Redis auth: set REDIS_PASSWORD in .env.prod and update REDIS_URL/CELERY_BROKER_URL
+    command: >
+      /bin/sh -c '
+      if [ -n "$$REDIS_PASSWORD" ]; then
+        exec redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru --requirepass "$$REDIS_PASSWORD";
+      else
+        exec redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru;
+      fi'
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a $$REDIS_PASSWORD ping | grep PONG; else redis-cli ping | grep PONG; fi"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,6 +50,7 @@ services:
       context: .
       args:
         DEV: "false"
+    image: ttek_sms:latest
     restart: always
     entrypoint: ["/app/docker-entrypoint.sh"]
     command: >
@@ -68,6 +77,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -77,10 +92,7 @@ services:
           memory: 256M
 
   celery:
-    build:
-      context: .
-      args:
-        DEV: "false"
+    image: ttek_sms:latest
     restart: always
     command: celery -A config worker -l info --concurrency=1
     env_file: .env.prod
@@ -93,7 +105,7 @@ services:
       redis:
         condition: service_healthy
       web:
-        condition: service_started
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -103,10 +115,7 @@ services:
           memory: 128M
 
   celery-beat:
-    build:
-      context: .
-      args:
-        DEV: "false"
+    image: ttek_sms:latest
     restart: always
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file: .env.prod
@@ -116,7 +125,7 @@ services:
       redis:
         condition: service_healthy
       web:
-        condition: service_started
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -139,7 +148,8 @@ services:
       - certbot_www:/var/www/certbot:ro
       - certbot_conf:/etc/letsencrypt:ro
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -148,18 +158,15 @@ services:
         reservations:
           memory: 32M
 
+  # Certbot is NOT needed — Cloudflare handles SSL termination.
+  # Kept disabled to avoid wasting resources. Remove entirely if desired.
   certbot:
     image: certbot/certbot
-    restart: unless-stopped
+    profiles:
+      - donotstart
     volumes:
       - certbot_www:/var/www/certbot
       - certbot_conf:/etc/letsencrypt
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-          cpus: '0.10'
 
   # Database backup service - runs daily at 2 AM
   backup:
@@ -173,8 +180,6 @@ services:
     volumes:
       - ./scripts/backup.sh:/backup.sh:ro
       - db_backups:/backups
-    entrypoint: "/bin/sh -c 'while true; do sleep 86400; /backup.sh; done'"
-    # Run initial backup on start, then daily
     command: "/bin/sh -c '/backup.sh && while true; do sleep 86400; /backup.sh; done'"
     depends_on:
       db:

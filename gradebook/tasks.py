@@ -461,6 +461,132 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
 
 @shared_task(
     bind=True,
+    max_retries=0,
+    soft_time_limit=config.BULK_TASK_SOFT_TIME_LIMIT,
+    time_limit=config.BULK_TASK_TIME_LIMIT,
+)
+def export_class_reports_zip(self, class_id, tenant_schema):
+    """
+    Generate a ZIP file containing PDF report cards for all students in a class.
+
+    Updates task state with progress so the frontend can poll for status.
+
+    Args:
+        class_id: ID of the Class
+        tenant_schema: Schema name for tenant context
+
+    Returns:
+        dict with success, filename, total, and errors list
+    """
+    import os
+    import uuid
+    import zipfile
+
+    with schema_context(tenant_schema):
+        from .models import TermReport
+        from academics.models import Class
+        from core.models import Term
+
+        try:
+            class_obj = Class.objects.get(pk=class_id)
+        except Class.DoesNotExist:
+            logger.error(f"Class {class_id} not found for ZIP export")
+            return {'success': False, 'error': 'Class not found'}
+
+        current_term = Term.get_current()
+        if not current_term:
+            return {'success': False, 'error': 'No current term'}
+
+        term_reports = list(TermReport.objects.filter(
+            student__current_class=class_obj,
+            term=current_term,
+        ).select_related('student', 'term'))
+
+        total = len(term_reports)
+        if total == 0:
+            return {'success': False, 'error': 'No reports found for this class'}
+
+        # Create exports directory
+        export_dir = os.path.join(
+            settings.MEDIA_ROOT, 'exports', tenant_schema
+        )
+        os.makedirs(export_dir, exist_ok=True)
+
+        # Build ZIP filename
+        class_name = class_obj.name.replace(' ', '_')
+        term_name = current_term.name.replace(' ', '_')
+        short_uuid = uuid.uuid4().hex[:8]
+        zip_filename = f"{class_name}_{term_name}_{short_uuid}.zip"
+        zip_path = os.path.join(export_dir, zip_filename)
+
+        errors = []
+
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for i, term_report in enumerate(term_reports):
+                self.update_state(
+                    state='PROGRESS',
+                    meta={'current': i + 1, 'total': total},
+                )
+                try:
+                    pdf_buffer = generate_report_pdf(term_report, tenant_schema)
+                    admission = term_report.student.admission_number
+                    zf.writestr(
+                        f"report_card_{admission}.pdf",
+                        pdf_buffer.getvalue(),
+                    )
+                except Exception as e:
+                    student_name = str(term_report.student)
+                    logger.error(f"PDF generation failed for {student_name}: {e}")
+                    errors.append(f"{student_name}: {str(e)[:100]}")
+
+        relative_filename = f"{tenant_schema}/{zip_filename}"
+        return {
+            'success': True,
+            'filename': relative_filename,
+            'total': total,
+            'errors': errors,
+        }
+
+
+@shared_task
+def cleanup_export_zips():
+    """
+    Remove ZIP export files older than EXPORT_ZIP_MAX_AGE_HOURS.
+
+    Intended to be registered as a periodic task in django_celery_beat admin.
+    """
+    import os
+    import time
+
+    max_age_hours = config.EXPORT_ZIP_MAX_AGE_HOURS
+    exports_root = os.path.join(settings.MEDIA_ROOT, 'exports')
+
+    if not os.path.exists(exports_root):
+        return {'deleted': 0}
+
+    cutoff = time.time() - (max_age_hours * 3600)
+    deleted = 0
+
+    for dirpath, dirnames, filenames in os.walk(exports_root):
+        for filename in filenames:
+            if not filename.endswith('.zip'):
+                continue
+            filepath = os.path.join(dirpath, filename)
+            if os.path.getmtime(filepath) < cutoff:
+                os.remove(filepath)
+                deleted += 1
+
+        # Remove empty subdirectories
+        for dirname in dirnames:
+            subdir = os.path.join(dirpath, dirname)
+            if not os.listdir(subdir):
+                os.rmdir(subdir)
+
+    return {'deleted': deleted}
+
+
+@shared_task(
+    bind=True,
     max_retries=config.TASK_MAX_RETRIES,
     soft_time_limit=config.BULK_TASK_SOFT_TIME_LIMIT,
     time_limit=config.BULK_TASK_TIME_LIMIT,
