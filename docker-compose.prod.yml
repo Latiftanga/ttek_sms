@@ -70,8 +70,8 @@ services:
       - static_volume:/app/staticfiles
       - ./media:/app/media
       - app_logs:/var/log/app
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
