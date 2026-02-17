@@ -218,6 +218,7 @@ nginx/ssl/*.pem
 nginx/ssl/*.key
 nginx/ssl/*.crt
 nginx/certbot/
+*.bak
 
 # Static and media files
 staticfiles/
