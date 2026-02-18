@@ -700,6 +700,43 @@ def get_school_context(include_logo_base64=False):
     return result
 
 
+def encode_image_base64(image_field):
+    """
+    Encode any ImageField as a base64 data URI.
+
+    Args:
+        image_field: ImageField instance with a file
+
+    Returns:
+        str: Data URI string or None if encoding fails
+    """
+    try:
+        if not image_field or not image_field.name:
+            return None
+
+        image_field.open('rb')
+        image_data = image_field.read()
+        image_field.close()
+
+        encoded = base64.b64encode(image_data).decode('utf-8')
+
+        ext = image_field.name.lower().rsplit('.', 1)[-1]
+        mime_types = {
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'webp': 'image/webp',
+        }
+        mime_type = mime_types.get(ext, 'image/jpeg')
+
+        return f"data:{mime_type};base64,{encoded}"
+
+    except Exception as e:
+        logger.debug(f"Error encoding image as base64: {e}")
+        return None
+
+
 def encode_logo_base64(logo_field, schema_name):
     """
     Encode a logo image file as a base64 data URI.
