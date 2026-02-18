@@ -82,29 +82,36 @@ class Command(BaseCommand):
 
     def _setup_domain(self, public_tenant, options, is_production, no_input):
         """Configure the primary domain for the platform."""
-        # Determine domain
+        # If public tenant already has a primary domain, skip entirely
+        existing = Domain.objects.filter(tenant=public_tenant, is_primary=True).first()
+        if existing:
+            self.stdout.write(f'  ✓ Domain exists: {existing.domain}')
+            return existing.domain
+
+        # Determine domain from flag or env var
         domain_name = options.get('domain')
 
         if not domain_name:
-            # Check environment variable
             domain_name = os.getenv('PUBLIC_DOMAIN')
 
-        if not domain_name and not no_input:
-            # Prompt user
-            if is_production:
-                default = 'example.com'
+        if not domain_name:
+            if not is_production:
+                # Dev mode: auto-default to localhost without prompting
+                domain_name = 'localhost'
+            elif not no_input:
+                # Production first-time setup: prompt interactively
                 self.stdout.write('  Enter your production domain (e.g., ttek-sms.com)')
-            else:
-                default = 'localhost'
-                self.stdout.write('  Enter domain for development')
-
-            try:
-                domain_name = input(f'  Domain [{default}]: ').strip() or default
-            except EOFError:
-                domain_name = default
+                try:
+                    domain_name = input('  Domain: ').strip()
+                except EOFError:
+                    pass
 
         if not domain_name:
-            domain_name = 'localhost'
+            # Production non-interactive with no PUBLIC_DOMAIN — warn and skip
+            self.stdout.write(self.style.WARNING(
+                '  ⚠ No domain configured. Set PUBLIC_DOMAIN env var or use --domain flag.'
+            ))
+            return None
 
         # Create or update domain
         existing_domain = Domain.objects.filter(domain=domain_name).first()
@@ -191,13 +198,15 @@ class Command(BaseCommand):
 
     def _print_summary(self, domain):
         """Print setup summary."""
-        protocol = 'http' if settings.DEBUG else 'https'
-        port = ':8000' if settings.DEBUG else ''
-
         self.stdout.write('\n' + '=' * 60)
         self.stdout.write(self.style.SUCCESS('  Setup Complete!'))
         self.stdout.write('=' * 60)
-        self.stdout.write(f'\n  Platform URL: {protocol}://{domain}{port}')
-        self.stdout.write(f'  Admin Panel:  {protocol}://{domain}{port}/admin/')
+
+        if domain:
+            protocol = 'http' if settings.DEBUG else 'https'
+            port = ':8000' if settings.DEBUG else ''
+            self.stdout.write(f'\n  Platform URL: {protocol}://{domain}{port}')
+            self.stdout.write(f'  Admin Panel:  {protocol}://{domain}{port}/admin/')
+
         self.stdout.write('\n  To create schools, log into the admin panel')
         self.stdout.write('  and add new School entries.\n')
