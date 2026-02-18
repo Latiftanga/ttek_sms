@@ -183,7 +183,7 @@ services:
     volumes:
       - ./scripts/backup.sh:/backup.sh:ro
       - db_backups:/backups
-    command: "/bin/sh -c '/backup.sh && while true; do sleep 86400; /backup.sh; done'"
+    command: "/bin/sh -c 'while true; do /backup.sh || true; sleep 86400; done'"
     depends_on:
       db:
         condition: service_healthy
