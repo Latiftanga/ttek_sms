@@ -53,7 +53,7 @@ if [ -n "${S3_BUCKET}" ] && command -v aws &> /dev/null; then
 
     # Clean up remote backups older than 30 days
     REMOTE_RETENTION_DAYS="${REMOTE_RETENTION_DAYS:-30}"
-    CUTOFF_DATE=$(date -d "-${REMOTE_RETENTION_DAYS} days" +%Y%m%d 2>/dev/null || date -D %s -d "$(( $(date +%s) - REMOTE_RETENTION_DAYS * 86400 ))" +%Y%m%d)
+    CUTOFF_DATE=$(date -d "-${REMOTE_RETENTION_DAYS} days" +%Y%m%d 2>/dev/null || date -d "@$(( $(date +%s) - REMOTE_RETENTION_DAYS * 86400 ))" +%Y%m%d)
     log_info "Cleaning up remote backups older than ${REMOTE_RETENTION_DAYS} days (before ${CUTOFF_DATE})..."
     aws ${S3_ARGS} s3 ls "s3://${S3_BUCKET}/backups/" 2>/dev/null | while read -r line; do
         FILE_NAME=$(echo "${line}" | awk '{print $4}')
