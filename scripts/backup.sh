@@ -90,7 +90,8 @@ if [ -n "${S3_BUCKET}" ] && command -v aws &> /dev/null; then
     aws ${S3_ARGS} s3 ls "s3://${S3_BUCKET}/backups/" 2>/dev/null | while read -r line; do
         FILE_NAME=$(echo "${line}" | awk '{print $4}')
         # Extract date from filename: ttek_sms_YYYYMMDD_HHMMSS.sql.gz or ttek_sms_<schema>_YYYYMMDD_HHMMSS.dump
-        FILE_DATE=$(echo "${FILE_NAME}" | grep -oP '\d{8}(?=_\d{6})')
+        # Use -oE (extended regex) for BusyBox/Alpine compatibility (no -P support)
+        FILE_DATE=$(echo "${FILE_NAME}" | grep -oE '[0-9]{8}_[0-9]{6}' | cut -d_ -f1)
         if [ -n "${FILE_DATE}" ] && [ "${FILE_DATE}" -lt "${CUTOFF_DATE}" ]; then
             log_info "Deleting old remote backup: ${FILE_NAME}"
             aws ${S3_ARGS} s3 rm "s3://${S3_BUCKET}/backups/${FILE_NAME}"
