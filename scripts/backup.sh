@@ -37,14 +37,33 @@ else
     exit 1
 fi
 
-# Upload to S3 if configured
+# Upload to S3/R2 if configured
 if [ -n "${S3_BUCKET}" ] && command -v aws &> /dev/null; then
+    S3_ARGS=""
+    if [ -n "${S3_ENDPOINT_URL}" ]; then
+        S3_ARGS="--endpoint-url ${S3_ENDPOINT_URL}"
+    fi
+
     log_info "Uploading to S3: s3://${S3_BUCKET}/backups/"
-    if aws s3 cp "${BACKUP_DIR}/${BACKUP_NAME}" "s3://${S3_BUCKET}/backups/${BACKUP_NAME}"; then
+    if aws ${S3_ARGS} s3 cp "${BACKUP_DIR}/${BACKUP_NAME}" "s3://${S3_BUCKET}/backups/${BACKUP_NAME}"; then
         log_info "S3 upload successful"
     else
         log_warn "S3 upload failed"
     fi
+
+    # Clean up remote backups older than 30 days
+    REMOTE_RETENTION_DAYS="${REMOTE_RETENTION_DAYS:-30}"
+    CUTOFF_DATE=$(date -d "-${REMOTE_RETENTION_DAYS} days" +%Y%m%d 2>/dev/null || date -v-${REMOTE_RETENTION_DAYS}d +%Y%m%d)
+    log_info "Cleaning up remote backups older than ${REMOTE_RETENTION_DAYS} days (before ${CUTOFF_DATE})..."
+    aws ${S3_ARGS} s3 ls "s3://${S3_BUCKET}/backups/" 2>/dev/null | while read -r line; do
+        FILE_NAME=$(echo "${line}" | awk '{print $4}')
+        # Extract date from filename: ttek_sms_YYYYMMDD_HHMMSS.sql.gz
+        FILE_DATE=$(echo "${FILE_NAME}" | grep -oP '(?<=ttek_sms_)\d{8}')
+        if [ -n "${FILE_DATE}" ] && [ "${FILE_DATE}" -lt "${CUTOFF_DATE}" ]; then
+            log_info "Deleting old remote backup: ${FILE_NAME}"
+            aws ${S3_ARGS} s3 rm "s3://${S3_BUCKET}/backups/${FILE_NAME}"
+        fi
+    done
 fi
 
 # Clean up old local backups
