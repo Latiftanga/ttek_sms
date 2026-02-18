@@ -49,7 +49,7 @@ def generate_report_pdf(term_report, tenant_schema):
         subject_grades = list(SubjectTermGrade.objects.filter(
             student=student,
             term=current_term
-        ).select_related('subject').order_by('subject__name'))
+        ).select_related('subject').order_by('-subject__is_core', 'subject__name'))
 
         # Get assessment categories
         categories = list(AssessmentCategory.objects.filter(
@@ -93,38 +93,42 @@ def generate_report_pdf(term_report, tenant_schema):
         school = None
         school_settings = None
         logo_base64 = None
+        student_photo_base64 = None
+        core_grades = []
+        elective_grades = []
         try:
             from schools.models import School
             from core.models import SchoolSettings
-            import base64
+            from .utils import encode_image_base64
 
             school = School.objects.get(schema_name=tenant_schema)
             school_settings = SchoolSettings.objects.first()
 
-            # Encode logo as base64 for PDF by reading directly from filesystem
+            # Separate core and elective grades for SHS
+            is_shs_class = (
+                student.current_class
+                and student.current_class.level_type == 'shs'
+            )
+            show_core_elective = (
+                school.education_system == 'shs'
+                or (school.has_shs_levels and is_shs_class)
+            )
+            if show_core_elective:
+                core_grades = [
+                    sg for sg in subject_grades if sg.subject.is_core
+                ]
+                elective_grades = [
+                    sg for sg in subject_grades if not sg.subject.is_core
+                ]
+
+            # Encode logo as base64 for PDF
             if school_settings and school_settings.logo:
-                from pathlib import Path
+                logo_base64 = encode_image_base64(school_settings.logo)
 
-                # Build and validate logo path to prevent path traversal attacks
-                media_root = Path(settings.MEDIA_ROOT).resolve()
-                logo_path = (media_root / 'schools' / tenant_schema / school_settings.logo.name).resolve()
+            # Encode student photo as base64 for PDF
+            if student.photo:
+                student_photo_base64 = encode_image_base64(student.photo)
 
-                # Security check: ensure path is within MEDIA_ROOT
-                if not str(logo_path).startswith(str(media_root)):
-                    logger.warning(f"Potential path traversal attempt blocked: {school_settings.logo.name}")
-                    logo_path = None
-
-                if logo_path and logo_path.exists():
-                    with open(logo_path, 'rb') as f:
-                        logo_data = f.read()
-                    logo_base64 = base64.b64encode(logo_data).decode('utf-8')
-                    # Detect image type
-                    if str(logo_path).lower().endswith('.png'):
-                        logo_base64 = f"data:image/png;base64,{logo_base64}"
-                    elif str(logo_path).lower().endswith('.gif'):
-                        logo_base64 = f"data:image/gif;base64,{logo_base64}"
-                    else:
-                        logo_base64 = f"data:image/jpeg;base64,{logo_base64}"
         except (IOError, OSError):
             pass
 
@@ -153,10 +157,13 @@ def generate_report_pdf(term_report, tenant_schema):
             'term_report': term_report,
             'current_term': current_term,
             'subject_grades': subject_grades,
+            'core_grades': core_grades,
+            'elective_grades': elective_grades,
             'categories': categories,
             'school': school,
             'school_settings': school_settings,
             'logo_base64': logo_base64,
+            'student_photo_base64': student_photo_base64,
             'verification': verification,
             'qr_code_base64': qr_code_base64,
         }
