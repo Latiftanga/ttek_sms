@@ -171,7 +171,9 @@ services:
 
   # Database backup service - runs daily at 2 AM
   backup:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: docker/backup.Dockerfile
     restart: unless-stopped
     env_file: .env.prod
     environment:
