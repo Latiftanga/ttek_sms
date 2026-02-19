@@ -6,7 +6,7 @@ from io import BytesIO
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import models, transaction
+from django.db import connection, models, transaction
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse, JsonResponse
@@ -920,8 +920,6 @@ def attendance_export(request):
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from openpyxl.utils import get_column_letter
     from django.http import HttpResponse as DjangoHttpResponse
-    from core.models import SchoolSettings
-
     # Get filter parameters
     class_filter = request.GET.get('class', '')
     date_from = request.GET.get('date_from', '')
@@ -934,7 +932,7 @@ def attendance_export(request):
     if not date_to:
         date_to = today.isoformat()
 
-    school = SchoolSettings.load()
+    school = getattr(connection, 'tenant', None)
 
     # Permission filtering: restrict teachers to their classes
     allowed_ids = _get_teacher_allowed_class_ids(request.user)
@@ -983,7 +981,7 @@ def attendance_export(request):
 
     # Header
     ws.merge_cells('A1:F1')
-    ws['A1'] = school.display_name or request.tenant.name
+    ws['A1'] = school.display_name if school else ''
     ws['A1'].font = header_font
     ws['A1'].alignment = Alignment(horizontal='center')
 
@@ -1158,8 +1156,6 @@ def student_attendance_detail(request, student_id):
 @teacher_or_admin_required
 def notify_absent_parents(request):
     """Send SMS notifications to parents of students with consecutive absences."""
-    from core.models import SchoolSettings
-
     if request.method != 'POST':
         return redirect('academics:attendance_reports')
 
@@ -1174,9 +1170,9 @@ def notify_absent_parents(request):
         messages.error(request, "Message template is required.")
         return redirect('academics:attendance_reports')
 
-    # Get school settings for school name
-    school_settings = SchoolSettings.load()
-    school_name = school_settings.display_name if school_settings else ''
+    # Get school name from tenant
+    school = getattr(connection, 'tenant', None)
+    school_name = school.display_name if school else ''
 
     # Get students with their current class (avoid N+1)
     students = list(Student.objects.filter(
@@ -1446,7 +1442,6 @@ def weekly_attendance_register_pdf(request, pk):
             'total_sessions': total_sessions,
             'totals': totals,
             'school': school,
-            'school_settings': school_ctx.get('school_settings'),
             'logo_base64': school_ctx.get('logo_base64'),
             'current_term': current_term,
             'generated_at': timezone.now(),

@@ -226,7 +226,7 @@
                     {% endif %}
                 </div>
 
-                {% if tenant.has_programmes and cls.programme %}
+                {% if school.has_programmes and cls.programme %}
                 <div class="flex items-center gap-2 text-sm text-base-content/70 mb-3">
                     <i class="fa-solid fa-graduation-cap text-xs"></i>
                     <span class="truncate">{{ cls.programme.name }}</span>
@@ -303,7 +303,7 @@
                     {% endif %}
                 </div>
 
-                {% if tenant.has_programmes and cls.programme %}
+                {% if school.has_programmes and cls.programme %}
                 <div class="flex items-center gap-2 text-sm text-base-content/70 mb-3">
                     <i class="fa-solid fa-graduation-cap text-xs"></i>
                     <span class="truncate">{{ cls.programme.name }}</span>
@@ -339,7 +339,7 @@
                         <th>Class</th>
                         <th>Level</th>
                         <th>Class Teacher</th>
-                        {% if tenant.has_programmes %}<th>Programme</th>{% endif %}
+                        {% if school.has_programmes %}<th>Programme</th>{% endif %}
                         <th class="text-center">Students</th>
                         <th class="text-center">Capacity</th>
                         <th>Fill Rate</th>
@@ -382,7 +382,7 @@
                             <span class="text-base-content/40 text-sm italic">Not assigned</span>
                             {% endif %}
                         </td>
-                        {% if tenant.has_programmes %}
+                        {% if school.has_programmes %}
                         <td>
                             {% if cls.programme %}
                             <span class="text-sm">{{ cls.programme.name }}</span>

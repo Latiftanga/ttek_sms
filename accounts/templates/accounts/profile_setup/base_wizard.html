@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile Setup - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}</title>
+    <title>Profile Setup - {{ school.name }}</title>
 
-    {% if school.favicon.name %}
+    {% if school.favicon %}
     <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
     {% endif %}
 
@@ -15,8 +15,8 @@
 
     <style>
         :root {
-            --school-primary: {{ school.primary_color|default:'#570df8' }};
-            --school-secondary: {{ school.secondary_color|default:'#7c3aed' }};
+            --school-primary: {{ school.primary_color }};
+            --school-secondary: {{ school.secondary_color }};
         }
         body { margin: 0; padding: 0; }
         .school-gradient {
@@ -34,7 +34,7 @@
         <div class="school-gradient text-white py-4 px-4">
             <div class="max-w-2xl mx-auto flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    {% if school.logo.name %}
+                    {% if school.logo %}
                     <div class="w-10 h-10 rounded-full bg-white p-1 flex items-center justify-center">
                         <img src="{{ school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
                     </div>
@@ -45,7 +45,7 @@
                     {% endif %}
                     <div>
                         <h1 class="font-bold text-sm">
-                            {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}
+                            {{ school.name }}
                         </h1>
                         <p class="text-white/70 text-xs">Profile Setup</p>
                     </div>
@@ -101,7 +101,15 @@
 
         <!-- Footer -->
         <div class="py-3 px-4 text-center">
-            <p class="text-xs text-base-content/40">
+            <p class="text-[10px] text-base-content/40">
+                {% if tenant and school.phone or tenant and school.email %}
+                <span class="block mb-0.5">
+                    Need help?
+                    {% if school.phone %}{{ school.phone }}{% endif %}
+                    {% if school.phone and school.email %} | {% endif %}
+                    {% if school.email %}{{ school.email }}{% endif %}
+                </span>
+                {% endif %}
                 Powered by <span class="font-semibold">TTEK SMS</span>
             </p>
         </div>

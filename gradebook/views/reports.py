@@ -22,7 +22,7 @@ from ..models import (
 from ..utils import get_school_context
 from academics.models import Class
 from students.models import Student, Enrollment
-from core.models import Term, SchoolSettings
+from core.models import Term
 from schools.models import School
 
 logger = logging.getLogger(__name__)
@@ -406,11 +406,9 @@ def report_card_print(request, student_id):
 
     # Get school/tenant info
     school = None
-    school_settings = None
     try:
         from django.db import connection
         school = School.objects.get(schema_name=connection.schema_name)
-        school_settings = SchoolSettings.objects.first()
     except ObjectDoesNotExist:
         pass
 
@@ -444,7 +442,6 @@ def report_card_print(request, student_id):
         'categories': categories,
         'grading_system': grading_system,
         'school': school,
-        'school_settings': school_settings,
         'verification': verification,
         'qr_code_base64': qr_code_base64,
     }

@@ -11,7 +11,7 @@ from django.core.mail import EmailMessage
 from django.utils import timezone
 from django.conf import settings
 
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django_tenants.utils import schema_context
 
@@ -91,18 +91,15 @@ def generate_report_pdf(term_report, tenant_schema):
 
         # Get school info
         school = None
-        school_settings = None
         logo_base64 = None
         student_photo_base64 = None
         core_grades = []
         elective_grades = []
         try:
             from schools.models import School
-            from core.models import SchoolSettings
             from .utils import encode_image_base64
 
             school = School.objects.get(schema_name=tenant_schema)
-            school_settings = SchoolSettings.objects.first()
 
             # Separate core and elective grades for SHS
             is_shs_class = (
@@ -122,8 +119,8 @@ def generate_report_pdf(term_report, tenant_schema):
                 ]
 
             # Encode logo as base64 for PDF
-            if school_settings and school_settings.logo:
-                logo_base64 = encode_image_base64(school_settings.logo)
+            if school and school.logo:
+                logo_base64 = encode_image_base64(school.logo)
 
             # Encode student photo as base64 for PDF
             if student.photo:
@@ -161,7 +158,6 @@ def generate_report_pdf(term_report, tenant_schema):
             'elective_grades': elective_grades,
             'categories': categories,
             'school': school,
-            'school_settings': school_settings,
             'logo_base64': logo_base64,
             'student_photo_base64': student_photo_base64,
             'verification': verification,
@@ -201,10 +197,10 @@ def build_feedback_context(term_report):
     # Get school name
     school_name = ''
     try:
-        from core.models import SchoolSettings
-        settings = SchoolSettings.load()
-        school_name = settings.display_name if settings else ''
-    except ObjectDoesNotExist:
+        from django.db import connection
+        school = getattr(connection, 'tenant', None)
+        school_name = school.display_name if school else ''
+    except Exception:
         pass
 
     return {

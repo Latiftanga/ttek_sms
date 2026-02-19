@@ -510,7 +510,6 @@ def student_detail_pdf(request, pk):
         'student_guardians': student_guardians,
         'enrollments': enrollments,
         'school': school_ctx['school'],
-        'school_settings': school_ctx['school_settings'],
         'logo_base64': school_ctx.get('logo_base64'),
         'photo_base64': photo_base64,
         'verification': verification,

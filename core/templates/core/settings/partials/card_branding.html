@@ -20,15 +20,15 @@
 
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-                {% if tenant.logo %}
-                <img src="{{ tenant.logo.url }}" alt="Logo" class="w-12 h-12 object-contain rounded border border-base-200 bg-base-200">
+                {% if school.logo %}
+                <img src="{{ school.logo.url }}" alt="Logo" class="w-12 h-12 object-contain rounded border border-base-200 bg-base-200">
                 {% else %}
                 <div class="w-12 h-12 rounded border border-base-200 bg-base-200 flex items-center justify-center text-base-content/40">
                     <i class="fa-solid fa-image"></i>
                 </div>
                 {% endif %}
-                {% if tenant.favicon %}
-                <img src="{{ tenant.favicon.url }}" alt="Favicon" class="w-8 h-8 object-contain rounded border border-base-200 bg-base-200">
+                {% if school.favicon %}
+                <img src="{{ school.favicon.url }}" alt="Favicon" class="w-8 h-8 object-contain rounded border border-base-200 bg-base-200">
                 {% else %}
                 <div class="w-8 h-8 rounded border border-base-200 bg-base-200 flex items-center justify-center text-base-content/40">
                     <i class="fa-solid fa-image text-xs"></i>
@@ -38,13 +38,13 @@
 
             <div class="flex items-center gap-1">
                 <div class="tooltip" data-tip="Primary">
-                    <div class="w-7 h-7 rounded-full border-2 border-base-300 shadow-sm" style="background-color: {{ tenant.primary_color }}"></div>
+                    <div class="w-7 h-7 rounded-full border-2 border-base-300 shadow-sm" style="background-color: {{ school.primary_color }}"></div>
                 </div>
                 <div class="tooltip" data-tip="Secondary">
-                    <div class="w-7 h-7 rounded-full border-2 border-base-300 shadow-sm" style="background-color: {{ tenant.secondary_color }}"></div>
+                    <div class="w-7 h-7 rounded-full border-2 border-base-300 shadow-sm" style="background-color: {{ school.secondary_color }}"></div>
                 </div>
                 <div class="tooltip" data-tip="Accent">
-                    <div class="w-7 h-7 rounded-full border-2 border-base-300 shadow-sm" style="background-color: {{ tenant.accent_color }}"></div>
+                    <div class="w-7 h-7 rounded-full border-2 border-base-300 shadow-sm" style="background-color: {{ school.accent_color }}"></div>
                 </div>
             </div>
         </div>

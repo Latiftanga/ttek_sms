@@ -25,7 +25,7 @@
         /* Header Branding */
         .header {
             margin-bottom: 2rem;
-            border-bottom: 2px solid {{ school_settings.primary_color|default:"#000" }};
+            border-bottom: 2px solid {{ school.primary_color|default:"#000" }};
             padding-bottom: 1rem;
         }
         
@@ -44,7 +44,7 @@
         .school-info h1 {
             margin: 0;
             font-size: 18pt;
-            color: {{ school_settings.primary_color|default:"#000" }};
+            color: {{ school.primary_color|default:"#000" }};
             text-transform: uppercase;
         }
 
@@ -99,7 +99,7 @@
         }
 
         th {
-            background-color: {{ school_settings.primary_color|default:"#f3f4f6" }};
+            background-color: {{ school.primary_color|default:"#f3f4f6" }};
             color: #fff; /* Assuming primary color is dark, otherwise check contrast */
             font-weight: bold;
             font-size: 9pt;
@@ -143,15 +143,15 @@
                 {% endif %}
                 <td style="border: none; vertical-align: top;">
                     <div class="school-info">
-                        <h1>{{ school_settings.display_name }}</h1>
-                        {% if school_settings.motto %}
-                        <p style="font-style: italic;">"{{ school_settings.motto }}"</p>
+                        <h1>{{ school.display_name }}</h1>
+                        {% if school.motto %}
+                        <p style="font-style: italic;">"{{ school.motto }}"</p>
                         {% endif %}
-                        {% if school_settings.address %}
-                        <p>{{ school_settings.address }}</p>
+                        {% if school.address %}
+                        <p>{{ school.address }}</p>
                         {% endif %}
-                        {% if school_settings.phone or school_settings.email %}
-                        <p>{{ school_settings.phone|default:"" }}{% if school_settings.phone and school_settings.email %} | {% endif %}{{ school_settings.email|default:"" }}</p>
+                        {% if school.phone or school.email %}
+                        <p>{{ school.phone|default:"" }}{% if school.phone and school.email %} | {% endif %}{{ school.email|default:"" }}</p>
                         {% endif %}
                     </div>
                 </td>
@@ -179,7 +179,7 @@
             <div class="meta-cell"><span class="label">Total Students:</span></div>
             <div class="meta-cell">{{ students.count }} / {{ class.capacity }}</div>
         </div>
-        {% if school_settings.has_programmes %}
+        {% if school.has_programmes %}
         <div class="meta-row">
             <div class="meta-cell"><span class="label">Programme:</span></div>
             <div class="meta-cell">{{ class.programme.name|default:"General" }}</div>
@@ -242,7 +242,7 @@
                 <tr>
                     <th>Subject</th>
                     <th>Teacher</th>
-                    {% if school_settings.has_programmes %}<th style="width: 80px;">Type</th>{% endif %}
+                    {% if school.has_programmes %}<th style="width: 80px;">Type</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -250,7 +250,7 @@
                 <tr>
                     <td>{{ alloc.subject.name }}</td>
                     <td>{{ alloc.teacher.full_name|default:"-" }}</td>
-                    {% if school_settings.has_programmes %}
+                    {% if school.has_programmes %}
                     <td>
                         {% if alloc.subject.is_core %}Core{% else %}Elective{% endif %}
                     </td>

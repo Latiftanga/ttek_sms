@@ -6,35 +6,32 @@ logger = logging.getLogger(__name__)
 
 def school_branding(request):
     """
-    Add school branding/settings to template context.
-    Makes 'school' available in all templates.
-    Only loads for tenant schemas (not public).
+    Add school branding to template context.
+    'school' is the School model (connection.tenant) — has name, motto,
+    logo, colors, contact info, and all branding fields.
+    'school_settings' is SchoolSettings (tenant schema) — email config only.
     """
-    # Check if we're on a tenant schema (not public)
     schema_name = getattr(connection, 'schema_name', 'public')
     if schema_name == 'public':
-        return {'school': None, 'tenant': None}
+        return {'school': None, 'school_settings': None, 'tenant': None}
 
     school = None
-    tenant = None
+    school_settings = None
 
-    # Get the tenant (School model from public schema)
     try:
-        tenant = getattr(connection, 'tenant', None)
+        school = getattr(connection, 'tenant', None)
     except Exception as e:
-        logger.warning(f"Failed to get tenant: {e}")
+        logger.warning(f"Failed to get school: {e}")
 
-    # Get SchoolSettings (from tenant schema)
     try:
         from .models import SchoolSettings
-        school = SchoolSettings.load()
+        school_settings = SchoolSettings.load()
     except (ProgrammingError, OperationalError):
-        # Table doesn't exist yet (migrations not run)
         pass
     except Exception as e:
         logger.warning(f"Failed to load SchoolSettings: {e}")
 
-    return {'school': school, 'tenant': tenant}
+    return {'school': school, 'school_settings': school_settings, 'tenant': school}
 
 
 def academic_session(request):

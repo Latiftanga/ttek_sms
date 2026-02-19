@@ -30,7 +30,7 @@
         </div>
         <div class="flex-1 min-w-0">
             <h1 class="text-base sm:text-xl font-bold">Setup Wizard</h1>
-            <p class="text-[10px] sm:text-xs text-base-content/60">Configure your school in {% if tenant and tenant and tenant.has_houses %}5{% else %}4{% endif %} steps</p>
+            <p class="text-[10px] sm:text-xs text-base-content/60">Configure your school in {% if tenant and tenant and school.has_houses %}5{% else %}4{% endif %} steps</p>
         </div>
         <a href="{% url 'core:index' %}" hx-get="{% url 'core:index' %}" hx-target="#main-content" hx-push-url="true"
            class="btn btn-ghost btn-xs sm:btn-sm">
@@ -58,7 +58,7 @@
                             data-content="{% if has_classes %}✓{% else %}3{% endif %}">
                             <span class="text-left">Classes</span>
                         </li>
-                        {% if tenant and tenant.has_houses %}
+                        {% if tenant and school.has_houses %}
                         <li class="step {% if has_houses %}step-success{% elif has_classes %}step-primary{% endif %}"
                             data-content="{% if has_houses %}✓{% else %}4{% endif %}">
                             <span class="text-left">Houses</span>
@@ -80,7 +80,7 @@
                         <div class="flex items-center justify-between text-xs mb-1">
                             <span class="text-base-content/60">Progress</span>
                             <span class="font-medium">
-                                {% if tenant and tenant.has_houses %}
+                                {% if tenant and school.has_houses %}
                                 {% if has_subjects %}100{% elif has_houses %}80{% elif has_classes %}60{% elif has_terms %}40{% elif has_academic_year %}20{% else %}0{% endif %}%
                                 {% else %}
                                 {% if has_subjects %}100{% elif has_classes %}75{% elif has_terms %}50{% elif has_academic_year %}25{% else %}0{% endif %}%
@@ -89,7 +89,7 @@
                         </div>
                         <div class="w-full bg-base-200 rounded-full h-1.5">
                             <div class="bg-primary h-1.5 rounded-full transition-all"
-                                 style="width: {% if tenant and tenant.has_houses %}{% if has_subjects %}100{% elif has_houses %}80{% elif has_classes %}60{% elif has_terms %}40{% elif has_academic_year %}20{% else %}0{% endif %}{% else %}{% if has_subjects %}100{% elif has_classes %}75{% elif has_terms %}50{% elif has_academic_year %}25{% else %}0{% endif %}{% endif %}%"></div>
+                                 style="width: {% if tenant and school.has_houses %}{% if has_subjects %}100{% elif has_houses %}80{% elif has_classes %}60{% elif has_terms %}40{% elif has_academic_year %}20{% else %}0{% endif %}{% else %}{% if has_subjects %}100{% elif has_classes %}75{% elif has_terms %}50{% elif has_academic_year %}25{% else %}0{% endif %}{% endif %}%"></div>
                         </div>
                     </div>
                 </div>
@@ -407,7 +407,7 @@
                 </div>
             </div>
 
-            {% elif not has_houses and tenant and tenant.has_houses %}
+            {% elif not has_houses and tenant and school.has_houses %}
             <!-- Step 4: Houses (only for basic schools) -->
             <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-6">
@@ -499,13 +499,13 @@
             <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-6">
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="badge badge-primary badge-sm">Step {% if tenant and tenant.has_houses %}5{% else %}4{% endif %}</span>
+                        <span class="badge badge-primary badge-sm">Step {% if tenant and school.has_houses %}5{% else %}4{% endif %}</span>
                     </div>
                     <h2 class="text-lg font-bold mb-1">Import Curriculum</h2>
                     <p class="text-sm text-base-content/60 mb-5">Import Ghana's standard curriculum data.</p>
 
-                    <div class="grid grid-cols-{% if tenant and tenant.has_programmes %}4{% else %}3{% endif %} gap-3 mb-5">
-                        {% if tenant and tenant.has_programmes %}
+                    <div class="grid grid-cols-{% if tenant and school.has_programmes %}4{% else %}3{% endif %} gap-3 mb-5">
+                        {% if tenant and school.has_programmes %}
                         <div class="p-3 bg-base-200/50 rounded-lg text-center">
                             <div class="text-xl font-bold text-primary">7</div>
                             <div class="text-xs text-base-content/60">Programmes</div>
@@ -529,7 +529,7 @@
                         {% csrf_token %}
                         <input type="hidden" name="seed_type" value="all">
                         <div class="flex gap-2">
-                            {% if tenant and tenant.has_houses %}
+                            {% if tenant and school.has_houses %}
                             <button hx-delete="{% url 'core:setup_wizard_clear_houses' %}" hx-target="#main-content"
                                     hx-confirm="This will delete houses and return to Step 4. Continue?" type="button" class="btn btn-ghost">
                                 <i class="fa-solid fa-arrow-left"></i> Back

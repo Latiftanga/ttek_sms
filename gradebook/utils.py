@@ -663,36 +663,29 @@ def build_academic_history(term_reports, grades_by_term, include_all_grades=Fals
 
 def get_school_context(include_logo_base64=False):
     """
-    Get school and school settings for context.
+    Get school context for templates and PDF generation.
+
+    Uses connection.tenant (already loaded by django-tenants middleware)
+    to avoid an extra database query.
 
     Args:
         include_logo_base64: If True, encode logo as base64 data URI for PDF
 
     Returns:
-        dict: {'school': School or None, 'school_settings': SchoolSettings or None,
+        dict: {'school': School or None,
                'logo_base64': str or None (if include_logo_base64=True)}
     """
-    school = None
-    school_settings = None
+    school = getattr(connection, 'tenant', None)
     logo_base64 = None
 
     try:
-        from schools.models import School
-        from core.models import SchoolSettings
-
-        schema_name = connection.schema_name
-        school = School.objects.get(schema_name=schema_name)
-        school_settings = SchoolSettings.objects.first()
-
-        if include_logo_base64 and school_settings and school_settings.logo:
-            logo_base64 = encode_logo_base64(school_settings.logo, schema_name)
-
+        if include_logo_base64 and school and school.logo:
+            logo_base64 = encode_logo_base64(school.logo, connection.schema_name)
     except Exception as e:
-        logger.debug(f"Error getting school context: {e}")
+        logger.debug(f"Error encoding logo: {e}")
 
     result = {
         'school': school,
-        'school_settings': school_settings,
     }
     if include_logo_base64:
         result['logo_base64'] = logo_base64

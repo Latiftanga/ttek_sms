@@ -21,15 +21,15 @@
         <div class="space-y-2 text-sm">
             <div class="flex justify-between">
                 <span class="text-base-content/60">School Name</span>
-                <span class="font-medium text-right">{{ tenant.name|default:"-" }}</span>
+                <span class="font-medium text-right">{{ school.name|default:"-" }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-base-content/60">Short Name</span>
-                <span class="font-medium">{{ tenant.short_name|default:"-" }}</span>
+                <span class="font-medium">{{ school.short_name|default:"-" }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-base-content/60">Motto</span>
-                <span class="font-medium text-right truncate max-w-[60%]" title="{{ tenant.motto }}">{{ tenant.motto|default:"-"|truncatechars:30 }}</span>
+                <span class="font-medium text-right truncate max-w-[60%]" title="{{ school.motto }}">{{ school.motto|default:"-"|truncatechars:30 }}</span>
             </div>
         </div>
     </div>

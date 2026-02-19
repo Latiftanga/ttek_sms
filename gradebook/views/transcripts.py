@@ -71,7 +71,6 @@ def transcript(request, student_id):
         },
         'promotion_history': list(promotion_history),
         'school': school_ctx['school'],
-        'school_settings': school_ctx['school_settings'],
         # Navigation
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
@@ -135,7 +134,6 @@ def transcript_print(request, student_id):
         'total_credits': history_data['total_credits'],
         'generated_date': timezone.now(),
         'school': school_ctx['school'],
-        'school_settings': school_ctx['school_settings'],
         'verification': verification,
         'qr_code_base64': qr_code_base64,
     }
@@ -191,7 +189,6 @@ def download_transcript_pdf(request, student_id):
         'generated_date': timezone.now(),
         'request': request,
         'school': school_ctx['school'],
-        'school_settings': school_ctx['school_settings'],
         'logo_base64': school_ctx['logo_base64'],
         'verification': verification,
         'qr_code_base64': qr_code_base64,
