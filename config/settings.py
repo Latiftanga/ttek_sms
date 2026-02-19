@@ -333,7 +333,9 @@ STORAGES = {
         "BACKEND": 'core.storage.CustomSchemaStorage',
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        if not os.getenv('DEBUG')
+        else "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
 
