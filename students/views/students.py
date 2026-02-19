@@ -14,7 +14,7 @@ from django.core.paginator import Paginator
 from accounts.models import User
 from core.email_backend import get_from_email
 from academics.models import Class
-from students.models import Student, Guardian, StudentGuardian
+from students.models import Student, Guardian, StudentGuardian, Enrollment
 from students.forms import StudentForm, GuardianForm
 from .utils import admin_required, htmx_render, create_enrollment_for_student, generate_temp_password
 
@@ -271,7 +271,13 @@ def student_detail(request, pk):
     """View student details."""
     student = get_object_or_404(
         Student.objects.select_related('current_class', 'user').prefetch_related(
-            'student_guardians__guardian'
+            'student_guardians__guardian',
+            Prefetch(
+                'enrollments',
+                queryset=Enrollment.objects.select_related(
+                    'academic_year', 'class_assigned'
+                ).order_by('-academic_year__start_date')
+            ),
         ),
         pk=pk
     )
@@ -282,7 +288,7 @@ def student_detail(request, pk):
             break
     else:
         student._cached_primary_guardian = None
-    enrollments = student.get_enrollment_history()
+    enrollments = student.enrollments.all()  # Uses prefetched data
     student_guardians = student.get_guardians_with_relationships()
 
     breadcrumbs = [
@@ -576,6 +582,14 @@ def student_create_account(request, pk):
         # Create user account with atomic transaction to prevent race conditions
         try:
             with transaction.atomic():
+                # Re-check inside transaction to prevent race condition
+                student = Student.objects.select_for_update().get(pk=pk)
+                if student.user:
+                    messages.warning(request, f"{student.full_name} already has an account.")
+                    response = HttpResponse(status=204)
+                    response['HX-Refresh'] = 'true'
+                    return response
+
                 user = User.objects.create_user(
                     email=email,
                     password=temp_password,

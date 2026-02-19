@@ -206,17 +206,10 @@ def bulk_import(request):
                 else:
                     existing_emails.add(student_email)  # Track to prevent duplicates in same import
 
-            # Find or create guardian
+            # Look up existing guardian (defer creation to confirm step)
             guardian_pk = None
             if guardian_phone in guardian_map:
                 guardian_pk = guardian_map[guardian_phone]
-            elif guardian_name and guardian_phone:
-                guardian, created = Guardian.objects.get_or_create(
-                    phone_number=guardian_phone,
-                    defaults={'full_name': guardian_name}
-                )
-                guardian_pk = guardian.pk
-                guardian_map[guardian_phone] = guardian_pk
 
             if errors:
                 all_errors.append({'row': row_num, 'errors': errors})
@@ -234,6 +227,7 @@ def bulk_import(request):
                     'class_pk': class_pk,
                     'guardian_pk': guardian_pk,
                     'guardian_name': guardian_name,
+                    'guardian_phone': guardian_phone,
                     'guardian_relationship': guardian_relationship,
                     'student_email': student_email,  # Optional - for account creation
                 }
@@ -296,6 +290,19 @@ def bulk_import_confirm(request):
     created_count = 0
     accounts_created = 0
     errors = []
+
+    # Create guardians for rows that don't have one yet (deferred from preview)
+    guardian_phone_map = {}  # phone -> guardian pk (for dedup)
+    for row in rows:
+        if not row.get('guardian_pk') and row.get('guardian_phone') and row.get('guardian_name'):
+            phone = row['guardian_phone']
+            if phone not in guardian_phone_map:
+                guardian, _ = Guardian.objects.get_or_create(
+                    phone_number=phone,
+                    defaults={'full_name': row['guardian_name']}
+                )
+                guardian_phone_map[phone] = guardian.pk
+            row['guardian_pk'] = guardian_phone_map[phone]
 
     # Collect all guardian, class, and house PKs for bulk fetching
     guardian_pks = [row['guardian_pk'] for row in rows if row.get('guardian_pk')]
@@ -610,7 +617,8 @@ def bulk_export(request):
                 df[col].astype(str).map(len).max() if len(df) > 0 else 0,
                 len(col)
             ) + 2
-            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+            from openpyxl.utils import get_column_letter
+            worksheet.column_dimensions[get_column_letter(idx + 1)].width = min(max_length, 50)
 
     output.seek(0)
 
