@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 # API endpoints
 ARKESEL_API_URL = "https://sms.arkesel.com/api/v2/sms/send"
 HUBTEL_API_URL = "https://smsc.hubtel.com/v1/messages/send"
+AT_API_URL = "https://api.africastalking.com/version1/messaging"
+AT_SANDBOX_URL = "https://api.sandbox.africastalking.com/version1/messaging"
 
 
 def format_phone_ghana(phone):
@@ -92,44 +94,53 @@ def send_via_hubtel(recipient, message, sender_id=None, api_key=None):
 
 def send_via_africastalking(recipient, message, sender_id=None, api_key=None):
     """
-    Send SMS via Africa's Talking API.
+    Send SMS via Africa's Talking REST API (no SDK, avoids global state).
     API Documentation: https://africastalking.com/docs/sms
     API key format: "username:api_key"
     """
     if not api_key:
         raise ValueError("Africa's Talking API key is required")
 
-    # Parse username and api_key
     if ':' not in api_key:
         raise ValueError("Africa's Talking API key must be in format 'username:api_key'")
 
     username, at_api_key = api_key.split(':', 1)
 
-    try:
-        import africastalking
-        africastalking.initialize(username, at_api_key)
-        sms = africastalking.SMS
+    recipient = format_phone_ghana(recipient)
+    if not recipient.startswith('+'):
+        recipient = '+' + recipient
 
-        recipient = format_phone_ghana(recipient)
-        if not recipient.startswith('+'):
-            recipient = '+' + recipient
+    sender = sender_id[:11] if sender_id else None
+    api_url = AT_SANDBOX_URL if username == 'sandbox' else AT_API_URL
 
-        sender = sender_id[:11] if sender_id else None
+    headers = {
+        'apiKey': at_api_key,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+    }
 
-        # Send message
-        response = sms.send(message, [recipient], sender_id=sender)
+    payload = {
+        'username': username,
+        'to': recipient,
+        'message': message,
+    }
+    if sender:
+        payload['from'] = sender
 
-        # Check response
-        if response.get('SMSMessageData', {}).get('Recipients'):
-            recipient_data = response['SMSMessageData']['Recipients'][0]
-            if recipient_data.get('status') == 'Success':
-                return response
-            raise ValueError(f"Africa's Talking error: {recipient_data.get('status')}")
+    response = requests.post(api_url, data=payload, headers=headers, timeout=30)
+    response.raise_for_status()
 
-        raise ValueError("Africa's Talking: No recipients in response")
+    result = response.json()
+    recipients = result.get('SMSMessageData', {}).get('Recipients', [])
+    if recipients:
+        recipient_data = recipients[0]
+        if recipient_data.get('status') == 'Success':
+            return result
+        raise ValueError(
+            f"Africa's Talking error: {recipient_data.get('status')}"
+        )
 
-    except ImportError:
-        raise ValueError("africastalking package not installed")
+    raise ValueError("Africa's Talking: No recipients in response")
 
 
 def get_school_sms_settings():
