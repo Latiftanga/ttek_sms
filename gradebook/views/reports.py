@@ -793,7 +793,6 @@ def check_export_status(request, task_id):
 @teacher_or_admin_required
 def download_class_reports(request, filename):
     """Serve a generated ZIP file for download."""
-    import os
     from pathlib import Path
     from django.http import FileResponse
 
