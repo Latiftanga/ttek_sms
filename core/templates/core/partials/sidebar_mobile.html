@@ -6,14 +6,14 @@
         <div class="school-gradient p-4 shrink-0">
             <div class="flex items-center gap-3">
                 {% if school.logo %}
-                    <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:tenant.name }}" class="w-10 h-10 rounded-lg object-contain" />
+                    <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:school.name }}" class="w-10 h-10 rounded-lg object-contain" />
                 {% else %}
                     <div class="w-10 h-10 rounded-lg bg-white/20 grid place-content-center font-bold text-xl text-white">
-                        {{ tenant.short_name|slice:":1"|default:"S" }}
+                        {{ school.short_name|slice:":1"|default:"S" }}
                     </div>
                 {% endif %}
                 <div class="flex flex-col">
-                    <span class="font-bold text-lg text-white leading-tight">{{ tenant.short_name|default:"School" }}</span>
+                    <span class="font-bold text-lg text-white leading-tight">{{ school.short_name|default:"School" }}</span>
                     {% if school.motto %}
                     <span class="text-xs text-white/70 truncate max-w-[160px]">{{ school.motto|truncatewords:4 }}</span>
                     {% endif %}

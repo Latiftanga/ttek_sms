@@ -6,8 +6,8 @@
     <title>Staff Record - {{ teacher.full_name }}</title>
     <style>
         :root {
-            --primary: {{ school_settings.primary_color|default:'#1a365d' }};
-            --secondary: {{ school_settings.secondary_color|default:'#2d3748' }};
+            --primary: {{ school.primary_color|default:'#1a365d' }};
+            --secondary: {{ school.secondary_color|default:'#2d3748' }};
         }
 
         @page {
@@ -359,8 +359,8 @@
         <img src="{{ logo_base64 }}" class="school-logo" alt="School Logo">
         {% endif %}
         <div class="school-name">{{ school.name|default:"SCHOOL NAME" }}</div>
-        {% if school_settings.motto %}
-        <div class="school-motto">"{{ school_settings.motto }}"</div>
+        {% if school.motto %}
+        <div class="school-motto">"{{ school.motto }}"</div>
         {% endif %}
         {% if school.address %}
         <div class="school-address">{{ school.address }}</div>

@@ -60,7 +60,7 @@
     <div class="flex-1 min-w-0">
         <h1 class="text-base sm:text-xl font-bold truncate">{{ class_obj.name }} Timetable</h1>
         <p class="text-[10px] sm:text-xs text-base-content/60 truncate">
-            {{ class_obj.level_display }}{% if tenant.has_programmes and class_obj.programme %} &bull; {{ class_obj.programme.name }}{% endif %}
+            {{ class_obj.level_display }}{% if school.has_programmes and class_obj.programme %} &bull; {{ class_obj.programme.name }}{% endif %}
         </p>
     </div>
         <div class="dropdown dropdown-end">
@@ -151,7 +151,7 @@
         </div>
         <div class="text-right">
             <h2 class="text-2xl font-bold">{{ class_obj.name }}</h2>
-            <p class="text-sm">{{ class_obj.level_display }}{% if tenant.has_programmes and class_obj.programme %} &bull; {{ class_obj.programme.name }}{% endif %}</p>
+            <p class="text-sm">{{ class_obj.level_display }}{% if school.has_programmes and class_obj.programme %} &bull; {{ class_obj.programme.name }}{% endif %}</p>
             {% if class_obj.class_teacher %}<p class="text-xs mt-1">Form Tutor: <strong>{{ class_obj.class_teacher.full_name }}</strong></p>{% endif %}
         </div>
     </div>

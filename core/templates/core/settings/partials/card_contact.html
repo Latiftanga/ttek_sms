@@ -21,21 +21,21 @@
         <div class="space-y-2 text-sm">
             <div class="flex justify-between">
                 <span class="text-base-content/60">Email</span>
-                <span class="font-medium">{{ tenant.email|default:"-" }}</span>
+                <span class="font-medium">{{ school.email|default:"-" }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-base-content/60">Phone</span>
-                <span class="font-medium">{{ tenant.phone|default:"-" }}</span>
+                <span class="font-medium">{{ school.phone|default:"-" }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-base-content/60">Digital Address</span>
-                <span class="font-medium">{{ tenant.digital_address|default:"-" }}</span>
+                <span class="font-medium">{{ school.digital_address|default:"-" }}</span>
             </div>
             <div class="flex justify-between">
                 <span class="text-base-content/60">Location</span>
                 <span class="font-medium">
-                    {% if tenant.city or tenant.location_region %}
-                        {{ tenant.city }}{% if tenant.city and tenant.location_region %}, {% endif %}{{ tenant.location_region }}
+                    {% if school.city or school.location_region %}
+                        {{ school.city }}{% if school.city and school.location_region %}, {% endif %}{{ school.location_region }}
                     {% else %}
                         -
                     {% endif %}

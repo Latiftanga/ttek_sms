@@ -244,7 +244,7 @@
         .verification-info .title {
             font-size: 8pt;
             font-weight: bold;
-            color: {{ school_settings.primary_color|default:'#1a365d' }};
+            color: {{ school.primary_color|default:'#1a365d' }};
             margin-bottom: 2px;
         }
         .verification-info .code {
@@ -284,8 +284,8 @@
         <img src="{{ logo_base64 }}" class="school-logo" alt="School Logo">
         {% endif %}
         <h1>{{ school.name|default:"School Name" }}</h1>
-        {% if school_settings.motto %}
-        <p class="school-motto">"{{ school_settings.motto }}"</p>
+        {% if school.motto %}
+        <p class="school-motto">"{{ school.motto }}"</p>
         {% endif %}
         <p>{{ school.address|default:"" }}</p>
         {% if school.phone or school.email %}

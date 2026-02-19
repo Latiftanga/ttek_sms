@@ -10,8 +10,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
-    <meta name="description" content="{{ school.motto|default:'School Management System' }}">
-    <title>{% block title %}{{ school.display_name|default:tenant.short_name|default:tenant.name|default:"School" }}{% endblock %}</title>
+    <meta name="description" content="{{ school.motto }}">
+    <title>{% block title %}{{ school.display_name }}{% endblock %}</title>
 
     {% if school.favicon %}
     <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
@@ -19,10 +19,10 @@
 
     <!-- PWA Support (tenant-aware - each school gets their own installable app) -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="{{ school.primary_color|default:'#570df8' }}">
+    <meta name="theme-color" content="{{ school.primary_color }}">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="{{ school.display_name|default:tenant.name|default:'School' }}">
+    <meta name="apple-mobile-web-app-title" content="{{ school.display_name }}">
     <link rel="apple-touch-icon" href="{% if school.logo %}{{ school.logo.url }}{% else %}{% static 'icons/icon-192.svg' %}{% endif %}">
 
     {% tailwind_css %}
@@ -93,9 +93,9 @@
             --color-accent: oklch({{ school.accent_color_oklch|default:"75% 0.183 55" }});
 
             /* School hex colors for gradients and custom styling */
-            --school-primary: {{ school.primary_color|default:'#570df8' }};
-            --school-secondary: {{ school.secondary_color|default:'#7c3aed' }};
-            --school-accent: {{ school.accent_color|default:'#f59e0b' }};
+            --school-primary: {{ school.primary_color }};
+            --school-secondary: {{ school.secondary_color }};
+            --school-accent: {{ school.accent_color }};
 
             /* Sidebar width */
             --desktop-width: 17rem;
@@ -854,7 +854,7 @@
                 // Update page title from swapped content
                 if (target && target.id === 'main-content') {
                     const h1 = target.querySelector('h1');
-                    const schoolName = '{{ school.display_name|default:tenant.short_name|default:tenant.name|default:"School" }}';
+                    const schoolName = '{{ school.display_name }}';
                     if (h1) {
                         document.title = h1.textContent.trim() + ' - ' + schoolName;
                     }

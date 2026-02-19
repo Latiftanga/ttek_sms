@@ -7,11 +7,11 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="{{ school.primary_color|default:'#570df8' }}">
-    <meta name="description" content="{{ school.motto|default:'School Management System' }}">
-    <title>Sign In - {% if school and school.display_name %}{{ school.display_name }}{% elif tenant and tenant.name %}{{ tenant.name }}{% else %}School{% endif %}</title>
+    <meta name="theme-color" content="{{ school.primary_color }}">
+    <meta name="description" content="{{ school.motto }}">
+    <title>Sign In - {{ school.name }}</title>
 
-    {% if school.favicon.name %}
+    {% if school.favicon %}
     <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
     {% endif %}
 
@@ -20,8 +20,8 @@
 
     <style>
         :root {
-            --school-primary: {{ school.primary_color|default:'#570df8' }};
-            --school-secondary: {{ school.secondary_color|default:'#7c3aed' }};
+            --school-primary: {{ school.primary_color }};
+            --school-secondary: {{ school.secondary_color }};
         }
 
         * {
@@ -470,22 +470,16 @@
         <div class="brand-panel">
             <div class="brand-content">
                 <div class="brand-logo">
-                    {% if school.logo.name %}
-                    <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:'School' }}">
+                    {% if school.logo %}
+                    <img src="{{ school.logo.url }}" alt="{{ school.name }}">
                     {% else %}
                     <i class="fa-solid fa-graduation-cap text-4xl text-white"></i>
                     {% endif %}
                 </div>
                 <h1 class="brand-name">
-                    {% if school and school.display_name %}
-                        {{ school.display_name }}
-                    {% elif tenant and tenant.name %}
-                        {{ tenant.name }}
-                    {% else %}
-                        School Portal
-                    {% endif %}
+                    {{ school.name }}
                 </h1>
-                {% if school and school.motto %}
+                {% if school.motto %}
                 <p class="brand-motto">"{{ school.motto }}"</p>
                 {% endif %}
 
@@ -516,22 +510,16 @@
             <!-- Mobile Header -->
             <div class="mobile-header">
                 <div class="mobile-logo">
-                    {% if school.logo.name %}
-                    <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:'School' }}">
+                    {% if school.logo %}
+                    <img src="{{ school.logo.url }}" alt="{{ school.name }}">
                     {% else %}
                     <i class="fa-solid fa-graduation-cap text-3xl text-white"></i>
                     {% endif %}
                 </div>
                 <h1 style="font-size: 1.125rem; font-weight: 700; color: var(--school-primary); text-align: center;">
-                    {% if school and school.display_name %}
-                        {{ school.display_name }}
-                    {% elif tenant and tenant.name %}
-                        {{ tenant.name }}
-                    {% else %}
-                        School Portal
-                    {% endif %}
+                    {{ school.name }}
                 </h1>
-                {% if school and school.motto %}
+                {% if school.motto %}
                 <p style="font-size: 0.75rem; color: oklch(var(--bc) / 0.5); font-style: italic; margin-top: 0.25rem;">
                     "{{ school.motto }}"
                 </p>
@@ -599,12 +587,12 @@
                         <i class="fa-solid fa-lock"></i>
                         <span>256-bit SSL Encrypted</span>
                     </div>
-                    {% if tenant and tenant.phone or tenant and tenant.email %}
+                    {% if tenant and school.phone or tenant and school.email %}
                     <p style="font-size: 0.75rem; color: oklch(var(--bc) / 0.5); margin-bottom: 0.75rem;">
                         Need help?
-                        {% if tenant.phone %}<a href="tel:{{ tenant.phone }}" style="color: var(--school-primary);">{{ tenant.phone }}</a>{% endif %}
-                        {% if tenant.phone and tenant.email %} · {% endif %}
-                        {% if tenant.email %}<a href="mailto:{{ tenant.email }}" style="color: var(--school-primary);">{{ tenant.email }}</a>{% endif %}
+                        {% if school.phone %}<a href="tel:{{ school.phone }}" style="color: var(--school-primary);">{{ school.phone }}</a>{% endif %}
+                        {% if school.phone and school.email %} · {% endif %}
+                        {% if school.email %}<a href="mailto:{{ school.email }}" style="color: var(--school-primary);">{{ school.email }}</a>{% endif %}
                     </p>
                     {% endif %}
                     <p class="powered-by">Powered by <strong>TTEK SMS</strong></p>

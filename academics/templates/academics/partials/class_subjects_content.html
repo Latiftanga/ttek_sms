@@ -17,7 +17,7 @@
         <div class="flex-1 min-w-0">
             <h1 class="text-base sm:text-xl font-bold truncate">{{ class.name }} Subjects</h1>
             <p class="text-[10px] sm:text-xs text-base-content/60 truncate">
-                {{ class.level_display }}{% if tenant.has_programmes and class.programme %} &bull; {{ class.programme.name }}{% endif %}
+                {{ class.level_display }}{% if school.has_programmes and class.programme %} &bull; {{ class.programme.name }}{% endif %}
             </p>
         </div>
             <div class="dropdown dropdown-end">
@@ -112,7 +112,7 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-semibold text-sm">{{ alloc.subject.name }}</span>
-                        {% if tenant.has_programmes %}
+                        {% if school.has_programmes %}
                         <span class="badge badge-xs {% if alloc.subject.is_core %}badge-primary{% else %}badge-ghost{% endif %}">
                             {{ alloc.subject.is_core|yesno:"Core,Elective" }}
                         </span>

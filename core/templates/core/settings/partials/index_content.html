@@ -15,8 +15,8 @@
         <div class="flex flex-col sm:flex-row sm:items-center gap-4 relative z-10">
             <!-- School Logo -->
             <div class="shrink-0">
-                {% if tenant.logo %}
-                <img src="{{ tenant.logo.url }}" alt="{{ tenant.short_name|default:tenant.name }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white/20 p-2">
+                {% if school.logo %}
+                <img src="{{ school.logo.url }}" alt="{{ school.short_name|default:school.name }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white/20 p-2">
                 {% else %}
                 <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white/20 flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 sm:w-12 sm:h-12 text-white" fill="currentColor" viewBox="0 0 640 512">
@@ -29,16 +29,16 @@
             <!-- School Info -->
             <div class="flex-1 text-white">
                 <h1 class="text-2xl sm:text-3xl font-bold mb-1">
-                    {% if tenant.short_name %}
-                        {{ tenant.short_name }}
-                    {% elif tenant.name %}
-                        {{ tenant.name }}
+                    {% if school.short_name %}
+                        {{ school.short_name }}
+                    {% elif school.name %}
+                        {{ school.name }}
                     {% else %}
                         School Settings
                     {% endif %}
                 </h1>
-                {% if tenant.motto %}
-                <p class="text-white/80 text-sm italic mb-2">"{{ tenant.motto }}"</p>
+                {% if school.motto %}
+                <p class="text-white/80 text-sm italic mb-2">"{{ school.motto }}"</p>
                 {% endif %}
                 <p class="text-white/70 text-sm">Configure your school's information, branding, and integrations</p>
             </div>

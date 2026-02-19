@@ -60,7 +60,7 @@
 {% else %}
 
 <!-- Subject Summary -->
-{% if tenant.has_programmes %}
+{% if school.has_programmes %}
 <!-- SHS: Core and Elective Subjects in two columns -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
     <!-- Core Subjects -->
@@ -169,7 +169,7 @@
                         <th class="text-center">Admission No</th>
                         <th class="text-center">Gender</th>
                         <th class="text-center">Subjects</th>
-                        {% if tenant.has_programmes %}<th class="min-w-[150px]">Electives</th>{% endif %}
+                        {% if school.has_programmes %}<th class="min-w-[150px]">Electives</th>{% endif %}
                         <th class="text-center">Actions</th>
                     </tr>
                 </thead>
@@ -208,7 +208,7 @@
                         <td class="text-center">
                             <span class="badge badge-outline">{{ item.enrolled_subjects_count }}</span>
                         </td>
-                        {% if tenant.has_programmes %}
+                        {% if school.has_programmes %}
                         <td>
                             {% if item.enrolled_electives %}
                             <div class="flex flex-wrap gap-1 items-center">
@@ -243,7 +243,7 @@
                         {% endif %}
                         <td class="text-center">
                             <div class="flex items-center justify-center gap-1">
-                                {% if tenant.has_programmes and elective_subjects %}
+                                {% if school.has_programmes and elective_subjects %}
                                 <button class="btn btn-ghost btn-xs"
                                         onclick="openElectivesModal({{ item.student.pk }}, '{{ item.student.full_name }}')"
                                         title="Manage Electives">
@@ -314,7 +314,7 @@
                     <ul class="list-disc list-inside text-sm mt-1">
                         <li>Student is added to {{ class_obj.name }}</li>
                         <li>Student is auto-enrolled in {{ core_subjects|length }} subject{{ core_subjects|length|pluralize }}</li>
-                        {% if tenant.has_programmes and elective_subjects %}
+                        {% if school.has_programmes and elective_subjects %}
                         <li>You can then assign elective subjects</li>
                         {% endif %}
                     </ul>
@@ -348,7 +348,7 @@
     </form>
 </dialog>
 
-{% if tenant.has_programmes %}
+{% if school.has_programmes %}
 <!-- Electives Modal -->
 <dialog id="modal_electives" class="modal modal-middle">
     <div class="modal-box max-w-md">

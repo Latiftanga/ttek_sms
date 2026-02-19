@@ -7,8 +7,8 @@
     <meta name="description" content="Invalid Invitation - {% if school and school.display_name %}{{ school.display_name }}{% elif school and school.name %}{{ school.name }}{% else %}School{% endif %}">
     <title>Invalid Invitation - {% if school and school.display_name %}{{ school.display_name }}{% elif school and school.name %}{{ school.name }}{% else %}School{% endif %}</title>
 
-    {% if school_settings.favicon %}
-    <link rel="icon" type="image/x-icon" href="{{ school_settings.favicon.url }}">
+    {% if school.favicon %}
+    <link rel="icon" type="image/x-icon" href="{{ school.favicon.url }}">
     {% endif %}
 
     {% tailwind_css %}
@@ -16,8 +16,8 @@
 
     <style>
         :root {
-            --school-primary: {{ school_settings.primary_color|default:'#6366f1' }};
-            --school-secondary: {{ school_settings.secondary_color|default:'#8b5cf6' }};
+            --school-primary: {{ school.primary_color|default:'#6366f1' }};
+            --school-secondary: {{ school.secondary_color|default:'#8b5cf6' }};
         }
         body { margin: 0; padding: 0; }
         .school-gradient {
@@ -35,9 +35,9 @@
             <!-- Header -->
             <div class="text-center mb-4">
                 <!-- School Logo/Icon -->
-                {% if school_settings.logo %}
+                {% if school.logo %}
                 <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2 p-1.5 bg-white shadow-md border border-base-200">
-                    <img src="{{ school_settings.logo.url }}" alt="Logo" class="w-full h-full object-contain">
+                    <img src="{{ school.logo.url }}" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 {% else %}
                 <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-2" style="background-color: var(--school-primary);">
@@ -58,8 +58,8 @@
                     {% endif %}
                 </h1>
 
-                {% if school_settings.motto %}
-                <p class="text-[10px] text-base-content/50 italic">"{{ school_settings.motto }}"</p>
+                {% if school.motto %}
+                <p class="text-[10px] text-base-content/50 italic">"{{ school.motto }}"</p>
                 {% endif %}
             </div>
 

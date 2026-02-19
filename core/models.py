@@ -487,68 +487,6 @@ class SchoolSettings(models.Model):
         """Return 'Terms' or 'Semesters' based on setting."""
         return 'Semesters' if self.academic_period_type == 'semester' else 'Terms'
 
-    # ===== Delegated properties from School model =====
-
-    @property
-    def logo(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.logo if tenant else None
-
-    @property
-    def favicon(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.favicon if tenant else None
-
-    @property
-    def motto(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.motto if tenant else ''
-
-    @property
-    def display_name(self):
-        """Delegate to School model's short_name or name."""
-        tenant = self._get_tenant()
-        return tenant.display_name if tenant else ''
-
-    @property
-    def primary_color(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.primary_color if tenant else '#4F46E5'
-
-    @property
-    def secondary_color(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.secondary_color if tenant else '#7C3AED'
-
-    @property
-    def accent_color(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.accent_color if tenant else '#F59E0B'
-
-    @property
-    def primary_color_oklch(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.primary_color_oklch if tenant else ''
-
-    @property
-    def secondary_color_oklch(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.secondary_color_oklch if tenant else ''
-
-    @property
-    def accent_color_oklch(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.accent_color_oklch if tenant else ''
-
     # ===== Delegated methods from School model =====
 
     def get_allowed_level_types(self):

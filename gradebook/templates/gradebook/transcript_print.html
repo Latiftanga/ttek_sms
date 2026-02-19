@@ -265,12 +265,12 @@
     <div class="transcript-container">
         <!-- Header -->
         <div class="header">
-            {% if school_settings.logo %}
-            <img src="{{ school_settings.logo.url }}" class="school-logo" alt="School Logo">
+            {% if school.logo %}
+            <img src="{{ school.logo.url }}" class="school-logo" alt="School Logo">
             {% endif %}
             <h1>{{ school.name|default:"School Name" }}</h1>
-            {% if school_settings.motto %}
-            <p class="school-motto">"{{ school_settings.motto }}"</p>
+            {% if school.motto %}
+            <p class="school-motto">"{{ school.motto }}"</p>
             {% endif %}
             <p>{{ school.address|default:"" }}</p>
             {% if school.phone or school.email %}

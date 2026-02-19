@@ -364,7 +364,7 @@
                 {% endif %}
                 <td style="border: none; vertical-align: top;">
                     <div class="school-info">
-                        <h1>{{ school.name|default:school_settings.display_name }}</h1>
+                        <h1>{{ school.name|default:school.display_name }}</h1>
                         {% if school.motto %}
                         <p class="motto">"{{ school.motto }}"</p>
                         {% endif %}

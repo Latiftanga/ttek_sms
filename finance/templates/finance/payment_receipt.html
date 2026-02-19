@@ -178,9 +178,9 @@
     <div class="receipt-container">
         <!-- Header -->
         <div class="header">
-            <h1>{{ request.tenant.name|default:"School Name" }}</h1>
-            <p>{{ request.tenant.address|default:"School Address" }}</p>
-            <p>{{ request.tenant.phone|default:"Phone" }} | {{ request.tenant.email|default:"Email" }}</p>
+            <h1>{{ school.name|default:"School Name" }}</h1>
+            <p>{{ school.address|default:"School Address" }}</p>
+            <p>{{ school.phone|default:"Phone" }} | {{ school.email|default:"Email" }}</p>
         </div>
 
         <!-- Receipt Title -->

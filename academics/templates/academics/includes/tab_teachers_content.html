@@ -17,7 +17,7 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
                         <h3 class="font-semibold text-sm truncate">{{ alloc.subject.name }}</h3>
-                        {% if tenant.has_programmes %}
+                        {% if school.has_programmes %}
                         <span class="badge badge-xs flex-shrink-0 {% if alloc.subject.is_core %}badge-primary{% else %}badge-ghost{% endif %}">
                             {{ alloc.subject.is_core|yesno:"Core,Elective" }}
                         </span>

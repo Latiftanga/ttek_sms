@@ -43,7 +43,7 @@
         {% if logo_url %}
         <img src="{{ logo_url }}" alt="School Logo">
         {% endif %}
-        <div class="school-name">{{ school.display_name|default:tenant.name|default:"School" }}</div>
+        <div class="school-name">{{ school.display_name|default:school.name|default:"School" }}</div>
         <div class="report-title">{{ house.name }} - Student List</div>
         <div class="report-subtitle">
             {% for a in housemasters %}Housemaster: {{ a.teacher.full_name }}{% if a.is_senior %} (Senior){% endif %} | {% endfor %}
@@ -90,7 +90,7 @@
     <div class="footer">
         {% if school.motto %}<p class="school-motto">"{{ school.motto }}"</p>{% endif %}
         <p>Generated on {{ generated_at|date:"d M Y, H:i" }}{% if generated_by %} by {{ generated_by.get_full_name|default:generated_by.email }}{% endif %}</p>
-        <p>{{ school.display_name|default:tenant.name|default:"School Management System" }}</p>
+        <p>{{ school.display_name|default:school.name|default:"School Management System" }}</p>
     </div>
 </body>
 </html>

@@ -19,12 +19,12 @@
         }
 
         :root {
-            --primary: {{ school_settings.primary_color|default:'#1a365d' }};
-            --primary-light: {{ school_settings.primary_color|default:'#1a365d' }}15;
-            --secondary: {{ school_settings.secondary_color|default:'#7C3AED' }};
-            --secondary-light: {{ school_settings.secondary_color|default:'#7C3AED' }}15;
-            --accent: {{ school_settings.accent_color|default:'#F59E0B' }};
-            --accent-light: {{ school_settings.accent_color|default:'#F59E0B' }}20;
+            --primary: {{ school.primary_color|default:'#1a365d' }};
+            --primary-light: {{ school.primary_color|default:'#1a365d' }}15;
+            --secondary: {{ school.secondary_color|default:'#7C3AED' }};
+            --secondary-light: {{ school.secondary_color|default:'#7C3AED' }}15;
+            --accent: {{ school.accent_color|default:'#F59E0B' }};
+            --accent-light: {{ school.accent_color|default:'#F59E0B' }}20;
             --success: #059669;
             --danger: #dc2626;
             --gray-50: #f9fafb;
@@ -603,25 +603,25 @@
         <!-- HEADER -->
         <div class="header">
             <div class="header-inner">
-                {% if school_settings.logo %}
-                <img src="{{ school_settings.logo.url }}" class="school-logo" alt="">
+                {% if school.logo %}
+                <img src="{{ school.logo.url }}" class="school-logo" alt="">
                 {% endif %}
                 <div class="school-details">
                     <div class="school-name">{{ school.name|default:"School Name" }}</div>
-                    {% if school_settings.motto %}
-                    <div class="school-motto">"{{ school_settings.motto }}"</div>
+                    {% if school.motto %}
+                    <div class="school-motto">"{{ school.motto }}"</div>
                     {% endif %}
                     {% if school.address %}
                     <div class="school-address">
-                        {{ school.address }}{% if school.phone %} &bull; Tel: {{ school.phone }}{% elif school_settings.phone %} &bull; Tel: {{ school_settings.phone }}{% endif %}{% if school.email %} &bull; {{ school.email }}{% endif %}
+                        {{ school.address }}{% if school.phone %} &bull; Tel: {{ school.phone }}{% endif %}{% if school.email %} &bull; {{ school.email }}{% endif %}
                     </div>
                     {% endif %}
                     {% if school.digital_address %}
                     <div class="school-address">Digital Address: {{ school.digital_address }}</div>
                     {% endif %}
                 </div>
-                {% if school_settings.logo %}
-                <img src="{{ school_settings.logo.url }}" class="school-logo" alt="">
+                {% if school.logo %}
+                <img src="{{ school.logo.url }}" class="school-logo" alt="">
                 {% endif %}
             </div>
             <div class="report-title-box">

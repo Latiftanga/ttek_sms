@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, FileResponse
 from django.utils import timezone
-from django.db import models, transaction
+from django.db import connection, models, transaction
 from django.db.models import Count, Q, Sum, Case, When, IntegerField
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -1283,10 +1283,8 @@ def class_detail_pdf(request, pk):
         from gradebook.utils import get_school_context
         school_ctx = get_school_context(include_logo_base64=True)
     except ImportError:
-        # Fallback if utils not found
-        from core.models import SchoolSettings
         school_ctx = {
-            'school_settings': SchoolSettings.load(),
+            'school': getattr(connection, 'tenant', None),
             'logo_base64': None
         }
 
@@ -1296,14 +1294,12 @@ def class_detail_pdf(request, pk):
         from django.template.loader import render_to_string
         from django.conf import settings as django_settings
 
-        # Use tenant (School) for branding/contact info, SchoolSettings for operational settings
-        school = school_ctx.get('school') or request.tenant
+        school = school_ctx.get('school') or getattr(connection, 'tenant', None)
         context = {
             'class': class_obj,
             'students': students,
             'subjects': subjects,
             'school': school,
-            'school_settings': school,  # Use School model which has branding fields
             'logo_base64': school_ctx.get('logo_base64'),
             'generated_at': timezone.now(),
             'generated_by': request.user,
