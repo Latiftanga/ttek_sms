@@ -1116,8 +1116,8 @@ def get_exeat_report_data(start_date, end_date, house_filter=None, type_filter=N
     pending_count = by_status.get('pending', 0) + by_status.get('recommended', 0)
     approval_rate = (approved_count / total * 100) if total > 0 else 0
 
-    # Overdue exeats
-    overdue_count = exeats.filter(status='overdue').count()
+    # Overdue count from already-computed by_status (no extra query)
+    overdue_count = by_status.get('overdue', 0)
 
     # Get houses for filter dropdown
     houses = House.objects.all().order_by('name')
@@ -1407,9 +1407,11 @@ def exeat_report_excel(request):
         type_filter=type_filter if type_filter else None
     )
 
-    # Build Excel data
+    # Build Excel data (limit to 10k rows to prevent OOM)
+    MAX_EXPORT_ROWS = 10000
+    exeat_qs = report_data['exeats'][:MAX_EXPORT_ROWS]
     exeat_rows = []
-    for exeat in report_data['exeats']:
+    for exeat in exeat_qs:
         exeat_rows.append({
             'Date': exeat.created_at.strftime('%Y-%m-%d'),
             'Student': exeat.student.full_name,

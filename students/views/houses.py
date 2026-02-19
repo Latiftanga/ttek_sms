@@ -14,20 +14,9 @@ from core.utils import requires_houses
 from core.models import AcademicYear, SchoolSettings
 from ..models import House, Student, HouseMaster, StudentGuardian
 from ..forms import HouseForm
-from .utils import admin_required
+from .utils import admin_required, htmx_render
 
 logger = logging.getLogger(__name__)
-
-
-def htmx_render(request, full_template, partial_template, context=None):
-    """Render full template for regular requests, partial for HTMX."""
-    context = context or {}
-    is_htmx = (
-        bool(getattr(request, 'htmx', False))
-        or request.headers.get('HX-Request') == 'true'
-    )
-    template = partial_template if is_htmx else full_template
-    return render(request, template, context)
 
 
 @login_required
@@ -585,7 +574,8 @@ def house_students_excel(request, pk):
         worksheet = writer.sheets[f'{house.name} Students']
         for idx, col in enumerate(df.columns):
             max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
-            worksheet.column_dimensions[chr(65 + idx)].width = min(max_len, 40)
+            from openpyxl.utils import get_column_letter
+            worksheet.column_dimensions[get_column_letter(idx + 1)].width = min(max_len, 40)
 
     buffer.seek(0)
 

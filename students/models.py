@@ -879,7 +879,9 @@ class Exeat(models.Model):
             self.save(update_fields=['actual_departure', 'status', 'updated_at'])
 
     def mark_returned(self):
-        """Mark student as returned."""
+        """Mark student as returned. Only valid from active or overdue status."""
+        if self.status not in (self.Status.ACTIVE, self.Status.OVERDUE):
+            return
         self.actual_return = timezone.now()
         self.status = self.Status.COMPLETED
         self.save(update_fields=['actual_return', 'status', 'updated_at'])
