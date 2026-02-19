@@ -235,56 +235,54 @@ def get_lesson_attendance_stats(class_obj, start_date=None, end_date=None):
         class_assigned=class_obj
     ).select_related('subject', 'teacher')
 
-    stats = []
-    for cs in class_subjects:
-        # Get sessions for this subject in the date range
-        sessions = AttendanceSession.objects.filter(
+    # Single query: session counts and attendance stats per class_subject
+    session_counts = dict(
+        AttendanceSession.objects.filter(
             class_assigned=class_obj,
-            class_subject=cs,
             session_type=AttendanceSession.SessionType.LESSON,
             date__gte=start_date,
-            date__lte=end_date
-        )
+            date__lte=end_date,
+        ).values('class_subject_id').annotate(
+            count=Count('id')
+        ).values_list('class_subject_id', 'count')
+    )
 
-        session_count = sessions.count()
-
-        if session_count == 0:
-            stats.append({
-                'class_subject': cs,
-                'subject': cs.subject,
-                'teacher': cs.teacher,
-                'sessions': 0,
-                'present': 0,
-                'absent': 0,
-                'late': 0,
-                'rate': 0,
-            })
-            continue
-
-        # Get attendance records
-        records = AttendanceRecord.objects.filter(
-            session__in=sessions
-        ).aggregate(
+    record_stats = {
+        row['session__class_subject_id']: row
+        for row in AttendanceRecord.objects.filter(
+            session__class_assigned=class_obj,
+            session__session_type=AttendanceSession.SessionType.LESSON,
+            session__date__gte=start_date,
+            session__date__lte=end_date,
+        ).values('session__class_subject_id').annotate(
             total=Count('id'),
             present=Count('id', filter=Q(status='P')),
             absent=Count('id', filter=Q(status='A')),
             late=Count('id', filter=Q(status='L')),
             excused=Count('id', filter=Q(status='E')),
         )
+    }
 
-        total = records['total'] or 0
-        present = (records['present'] or 0) + (records['late'] or 0)
-        rate = round((present / total) * 100, 1) if total > 0 else 0
+    stats = []
+    for cs in class_subjects:
+        sc = session_counts.get(cs.id, 0)
+        rs = record_stats.get(cs.id, {})
+
+        total = rs.get('total', 0) or 0
+        present_cnt = rs.get('present', 0) or 0
+        late_cnt = rs.get('late', 0) or 0
+        present_total = present_cnt + late_cnt
+        rate = round((present_total / total) * 100, 1) if total > 0 else 0
 
         stats.append({
             'class_subject': cs,
             'subject': cs.subject,
             'teacher': cs.teacher,
-            'sessions': session_count,
-            'present': records['present'] or 0,
-            'absent': records['absent'] or 0,
-            'late': records['late'] or 0,
-            'excused': records['excused'] or 0,
+            'sessions': sc,
+            'present': present_cnt,
+            'absent': rs.get('absent', 0) or 0,
+            'late': late_cnt,
+            'excused': rs.get('excused', 0) or 0,
             'rate': rate,
         })
 

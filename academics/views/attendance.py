@@ -6,7 +6,7 @@ from io import BytesIO
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse, JsonResponse
@@ -62,6 +62,71 @@ def _validate_status(raw_status):
     return AttendanceRecord.Status.PRESENT
 
 
+def _save_attendance_records(request, session, students, redirect_url,
+                             success_msg='Attendance saved'):
+    """
+    Process POST data and bulk save attendance records for a session.
+    redirect_url should be a resolved URL path (from reverse()).
+    Returns an HttpResponse.
+    """
+    student_ids = [s.id for s in students]
+
+    existing_records = {
+        r.student_id: r
+        for r in AttendanceRecord.objects.filter(
+            session=session, student_id__in=student_ids
+        )
+    }
+
+    records_to_create = []
+    records_to_update = []
+
+    for student in students:
+        status_key = f"status_{student.id}"
+        raw = request.POST.get(status_key, 'P')
+        new_status = _validate_status(raw)
+
+        if student.id in existing_records:
+            record = existing_records[student.id]
+            if record.status != new_status:
+                record.status = new_status
+                records_to_update.append(record)
+        else:
+            records_to_create.append(AttendanceRecord(
+                session=session,
+                student=student,
+                status=new_status
+            ))
+
+    try:
+        with transaction.atomic():
+            if records_to_create:
+                AttendanceRecord.objects.bulk_create(records_to_create)
+            if records_to_update:
+                AttendanceRecord.objects.bulk_update(
+                    records_to_update, ['status']
+                )
+
+        total = len(records_to_create) + len(records_to_update)
+        messages.success(request, f'{success_msg} ({total} records).')
+    except Exception as e:
+        logger.error("Failed to save attendance: %s", e)
+        messages.error(request, 'Failed to save attendance.')
+        if request.htmx:
+            response = HttpResponse(status=500)
+            response['HX-Reswap'] = 'none'
+            return response
+        return redirect(redirect_url)
+
+    if request.htmx:
+        response = HttpResponse(status=204)
+        response['HX-Trigger'] = 'closeModal'
+        response['HX-Redirect'] = redirect_url
+        return response
+
+    return redirect(redirect_url)
+
+
 # ============ DAILY ATTENDANCE ============
 
 @login_required
@@ -113,74 +178,15 @@ def class_attendance_take(request, pk):
     )
 
     if request.method == 'POST':
-        # Process the form submission manually for grid data
-        # Data format: "status_STUDENTID" : "STATUS_CODE"
-
-        students = list(Student.objects.filter(current_class=class_obj, status='active'))
-        student_ids = [s.id for s in students]
-
-        # Fetch existing records in a single query
-        existing_records = {
-            r.student_id: r
-            for r in AttendanceRecord.objects.filter(session=session, student_id__in=student_ids)
-        }
-
-        records_to_create = []
-        records_to_update = []
-
-        for student in students:
-            status_key = f"status_{student.id}"
-            raw = request.POST.get(status_key, 'P')
-            new_status = _validate_status(raw)
-
-            if student.id in existing_records:
-                # Update existing record
-                record = existing_records[student.id]
-                if record.status != new_status:
-                    record.status = new_status
-                    records_to_update.append(record)
-            else:
-                # Create new record
-                records_to_create.append(AttendanceRecord(
-                    session=session,
-                    student=student,
-                    status=new_status
-                ))
-
-        # Bulk operations with error handling
-        try:
-            if records_to_create:
-                AttendanceRecord.objects.bulk_create(records_to_create)
-            if records_to_update:
-                AttendanceRecord.objects.bulk_update(
-                    records_to_update, ['status']
-                )
-
-            total = len(records_to_create) + len(records_to_update)
-            messages.success(
-                request, f'Attendance saved ({total} records).'
-            )
-        except Exception as e:
-            logger.error(
-                "Failed to save attendance for class %s: %s", pk, e
-            )
-            messages.error(request, 'Failed to save attendance.')
-            if request.htmx:
-                response = HttpResponse(status=500)
-                response['HX-Reswap'] = 'none'
-                return response
-            return redirect('academics:class_detail', pk=pk)
-
-        # HTMX Success: Use HX-Trigger to close modal and refresh content
-        if request.htmx:
-            from django.urls import reverse
-            url = reverse('academics:class_detail', args=[pk])
-            response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'closeModal'
-            response['HX-Redirect'] = url
-            return response
-
-        return redirect('academics:class_detail', pk=pk)
+        from django.urls import reverse
+        students = list(Student.objects.filter(
+            current_class=class_obj, status='active'
+        ))
+        url = reverse('academics:class_detail', args=[pk])
+        return _save_attendance_records(
+            request, session, students, url,
+            success_msg='Attendance saved'
+        )
 
     # GET Request: Prepare data for the form
     students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name')
@@ -243,73 +249,15 @@ def class_attendance_edit(request, pk, session_pk):
             return redirect('academics:attendance_reports')
 
     if request.method == 'POST':
+        from django.urls import reverse
         students = list(Student.objects.filter(
             current_class=class_obj, status='active'
         ))
-        student_ids = [s.id for s in students]
-
-        # Fetch existing records in a single query
-        existing_records = {
-            r.student_id: r
-            for r in AttendanceRecord.objects.filter(
-                session=session, student_id__in=student_ids
-            )
-        }
-
-        records_to_create = []
-        records_to_update = []
-
-        for student in students:
-            status_key = f"status_{student.id}"
-            raw = request.POST.get(status_key, 'P')
-            new_status = _validate_status(raw)
-
-            if student.id in existing_records:
-                record = existing_records[student.id]
-                if record.status != new_status:
-                    record.status = new_status
-                    records_to_update.append(record)
-            else:
-                records_to_create.append(AttendanceRecord(
-                    session=session,
-                    student=student,
-                    status=new_status
-                ))
-
-        # Bulk operations with error handling
-        try:
-            if records_to_create:
-                AttendanceRecord.objects.bulk_create(records_to_create)
-            if records_to_update:
-                AttendanceRecord.objects.bulk_update(
-                    records_to_update, ['status']
-                )
-
-            total = len(records_to_create) + len(records_to_update)
-            messages.success(
-                request, f'Attendance updated ({total} records).'
-            )
-        except Exception as e:
-            logger.error(
-                "Failed to update attendance for class %s: %s", pk, e
-            )
-            messages.error(request, 'Failed to save attendance.')
-            if request.htmx:
-                response = HttpResponse(status=500)
-                response['HX-Reswap'] = 'none'
-                return response
-            return redirect('academics:class_detail', pk=pk)
-
-        # HTMX Success: Use HX-Trigger to close modal and refresh content
-        if request.htmx:
-            from django.urls import reverse
-            url = reverse('academics:class_detail', args=[pk])
-            response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'closeModal'
-            response['HX-Redirect'] = url
-            return response
-
-        return redirect('academics:class_detail', pk=pk)
+        url = reverse('academics:class_detail', args=[pk])
+        return _save_attendance_records(
+            request, session, students, url,
+            success_msg='Attendance updated'
+        )
 
     # GET Request: Load existing records
     students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name')
@@ -517,67 +465,13 @@ def take_lesson_attendance(request, timetable_entry_id):
     students = get_students_for_lesson(class_obj, class_subject)
 
     if request.method == 'POST':
-        student_ids = [s.id for s in students]
-
-        # Fetch existing records
-        existing_records = {
-            r.student_id: r
-            for r in AttendanceRecord.objects.filter(session=session, student_id__in=student_ids)
-        }
-
-        records_to_create = []
-        records_to_update = []
-
-        for student in students:
-            status_key = f"status_{student.id}"
-            raw = request.POST.get(status_key, 'P')
-            new_status = _validate_status(raw)
-
-            if student.id in existing_records:
-                record = existing_records[student.id]
-                if record.status != new_status:
-                    record.status = new_status
-                    records_to_update.append(record)
-            else:
-                records_to_create.append(AttendanceRecord(
-                    session=session,
-                    student=student,
-                    status=new_status
-                ))
-
-        # Bulk operations with error handling
-        try:
-            if records_to_create:
-                AttendanceRecord.objects.bulk_create(records_to_create)
-            if records_to_update:
-                AttendanceRecord.objects.bulk_update(
-                    records_to_update, ['status']
-                )
-
-            total = len(records_to_create) + len(records_to_update)
-            messages.success(
-                request,
-                f'Lesson attendance saved ({total} records).'
-            )
-        except Exception as e:
-            logger.error("Failed to save lesson attendance: %s", e)
-            messages.error(request, 'Failed to save attendance.')
-            if request.htmx:
-                response = HttpResponse(status=500)
-                response['HX-Reswap'] = 'none'
-                return response
-            return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
-
-        # HTMX Success: Use HX-Trigger to close modal and refresh content
-        if request.htmx:
-            from django.urls import reverse
-            url = reverse('academics:lesson_attendance_list', args=[class_obj.pk])
-            response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'closeModal'
-            response['HX-Redirect'] = url
-            return response
-
-        return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
+        from django.urls import reverse
+        students = list(students)
+        url = reverse('academics:lesson_attendance_list', args=[class_obj.pk])
+        return _save_attendance_records(
+            request, session, students, url,
+            success_msg='Lesson attendance saved'
+        )
 
     # GET Request: Prepare data for the form
     records = {r.student_id: r.status for r in session.records.all()}
@@ -634,7 +528,10 @@ def class_weekly_attendance_report(request, pk):
 
     # Get date range from query params or default to current week
     today = timezone.now().date()
-    week_offset = int(request.GET.get('week', 0))
+    try:
+        week_offset = int(request.GET.get('week', 0))
+    except (ValueError, TypeError):
+        week_offset = 0
 
     # Calculate start of week (Monday)
     start_of_week = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
@@ -823,45 +720,40 @@ def attendance_reports(request):
             'rate': round((s_present / s_total) * 100, 1) if s_total > 0 else 0,
         })
 
-    # Students with low attendance (for students view)
+    # Low attendance students — use DB aggregation instead of loading all records
+    student_agg = records.values('student_id').annotate(
+        total=Count('id'),
+        present=Count('id', filter=Q(status__in=['P', 'L'])),
+    )
+    # Filter for < 80% attendance rate in Python (DB can't easily filter on computed field)
+    low_student_ids = []
+    student_agg_dict = {}
+    for sa in student_agg:
+        rate = round((sa['present'] / sa['total']) * 100, 1) if sa['total'] > 0 else 0
+        student_agg_dict[sa['student_id']] = {**sa, 'rate': rate}
+        if sa['total'] > 0 and rate < 80:
+            low_student_ids.append(sa['student_id'])
+
+    # Fetch student objects only for low-attendance students
+    low_students_map = {
+        s.id: s for s in Student.objects.filter(id__in=low_student_ids)
+    } if low_student_ids else {}
+
     low_attendance_students = []
-    student_stats_all = {}  # Track all student stats for consecutive absences
-
-    # Build student stats from records
-    for record in records:
-        sid = record.student_id
-        if sid not in student_stats_all:
-            student_stats_all[sid] = {
-                'student': record.student,
-                'total': 0,
-                'present': 0,
-                'records': []
-            }
-        student_stats_all[sid]['total'] += 1
-        if record.status in ['P', 'L']:
-            student_stats_all[sid]['present'] += 1
-        student_stats_all[sid]['records'].append({
-            'date': record.session.date,
-            'status': record.status
-        })
-
-    # Always calculate low attendance students
-    for sid, stats in student_stats_all.items():
-        if stats['total'] > 0:
-            rate = round((stats['present'] / stats['total']) * 100, 1)
-            if rate < 80:  # Low attendance threshold
-                low_attendance_students.append({
-                    'student': stats['student'],
-                    'total': stats['total'],
-                    'present': stats['present'],
-                    'absent': stats['total'] - stats['present'],
-                    'rate': rate,
-                })
-
-    # Sort by attendance rate (lowest first)
+    for sid in low_student_ids:
+        sa = student_agg_dict[sid]
+        student = low_students_map.get(sid)
+        if student:
+            low_attendance_students.append({
+                'student': student,
+                'total': sa['total'],
+                'present': sa['present'],
+                'absent': sa['total'] - sa['present'],
+                'rate': sa['rate'],
+            })
     low_attendance_students.sort(key=lambda x: x['rate'])
 
-    # Trends data for chart - use database aggregation instead of Python loop
+    # Trends data for chart — DB aggregation
     daily_trend = records.annotate(
         day=TruncDate('session__date')
     ).values('day').annotate(
@@ -880,34 +772,65 @@ def attendance_reports(request):
         for item in daily_trend
     ]
 
-    # Calculate consecutive absences for alert
+    # Consecutive absences — only check recent records for students with recent absences
+    # Find students whose most recent record is absent
     students_with_consecutive_absences = []
     CONSECUTIVE_THRESHOLD = 3
 
-    for sid, stats in student_stats_all.items():
-        # Sort records by date
-        sorted_records = sorted(stats['records'], key=lambda x: x['date'], reverse=True)
+    # Get only students who have at least CONSECUTIVE_THRESHOLD absences total
+    candidates = records.filter(status='A').values('student_id').annotate(
+        absent_count=Count('id')
+    ).filter(absent_count__gte=CONSECUTIVE_THRESHOLD)
+
+    candidate_ids = [c['student_id'] for c in candidates]
+    if candidate_ids:
+        # For each candidate, fetch only their recent records (ordered by date desc)
+        candidate_records = records.filter(
+            student_id__in=candidate_ids
+        ).select_related('session', 'student').order_by(
+            'student_id', '-session__date'
+        )
+
+        # Group by student and count consecutive recent absences
+        current_sid = None
         consecutive = 0
-        for rec in sorted_records:
-            if rec['status'] == 'A':
-                consecutive += 1
-            else:
-                break
+        current_student = None
+        last_present = None
 
-        if consecutive >= CONSECUTIVE_THRESHOLD:
+        for rec in candidate_records:
+            if rec.student_id != current_sid:
+                # Save previous student if they met threshold
+                if current_sid and consecutive >= CONSECUTIVE_THRESHOLD:
+                    students_with_consecutive_absences.append({
+                        'student': current_student,
+                        'consecutive_days': consecutive,
+                        'last_present': last_present,
+                    })
+                current_sid = rec.student_id
+                current_student = rec.student
+                consecutive = 0
+                last_present = None
+
+            if last_present is None and consecutive >= 0:
+                if rec.status == 'A':
+                    consecutive += 1
+                else:
+                    last_present = rec.session.date
+                    # No more counting needed, mark done
+                    if consecutive < CONSECUTIVE_THRESHOLD:
+                        consecutive = -1  # sentinel: skip this student
+
+        # Don't forget the last student
+        if current_sid and consecutive >= CONSECUTIVE_THRESHOLD:
             students_with_consecutive_absences.append({
-                'student': stats['student'],
+                'student': current_student,
                 'consecutive_days': consecutive,
-                'last_present': None
+                'last_present': last_present,
             })
-            # Find last present date
-            for rec in sorted_records:
-                if rec['status'] in ['P', 'L']:
-                    students_with_consecutive_absences[-1]['last_present'] = rec['date']
-                    break
 
-    # Sort by consecutive days (highest first)
-    students_with_consecutive_absences.sort(key=lambda x: x['consecutive_days'], reverse=True)
+    students_with_consecutive_absences.sort(
+        key=lambda x: x['consecutive_days'], reverse=True
+    )
 
     # Calculate trend indicators (compare to previous period)
     prev_period_rate = None
