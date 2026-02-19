@@ -1,3 +1,36 @@
+{% if account_created %}
+<h3 class="font-bold text-lg mb-4">
+    <i class="fa-solid fa-circle-check text-warning"></i>
+    Account Created - Email Failed
+</h3>
+
+<div class="alert alert-warning mb-4">
+    <i class="fa-solid fa-exclamation-triangle"></i>
+    <span>Account created for <strong>{{ student.full_name }}</strong> but the credentials email could not be sent. Please share the credentials below manually.</span>
+</div>
+
+<div class="bg-base-200 rounded-lg p-4 space-y-3">
+    <div class="form-control">
+        <label class="label"><span class="label-text font-medium">Email</span></label>
+        <input type="text" class="input input-bordered w-full" value="{{ email }}" readonly>
+    </div>
+    <div class="form-control">
+        <label class="label"><span class="label-text font-medium">Temporary Password</span></label>
+        <input type="text" class="input input-bordered w-full font-mono" value="{{ temp_password }}" readonly>
+    </div>
+    <p class="text-xs text-base-content/50">
+        <i class="fa-solid fa-info-circle"></i>
+        This password is shown once only. The student must change it on first login.
+    </p>
+</div>
+
+<div class="modal-action">
+    <button type="button" class="btn btn-primary" onclick="document.getElementById('modal_create_account').close(); location.reload();">
+        Done
+    </button>
+</div>
+{% else %}
+
 <h3 class="font-bold text-lg mb-4">
     <i class="fa-solid fa-user-plus text-primary"></i>
     Create Student Account
@@ -75,3 +108,4 @@
         </button>
     </div>
 </form>
+{% endif %}

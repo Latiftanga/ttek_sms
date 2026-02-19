@@ -18,6 +18,8 @@ from students.models import Student, Guardian, StudentGuardian
 from students.forms import StudentForm, GuardianForm
 from .utils import admin_required, htmx_render, create_enrollment_for_student, generate_temp_password
 
+VALID_RELATIONSHIPS = {c[0] for c in Guardian.Relationship.choices}
+
 logger = logging.getLogger(__name__)
 
 
@@ -313,6 +315,8 @@ def student_add_guardian(request, pk):
 
     guardian_id = request.POST.get('guardian_id')
     relationship = request.POST.get('relationship', Guardian.Relationship.GUARDIAN)
+    if relationship not in VALID_RELATIONSHIPS:
+        relationship = Guardian.Relationship.GUARDIAN
     is_primary = request.POST.get('is_primary') == 'true'
 
     if not guardian_id:
@@ -400,6 +404,8 @@ def student_update_guardian_relationship(request, pk, guardian_pk):
     """Update the relationship type for a student-guardian link."""
     student = get_object_or_404(Student, pk=pk)
     relationship = request.POST.get('relationship', Guardian.Relationship.GUARDIAN)
+    if relationship not in VALID_RELATIONSHIPS:
+        relationship = Guardian.Relationship.GUARDIAN
 
     try:
         sg = StudentGuardian.objects.get(student=student, guardian_id=guardian_pk)
@@ -596,15 +602,16 @@ def student_create_account(request, pk):
                 request,
                 f"Account created for {student.full_name}. Credentials sent to {email}."
             )
+            response = HttpResponse(status=204)
+            response['HX-Refresh'] = 'true'
+            return response
         else:
-            # Show the password if email failed
-            messages.warning(
-                request,
-                f"Account created but email failed. Temporary password: {temp_password}"
-            )
-
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
+            # Show password in a one-time modal (not in flash messages)
+            return render(request, 'students/partials/modal_create_account.html', {
+                'student': student,
+                'account_created': True,
+                'temp_password': temp_password,
+                'email': email,
+            })
 
     return HttpResponse(status=405)

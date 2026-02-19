@@ -589,6 +589,16 @@ def exeat_student_search(request):
 def exeat_student_guardian(request, pk):
     """Get student's guardian info for exeat form (HTMX endpoint)."""
     student = get_object_or_404(Student, pk=pk)
+
+    # House-based authorization: regular housemasters can only query their house's students
+    if not is_school_admin(request.user):
+        assignment = get_housemaster_assignment(request.user)
+        if assignment and student.house_id != assignment.house_id:
+            return HttpResponse(
+                '<div class="text-error text-sm p-2">This student is not in your house.</div>',
+                status=403
+            )
+
     guardian = student.get_primary_guardian()
 
     has_guardian = guardian is not None
