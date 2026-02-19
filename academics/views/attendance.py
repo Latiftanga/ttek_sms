@@ -25,6 +25,42 @@ from .base import admin_required, teacher_or_admin_required, htmx_render
 
 logger = logging.getLogger(__name__)
 
+# Valid attendance status values for POST validation
+VALID_STATUSES = {s.value for s in AttendanceRecord.Status}
+
+
+def _get_teacher_allowed_class_ids(user):
+    """
+    Get the set of class IDs a teacher is allowed to access.
+    Returns None for admins (meaning all classes allowed).
+    """
+    is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
+    if is_admin:
+        return None  # No restriction
+
+    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+        return set()
+
+    teacher = user.teacher_profile
+    homeroom_ids = set(
+        Class.objects.filter(
+            class_teacher=teacher
+        ).values_list('id', flat=True)
+    )
+    assigned_ids = set(
+        ClassSubject.objects.filter(
+            teacher=teacher
+        ).values_list('class_assigned_id', flat=True)
+    )
+    return homeroom_ids | assigned_ids
+
+
+def _validate_status(raw_status):
+    """Validate and return a safe attendance status value."""
+    if raw_status in VALID_STATUSES:
+        return raw_status
+    return AttendanceRecord.Status.PRESENT
+
 
 # ============ DAILY ATTENDANCE ============
 
@@ -94,7 +130,8 @@ def class_attendance_take(request, pk):
 
         for student in students:
             status_key = f"status_{student.id}"
-            new_status = request.POST.get(status_key, AttendanceRecord.Status.PRESENT)
+            raw = request.POST.get(status_key, 'P')
+            new_status = _validate_status(raw)
 
             if student.id in existing_records:
                 # Update existing record
@@ -115,13 +152,19 @@ def class_attendance_take(request, pk):
             if records_to_create:
                 AttendanceRecord.objects.bulk_create(records_to_create)
             if records_to_update:
-                AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+                AttendanceRecord.objects.bulk_update(
+                    records_to_update, ['status']
+                )
 
-            total_saved = len(records_to_create) + len(records_to_update)
-            messages.success(request, f'Attendance saved ({total_saved} records).')
+            total = len(records_to_create) + len(records_to_update)
+            messages.success(
+                request, f'Attendance saved ({total} records).'
+            )
         except Exception as e:
-            logger.error(f"Failed to save attendance for class {pk}: {str(e)}")
-            messages.error(request, f'Failed to save attendance: {str(e)}')
+            logger.error(
+                "Failed to save attendance for class %s: %s", pk, e
+            )
+            messages.error(request, 'Failed to save attendance.')
             if request.htmx:
                 response = HttpResponse(status=500)
                 response['HX-Reswap'] = 'none'
@@ -170,16 +213,47 @@ def class_attendance_take(request, pk):
 def class_attendance_edit(request, pk, session_pk):
     """Edit an existing attendance session."""
     class_obj = get_object_or_404(Class, pk=pk)
-    session = get_object_or_404(AttendanceSession, pk=session_pk, class_assigned=class_obj)
+    session = get_object_or_404(
+        AttendanceSession, pk=session_pk, class_assigned=class_obj
+    )
+    user = request.user
+    is_admin = (
+        user.is_superuser or getattr(user, 'is_school_admin', False)
+    )
+
+    # Permission check: admin, class teacher, or subject teacher
+    if not is_admin:
+        if (not getattr(user, 'is_teacher', False)
+                or not hasattr(user, 'teacher_profile')):
+            messages.error(
+                request, 'You do not have permission to edit attendance.'
+            )
+            return redirect('core:index')
+
+        teacher = user.teacher_profile
+        is_class_teacher = class_obj.class_teacher == teacher
+        is_subject_teacher = ClassSubject.objects.filter(
+            class_assigned=class_obj, teacher=teacher
+        ).exists()
+
+        if not is_class_teacher and not is_subject_teacher:
+            messages.error(
+                request, 'You are not assigned to this class.'
+            )
+            return redirect('academics:attendance_reports')
 
     if request.method == 'POST':
-        students = list(Student.objects.filter(current_class=class_obj, status='active'))
+        students = list(Student.objects.filter(
+            current_class=class_obj, status='active'
+        ))
         student_ids = [s.id for s in students]
 
         # Fetch existing records in a single query
         existing_records = {
             r.student_id: r
-            for r in AttendanceRecord.objects.filter(session=session, student_id__in=student_ids)
+            for r in AttendanceRecord.objects.filter(
+                session=session, student_id__in=student_ids
+            )
         }
 
         records_to_create = []
@@ -187,16 +261,15 @@ def class_attendance_edit(request, pk, session_pk):
 
         for student in students:
             status_key = f"status_{student.id}"
-            new_status = request.POST.get(status_key, AttendanceRecord.Status.PRESENT)
+            raw = request.POST.get(status_key, 'P')
+            new_status = _validate_status(raw)
 
             if student.id in existing_records:
-                # Update existing record
                 record = existing_records[student.id]
                 if record.status != new_status:
                     record.status = new_status
                     records_to_update.append(record)
             else:
-                # Create new record
                 records_to_create.append(AttendanceRecord(
                     session=session,
                     student=student,
@@ -208,13 +281,19 @@ def class_attendance_edit(request, pk, session_pk):
             if records_to_create:
                 AttendanceRecord.objects.bulk_create(records_to_create)
             if records_to_update:
-                AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+                AttendanceRecord.objects.bulk_update(
+                    records_to_update, ['status']
+                )
 
-            total_saved = len(records_to_create) + len(records_to_update)
-            messages.success(request, f'Attendance updated ({total_saved} records).')
+            total = len(records_to_create) + len(records_to_update)
+            messages.success(
+                request, f'Attendance updated ({total} records).'
+            )
         except Exception as e:
-            logger.error(f"Failed to update attendance for class {pk}: {str(e)}")
-            messages.error(request, f'Failed to save attendance: {str(e)}')
+            logger.error(
+                "Failed to update attendance for class %s: %s", pk, e
+            )
+            messages.error(request, 'Failed to save attendance.')
             if request.htmx:
                 response = HttpResponse(status=500)
                 response['HX-Reswap'] = 'none'
@@ -451,7 +530,8 @@ def take_lesson_attendance(request, timetable_entry_id):
 
         for student in students:
             status_key = f"status_{student.id}"
-            new_status = request.POST.get(status_key, AttendanceRecord.Status.PRESENT)
+            raw = request.POST.get(status_key, 'P')
+            new_status = _validate_status(raw)
 
             if student.id in existing_records:
                 record = existing_records[student.id]
@@ -470,13 +550,18 @@ def take_lesson_attendance(request, timetable_entry_id):
             if records_to_create:
                 AttendanceRecord.objects.bulk_create(records_to_create)
             if records_to_update:
-                AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
+                AttendanceRecord.objects.bulk_update(
+                    records_to_update, ['status']
+                )
 
-            total_saved = len(records_to_create) + len(records_to_update)
-            messages.success(request, f'Lesson attendance saved ({total_saved} records).')
+            total = len(records_to_create) + len(records_to_update)
+            messages.success(
+                request,
+                f'Lesson attendance saved ({total} records).'
+            )
         except Exception as e:
-            logger.error(f"Failed to save lesson attendance: {str(e)}")
-            messages.error(request, f'Failed to save attendance: {str(e)}')
+            logger.error("Failed to save lesson attendance: %s", e)
+            messages.error(request, 'Failed to save attendance.')
             if request.htmx:
                 response = HttpResponse(status=500)
                 response['HX-Reswap'] = 'none'
@@ -928,16 +1013,30 @@ def attendance_export(request):
 
     school = SchoolSettings.load()
 
+    # Permission filtering: restrict teachers to their classes
+    allowed_ids = _get_teacher_allowed_class_ids(request.user)
+
     # Get records
     records = AttendanceRecord.objects.select_related(
         'session', 'student', 'session__class_assigned'
     ).filter(
         session__date__gte=date_from,
         session__date__lte=date_to
-    ).order_by('session__date', 'session__class_assigned__name', 'student__last_name')
+    ).order_by(
+        'session__date',
+        'session__class_assigned__name',
+        'student__last_name',
+    )
+
+    if allowed_ids is not None:
+        records = records.filter(
+            session__class_assigned_id__in=allowed_ids
+        )
 
     if class_filter:
-        records = records.filter(session__class_assigned_id=class_filter)
+        records = records.filter(
+            session__class_assigned_id=class_filter
+        )
 
     # Create workbook
     wb = Workbook()
@@ -1052,7 +1151,21 @@ def attendance_export(request):
 @teacher_or_admin_required
 def student_attendance_detail(request, student_id):
     """Get detailed attendance for a single student."""
-    student = get_object_or_404(Student, pk=student_id)
+    student = get_object_or_404(
+        Student.objects.select_related('current_class'),
+        pk=student_id,
+    )
+
+    # Permission check: teacher can only view their students
+    allowed_ids = _get_teacher_allowed_class_ids(request.user)
+    if allowed_ids is not None:
+        student_class_id = (
+            student.current_class_id if student.current_class else None
+        )
+        if student_class_id not in allowed_ids:
+            return JsonResponse(
+                {'error': 'Permission denied'}, status=403
+            )
 
     # Get filter parameters
     date_from = request.GET.get('date_from', '')
@@ -1149,8 +1262,26 @@ def notify_absent_parents(request):
     ).select_related('current_class'))
 
     if not students:
-        messages.warning(request, "No students with guardian phone numbers found.")
+        messages.warning(
+            request,
+            "No students with guardian phone numbers found."
+        )
         return redirect('academics:attendance_reports')
+
+    # Permission check: teachers can only notify their students
+    allowed_ids = _get_teacher_allowed_class_ids(request.user)
+    if allowed_ids is not None:
+        students = [
+            s for s in students
+            if s.current_class_id in allowed_ids
+        ]
+        if not students:
+            messages.error(
+                request,
+                "You can only notify parents of students "
+                "in your assigned classes."
+            )
+            return redirect('academics:attendance_reports')
 
     # Batch fetch all recent attendance records for these students (avoid N+1)
     all_records = AttendanceRecord.objects.filter(
