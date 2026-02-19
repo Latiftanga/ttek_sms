@@ -167,7 +167,7 @@ def get_school_sms_settings():
     }
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60, autoretry_for=(Exception,))
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_communication_task(self, schema_name, recipient, message, sms_record_id=None):
     """
     Send SMS message with retry logic for transient failures.
@@ -238,16 +238,17 @@ def send_communication_task(self, schema_name, recipient, message, sms_record_id
 
             return {"status": "sent", "provider": backend, "response": str(response)}
 
-        except MaxRetriesExceededError:
-            logger.error(f"SMS to {recipient} failed after {self.max_retries} retries")
-            if sms_record:
-                sms_record.mark_failed("Max retries exceeded")
-            return {"status": "failed", "error": "Max retries exceeded"}
         except Exception as e:
             logger.error(f"SMS Error to {recipient}: {e}")
-            # On final retry, mark as failed
-            if self.request.retries >= self.max_retries - 1:
+            if self.request.retries >= self.max_retries:
+                # Final retry exhausted — mark as failed
                 if sms_record:
                     sms_record.mark_failed(str(e))
-            # Re-raise to trigger retry (handled by autoretry_for)
-            raise
+                return {"status": "failed", "error": str(e)}
+            # Retry with backoff
+            try:
+                raise self.retry(exc=e)
+            except MaxRetriesExceededError:
+                if sms_record:
+                    sms_record.mark_failed("Max retries exceeded")
+                return {"status": "failed", "error": "Max retries exceeded"}
