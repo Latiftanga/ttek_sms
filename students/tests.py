@@ -352,17 +352,26 @@ class BulkImportViewTests(BulkImportTestCase):
         self.assertEqual(response.context['error_count'], 1)
 
     def test_bulk_import_creates_guardian(self):
-        """Test bulk import creates guardian if not exists."""
+        """Test bulk import creates guardian during confirm step."""
         data = self.get_valid_student_data()
         file = self.create_csv_file(data)
 
         self.assertEqual(Guardian.objects.count(), 0)
+
+        # Step 1: Preview (parses file, validates, stores in session)
         response = self.client.post(
             reverse('students:bulk_import'),
             {'file': file}
         )
         self.assertEqual(response.status_code, 200)
-        # Guardians are created during preview
+        # Guardians are deferred to confirm step
+        self.assertEqual(Guardian.objects.count(), 0)
+
+        # Step 2: Confirm (creates students and guardians)
+        response = self.client.post(
+            reverse('students:bulk_import_confirm')
+        )
+        self.assertEqual(response.status_code, 302)
         self.assertEqual(Guardian.objects.count(), 2)
 
     def test_bulk_import_reuses_existing_guardian(self):
