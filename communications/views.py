@@ -429,7 +429,16 @@ def notify_absent(request):
             'date': today,
         })
 
-    if not student_ids:
+    # Validate student_ids are valid UUIDs
+    import uuid
+    valid_student_ids = []
+    for sid in student_ids:
+        try:
+            valid_student_ids.append(uuid.UUID(str(sid)))
+        except (ValueError, TypeError):
+            continue
+
+    if not valid_student_ids:
         return render(request, 'communications/partials/modal_notify_absent.html', {
             'error': 'Please select at least one student.',
             'date': today,
@@ -437,7 +446,7 @@ def notify_absent(request):
 
     # Fetch all students and prefetch guardians to avoid N+1
     students = list(Student.objects.filter(
-        pk__in=student_ids
+        pk__in=valid_student_ids
     ).select_related('current_class'))
     _prefetch_primary_guardians(students)
 
@@ -596,9 +605,13 @@ def message_history_export(request):
             Q(message__icontains=search)
         )
 
+    # Limit export to 10,000 records to prevent OOM
+    MAX_EXPORT_ROWS = 10000
+    messages = messages.order_by('-created_at')[:MAX_EXPORT_ROWS]
+
     # Prepare data for export
     data = []
-    for msg in messages:
+    for msg in messages.iterator():
         data.append({
             'Recipient Name': msg.recipient_name or '-',
             'Phone': msg.recipient_phone,
@@ -620,6 +633,7 @@ def message_history_export(request):
         df.to_excel(writer, index=False, sheet_name='Messages')
 
         # Auto-adjust column widths
+        from openpyxl.utils import get_column_letter
         worksheet = writer.sheets['Messages']
         for idx, col in enumerate(df.columns):
             max_length = max(
@@ -628,7 +642,7 @@ def message_history_export(request):
             )
             # Limit max width to prevent very wide columns
             adjusted_width = min(max_length + 2, 50)
-            worksheet.column_dimensions[chr(65 + idx)].width = adjusted_width
+            worksheet.column_dimensions[get_column_letter(idx + 1)].width = adjusted_width
 
     output.seek(0)
 
@@ -683,12 +697,16 @@ def template_create(request):
     name = request.POST.get('name', '').strip()
     content = request.POST.get('content', '').strip()
     message_type = request.POST.get('message_type', SMSMessage.MessageType.GENERAL)
+    valid_types = {c[0] for c in SMSMessage.MessageType.choices}
 
     if not name or not content:
         return render(request, 'communications/partials/modal_template_form.html', {
             'error': 'Name and content are required.',
             'type_choices': SMSMessage.MessageType.choices,
         })
+
+    if message_type not in valid_types:
+        message_type = SMSMessage.MessageType.GENERAL
 
     SMSTemplate.objects.create(
         name=name,
