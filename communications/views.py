@@ -1,3 +1,4 @@
+import logging
 from functools import wraps
 from io import BytesIO
 
@@ -19,6 +20,8 @@ from .utils import validate_phone_number, normalize_phone_number, get_sms_gatewa
 from students.models import Student, StudentGuardian
 from academics.models import Class, AttendanceRecord
 from core.models import SchoolSettings
+
+logger = logging.getLogger(__name__)
 
 
 def _prefetch_primary_guardians(students):
@@ -262,15 +265,21 @@ def send_to_class(request):
             'skipped_count': skipped_count,
         })
 
-    # Prepare SMS records for bulk creation
+    # Prepare SMS records for bulk creation, deduplicating by phone number
     sms_records = []
     student_sms_map = {}  # Map student_id to (sms_record, phone, message)
+    seen_phones = set()  # Track phones to avoid sending duplicates (e.g. siblings)
 
     for student in students_with_phone:
         phone = normalize_phone_number(student.guardian_phone)
         if not phone:
             skipped_count += 1
             continue
+
+        if phone in seen_phones:
+            skipped_count += 1
+            continue
+        seen_phones.add(phone)
 
         # Personalize message
         personalized = message.replace('{student_name}', student.full_name)
@@ -295,24 +304,30 @@ def send_to_class(request):
     from django.db import connection as db_connection
 
     queued_count = 0
+    failed_count = 0
     for student in students_with_phone:
         if student.pk not in student_sms_map:
             continue
 
         sms, phone, personalized = student_sms_map[student.pk]
-        send_communication_task.delay(
-            db_connection.schema_name,
-            phone,
-            personalized,
-            sms_record_id=str(sms.pk)
-        )
-        queued_count += 1
+        try:
+            send_communication_task.delay(
+                db_connection.schema_name,
+                phone,
+                personalized,
+                sms_record_id=str(sms.pk)
+            )
+            queued_count += 1
+        except Exception as e:
+            logger.error("Failed to queue SMS for student %s: %s", student.pk, e)
+            sms.mark_failed("Failed to queue for sending")
+            failed_count += 1
 
     # Show success state with counts
     return render(request, 'communications/partials/modal_send_class.html', {
         'success': True,
         'sent_count': queued_count,
-        'failed_count': 0,
+        'failed_count': failed_count,
         'skipped_count': skipped_count,
     })
 
@@ -465,14 +480,19 @@ def notify_absent(request):
     date_str = today.strftime('%B %d, %Y')
     school_name = school.display_name or ''
 
-    # Prepare SMS records for bulk creation
+    # Prepare SMS records for bulk creation, deduplicating by phone number
     sms_records = []
     student_sms_map = {}  # Map student_id to (sms_record, phone, message)
+    seen_phones = set()  # Track phones to avoid sending duplicates (e.g. siblings)
 
     for student in students_with_phone:
         phone = normalize_phone_number(student.guardian_phone)
         if not phone:
             continue
+
+        if phone in seen_phones:
+            continue
+        seen_phones.add(phone)
 
         # Personalize message
         message = message_template.replace('{student_name}', student.full_name)
@@ -499,24 +519,30 @@ def notify_absent(request):
     from django.db import connection as db_connection
 
     queued_count = 0
+    failed_count = 0
     for student in students_with_phone:
         if student.pk not in student_sms_map:
             continue
 
         sms, phone, message = student_sms_map[student.pk]
-        send_communication_task.delay(
-            db_connection.schema_name,
-            phone,
-            message,
-            sms_record_id=str(sms.pk)
-        )
-        queued_count += 1
+        try:
+            send_communication_task.delay(
+                db_connection.schema_name,
+                phone,
+                message,
+                sms_record_id=str(sms.pk)
+            )
+            queued_count += 1
+        except Exception as e:
+            logger.error("Failed to queue SMS for student %s: %s", student.pk, e)
+            sms.mark_failed("Failed to queue for sending")
+            failed_count += 1
 
     # Show success state with counts
     return render(request, 'communications/partials/modal_notify_absent.html', {
         'success': True,
         'sent_count': queued_count,
-        'failed_count': 0,
+        'failed_count': failed_count,
         'date': today,
     })
 

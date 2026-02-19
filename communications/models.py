@@ -72,12 +72,12 @@ class SMSMessage(models.Model):
         self.status = self.Status.SENT
         self.sent_at = timezone.now()
         self.provider_response = str(response)
-        self.save()
+        self.save(update_fields=['status', 'sent_at', 'provider_response'])
 
     def mark_failed(self, error=''):
         self.status = self.Status.FAILED
         self.error_message = str(error)
-        self.save()
+        self.save(update_fields=['status', 'error_message'])
 
 
 class SMSTemplate(models.Model):
