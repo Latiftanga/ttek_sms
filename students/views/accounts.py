@@ -290,12 +290,15 @@ def accept_invitation(request, token):
         errors = []
 
         # Validate password
-        if len(password) < 8:
-            errors.append("Password must be at least 8 characters long.")
         if password != password_confirm:
             errors.append("Passwords do not match.")
-        if guardian.email and password.lower() == guardian.email.lower():
-            errors.append("Password cannot be your email address.")
+        else:
+            from django.contrib.auth.password_validation import validate_password
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            try:
+                validate_password(password)
+            except DjangoValidationError as e:
+                errors.extend(e.messages)
 
         if errors:
             return render(request, 'students/guardian_accept_invitation.html', {
