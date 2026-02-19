@@ -31,7 +31,8 @@ def timetable_index(request):
 @admin_required
 def class_timetable(request, class_id):
     """View and manage timetable for a specific class."""
-    from core.models import SchoolSettings, Term
+    from django.db import connection
+    from core.models import Term
 
     class_obj = get_object_or_404(Class, pk=class_id)
     periods_list = list(Period.objects.filter(is_active=True).order_by('order'))
@@ -96,8 +97,8 @@ def class_timetable(request, class_id):
     teachers_count = class_subjects.exclude(teacher__isnull=True).values('teacher').distinct().count()
     teaching_periods_count = sum(1 for p in periods_list if not p.is_break)
 
-    # Get school settings and current term for print header
-    school = SchoolSettings.load()
+    # Get school from tenant for print header
+    school = getattr(connection, 'tenant', None)
     current_term = Term.get_current()
 
     context = {

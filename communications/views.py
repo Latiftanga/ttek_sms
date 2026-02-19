@@ -10,6 +10,7 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.html import escape
+from django.db import connection
 from django.db.models import Count, Q
 from core.utils import cache_page_per_tenant
 
@@ -19,7 +20,6 @@ from .models import SMSMessage, SMSTemplate
 from .utils import validate_phone_number, normalize_phone_number, get_sms_gateway_status, get_email_gateway_status
 from students.models import Student, StudentGuardian
 from academics.models import Class, AttendanceRecord
-from core.models import SchoolSettings
 
 logger = logging.getLogger(__name__)
 
@@ -436,7 +436,6 @@ def notify_absent(request):
 
     message_template = request.POST.get('message', '').strip()
     student_ids = request.POST.getlist('student_ids')
-    school = SchoolSettings.load()
 
     if not message_template:
         return render(request, 'communications/partials/modal_notify_absent.html', {
@@ -478,7 +477,8 @@ def notify_absent(request):
 
     # Prepare date string once
     date_str = today.strftime('%B %d, %Y')
-    school_name = school.display_name or ''
+    school = getattr(connection, 'tenant', None)
+    school_name = school.display_name if school else ''
 
     # Prepare SMS records for bulk creation, deduplicating by phone number
     sms_records = []

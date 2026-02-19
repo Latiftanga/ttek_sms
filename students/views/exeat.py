@@ -4,6 +4,7 @@ import logging
 from functools import wraps
 
 from django.core.paginator import Paginator
+from django.db import connection
 from django.db.models import Q, Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
@@ -1248,9 +1249,8 @@ def exeat_report_pdf(request):
         type_filter=type_filter if type_filter else None
     )
 
-    # Get school settings for header
-    from core.models import SchoolSettings
-    school = SchoolSettings.load()
+    # Get school from tenant for header
+    school = getattr(connection, 'tenant', None)
 
     context = {
         **report_data,

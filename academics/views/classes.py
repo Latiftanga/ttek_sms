@@ -1067,8 +1067,6 @@ def class_export(request, pk):
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from openpyxl.utils import get_column_letter
     from django.http import HttpResponse as DjangoHttpResponse
-    from core.models import SchoolSettings
-
     class_obj = get_object_or_404(Class, pk=pk)
     students_qs = Student.objects.filter(
         current_class=class_obj,
@@ -1092,7 +1090,7 @@ def class_export(request, pk):
     for student in students:
         student._cached_primary_guardian = guardian_map.get(student.id)
 
-    school = SchoolSettings.load()
+    school = getattr(connection, 'tenant', None)
 
     # Create workbook
     wb = Workbook()
@@ -1113,7 +1111,7 @@ def class_export(request, pk):
 
     # School Header
     ws.merge_cells('A1:F1')
-    ws['A1'] = school.display_name or request.tenant.name
+    ws['A1'] = school.display_name if school else ''
     ws['A1'].font = header_font
     ws['A1'].alignment = Alignment(horizontal='center')
 

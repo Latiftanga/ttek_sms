@@ -56,12 +56,11 @@ def service_worker(request):
 @require_GET
 def manifest(request):
     """Generate PWA manifest with school-specific branding."""
-    # Get school settings for current tenant
+    # Get school branding from tenant (School model)
     try:
-        school = SchoolSettings.objects.first()
-        tenant = connection.tenant
-        school_name = school.display_name if school else tenant.name
-        short_name = getattr(tenant, 'short_name', None) or school_name[:12]
+        school = connection.tenant
+        school_name = school.display_name if school else 'School'
+        short_name = getattr(school, 'short_name', None) or school_name[:12]
         theme_color = school.primary_color if school and school.primary_color else '#570df8'
         background_color = '#f2f2f2'
 
@@ -4913,8 +4912,8 @@ def send_payment_receipt_email(payment, guardian):
         logger.warning(f"No email address for payment receipt {payment.receipt_number}")
         return False
 
-    # Get school settings
-    school = SchoolSettings.objects.first()
+    # Get school from tenant
+    school = getattr(connection, 'tenant', None)
 
     # Build context
     context = {
@@ -5059,9 +5058,8 @@ def guardian_payment_success(request, payment_id):
         messages.error(request, 'You do not have access to this payment.')
         return redirect('core:fee_payments')
 
-    # Get school settings for receipt
-    from .models import SchoolSettings
-    school = SchoolSettings.objects.first()
+    # Get school from tenant for branding
+    school = getattr(connection, 'tenant', None)
 
     context = {
         'payment': payment,

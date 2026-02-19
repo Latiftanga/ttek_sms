@@ -151,20 +151,22 @@ def get_school_sms_settings():
         dict: SMS configuration with keys: backend, api_key, sender_id, enabled
     """
     try:
+        from django.db import connection
         from core.models import SchoolSettings
-        school = SchoolSettings.load()
-        if school:
+        settings = SchoolSettings.load()
+        if settings:
             # Use configured sender_id or derive from school name
-            sender_id = school.sms_sender_id
-            if not sender_id and school.display_name:
-                # Fallback: derive from school name (alphanumeric, max 11 chars)
-                sender_id = ''.join(c for c in school.display_name if c.isalnum())[:11]
+            sender_id = settings.sms_sender_id
+            if not sender_id:
+                tenant = getattr(connection, 'tenant', None)
+                if tenant and tenant.display_name:
+                    sender_id = ''.join(c for c in tenant.display_name if c.isalnum())[:11]
 
             return {
-                'backend': school.sms_backend or 'console',
-                'api_key': school.sms_api_key or '',
+                'backend': settings.sms_backend or 'console',
+                'api_key': settings.sms_api_key or '',
                 'sender_id': sender_id or 'SchoolSMS',
-                'enabled': school.sms_enabled,
+                'enabled': settings.sms_enabled,
             }
     except Exception as e:
         logger.warning(f"Could not load school SMS settings: {e}")

@@ -11,7 +11,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 
 from core.utils import requires_houses
-from core.models import AcademicYear, SchoolSettings
+from core.models import AcademicYear
 from ..models import House, Student, HouseMaster, StudentGuardian
 from ..forms import HouseForm
 from .utils import admin_required, htmx_render
@@ -462,9 +462,8 @@ def house_students_pdf(request, pk):
         )
     ).order_by('last_name', 'first_name')
 
-    # Get school settings and tenant info
-    school = SchoolSettings.load()
-    tenant = getattr(connection, 'tenant', None)
+    # Get school from tenant
+    school = getattr(connection, 'tenant', None)
     current_year = AcademicYear.get_current()
 
     housemasters = []
@@ -485,7 +484,6 @@ def house_students_pdf(request, pk):
         'house': house,
         'students': students,
         'school': school,
-        'tenant': tenant,
         'logo_url': logo_url,
         'housemasters': housemasters,
         'current_year': current_year,
