@@ -3141,13 +3141,8 @@ def enter_scores(request, class_id, subject_id):
             )
             student_totals[student.id] = round(total, 1) if total > 0 else None
 
-    # Get categories (cached for 1 hour since they rarely change)
-    from django.core.cache import cache
-    cache_key = 'assessment_categories_active'
-    categories = cache.get(cache_key)
-    if categories is None:
-        categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
-        cache.set(cache_key, categories, 3600)  # Cache for 1 hour
+    # Get categories
+    categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
 
     # Check for view mode (table or student)
     view_mode = request.GET.get('view', 'table')
