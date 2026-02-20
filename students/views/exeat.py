@@ -981,9 +981,12 @@ def housemaster_index(request):
     """List housemaster assignments."""
     current_year = AcademicYear.get_current()
 
-    assignments = HouseMaster.objects.filter(
-        academic_year=current_year
-    ).select_related('teacher', 'house', 'academic_year').order_by('house__name')
+    if current_year:
+        assignments = HouseMaster.objects.filter(
+            academic_year=current_year
+        ).select_related('teacher', 'house', 'academic_year').order_by('house__name')
+    else:
+        assignments = HouseMaster.objects.none()
 
     context = {
         'assignments': assignments,

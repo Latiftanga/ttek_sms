@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.utils.html import escape
 from core.utils import cache_page_per_tenant
 
 from .models import (
@@ -1516,10 +1517,12 @@ def student_search(request):
 
     html = '<ul class="menu bg-base-100 shadow-lg rounded-box absolute z-50 w-full mt-1 max-h-48 overflow-y-auto">'
     for student in students:
-        class_name = student.current_class.name if student.current_class else 'No class'
-        html += f'''<li><a onclick="selectStudent('{student.pk}', '{student.full_name}')" class="text-sm">
-            <span class="font-medium">{student.full_name}</span>
-            <span class="text-xs text-base-content/60">{student.admission_number} • {class_name}</span>
+        class_name = escape(student.current_class.name) if student.current_class else 'No class'
+        name = escape(student.full_name)
+        adm = escape(student.admission_number)
+        html += f'''<li><a onclick="selectStudent('{student.pk}', '{name}')" class="text-sm">
+            <span class="font-medium">{name}</span>
+            <span class="text-xs text-base-content/60">{adm} • {class_name}</span>
         </a></li>'''
     html += '</ul>'
 
@@ -1549,10 +1552,12 @@ def invoice_search(request):
     html = '<ul class="menu bg-base-100 shadow-lg rounded-box absolute z-50 w-full mt-1 max-h-48 overflow-y-auto">'
     for invoice in invoices:
         balance = f"{invoice.balance:.2f}"
-        html += f'''<li><a onclick="selectInvoice('{invoice.pk}', '{invoice.invoice_number}', '{invoice.student.full_name}', '{balance}')" class="text-sm py-2">
+        inv_num = escape(invoice.invoice_number)
+        name = escape(invoice.student.full_name)
+        html += f'''<li><a onclick="selectInvoice('{invoice.pk}', '{inv_num}', '{name}', '{balance}')" class="text-sm py-2">
             <div class="flex flex-col">
-                <span class="font-medium">{invoice.invoice_number}</span>
-                <span class="text-xs text-base-content/60">{invoice.student.full_name} • Balance: GHS {balance}</span>
+                <span class="font-medium">{inv_num}</span>
+                <span class="text-xs text-base-content/60">{name} • Balance: GHS {balance}</span>
             </div>
         </a></li>'''
     html += '</ul>'
@@ -1613,6 +1618,7 @@ def api_class_fees(request, class_id):
 # ONLINE PAYMENT
 # =============================================================================
 
+@login_required
 def pay_online(request, invoice_pk):
     """
     Initiate an online payment for an invoice.
@@ -1711,6 +1717,7 @@ def pay_online(request, invoice_pk):
         return redirect('finance:invoice_detail', pk=invoice_pk)
 
 
+@login_required
 def payment_callback(request):
     """
     Handle return from payment gateway.
@@ -1835,7 +1842,7 @@ def payment_webhook(request):
     # If signature is invalid, response.success will be False
     from .gateways import get_gateway_adapter
     adapter = get_gateway_adapter(gateway_config)
-    response = adapter.handle_webhook(payload, signature)
+    response = adapter.handle_webhook(payload, signature, raw_body=request.body)
 
     # SECURITY: Check for signature verification failure
     # The adapter returns success=False with "signature" in message for invalid signatures

@@ -188,14 +188,14 @@ class PaystackAdapter(BaseGatewayAdapter):
                 reference=reference
             )
 
-    def handle_webhook(self, payload: Dict, signature: str) -> PaymentResponse:
+    def handle_webhook(self, payload: Dict, signature: str, raw_body: bytes = None) -> PaymentResponse:
         """
         Handle Paystack webhook notification.
 
-        Paystack signs webhooks with HMAC SHA512.
+        Paystack signs webhooks with HMAC SHA512 using the raw request body.
         """
-        # Verify signature
-        if not self._verify_webhook_signature(payload, signature):
+        # Verify signature against raw body bytes for accurate verification
+        if not self._verify_webhook_signature(raw_body or payload, signature):
             return PaymentResponse(
                 success=False,
                 message="Invalid webhook signature"
@@ -229,18 +229,22 @@ class PaystackAdapter(BaseGatewayAdapter):
                 raw_response=payload
             )
 
-    def _verify_webhook_signature(self, payload: Dict, signature: str) -> bool:
-        """Verify Paystack webhook signature."""
+    def _verify_webhook_signature(self, payload, signature: str) -> bool:
+        """Verify Paystack webhook signature using raw request body bytes."""
         webhook_secret = self.credentials.get('webhook_secret', '')
         if not webhook_secret:
             logger.warning("No webhook secret configured")
             return False
 
-        # Paystack sends signature in X-Paystack-Signature header
-        payload_string = json.dumps(payload, separators=(',', ':'))
+        # Paystack signs the raw request body, not re-serialized JSON
+        if isinstance(payload, bytes):
+            body = payload
+        else:
+            body = json.dumps(payload, separators=(',', ':')).encode('utf-8')
+
         expected_signature = hmac.new(
             webhook_secret.encode('utf-8'),
-            payload_string.encode('utf-8'),
+            body,
             hashlib.sha512
         ).hexdigest()
 

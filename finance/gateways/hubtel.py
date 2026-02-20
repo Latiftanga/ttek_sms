@@ -6,6 +6,7 @@ Documentation: https://developers.hubtel.com/
 """
 
 import base64
+import json
 import requests
 from decimal import Decimal
 from typing import Dict, Tuple
@@ -204,10 +205,37 @@ class HubtelAdapter(BaseGatewayAdapter):
                 reference=reference
             )
 
-    def handle_webhook(self, payload: Dict, signature: str) -> PaymentResponse:
+    def handle_webhook(self, payload: Dict, signature: str, raw_body: bytes = None) -> PaymentResponse:
         """
         Handle Hubtel webhook notification.
+        Verifies the webhook signature before processing.
         """
+        # Verify webhook signature if a secret is configured
+        webhook_secret = self.credentials.get('webhook_secret', '')
+        if webhook_secret:
+            if not signature:
+                logger.warning("Hubtel webhook received without signature")
+                return PaymentResponse(
+                    success=False,
+                    message="Missing webhook signature"
+                )
+            import hashlib
+            import hmac as hmac_mod
+            body = raw_body if raw_body else json.dumps(payload).encode('utf-8')
+            expected = hmac_mod.new(
+                webhook_secret.encode('utf-8'),
+                body,
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac_mod.compare_digest(expected, signature):
+                logger.warning("Hubtel webhook signature verification failed")
+                return PaymentResponse(
+                    success=False,
+                    message="Invalid webhook signature"
+                )
+        else:
+            logger.warning("No Hubtel webhook secret configured — skipping signature verification")
+
         # Hubtel webhooks contain the transaction status
         response_code = payload.get('ResponseCode')
         data = payload.get('Data', {})

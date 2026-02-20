@@ -42,7 +42,9 @@ def get_grading_system_cached(level):
     Returns:
         GradingSystem instance or None
     """
-    cache_key = f'grading_system_{level}'
+    from django.db import connection
+    schema = connection.schema_name
+    cache_key = f'grading_system_{schema}_{level}'
     grading_system = cache.get(cache_key)
 
     if grading_system is None:
@@ -54,7 +56,7 @@ def get_grading_system_cached(level):
         # Also try fallback if level-specific not found
         if not grading_system:
             grading_system = GradingSystem.objects.filter(is_active=True).first()
-            cache_key = 'grading_system_fallback'
+            cache_key = f'grading_system_{schema}_fallback'
 
         # Cache the result (even if None, to avoid repeated queries)
         # Use a sentinel value for None since cache.get returns None for missing keys

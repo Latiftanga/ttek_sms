@@ -273,7 +273,7 @@ def copy_timetable(request, class_id):
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'timetableChanged'
                 return response
-            return redirect('academics:class_timetable', pk=class_id)
+            return redirect('academics:class_timetable', class_id=class_id)
     else:
         form = CopyTimetableForm(target_class=class_obj)
 

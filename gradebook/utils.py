@@ -789,7 +789,8 @@ def get_active_categories():
     """
     from django.core.cache import cache
 
-    cache_key = 'assessment_categories_active'
+    from django.db import connection
+    cache_key = f'assessment_categories_active_{connection.schema_name}'
     categories = cache.get(cache_key)
 
     if categories is None:
@@ -802,4 +803,5 @@ def get_active_categories():
 def invalidate_categories_cache():
     """Invalidate the categories cache when categories are modified."""
     from django.core.cache import cache
-    cache.delete('assessment_categories_active')
+    from django.db import connection
+    cache.delete(f'assessment_categories_active_{connection.schema_name}')

@@ -378,19 +378,22 @@ class Invoice(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.invoice_number:
+            from django.db import transaction
             # Generate invoice number: INV-YYYY-XXXXX
+            # Use select_for_update to prevent race conditions
             year = timezone.now().year
-            last_invoice = Invoice.objects.filter(
-                invoice_number__startswith=f'INV-{year}'
-            ).order_by('-invoice_number').first()
+            with transaction.atomic():
+                last_invoice = Invoice.objects.select_for_update().filter(
+                    invoice_number__startswith=f'INV-{year}'
+                ).order_by('-invoice_number').first()
 
-            if last_invoice:
-                last_num = int(last_invoice.invoice_number.split('-')[-1])
-                new_num = last_num + 1
-            else:
-                new_num = 1
+                if last_invoice:
+                    last_num = int(last_invoice.invoice_number.split('-')[-1])
+                    new_num = last_num + 1
+                else:
+                    new_num = 1
 
-            self.invoice_number = f'INV-{year}-{new_num:05d}'
+                self.invoice_number = f'INV-{year}-{new_num:05d}'
 
         # Calculate balance
         self.balance = self.total_amount - self.amount_paid
@@ -499,19 +502,22 @@ class Payment(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.receipt_number:
+            from django.db import transaction
             # Generate receipt number: RCP-YYYY-XXXXX
+            # Use select_for_update to prevent race conditions
             year = timezone.now().year
-            last_payment = Payment.objects.filter(
-                receipt_number__startswith=f'RCP-{year}'
-            ).order_by('-receipt_number').first()
+            with transaction.atomic():
+                last_payment = Payment.objects.select_for_update().filter(
+                    receipt_number__startswith=f'RCP-{year}'
+                ).order_by('-receipt_number').first()
 
-            if last_payment:
-                last_num = int(last_payment.receipt_number.split('-')[-1])
-                new_num = last_num + 1
-            else:
-                new_num = 1
+                if last_payment:
+                    last_num = int(last_payment.receipt_number.split('-')[-1])
+                    new_num = last_num + 1
+                else:
+                    new_num = 1
 
-            self.receipt_number = f'RCP-{year}-{new_num:05d}'
+                self.receipt_number = f'RCP-{year}-{new_num:05d}'
 
         super().save(*args, **kwargs)
 

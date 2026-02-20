@@ -1544,7 +1544,7 @@ def settings_page(request):
     return htmx_render(request, 'core/settings/index.html', 'core/settings/partials/index_content.html', context)
 
 
-@login_required
+@admin_required
 def settings_update_basic(request):
     """Update basic school information."""
     if request.method != 'POST':
@@ -1571,7 +1571,7 @@ def settings_update_basic(request):
     return render(request, 'core/settings/partials/card_basic.html', context)
 
 
-@login_required
+@admin_required
 def settings_update_branding(request):
     """Update branding settings (logo, favicon, colors)."""
     if request.method != 'POST':
@@ -1609,7 +1609,7 @@ def settings_update_branding(request):
     return render(request, 'core/settings/partials/card_branding.html', context)
 
 
-@login_required
+@admin_required
 def settings_update_contact(request):
     """Update contact information."""
     if request.method != 'POST':
@@ -1637,7 +1637,7 @@ def settings_update_contact(request):
     return render(request, 'core/settings/partials/card_contact.html', context)
 
 
-@login_required
+@admin_required
 def settings_update_admin(request):
     """Update administration details."""
     if request.method != 'POST':
@@ -1661,7 +1661,7 @@ def settings_update_admin(request):
     return render(request, 'core/settings/partials/card_admin.html', context)
 
 
-@login_required
+@admin_required
 def settings_update_sms(request):
     """Update SMS configuration settings."""
     if request.method != 'POST':
@@ -1727,7 +1727,7 @@ def settings_update_sms(request):
     return response
 
 
-@login_required
+@admin_required
 def settings_update_email(request):
     """Update email configuration settings."""
     if request.method != 'POST':
@@ -1797,7 +1797,7 @@ def settings_update_email(request):
     return response
 
 
-@login_required
+@admin_required
 @ratelimit(key='user', rate='5/h')
 def settings_test_email(request):
     """Send a test email to verify email configuration. Rate limited to 5/hour."""
@@ -1851,7 +1851,7 @@ def settings_test_email(request):
         )
 
 
-@login_required
+@admin_required
 @ratelimit(key='user', rate='5/h')
 def settings_test_sms(request):
     """Send a test SMS to verify SMS configuration using form values. Rate limited to 5/hour."""
@@ -1958,7 +1958,7 @@ def settings_test_sms(request):
         )
 
 
-@login_required
+@admin_required
 @ratelimit(key='user', rate='5/h')
 def settings_test_payment(request):
     """Test payment gateway credentials using form values (without saving). Rate limited to 5/hour."""
@@ -2061,7 +2061,7 @@ def settings_test_payment(request):
         )
 
 
-@login_required
+@admin_required
 def settings_update_payment(request):
     """Update payment gateway configuration."""
     if request.method != 'POST':
@@ -2167,7 +2167,7 @@ def get_academic_card_context(request=None, success=None, errors=None):
     }
 
 
-@login_required
+@admin_required
 def settings_update_academic(request):
     """Update academic period settings."""
     if request.method != 'POST':
@@ -2187,7 +2187,7 @@ def settings_update_academic(request):
                   get_academic_card_context(errors=form.errors))
 
 
-@login_required
+@admin_required
 def settings_update_education_system(request):
     """Update education system setting."""
     if request.method != 'POST':
@@ -2220,7 +2220,7 @@ def settings_update_education_system(request):
 
 
 # Academic Year views
-@login_required
+@admin_required
 def academic_year_create(request):
     """Create a new academic year."""
     if request.method != 'POST':
@@ -2248,7 +2248,7 @@ def academic_year_create(request):
     return response
 
 
-@login_required
+@admin_required
 def academic_year_edit(request, pk):
     """Edit an academic year."""
     academic_year = get_object_or_404(AcademicYear, pk=pk)
@@ -2285,7 +2285,7 @@ def academic_year_edit(request, pk):
     return response
 
 
-@login_required
+@admin_required
 def academic_year_delete(request, pk):
     """Delete an academic year."""
     if request.method != 'POST':
@@ -2301,7 +2301,7 @@ def academic_year_delete(request, pk):
                   get_academic_card_context(success='Academic year deleted successfully.'))
 
 
-@login_required
+@admin_required
 def academic_year_set_current(request, pk):
     """Set an academic year as current."""
     if request.method != 'POST':
@@ -2320,7 +2320,7 @@ def academic_year_set_current(request, pk):
 
 
 # Term views
-@login_required
+@admin_required
 def term_create(request):
     """Create a new term/semester."""
     if request.method != 'POST':
@@ -2352,7 +2352,7 @@ def term_create(request):
     return response
 
 
-@login_required
+@admin_required
 def term_edit(request, pk):
     """Edit a term/semester."""
     term = get_object_or_404(Term, pk=pk)
@@ -2394,7 +2394,7 @@ def term_edit(request, pk):
     return response
 
 
-@login_required
+@admin_required
 def term_delete(request, pk):
     """Delete a term/semester."""
     if request.method != 'POST':
@@ -2411,7 +2411,7 @@ def term_delete(request, pk):
                   get_academic_card_context(success=f'{school_settings.period_label} deleted successfully.'))
 
 
-@login_required
+@admin_required
 def term_set_current(request, pk):
     """Set a term/semester as current."""
     if request.method != 'POST':
