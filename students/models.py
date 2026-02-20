@@ -108,18 +108,6 @@ class Guardian(models.Model):
     def __str__(self):
         return self.full_name
 
-    @classmethod
-    def get_or_create_by_phone(cls, phone_number, full_name, **defaults):
-        """
-        Get existing guardian by phone or create new one.
-        Prevents duplicates by using phone_number as unique identifier.
-        """
-        guardian, created = cls.objects.get_or_create(
-            phone_number=phone_number,
-            defaults={'full_name': full_name, **defaults}
-        )
-        return guardian, created
-
 
 class StudentGuardian(models.Model):
     """
@@ -307,23 +295,6 @@ class Student(models.Model):
         return today.year - self.date_of_birth.year - (
             (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
         )
-
-    def get_enrollment_history(self):
-        """Return all enrollments ordered by academic year."""
-        return self.enrollments.select_related(
-            'academic_year', 'class_assigned'
-        ).order_by('-academic_year__start_date')
-
-    def get_current_enrollment(self):
-        """Return the active enrollment for current academic year."""
-        from core.models import AcademicYear
-        current_year = AcademicYear.get_current()
-        if current_year:
-            return self.enrollments.filter(
-                academic_year=current_year,
-                status=Enrollment.Status.ACTIVE
-            ).first()
-        return None
 
     def get_primary_guardian(self):
         """Return the primary guardian for this student. Caches result to avoid repeated queries."""
@@ -696,20 +667,6 @@ class HouseMaster(models.Model):
     def __str__(self):
         senior = " (Senior)" if self.is_senior else ""
         return f"{self.teacher.full_name} - {self.house.name}{senior} ({self.academic_year})"
-
-    @classmethod
-    def get_senior_housemaster(cls, academic_year=None):
-        """Get the senior housemaster for the given or current academic year."""
-        from core.models import AcademicYear
-        if not academic_year:
-            academic_year = AcademicYear.get_current()
-        if not academic_year:
-            return None
-        return cls.objects.filter(
-            academic_year=academic_year,
-            is_senior=True,
-            is_active=True
-        ).select_related('teacher').first()
 
     @classmethod
     def get_for_house(cls, house, academic_year=None):

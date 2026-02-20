@@ -2159,13 +2159,16 @@ def settings_update_education_system(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    from schools.models import School
     school_settings = SchoolSettings.load()
+    tenant = connection.tenant
     education_system = request.POST.get('education_system', 'both')
 
     # Validate the choice
-    valid_choices = [choice[0] for choice in SchoolSettings.EDUCATION_SYSTEM_CHOICES]
+    valid_choices = [choice[0] for choice in School.EDUCATION_SYSTEM_CHOICES]
     if education_system in valid_choices:
-        school_settings.education_system = education_system
+        tenant.education_system = education_system
+        tenant.save(update_fields=['education_system'])
 
         # Auto-update academic period type based on education system
         if education_system == 'basic':

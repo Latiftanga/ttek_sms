@@ -57,9 +57,9 @@ class ClassForm(forms.ModelForm):
 
         # Filter level_type choices based on school's education system setting
         try:
-            from core.models import SchoolSettings
-            school_settings = SchoolSettings.load()
-            allowed_level_types = school_settings.get_allowed_level_types()
+            from django.db import connection
+            tenant = connection.tenant
+            allowed_level_types = tenant.get_allowed_level_types()
             allowed_values = [lt[0] for lt in allowed_level_types]
 
             # Filter level_type choices to only include allowed types
@@ -75,7 +75,7 @@ class ClassForm(forms.ModelForm):
                 self.initial['level_type'] = filtered_choices[0][0]
 
             # Hide programme field for basic-only schools
-            if not school_settings.has_programmes:
+            if not tenant.has_programmes:
                 del self.fields['programme']
         except Exception:
             pass
@@ -137,9 +137,8 @@ class SubjectForm(forms.ModelForm):
 
         # Hide programmes and is_core fields for basic-only schools
         try:
-            from core.models import SchoolSettings
-            school_settings = SchoolSettings.load()
-            if not school_settings.has_programmes:
+            from django.db import connection
+            if not connection.tenant.has_programmes:
                 del self.fields['programmes']
                 # Basic schools don't have core/elective distinction
                 del self.fields['is_core']
