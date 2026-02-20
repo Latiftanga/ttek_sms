@@ -129,9 +129,9 @@ class StudentForm(forms.ModelForm):
         self.fields['current_class'].queryset = Class.objects.filter(is_active=True)
         self.fields['current_class'].required = False
 
-        # Get school settings
-        from core.models import SchoolSettings
-        school_settings = SchoolSettings.load()
+        # Get school config from tenant
+        from django.db import connection
+        tenant = connection.tenant
 
         # Check if student's current class is SHS (for editing existing students)
         student_class_is_shs = False
@@ -139,10 +139,10 @@ class StudentForm(forms.ModelForm):
             student_class_is_shs = self.instance.current_class.level_type == 'shs'
 
         # School has SHS capability
-        school_has_shs = school_settings.education_system in ('shs', 'both')
+        school_has_shs = tenant.education_system in ('shs', 'both')
 
         # House field - show for SHS students or if school has houses and is SHS-capable
-        if school_settings.has_houses and (student_class_is_shs or school_has_shs):
+        if tenant.has_houses and (student_class_is_shs or school_has_shs):
             self.fields['house'].queryset = House.objects.filter(is_active=True)
             self.fields['house'].required = False
         elif 'house' in self.fields:

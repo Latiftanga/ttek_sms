@@ -469,14 +469,6 @@ class SchoolSettings(models.Model):
         help_text="When setup was completed"
     )
 
-    def _get_tenant(self):
-        """Get the School (tenant) model for this schema."""
-        from schools.models import School
-        try:
-            return School.objects.get(schema_name=connection.schema_name)
-        except School.DoesNotExist:
-            return None
-
     @property
     def period_label(self):
         """Return 'Term' or 'Semester' based on setting."""
@@ -486,49 +478,6 @@ class SchoolSettings(models.Model):
     def period_label_plural(self):
         """Return 'Terms' or 'Semesters' based on setting."""
         return 'Semesters' if self.academic_period_type == 'semester' else 'Terms'
-
-    # ===== Delegated methods from School model =====
-
-    def get_allowed_level_types(self):
-        """
-        Return list of allowed level types based on tenant's education_system.
-        Delegates to the School (tenant) model for the actual configuration.
-        """
-        tenant = self._get_tenant()
-        if tenant:
-            return tenant.get_allowed_level_types()
-        # Fallback to 'both' if tenant not found
-        return [
-            ('creche', 'Creche'),
-            ('nursery', 'Nursery'),
-            ('kg', 'Kindergarten'),
-            ('basic', 'Basic'),
-            ('shs', 'SHS'),
-        ]
-
-    @property
-    def education_system(self):
-        """Delegate to School model."""
-        tenant = self._get_tenant()
-        return tenant.education_system if tenant else 'both'
-
-    @property
-    def education_system_display(self):
-        """Return the display name for the education system from tenant."""
-        tenant = self._get_tenant()
-        return tenant.education_system_display if tenant else 'Both Basic and SHS'
-
-    @property
-    def has_houses(self):
-        """Check if school has houses support. Delegates to tenant."""
-        tenant = self._get_tenant()
-        return tenant.has_houses if tenant else True
-
-    @property
-    def has_programmes(self):
-        """Check if school has programmes support. Delegates to tenant."""
-        tenant = self._get_tenant()
-        return tenant.has_programmes if tenant else True
 
     def save(self, *args, **kwargs):
         self.pk = 1
