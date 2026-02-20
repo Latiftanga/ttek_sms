@@ -245,10 +245,13 @@ class ClassSubjectForm(forms.ModelForm):
             if class_instance.level_type == Class.LevelType.SHS and class_instance.programme:
                 query &= (Q(is_core=True) | Q(programmes=class_instance.programme))
 
-            # Exclude Already Assigned
-            existing_subjects = ClassSubject.objects.filter(
+            # Exclude Already Assigned (but keep current subject when editing)
+            existing_qs = ClassSubject.objects.filter(
                 class_assigned=class_instance
-            ).values_list('subject_id', flat=True)
+            )
+            if self.instance.pk:
+                existing_qs = existing_qs.exclude(pk=self.instance.pk)
+            existing_subjects = existing_qs.values_list('subject_id', flat=True)
 
             query &= ~Q(id__in=existing_subjects)
 
