@@ -1,15 +1,14 @@
 import re
 import secrets
 import string
-from functools import wraps
 from datetime import datetime
 
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.http import HttpResponse
 import pandas as pd
 
 from core.models import AcademicYear
+from core.utils import (  # noqa: F401
+    is_school_admin, admin_required, htmx_render,
+)
 from students.models import Enrollment
 
 
@@ -44,31 +43,6 @@ def normalize_phone_number(phone):
     return True, cleaned, None
 
 
-def is_school_admin(user):
-    """Check if user is a school admin or superuser."""
-    return user.is_superuser or getattr(user, 'is_school_admin', False)
-
-
-def admin_required(view_func):
-    """Decorator to require school admin or superuser access. Supports HTMX responses."""
-    @wraps(view_func)
-    def _wrapped_view(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            if request.htmx:
-                return HttpResponse(status=401)
-            return redirect('accounts:login')
-        if not is_school_admin(request.user):
-            if request.htmx:
-                return HttpResponse(
-                    '<div class="text-error text-sm p-2">Access denied. Admin role required.</div>',
-                    status=403
-                )
-            messages.error(request, "You don't have permission to access this page.")
-            return redirect('core:index')
-        return view_func(request, *args, **kwargs)
-    return _wrapped_view
-
-
 def create_enrollment_for_student(student):
     """Create an enrollment record for a student in the current academic year."""
     current_year = AcademicYear.get_current()
@@ -88,13 +62,6 @@ def create_enrollment_for_student(student):
         }
     )
     return enrollment, created
-
-
-def htmx_render(request, full_template, partial_template, context=None):
-    """Render full template for regular requests, partial for HTMX requests."""
-    context = context or {}
-    template = partial_template if request.htmx else full_template
-    return render(request, template, context)
 
 
 def parse_date(value):
