@@ -1,6 +1,5 @@
 import html
 import logging
-from functools import wraps
 from decimal import Decimal
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
@@ -15,7 +14,7 @@ from django.db import connection
 
 from .models import SchoolSettings, AcademicYear, Term
 from .email_backend import get_from_email
-from .utils import ratelimit
+from .utils import ratelimit, admin_required, htmx_render
 from .forms import (
     SchoolBasicInfoForm,
     SchoolBrandingForm,
@@ -167,38 +166,6 @@ def manifest(request):
     return JsonResponse(manifest_data, content_type='application/manifest+json')
 
 
-def is_school_admin(user):
-    """Check if user is a school admin or superuser."""
-    if not user.is_authenticated:
-        return False
-    return user.is_superuser or getattr(user, 'is_school_admin', False)
-
-
-def admin_required(view_func):
-    """Decorator to require school admin or superuser access."""
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('accounts:login')
-        if not is_school_admin(request.user):
-            messages.error(request, 'You do not have permission to access this page.')
-            return redirect('core:index')
-        return view_func(request, *args, **kwargs)
-    return wrapper
-
-
-
-def htmx_render(request, full_template, partial_template, context=None):
-    """
-    Render full template for regular requests, partial for HTMX requests.
-    Progressive enhancement: works with or without JavaScript.
-    """
-    context = context or {}
-
-    is_htmx = bool(request.htmx)
-
-    template = partial_template if is_htmx else full_template
-    return render(request, template, context)
 
 
 # ============================================

@@ -1,31 +1,26 @@
 
 import logging
-from functools import wraps
 
-from django.shortcuts import render
-from django.contrib.auth.decorators import user_passes_test
 from django.core.cache import cache
 from django.http import JsonResponse
 
 from academics.models import Subject, ClassSubject
+from core.utils import (  # noqa: F401
+    is_school_admin, is_teacher_or_admin, admin_required,
+    teacher_or_admin_required, htmx_render, get_client_ip,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def ratelimit(key='user', rate='100/h', block=True):
     """
-    Simple cache-based rate limiter decorator.
+    Simple cache-based rate limiter decorator for gradebook.
 
-    Args:
-        key: 'user' for user-based, 'ip' for IP-based limiting
-        rate: Format "number/period" where period is s/m/h/d (second/minute/hour/day)
-        block: If True, return 429 error; if False, just log warning
-
-    Usage:
-        @ratelimit(key='user', rate='100/h')
-        def my_view(request):
-            ...
+    Uses atomic cache operations for accuracy under concurrency.
     """
+    from functools import wraps
+
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
@@ -47,14 +42,11 @@ def ratelimit(key='user', rate='100/h', block=True):
 
             # Atomically create the key if it doesn't exist
             if cache.add(cache_key, 1, period_seconds):
-                # Key was newly created with value 1, proceed
                 pass
             else:
-                # Key exists, atomically increment
                 try:
                     current = cache.incr(cache_key)
                 except ValueError:
-                    # Key expired between add and incr, recreate
                     cache.set(cache_key, 1, period_seconds)
                     current = 1
 
@@ -71,36 +63,6 @@ def ratelimit(key='user', rate='100/h', block=True):
     return decorator
 
 
-def get_client_ip(request):
-    """Get client IP address from request."""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
-
-
-def is_school_admin(user):
-    """Check if user is a school admin or superuser."""
-    return user.is_superuser or getattr(user, 'is_school_admin', False)
-
-
-def is_teacher_or_admin(user):
-    """Check if user is a teacher, school admin, or superuser."""
-    return (user.is_superuser or
-            getattr(user, 'is_school_admin', False) or
-            getattr(user, 'is_teacher', False))
-
-
-def admin_required(view_func):
-    """Decorator to require school admin or superuser."""
-    return user_passes_test(is_school_admin, login_url='/')(view_func)
-
-
-def teacher_or_admin_required(view_func):
-    """Decorator to require teacher, school admin, or superuser."""
-    return user_passes_test(is_teacher_or_admin, login_url='/')(view_func)
-
-
 def can_edit_scores(user, class_obj, subject):
     """
     Check if a user can edit scores for a specific class/subject.
@@ -109,17 +71,14 @@ def can_edit_scores(user, class_obj, subject):
     - User is superuser or school admin
     - User is the teacher assigned to this subject for this class
     """
-    # Admins can always edit
     if user.is_superuser or getattr(user, 'is_school_admin', False):
         return True
 
-    # Check if user has a teacher profile
     if not hasattr(user, 'teacher_profile') or not user.teacher_profile:
         return False
 
     teacher = user.teacher_profile
 
-    # Check if this teacher is assigned to teach this subject to this class
     return ClassSubject.objects.filter(
         class_assigned=class_obj,
         subject=subject,
@@ -134,12 +93,10 @@ def get_teacher_subjects(user, class_obj):
     Returns all subjects if admin, otherwise only assigned subjects.
     """
     if user.is_superuser or getattr(user, 'is_school_admin', False):
-        # Admins see all subjects for the class
         return Subject.objects.filter(
             class_allocations__class_assigned=class_obj
         ).distinct()
 
-    # Teachers only see their assigned subjects
     if not hasattr(user, 'teacher_profile') or not user.teacher_profile:
         return Subject.objects.none()
 
@@ -147,10 +104,3 @@ def get_teacher_subjects(user, class_obj):
         class_allocations__class_assigned=class_obj,
         class_allocations__teacher=user.teacher_profile
     ).distinct()
-
-
-def htmx_render(request, full_template, partial_template, context=None):
-    """Render full template for regular requests, partial for HTMX requests."""
-    context = context or {}
-    template = partial_template if request.htmx else full_template
-    return render(request, template, context)

@@ -1,5 +1,4 @@
 import json
-from functools import wraps
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -14,7 +13,7 @@ from django.core.paginator import Paginator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils.html import escape
-from core.utils import cache_page_per_tenant
+from core.utils import cache_page_per_tenant, admin_required, htmx_render
 
 from .models import (
     PaymentGateway, PaymentGatewayConfig, FeeStructure, CATEGORY_CHOICES,
@@ -28,30 +27,6 @@ from students.models import Student
 from academics.models import Class
 from core.models import AcademicYear, Term
 
-
-def is_school_admin(user):
-    """Check if user is a school admin or superuser."""
-    return user.is_superuser or getattr(user, 'is_school_admin', False)
-
-
-def admin_required(view_func):
-    """Decorator to require school admin or superuser access."""
-    @wraps(view_func)
-    def _wrapped_view(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('accounts:login')
-        if not is_school_admin(request.user):
-            messages.error(request, "You don't have permission to access this page.")
-            return redirect('core:index')
-        return view_func(request, *args, **kwargs)
-    return _wrapped_view
-
-
-def htmx_render(request, full_template, partial_template, context=None):
-    """Render full template for regular requests, partial for HTMX requests."""
-    context = context or {}
-    template = partial_template if request.htmx else full_template
-    return render(request, template, context)
 
 
 # =============================================================================
