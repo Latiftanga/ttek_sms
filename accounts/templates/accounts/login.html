@@ -587,7 +587,7 @@
                         <i class="fa-solid fa-lock"></i>
                         <span>256-bit SSL Encrypted</span>
                     </div>
-                    {% if tenant and school.phone or tenant and school.email %}
+                    {% if school.phone or school.email %}
                     <p style="font-size: 0.75rem; color: oklch(var(--bc) / 0.5); margin-bottom: 0.75rem;">
                         Need help?
                         {% if school.phone %}<a href="tel:{{ school.phone }}" style="color: var(--school-primary);">{{ school.phone }}</a>{% endif %}
