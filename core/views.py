@@ -195,8 +195,7 @@ def htmx_render(request, full_template, partial_template, context=None):
     """
     context = context or {}
 
-    # Check for HTMX request - middleware sets request.htmx, fallback to header check
-    is_htmx = bool(getattr(request, 'htmx', False)) or request.headers.get('HX-Request') == 'true'
+    is_htmx = bool(request.htmx)
 
     template = partial_template if is_htmx else full_template
     return render(request, template, context)
@@ -867,7 +866,7 @@ def notification_mark_read(request, pk):
     notification.mark_as_read()
 
     # If there's a link, redirect to it
-    if notification.link and request.headers.get('HX-Request'):
+    if notification.link and request.htmx:
         return HttpResponse(
             status=200,
             headers={'HX-Redirect': notification.link}
@@ -2638,7 +2637,7 @@ def my_promotions(request):
     promotions = Promotion.objects.filter(teacher=teacher).order_by('-date_promoted')
     context = {'teacher': teacher, 'promotions': promotions}
     template = 'teachers/partials/my_promotions_content.html'
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, template, context)
     return render(request, 'teachers/my_promotions.html', context)
 
@@ -2655,7 +2654,7 @@ def my_qualifications(request):
     qualifications = Qualification.objects.filter(teacher=teacher).order_by('-date_ended')
     context = {'teacher': teacher, 'qualifications': qualifications}
     template = 'teachers/partials/my_qualifications_content.html'
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, template, context)
     return render(request, 'teachers/my_qualifications.html', context)
 
@@ -5070,7 +5069,7 @@ def guardian_payment_success(request, payment_id):
     }
 
     # For HTMX requests, return partial content
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'core/parent/partials/payment_success_content.html', context)
     return render(request, 'core/parent/payment_success.html', context)
 
@@ -5123,7 +5122,7 @@ def guardian_payment_failed(request, payment_id):
     }
 
     # For HTMX requests, return partial content
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'core/parent/partials/payment_failed_content.html', context)
     return render(request, 'core/parent/payment_failed.html', context)
 

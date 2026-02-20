@@ -54,11 +54,11 @@ def admin_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            if getattr(request, 'htmx', None):
+            if request.htmx:
                 return HttpResponse(status=401)
             return redirect('accounts:login')
         if not is_school_admin(request.user):
-            if getattr(request, 'htmx', None):
+            if request.htmx:
                 return HttpResponse(
                     '<div class="text-error text-sm p-2">Access denied. Admin role required.</div>',
                     status=403

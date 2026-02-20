@@ -213,7 +213,7 @@ def bulk_remarks_sign(request, class_id):
 @admin_required
 def remark_templates(request):
     """List and manage remark templates (Admin only)."""
-    templates = RemarkTemplate.objects.all().order_by('category', 'order')
+    templates = RemarkTemplate.objects.order_by('category', 'order')
 
     # Group by category
     templates_by_category = {}

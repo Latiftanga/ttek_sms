@@ -22,7 +22,7 @@ def timetable_index(request):
         'active_tab': 'timetable',
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/timetable_index_content.html', context)
     return render(request, 'academics/timetable_index.html', context)
 
@@ -116,7 +116,7 @@ def class_timetable(request, class_id):
         'current_term': current_term,
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/class_timetable_content.html', context)
     return render(request, 'academics/class_timetable.html', context)
 
@@ -156,14 +156,14 @@ def timetable_entry_create(request, class_id):
             entry = form.save()
             messages.success(request, f'Timetable entry added: {entry.class_subject.subject.name} on {entry.get_weekday_display()}')
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'timetableChanged'
                 return response
             return redirect('academics:class_timetable', class_id=class_id)
         else:
             # Return form with errors
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 context = {
                     'form': form,
                     'class_obj': class_obj,
@@ -208,7 +208,7 @@ def timetable_entry_create(request, class_id):
         'existing_is_double': existing_is_double,  # None if empty slot, True/False if has entries
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/modal_timetable_entry_form.html', context)
     return render(request, 'academics/timetable_entry_form.html', context)
 
@@ -229,7 +229,7 @@ def bulk_timetable_entry(request, class_id):
             created_count = form.save()
             messages.success(request, f'{created_count} timetable entries added.')
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'timetableChanged'
                 return response
@@ -269,7 +269,7 @@ def copy_timetable(request, class_id):
             else:
                 messages.warning(request, 'No entries were copied (all slots had conflicts).')
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'timetableChanged'
                 return response
@@ -313,14 +313,14 @@ def timetable_entry_edit(request, pk):
             form.save()
             messages.success(request, f'Updated {entry.class_subject.subject.name} on {entry.get_weekday_display()}')
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'timetableChanged'
                 return response
             return redirect('academics:class_timetable', class_id=class_obj.pk)
         else:
             # Return form with errors
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 context = {
                     'form': form,
                     'entry': entry,
@@ -344,7 +344,7 @@ def timetable_entry_edit(request, pk):
         'is_edit': True,
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/modal_timetable_entry_form.html', context)
     return render(request, 'academics/timetable_entry_form.html', context)
 
@@ -362,7 +362,7 @@ def timetable_entry_delete(request, pk):
         entry.delete()
         messages.success(request, f'Removed {subject_name} from {day_name}')
 
-        if request.headers.get('HX-Request'):
+        if request.htmx:
             response = HttpResponse(status=204)
             response['HX-Trigger'] = 'timetableChanged'
             return response

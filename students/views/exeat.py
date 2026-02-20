@@ -296,11 +296,11 @@ def housemaster_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            if getattr(request, 'htmx', None):
+            if request.htmx:
                 return HttpResponse(status=401)
             return redirect('accounts:login')
         if not (is_school_admin(request.user) or is_housemaster(request.user)):
-            if getattr(request, 'htmx', None):
+            if request.htmx:
                 return HttpResponse(
                     '<div class="text-error text-sm p-2">Access denied. Housemaster role required.</div>',
                     status=403
@@ -316,11 +316,11 @@ def admin_or_senior_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            if getattr(request, 'htmx', None):
+            if request.htmx:
                 return HttpResponse(status=401)
             return redirect('accounts:login')
         if not (is_school_admin(request.user) or is_senior_housemaster(request.user)):
-            if getattr(request, 'htmx', None):
+            if request.htmx:
                 return HttpResponse(
                     '<div class="text-error text-sm p-2">Access denied. Admin or Senior Housemaster role required.</div>',
                     status=403
@@ -431,7 +431,7 @@ def exeat_index(request):
         ],
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'students/partials/exeat_content.html', context)
     return render(request, 'students/exeat_index.html', context)
 
@@ -516,7 +516,7 @@ def exeat_create(request):
             else:
                 messages.success(request, 'External exeat submitted for senior housemaster approval.')
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Redirect'] = f'/students/exeats/{exeat.pk}/'
                 return response
@@ -547,7 +547,7 @@ def exeat_create(request):
         ],
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'students/partials/exeat_form.html', context)
     return render(request, 'students/exeat_form.html', context)
 
@@ -694,7 +694,7 @@ def exeat_detail(request, pk):
         ],
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'students/partials/exeat_detail.html', context)
     return render(request, 'students/exeat_detail.html', context)
 
@@ -764,7 +764,7 @@ def exeat_approve(request, pk):
     else:
         messages.error(request, "This exeat cannot be approved in its current state.")
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         response = HttpResponse(status=204)
         response['HX-Redirect'] = f'/students/exeats/{pk}/'
         return response
@@ -802,7 +802,7 @@ def exeat_reject(request, pk):
     exeat.reject(reason)
     messages.success(request, f'Exeat rejected for {exeat.student.full_name}.')
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         response = HttpResponse(status=204)
         response['HX-Redirect'] = f'/students/exeats/{pk}/'
         return response
@@ -837,7 +837,7 @@ def exeat_depart(request, pk):
     exeat.mark_departed()
     messages.success(request, f'{exeat.student.full_name} has departed.')
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         response = HttpResponse(status=204)
         response['HX-Redirect'] = f'/students/exeats/{pk}/'
         return response
@@ -883,7 +883,7 @@ def exeat_return(request, pk):
     else:
         messages.error(request, f"Return SMS failed: {sms_result.user_message}")
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         response = HttpResponse(status=204)
         response['HX-Redirect'] = f'/students/exeats/{pk}/'
         return response
@@ -912,13 +912,13 @@ def exeat_verify(request):
     """
     user = request.user
     if not user.is_authenticated:
-        if getattr(request, 'htmx', None):
+        if request.htmx:
             return HttpResponse(status=401)
         return redirect('accounts:login')
 
     # Any teacher or school admin can access
     if not (getattr(user, 'is_teacher', False) or is_school_admin(user)):
-        if getattr(request, 'htmx', None):
+        if request.htmx:
             return HttpResponse(
                 '<div class="text-error text-sm p-2">Access denied. Teacher role required.</div>',
                 status=403
@@ -967,7 +967,7 @@ def exeat_verify(request):
         ],
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         if 'search_only' in request.GET:
             return render(request, 'students/partials/exeat_verify_results.html', context)
         return render(request, 'students/partials/exeat_verify_content.html', context)
@@ -998,7 +998,7 @@ def housemaster_index(request):
         ],
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'students/partials/housemaster_content.html', context)
     return render(request, 'students/housemaster_index.html', context)
 
@@ -1015,7 +1015,7 @@ def housemaster_assign(request):
                 f'{assignment.teacher.full_name} assigned as housemaster for {assignment.house.name}.'
             )
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'housemasterChanged'
                 return response
@@ -1028,7 +1028,7 @@ def housemaster_assign(request):
         'action': 'Assign',
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'students/partials/housemaster_form.html', context)
     return render(request, 'students/housemaster_form.html', context)
 
@@ -1045,7 +1045,7 @@ def housemaster_remove(request, pk):
         assignment.delete()
         messages.success(request, f'Removed {name}.')
 
-        if request.headers.get('HX-Request'):
+        if request.htmx:
             response = HttpResponse(status=204)
             response['HX-Trigger'] = 'housemasterChanged'
             return response
@@ -1124,7 +1124,7 @@ def get_exeat_report_data(start_date, end_date, house_filter=None, type_filter=N
     overdue_count = by_status.get('overdue', 0)
 
     # Get houses for filter dropdown
-    houses = House.objects.all().order_by('name')
+    houses = House.objects.order_by('name')
 
     return {
         'exeats': exeats,
@@ -1204,7 +1204,7 @@ def exeat_report(request):
         ],
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'students/partials/exeat_report_content.html', context)
     return render(request, 'students/exeat_report.html', context)
 

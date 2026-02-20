@@ -1137,7 +1137,7 @@ def student_attendance_detail(request, student_id):
     }
 
     # Return as partial template for HTMX
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/student_attendance_detail.html', context)
 
     return JsonResponse({
