@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncDate
 from django.contrib import messages
@@ -577,58 +578,59 @@ def create_student_invoice(student, academic_year, term, due_date, created_by):
     if not applicable_structures:
         return None
 
-    # Create invoice
-    invoice = Invoice.objects.create(
-        student=student,
-        academic_year=academic_year,
-        term=term,
-        due_date=due_date,
-        created_by=created_by,
-        status='DRAFT'
-    )
-
-    # Add line items
-    subtotal = Decimal('0.00')
-    for structure in applicable_structures:
-        # Check if fee applies to student type (boarding/day)
-        if hasattr(student, 'is_boarding'):
-            if student.is_boarding and not structure.applies_to_boarding:
-                continue
-            if not student.is_boarding and not structure.applies_to_day:
-                continue
-
-        InvoiceItem.objects.create(
-            invoice=invoice,
-            category=structure.category,
-            description=structure.get_description(),
-            amount=structure.amount
+    with transaction.atomic():
+        # Create invoice
+        invoice = Invoice.objects.create(
+            student=student,
+            academic_year=academic_year,
+            term=term,
+            due_date=due_date,
+            created_by=created_by,
+            status='DRAFT'
         )
-        subtotal += structure.amount
 
-    # Apply scholarships
-    discount = Decimal('0.00')
-    student_scholarships = StudentScholarship.objects.filter(
-        student=student,
-        academic_year=academic_year,
-        is_active=True
-    ).select_related('scholarship')
+        # Add line items
+        subtotal = Decimal('0.00')
+        for structure in applicable_structures:
+            # Check if fee applies to student type (boarding/day)
+            if hasattr(student, 'is_boarding'):
+                if student.is_boarding and not structure.applies_to_boarding:
+                    continue
+                if not student.is_boarding and not structure.applies_to_day:
+                    continue
 
-    for ss in student_scholarships:
-        scholarship = ss.scholarship
-        if scholarship.discount_type == 'FULL':
-            discount = subtotal
-            break
-        elif scholarship.discount_type == 'PERCENTAGE':
-            discount += subtotal * (scholarship.discount_value / 100)
-        elif scholarship.discount_type == 'FIXED':
-            discount += scholarship.discount_value
+            InvoiceItem.objects.create(
+                invoice=invoice,
+                category=structure.category,
+                description=structure.get_description(),
+                amount=structure.amount
+            )
+            subtotal += structure.amount
 
-    # Update invoice totals
-    invoice.subtotal = subtotal
-    invoice.discount = min(discount, subtotal)  # Can't discount more than subtotal
-    invoice.total_amount = subtotal - invoice.discount
-    invoice.balance = invoice.total_amount
-    invoice.save()
+        # Apply scholarships
+        discount = Decimal('0.00')
+        student_scholarships = StudentScholarship.objects.filter(
+            student=student,
+            academic_year=academic_year,
+            is_active=True
+        ).select_related('scholarship')
+
+        for ss in student_scholarships:
+            scholarship = ss.scholarship
+            if scholarship.discount_type == 'FULL':
+                discount = subtotal
+                break
+            elif scholarship.discount_type == 'PERCENTAGE':
+                discount += subtotal * (scholarship.discount_value / 100)
+            elif scholarship.discount_type == 'FIXED':
+                discount += scholarship.discount_value
+
+        # Update invoice totals
+        invoice.subtotal = subtotal
+        invoice.discount = min(discount, subtotal)  # Can't discount more than subtotal
+        invoice.total_amount = subtotal - invoice.discount
+        invoice.balance = invoice.total_amount
+        invoice.save()
 
     return invoice
 
@@ -1215,13 +1217,14 @@ def invoices_export(request):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Invoices')
 
+        from openpyxl.utils import get_column_letter
         worksheet = writer.sheets['Invoices']
         for idx, col in enumerate(df.columns):
             max_length = max(
                 df[col].astype(str).map(len).max() if len(df) > 0 else 0,
                 len(col)
             ) + 2
-            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+            worksheet.column_dimensions[get_column_letter(idx + 1)].width = min(max_length, 50)
 
     output.seek(0)
     filename = f"invoices_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -1294,13 +1297,14 @@ def payments_export(request):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Payments')
 
+        from openpyxl.utils import get_column_letter
         worksheet = writer.sheets['Payments']
         for idx, col in enumerate(df.columns):
             max_length = max(
                 df[col].astype(str).map(len).max() if len(df) > 0 else 0,
                 len(col)
             ) + 2
-            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+            worksheet.column_dimensions[get_column_letter(idx + 1)].width = min(max_length, 50)
 
     output.seek(0)
     filename = f"payments_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -1624,19 +1628,20 @@ def pay_online(request, invoice_pk):
     Initiate an online payment for an invoice.
     Redirects user to the payment gateway.
     """
-    invoice = get_object_or_404(
-        Invoice.objects.select_related('student'),
-        pk=invoice_pk
-    )
+    with transaction.atomic():
+        invoice = get_object_or_404(
+            Invoice.objects.select_for_update().select_related('student'),
+            pk=invoice_pk
+        )
 
-    # Check invoice can be paid
-    if invoice.status in ['PAID', 'CANCELLED']:
-        messages.error(request, 'This invoice cannot be paid.')
-        return redirect('finance:invoice_detail', pk=invoice_pk)
+        # Check invoice can be paid
+        if invoice.status in ['PAID', 'CANCELLED']:
+            messages.error(request, 'This invoice cannot be paid.')
+            return redirect('finance:invoice_detail', pk=invoice_pk)
 
-    if invoice.balance <= 0:
-        messages.error(request, 'This invoice has no outstanding balance.')
-        return redirect('finance:invoice_detail', pk=invoice_pk)
+        if invoice.balance <= 0:
+            messages.error(request, 'This invoice has no outstanding balance.')
+            return redirect('finance:invoice_detail', pk=invoice_pk)
 
     # Get primary gateway config
     from .models import PaymentGatewayConfig

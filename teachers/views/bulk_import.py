@@ -426,13 +426,13 @@ def bulk_export(request):
     output = io.BytesIO()
 
     def auto_adjust_columns(worksheet, dataframe):
+        from openpyxl.utils import get_column_letter
         for idx, col in enumerate(dataframe.columns):
             max_length = max(
                 dataframe[col].astype(str).map(len).max() if len(dataframe) > 0 else 0,
                 len(col)
             ) + 2
-            col_letter = chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)
-            worksheet.column_dimensions[col_letter].width = min(max_length, 50)
+            worksheet.column_dimensions[get_column_letter(idx + 1)].width = min(max_length, 50)
 
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_teachers.to_excel(writer, index=False, sheet_name='Teachers')
