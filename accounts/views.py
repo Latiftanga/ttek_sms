@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import DatabaseError
 from django.urls import reverse_lazy
-from .forms import LoginForm
+from .forms import LoginForm, ProfilePhoneForm
 
 logger = logging.getLogger(__name__)
 
@@ -154,9 +154,16 @@ def handle_step_post(request, step, steps, context):
         return redirect('accounts:profile_setup_step', step=next_step)
 
     elif step == 'personal':
-        # Save personal info to the correct profile model
-        phone = request.POST.get('phone', '').strip()
-        address = request.POST.get('address', '').strip()
+        # Validate phone and address
+        form = ProfilePhoneForm(request.POST)
+        if not form.is_valid():
+            for field_errors in form.errors.values():
+                for error in field_errors:
+                    messages.error(request, error)
+            return redirect('accounts:profile_setup_step', step=step)
+
+        phone = form.cleaned_data['phone']
+        address = form.cleaned_data['address']
 
         # For teachers, save to teacher_profile
         if getattr(user, 'is_teacher', False):
@@ -193,7 +200,7 @@ def handle_step_post(request, step, steps, context):
                     guardian.phone_number = phone
                 if address:
                     guardian.address = address
-                occupation = request.POST.get('occupation', '').strip()
+                occupation = request.POST.get('occupation', '').strip()[:100]
                 if occupation:
                     guardian.occupation = occupation
                 guardian.save()
@@ -245,6 +252,7 @@ def handle_step_post(request, step, steps, context):
         if 'profile_setup_step' in request.session:
             del request.session['profile_setup_step']
 
+        logger.info('Profile setup completed for user %s', user.email)
         messages.success(request, 'Profile setup completed! Welcome to the platform.')
 
         # Redirect based on user type
@@ -271,8 +279,8 @@ class CustomLoginView(LoginView):
             # Session expires when browser closes
             self.request.session.set_expiry(0)
         else:
-            # Session expires in 2 weeks (1209600 seconds)
-            self.request.session.set_expiry(1209600)
+            # Session expires in 7 days (604800 seconds)
+            self.request.session.set_expiry(604800)
         return super().form_valid(form)
 
 
@@ -315,6 +323,7 @@ class ForcePasswordChangeView(PasswordChangeView):
             return response
 
         # For regular requests, redirect with message
+        logger.info('Password changed for user %s', self.request.user.email)
         messages.success(self.request, 'Your password has been changed successfully.')
         return redirect(self.success_url)
 
