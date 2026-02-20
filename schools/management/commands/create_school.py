@@ -27,6 +27,10 @@ class Command(BaseCommand):
             help='Education system: basic, shs, or both'
         )
         parser.add_argument(
+            '--motto',
+            help='School motto'
+        )
+        parser.add_argument(
             '--admin-email',
             help='School admin email address'
         )
@@ -50,6 +54,7 @@ class Command(BaseCommand):
         # Get school details
         name = options.get('name')
         subdomain = options.get('subdomain')
+        motto = options.get('motto')
         school_type = options.get('type')
         admin_email = options.get('admin_email')
         admin_password = options.get('admin_password')
@@ -60,6 +65,8 @@ class Command(BaseCommand):
             if not subdomain:
                 suggested = name.lower().replace(' ', '_')[:20] if name else 'school'
                 subdomain = input(f'  Subdomain [{suggested}]: ').strip() or suggested
+            if not motto:
+                motto = input('  School motto: ').strip()
             if not school_type:
                 self.stdout.write('\n  School type:')
                 self.stdout.write('    1) basic - Basic Only (Creche - Basic 9)')
@@ -92,7 +99,7 @@ class Command(BaseCommand):
             school_type = 'both'
 
         # Validate inputs
-        if not all([name, subdomain, admin_email, admin_password]):
+        if not all([name, subdomain, motto, admin_email, admin_password]):
             self.stdout.write(self.style.ERROR('\n  All fields are required!'))
             return
 
@@ -127,6 +134,7 @@ class Command(BaseCommand):
             schema_name=subdomain,
             name=name,
             short_name=subdomain.upper()[:20],
+            motto=motto,
             education_system=school_type,
         )
         self.stdout.write(self.style.SUCCESS(f'  ✓ School created: {school.name}'))

@@ -73,6 +73,7 @@ class Command(BaseCommand):
                 schema_name='public',
                 name='TTEK SMS Platform',
                 short_name='TTEK',
+                motto='School Management System',
             )
             self.stdout.write(self.style.SUCCESS('  ✓ Public tenant created'))
         else:
