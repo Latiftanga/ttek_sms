@@ -1234,13 +1234,14 @@ def classes_bulk_export(request):
         df.to_excel(writer, index=False, sheet_name='Classes')
 
         # Auto-adjust column widths
+        from openpyxl.utils import get_column_letter
         worksheet = writer.sheets['Classes']
         for idx, col in enumerate(df.columns):
             max_length = max(
                 df[col].astype(str).map(len).max() if len(df) > 0 else 0,
                 len(col)
             ) + 2
-            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else 'A' + chr(65 + idx - 26)].width = min(max_length, 50)
+            worksheet.column_dimensions[get_column_letter(idx + 1)].width = min(max_length, 50)
 
     output.seek(0)
 
@@ -1530,8 +1531,16 @@ def bulk_subject_import_confirm(request):
                 except Exception as e:
                     errors.append(f"Row {row.get('row_num', '?')}: {str(e)}")
 
+            # If any rows failed, raise to rollback the entire transaction
+            if errors:
+                raise ValueError("Partial import failed")
+
+    except ValueError:
+        # Expected — errors already collected, transaction rolled back
+        created_count = 0
     except Exception as e:
         errors.append(f"Error during import: {str(e)}")
+        created_count = 0
 
     # Clear session
     request.session.pop('bulk_subject_import_data', None)

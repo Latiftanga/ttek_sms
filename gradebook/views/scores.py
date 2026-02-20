@@ -622,6 +622,8 @@ def assignment_create(request):
     ).exists():
         name = f"{base_name} {counter}"
         counter += 1
+        if counter > 100:
+            return HttpResponse('Too many assignments with the same name', status=400)
 
     try:
         points = Decimal(points_possible)
