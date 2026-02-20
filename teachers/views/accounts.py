@@ -97,6 +97,14 @@ def create_account(request, pk):
         # Create user account with atomic transaction to prevent race conditions
         try:
             with transaction.atomic():
+                # Re-fetch with lock to prevent race condition
+                teacher = Teacher.objects.select_for_update().get(pk=pk)
+                if teacher.user:
+                    messages.warning(request, f"{teacher.full_name} already has an account.")
+                    response = HttpResponse(status=204)
+                    response['HX-Refresh'] = 'true'
+                    return response
+
                 user = User.objects.create_user(
                     email=email,
                     password=temp_password,
@@ -129,16 +137,17 @@ def create_account(request, pk):
                 request,
                 f"Account created for {teacher.full_name}. Credentials sent to {email}."
             )
+            response = HttpResponse(status=204)
+            response['HX-Refresh'] = 'true'
+            return response
         else:
-            # Show the password if email failed
-            messages.warning(
-                request,
-                f"Account created but email failed. Temporary password: {temp_password}"
-            )
-
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
+            # Show password in a one-time modal (not in flash message which persists in session)
+            return render(request, 'teachers/partials/modal_create_account.html', {
+                'teacher': teacher,
+                'account_created': True,
+                'temp_password': temp_password,
+                'email': email,
+            })
 
     return HttpResponse(status=405)
 
@@ -230,15 +239,18 @@ def reset_password(request, pk):
             request,
             f"Password reset for {teacher.full_name}. New credentials sent to {user.email}."
         )
+        response = HttpResponse(status=204)
+        response['HX-Refresh'] = 'true'
+        return response
     else:
-        messages.warning(
-            request,
-            f"Password reset but email failed. New temporary password: {temp_password}"
-        )
-
-    response = HttpResponse(status=204)
-    response['HX-Refresh'] = 'true'
-    return response
+        # Show password in a one-time modal (not in flash message which persists in session)
+        return render(request, 'teachers/partials/modal_create_account.html', {
+            'teacher': teacher,
+            'account_created': True,
+            'temp_password': temp_password,
+            'email': user.email,
+            'is_reset': True,
+        })
 
 
 # =============================================================================
@@ -477,13 +489,16 @@ def accept_invitation(request, token):
 
         errors = []
 
-        # Validate password
-        if len(password) < 8:
-            errors.append("Password must be at least 8 characters long.")
+        # Validate password using Django's built-in validators
         if password != password_confirm:
             errors.append("Passwords do not match.")
-        if password.lower() == teacher.email.lower() if teacher.email else False:
-            errors.append("Password cannot be your email address.")
+        else:
+            from django.contrib.auth.password_validation import validate_password
+            from django.core.exceptions import ValidationError as PasswordValidationError
+            try:
+                validate_password(password)
+            except PasswordValidationError as e:
+                errors.extend(e.messages)
 
         if errors:
             return render(request, 'teachers/accept_invitation.html', {

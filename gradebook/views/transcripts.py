@@ -169,16 +169,21 @@ def download_transcript_pdf(request, student_id):
     school_ctx = get_school_context(include_logo_base64=True)
 
     # Create verification record and generate QR code
-    from core.models import DocumentVerification
-    from core.utils import generate_verification_qr
+    verification = None
+    qr_code_base64 = None
+    try:
+        from core.models import DocumentVerification
+        from core.utils import generate_verification_qr
 
-    verification = DocumentVerification.create_for_document(
-        document_type=DocumentVerification.DocumentType.TRANSCRIPT,
-        student=student,
-        title=f"Academic Transcript - {student.full_name}",
-        user=request.user,
-    )
-    qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
+        verification = DocumentVerification.create_for_document(
+            document_type=DocumentVerification.DocumentType.TRANSCRIPT,
+            student=student,
+            title=f"Academic Transcript - {student.full_name}",
+            user=request.user,
+        )
+        qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
+    except (ValidationError, IntegrityError) as e:
+        logger.warning(f"Could not create verification record: {e}")
 
     context = {
         'student': student,

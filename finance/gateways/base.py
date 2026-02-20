@@ -129,13 +129,14 @@ class BaseGatewayAdapter(ABC):
         pass
 
     @abstractmethod
-    def handle_webhook(self, payload: Dict, signature: str) -> PaymentResponse:
+    def handle_webhook(self, payload: Dict, signature: str, raw_body: bytes = None) -> PaymentResponse:
         """
         Handle webhook notification from gateway.
 
         Args:
             payload: Webhook payload
             signature: Request signature for verification
+            raw_body: Raw request body bytes for accurate signature verification
 
         Returns:
             PaymentResponse with transaction details

@@ -188,7 +188,7 @@ class FlutterwaveAdapter(BaseGatewayAdapter):
                 reference=reference
             )
 
-    def handle_webhook(self, payload: Dict, signature: str) -> PaymentResponse:
+    def handle_webhook(self, payload: Dict, signature: str, raw_body: bytes = None) -> PaymentResponse:
         """
         Handle Flutterwave webhook notification.
 
