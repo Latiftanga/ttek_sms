@@ -27,7 +27,7 @@
             <h2 class="text-xl sm:text-2xl font-bold text-white mb-1">
                 {% if school and school.display_name %}
                     {{ school.display_name }}
-                {% elif tenant and school.name %}
+                {% elif school.name %}
                     {{ school.name }}
                 {% else %}
                     School Dashboard
