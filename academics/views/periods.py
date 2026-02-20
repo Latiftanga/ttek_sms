@@ -14,7 +14,7 @@ from .base import admin_required, htmx_render
 @admin_required
 def periods(request):
     """List all school periods."""
-    periods_list = Period.objects.all().order_by('order', 'start_time')
+    periods_list = Period.objects.order_by('order', 'start_time')
 
     context = {
         'periods': periods_list,
@@ -34,7 +34,7 @@ def period_create(request):
             period = form.save()
             messages.success(request, f'Period "{period.name}" created successfully.')
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'periodChanged'
                 return response
@@ -46,7 +46,7 @@ def period_create(request):
 
     context = {'form': form, 'action': 'Create'}
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/modal_period_form.html', context)
     return render(request, 'academics/period_form.html', context)
 
@@ -63,7 +63,7 @@ def period_edit(request, pk):
             form.save()
             messages.success(request, f'Period "{period.name}" updated successfully.')
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'periodChanged'
                 return response
@@ -73,7 +73,7 @@ def period_edit(request, pk):
 
     context = {'form': form, 'period': period, 'action': 'Edit'}
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/modal_period_form.html', context)
     return render(request, 'academics/period_form.html', context)
 
@@ -93,7 +93,7 @@ def period_delete(request, pk):
             period.delete()
             messages.success(request, f'Period "{name}" deleted successfully.')
 
-        if request.headers.get('HX-Request'):
+        if request.htmx:
             response = HttpResponse(status=204)
             response['HX-Trigger'] = 'periodChanged'
             return response

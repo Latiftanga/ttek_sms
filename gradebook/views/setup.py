@@ -14,8 +14,8 @@ from ..models import (
 @admin_required
 def gradebook_settings(request):
     """Gradebook settings - grading systems and categories (Admin only)."""
-    grading_systems = GradingSystem.objects.prefetch_related('scales').all()
-    categories = AssessmentCategory.objects.all()
+    grading_systems = GradingSystem.objects.prefetch_related('scales')
+    categories = AssessmentCategory.objects.order_by('order')
 
     # Check if percentages sum to 100
     total_percentage = sum(c.percentage for c in categories if c.is_active)
@@ -46,7 +46,7 @@ def gradebook_settings(request):
 @admin_required
 def grading_systems(request):
     """List all grading systems (Admin only)."""
-    systems = GradingSystem.objects.prefetch_related('scales').all()
+    systems = GradingSystem.objects.prefetch_related('scales')
     return render(request, 'gradebook/partials/grading_systems_list.html', {
         'grading_systems': systems,
     })

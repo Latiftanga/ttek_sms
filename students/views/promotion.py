@@ -172,7 +172,7 @@ def promotion_detail(request, pk):
 
 def _htmx_toast_or_redirect(request, message, toast_type='error'):
     """For HTMX: show toast + error alert in detail area. Otherwise: redirect."""
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         icon = 'circle-xmark' if toast_type == 'error' else 'triangle-exclamation'
         alert_type = 'error' if toast_type == 'error' else 'warning'
         response = HttpResponse(
@@ -397,7 +397,7 @@ def promotion_process(request):
     if errors:
         summary += f' Errors: {"; ".join(errors[:5])}'
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         response = HttpResponse(
             f'<div class="alert alert-success shadow-sm">'
             f'<i class="fa-solid fa-circle-check"></i>'

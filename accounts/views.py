@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import DatabaseError
+from django.conf import settings
 from django.urls import reverse_lazy
 from .forms import LoginForm, ProfilePhoneForm
 
@@ -44,7 +45,7 @@ def axes_lockout_response(request, credentials, *args, **kwargs):
         request,
         'accounts/lockout.html',
         {
-            'cooloff_time': 15,  # minutes - matches AXES_COOLOFF_TIME (0.25 hours)
+            'cooloff_time': int(settings.AXES_COOLOFF_TIME * 60),
         },
         status=403
     )
@@ -296,7 +297,7 @@ class ForcePasswordChangeView(PasswordChangeView):
 
     def render_to_response(self, context, **response_kwargs):
         # For voluntary changes via HTMX, return modal content
-        if not context.get('is_forced') and self.request.headers.get('HX-Request'):
+        if not context.get('is_forced') and self.request.htmx:
             return render(self.request, 'accounts/partials/password_change_modal.html', context)
         return super().render_to_response(context, **response_kwargs)
 
@@ -314,7 +315,7 @@ class ForcePasswordChangeView(PasswordChangeView):
             user.save(update_fields=['must_change_password'])
 
         # For HTMX requests, close modal and show toast
-        if self.request.headers.get('HX-Request'):
+        if self.request.htmx:
             response = HttpResponse(status=204)
             response['HX-Trigger'] = json.dumps({
                 'closeModal': True,

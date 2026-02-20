@@ -45,6 +45,6 @@ def teacher_or_admin_required(view_func):
 def htmx_render(request, full_template, partial_template, context=None):
     """Render full template for regular requests, partial for HTMX requests."""
     context = context or {}
-    is_htmx = bool(getattr(request, 'htmx', False)) or request.headers.get('HX-Request') == 'true'
+    is_htmx = bool(request.htmx)
     template = partial_template if is_htmx else full_template
     return render(request, template, context)

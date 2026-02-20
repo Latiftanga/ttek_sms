@@ -63,7 +63,7 @@ def ratelimit(key='user', rate='10/h', block=True):
                 logger.warning(f"Rate limit exceeded for {cache_key}")
                 if block:
                     # Return HTML for HTMX requests, JSON for API requests
-                    if request.headers.get('HX-Request'):
+                    if request.htmx:
                         return HttpResponse(
                             '<div class="alert alert-error text-sm py-2">'
                             '<i class="fa-solid fa-circle-xmark"></i> Too many requests. Please try again later.'
@@ -174,7 +174,7 @@ def requires_feature(feature_name, error_message=None):
                 msg = error_message or "This feature is not available for your school's education system."
 
                 # Handle HTMX requests
-                if request.headers.get('HX-Request'):
+                if request.htmx:
                     return HttpResponse(
                         f'<div class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation"></i> {msg}</div>',
                         status=403

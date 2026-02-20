@@ -98,7 +98,7 @@ def house_create(request):
         if form.is_valid():
             house = form.save()
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = json.dumps({
                     'houseChanged': True,
@@ -115,7 +115,7 @@ def house_create(request):
         'action': 'Create',
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'students/partials/house_form.html', context)
     return render(request, 'students/house_form.html', context)
 
@@ -132,7 +132,7 @@ def house_edit(request, pk):
         if form.is_valid():
             form.save()
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = json.dumps({
                     'houseChanged': True,
@@ -150,7 +150,7 @@ def house_edit(request, pk):
         'action': 'Edit',
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'students/partials/house_form.html', context)
     return render(request, 'students/house_form.html', context)
 
@@ -170,7 +170,7 @@ def house_delete(request, pk):
                 f'Cannot delete "{house.name}": {student_count} active student(s) assigned. '
                 'Reassign students first.'
             )
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = json.dumps({
                     'showToast': {'message': error_msg, 'type': 'error'}
@@ -181,7 +181,7 @@ def house_delete(request, pk):
             name = house.name
             house.delete()
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = json.dumps({
                     'houseChanged': True,
@@ -202,7 +202,7 @@ def house_assign_master(request, pk):
     """Assign a housemaster to a house."""
     house = get_object_or_404(House, pk=pk)
     current_year = AcademicYear.get_current()
-    is_htmx = request.headers.get('HX-Request')
+    is_htmx = request.htmx
 
     if not current_year:
         error_msg = "No active academic year. Cannot assign housemaster."
@@ -351,7 +351,7 @@ def house_remove_master(request, pk):
 
         msg = f"{teacher_name} removed from {house_name}."
 
-        if request.headers.get('HX-Request'):
+        if request.htmx:
             # Re-render the modal content so user can continue managing
             from teachers.models import Teacher
             teachers = Teacher.objects.filter(

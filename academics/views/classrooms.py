@@ -15,7 +15,7 @@ from .base import admin_required
 @admin_required
 def classrooms(request):
     """List all classrooms."""
-    classrooms_list = Classroom.objects.all().order_by('name')
+    classrooms_list = Classroom.objects.order_by('name')
 
     # Calculate stats using single aggregate query
     stats = Classroom.objects.aggregate(
@@ -38,7 +38,7 @@ def classrooms(request):
         'active_tab': 'classrooms',
     }
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/classrooms_content.html', context)
     return render(request, 'academics/classrooms.html', context)
 
@@ -53,7 +53,7 @@ def classroom_create(request):
             classroom = form.save()
             messages.success(request, f'Classroom "{classroom.name}" created successfully.')
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'classroomChanged'
                 return response
@@ -63,7 +63,7 @@ def classroom_create(request):
 
     context = {'form': form, 'action': 'Create'}
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/classroom_form.html', context)
     return render(request, 'academics/classroom_form.html', context)
 
@@ -80,7 +80,7 @@ def classroom_edit(request, pk):
             form.save()
             messages.success(request, f'Classroom "{classroom.name}" updated successfully.')
 
-            if request.headers.get('HX-Request'):
+            if request.htmx:
                 response = HttpResponse(status=204)
                 response['HX-Trigger'] = 'classroomChanged'
                 return response
@@ -90,7 +90,7 @@ def classroom_edit(request, pk):
 
     context = {'form': form, 'action': 'Edit', 'classroom': classroom}
 
-    if request.headers.get('HX-Request'):
+    if request.htmx:
         return render(request, 'academics/partials/classroom_form.html', context)
     return render(request, 'academics/classroom_form.html', context)
 
@@ -110,7 +110,7 @@ def classroom_delete(request, pk):
             classroom.delete()
             messages.success(request, f'Classroom "{name}" deleted successfully.')
 
-        if request.headers.get('HX-Request'):
+        if request.htmx:
             response = HttpResponse(status=204)
             response['HX-Trigger'] = 'classroomChanged'
             return response
