@@ -32,7 +32,7 @@
                    hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}{% if view_mode == 'student' %}{% else %}?view=student{% endif %}"
                    hx-target="#main-content"
                    hx-push-url="true"
-                   hx-swap="outerHTML"
+                   hx-swap="innerHTML"
                    hx-trigger="change"
                    onchange="localStorage.setItem('teacherScoreViewMode', this.checked ? 'student' : 'table')" />
             <!-- swap-off: Table icon -->
@@ -165,7 +165,7 @@
                         hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ prev_student.pk }}"
                         hx-target="#main-content"
                         hx-push-url="true"
-                        hx-swap="outerHTML"
+                        hx-swap="innerHTML"
                         hx-select="unset">
                     <i class="fa-solid fa-chevron-left"></i>
                 </button>
@@ -178,9 +178,9 @@
                 <!-- Student info — tap name to jump -->
                 <div class="flex-1 min-w-0 text-center">
                     <div class="dropdown dropdown-bottom">
-                        <label tabindex="0" class="font-bold text-sm sm:text-base cursor-pointer hover:text-primary transition-colors truncate inline-flex items-center gap-1 touch-action-manipulation" title="Tap to jump to student">
-                            {{ current_student.full_name }}
-                            <i class="fa-solid fa-caret-down text-[10px] text-base-content/40"></i>
+                        <label tabindex="0" class="max-w-full cursor-pointer hover:text-primary transition-colors touch-action-manipulation inline-flex items-center gap-1" title="Tap to jump to student">
+                            <span class="font-bold text-sm sm:text-base truncate inline-block max-w-[calc(100vw-140px)]">{{ current_student.full_name }}</span>
+                            <i class="fa-solid fa-caret-down text-[10px] text-base-content/40 shrink-0"></i>
                         </label>
                         <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-50 w-64 max-h-60 overflow-y-auto p-2 shadow-xl border border-base-200 flex-nowrap">
                             {% for s in students %}
@@ -191,7 +191,7 @@
                                 <a hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ s.pk }}"
                                    hx-target="#main-content"
                                    hx-push-url="true"
-                                   hx-swap="outerHTML"
+                                   hx-swap="innerHTML"
                                    hx-select="unset"
                                    class="min-h-[40px] text-sm">{{ s.first_name }} {{ s.last_name }}</a>
                                 {% endif %}
@@ -210,7 +210,7 @@
                         hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ next_student.pk }}"
                         hx-target="#main-content"
                         hx-push-url="true"
-                        hx-swap="outerHTML"
+                        hx-swap="innerHTML"
                         hx-select="unset">
                     <i class="fa-solid fa-chevron-right"></i>
                 </button>
@@ -302,7 +302,8 @@
            hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student"
            hx-target="#main-content"
            hx-push-url="true"
-           hx-swap="outerHTML"
+           hx-swap="innerHTML"
+           hx-select="unset"
            class="btn btn-info btn-xs shrink-0">
             Switch <i class="fa-solid fa-arrow-right ml-1"></i>
         </a>
@@ -344,7 +345,8 @@
                                    hx-get="{% url 'core:enter_scores' class_obj.pk subject.pk %}?view=student&student_id={{ student.pk }}"
                                    hx-target="#main-content"
                                    hx-push-url="true"
-                                   hx-swap="outerHTML"
+                                   hx-swap="innerHTML"
+                                   hx-select="unset"
                                    class="md:pointer-events-none md:no-underline block">
                                     <div class="font-medium text-xs sm:text-sm md:text-base">
                                         <span class="md:hidden">{{ student.last_name|slice:":8" }}, {{ student.first_name.0 }}.</span>
