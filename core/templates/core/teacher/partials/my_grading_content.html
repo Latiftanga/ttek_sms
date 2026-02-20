@@ -38,87 +38,69 @@
 </div>
 {% else %}
 
-<!-- Quick Stats - Compact on mobile -->
-<div class="grid grid-cols-2 gap-3 mb-4">
-    <div class="bg-primary/10 rounded-xl p-3 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-            <i class="fa-solid fa-book text-primary"></i>
+<!-- Quick Stats - Inline on mobile, cards on desktop -->
+<div class="flex items-center gap-2 sm:gap-3 mb-4">
+    <div class="flex-1 bg-primary/10 rounded-lg sm:rounded-xl p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-book text-primary text-sm sm:text-base"></i>
         </div>
         <div>
-            <div class="text-xl font-bold text-primary">{{ total_classes }}</div>
-            <div class="text-xs text-base-content/60">Subjects</div>
+            <div class="text-lg sm:text-xl font-bold text-primary leading-none">{{ total_classes }}</div>
+            <div class="text-[10px] sm:text-xs text-base-content/60">Subjects</div>
         </div>
     </div>
-    <div class="bg-secondary/10 rounded-xl p-3 flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-secondary/20 flex items-center justify-center">
-            <i class="fa-solid fa-layer-group text-secondary"></i>
+    <div class="flex-1 bg-secondary/10 rounded-lg sm:rounded-xl p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-secondary/20 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-layer-group text-secondary text-sm sm:text-base"></i>
         </div>
         <div>
-            <div class="text-xl font-bold text-secondary">{{ categories|length }}</div>
-            <div class="text-xs text-base-content/60">Categories</div>
+            <div class="text-lg sm:text-xl font-bold text-secondary leading-none">{{ categories|length }}</div>
+            <div class="text-[10px] sm:text-xs text-base-content/60">Categories</div>
         </div>
     </div>
 </div>
 
-<!-- Subject Cards - Mobile Optimized -->
+<!-- Subject Cards -->
 {% if class_data %}
-<div class="space-y-3">
+<div class="space-y-2 sm:space-y-3">
     {% for item in class_data %}
     <a href="{% url 'core:enter_scores' item.class.pk item.subject.pk %}"
        hx-get="{% url 'core:enter_scores' item.class.pk item.subject.pk %}"
        hx-target="#main-content"
        hx-push-url="true"
        class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/30 transition-all block">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-3">
+        <div class="card-body p-3 sm:p-4">
+            <div class="flex items-center gap-2.5 sm:gap-3">
                 <!-- Subject Icon -->
-                <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <span class="text-sm font-bold">{{ item.subject.short_name|default:item.subject.name|slice:":3" }}</span>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <span class="text-xs sm:text-sm font-bold">{{ item.subject.short_name|default:item.subject.name|slice:":3" }}</span>
                 </div>
 
-                <!-- Subject Info -->
+                <!-- Subject Info + Progress -->
                 <div class="flex-1 min-w-0">
-                    <h3 class="font-bold text-sm truncate">{{ item.subject.name }}</h3>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span class="badge badge-ghost badge-sm">{{ item.class.name }}</span>
-                        <span class="text-xs text-base-content/50">
-                            <i class="fa-solid fa-users mr-1"></i>{{ item.student_count }}
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="font-bold text-sm truncate">{{ item.subject.name }}</h3>
+                        <!-- Progress badge - replaces radial progress on mobile -->
+                        <span class="badge badge-sm shrink-0 gap-0.5 {% if item.progress == 100 %}badge-success{% elif item.progress >= 50 %}badge-info{% elif item.progress > 0 %}badge-warning{% else %}badge-ghost{% endif %}">
+                            {% if item.progress == 100 %}<i class="fa-solid fa-check text-[9px]"></i>{% endif %}
+                            {{ item.progress }}%
                         </span>
                     </div>
-                </div>
-
-                <!-- Progress Circle & Action -->
-                <div class="flex items-center gap-2">
-                    <div class="radial-progress text-xs {% if item.progress == 100 %}text-success{% elif item.progress >= 50 %}text-info{% elif item.progress > 0 %}text-warning{% else %}text-error{% endif %}"
-                         style="--value:{{ item.progress }}; --size:2.5rem; --thickness:3px;"
-                         role="progressbar">
-                        {{ item.progress }}%
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="badge badge-ghost badge-xs sm:badge-sm">{{ item.class.name }}</span>
+                        <span class="text-[10px] sm:text-xs text-base-content/50">
+                            <i class="fa-solid fa-users mr-0.5"></i>{{ item.student_count }}
+                        </span>
+                        <span class="text-[10px] sm:text-xs text-base-content/50">
+                            <i class="fa-solid fa-clipboard-list mr-0.5"></i>{{ item.assignments }}
+                        </span>
                     </div>
-                    <i class="fa-solid fa-chevron-right text-base-content/30"></i>
+                    <!-- Compact progress bar -->
+                    <progress class="progress h-1.5 sm:h-2 w-full mt-1.5 {% if item.progress == 100 %}progress-success{% elif item.progress >= 50 %}progress-info{% elif item.progress > 0 %}progress-warning{% else %}progress-error{% endif %}"
+                              value="{{ item.progress }}" max="100"></progress>
                 </div>
-            </div>
 
-            <!-- Progress Bar - Visual indicator -->
-            <div class="mt-3">
-                <div class="flex items-center justify-between text-xs text-base-content/60 mb-1">
-                    <span>{{ item.scores_entered }} of {{ item.student_count|multiply:item.assignments }} scores</span>
-                    <span>{{ item.assignments }} assignment{{ item.assignments|pluralize }}</span>
-                </div>
-                <progress class="progress h-2 w-full {% if item.progress == 100 %}progress-success{% elif item.progress >= 50 %}progress-info{% elif item.progress > 0 %}progress-warning{% else %}progress-error{% endif %}"
-                          value="{{ item.progress }}" max="100"></progress>
-            </div>
-
-            <!-- Action hint -->
-            <div class="mt-2 text-right">
-                <span class="text-xs font-medium {% if item.progress == 0 %}text-primary{% elif item.progress == 100 %}text-success{% else %}text-warning{% endif %}">
-                    {% if item.progress == 0 %}
-                    <i class="fa-solid fa-plus mr-1"></i>Start entering scores
-                    {% elif item.progress == 100 %}
-                    <i class="fa-solid fa-check mr-1"></i>Complete - tap to view
-                    {% else %}
-                    <i class="fa-solid fa-pen mr-1"></i>Continue entering
-                    {% endif %}
-                </span>
+                <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
             </div>
         </div>
     </a>
@@ -139,7 +121,7 @@
 </div>
 {% endif %}
 
-<!-- Help Section - Collapsible on mobile -->
+<!-- Help Section - Collapsible -->
 <div class="collapse collapse-arrow bg-base-200/50 mt-4 rounded-lg">
     <input type="checkbox" />
     <div class="collapse-title text-sm font-medium py-3">
