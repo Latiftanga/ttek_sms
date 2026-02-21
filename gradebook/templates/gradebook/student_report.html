@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% load core_tags %}
+
+{% block title %}Report Card - {{ student.full_name }} - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "gradebook/partials/report_card.html" %}
+{% endblock %}
