@@ -267,18 +267,18 @@
             display: none;
             align-items: center;
             justify-content: center;
-            background: oklch(var(--b1) / 0.75);
-            backdrop-filter: blur(4px);
+            background: oklch(var(--b1) / 0.7);
+            backdrop-filter: blur(2px);
         }
-        .htmx-request #nav-loader {
-            display: flex !important;
+        #nav-loader.active {
+            display: flex;
         }
         .nav-loader-inner {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 1rem;
-            animation: nav-fade-in 0.15s ease-out;
+            animation: nav-fade-in 0.2s ease-out;
         }
         @keyframes nav-fade-in {
             from { opacity: 0; transform: translateY(6px); }
@@ -299,13 +299,6 @@
             font-size: 0.8rem;
             font-weight: 500;
             color: oklch(var(--bc) / 0.45);
-        }
-
-        /* HTMX loading indicator */
-        .htmx-request #main-content {
-            opacity: 0.6;
-            pointer-events: none;
-            transition: opacity 0.2s;
         }
 
         /* Safari dropdown fix - ensure clickable elements work correctly */
@@ -885,6 +878,37 @@
         // ========================================
         if (!window._htmxHandlersAttached) {
             window._htmxHandlersAttached = true;
+
+            // ========================================
+            // Navigation loading overlay
+            // Show overlay when navigating to a new page via HTMX
+            // ========================================
+            document.body.addEventListener('htmx:beforeRequest', function(e) {
+                var target = e.detail.target;
+                if (target && target.id === 'main-content') {
+                    var loader = document.getElementById('nav-loader');
+                    if (loader) loader.classList.add('active');
+                }
+            });
+
+            document.body.addEventListener('htmx:afterSwap', function(e) {
+                var target = e.detail.target;
+                if (target && target.id === 'main-content') {
+                    var loader = document.getElementById('nav-loader');
+                    if (loader) loader.classList.remove('active');
+                }
+            });
+
+            // Also hide on errors so it doesn't get stuck
+            document.body.addEventListener('htmx:sendError', function(e) {
+                var loader = document.getElementById('nav-loader');
+                if (loader) loader.classList.remove('active');
+            });
+
+            document.body.addEventListener('htmx:responseError', function(e) {
+                var loader = document.getElementById('nav-loader');
+                if (loader) loader.classList.remove('active');
+            });
 
             // Handle send errors (network failures)
             document.body.addEventListener('htmx:sendError', function(e) {
