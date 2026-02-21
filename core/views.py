@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.urls import reverse
 from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_GET
+from django.views.decorators.vary import vary_on_headers
 from django.db import connection
 
 from .models import SchoolSettings, AcademicYear, Term
@@ -1272,6 +1273,7 @@ def teacher_dashboard(request):
 
 @login_required
 @cache_control(max_age=60, stale_while_revalidate=300)
+@vary_on_headers('HX-Request')
 def index(request):
     """Dashboard/index view - routes to appropriate dashboard based on user role."""
     from django.db.models import Count, Q

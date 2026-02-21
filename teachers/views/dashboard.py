@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.views.decorators.cache import cache_control
+from django.views.decorators.vary import vary_on_headers
 
 from teachers.models import Teacher
 from academics.models import Class, ClassSubject, Period, TimetableEntry
@@ -64,6 +65,7 @@ def profile(request):
 
 @login_required
 @cache_control(max_age=60, stale_while_revalidate=300)
+@vary_on_headers('HX-Request')
 def dashboard(request):
     """Dashboard for logged-in teachers showing their classes and students."""
     teacher = getattr(request.user, 'teacher_profile', None)
