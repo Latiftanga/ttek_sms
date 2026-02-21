@@ -5,10 +5,9 @@
 
     <!-- Mobile menu toggle + School branding -->
     <div class="flex-none lg:hidden flex items-center gap-2">
-        <button type="button" class="btn btn-square btn-ghost" aria-label="Open menu"
-                onclick="document.getElementById('mobile-drawer').checked = !document.getElementById('mobile-drawer').checked">
+        <label for="mobile-drawer" class="btn btn-square btn-ghost drawer-button">
             <i class="fa-solid fa-bars text-xl"></i>
-        </button>
+        </label>
         <!-- Mobile school logo/name -->
         {% if school.logo %}
         <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:school.name }}" class="h-8 w-auto object-contain">
