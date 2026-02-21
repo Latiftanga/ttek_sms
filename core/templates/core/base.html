@@ -192,7 +192,7 @@
             background-color: oklch(var(--bc) / 0.3);
         }
 
-        /* ========== Full-page loading screen ========== */
+        /* ========== Page & navigation loaders ========== */
         #page-loader {
             position: fixed;
             inset: 0;
@@ -202,103 +202,26 @@
             align-items: center;
             justify-content: center;
             background: oklch(var(--b1));
-            transition: opacity 0.4s ease, visibility 0.4s ease;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
         }
         #page-loader.loaded {
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
         }
-        .loader-logo {
-            width: 72px;
-            height: 72px;
-            border-radius: 1rem;
-            object-fit: contain;
-            animation: loader-breathe 2s ease-in-out infinite;
-        }
-        .loader-logo-fallback {
-            width: 72px;
-            height: 72px;
-            border-radius: 1rem;
-            display: grid;
-            place-content: center;
-            font-size: 1.75rem;
-            font-weight: 800;
-            color: white;
-            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
-            animation: loader-breathe 2s ease-in-out infinite;
-        }
-        @keyframes loader-breathe {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.06); opacity: 0.85; }
-        }
-        .loader-bar-track {
-            margin-top: 1.5rem;
-            width: 180px;
-            height: 4px;
-            border-radius: 9999px;
-            background: oklch(var(--bc) / 0.08);
-            overflow: hidden;
-        }
-        .loader-bar {
-            height: 100%;
-            border-radius: 9999px;
-            background: linear-gradient(90deg, var(--school-primary), var(--school-secondary));
-            animation: loader-slide 1.4s ease-in-out infinite;
-            width: 40%;
-        }
-        @keyframes loader-slide {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(350%); }
-        }
-        .loader-name {
-            margin-top: 1rem;
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: oklch(var(--bc) / 0.45);
-            letter-spacing: 0.02em;
-        }
-
-        /* ========== HTMX navigation loading overlay ========== */
         #nav-loader {
             position: absolute;
             inset: 0;
             z-index: 40;
             display: none;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: oklch(var(--b1) / 0.7);
-            backdrop-filter: blur(2px);
+            background: oklch(var(--b1) / 0.8);
+            backdrop-filter: blur(6px);
         }
         #nav-loader.active {
             display: flex;
-        }
-        .nav-loader-inner {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-            animation: nav-fade-in 0.2s ease-out;
-        }
-        @keyframes nav-fade-in {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .nav-spinner {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 3px solid oklch(var(--bc) / 0.1);
-            border-top-color: var(--school-primary);
-            animation: nav-spin 0.7s linear infinite;
-        }
-        @keyframes nav-spin {
-            to { transform: rotate(360deg); }
-        }
-        .nav-loader-text {
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: oklch(var(--bc) / 0.45);
         }
 
         /* Safari dropdown fix - ensure clickable elements work correctly */
@@ -628,12 +551,16 @@
     <!-- Full-page loading screen (visible until page is ready) -->
     <div id="page-loader">
         {% if school.logo %}
-        <img src="{{ school.logo.url }}" alt="" class="loader-logo">
+        <div class="w-20 h-20 rounded-2xl school-gradient p-3 shadow-lg mb-6">
+            <img src="{{ school.logo.url }}" alt="" class="w-full h-full object-contain">
+        </div>
         {% else %}
-        <div class="loader-logo-fallback">{{ school.short_name|slice:":1"|default:"S" }}</div>
+        <div class="w-20 h-20 rounded-2xl school-gradient grid place-content-center shadow-lg mb-6">
+            <span class="text-3xl font-extrabold text-white">{{ school.short_name|slice:":1"|default:"S" }}</span>
+        </div>
         {% endif %}
-        <div class="loader-bar-track"><div class="loader-bar"></div></div>
-        <span class="loader-name">{{ school.short_name|default:school.display_name|default:"Loading" }}</span>
+        <span class="loading loading-dots loading-lg text-primary"></span>
+        <p class="text-sm text-base-content/50 mt-4 font-medium">{{ school.short_name|default:school.display_name|default:"Loading" }}</p>
     </div>
 
     <div class="drawer">
@@ -652,10 +579,16 @@
 
                     <!-- Navigation loading overlay (shown during HTMX page transitions) -->
                     <div id="nav-loader">
-                        <div class="nav-loader-inner">
-                            <div class="nav-spinner"></div>
-                            <span class="nav-loader-text">Loading...</span>
+                        {% if school.logo %}
+                        <div class="w-16 h-16 rounded-xl school-gradient p-2.5 shadow-md mb-5">
+                            <img src="{{ school.logo.url }}" alt="" class="w-full h-full object-contain">
                         </div>
+                        {% else %}
+                        <div class="w-16 h-16 rounded-xl school-gradient grid place-content-center shadow-md mb-5">
+                            <span class="text-2xl font-extrabold text-white">{{ school.short_name|slice:":1"|default:"S" }}</span>
+                        </div>
+                        {% endif %}
+                        <span class="loading loading-dots loading-md text-primary"></span>
                     </div>
 
                     <!-- Main content area - HTMX swap target -->
