@@ -17,6 +17,7 @@
                hx-get="{% url 'academics:class_detail' class.pk %}"
                hx-target="#main-content"
                hx-push-url="true"
+               hx-swap="innerHTML show:window:top"
                class="btn btn-ghost btn-sm gap-1">
                 <i class="fa-solid fa-arrow-left"></i>
                 Back to Class
