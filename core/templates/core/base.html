@@ -74,11 +74,11 @@
         /* HTMX transition animations */
         .htmx-swapping {
             opacity: 0;
-            transition: opacity 0.15s ease-out;
+            transition: opacity 0.2s ease-out;
         }
         .htmx-settling {
             opacity: 1;
-            transition: opacity 0.15s ease-in;
+            transition: opacity 0.3s ease-in;
         }
         .modal-box .htmx-added {
             animation: modalFadeIn 0.2s ease-out;
@@ -213,15 +213,21 @@
             position: absolute;
             inset: 0;
             z-index: 40;
-            display: none;
+            display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             background: oklch(var(--b1) / 0.8);
             backdrop-filter: blur(6px);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            pointer-events: none;
         }
         #nav-loader.active {
-            display: flex;
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
         }
 
         /* Safari dropdown fix - ensure clickable elements work correctly */
@@ -300,16 +306,6 @@
         .htmx-request-failed {
             outline: 2px solid oklch(var(--er));
             outline-offset: 2px;
-        }
-
-        /* HTMX Smooth Transitions */
-        .htmx-swapping {
-            opacity: 0;
-            transition: opacity 0.15s ease-out;
-        }
-        .htmx-settling {
-            opacity: 1;
-            transition: opacity 0.15s ease-in;
         }
 
         /* Modal content transitions */
@@ -830,6 +826,9 @@
                 if (!window._navClickPending) return;
                 var target = e.detail.target;
                 if (target && target.id === 'main-content') {
+                    // Scroll main to top so the loader is centered in view
+                    var main = document.querySelector('main');
+                    if (main) main.scrollTop = 0;
                     var loader = document.getElementById('nav-loader');
                     if (loader) loader.classList.add('active');
                 }
