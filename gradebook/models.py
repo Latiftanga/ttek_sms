@@ -877,24 +877,29 @@ class SubjectTermGrade(models.Model):
 
         return category_totals
 
-    def determine_grade(self, grading_system):
-        """Look up grade from GradeScale based on total_score"""
+    def determine_grade(self, grading_system, grade_scales=None):
+        """Look up grade from GradeScale based on total_score.
+
+        Args:
+            grading_system: GradingSystem instance
+            grade_scales: Optional pre-fetched list of GradeScale objects.
+                         If not provided, will fetch from the grading system.
+        """
+        from .utils import determine_grade_from_scales
+
         if self.total_score is None:
             self.is_passing = False
             return
 
-        grade_scale = GradeScale.objects.filter(
-            grading_system=grading_system,
-            min_percentage__lte=self.total_score,
-            max_percentage__gte=self.total_score
-        ).first()
+        if grade_scales is None:
+            grade_scales = list(
+                grading_system.scales.all().order_by('-min_percentage')
+            )
 
-        if grade_scale:
-            self.grade = grade_scale.grade_label
-            self.grade_remark = grade_scale.interpretation
-            self.is_passing = grade_scale.is_pass
-        else:
-            self.is_passing = False
+        grade_info = determine_grade_from_scales(self.total_score, grade_scales)
+        self.grade = grade_info['grade']
+        self.grade_remark = grade_info['grade_remark']
+        self.is_passing = grade_info['is_passing']
 
     class Meta:
         db_table = 'subject_term_grade'
@@ -1057,6 +1062,11 @@ class TermReport(models.Model):
         blank=True,
         help_text='Total school days in the term'
     )
+    times_late = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text='Number of times student was late in the term'
+    )
 
     # Promotion (for final term)
     promoted = models.BooleanField(
@@ -1104,30 +1114,31 @@ class TermReport(models.Model):
         self.average = round(total / count, 2) if count > 0 else Decimal('0.0')
         self.subjects_taken = count
 
-        # Determine pass threshold
-        if grading_system:
-            pass_mark = grading_system.pass_mark
-            credit_mark = grading_system.credit_mark
-        else:
-            # Default Ghana standard: 50% pass, 50% credit
-            pass_mark = Decimal('50.00')
-            credit_mark = Decimal('50.00')
-
-        # Count passed/failed using configurable threshold
-        passed_grades = [sg for sg in grades_list if sg.total_score >= pass_mark]
+        # Count passed/failed using the is_passing flag set by grade scale
+        passed_grades = [sg for sg in grades_list if sg.is_passing]
         self.subjects_passed = len(passed_grades)
         self.subjects_failed = count - self.subjects_passed
 
-        # Count credits (C6 or better for WASSCE)
-        self.credits_count = len([
-            sg for sg in grades_list if sg.total_score >= credit_mark
-        ])
+        # Count credits using grade scale lookup
+        if grading_system:
+            grade_scales = list(grading_system.scales.all().order_by('-min_percentage'))
+            credits = 0
+            for sg in grades_list:
+                for scale in grade_scales:
+                    if scale.min_percentage <= sg.total_score <= scale.max_percentage:
+                        if scale.is_credit:
+                            credits += 1
+                        break
+            self.credits_count = credits
+        else:
+            # Fallback: count subjects with is_passing as credits
+            self.credits_count = len(passed_grades)
 
         # Core subjects breakdown
         core_grades = [sg for sg in grades_list if sg.subject.is_core]
         self.core_subjects_total = len(core_grades)
         self.core_subjects_passed = len([
-            sg for sg in core_grades if sg.total_score >= pass_mark
+            sg for sg in core_grades if sg.is_passing
         ])
 
         # Calculate WASSCE aggregate if grading system provided
@@ -1135,10 +1146,32 @@ class TermReport(models.Model):
             aggregate, _ = grading_system.calculate_aggregate(grades_list)
             self.aggregate = aggregate
 
+    @staticmethod
+    def derive_attendance_rating(attendance_percentage):
+        """Derive attendance rating from attendance percentage.
+
+        Returns one of the RATING_CHOICES values based on thresholds:
+        >= 95% → EXCELLENT, >= 85% → VERY_GOOD, >= 75% → GOOD,
+        >= 60% → FAIR, < 60% → POOR
+        """
+        if attendance_percentage is None:
+            return ''
+        pct = float(attendance_percentage)
+        if pct >= 95:
+            return 'EXCELLENT'
+        elif pct >= 85:
+            return 'VERY_GOOD'
+        elif pct >= 75:
+            return 'GOOD'
+        elif pct >= 60:
+            return 'FAIR'
+        return 'POOR'
+
     def calculate_attendance(self):
         """
         Calculate attendance from AttendanceRecord for the term.
-        Links to the student's class and term dates.
+        Computes days_present, days_absent, times_late, attendance_percentage,
+        and auto-sets attendance_rating.
         """
         from academics.models import AttendanceSession, AttendanceRecord
 
@@ -1169,11 +1202,15 @@ class TermReport(models.Model):
         present_statuses = ['P', 'L']  # Present and Late count as present
         self.days_present = records.filter(status__in=present_statuses).count()
         self.days_absent = records.filter(status='A').count()
+        self.times_late = records.filter(status='L').count()
 
         if self.total_school_days > 0:
             self.attendance_percentage = round(
                 (Decimal(str(self.days_present)) / Decimal(str(self.total_school_days))) * 100,
                 2
+            )
+            self.attendance_rating = self.derive_attendance_rating(
+                self.attendance_percentage
             )
 
     def check_promotion(self, grading_system):

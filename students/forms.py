@@ -28,6 +28,10 @@ def validate_phone_number(phone):
     if cleaned.startswith('233'):
         cleaned = '0' + cleaned[3:]  # Convert to local format
 
+    # Handle leading zero stripped by Excel/pandas (e.g., 0241234567 → 241234567)
+    if len(cleaned) == 9 and not cleaned.startswith('0'):
+        cleaned = '0' + cleaned
+
     # Validate length (most phone numbers are 10-15 digits)
     if len(cleaned) < 10:
         raise forms.ValidationError(_("Phone number too short (minimum 10 digits)"))

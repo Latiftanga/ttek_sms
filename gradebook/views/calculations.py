@@ -361,8 +361,6 @@ def calculate_class_grades(request, class_id):
 
             # Calculate aggregates for each report
             reports_to_update = []
-            pass_mark = grading_system.pass_mark if grading_system else config.DEFAULT_PASS_MARK
-            credit_mark = grading_system.credit_mark if grading_system else config.DEFAULT_CREDIT_MARK
 
             for student in students:
                 report = existing_reports[student.id]
@@ -376,15 +374,21 @@ def calculate_class_grades(request, class_id):
                     report.average = round(total / count, 2) if count > 0 else Decimal('0.0')
                     report.subjects_taken = count
 
-                    # Count passed/failed
-                    passed = [g for g in student_grades if g.total_score and g.total_score >= pass_mark]
+                    # Count passed/failed using the is_passing flag set by grade scale
+                    passed = [g for g in student_grades if g.is_passing]
                     report.subjects_passed = len(passed)
                     report.subjects_failed = count - len(passed)
 
-                    # Count credits
-                    report.credits_count = len([
-                        g for g in student_grades if g.total_score and g.total_score >= credit_mark
-                    ])
+                    # Count credits by looking up each score in grade scales
+                    credits = 0
+                    for g in student_grades:
+                        if g.total_score is not None and grade_scales:
+                            for scale in grade_scales:
+                                if scale.min_percentage <= g.total_score <= scale.max_percentage:
+                                    if scale.is_credit:
+                                        credits += 1
+                                    break
+                    report.credits_count = credits
 
                     # Core subjects
                     core_grades = [
@@ -393,7 +397,7 @@ def calculate_class_grades(request, class_id):
                     ]
                     report.core_subjects_total = len(core_grades)
                     report.core_subjects_passed = len([
-                        g for g in core_grades if g.total_score and g.total_score >= pass_mark
+                        g for g in core_grades if g.is_passing
                     ])
 
                     # Calculate aggregate if grading system provided
@@ -414,6 +418,9 @@ def calculate_class_grades(request, class_id):
 
                 report.out_of = len(students)
 
+                # Calculate attendance from attendance records
+                report.calculate_attendance()
+
                 # Check promotion eligibility for final term
                 if is_final_term and grading_system:
                     is_eligible, reasons = grading_system.check_promotion_eligibility(
@@ -430,7 +437,9 @@ def calculate_class_grades(request, class_id):
                 ['total_marks', 'average', 'subjects_taken', 'subjects_passed',
                  'subjects_failed', 'credits_count', 'core_subjects_total',
                  'core_subjects_passed', 'aggregate', 'out_of', 'promoted',
-                 'promotion_remarks'],
+                 'promotion_remarks', 'days_present', 'days_absent',
+                 'total_school_days', 'times_late', 'attendance_percentage',
+                 'attendance_rating'],
                 batch_size=config.BULK_UPDATE_BATCH_SIZE
             )
 

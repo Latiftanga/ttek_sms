@@ -14,6 +14,7 @@ from accounts.models import User
 from teachers.models import Teacher, TeacherInvitation
 from .utils import admin_required, clean_value, parse_date
 from .accounts import send_invitation_email
+from students.views.utils import normalize_phone_number
 
 
 EXPECTED_COLUMNS = [
@@ -99,7 +100,15 @@ def bulk_import(request):
             gender = clean_value(row.get('gender', '')).upper()
             staff_id = clean_value(row.get('staff_id', ''))
             email = clean_value(row.get('email', '')).lower()
-            phone = clean_value(row.get('phone', ''))
+            phone_raw = clean_value(row.get('phone', ''))
+            # Normalize phone number (handles leading zero stripped by Excel)
+            if phone_raw:
+                phone_valid, phone, phone_error = normalize_phone_number(phone_raw)
+                if not phone_valid:
+                    errors.append(phone_error)
+                    phone = phone_raw  # Keep original for error display
+            else:
+                phone = ''
             address = clean_value(row.get('address', ''))
             staff_category = clean_value(row.get('staff_category', '')).lower() or 'teaching'
             ghana_card_number = clean_value(row.get('ghana_card_number', ''))
