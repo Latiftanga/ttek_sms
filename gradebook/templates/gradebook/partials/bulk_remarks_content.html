@@ -247,22 +247,21 @@
                             </select>
                         </div>
 
-                        <!-- Attendance -->
+                        <!-- Attendance (auto-computed from attendance records) -->
                         <div class="form-control">
                             <label class="label py-0.5 sm:py-1">
                                 <span class="label-text text-xs">Attendance</span>
                             </label>
-                            <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
-                                    hx-post="{% url 'gradebook:bulk_remark_save' %}"
-                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "attendance_rating"}'
-                                    hx-trigger="change"
-                                    hx-swap="none"
-                                    name="value">
-                                <option value="">Select...</option>
-                                {% for value, label in rating_choices %}
-                                <option value="{{ value }}" {% if student.term_report and student.term_report.attendance_rating == value %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
+                            <div class="px-2 py-1.5 bg-base-200/50 rounded-lg text-xs sm:text-sm">
+                                {% if student.term_report and student.term_report.attendance_rating %}
+                                    {{ student.term_report.get_attendance_rating_display }}
+                                    {% if student.term_report.attendance_percentage %}
+                                        <span class="text-base-content/50">({{ student.term_report.attendance_percentage|floatformat:0 }}%)</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-base-content/40">Auto-computed</span>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
 

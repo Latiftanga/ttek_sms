@@ -147,7 +147,7 @@ def bulk_remark_save(request):
     # Update the field
     allowed_fields = [
         'class_teacher_remark', 'conduct_rating', 'attitude_rating',
-        'interest_rating', 'attendance_rating'
+        'interest_rating',
     ]
 
     if field in allowed_fields:

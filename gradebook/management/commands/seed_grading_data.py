@@ -107,16 +107,17 @@ class Command(BaseCommand):
         )
 
         # BECE grading scale (same as WASSCE but typically used 1-9)
+        # max values use .99 to avoid gaps with decimal scores (e.g., 79.5 must match grade 2)
         scales = [
             {'grade_label': '1', 'min': 80, 'max': 100, 'points': 1, 'interpretation': 'Excellent', 'is_pass': True, 'is_credit': True},
-            {'grade_label': '2', 'min': 70, 'max': 79, 'points': 2, 'interpretation': 'Very Good', 'is_pass': True, 'is_credit': True},
-            {'grade_label': '3', 'min': 65, 'max': 69, 'points': 3, 'interpretation': 'Good', 'is_pass': True, 'is_credit': True},
-            {'grade_label': '4', 'min': 60, 'max': 64, 'points': 4, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
-            {'grade_label': '5', 'min': 55, 'max': 59, 'points': 5, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
-            {'grade_label': '6', 'min': 50, 'max': 54, 'points': 6, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
-            {'grade_label': '7', 'min': 45, 'max': 49, 'points': 7, 'interpretation': 'Pass', 'is_pass': True, 'is_credit': False},
-            {'grade_label': '8', 'min': 40, 'max': 44, 'points': 8, 'interpretation': 'Pass', 'is_pass': True, 'is_credit': False},
-            {'grade_label': '9', 'min': 0, 'max': 39, 'points': 9, 'interpretation': 'Fail', 'is_pass': False, 'is_credit': False},
+            {'grade_label': '2', 'min': 70, 'max': 79.99, 'points': 2, 'interpretation': 'Very Good', 'is_pass': True, 'is_credit': True},
+            {'grade_label': '3', 'min': 65, 'max': 69.99, 'points': 3, 'interpretation': 'Good', 'is_pass': True, 'is_credit': True},
+            {'grade_label': '4', 'min': 60, 'max': 64.99, 'points': 4, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
+            {'grade_label': '5', 'min': 55, 'max': 59.99, 'points': 5, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
+            {'grade_label': '6', 'min': 50, 'max': 54.99, 'points': 6, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
+            {'grade_label': '7', 'min': 45, 'max': 49.99, 'points': 7, 'interpretation': 'Pass', 'is_pass': True, 'is_credit': False},
+            {'grade_label': '8', 'min': 40, 'max': 44.99, 'points': 8, 'interpretation': 'Pass', 'is_pass': True, 'is_credit': False},
+            {'grade_label': '9', 'min': 0, 'max': 39.99, 'points': 9, 'interpretation': 'Fail', 'is_pass': False, 'is_credit': False},
         ]
 
         for i, scale_data in enumerate(scales):
@@ -157,16 +158,17 @@ class Command(BaseCommand):
         )
 
         # WASSCE grading scale (A1-F9)
+        # max values use .99 to avoid gaps with decimal scores (e.g., 79.5 must match B2)
         scales = [
             {'grade_label': 'A1', 'min': 80, 'max': 100, 'points': 1, 'interpretation': 'Excellent', 'is_pass': True, 'is_credit': True},
-            {'grade_label': 'B2', 'min': 70, 'max': 79, 'points': 2, 'interpretation': 'Very Good', 'is_pass': True, 'is_credit': True},
-            {'grade_label': 'B3', 'min': 65, 'max': 69, 'points': 3, 'interpretation': 'Good', 'is_pass': True, 'is_credit': True},
-            {'grade_label': 'C4', 'min': 60, 'max': 64, 'points': 4, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
-            {'grade_label': 'C5', 'min': 55, 'max': 59, 'points': 5, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
-            {'grade_label': 'C6', 'min': 50, 'max': 54, 'points': 6, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
-            {'grade_label': 'D7', 'min': 45, 'max': 49, 'points': 7, 'interpretation': 'Pass', 'is_pass': True, 'is_credit': False},
-            {'grade_label': 'E8', 'min': 40, 'max': 44, 'points': 8, 'interpretation': 'Pass', 'is_pass': True, 'is_credit': False},
-            {'grade_label': 'F9', 'min': 0, 'max': 39, 'points': 9, 'interpretation': 'Fail', 'is_pass': False, 'is_credit': False},
+            {'grade_label': 'B2', 'min': 70, 'max': 79.99, 'points': 2, 'interpretation': 'Very Good', 'is_pass': True, 'is_credit': True},
+            {'grade_label': 'B3', 'min': 65, 'max': 69.99, 'points': 3, 'interpretation': 'Good', 'is_pass': True, 'is_credit': True},
+            {'grade_label': 'C4', 'min': 60, 'max': 64.99, 'points': 4, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
+            {'grade_label': 'C5', 'min': 55, 'max': 59.99, 'points': 5, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
+            {'grade_label': 'C6', 'min': 50, 'max': 54.99, 'points': 6, 'interpretation': 'Credit', 'is_pass': True, 'is_credit': True},
+            {'grade_label': 'D7', 'min': 45, 'max': 49.99, 'points': 7, 'interpretation': 'Pass', 'is_pass': True, 'is_credit': False},
+            {'grade_label': 'E8', 'min': 40, 'max': 44.99, 'points': 8, 'interpretation': 'Pass', 'is_pass': True, 'is_credit': False},
+            {'grade_label': 'F9', 'min': 0, 'max': 39.99, 'points': 9, 'interpretation': 'Fail', 'is_pass': False, 'is_credit': False},
         ]
 
         for i, scale_data in enumerate(scales):

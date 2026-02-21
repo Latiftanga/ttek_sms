@@ -33,6 +33,10 @@ def normalize_phone_number(phone):
     if cleaned.startswith('233'):
         cleaned = '0' + cleaned[3:]
 
+    # Handle leading zero stripped by Excel/pandas (e.g., 0241234567 → 241234567)
+    if len(cleaned) == 9 and not cleaned.startswith('0'):
+        cleaned = '0' + cleaned
+
     if len(cleaned) < 10:
         return False, None, "Phone number too short (minimum 10 digits)"
     if len(cleaned) > 15:

@@ -249,6 +249,9 @@ def recalculate_term_report(student, term):
         report.subjects_failed = subjects_taken - subjects_passed
         report.average = round(total_marks / subjects_taken, 2) if subjects_taken > 0 else Decimal('0.0')
 
+        # Calculate attendance from attendance records
+        report.calculate_attendance()
+
         report.save()
 
         logger.debug(
