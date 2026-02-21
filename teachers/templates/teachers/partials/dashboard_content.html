@@ -78,40 +78,48 @@
     </div>
 </div>
 
-<!-- Mobile Quick Actions - Visible only on small screens -->
+<!-- Quick Actions - Grid on mobile, inline on tablet -->
 <div class="lg:hidden mb-6">
-    <div class="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+    <div class="grid grid-cols-4 gap-2">
         <a href="{% url 'core:my_grading' %}"
            hx-get="{% url 'core:my_grading' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-sm btn-primary gap-2 flex-shrink-0">
-            <i class="fa-solid fa-pen-to-square"></i>
-            Enter Scores
+           class="flex flex-col items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-all group">
+            <div class="w-9 h-9 rounded-full bg-primary/10 group-hover:bg-primary group-hover:text-white flex items-center justify-center mb-1.5 transition-colors">
+                <i class="fa-solid fa-pen-to-square text-sm"></i>
+            </div>
+            <span class="text-xs font-medium text-base-content/70 group-hover:text-primary">Scores</span>
         </a>
         <a href="{% url 'core:my_attendance' %}"
            hx-get="{% url 'core:my_attendance' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-sm btn-success gap-2 flex-shrink-0">
-            <i class="fa-solid fa-clipboard-check"></i>
-            Attendance
+           class="flex flex-col items-center justify-center p-3 rounded-xl bg-success/10 border border-success/20 hover:bg-success/20 transition-all group">
+            <div class="w-9 h-9 rounded-full bg-success/10 group-hover:bg-success group-hover:text-white flex items-center justify-center mb-1.5 transition-colors">
+                <i class="fa-solid fa-clipboard-check text-sm"></i>
+            </div>
+            <span class="text-xs font-medium text-base-content/70 group-hover:text-success">Attendance</span>
         </a>
         <a href="{% url 'gradebook:reports' %}"
            hx-get="{% url 'gradebook:reports' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-sm btn-info gap-2 flex-shrink-0">
-            <i class="fa-solid fa-file-lines"></i>
-            Reports
+           class="flex flex-col items-center justify-center p-3 rounded-xl bg-info/10 border border-info/20 hover:bg-info/20 transition-all group">
+            <div class="w-9 h-9 rounded-full bg-info/10 group-hover:bg-info group-hover:text-white flex items-center justify-center mb-1.5 transition-colors">
+                <i class="fa-solid fa-file-lines text-sm"></i>
+            </div>
+            <span class="text-xs font-medium text-base-content/70 group-hover:text-info">Reports</span>
         </a>
         <a href="{% url 'core:schedule' %}"
            hx-get="{% url 'core:schedule' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-sm btn-secondary gap-2 flex-shrink-0">
-            <i class="fa-solid fa-calendar-days"></i>
-            Schedule
+           class="flex flex-col items-center justify-center p-3 rounded-xl bg-secondary/10 border border-secondary/20 hover:bg-secondary/20 transition-all group">
+            <div class="w-9 h-9 rounded-full bg-secondary/10 group-hover:bg-secondary group-hover:text-white flex items-center justify-center mb-1.5 transition-colors">
+                <i class="fa-solid fa-calendar-days text-sm"></i>
+            </div>
+            <span class="text-xs font-medium text-base-content/70 group-hover:text-secondary">Schedule</span>
         </a>
     </div>
 </div>
