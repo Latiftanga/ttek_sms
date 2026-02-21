@@ -1,6 +1,27 @@
 {% load static tailwind_tags core_tags %}
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+<!-- Instant page loader — renders before anything else -->
+<style>
+    #page-loader{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;transition:opacity .5s,visibility .5s}
+    #page-loader.loaded{opacity:0;visibility:hidden;pointer-events:none}
+    [data-theme="dark"] #page-loader{background:#1d232a}
+    .pl-icon{width:72px;height:72px;border-radius:1.25rem;background:linear-gradient(135deg,{{ school.primary_color|default:"#570df8" }},{{ school.secondary_color|default:"#6419e6" }});display:flex;align-items:center;justify-content:center;padding:.75rem;box-shadow:0 8px 24px rgba(0,0,0,.12);margin-bottom:1.25rem}
+    .pl-icon img{width:100%;height:100%;object-fit:contain}
+    .pl-dots{display:flex;gap:6px;margin-bottom:.75rem}
+    .pl-dots span{width:8px;height:8px;border-radius:50%;background:{{ school.primary_color|default:"#570df8" }};animation:pl-bounce .6s ease-in-out infinite}
+    .pl-dots span:nth-child(2){animation-delay:.1s}
+    .pl-dots span:nth-child(3){animation-delay:.2s}
+    @keyframes pl-bounce{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-8px);opacity:1}}
+    .pl-name{font-size:.8rem;font-weight:500;color:#9ca3af;letter-spacing:.02em}
+</style>
+<div id="page-loader">
+    <div class="pl-icon">
+        {% if school.logo %}<img src="{{ school.logo.url }}" alt="">{% else %}<span style="font-size:1.75rem;font-weight:800;color:#fff">{{ school.short_name|slice:":1"|default:"S" }}</span>{% endif %}
+    </div>
+    <div class="pl-dots"><span></span><span></span><span></span></div>
+    <span class="pl-name">{{ school.short_name|default:school.name|default:"Loading" }}</span>
+</div>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
@@ -463,39 +484,9 @@
             }
         }
 
-        /* Full-page loading screen */
-        #page-loader {
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: oklch(var(--b1));
-            transition: opacity 0.5s ease, visibility 0.5s ease;
-        }
-        #page-loader.loaded {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
-    <!-- Full-page loading screen -->
-    <div id="page-loader">
-        <div style="width:80px;height:80px;border-radius:1.25rem;background:linear-gradient(135deg,var(--school-primary),var(--school-secondary));padding:0.75rem;box-shadow:0 8px 24px rgba(0,0,0,0.15);margin-bottom:1.5rem;display:flex;align-items:center;justify-content:center;">
-            {% if school.logo %}
-            <img src="{{ school.logo.url }}" alt="" style="width:100%;height:100%;object-fit:contain;">
-            {% else %}
-            <span style="font-size:1.75rem;font-weight:800;color:white;">{{ school.short_name|slice:":1"|default:"S" }}</span>
-            {% endif %}
-        </div>
-        <span class="loading loading-dots loading-lg" style="color:var(--school-primary);"></span>
-        <p style="margin-top:1rem;font-size:0.8rem;font-weight:500;color:oklch(var(--bc)/0.45);">{{ school.short_name|default:school.name|default:"Loading" }}</p>
-    </div>
-
     <div class="login-wrapper">
         <!-- Left Panel - Branding (Desktop only) -->
         <div class="brand-panel">
