@@ -158,8 +158,8 @@
 <!-- Score Entry Progress (Full Width Hero) -->
 <div class="card bg-base-100 shadow-sm border border-base-200 mb-8">
     <div class="card-body p-4 sm:p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="card-title text-base sm:text-lg">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h2 class="card-title text-sm sm:text-lg">
                 <i class="fa-solid fa-chart-simple text-success"></i>
                 Score Entry Progress
             </h2>
@@ -181,20 +181,19 @@
 
         {% if classes_needing_scores %}
         <!-- Filter/Sort Controls -->
-        <div class="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-base-200">
+        <div class="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-base-200">
             <div class="flex items-center gap-1">
                 <button type="button" onclick="filterProgressList('all')" class="btn btn-xs progress-filter active" data-filter="all">
                     All
                 </button>
                 <button type="button" onclick="filterProgressList('pending')" class="btn btn-xs btn-ghost progress-filter" data-filter="pending">
-                    <i class="fa-solid fa-clock text-warning"></i> Pending
+                    <i class="fa-solid fa-clock text-warning"></i> <span class="hidden sm:inline">Pending</span>
                 </button>
                 <button type="button" onclick="filterProgressList('complete')" class="btn btn-xs btn-ghost progress-filter" data-filter="complete">
-                    <i class="fa-solid fa-check text-success"></i> Complete
+                    <i class="fa-solid fa-check text-success"></i> <span class="hidden sm:inline">Complete</span>
                 </button>
             </div>
-            <div class="flex-1"></div>
-            <div class="text-xs text-base-content/60">
+            <div class="text-xs text-base-content/60 shrink-0">
                 <span id="visible-count">{{ classes_needing_scores|length }}</span> classes
             </div>
         </div>
@@ -365,8 +364,8 @@
         </div>
 
         <!-- Summary Footer -->
-        <div class="flex items-center justify-between mt-4 pt-3 border-t border-base-200">
-            <div class="flex items-center gap-4 text-xs">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 pt-3 border-t border-base-200">
+            <div class="flex items-center gap-3 sm:gap-4 text-xs">
                 <span class="flex items-center gap-1">
                     <span class="w-2 h-2 rounded-full bg-success"></span>
                     Complete
@@ -384,7 +383,7 @@
                hx-get="{% url 'gradebook:score_entry' %}"
                hx-target="#main-content"
                hx-push-url="true"
-               class="btn btn-primary btn-sm">
+               class="btn btn-primary btn-sm w-full sm:w-auto">
                 <i class="fa-solid fa-pen-to-square"></i>
                 Enter Scores
             </a>
