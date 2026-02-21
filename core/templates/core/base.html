@@ -25,8 +25,7 @@
     <meta name="apple-mobile-web-app-title" content="{{ school.display_name }}">
     <link rel="apple-touch-icon" href="{% if school.logo %}{{ school.logo.url }}{% else %}{% static 'icons/icon-192.svg' %}{% endif %}">
 
-    <!-- Resource hints for critical assets -->
-    <link rel="preload" href="{% static 'css/dist/styles.css' %}" as="style">
+    <!-- Preload critical font so browser fetches it early -->
     <link rel="preload" href="{% static 'fontawesome/webfonts/fa-solid-900.woff2' %}" as="font" type="font/woff2" crossorigin>
 
     {% tailwind_css %}
@@ -193,6 +192,115 @@
             background-color: oklch(var(--bc) / 0.3);
         }
 
+        /* ========== Full-page loading screen ========== */
+        #page-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: oklch(var(--b1));
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        #page-loader.loaded {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .loader-logo {
+            width: 72px;
+            height: 72px;
+            border-radius: 1rem;
+            object-fit: contain;
+            animation: loader-breathe 2s ease-in-out infinite;
+        }
+        .loader-logo-fallback {
+            width: 72px;
+            height: 72px;
+            border-radius: 1rem;
+            display: grid;
+            place-content: center;
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: white;
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+            animation: loader-breathe 2s ease-in-out infinite;
+        }
+        @keyframes loader-breathe {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.06); opacity: 0.85; }
+        }
+        .loader-bar-track {
+            margin-top: 1.5rem;
+            width: 180px;
+            height: 4px;
+            border-radius: 9999px;
+            background: oklch(var(--bc) / 0.08);
+            overflow: hidden;
+        }
+        .loader-bar {
+            height: 100%;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, var(--school-primary), var(--school-secondary));
+            animation: loader-slide 1.4s ease-in-out infinite;
+            width: 40%;
+        }
+        @keyframes loader-slide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+        .loader-name {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: oklch(var(--bc) / 0.45);
+            letter-spacing: 0.02em;
+        }
+
+        /* ========== HTMX navigation loading overlay ========== */
+        #nav-loader {
+            position: absolute;
+            inset: 0;
+            z-index: 40;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: oklch(var(--b1) / 0.75);
+            backdrop-filter: blur(4px);
+        }
+        .htmx-request #nav-loader {
+            display: flex !important;
+        }
+        .nav-loader-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            animation: nav-fade-in 0.15s ease-out;
+        }
+        @keyframes nav-fade-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .nav-spinner {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid oklch(var(--bc) / 0.1);
+            border-top-color: var(--school-primary);
+            animation: nav-spin 0.7s linear infinite;
+        }
+        @keyframes nav-spin {
+            to { transform: rotate(360deg); }
+        }
+        .nav-loader-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: oklch(var(--bc) / 0.45);
+        }
+
         /* HTMX loading indicator */
         .htmx-request #main-content {
             opacity: 0.6;
@@ -211,10 +319,6 @@
         .dropdown:focus-within .dropdown-content {
             visibility: visible;
             opacity: 1;
-        }
-
-        .htmx-request #loading-indicator {
-            display: flex !important;
         }
 
         /* HTMX loading state utilities for buttons/elements */
@@ -377,7 +481,8 @@
             .desktop-sidebar,
             .drawer-side,
             header,
-            #loading-indicator,
+            #page-loader,
+            #nav-loader,
             dialog,
             .modal,
             .modal-backdrop {
@@ -527,6 +632,17 @@
 <body class="bg-base-200 min-h-screen text-base-content" hx-ext="preload" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     {% django_htmx_script %}
 
+    <!-- Full-page loading screen (visible until page is ready) -->
+    <div id="page-loader">
+        {% if school.logo %}
+        <img src="{{ school.logo.url }}" alt="" class="loader-logo">
+        {% else %}
+        <div class="loader-logo-fallback">{{ school.short_name|slice:":1"|default:"S" }}</div>
+        {% endif %}
+        <div class="loader-bar-track"><div class="loader-bar"></div></div>
+        <span class="loader-name">{{ school.short_name|default:school.display_name|default:"Loading" }}</span>
+    </div>
+
     <div class="drawer">
         <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
         <input id="desktop-toggle" type="checkbox" class="hidden" />
@@ -541,11 +657,11 @@
                     <!-- Loading progress bar -->
                     <div class="loading-progress"></div>
 
-                    <!-- Loading indicator overlay -->
-                    <div id="loading-indicator" class="hidden absolute inset-0 bg-base-100/70 backdrop-blur-sm z-40 items-center justify-center">
-                        <div class="flex flex-col items-center gap-3">
-                            <span class="loading loading-spinner loading-lg text-primary"></span>
-                            <span class="text-sm text-base-content/60 font-medium">Loading...</span>
+                    <!-- Navigation loading overlay (shown during HTMX page transitions) -->
+                    <div id="nav-loader">
+                        <div class="nav-loader-inner">
+                            <div class="nav-spinner"></div>
+                            <span class="nav-loader-text">Loading...</span>
                         </div>
                     </div>
 
@@ -975,6 +1091,19 @@
                 }
             });
             document.addEventListener('DOMContentLoaded', window.updateSidebarActive);
+
+            // ========================================
+            // Dismiss full-page loader once page is ready
+            // ========================================
+            window.addEventListener('load', function() {
+                const loader = document.getElementById('page-loader');
+                if (loader) {
+                    // Small delay so the animation feels intentional, not abrupt
+                    setTimeout(() => loader.classList.add('loaded'), 150);
+                    // Remove from DOM after fade-out completes
+                    setTimeout(() => loader.remove(), 600);
+                }
+            });
 
             // ========================================
             // Close Modal Handler (HX-Trigger: closeModal)
