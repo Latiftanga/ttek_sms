@@ -227,7 +227,12 @@ def student_report(request, student_id):
         'is_shs': show_core_elective,
     }
 
-    return render(request, 'gradebook/partials/report_card.html', context)
+    return htmx_render(
+        request,
+        'gradebook/student_report.html',
+        'gradebook/partials/report_card.html',
+        context
+    )
 
 
 @login_required
