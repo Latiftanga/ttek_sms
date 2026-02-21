@@ -1271,6 +1271,7 @@ def teacher_dashboard(request):
 
 
 @login_required
+@cache_control(max_age=60, stale_while_revalidate=300)
 def index(request):
     """Dashboard/index view - routes to appropriate dashboard based on user role."""
     from django.db.models import Count, Q

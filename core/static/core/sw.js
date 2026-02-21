@@ -4,7 +4,7 @@
 // IMPORTANT: Increment CACHE_VERSION when deploying updates to force cache refresh
 // Format: 'v{major}.{minor}' - bump minor for small changes, major for breaking changes
 
-const CACHE_VERSION = 'v1.4';
+const CACHE_VERSION = 'v1.5';
 const CACHE_NAME = `sms-cache-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline/';
 
@@ -15,7 +15,15 @@ const PRECACHE_ASSETS = [
     '/static/fontawesome/css/all.min.css',
     '/static/fontawesome/webfonts/fa-solid-900.woff2',
     '/static/fontawesome/webfonts/fa-regular-400.woff2',
+    '/static/django_htmx/htmx.min.js',
+    '/static/js/alpine.min.js',
+    '/static/js/alpine-collapse.min.js',
+    '/static/js/htmx-preload.js',
 ];
+
+// Media cache name (separate so it can have its own eviction policy)
+const MEDIA_CACHE = `sms-media-${CACHE_VERSION}`;
+const MEDIA_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
 
 // Install event - cache critical assets
 self.addEventListener('install', (event) => {
@@ -37,7 +45,10 @@ self.addEventListener('activate', (event) => {
             .then((cacheNames) => {
                 return Promise.all(
                     cacheNames
-                        .filter((name) => name.startsWith('sms-cache-') && name !== CACHE_NAME)
+                        .filter((name) =>
+                            (name.startsWith('sms-cache-') && name !== CACHE_NAME) ||
+                            (name.startsWith('sms-media-') && name !== MEDIA_CACHE)
+                        )
                         .map((name) => {
                             console.log('[SW] Deleting old cache:', name);
                             return caches.delete(name);
@@ -63,10 +74,59 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Skip admin, API, and media URLs
+    // Skip admin and API URLs
     if (url.pathname.startsWith('/admin/') ||
-        url.pathname.startsWith('/api/') ||
-        url.pathname.startsWith('/media/')) {
+        url.pathname.startsWith('/api/')) {
+        return;
+    }
+
+    // For media URLs (student photos, logos) - cache-first with 7-day expiry
+    if (url.pathname.startsWith('/media/')) {
+        event.respondWith(
+            caches.open(MEDIA_CACHE).then((cache) => {
+                return cache.match(request).then((cachedResponse) => {
+                    if (cachedResponse) {
+                        const cachedDate = cachedResponse.headers.get('sw-cached-at');
+                        if (cachedDate && (Date.now() - new Date(cachedDate).getTime()) < MEDIA_MAX_AGE) {
+                            return cachedResponse;
+                        }
+                    }
+                    // Fetch from network and cache with timestamp
+                    return fetch(request).then((response) => {
+                        if (response.ok) {
+                            const headers = new Headers(response.headers);
+                            headers.set('sw-cached-at', new Date().toISOString());
+                            const timedResponse = new Response(response.clone().body, {
+                                status: response.status,
+                                statusText: response.statusText,
+                                headers: headers,
+                            });
+                            cache.put(request, timedResponse);
+                        }
+                        return response;
+                    }).catch(() => cachedResponse || new Response('', { status: 404 }));
+                });
+            })
+        );
+        return;
+    }
+
+    // For manifest.json - stale-while-revalidate
+    if (url.pathname === '/manifest.json') {
+        event.respondWith(
+            caches.match(request).then((cachedResponse) => {
+                const fetchPromise = fetch(request).then((response) => {
+                    if (response.ok) {
+                        const responseClone = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(request, responseClone);
+                        });
+                    }
+                    return response;
+                }).catch(() => cachedResponse);
+                return cachedResponse || fetchPromise;
+            })
+        );
         return;
     }
 

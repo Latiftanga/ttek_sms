@@ -17,7 +17,7 @@
             <div class="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6 pb-4 border-b border-base-200">
                 <div class="flex items-center gap-3">
                     {% if school.logo %}
-                    <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="w-12 h-12 object-contain">
+                    <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="w-12 h-12 object-contain" loading="lazy">
                     {% else %}
                     <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                         <i class="fa-solid fa-school text-primary text-xl"></i>

@@ -25,18 +25,24 @@
     <meta name="apple-mobile-web-app-title" content="{{ school.display_name }}">
     <link rel="apple-touch-icon" href="{% if school.logo %}{{ school.logo.url }}{% else %}{% static 'icons/icon-192.svg' %}{% endif %}">
 
+    <!-- Resource hints for critical assets -->
+    <link rel="preload" href="{% static 'css/dist/styles.css' %}" as="style">
+    <link rel="preload" href="{% static 'fontawesome/webfonts/fa-solid-900.woff2' %}" as="font" type="font/woff2" crossorigin>
+
     {% tailwind_css %}
     <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
     <!-- HTMX (from django-htmx) -->
     <script src="{% static 'django_htmx/htmx.min.js' %}"></script>
     <script src="{% static 'js/htmx-preload.js' %}"></script>
-    <!-- Hyperscript - designed to work with HTMX for declarative event handling -->
-    <script src="{% static 'js/_hyperscript.min.js' %}"></script>
     <!-- Alpine.js - Collapse plugin must load before Alpine core -->
     <script defer src="{% static 'js/alpine-collapse.min.js' %}"></script>
     <script defer src="{% static 'js/alpine.min.js' %}"></script>
 
     <style>
+        /* FontAwesome: swap fonts to prevent invisible text on slow connections */
+        @font-face { font-family: "Font Awesome 6 Free"; font-display: swap; }
+        @font-face { font-family: "Font Awesome 6 Brands"; font-display: swap; }
+
         /* Prevent scrollbar shift when modals open */
         html, body {
             overflow: hidden;

@@ -97,7 +97,7 @@
             <button type="button" tabindex="0" class="btn btn-ghost btn-circle avatar">
                 <div class="w-9 rounded-full ring-2 ring-offset-2 ring-offset-base-100" style="--tw-ring-color: var(--school-primary);">
                     {% if user.profile_image %}
-                        <img src="{{ user.profile_image.url }}" alt="{{ user.get_full_name }}" />
+                        <img src="{{ user.profile_image.url }}" alt="{{ user.get_full_name }}" loading="lazy" />
                     {% else %}
                         <div class="school-gradient text-white w-full h-full flex items-center justify-center text-lg font-bold">
                             {{ user.first_name|slice:":1"|default:user.email|slice:":1"|upper }}
@@ -110,7 +110,7 @@
                 <li class="pointer-events-none">
                     <div class="school-gradient-subtle rounded-lg px-3 py-2 mb-1 flex items-center gap-2">
                         {% if school.logo %}
-                        <img src="{{ school.logo.url }}" alt="{{ school.short_name|default:school.name }}" class="h-6 w-auto object-contain">
+                        <img src="{{ school.logo.url }}" alt="{{ school.short_name|default:school.name }}" class="h-6 w-auto object-contain" loading="lazy">
                         {% else %}
                         <div class="w-6 h-6 rounded bg-white/20 flex items-center justify-center text-white font-bold text-xs">
                             {{ school.short_name|slice:":1"|default:"S" }}

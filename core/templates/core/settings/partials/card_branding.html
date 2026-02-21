@@ -21,14 +21,14 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
                 {% if school.logo %}
-                <img src="{{ school.logo.url }}" alt="Logo" class="w-12 h-12 object-contain rounded border border-base-200 bg-base-200">
+                <img src="{{ school.logo.url }}" alt="Logo" class="w-12 h-12 object-contain rounded border border-base-200 bg-base-200" loading="lazy">
                 {% else %}
                 <div class="w-12 h-12 rounded border border-base-200 bg-base-200 flex items-center justify-center text-base-content/40">
                     <i class="fa-solid fa-image"></i>
                 </div>
                 {% endif %}
                 {% if school.favicon %}
-                <img src="{{ school.favicon.url }}" alt="Favicon" class="w-8 h-8 object-contain rounded border border-base-200 bg-base-200">
+                <img src="{{ school.favicon.url }}" alt="Favicon" class="w-8 h-8 object-contain rounded border border-base-200 bg-base-200" loading="lazy">
                 {% else %}
                 <div class="w-8 h-8 rounded border border-base-200 bg-base-200 flex items-center justify-center text-base-content/40">
                     <i class="fa-solid fa-image text-xs"></i>
