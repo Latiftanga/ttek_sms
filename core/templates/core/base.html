@@ -881,9 +881,20 @@
 
             // ========================================
             // Navigation loading overlay
-            // Show overlay when navigating to a new page via HTMX
+            // Only show for real clicks, not preload hovers
             // ========================================
+            window._navClickPending = false;
+
+            // Mark that a real click happened on a nav link
+            document.addEventListener('click', function(e) {
+                var link = e.target.closest('a[hx-get][hx-target="#main-content"]');
+                if (link) {
+                    window._navClickPending = true;
+                }
+            }, true);
+
             document.body.addEventListener('htmx:beforeRequest', function(e) {
+                if (!window._navClickPending) return;
                 var target = e.detail.target;
                 if (target && target.id === 'main-content') {
                     var loader = document.getElementById('nav-loader');
@@ -894,18 +905,21 @@
             document.body.addEventListener('htmx:afterSwap', function(e) {
                 var target = e.detail.target;
                 if (target && target.id === 'main-content') {
+                    window._navClickPending = false;
                     var loader = document.getElementById('nav-loader');
                     if (loader) loader.classList.remove('active');
                 }
             });
 
-            // Also hide on errors so it doesn't get stuck
+            // Hide on errors so it doesn't get stuck
             document.body.addEventListener('htmx:sendError', function(e) {
+                window._navClickPending = false;
                 var loader = document.getElementById('nav-loader');
                 if (loader) loader.classList.remove('active');
             });
 
             document.body.addEventListener('htmx:responseError', function(e) {
+                window._navClickPending = false;
                 var loader = document.getElementById('nav-loader');
                 if (loader) loader.classList.remove('active');
             });

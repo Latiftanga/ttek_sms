@@ -462,9 +462,97 @@
                 padding-bottom: calc(2rem + env(safe-area-inset-bottom));
             }
         }
+
+        /* Full-page loading screen */
+        #page-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: oklch(var(--b1));
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        #page-loader.loaded {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .loader-logo {
+            width: 72px;
+            height: 72px;
+            border-radius: 1rem;
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: loader-breathe 2s ease-in-out infinite;
+        }
+        .loader-logo img {
+            width: 60%;
+            height: 60%;
+            object-fit: contain;
+        }
+        .loader-logo-fallback {
+            width: 72px;
+            height: 72px;
+            border-radius: 1rem;
+            display: grid;
+            place-content: center;
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: white;
+            background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-secondary) 100%);
+            animation: loader-breathe 2s ease-in-out infinite;
+        }
+        @keyframes loader-breathe {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.06); opacity: 0.85; }
+        }
+        .loader-bar-track {
+            margin-top: 1.5rem;
+            width: 180px;
+            height: 4px;
+            border-radius: 9999px;
+            background: oklch(var(--bc) / 0.08);
+            overflow: hidden;
+        }
+        .loader-bar {
+            height: 100%;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, var(--school-primary), var(--school-secondary));
+            animation: loader-slide 1.4s ease-in-out infinite;
+            width: 40%;
+        }
+        @keyframes loader-slide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+        .loader-name {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: oklch(var(--bc) / 0.45);
+            letter-spacing: 0.02em;
+        }
     </style>
 </head>
 <body>
+    <!-- Full-page loading screen -->
+    <div id="page-loader">
+        {% if school.logo %}
+        <div class="loader-logo">
+            <img src="{{ school.logo.url }}" alt="">
+        </div>
+        {% else %}
+        <div class="loader-logo-fallback">{{ school.short_name|slice:":1"|default:"S" }}</div>
+        {% endif %}
+        <div class="loader-bar-track"><div class="loader-bar"></div></div>
+        <span class="loader-name">{{ school.short_name|default:school.name|default:"Loading" }}</span>
+    </div>
+
     <div class="login-wrapper">
         <!-- Left Panel - Branding (Desktop only) -->
         <div class="brand-panel">
@@ -637,6 +725,15 @@
             const btn = document.getElementById('submit-btn');
             btn.classList.add('loading');
             btn.innerHTML = '<span>Signing in...</span>';
+        });
+
+        // Dismiss page loader
+        window.addEventListener('load', function() {
+            const loader = document.getElementById('page-loader');
+            if (loader) {
+                setTimeout(() => loader.classList.add('loaded'), 150);
+                setTimeout(() => loader.remove(), 600);
+            }
         });
     </script>
 </body>
