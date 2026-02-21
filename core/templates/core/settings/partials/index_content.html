@@ -16,7 +16,7 @@
             <!-- School Logo -->
             <div class="shrink-0">
                 {% if school.logo %}
-                <img src="{{ school.logo.url }}" alt="{{ school.short_name|default:school.name }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white/20 p-2">
+                <img src="{{ school.logo.url }}" alt="{{ school.short_name|default:school.name }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-contain bg-white/20 p-2" loading="lazy">
                 {% else %}
                 <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white/20 flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 sm:w-12 sm:h-12 text-white" fill="currentColor" viewBox="0 0 640 512">

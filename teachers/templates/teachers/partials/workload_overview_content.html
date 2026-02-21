@@ -76,7 +76,7 @@
                                     <div class="avatar">
                                         <div class="w-10 h-10 rounded-full bg-primary/10">
                                             {% if item.teacher.photo %}
-                                            <img src="{{ item.teacher.photo.url }}" alt="{{ item.teacher.full_name }}" />
+                                            <img src="{{ item.teacher.photo.url }}" alt="{{ item.teacher.full_name }}" loading="lazy" />
                                             {% else %}
                                             <div class="flex items-center justify-center h-full text-primary font-bold text-sm">
                                                 {{ item.teacher.first_name|slice:":1" }}{{ item.teacher.last_name|slice:":1" }}
