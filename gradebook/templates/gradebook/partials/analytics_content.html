@@ -66,20 +66,8 @@
     <div id="content-class" class="hidden">
         <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
             <div class="card-body p-4">
-                <div class="form-control max-w-xs">
-                    <label class="label">
-                        <span class="label-text">Select Class</span>
-                    </label>
-                    <select id="class-select" class="select select-bordered"
-                            hx-target="#class-analytics-content"
-                            hx-swap="innerHTML"
-                            hx-trigger="change[this.value != '']"
-                            hx-on::before-request="event.detail.path = '/gradebook/analytics/class/' + this.value + '/'">
-                        <option value="">Choose a class...</option>
-                        {% for class in classes %}
-                        <option value="{{ class.pk }}">{{ class.name }}</option>
-                        {% endfor %}
-                    </select>
+                <div class="max-w-xs">
+                    {% select_input "class" class_options label="Select Class" placeholder="Choose a class..." id="class-select" attrs=analytics_class_attrs %}
                 </div>
             </div>
         </div>

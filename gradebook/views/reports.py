@@ -3,6 +3,7 @@ import logging
 import json
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.http import HttpResponse, JsonResponse
@@ -120,9 +121,24 @@ def report_cards(request):
             for s in students:
                 s.term_report = reports.get(s.id)
 
+    class_options = [(c.pk, c.name) for c in classes]
+    selected_class_pk = str(class_obj.pk) if class_obj else ''
+
+    reports_url = reverse('gradebook:reports')
+    htmx_attrs = {
+        'hx-get': reports_url,
+        'hx-target': '#main-content',
+        'hx-push-url': 'true',
+        'hx-include': '#reports-filter-form',
+    }
+
     context = {
         'current_term': current_term,
         'classes': classes,
+        'class_options': class_options,
+        'selected_class_pk': selected_class_pk,
+        'reports_class_attrs': htmx_attrs,
+        'reports_status_attrs': htmx_attrs,
         'selected_class': class_obj,
         'students': students,
         'is_admin': is_admin,
@@ -769,7 +785,6 @@ def check_export_status(request, task_id):
                 'state': 'FAILURE',
                 'error': info.get('error', 'Export failed'),
             })
-        from django.urls import reverse
         download_url = reverse(
             'gradebook:download_class_reports',
             kwargs={'filename': info['filename']},

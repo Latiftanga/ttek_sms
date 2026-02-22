@@ -34,41 +34,12 @@
     <div class="card-body p-4">
         <form id="reports-filter-form">
             <div class="flex flex-col md:flex-row md:items-end gap-4">
-                <div class="form-control flex-1">
-                    <label class="label">
-                        <span class="label-text">Select Class</span>
-                    </label>
-                    <select class="select select-bordered w-full"
-                            hx-get="{% url 'gradebook:reports' %}"
-                            hx-target="#main-content"
-                            hx-push-url="true"
-                            hx-include="#reports-filter-form"
-                            name="class">
-                        <option value="">-- Select Class --</option>
-                        {% for class in classes %}
-                        <option value="{{ class.pk }}" {% if selected_class.pk == class.pk %}selected{% endif %}>
-                            {{ class.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                <div class="flex-1">
+                    {% select_input "class" class_options value=selected_class_pk label="Select Class" placeholder="-- Select Class --" attrs=reports_class_attrs %}
                 </div>
                 {% if is_admin and status_choices %}
-                <div class="form-control md:w-48">
-                    <label class="label">
-                        <span class="label-text">Student Status</span>
-                    </label>
-                    <select class="select select-bordered w-full"
-                            hx-get="{% url 'gradebook:reports' %}"
-                            hx-target="#main-content"
-                            hx-push-url="true"
-                            hx-include="#reports-filter-form"
-                            name="status">
-                        {% for value, label in status_choices %}
-                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
-                            {{ label }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                <div class="md:w-48">
+                    {% select_input "status" status_choices value=status_filter label="Student Status" placeholder="" attrs=reports_status_attrs %}
                 </div>
                 {% endif %}
             </div>

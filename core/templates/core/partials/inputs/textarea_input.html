@@ -2,11 +2,8 @@
 Textarea Input Component
 {% endcomment %}
 
-<label class="floating-label">
-    {% if label %}
-    <span>{{ label }}{% if required %} *{% endif %}</span>
-    {% endif %}
-
+{% if label %}
+<label class="floating-label w-full">
     <textarea name="{{ name }}"
               id="id_{{ name }}"
               placeholder="{{ placeholder }}"
@@ -14,8 +11,19 @@ Textarea Input Component
               {% if required %}required{% endif %}
               {% if disabled %}disabled{% endif %}
               {% if readonly %}readonly{% endif %}
-              class="textarea textarea-sm {% if error %}textarea-error{% endif %} {{ input_class }}">{{ value }}</textarea>
+              class="textarea textarea-sm w-full {% if error %}textarea-error{% endif %} {{ input_class }}">{{ value }}</textarea>
+    <span>{{ label }}{% if required %} *{% endif %}</span>
 </label>
+{% else %}
+<textarea name="{{ name }}"
+          id="id_{{ name }}"
+          placeholder="{{ placeholder }}"
+          rows="{{ rows|default:4 }}"
+          {% if required %}required{% endif %}
+          {% if disabled %}disabled{% endif %}
+          {% if readonly %}readonly{% endif %}
+          class="textarea textarea-sm w-full {% if error %}textarea-error{% endif %} {{ input_class }}">{{ value }}</textarea>
+{% endif %}
 
 {% if error %}
 <p class="text-error text-xs mt-1">{{ error }}</p>

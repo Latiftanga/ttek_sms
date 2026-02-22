@@ -1,78 +1,13 @@
 {% load core_tags %}
 
-<!-- School Branding Header -->
-<div class="card bg-base-100 shadow-sm border border-base-200 mb-6 overflow-hidden">
-    <div class="school-gradient p-4 sm:p-8 relative">
-        <!-- Decorative pattern -->
-        <div class="absolute inset-0 opacity-10" style="background-image: url(&quot;data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg&quot;);"></div>
-        <!-- Decorative circles -->
-        <div class="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5 hidden sm:block"></div>
-        <div class="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-white/5 hidden sm:block"></div>
-
-        <div class="flex flex-col items-center text-center relative z-10">
-            <!-- School Logo -->
-            <div class="mb-3 sm:mb-4">
-                {% if school.logo.name %}
-                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:school.name }}" class="w-16 h-16 sm:w-24 sm:h-24 rounded-xl object-contain mx-auto" loading="lazy">
-                {% else %}
-                <div class="w-16 h-16 sm:w-24 sm:h-24 rounded-xl bg-white/20 flex items-center justify-center mx-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 sm:w-14 sm:h-14 text-white" fill="currentColor" viewBox="0 0 640 512">
-                        <path d="M337.8 5.4C327-1.8 313-1.8 302.2 5.4L166.3 96 48 96C21.5 96 0 117.5 0 144L0 464c0 26.5 21.5 48 48 48l208 0 0-96c0-35.3 28.7-64 64-64s64 28.7 64 64l0 96 208 0c26.5 0 48-21.5 48-48l0-320c0-26.5-21.5-48-48-48L473.7 96 337.8 5.4zM96 192l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM96 320l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64c0-8.8 7.2-16 16-16zm400 16c0-8.8 7.2-16 16-16l32 0c8.8 0 16 7.2 16 16l0 64c0 8.8-7.2 16-16 16l-32 0c-8.8 0-16-7.2-16-16l0-64zM232 176a88 88 0 1 1 176 0 88 88 0 1 1 -176 0zm88-48c-8.8 0-16 7.2-16 16l0 32 0 16-32 0c-8.8 0-16 7.2-16 16s7.2 16 16 16l32 0 16 0 0-16 0-64c0-8.8-7.2-16-16-16z"/>
-                    </svg>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- School Name -->
-            <h2 class="text-lg sm:text-2xl font-bold text-white mb-1">
-                {% if school and school.display_name %}
-                    {{ school.display_name }}
-                {% elif school.name %}
-                    {{ school.name }}
-                {% else %}
-                    School Dashboard
-                {% endif %}
-            </h2>
-
-            {% if school and school.motto %}
-            <p class="text-white/70 text-sm italic mb-4">"{{ school.motto }}"</p>
-            {% endif %}
-
-            <!-- Welcome Message -->
-            <div class="bg-white/10 rounded-full px-6 py-2 mb-4">
-                <p class="text-white text-sm">
-                    Welcome back, <span class="font-semibold">{{ user.display_name }}</span>!
-                </p>
-            </div>
-
-            <!-- Date & Session Badges -->
-            <div class="flex flex-wrap justify-center gap-2 text-xs">
-                <span class="badge bg-white/20 border-0 text-white gap-1">
-                    <i class="fa-regular fa-calendar"></i>
-                    {{ today|date:"l, M d, Y" }}
-                </span>
-                {% if current_year %}
-                <span class="badge bg-white/20 border-0 text-white gap-1">
-                    <i class="fa-solid fa-graduation-cap"></i>
-                    {{ current_year }}
-                </span>
-                {% endif %}
-                {% if current_term %}
-                <span class="badge bg-white/20 border-0 text-white gap-1">
-                    <i class="fa-solid fa-calendar-alt"></i>
-                    {{ current_term }}
-                </span>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Color Preview Bar -->
-    <div class="flex h-1">
-        <div class="flex-1" style="background-color: var(--school-primary);"></div>
-        <div class="flex-1" style="background-color: var(--school-secondary);"></div>
-        <div class="flex-1" style="background-color: var(--school-accent);"></div>
-    </div>
+<!-- Welcome -->
+<div class="mb-5">
+    <h2 class="text-xl font-bold">Welcome back, {{ user.display_name }}</h2>
+    <p class="text-sm text-base-content/50">
+        {{ today|date:"l, M d, Y" }}
+        {% if current_year %} &middot; {{ current_year }}{% endif %}
+        {% if current_term %} &middot; {{ current_term }}{% endif %}
+    </p>
 </div>
 
 {% if school and not school.setup_completed %}

@@ -43,28 +43,12 @@
             </p>
 
             <div class="space-y-4">
-                <div class="form-control">
-                    <label class="label">
-                        <span class="label-text">Select Class</span>
-                    </label>
-                    <select id="calc-class-select" name="class_id" class="select select-bordered w-full">
-                        <option value="">Choose a class...</option>
-                        {% for class in classes %}
-                        <option value="{{ class.pk }}">{{ class.name }}</option>
-                        {% endfor %}
-                    </select>
+                <div>
+                    {% select_input "class_id" class_options label="Select Class" placeholder="Choose a class..." id="calc-class-select" %}
                 </div>
 
-                <div class="form-control">
-                    <label class="label">
-                        <span class="label-text">Grading System</span>
-                    </label>
-                    <select id="calc-grading-select" name="grading_system_id" class="select select-bordered w-full">
-                        <option value="">Choose a grading system...</option>
-                        {% for system in grading_systems %}
-                        <option value="{{ system.pk }}">{{ system.name }} ({{ system.get_level_display }})</option>
-                        {% endfor %}
-                    </select>
+                <div>
+                    {% select_input "grading_system_id" grading_options label="Grading System" placeholder="Choose a grading system..." id="calc-grading-select" %}
                 </div>
 
                 <button type="button"

@@ -33,9 +33,19 @@ def analytics(request):
     if class_id:
         selected_class = get_object_or_404(Class, pk=class_id)
 
+    class_options = [(c.pk, c.name) for c in classes]
+    analytics_class_attrs = {
+        'hx-target': '#class-analytics-content',
+        'hx-swap': 'innerHTML',
+        'hx-trigger': "change[this.value != '']",
+        'hx-on::before-request': "event.detail.path = '/gradebook/analytics/class/' + this.value + '/'",
+    }
+
     context = {
         'current_term': current_term,
         'classes': classes,
+        'class_options': class_options,
+        'analytics_class_attrs': analytics_class_attrs,
         'selected_class': selected_class,
         # Navigation
         'breadcrumbs': [

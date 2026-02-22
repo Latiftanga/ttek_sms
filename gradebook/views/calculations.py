@@ -33,9 +33,14 @@ def calculate_grades(request):
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
     grading_systems = GradingSystem.objects.filter(is_active=True)
 
+    class_options = [(c.pk, c.name) for c in classes]
+    grading_options = [(g.pk, f'{g.name} ({g.get_level_display()})') for g in grading_systems]
+
     context = {
         'current_term': current_term,
         'classes': classes,
+        'class_options': class_options,
+        'grading_options': grading_options,
         'grading_systems': grading_systems,
         # Navigation
         'breadcrumbs': [

@@ -175,9 +175,13 @@ def score_entry(request):
     else:
         classes = Class.objects.none()
 
+    class_options = [(c.pk, c.name) for c in classes]
+
     context = {
         'current_term': current_term,
         'classes': classes,
+        'class_options': class_options,
+        'subject_options': [],
         'is_admin': is_school_admin(request.user),
         # Navigation
         'breadcrumbs': [
