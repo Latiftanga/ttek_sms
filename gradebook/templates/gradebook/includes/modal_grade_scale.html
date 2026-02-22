@@ -32,12 +32,13 @@
         </div>
 
         <div class="flex flex-wrap gap-4">
-            {% with is_pass_default=scale.is_pass|default:True %}
-            {% checkbox_input "is_pass" checked=is_pass_default label="Pass Grade" size="sm" color="success" %}
-            {% endwith %}
-            {% with is_credit_default=scale.is_credit|default:True %}
-            {% checkbox_input "is_credit" checked=is_credit_default label="Credit Pass" size="sm" %}
-            {% endwith %}
+            {% if scale %}
+            {% checkbox_input "is_pass" checked=scale.is_pass label="Pass Grade" size="sm" color="success" %}
+            {% checkbox_input "is_credit" checked=scale.is_credit label="Credit Pass" size="sm" %}
+            {% else %}
+            {% checkbox_input "is_pass" checked=True label="Pass Grade" size="sm" color="success" %}
+            {% checkbox_input "is_credit" checked=True label="Credit Pass" size="sm" %}
+            {% endif %}
         </div>
     </div>
 

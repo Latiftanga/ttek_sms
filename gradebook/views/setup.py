@@ -163,8 +163,8 @@ def grade_scale_create(request, system_id):
             max_percentage=Decimal(request.POST.get('max_percentage', '0')),
             aggregate_points=int(request.POST.get('aggregate_points') or 0) or None,
             interpretation=request.POST.get('interpretation', '').strip(),
-            is_pass=request.POST.get('is_pass') == 'on',
-            is_credit=request.POST.get('is_credit') == 'on',
+            is_pass=bool(request.POST.get('is_pass')),
+            is_credit=bool(request.POST.get('is_credit')),
             order=int(request.POST.get('order') or 0),
         )
     except (ValueError, InvalidOperation, ValidationError) as e:
@@ -199,8 +199,8 @@ def grade_scale_edit(request, pk):
         scale.max_percentage = Decimal(request.POST.get('max_percentage', '0'))
         scale.aggregate_points = int(request.POST.get('aggregate_points') or 0) or None
         scale.interpretation = request.POST.get('interpretation', '').strip()
-        scale.is_pass = request.POST.get('is_pass') == 'on'
-        scale.is_credit = request.POST.get('is_credit') == 'on'
+        scale.is_pass = bool(request.POST.get('is_pass'))
+        scale.is_credit = bool(request.POST.get('is_credit'))
         scale.order = int(request.POST.get('order') or 0)
         scale.save()
     except (ValueError, InvalidOperation, ValidationError) as e:

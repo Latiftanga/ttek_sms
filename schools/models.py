@@ -1,7 +1,9 @@
 import math
+import os
 from io import BytesIO
 from django.db import models
 from django.core.files.base import ContentFile
+from django.core.exceptions import ValidationError
 from django_tenants.models import TenantMixin, DomainMixin
 from PIL import Image, UnidentifiedImageError
 from core.storage import PublicSchemaStorage
@@ -12,6 +14,17 @@ logger = logging.getLogger(__name__)
 # Image size limits
 LOGO_MAX_SIZE = (256, 256)
 FAVICON_MAX_SIZE = (64, 64)
+
+ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']
+
+
+def validate_image_or_svg(file):
+    """Validate that the uploaded file is a supported image format (including SVG)."""
+    ext = os.path.splitext(file.name)[1].lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValidationError(
+            f"Unsupported file type '{ext}'. Allowed types: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
+        )
 
 
 def hex_to_oklch_values(hex_color):
@@ -110,19 +123,21 @@ class School(TenantMixin):
     )
 
     # Branding - use PublicSchemaStorage so URLs work from any tenant context
-    logo = models.ImageField(
+    logo = models.FileField(
         upload_to='school_logos/',
         storage=PublicSchemaStorage(),
         blank=True,
         null=True,
-        help_text="School logo/crest"
+        validators=[validate_image_or_svg],
+        help_text="School logo/crest (PNG, JPG, WebP, SVG)"
     )
-    favicon = models.ImageField(
+    favicon = models.FileField(
         upload_to='school_favicons/',
         storage=PublicSchemaStorage(),
         blank=True,
         null=True,
-        help_text="Browser tab icon"
+        validators=[validate_image_or_svg],
+        help_text="Browser tab icon (PNG, JPG, WebP, SVG)"
     )
 
     # Theme Colors (HEX format)
@@ -175,9 +190,47 @@ class School(TenantMixin):
     def __str__(self):
         return self.name
 
+    def _is_svg(self, file_field):
+        """Check if the uploaded file is an SVG."""
+        return file_field and os.path.splitext(file_field.name)[1].lower() == '.svg'
+
+    def _clean_svg(self, file_field):
+        """Strip explicit width/height from SVG so it scales properly via viewBox."""
+        import re
+
+        if not file_field or not hasattr(file_field, 'file'):
+            return
+
+        try:
+            file_field.seek(0)
+            content = file_field.read().decode('utf-8')
+
+            # Remove explicit width/height from <svg> tag so viewBox controls sizing
+            content = re.sub(
+                r'(<svg\b[^>]*?)\s+width="[^"]*"',
+                r'\1',
+                content,
+                count=1,
+            )
+            content = re.sub(
+                r'(<svg\b[^>]*?)\s+height="[^"]*"',
+                r'\1',
+                content,
+                count=1,
+            )
+
+            buffer = BytesIO(content.encode('utf-8'))
+            filename = os.path.basename(file_field.name)
+            file_field.save(filename, ContentFile(buffer.read()), save=False)
+        except Exception as e:
+            logger.warning(f"Could not clean SVG: {e}")
+
     def _resize_image(self, image_field, max_size):
-        """Resize an image field to max dimensions, preserving transparency."""
+        """Resize an image field to max dimensions, preserving transparency. Skips SVGs."""
         if not image_field or not hasattr(image_field, 'file'):
+            return
+
+        if self._is_svg(image_field):
             return
 
         try:
@@ -204,11 +257,17 @@ class School(TenantMixin):
             logger.warning(f"Could not process image: {e}")
 
     def save(self, *args, **kwargs):
-        # Resize logo and favicon if uploaded
+        # Process logo and favicon if uploaded
         if self.logo and hasattr(self.logo, 'file'):
-            self._resize_image(self.logo, LOGO_MAX_SIZE)
+            if self._is_svg(self.logo):
+                self._clean_svg(self.logo)
+            else:
+                self._resize_image(self.logo, LOGO_MAX_SIZE)
         if self.favicon and hasattr(self.favicon, 'file'):
-            self._resize_image(self.favicon, FAVICON_MAX_SIZE)
+            if self._is_svg(self.favicon):
+                self._clean_svg(self.favicon)
+            else:
+                self._resize_image(self.favicon, FAVICON_MAX_SIZE)
 
         # Convert HEX colors to OKLCH for DaisyUI theming
         if self.primary_color:

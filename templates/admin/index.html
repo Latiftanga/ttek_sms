@@ -34,8 +34,11 @@
                 <div class="card-body p-5">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-xs font-medium text-base-content/60 uppercase tracking-wide">{% trans 'Schools' %}</p>
+                            <p class="text-xs font-medium text-base-content/60 uppercase tracking-wide">{% trans 'Total Schools' %}</p>
                             <p class="text-3xl font-bold mt-1">{{ stats.schools|default:"0" }}</p>
+                            <p class="text-xs text-base-content/50 mt-1">
+                                <span class="text-success">{{ stats.active_schools }} {% trans 'active' %}</span> · <span class="text-error">{{ stats.inactive_schools }} {% trans 'inactive' %}</span>
+                            </p>
                         </div>
                         <div class="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center">
                             <i class="fa-solid fa-school text-2xl text-primary"></i>
@@ -75,7 +78,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-xs font-medium text-base-content/60 uppercase tracking-wide">{% trans 'Regions' %}</p>
-                            <p class="text-3xl font-bold mt-1">{{ stats.regions|default:"16" }}</p>
+                            <p class="text-3xl font-bold mt-1">{{ stats.regions|default:"0" }}</p>
                         </div>
                         <div class="w-14 h-14 rounded-2xl bg-accent/20 flex items-center justify-center">
                             <i class="fa-solid fa-map-location-dot text-2xl text-accent"></i>
@@ -89,21 +92,21 @@
                 </div>
             </div>
 
-            <!-- Quick action card -->
+            <!-- Districts stat -->
             <div class="card bg-gradient-to-br from-success/10 to-success/5 border-0 shadow-sm hover:shadow-md transition-shadow">
                 <div class="card-body p-5">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-xs font-medium text-base-content/60 uppercase tracking-wide">{% trans 'Quick Action' %}</p>
-                            <p class="text-lg font-bold mt-1">{% trans 'New School' %}</p>
+                            <p class="text-xs font-medium text-base-content/60 uppercase tracking-wide">{% trans 'Districts' %}</p>
+                            <p class="text-3xl font-bold mt-1">{{ stats.districts|default:"0" }}</p>
                         </div>
                         <div class="w-14 h-14 rounded-2xl bg-success/20 flex items-center justify-center">
-                            <i class="fa-solid fa-plus text-2xl text-success"></i>
+                            <i class="fa-solid fa-location-dot text-2xl text-success"></i>
                         </div>
                     </div>
                     <div class="mt-3 pt-3 border-t border-success/10">
-                        <a href="{% url 'admin:schools_school_add' %}" class="text-xs text-success hover:underline inline-flex items-center gap-1">
-                            {% trans 'Onboard tenant' %} <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        <a href="{% url 'admin:schools_district_changelist' %}" class="text-xs text-success hover:underline inline-flex items-center gap-1">
+                            {% trans 'View all' %} <i class="fa-solid fa-arrow-right text-[10px]"></i>
                         </a>
                     </div>
                 </div>
@@ -154,6 +157,71 @@
             </div>
         {% endif %}
     </div>
+
+    {% if stats.is_public %}
+    <!-- School Insights Section -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0">
+            <div class="p-4 border-b border-base-200">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-base-content/40"></i>
+                    {% trans 'School Insights' %}
+                </h3>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-0 sm:gap-0 divide-y sm:divide-y-0 sm:divide-x divide-base-200">
+                <!-- Education System Breakdown -->
+                <div class="p-5">
+                    <p class="text-xs font-medium text-base-content/60 uppercase tracking-wide mb-3">{% trans 'Education System' %}</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="badge badge-primary badge-lg gap-1.5">
+                            <i class="fa-solid fa-book-open text-xs"></i>
+                            {% trans 'Basic' %}: {{ stats.basic_schools }}
+                        </span>
+                        <span class="badge badge-secondary badge-lg gap-1.5">
+                            <i class="fa-solid fa-graduation-cap text-xs"></i>
+                            {% trans 'SHS' %}: {{ stats.shs_schools }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Recent Onboarding -->
+                <div class="p-5">
+                    <p class="text-xs font-medium text-base-content/60 uppercase tracking-wide mb-3">{% trans 'Recent Onboarding' %}</p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-info/15 flex items-center justify-center">
+                            <span class="text-xl font-bold text-info">{{ stats.recent_schools }}</span>
+                        </div>
+                        <p class="text-sm text-base-content/70">{% trans 'schools added in the last 30 days' %}</p>
+                    </div>
+                </div>
+
+                <!-- Active vs Inactive -->
+                <div class="p-5">
+                    <p class="text-xs font-medium text-base-content/60 uppercase tracking-wide mb-3">{% trans 'School Status' %}</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-success"></span>
+                                {% trans 'Active' %}
+                            </span>
+                            <span class="font-semibold">{{ stats.active_schools }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-error"></span>
+                                {% trans 'Inactive' %}
+                            </span>
+                            <span class="font-semibold">{{ stats.inactive_schools }}</span>
+                        </div>
+                        {% if stats.schools %}
+                        <progress class="progress progress-success w-full h-2" value="{{ stats.active_schools }}" max="{{ stats.schools }}"></progress>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Main Content (App List) -->
