@@ -825,7 +825,7 @@ def download_class_reports(request, filename):
         return HttpResponse('File not found', status=404)
 
     return FileResponse(
-        open(file_path, 'rb'),
+        file_path.open('rb'),
         as_attachment=True,
         content_type='application/zip',
         filename=file_path.name,

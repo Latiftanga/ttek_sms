@@ -17,36 +17,41 @@ class ForcePasswordChangeMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
+        # Cache resolved URLs at startup (they don't change at runtime)
+        self._allowed_paths = None
+        self._password_change_url = None
+
+    def _resolve_urls(self):
+        """Lazily resolve and cache URL paths on first use."""
+        if self._allowed_paths is not None:
+            return
+        self._allowed_paths = set()
+        for url_name in self.ALLOWED_URL_NAMES:
+            try:
+                self._allowed_paths.add(reverse(url_name))
+            except NoReverseMatch:
+                pass
+        try:
+            self._password_change_url = reverse('accounts:password_change')
+        except NoReverseMatch:
+            self._password_change_url = '/accounts/password/change/'
 
     def __call__(self, request):
         if request.user.is_authenticated:
             # Check if user must change password
             if getattr(request.user, 'must_change_password', False):
+                self._resolve_urls()
                 current_path = request.path
 
-                # Build list of allowed paths from URL names
-                allowed_paths = []
-                for url_name in self.ALLOWED_URL_NAMES:
-                    try:
-                        allowed_paths.append(reverse(url_name))
-                    except NoReverseMatch:
-                        pass
-
                 # Check if current path is allowed
-                is_allowed = current_path in allowed_paths
+                is_allowed = current_path in self._allowed_paths
 
                 # Also allow static/media files
                 if current_path.startswith('/static/') or current_path.startswith('/media/'):
                     is_allowed = True
 
                 if not is_allowed:
-                    # Redirect to password change
-                    try:
-                        password_change_url = reverse('accounts:password_change')
-                    except NoReverseMatch:
-                        password_change_url = '/accounts/password/change/'
-
-                    return redirect(password_change_url)
+                    return redirect(self._password_change_url)
 
         response = self.get_response(request)
         return response
@@ -82,6 +87,24 @@ class ProfileSetupMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
+        # Cache resolved URLs at startup (they don't change at runtime)
+        self._allowed_paths = None
+        self._profile_setup_url = None
+
+    def _resolve_urls(self):
+        """Lazily resolve and cache URL paths on first use."""
+        if self._allowed_paths is not None:
+            return
+        self._allowed_paths = set()
+        for url_name in self.ALLOWED_URL_NAMES:
+            try:
+                self._allowed_paths.add(reverse(url_name))
+            except NoReverseMatch:
+                pass
+        try:
+            self._profile_setup_url = reverse('accounts:profile_setup')
+        except NoReverseMatch:
+            self._profile_setup_url = '/accounts/profile-setup/'
 
     def __call__(self, request):
         if request.user.is_authenticated:
@@ -99,32 +122,20 @@ class ProfileSetupMiddleware:
             needs_setup = not getattr(request.user, 'profile_setup_completed', True)
 
             if is_applicable_user and needs_setup:
+                self._resolve_urls()
                 current_path = request.path
 
                 # Check if path is allowed
-                is_allowed = False
-
-                # Check URL names
-                for url_name in self.ALLOWED_URL_NAMES:
-                    try:
-                        if current_path == reverse(url_name):
-                            is_allowed = True
-                            break
-                    except NoReverseMatch:
-                        pass
+                is_allowed = current_path in self._allowed_paths
 
                 # Check path prefixes
-                for prefix in self.ALLOWED_PATH_PREFIXES:
-                    if current_path.startswith(prefix):
-                        is_allowed = True
-                        break
+                if not is_allowed:
+                    for prefix in self.ALLOWED_PATH_PREFIXES:
+                        if current_path.startswith(prefix):
+                            is_allowed = True
+                            break
 
                 if not is_allowed:
-                    try:
-                        profile_setup_url = reverse('accounts:profile_setup')
-                    except NoReverseMatch:
-                        profile_setup_url = '/accounts/profile-setup/'
-
-                    return redirect(profile_setup_url)
+                    return redirect(self._profile_setup_url)
 
         return self.get_response(request)

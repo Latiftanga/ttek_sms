@@ -44,12 +44,13 @@ def offline(request):
 @cache_control(max_age=0, no_cache=True, no_store=True, must_revalidate=True)
 def service_worker(request):
     """Serve service worker from root scope."""
-    import os
-    sw_path = os.path.join(settings.BASE_DIR, 'core', 'static', 'core', 'sw.js')
+    from pathlib import Path
+    sw_path = Path(settings.BASE_DIR) / 'core' / 'static' / 'core' / 'sw.js'
     return FileResponse(
-        open(sw_path, 'rb'),
+        sw_path.open('rb'),
         content_type='application/javascript',
-        headers={'Service-Worker-Allowed': '/'}
+        headers={'Service-Worker-Allowed': '/'},
+        filename='sw.js',
     )
 
 

@@ -1166,9 +1166,10 @@ def invoices_export(request):
             Q(student__admission_number__icontains=search)
         )
 
-    # Build export data
+    # Build export data (capped at 10,000 rows to prevent memory issues)
+    MAX_EXPORT_ROWS = 10_000
     export_data = []
-    for inv in invoices_list:
+    for inv in invoices_list[:MAX_EXPORT_ROWS].iterator():
         export_data.append({
             'Invoice Number': inv.invoice_number,
             'Student Name': inv.student.full_name,
@@ -1247,9 +1248,10 @@ def payments_export(request):
     if date_to:
         payments_list = payments_list.filter(transaction_date__date__lte=date_to)
 
-    # Build export data
+    # Build export data (capped at 10,000 rows to prevent memory issues)
+    MAX_EXPORT_ROWS = 10_000
     export_data = []
-    for pmt in payments_list:
+    for pmt in payments_list[:MAX_EXPORT_ROWS].iterator():
         export_data.append({
             'Receipt Number': pmt.receipt_number,
             'Invoice Number': pmt.invoice.invoice_number,
@@ -1924,32 +1926,50 @@ def notification_center(request):
         created_at__date__gte=week_start
     ).count()
 
-    # Class summary with fee collection stats
+    # Class summary with fee collection stats - single annotated query
     classes = Class.objects.filter(
-        students__invoices__balance__gt=0
-    ).distinct().order_by('name')
+        students__invoices__academic_year=current_year
+    ).distinct().annotate(
+        class_total=Count(
+            'students__invoices',
+            filter=Q(students__invoices__academic_year=current_year)
+        ),
+        class_paid=Count(
+            'students__invoices',
+            filter=Q(students__invoices__academic_year=current_year, students__invoices__status='PAID')
+        ),
+        class_overdue=Count(
+            'students__invoices',
+            filter=Q(students__invoices__academic_year=current_year, students__invoices__status='OVERDUE')
+        ),
+        class_pending=Count(
+            'students__invoices',
+            filter=Q(
+                students__invoices__academic_year=current_year,
+                students__invoices__status__in=['ISSUED', 'PARTIALLY_PAID']
+            )
+        ),
+        class_balance=Sum(
+            'students__invoices__balance',
+            filter=Q(
+                students__invoices__academic_year=current_year,
+                students__invoices__balance__gt=0
+            )
+        ),
+    ).order_by('name')
 
     class_summary = []
     for cls in classes:
-        class_invoices = Invoice.objects.filter(
-            student__current_class=cls,
-            academic_year=current_year
-        )
-        class_total = class_invoices.count()
-        class_paid = class_invoices.filter(status='PAID').count()
-        class_overdue = class_invoices.filter(status='OVERDUE').count()
-        class_pending = class_invoices.filter(status__in=['ISSUED', 'PARTIALLY_PAID']).count()
-        class_balance = class_invoices.filter(balance__gt=0).aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
-        class_rate = int((class_paid / class_total * 100) if class_total > 0 else 0)
-
+        total = cls.class_total or 0
+        paid = cls.class_paid or 0
         class_summary.append({
             'class': cls,
-            'total': class_total,
-            'paid': class_paid,
-            'overdue': class_overdue,
-            'pending': class_pending,
-            'balance': class_balance,
-            'rate': class_rate,
+            'total': total,
+            'paid': paid,
+            'overdue': cls.class_overdue or 0,
+            'pending': cls.class_pending or 0,
+            'balance': cls.class_balance or Decimal('0.00'),
+            'rate': int((paid / total * 100) if total > 0 else 0),
         })
 
     # Get last notification and guardian info for each invoice

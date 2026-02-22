@@ -833,11 +833,12 @@ def select_input(name, options, value='', label=None, required=False,
         else:
             normalized_options.append({'value': opt, 'label': str(opt)})
 
-    # Build extra attributes string (marked safe for template rendering)
+    # Build extra attributes string (escape values to prevent XSS)
     extra_attrs = ''
     if attrs:
+        from django.utils.html import escape as html_escape
         extra_attrs = mark_safe(' '.join(
-            f'{k}="{v}"' for k, v in attrs.items()
+            f'{html_escape(k)}="{html_escape(v)}"' for k, v in attrs.items()
         ))
 
     return {

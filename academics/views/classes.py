@@ -867,26 +867,47 @@ def class_bulk_subject_assign(request, pk):
         class_subjects = manual_subjects.filter(id__in=selected_subject_ids)
         students_to_update = students.filter(id__in=selected_student_ids)
 
-        # Create enrollments
-        enrolled_count = 0
-        for student in students_to_update:
-            for class_subject in class_subjects:
-                enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
-                    student=student,
-                    class_subject=class_subject,
-                    defaults={'is_active': True}
-                )
-                if created:
-                    enrolled_count += 1
-                elif not enrollment.is_active:
-                    enrollment.is_active = True
-                    enrollment.save()
-                    enrolled_count += 1
+        # Bulk create enrollments - avoid N*M individual queries
+        student_list = list(students_to_update)
+        cs_list = list(class_subjects)
+
+        # Get existing enrollments in one query
+        existing = set(
+            StudentSubjectEnrollment.objects.filter(
+                student__in=student_list,
+                class_subject__in=cs_list,
+            ).values_list('student_id', 'class_subject_id')
+        )
+
+        # Reactivate inactive enrollments in bulk
+        StudentSubjectEnrollment.objects.filter(
+            student__in=student_list,
+            class_subject__in=cs_list,
+            is_active=False,
+        ).update(is_active=True)
+
+        # Build list of new enrollments to create
+        to_create = []
+        for student in student_list:
+            for cs in cs_list:
+                if (student.id, cs.id) not in existing:
+                    to_create.append(
+                        StudentSubjectEnrollment(
+                            student=student,
+                            class_subject=cs,
+                            is_active=True,
+                        )
+                    )
+
+        if to_create:
+            StudentSubjectEnrollment.objects.bulk_create(to_create, ignore_conflicts=True)
+
+        enrolled_count = len(to_create)
 
         context['success'] = True
         context['enrolled_count'] = enrolled_count
-        context['student_count'] = students_to_update.count()
-        context['subject_count'] = class_subjects.count()
+        context['student_count'] = len(student_list)
+        context['subject_count'] = len(cs_list)
         return render(request, 'academics/includes/modal_bulk_subject_assign_success.html', context)
 
     return render(request, 'academics/includes/modal_bulk_subject_assign.html', context)
@@ -976,21 +997,42 @@ def class_bulk_electives(request, pk):
             subject__is_core=False
         )
 
-        # Apply enrollments
-        enrolled_count = 0
-        for student in students_to_update:
-            for class_subject in class_subjects:
-                enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
-                    student=student,
-                    class_subject=class_subject,
-                    defaults={'is_active': True}
-                )
-                if created:
-                    enrolled_count += 1
-                elif not enrollment.is_active:
-                    enrollment.is_active = True
-                    enrollment.save()
-                    enrolled_count += 1
+        # Bulk apply enrollments - avoid N*M individual queries
+        student_list = list(students_to_update)
+        cs_list = list(class_subjects)
+
+        # Get existing enrollments in one query
+        existing = set(
+            StudentSubjectEnrollment.objects.filter(
+                student__in=student_list,
+                class_subject__in=cs_list,
+            ).values_list('student_id', 'class_subject_id')
+        )
+
+        # Reactivate inactive enrollments in bulk
+        StudentSubjectEnrollment.objects.filter(
+            student__in=student_list,
+            class_subject__in=cs_list,
+            is_active=False,
+        ).update(is_active=True)
+
+        # Build list of new enrollments to create
+        to_create = []
+        for student in student_list:
+            for cs in cs_list:
+                if (student.id, cs.id) not in existing:
+                    to_create.append(
+                        StudentSubjectEnrollment(
+                            student=student,
+                            class_subject=cs,
+                            is_active=True,
+                        )
+                    )
+
+        if to_create:
+            StudentSubjectEnrollment.objects.bulk_create(to_create, ignore_conflicts=True)
+
+        enrolled_count = len(to_create)
 
         # Return success message in modal + OOB swap for tab content
         tab_context = get_register_tab_context(class_obj)
