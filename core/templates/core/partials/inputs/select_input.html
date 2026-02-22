@@ -1,16 +1,17 @@
 {% comment %}
-Select Input Component
+Select Input Component — uses DaisyUI floating-label so the label
+floats above the field on focus/value, keeping the selected text
+always visible even in narrow containers.
 {% endcomment %}
 
-<label class="select select-sm {% if error %}select-error{% endif %} {{ input_class }}">
-    {% if label %}
-    <span class="label">{{ label }}{% if required %} *{% endif %}</span>
-    {% endif %}
-
+{% if label %}
+<label class="floating-label w-full">
     <select name="{{ name }}"
-            id="id_{{ name }}"
+            id="{{ id }}"
+            class="select select-sm w-full {% if error %}select-error{% endif %} {{ input_class }}"
             {% if required %}required{% endif %}
-            {% if disabled %}disabled{% endif %}>
+            {% if disabled %}disabled{% endif %}
+            {{ extra_attrs }}>
         {% if placeholder %}
         <option value="" disabled {% if not value %}selected{% endif %}>{{ placeholder }}</option>
         {% endif %}
@@ -18,7 +19,23 @@ Select Input Component
         <option value="{{ opt.value }}" {% if opt.value|stringformat:"s" == value %}selected{% endif %}>{{ opt.label }}</option>
         {% endfor %}
     </select>
+    <span>{{ label }}{% if required %} *{% endif %}</span>
 </label>
+{% else %}
+<select name="{{ name }}"
+        id="{{ id }}"
+        class="select select-sm w-full {% if error %}select-error{% endif %} {{ input_class }}"
+        {% if required %}required{% endif %}
+        {% if disabled %}disabled{% endif %}
+        {{ extra_attrs }}>
+    {% if placeholder %}
+    <option value="" disabled {% if not value %}selected{% endif %}>{{ placeholder }}</option>
+    {% endif %}
+    {% for opt in options %}
+    <option value="{{ opt.value }}" {% if opt.value|stringformat:"s" == value %}selected{% endif %}>{{ opt.label }}</option>
+    {% endfor %}
+</select>
+{% endif %}
 
 {% if error %}
 <p class="text-error text-xs mt-1">{{ error }}</p>

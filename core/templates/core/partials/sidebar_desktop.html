@@ -1,39 +1,35 @@
 {% load core_tags %}
-<aside class="desktop-sidebar bg-base-100 hidden lg:flex flex-col shrink-0 z-20 border-r border-base-300 shadow-sm">
-    <!-- Logo with school branding -->
-    <div class="h-16 flex items-center px-4 shrink-0 relative overflow-hidden">
-        <!-- Subtle gradient background -->
-        <div class="absolute inset-0 school-gradient opacity-5"></div>
-        <div class="flex items-center gap-3 w-full relative z-10">
+<aside class="desktop-sidebar sidebar-nav hidden lg:flex flex-col shrink-0 z-20 shadow-md">
+    <!-- Logo area -->
+    <div class="h-16 flex items-center px-4 shrink-0 border-b border-white/10">
+        <div class="flex items-center gap-3 w-full">
             {% if school.logo %}
-                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:school.name }}" class="w-9 h-9 rounded-lg shrink-0 object-contain" loading="lazy" />
+                <img src="{{ school.logo.url }}" alt="{{ school.display_name|default:school.name }}" class="w-9 h-9 rounded-lg shrink-0 object-contain bg-white/10 p-0.5" loading="lazy" />
             {% else %}
-                <div class="w-9 h-9 rounded-lg school-gradient text-white grid place-content-center font-bold text-lg shrink-0">
+                <div class="w-9 h-9 rounded-lg bg-white/15 grid place-content-center font-bold text-lg shrink-0">
                     {{ school.short_name|slice:":1"|default:"S" }}
                 </div>
             {% endif %}
             <div class="sidebar-text flex flex-col">
                 <span class="font-bold text-base tracking-tight leading-tight">{{ school.short_name|default:"School" }}</span>
                 {% if school.motto %}
-                <span class="text-[10px] text-base-content/50 truncate max-w-[120px] leading-tight">{{ school.motto|truncatewords:3 }}</span>
+                <span class="text-[10px] opacity-40 truncate max-w-[120px] leading-tight">{{ school.motto|truncatewords:3 }}</span>
                 {% endif %}
             </div>
         </div>
     </div>
-    <!-- Gradient divider -->
-    <div class="h-0.5 school-gradient-subtle opacity-30"></div>
 
-    <!-- Navigation menu - scrollable -->
+    <!-- Navigation menu -->
     <nav class="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
-        <ul class="menu p-2 gap-1 text-sm" id="desktop-nav">
+        <ul class="menu p-2 gap-0.5 text-sm" id="desktop-nav">
             {% get_navigation_items as nav_items %}
             {% include "core/partials/nav_items.html" with nav_items=nav_items is_mobile=False %}
         </ul>
     </nav>
 
-    <!-- Settings at bottom (admin only) -->
+    <!-- Settings (admin only) -->
     {% if user.is_superuser or user.is_school_admin %}
-    <div class="p-2 border-t border-base-300 shrink-0">
+    <div class="p-2 border-t border-white/10 shrink-0">
         <ul class="menu p-0">
             <li>
                 <a href="{% url 'core:settings' %}"

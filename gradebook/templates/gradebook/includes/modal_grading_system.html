@@ -17,10 +17,8 @@
     {% csrf_token %}
 
     <div class="space-y-3">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {% text_input "name" value=system.name label="System Name" placeholder="e.g., WAEC Standard" required=True size="sm" %}
-            {% select_input "level" options=levels value=system.level label="School Level" required=True size="sm" %}
-        </div>
+        {% text_input "name" value=system.name label="System Name" placeholder="e.g., WAEC Standard" required=True size="sm" %}
+        {% select_input "level" options=levels value=system.level label="School Level" required=True size="sm" %}
 
         {% textarea_input "description" value=system.description label="Description" placeholder="Optional description" rows=2 size="sm" %}
 

@@ -1,12 +1,11 @@
 {% load core_tags %}
 
-<h3 class="font-bold text-lg mb-1">
+<h3 class="font-bold text-lg mb-4">
     {% if category %}Edit Category{% else %}Add Assessment Category{% endif %}
 </h3>
-<p class="text-sm text-base-content/60 mb-4">Define how grades are weighted and organized</p>
 
 {% if error %}
-<div class="alert alert-error mb-4 py-2 text-sm">
+<div class="alert alert-error mb-3 py-2 text-sm">
     <i class="fa-solid fa-circle-exclamation"></i>
     <span>{{ error }}</span>
 </div>
@@ -14,54 +13,27 @@
 
 <form method="post"
       hx-post="{% if category %}{% url 'gradebook:category_edit' category.pk %}{% else %}{% url 'gradebook:category_create' %}{% endif %}"
-      hx-target="#modal-content"
-      class="space-y-4">
+      hx-target="#modal-content">
 
-    <!-- Basic Info -->
-    <div class="bg-base-200/30 rounded-lg p-4 space-y-3">
-        <h4 class="text-xs font-semibold uppercase text-base-content/50 mb-3 flex items-center gap-2">
-            <i class="fa-solid fa-tag"></i> Basic Information
-        </h4>
-        <div class="grid grid-cols-2 gap-4">
-            {% text_input "name" value=category.name label="Category Name" placeholder="e.g., Class Score" required=True input_class="input-sm" %}
-            {% text_input "short_name" value=category.short_name label="Short Name" placeholder="e.g., CA" required=True input_class="input-sm" %}
+    <div class="space-y-3">
+        {% select_input "category_type" options=category_types value=category.category_type label="Type" size="sm" %}
+        {% text_input "name" value=category.name label="Category Name" placeholder="e.g., Class Score" required=True size="sm" %}
+        {% text_input "short_name" value=category.short_name label="Short Name" placeholder="e.g., CA" required=True size="sm" %}
+        {% number_input "percentage" value=category.percentage|default:"30" label="Weight %" min=0 max=100 required=True size="sm" %}
+        {% number_input "order" value=category.order|default:"0" label="Display Order" min=0 size="sm" %}
+        <div class="grid grid-cols-2 gap-3">
+            <div>{% number_input "min_assessments" value=category.min_assessments|default:"0" label="Min Assessments" min=0 size="sm" help_text="0 = no limit" %}</div>
+            <div>{% number_input "max_assessments" value=category.max_assessments|default:"0" label="Max Assessments" min=0 size="sm" help_text="0 = no limit" %}</div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-            {% select_input "category_type" options=category_types value=category.category_type label="Type" input_class="select-sm" %}
-            {% number_input "percentage" value=category.percentage|default:"30" label="Weight %" min=0 max=100 required=True input_class="input-sm" %}
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-            {% number_input "order" value=category.order|default:"0" label="Display Order" min=0 input_class="input-sm" %}
-        </div>
+
+        {% if category %}
+        {% checkbox_input "is_active" checked=category.is_active label="Active" size="sm" %}
+        {% endif %}
     </div>
 
-    <!-- Assessment Limits -->
-    <div class="bg-base-200/30 rounded-lg p-4 space-y-3">
-        <h4 class="text-xs font-semibold uppercase text-base-content/50 flex items-center gap-2">
-            <i class="fa-solid fa-list-check"></i> Assessment Limits
-        </h4>
-        <p class="text-xs text-base-content/50">Per subject per term (0 = no limit)</p>
-        <div class="grid grid-cols-2 gap-4">
-            {% number_input "min_assessments" value=category.min_assessments|default:"0" label="Minimum" min=0 input_class="input-sm" %}
-            {% number_input "max_assessments" value=category.max_assessments|default:"0" label="Maximum" min=0 input_class="input-sm" %}
-        </div>
-    </div>
-
-    {% if category %}
-    <!-- Status -->
-    <div class="bg-base-200/30 rounded-lg p-4">
-        <h4 class="text-xs font-semibold uppercase text-base-content/50 mb-3 flex items-center gap-2">
-            <i class="fa-solid fa-toggle-on"></i> Status
-        </h4>
-        {% checkbox_input "is_active" checked=category.is_active label="Category is active" size="sm" %}
-    </div>
-    {% endif %}
-
-    <!-- Actions -->
-    <div class="flex justify-end gap-2 pt-2">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('modal_gradebook').close()">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm">
-            <i class="fa-solid fa-check"></i>
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('modal_gradebook').close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
             {% if category %}Save{% else %}Add{% endif %}
         </button>
     </div>

@@ -124,7 +124,7 @@
             --school-accent: {{ school.accent_color }};
 
             /* Sidebar width */
-            --desktop-width: 17rem;
+            --desktop-width: 15rem;
         }
 
         /* Gender colors — theme-aware, not school-branded */
@@ -150,14 +150,6 @@
             background: linear-gradient(90deg, var(--school-primary) 0%, var(--school-secondary) 100%);
         }
 
-        .school-border-gradient {
-            border-image: linear-gradient(90deg, var(--school-primary), var(--school-secondary)) 1;
-        }
-
-        .school-ring {
-            --tw-ring-color: var(--school-primary);
-        }
-
         #desktop-toggle:checked ~ .drawer-content .desktop-sidebar {
             --desktop-width: 5.5rem;
         }
@@ -169,9 +161,36 @@
             overflow: hidden;
         }
 
-        .desktop-sidebar #desktop-nav {
-            overflow-y: auto;
-            overflow-x: hidden;
+        /* School-colored sidebar — shared via .sidebar-nav class */
+        .sidebar-nav {
+            background: var(--school-primary);
+            color: oklch(100% 0 0);
+        }
+
+        .sidebar-nav .menu a {
+            border-radius: 0.5rem;
+            transition: background-color 0.15s ease, color 0.15s ease;
+            color: oklch(100% 0 0 / 0.7);
+        }
+
+        .sidebar-nav .menu a:hover {
+            background: oklch(100% 0 0 / 0.12);
+            color: oklch(100% 0 0);
+        }
+
+        .sidebar-nav .menu a.active,
+        .sidebar-nav .menu a.active i {
+            background: oklch(100% 0 0 / 0.2);
+            color: oklch(100% 0 0);
+            font-weight: 600;
+        }
+
+        .sidebar-nav .menu a.active i {
+            background: none;
+        }
+
+        .sidebar-nav .menu details summary {
+            color: oklch(100% 0 0 / 0.7);
         }
 
         /* Sidebar text - visible by default, hidden when collapsed */

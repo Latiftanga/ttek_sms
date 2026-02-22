@@ -1,5 +1,6 @@
 from django import template
 from django.urls import reverse, NoReverseMatch
+from django.utils.safestring import mark_safe
 
 register = template.Library()
 
@@ -809,7 +810,8 @@ def textarea_input(name, value='', label=None, placeholder='', required=False,
 @register.inclusion_tag('core/partials/inputs/select_input.html')
 def select_input(name, options, value='', label=None, required=False,
                  disabled=False, help_text='', error='', input_class='',
-                 placeholder='Select an option', size='sm', icon=None):
+                 placeholder='Select an option', size='sm', icon=None,
+                 id=None, attrs=None):
     """
     Render a select dropdown with DaisyUI styling.
 
@@ -818,6 +820,8 @@ def select_input(name, options, value='', label=None, required=False,
 
     Options should be a list of tuples: [(value, label), ...]
     Or a list of dicts: [{'value': 'x', 'label': 'X'}, ...]
+
+    attrs: dict of extra HTML attributes for the <select> element (e.g. HTMX attrs).
     """
     # Normalize options to list of dicts
     normalized_options = []
@@ -828,6 +832,13 @@ def select_input(name, options, value='', label=None, required=False,
             normalized_options.append(opt)
         else:
             normalized_options.append({'value': opt, 'label': str(opt)})
+
+    # Build extra attributes string (marked safe for template rendering)
+    extra_attrs = ''
+    if attrs:
+        extra_attrs = mark_safe(' '.join(
+            f'{k}="{v}"' for k, v in attrs.items()
+        ))
 
     return {
         'name': name,
@@ -842,6 +853,8 @@ def select_input(name, options, value='', label=None, required=False,
         'placeholder': placeholder,
         'size': size,
         'icon': icon,
+        'id': id or f'id_{name}',
+        'extra_attrs': extra_attrs,
     }
 
 
