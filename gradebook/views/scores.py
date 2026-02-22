@@ -565,10 +565,13 @@ def _get_assignments_context(subject, term):
             'count': count,
         })
 
+    category_options = [(cat['obj'].pk, f"{cat['obj'].name} ({cat['count']})" if cat['count'] > 0 else cat['obj'].name) for cat in categories_with_counts]
+
     return {
         'subject': subject,
         'assignments': assigns,
         'categories': categories_with_counts,
+        'category_options': category_options,
         'current_term': term,
     }
 
@@ -707,9 +710,12 @@ def assignment_edit(request, pk):
 
     # GET request - return edit form
     categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
+    category_options = [(cat.pk, cat.name) for cat in categories]
     return render(request, 'gradebook/partials/assignment_edit_form.html', {
         'assignment': assignment,
         'categories': categories,
+        'category_options': category_options,
+        'selected_category_pk': str(assignment.assessment_category.pk),
         'is_admin': is_admin,
     })
 

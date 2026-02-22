@@ -74,11 +74,7 @@
                 <form hx-post="{% url 'gradebook:send_bulk_reports' class_obj.pk %}"
                       hx-swap="none"
                       class="flex items-center gap-2 flex-wrap">
-                    <select name="type" class="select select-bordered select-sm">
-                        {% for value, label in distribution_types %}
-                        <option value="{{ value }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
+                    {% select_input "type" distribution_types size="sm" %}
                     <button type="submit"
                             class="btn btn-secondary btn-sm gap-2"
                             hx-confirm="Send reports to all students with valid contact information?">

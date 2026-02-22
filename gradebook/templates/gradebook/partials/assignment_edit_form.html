@@ -31,17 +31,8 @@
             {% if is_admin %}
             <div class="grid grid-cols-2 gap-2">
                 <!-- Category -->
-                <div class="form-control">
-                    <label class="label py-0.5">
-                        <span class="label-text text-xs font-medium">Category</span>
-                    </label>
-                    <select name="category_id" class="select select-bordered select-sm w-full" required>
-                        {% for cat in categories %}
-                        <option value="{{ cat.pk }}" {% if cat.pk == assignment.assessment_category.pk %}selected{% endif %}>
-                            {{ cat.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                <div>
+                    {% select_input "category_id" category_options value=selected_category_pk label="Category" required=True size="sm" %}
                 </div>
 
                 <!-- Name -->

@@ -29,64 +29,39 @@
                 </a>
             </li>
             <li>
+                <a href="{% url 'gradebook:calculate' %}"
+                   hx-get="{% url 'gradebook:calculate' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-calculator"></i> Calculate Grades
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'gradebook:reports' %}"
+                   hx-get="{% url 'gradebook:reports' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-file-lines"></i> Report Cards
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'gradebook:analytics' %}"
+                   hx-get="{% url 'gradebook:analytics' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true">
+                    <i class="fa-solid fa-chart-line"></i> Analytics
+                </a>
+            </li>
+            <li>
                 <a href="{% url 'gradebook:settings' %}"
                    hx-get="{% url 'gradebook:settings' %}"
                    hx-target="#main-content"
                    hx-push-url="true">
-                    <i class="fa-solid fa-cog"></i> Settings
+                    <i class="fa-solid fa-gear"></i> Settings
                 </a>
             </li>
         </ul>
     </div>
-</div>
-
-<!-- Quick Actions Strip -->
-<div role="tablist" class="tabs tabs-boxed bg-base-200/50 mb-6">
-    <a role="tab"
-       href="{% url 'gradebook:score_entry' %}"
-       hx-get="{% url 'gradebook:score_entry' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="tab tab-active">
-        <i class="fa-solid fa-pen-to-square mr-1"></i>
-        <span class="hidden sm:inline">Enter</span> Scores
-    </a>
-    <a role="tab"
-       href="{% url 'gradebook:calculate' %}"
-       hx-get="{% url 'gradebook:calculate' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="tab">
-        <i class="fa-solid fa-calculator mr-1"></i>
-        <span class="hidden sm:inline">Calculate</span> Grades
-    </a>
-    <a role="tab"
-       href="{% url 'gradebook:reports' %}"
-       hx-get="{% url 'gradebook:reports' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="tab">
-        <i class="fa-solid fa-file-lines mr-1"></i>
-        <span class="hidden sm:inline">Report</span> Cards
-    </a>
-    <a role="tab"
-       href="{% url 'gradebook:analytics' %}"
-       hx-get="{% url 'gradebook:analytics' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="tab">
-        <i class="fa-solid fa-chart-line mr-1"></i>
-        Analytics
-    </a>
-    <a role="tab"
-       href="{% url 'gradebook:settings' %}"
-       hx-get="{% url 'gradebook:settings' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="tab">
-        <i class="fa-solid fa-gear mr-1"></i>
-        <span class="hidden sm:inline">Settings</span>
-    </a>
 </div>
 
 <!-- Stats Section -->

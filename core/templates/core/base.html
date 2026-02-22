@@ -167,6 +167,10 @@
             color: oklch(100% 0 0);
         }
 
+        [data-theme="dark"] .sidebar-nav {
+            background: color-mix(in oklch, var(--school-primary) 75%, black);
+        }
+
         .sidebar-nav .menu a {
             border-radius: 0.5rem;
             transition: background-color 0.15s ease, color 0.15s ease;
@@ -864,6 +868,13 @@
                 if (loader) loader.classList.remove('active');
             });
 
+            // Dismiss on aborted requests (e.g. navigating away mid-request)
+            document.body.addEventListener('htmx:abort', function(e) {
+                window._navClickPending = false;
+                var loader = document.getElementById('nav-loader');
+                if (loader) loader.classList.remove('active');
+            });
+
             // Handle send errors (network failures)
             document.body.addEventListener('htmx:sendError', function(e) {
                 console.warn('HTMX send error:', e.detail);
@@ -1058,6 +1069,11 @@
 
             document.body.addEventListener('htmx:pushedIntoHistory', window.updateSidebarActive);
             document.body.addEventListener('htmx:historyRestore', function(event) {
+                // Dismiss nav-loader on back/forward navigation
+                window._navClickPending = false;
+                var loader = document.getElementById('nav-loader');
+                if (loader) loader.classList.remove('active');
+
                 window.updateSidebarActive();
                 // Re-initialize Alpine on restored content
                 if (window.Alpine && event.detail.elt) {
@@ -1067,6 +1083,13 @@
                         console.debug('Alpine initTree on history restore skipped:', e.message);
                     }
                 }
+            });
+
+            // Safety net: dismiss nav-loader on browser back/forward (popstate)
+            window.addEventListener('popstate', function() {
+                window._navClickPending = false;
+                var loader = document.getElementById('nav-loader');
+                if (loader) loader.classList.remove('active');
             });
             document.addEventListener('DOMContentLoaded', window.updateSidebarActive);
 

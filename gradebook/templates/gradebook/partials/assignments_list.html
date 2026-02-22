@@ -1,3 +1,4 @@
+{% load core_tags %}
 <div id="assignments-container">
     <h3 class="font-bold text-lg mb-1">
         <i class="fa-solid fa-list-check text-primary"></i>
@@ -14,20 +15,8 @@
 
         <div class="grid grid-cols-3 gap-2 mb-2">
             <!-- Category -->
-            <div class="form-control">
-                <label class="label py-0.5">
-                    <span class="label-text text-xs font-medium">Category</span>
-                </label>
-                <select name="category_id"
-                        class="select select-bordered select-sm w-full"
-                        required>
-                    <option value="">Select...</option>
-                    {% for cat in categories %}
-                    <option value="{{ cat.obj.pk }}">
-                        {{ cat.obj.name }}{% if cat.count > 0 %} ({{ cat.count }}){% endif %}
-                    </option>
-                    {% endfor %}
-                </select>
+            <div>
+                {% select_input "category_id" category_options label="Category" placeholder="Select..." required=True size="sm" %}
             </div>
 
             <!-- Date Administered -->
