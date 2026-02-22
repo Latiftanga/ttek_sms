@@ -53,7 +53,13 @@ class House(models.Model):
 
     @property
     def student_count(self):
-        """Return count of active students in this house."""
+        """Return count of active students in this house.
+
+        Prefers the annotated value (student_count_val) when available
+        to avoid an extra DB query. Falls back to a count query.
+        """
+        if hasattr(self, 'student_count_val'):
+            return self.student_count_val
         return self.students.filter(status='active').count()
 
 
@@ -546,7 +552,7 @@ class GuardianInvitation(models.Model):
     class Meta:
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['token'], name='guardian_inv_token_idx'),
+            # Note: 'token' index is implicit from unique=True, db_index=True
             models.Index(fields=['status'], name='guardian_inv_status_idx'),
             models.Index(fields=['guardian'], name='guardian_inv_guardian_idx'),
             models.Index(fields=['guardian', 'status'], name='guardian_inv_gdn_status_idx'),

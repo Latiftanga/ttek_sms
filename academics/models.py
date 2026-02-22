@@ -552,7 +552,7 @@ class AttendanceRecord(models.Model):
     class Meta:
         unique_together = ['session', 'student']
         indexes = [
-            models.Index(fields=['session', 'student'], name='attrec_sess_stud_idx'),
+            # Note: ['session', 'student'] index is implicit from unique_together
             models.Index(fields=['student', 'status'], name='attrec_stud_status_idx'),
         ]
 

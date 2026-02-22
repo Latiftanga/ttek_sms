@@ -16,7 +16,7 @@ from ..models import (
 )
 from ..signals import signals_disabled
 from .. import config
-from academics.models import Class, ClassSubject, StudentSubjectEnrollment
+from academics.models import Class, ClassSubject, StudentSubjectEnrollment, AttendanceSession, AttendanceRecord
 from students.models import Student
 from core.models import Term
 
@@ -366,6 +366,30 @@ def calculate_class_grades(request, class_id):
             # Get subjects for core check
             subjects_dict = {s.id: s for s in subjects}
 
+            # ---- Bulk prefetch attendance data (avoids N+1 per student) ----
+            attendance_sessions = AttendanceSession.objects.filter(
+                class_assigned=class_obj,
+                date__gte=current_term.start_date,
+                date__lte=current_term.end_date
+            )
+            session_ids = list(attendance_sessions.values_list('id', flat=True))
+            total_school_days = len(session_ids)
+
+            # Bulk fetch attendance stats per student in one query
+            attendance_by_student = {}  # {student_id: {days_present, days_absent, times_late}}
+            if session_ids:
+                from django.db.models import Count, Q as _Q
+                attendance_stats = AttendanceRecord.objects.filter(
+                    session_id__in=session_ids,
+                    student_id__in=student_ids
+                ).values('student_id').annotate(
+                    days_present=Count('id', filter=_Q(status__in=['P', 'L'])),
+                    days_absent=Count('id', filter=_Q(status='A')),
+                    times_late=Count('id', filter=_Q(status='L')),
+                )
+                for row in attendance_stats:
+                    attendance_by_student[row['student_id']] = row
+
             # Calculate aggregates for each report
             reports_to_update = []
 
@@ -425,8 +449,19 @@ def calculate_class_grades(request, class_id):
 
                 report.out_of = len(students)
 
-                # Calculate attendance from attendance records
-                report.calculate_attendance()
+                # Apply bulk-prefetched attendance data (no per-student queries)
+                att = attendance_by_student.get(student.id)
+                if att and total_school_days > 0:
+                    report.total_school_days = total_school_days
+                    report.days_present = att['days_present']
+                    report.days_absent = att['days_absent']
+                    report.times_late = att['times_late']
+                    report.attendance_percentage = round(
+                        (Decimal(str(att['days_present'])) / Decimal(str(total_school_days))) * 100, 2
+                    )
+                    report.attendance_rating = TermReport.derive_attendance_rating(
+                        report.attendance_percentage
+                    )
 
                 # Check promotion eligibility for final term
                 if is_final_term and grading_system:

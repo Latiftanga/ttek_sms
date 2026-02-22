@@ -574,7 +574,7 @@ class DocumentVerification(models.Model):
         verbose_name = "Document Verification"
         verbose_name_plural = "Document Verifications"
         indexes = [
-            models.Index(fields=['verification_code']),
+            # Note: 'verification_code' index is implicit from unique=True, db_index=True
             models.Index(fields=['student_admission_number']),
             models.Index(fields=['document_type', 'generated_at']),
         ]
@@ -686,12 +686,15 @@ class Notification(models.Model):
             self.is_read = True
             self.read_at = timezone.now()
             self.save(update_fields=['is_read', 'read_at'])
+            # Invalidate cached count
+            cls = self.__class__
+            cls._invalidate_unread_cache(self.user_id)
 
     @classmethod
     def create_notification(cls, user, title, message, notification_type='info',
                            category='system', icon='', link=''):
         """Create a notification for a user."""
-        return cls.objects.create(
+        notification = cls.objects.create(
             user=user,
             title=title,
             message=message,
@@ -700,6 +703,8 @@ class Notification(models.Model):
             icon=icon,
             link=link,
         )
+        cls._invalidate_unread_cache(user.pk)
+        return notification
 
     @classmethod
     def notify_admins(cls, title, message, notification_type='info', category='system', icon='', link=''):
@@ -719,9 +724,24 @@ class Notification(models.Model):
                 icon=icon,
                 link=link,
             ))
-        return cls.objects.bulk_create(notifications)
+        result = cls.objects.bulk_create(notifications)
+        # Invalidate cache for all notified admins
+        for admin in admins:
+            cls._invalidate_unread_cache(admin.pk)
+        return result
+
+    @classmethod
+    def _invalidate_unread_cache(cls, user_id):
+        """Invalidate the cached unread count for a user."""
+        cache_key = f'notif_unread_{connection.schema_name}_{user_id}'
+        cache.delete(cache_key)
 
     @classmethod
     def unread_count(cls, user):
-        """Get unread notification count for a user."""
-        return cls.objects.filter(user=user, is_read=False).count()
+        """Get unread notification count for a user. Cached for 60 seconds."""
+        cache_key = f'notif_unread_{connection.schema_name}_{user.pk}'
+        count = cache.get(cache_key)
+        if count is None:
+            count = cls.objects.filter(user=user, is_read=False).count()
+            cache.set(cache_key, count, 60)  # Cache for 60 seconds
+        return count

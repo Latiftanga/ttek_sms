@@ -319,8 +319,9 @@ CACHES = {
     }
 }
 
-# Session storage - use cache for better performance
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+# Session storage - use cached_db for performance with resilience
+# Reads from cache (fast), writes to both cache and DB (fallback if Redis goes down)
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 SESSION_CACHE_ALIAS = 'default'
 
 # --- 8. STATIC FILES ---

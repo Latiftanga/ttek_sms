@@ -268,46 +268,41 @@ def recalculate_term_report(student, term):
 
 @receiver(post_save, sender=Score)
 def score_saved(sender, instance, created, **kwargs):
-    """Recalculate grades when a score is saved."""
+    """Recalculate subject grade when a score is saved.
+
+    Only recalculates the SubjectTermGrade (lightweight, ~5 queries).
+    TermReport recalculation is deferred to the bulk calculate_class_grades
+    view to avoid ~120 redundant queries during rapid score entry.
+    """
     if _is_signals_disabled():
         return
 
     assignment = instance.assignment
     student = instance.student
 
-    # Recalculate subject grade
     recalculate_subject_grade(
         student=student,
         subject=assignment.subject,
-        term=assignment.term
-    )
-
-    # Recalculate term report
-    recalculate_term_report(
-        student=student,
         term=assignment.term
     )
 
 
 @receiver(post_delete, sender=Score)
 def score_deleted(sender, instance, **kwargs):
-    """Recalculate grades when a score is deleted."""
+    """Recalculate subject grade when a score is deleted.
+
+    Only recalculates the SubjectTermGrade (lightweight).
+    TermReport recalculation is deferred to the bulk calculate_class_grades view.
+    """
     if _is_signals_disabled():
         return
 
     assignment = instance.assignment
     student = instance.student
 
-    # Recalculate subject grade
     recalculate_subject_grade(
         student=student,
         subject=assignment.subject,
-        term=assignment.term
-    )
-
-    # Recalculate term report
-    recalculate_term_report(
-        student=student,
         term=assignment.term
     )
 

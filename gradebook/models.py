@@ -607,9 +607,7 @@ class Score(models.Model):
         verbose_name = 'Score'
         verbose_name_plural = 'Scores'
         unique_together = ['student', 'assignment']
-        indexes = [
-            models.Index(fields=['student', 'assignment']),
-        ]
+        # Note: ['student', 'assignment'] index is implicit from unique_together
         constraints = [
             # Ensure points >= 0
             models.CheckConstraint(

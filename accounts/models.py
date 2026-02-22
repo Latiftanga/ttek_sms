@@ -239,19 +239,23 @@ class User(AbstractUser):
     def get_profile(self):
         """
         Get the associated profile (Teacher or Student) for this user.
-        Returns None if no profile is linked.
+        Returns None if no profile is linked. Caches result on the instance
+        to avoid repeated DB queries within the same request.
         """
+        if hasattr(self, '_cached_profile'):
+            return self._cached_profile
+
         from django.core.exceptions import ObjectDoesNotExist
         # Try teacher profile first (school admins may also have teacher profiles)
-        try:
-            return self.teacher_profile
-        except ObjectDoesNotExist:
-            pass
-        # Try student profile
-        try:
-            return self.student_profile
-        except ObjectDoesNotExist:
-            pass
+        for attr in ('teacher_profile', 'student_profile'):
+            try:
+                profile = getattr(self, attr)
+                self._cached_profile = profile
+                return profile
+            except ObjectDoesNotExist:
+                continue
+
+        self._cached_profile = None
         return None
 
     @property
@@ -259,11 +263,17 @@ class User(AbstractUser):
         """
         Get a display name for the user.
         Returns first_name from profile if available, otherwise email.
+        Caches result on the instance to avoid repeated DB queries.
         """
+        if hasattr(self, '_cached_display_name'):
+            return self._cached_display_name
+
         profile = self.get_profile()
         if profile and profile.first_name:
-            return profile.first_name
-        return self.email
+            self._cached_display_name = profile.first_name
+        else:
+            self._cached_display_name = self.email
+        return self._cached_display_name
     
     def save(self, *args, **kwargs):
         """
