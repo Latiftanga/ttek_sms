@@ -74,7 +74,9 @@ def calculate_class_grades(request, class_id):
 
     class_obj = get_object_or_404(Class, pk=class_id)
     grading_system_id = request.POST.get('grading_system_id')
-    grading_system = get_object_or_404(GradingSystem, pk=grading_system_id) if grading_system_id else None
+    if not grading_system_id:
+        return HttpResponse('A grading system is required to calculate grades', status=400)
+    grading_system = get_object_or_404(GradingSystem, pk=grading_system_id)
 
     # Check if this is the final term (Term 3) for promotion decisions
     is_final_term = current_term.term_number == 3 if hasattr(current_term, 'term_number') else False

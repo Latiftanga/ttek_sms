@@ -364,8 +364,22 @@ def get_admin_stats():
     stats = {}
     
     if connection.schema_name == 'public':
+        from datetime import timedelta
+        from django.utils import timezone
+        from schools.models import Domain, District, Region
+
         stats['schools'] = School.objects.count()
+        stats['active_schools'] = School.objects.filter(is_active=True).count()
+        stats['inactive_schools'] = School.objects.filter(is_active=False).count()
         stats['users'] = User.objects.count()
+        stats['regions'] = Region.objects.count()
+        stats['districts'] = District.objects.count()
+        stats['domains'] = Domain.objects.count()
+        stats['basic_schools'] = School.objects.filter(education_system__in=['basic', 'both']).count()
+        stats['shs_schools'] = School.objects.filter(education_system__in=['shs', 'both']).count()
+        stats['recent_schools'] = School.objects.filter(
+            created_on__gte=timezone.now().date() - timedelta(days=30)
+        ).count()
         stats['is_public'] = True
     else:
         # Tenant Context
