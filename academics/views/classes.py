@@ -26,6 +26,8 @@ from ..models import (
 from ..forms import ClassForm, StudentEnrollmentForm, ClassSubjectForm, CopySubjectsForm
 from .base import admin_required, teacher_or_admin_required, htmx_render
 
+logger = logging.getLogger(__name__)
+
 
 def get_classes_list_context():
     """Get context for classes list."""
@@ -636,8 +638,31 @@ def class_subject_create(request, pk):
 
 @admin_required
 def class_subject_delete(request, class_pk, pk):
-    """Delete a subject allocation from a class."""
+    """Delete a subject allocation from a class, cleaning up orphaned scores."""
     allocation = get_object_or_404(ClassSubject, pk=pk, class_assigned_id=class_pk)
+
+    # Clean up scores for students in this class for this subject's assignments
+    from gradebook.models import Score
+    from core.models import Term
+
+    current_term = Term.objects.filter(is_current=True).first()
+    if current_term:
+        student_ids = Student.objects.filter(
+            current_class_id=class_pk, status='active'
+        ).values_list('id', flat=True)
+        orphaned_scores = Score.objects.filter(
+            student_id__in=student_ids,
+            assignment__subject=allocation.subject,
+            assignment__term=current_term,
+        )
+        score_count = orphaned_scores.count()
+        if score_count:
+            orphaned_scores.delete()
+            logger.info(
+                "Deleted %d orphaned scores for subject %s in class %s",
+                score_count, allocation.subject, allocation.class_assigned,
+            )
+
     allocation.delete()
 
     if request.htmx:

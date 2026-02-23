@@ -740,7 +740,7 @@
                     <td class="subject-name">{{ grade.subject.name }}</td>
                     {% for cat in categories %}
                     <td>
-                        {% with cat_score=grade.category_scores|get_item:cat.pk %}
+                        {% with cat_score=grade|get_category_score:cat %}
                         {{ cat_score|floatformat:0|default:'-' }}
                         {% endwith %}
                     </td>
@@ -781,7 +781,7 @@
                     <td class="subject-name">{{ grade.subject.name }}</td>
                     {% for cat in categories %}
                     <td>
-                        {% with cat_score=grade.category_scores|get_item:cat.pk %}
+                        {% with cat_score=grade|get_category_score:cat %}
                         {{ cat_score|floatformat:0|default:'-' }}
                         {% endwith %}
                     </td>

@@ -276,11 +276,18 @@ def calculate_class_grades(request, class_id):
                         '_type_EXAM', category_totals.get('EXAM', Decimal('0.0'))
                     )
                     grade.total_score = round(total, 2)
-                    grade.category_scores = {
-                        short_name: float(val)
-                        for short_name, val in category_totals.items()
-                        if not short_name.startswith('_type_')
-                    }
+
+                    # Build category_scores in the format expected by get_category_score filter:
+                    # {str(category.pk): {"score": float, "short_name": str, "name": str}}
+                    grade.category_scores = {}
+                    for category in categories:
+                        short_name = category.short_name
+                        if short_name in category_totals:
+                            grade.category_scores[str(category.pk)] = {
+                                'score': float(category_totals[short_name]),
+                                'short_name': short_name,
+                                'name': category.name,
+                            }
 
                     # Determine grade from scale (no DB query - uses prefetched scales)
                     grade.is_passing = False  # Default to not passing

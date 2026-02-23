@@ -103,11 +103,32 @@ def subject_edit(request, pk):
 
 @admin_required
 def subject_delete(request, pk):
-    """Delete a subject."""
+    """Delete a subject. Blocks if scores exist for the current term."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
     subject = get_object_or_404(Subject, pk=pk)
+
+    # Check if there are scores for this subject in the current term
+    from gradebook.models import Score
+    from core.models import Term
+
+    current_term = Term.objects.filter(is_current=True).first()
+    if current_term:
+        score_count = Score.objects.filter(
+            assignment__subject=subject,
+            assignment__term=current_term,
+        ).count()
+        if score_count:
+            messages.error(
+                request,
+                f'Cannot delete "{subject.name}" — it has {score_count} scores '
+                f'entered this term. Delete the scores first from the gradebook.'
+            )
+            if request.htmx:
+                return render(request, 'academics/partials/subjects_list.html', get_subjects_list_context())
+            return redirect('academics:index')
+
     subject.delete()
 
     if request.htmx:

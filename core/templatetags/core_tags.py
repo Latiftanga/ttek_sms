@@ -632,12 +632,10 @@ def get_category_score(grade, category):
     Get the score for a specific category from SubjectTermGrade.category_scores.
     Usage: {{ grade|get_category_score:cat }}
 
-    Args:
-        grade: SubjectTermGrade object with category_scores JSONField
-        category: AssessmentCategory object
-
-    Returns:
-        The score for that category, or None if not found
+    Handles multiple storage formats:
+    - {str(pk): {"score": float, ...}} — from model calculate_scores() and calculate_class_grades()
+    - {int(pk): float} — from print/PDF view runtime computation
+    - {short_name: float} — legacy format from older calculate_class_grades()
     """
     if grade is None or category is None:
         return None
@@ -646,14 +644,28 @@ def get_category_score(grade, category):
     if not category_scores:
         return None
 
-    # Look up by category primary key (stored as string in JSON)
-    cat_id = str(category.pk)
-    cat_data = category_scores.get(cat_id)
+    # Try string PK key first (standard DB format)
+    cat_data = category_scores.get(str(category.pk))
 
-    if cat_data and isinstance(cat_data, dict):
+    if cat_data is None:
+        # Try integer PK key (runtime format from print/PDF views)
+        cat_data = category_scores.get(category.pk)
+
+    if cat_data is None:
+        # Try short_name key (legacy format)
+        cat_data = category_scores.get(getattr(category, 'short_name', ''))
+
+    if cat_data is None:
+        return None
+
+    # If it's a dict, extract the score value
+    if isinstance(cat_data, dict):
         score = cat_data.get('score')
-        if score is not None:
-            return round(score, 1)
+        return round(score, 1) if score is not None else None
+
+    # If it's a number, return directly
+    if isinstance(cat_data, (int, float)):
+        return round(cat_data, 1)
 
     return None
 

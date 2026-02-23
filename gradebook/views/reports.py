@@ -413,7 +413,6 @@ def report_card_print(request, student_id):
         for cat in categories:
             cat_data = subject_cat_scores.get(cat.pk, {'earned': 0, 'possible': 0})
             if cat_data['possible'] > 0:
-                # Calculate percentage and apply category weight
                 percentage = (cat_data['earned'] / cat_data['possible']) * 100
                 weighted = (percentage * cat.percentage) / 100
                 sg.category_scores[cat.pk] = round(weighted, 1)
