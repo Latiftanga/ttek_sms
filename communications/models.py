@@ -18,6 +18,7 @@ class SMSMessage(models.Model):
         ANNOUNCEMENT = 'announcement', 'Announcement'
         REPORT_FEEDBACK = 'report', 'Report Feedback'
         EXEAT = 'exeat', 'Exeat Notification'
+        STAFF = 'staff', 'Staff Message'
 
     recipient_phone = models.CharField(max_length=20)
     recipient_name = models.CharField(max_length=100, blank=True)
@@ -113,3 +114,72 @@ class SMSTemplate(models.Model):
         for key, value in context.items():
             message = message.replace(f'{{{key}}}', str(value))
         return message
+
+
+class EmailMessage(models.Model):
+    """Log of all email messages sent."""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        SENT = 'sent', 'Sent'
+        FAILED = 'failed', 'Failed'
+
+    class MessageType(models.TextChoices):
+        GENERAL = 'general', 'General'
+        STAFF = 'staff', 'Staff Message'
+        ANNOUNCEMENT = 'announcement', 'Announcement'
+
+    recipient_email = models.EmailField()
+    recipient_name = models.CharField(max_length=100, blank=True)
+    teacher = models.ForeignKey(
+        'teachers.Teacher',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='email_messages'
+    )
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    message_type = models.CharField(
+        max_length=20,
+        choices=MessageType.choices,
+        default=MessageType.GENERAL
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+    error_message = models.TextField(blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='sent_emails'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Email Message'
+        verbose_name_plural = 'Email Messages'
+        indexes = [
+            models.Index(fields=['created_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at', 'status']),
+            models.Index(fields=['message_type']),
+        ]
+
+    def __str__(self):
+        return f"Email to {self.recipient_email} - {self.get_status_display()}"
+
+    def mark_sent(self):
+        self.status = self.Status.SENT
+        self.sent_at = timezone.now()
+        self.save(update_fields=['status', 'sent_at'])
+
+    def mark_failed(self, error=''):
+        self.status = self.Status.FAILED
+        self.error_message = str(error)
+        self.save(update_fields=['status', 'error_message'])

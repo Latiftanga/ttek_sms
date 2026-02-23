@@ -2,6 +2,7 @@ import logging
 import requests
 from celery import shared_task
 from celery.exceptions import MaxRetriesExceededError
+from django.core.mail import send_mail
 from django_tenants.utils import schema_context
 
 logger = logging.getLogger(__name__)
@@ -264,4 +265,54 @@ def send_communication_task(self, schema_name, recipient, message, sms_record_id
             except MaxRetriesExceededError:
                 if sms_record:
                     sms_record.mark_failed("Max retries exceeded")
+                return {"status": "failed", "error": "Max retries exceeded"}
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_email_task(self, schema_name, email_record_id):
+    """
+    Send email message with retry logic for transient failures.
+
+    Args:
+        schema_name: The tenant schema to operate under
+        email_record_id: PK of EmailMessage record
+    """
+    with schema_context(schema_name):
+        from .models import EmailMessage
+        from core.email_backend import get_from_email
+
+        try:
+            record = EmailMessage.objects.get(pk=email_record_id)
+        except EmailMessage.DoesNotExist:
+            logger.warning(f"EmailMessage {email_record_id} not found")
+            return {"status": "failed", "error": "Record not found"}
+
+        try:
+            # Check if email is enabled
+            from core.models import SchoolSettings
+            settings = SchoolSettings.load()
+            if not settings or not settings.email_enabled:
+                record.mark_failed("Email not enabled for this school")
+                return {"status": "disabled", "message": "Email not enabled"}
+
+            from_email = get_from_email()
+            send_mail(
+                subject=record.subject,
+                message=record.message,
+                from_email=from_email,
+                recipient_list=[record.recipient_email],
+                fail_silently=False,
+            )
+            record.mark_sent()
+            return {"status": "sent"}
+
+        except Exception as e:
+            logger.error(f"Email error to {record.recipient_email}: {e}")
+            if self.request.retries >= self.max_retries:
+                record.mark_failed(str(e))
+                return {"status": "failed", "error": str(e)}
+            try:
+                raise self.retry(exc=e)
+            except MaxRetriesExceededError:
+                record.mark_failed("Max retries exceeded")
                 return {"status": "failed", "error": "Max retries exceeded"}

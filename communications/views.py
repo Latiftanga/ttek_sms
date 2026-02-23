@@ -19,10 +19,11 @@ from core.utils import (
 
 import pandas as pd
 
-from .models import SMSMessage, SMSTemplate
+from .models import SMSMessage, SMSTemplate, EmailMessage
 from .utils import validate_phone_number, normalize_phone_number, get_sms_gateway_status, get_email_gateway_status
 from students.models import Student, StudentGuardian
 from academics.models import Class, AttendanceRecord
+from teachers.models import Teacher
 
 logger = logging.getLogger(__name__)
 
@@ -520,10 +521,236 @@ def notify_absent(request):
 
 
 @login_required
+@admin_required
+def send_to_staff(request):
+    """Send SMS and/or email to staff members."""
+    sms_gateway = get_sms_gateway_status()
+    email_gateway = get_email_gateway_status()
+
+    if request.method == 'GET':
+        return render(request, 'communications/partials/modal_send_staff.html', {
+            'sms_gateway': sms_gateway,
+            'email_gateway': email_gateway,
+        })
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    group = request.POST.get('group', 'all')
+    message_text = request.POST.get('message', '').strip()
+    subject = request.POST.get('subject', '').strip()
+    send_sms = request.POST.get('send_sms') == 'on'
+    send_email = request.POST.get('send_email') == 'on'
+
+    if not message_text:
+        return render(request, 'communications/partials/modal_send_staff.html', {
+            'error': 'Message is required.',
+            'sms_gateway': sms_gateway,
+            'email_gateway': email_gateway,
+        })
+
+    if not send_sms and not send_email:
+        return render(request, 'communications/partials/modal_send_staff.html', {
+            'error': 'Please select at least one channel (SMS or Email).',
+            'sms_gateway': sms_gateway,
+            'email_gateway': email_gateway,
+        })
+
+    if send_email and not subject:
+        return render(request, 'communications/partials/modal_send_staff.html', {
+            'error': 'Subject is required for email.',
+            'sms_gateway': sms_gateway,
+            'email_gateway': email_gateway,
+        })
+
+    # Build teacher queryset
+    teachers = Teacher.objects.filter(status=Teacher.Status.ACTIVE)
+    if group == 'teaching':
+        teachers = teachers.filter(staff_category=Teacher.StaffCategory.TEACHING)
+    elif group == 'non_teaching':
+        teachers = teachers.filter(staff_category=Teacher.StaffCategory.NON_TEACHING)
+
+    if send_email:
+        teachers = teachers.select_related('user')
+
+    teachers = list(teachers)
+    school = getattr(connection, 'tenant', None)
+    school_name = school.display_name if school else ''
+
+    # SMS branch
+    sms_queued = 0
+    sms_failed = 0
+    sms_skipped = 0
+
+    if send_sms:
+        sms_records = []
+        teacher_sms_map = {}
+        seen_phones = set()
+
+        for teacher in teachers:
+            phone = normalize_phone_number(teacher.phone_number) if teacher.phone_number else None
+            if not phone:
+                sms_skipped += 1
+                continue
+            if phone in seen_phones:
+                sms_skipped += 1
+                continue
+            seen_phones.add(phone)
+
+            personalized = message_text.replace('{teacher_name}', teacher.full_name)
+            personalized = personalized.replace('{school_name}', school_name)
+
+            sms = SMSMessage(
+                recipient_phone=phone,
+                recipient_name=teacher.full_name,
+                message=personalized,
+                message_type=SMSMessage.MessageType.STAFF,
+                created_by=request.user,
+            )
+            sms_records.append(sms)
+            teacher_sms_map[teacher.pk] = (sms, phone, personalized)
+
+        if sms_records:
+            SMSMessage.objects.bulk_create(sms_records)
+
+            from .tasks import send_communication_task
+            from django.db import connection as db_connection
+
+            for teacher in teachers:
+                if teacher.pk not in teacher_sms_map:
+                    continue
+                sms, phone, personalized = teacher_sms_map[teacher.pk]
+                try:
+                    send_communication_task.delay(
+                        db_connection.schema_name,
+                        phone,
+                        personalized,
+                        sms_record_id=str(sms.pk)
+                    )
+                    sms_queued += 1
+                except Exception as e:
+                    logger.error("Failed to queue SMS for teacher %s: %s", teacher.pk, e)
+                    sms.mark_failed("Failed to queue for sending")
+                    sms_failed += 1
+
+    # Email branch
+    email_queued = 0
+    email_failed = 0
+    email_skipped = 0
+
+    if send_email:
+        email_records = []
+        teacher_email_map = {}
+        seen_emails = set()
+
+        for teacher in teachers:
+            email = teacher.email or (teacher.user.email if teacher.user else None)
+            if not email:
+                email_skipped += 1
+                continue
+            if email in seen_emails:
+                email_skipped += 1
+                continue
+            seen_emails.add(email)
+
+            personalized = message_text.replace('{teacher_name}', teacher.full_name)
+            personalized = personalized.replace('{school_name}', school_name)
+
+            record = EmailMessage(
+                recipient_email=email,
+                recipient_name=teacher.full_name,
+                teacher=teacher,
+                subject=subject,
+                message=personalized,
+                message_type=EmailMessage.MessageType.STAFF,
+                created_by=request.user,
+            )
+            email_records.append(record)
+            teacher_email_map[teacher.pk] = record
+
+        if email_records:
+            EmailMessage.objects.bulk_create(email_records)
+
+            from .tasks import send_email_task
+            from django.db import connection as db_connection
+
+            for teacher in teachers:
+                if teacher.pk not in teacher_email_map:
+                    continue
+                record = teacher_email_map[teacher.pk]
+                try:
+                    send_email_task.delay(
+                        db_connection.schema_name,
+                        str(record.pk)
+                    )
+                    email_queued += 1
+                except Exception as e:
+                    logger.error("Failed to queue email for teacher %s: %s", teacher.pk, e)
+                    record.mark_failed("Failed to queue for sending")
+                    email_failed += 1
+
+    return render(request, 'communications/partials/modal_send_staff.html', {
+        'success': True,
+        'send_sms': send_sms,
+        'send_email': send_email,
+        'sms_queued': sms_queued,
+        'sms_failed': sms_failed,
+        'sms_skipped': sms_skipped,
+        'email_queued': email_queued,
+        'email_failed': email_failed,
+        'email_skipped': email_skipped,
+    })
+
+
+@login_required
+@admin_required
+def staff_recipients(request):
+    """Get staff recipient counts (HTMX endpoint)."""
+    group = request.GET.get('group', 'all')
+
+    teachers = Teacher.objects.filter(status=Teacher.Status.ACTIVE)
+    if group == 'teaching':
+        teachers = teachers.filter(staff_category=Teacher.StaffCategory.TEACHING)
+    elif group == 'non_teaching':
+        teachers = teachers.filter(staff_category=Teacher.StaffCategory.NON_TEACHING)
+
+    total = teachers.count()
+    with_phone = teachers.exclude(phone_number='').exclude(phone_number__isnull=True).count()
+    with_email = teachers.exclude(email='').exclude(email__isnull=True).count()
+
+    group_label = escape({'all': 'All Staff', 'teaching': 'Teaching Staff', 'non_teaching': 'Non-Teaching Staff'}.get(group, 'All Staff'))
+
+    return HttpResponse(f'''
+        <div class="bg-base-200 rounded-lg p-3">
+            <div class="flex items-center justify-between text-sm">
+                <span class="font-medium">{group_label}</span>
+                <span class="badge badge-primary">{total} staff</span>
+            </div>
+            <div class="flex items-center gap-4 mt-2 text-xs text-base-content/70">
+                <span class="flex items-center gap-1">
+                    <i class="fa-solid fa-phone text-success"></i>
+                    {with_phone} with phone
+                </span>
+                <span class="flex items-center gap-1">
+                    <i class="fa-solid fa-envelope text-info"></i>
+                    {with_email} with email
+                </span>
+            </div>
+        </div>
+    ''')
+
+
+@login_required
 @teacher_or_admin_required
 def message_history(request):
-    """View SMS message history with filters."""
-    messages = SMSMessage.objects.select_related('student', 'created_by')
+    """View SMS/Email message history with filters."""
+    channel = request.GET.get('channel', 'sms')
+
+    if channel == 'email':
+        messages = EmailMessage.objects.select_related('teacher', 'created_by')
+    else:
+        channel = 'sms'
+        messages = SMSMessage.objects.select_related('student', 'created_by')
 
     # Filters
     status_filter = request.GET.get('status', '')
@@ -535,11 +762,19 @@ def message_history(request):
     if type_filter:
         messages = messages.filter(message_type=type_filter)
     if search:
-        messages = messages.filter(
-            Q(recipient_phone__icontains=search) |
-            Q(recipient_name__icontains=search) |
-            Q(message__icontains=search)
-        )
+        if channel == 'email':
+            messages = messages.filter(
+                Q(recipient_email__icontains=search) |
+                Q(recipient_name__icontains=search) |
+                Q(subject__icontains=search) |
+                Q(message__icontains=search)
+            )
+        else:
+            messages = messages.filter(
+                Q(recipient_phone__icontains=search) |
+                Q(recipient_name__icontains=search) |
+                Q(message__icontains=search)
+            )
 
     # Pagination with selectable page size
     per_page = request.GET.get('per_page', '25')
@@ -554,16 +789,24 @@ def message_history(request):
     page_number = request.GET.get('page', 1)
     messages_page = paginator.get_page(page_number)
 
+    if channel == 'email':
+        status_choices = EmailMessage.Status.choices
+        type_choices = EmailMessage.MessageType.choices
+    else:
+        status_choices = SMSMessage.Status.choices
+        type_choices = SMSMessage.MessageType.choices
+
     context = {
         'messages': messages_page,
         'page_obj': messages_page,
         'paginator': paginator,
         'per_page': per_page,
+        'channel': channel,
         'status_filter': status_filter,
         'type_filter': type_filter,
         'search': search,
-        'status_choices': SMSMessage.Status.choices,
-        'type_choices': SMSMessage.MessageType.choices,
+        'status_choices': status_choices,
+        'type_choices': type_choices,
         # Navigation
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
