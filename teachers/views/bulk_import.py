@@ -4,6 +4,7 @@ import secrets
 import string
 from datetime import datetime
 
+from django.core.cache import cache
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, FileResponse
 from django.db import transaction
@@ -180,7 +181,9 @@ def bulk_import(request):
                     if send_invitation:
                         existing_user_emails.add(email)
 
-        request.session['teacher_bulk_data'] = json.dumps(valid_rows)
+        cache_key = f'teacher_bulk_data:{request.user.pk}'
+        cache.set(cache_key, json.dumps(valid_rows), 1800)  # 30 min TTL
+        request.session['teacher_bulk_cache_key'] = cache_key
 
         return render(request, 'teachers/partials/modal_bulk_preview.html', {
             'valid_rows': valid_rows,
@@ -203,7 +206,8 @@ def bulk_import_confirm(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    data = request.session.get('teacher_bulk_data')
+    cache_key = request.session.get('teacher_bulk_cache_key', '')
+    data = cache.get(cache_key) if cache_key else None
     if not data:
         return redirect('teachers:index')
 
@@ -285,7 +289,9 @@ def bulk_import_confirm(request):
             errors.append(f"Error during bulk creation: {str(e)}")
 
     # Clear session
-    request.session.pop('teacher_bulk_data', None)
+    cache_key = request.session.pop('teacher_bulk_cache_key', '')
+    if cache_key:
+        cache.delete(cache_key)
 
     if errors:
         messages.warning(request, f"Some errors occurred: {'; '.join(errors)}")

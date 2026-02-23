@@ -371,7 +371,6 @@ def scholarship_assign(request, pk):
         'scholarship': scholarship,
         'form': form,
         'recipients': recipients,
-        'students': Student.objects.filter(status='active').order_by('last_name', 'first_name'),
     }
 
     return htmx_render(

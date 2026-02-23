@@ -111,10 +111,15 @@ def ratelimit(key='user', rate='10/h', block=True):
             else:
                 cache_key = f"ratelimit:{view_func.__name__}:ip:{get_client_ip(request)}"
 
-            # Check current count
-            current = cache.get(cache_key, 0)
+            # Atomic increment using cache.add + cache.incr to prevent race conditions
+            cache.add(cache_key, 0, period_seconds)
+            try:
+                current = cache.incr(cache_key)
+            except ValueError:
+                current = 1
+                cache.set(cache_key, current, period_seconds)
 
-            if current >= limit:
+            if current > limit:
                 logger.warning(f"Rate limit exceeded for {cache_key}")
                 if block:
                     # Return HTML for HTMX requests, JSON for API requests
@@ -129,9 +134,6 @@ def ratelimit(key='user', rate='10/h', block=True):
                         {'error': 'Too many requests. Please try again later.'},
                         status=429
                     )
-
-            # Increment counter
-            cache.set(cache_key, current + 1, period_seconds)
 
             return view_func(request, *args, **kwargs)
         return wrapper

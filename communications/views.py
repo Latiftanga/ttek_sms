@@ -12,7 +12,10 @@ from django.utils import timezone
 from django.utils.html import escape
 from django.db import connection
 from django.db.models import Count, Q
-from core.utils import cache_page_per_tenant
+from core.utils import (
+    cache_page_per_tenant, is_school_admin, htmx_render,
+    teacher_or_admin_required as _core_teacher_or_admin_required,
+)
 
 import pandas as pd
 
@@ -50,31 +53,12 @@ def _prefetch_primary_guardians(students):
 # PERMISSION HELPERS
 # =============================================================================
 
-def is_school_admin(user):
-    """Check if user is a school admin or superuser."""
-    return user.is_superuser or getattr(user, 'is_school_admin', False)
-
-
-def is_teacher_or_admin(user):
-    """Check if user is a teacher, school admin, or superuser."""
-    return (user.is_superuser or
-            getattr(user, 'is_school_admin', False) or
-            getattr(user, 'is_teacher', False))
-
-
-def teacher_or_admin_required(view_func):
-    """Decorator that requires user to be a teacher or admin."""
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not is_teacher_or_admin(request.user):
-            django_messages.error(request, 'You do not have permission to access this page.')
-            return redirect('core:index')
-        return view_func(request, *args, **kwargs)
-    return wrapper
+# is_school_admin, htmx_render, teacher_or_admin_required imported from core.utils
+teacher_or_admin_required = _core_teacher_or_admin_required
 
 
 def admin_required(view_func):
-    """Decorator that requires user to be a school admin."""
+    """Decorator that requires user to be a school admin (redirects to communications)."""
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not is_school_admin(request.user):
@@ -82,17 +66,6 @@ def admin_required(view_func):
             return redirect('communications:index')
         return view_func(request, *args, **kwargs)
     return wrapper
-
-
-# =============================================================================
-# VIEW HELPERS
-# =============================================================================
-
-def htmx_render(request, full_template, partial_template, context=None):
-    """Render full template for regular requests, partial for HTMX requests."""
-    context = context or {}
-    template = partial_template if request.htmx else full_template
-    return render(request, template, context)
 
 
 @login_required
@@ -443,12 +416,11 @@ def notify_absent(request):
             'date': today,
         })
 
-    # Validate student_ids are valid UUIDs
-    import uuid
+    # Validate student_ids are valid integers (Student PK is BigAutoField)
     valid_student_ids = []
     for sid in student_ids:
         try:
-            valid_student_ids.append(uuid.UUID(str(sid)))
+            valid_student_ids.append(int(sid))
         except (ValueError, TypeError):
             continue
 

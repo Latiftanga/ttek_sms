@@ -162,16 +162,18 @@ def guardian_delete(request, pk):
         pk=pk
     )
 
-    # Helper to render guardian list for HTMX responses
+    # Helper to render guardian list for HTMX responses (paginated like index)
     def render_guardian_list():
         guardians = Guardian.objects.annotate(
             ward_count=Count('wards', filter=Q(wards__status='active'))
-        )
+        ).order_by('full_name')
+        paginator = Paginator(guardians, 25)
+        page_obj = paginator.get_page(1)
         return htmx_render(
             request,
             'students/guardian_index.html',
             'students/partials/guardian_list.html',
-            {'guardians': guardians}
+            {'guardians': page_obj, 'page_obj': page_obj, 'paginator': paginator, 'per_page': 25}
         )
 
     # Check if guardian is attached to any students

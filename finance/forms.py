@@ -148,7 +148,7 @@ class StudentScholarshipForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['student'].queryset = Student.objects.filter(status='active').order_by('last_name', 'first_name')
+        self.fields['student'].queryset = Student.objects.filter(status='active').order_by('last_name', 'first_name').only('id', 'first_name', 'last_name', 'admission_number')
         self.fields['end_date'].required = False
 
 

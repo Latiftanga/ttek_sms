@@ -223,5 +223,5 @@ def download_transcript_pdf(request, student_id):
     except (ValueError, ValidationError, IOError) as e:
         import traceback
         logger.error(f"Failed to generate transcript PDF: {str(e)}\n{traceback.format_exc()}")
-        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
         return redirect('gradebook:transcript', student_id=student_id)

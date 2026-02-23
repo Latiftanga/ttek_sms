@@ -2,6 +2,7 @@ import json
 import io
 from datetime import datetime
 
+from django.core.cache import cache
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, FileResponse
 from django.db import transaction
@@ -239,7 +240,9 @@ def bulk_import(request):
                 valid_rows.append(row_data)
                 existing_admissions.add(admission_number)
 
-        request.session['bulk_import_data'] = json.dumps(valid_rows)
+        cache_key = f'bulk_import_data:{request.user.pk}'
+        cache.set(cache_key, json.dumps(valid_rows), 1800)  # 30 min TTL
+        request.session['bulk_import_cache_key'] = cache_key
         request.session['bulk_import_is_shs'] = shs_school
 
         return render(request, 'students/partials/modal_bulk_preview.html', {
@@ -270,7 +273,8 @@ def bulk_import_confirm(request):
     expected_columns = get_expected_columns(school)
     shs_school = request.session.get('bulk_import_is_shs', False)
 
-    data = request.session.get('bulk_import_data')
+    cache_key = request.session.get('bulk_import_cache_key', '')
+    data = cache.get(cache_key) if cache_key else None
     if not data:
         return render(request, 'students/partials/modal_bulk_import.html', {
             'expected_columns': expected_columns,
@@ -420,7 +424,9 @@ def bulk_import_confirm(request):
             errors.append(f"Error during bulk creation: {str(e)}")
 
     # Clear session
-    request.session.pop('bulk_import_data', None)
+    cache_key = request.session.pop('bulk_import_cache_key', '')
+    if cache_key:
+        cache.delete(cache_key)
 
     if errors:
         messages.warning(request, f"Some errors occurred: {'; '.join(errors)}")

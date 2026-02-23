@@ -1363,7 +1363,7 @@ def class_detail_pdf(request, pk):
         return redirect('academics:class_detail', pk=pk)
     except Exception as e:
         logger.error(f"Failed to generate class PDF: {str(e)}")
-        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
         return redirect('academics:class_detail', pk=pk)
 
 

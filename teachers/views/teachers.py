@@ -149,41 +149,11 @@ def teacher_detail(request, pk):
         pk=pk
     )
 
-    # Classes where this teacher is the class teacher (form tutor)
-    homeroom_classes = Class.objects.filter(
-        class_teacher=teacher,
-        is_active=True
-    ).order_by('name')
-
-    # Subject assignments - classes and subjects this teacher teaches
-    subject_assignments = ClassSubject.objects.filter(
-        teacher=teacher
-    ).select_related('class_assigned', 'subject').order_by(
-        'class_assigned__level_number', 'class_assigned__name', 'subject__name'
-    )
-
-    # Calculate workload stats
-    classes_taught = subject_assignments.values('class_assigned').distinct().count()
-    subjects_taught = subject_assignments.values('subject').distinct().count()
-
-    # Total students taught (across all classes)
-    class_ids = subject_assignments.values_list('class_assigned_id', flat=True).distinct()
-    total_students = Student.objects.filter(
-        current_class_id__in=class_ids,
-        status='active'
-    ).count()
-
-    # Periods per week from timetable
-    periods_per_week = TimetableEntry.objects.filter(
-        class_subject__teacher=teacher
-    ).count()
-
-    workload = {
-        'classes_taught': classes_taught,
-        'subjects_taught': subjects_taught,
-        'total_students': total_students,
-        'periods_per_week': periods_per_week,
-    }
+    # Get assignments and workload from shared helper
+    assignments_ctx = get_teacher_assignments_context(teacher)
+    workload = assignments_ctx['workload']
+    subject_assignments = assignments_ctx['subject_assignments']
+    homeroom_classes = assignments_ctx['homeroom_classes']
 
     # Promotions and qualifications for detail tabs
     promotions = Promotion.objects.filter(teacher=teacher).order_by('-date_promoted')
@@ -197,23 +167,7 @@ def teacher_detail(request, pk):
             status=TeacherInvitation.Status.PENDING
         ).first()
 
-    # Group assignments by class for cleaner display
-    homeroom_ids = set(homeroom_classes.values_list('id', flat=True))
-    classes_grouped = {}
-    for assignment in subject_assignments:
-        cls = assignment.class_assigned
-        if cls.id not in classes_grouped:
-            classes_grouped[cls.id] = {
-                'class': cls,
-                'is_homeroom': cls.id in homeroom_ids,
-                'subjects': [],
-                'assignments': [],
-            }
-        classes_grouped[cls.id]['subjects'].append(assignment.subject)
-        classes_grouped[cls.id]['assignments'].append(assignment)
-
-    # Sort by class name
-    classes_list = sorted(classes_grouped.values(), key=lambda x: x['class'].name)
+    classes_list = assignments_ctx['classes_list']
 
     return htmx_render(
         request,
@@ -255,36 +209,12 @@ def teacher_detail_pdf(request, pk):
         pk=pk
     )
 
-    # Classes where this teacher is the class teacher (form tutor)
-    homeroom_classes = Class.objects.filter(
-        class_teacher=teacher,
-        is_active=True
-    ).order_by('name')
-
-    # Subject assignments - classes and subjects this teacher teaches
-    subject_assignments = ClassSubject.objects.filter(
-        teacher=teacher
-    ).select_related('class_assigned', 'subject').order_by(
-        'class_assigned__level_number', 'class_assigned__name', 'subject__name'
-    )
-
-    # Calculate workload stats
-    classes_taught = subject_assignments.values('class_assigned').distinct().count()
-    subjects_taught = subject_assignments.values('subject').distinct().count()
-
-    # Total students taught (across all classes)
-    class_ids = subject_assignments.values_list('class_assigned_id', flat=True).distinct()
-    total_students = Student.objects.filter(
-        current_class_id__in=class_ids,
-        status='active'
-    ).count()
-
-    workload = {
-        'classes_taught': classes_taught,
-        'subjects_taught': subjects_taught,
-        'total_students': total_students,
-        'homeroom_classes': homeroom_classes.count(),
-    }
+    # Reuse shared helper for assignments/workload
+    assignments_ctx = get_teacher_assignments_context(teacher)
+    workload = assignments_ctx['workload']
+    subject_assignments = assignments_ctx['subject_assignments']
+    homeroom_classes = assignments_ctx['homeroom_classes']
+    workload['homeroom_classes'] = homeroom_classes.count()
 
     # Get school context with logo
     from gradebook.utils import get_school_context
@@ -374,7 +304,7 @@ def teacher_detail_pdf(request, pk):
     except Exception as e:
         import traceback
         logger.error(f"Failed to generate teacher PDF: {str(e)}\n{traceback.format_exc()}")
-        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
         return redirect('teachers:teacher_detail', pk=pk)
 
 
@@ -454,6 +384,7 @@ def get_teacher_assignments_context(teacher):
         'subject_assignments': subject_assignments,
         'classes_list': classes_list,
         'workload': workload,
+        'homeroom_classes': homeroom_classes,
     }
 
 

@@ -87,6 +87,10 @@ class Teacher(Person):
 
     @property
     def current_rank(self):
+        # Prefer prefetched data to avoid N+1 queries when listing teachers
+        if hasattr(self, '_prefetched_objects_cache') and 'promotions' in self._prefetched_objects_cache:
+            promotions = self._prefetched_objects_cache['promotions']
+            return promotions[0].get_rank_display() if promotions else "\u2014"
         latest = self.promotions.first()
         return latest.get_rank_display() if latest else "\u2014"
 
@@ -115,7 +119,6 @@ class TeacherInvitation(models.Model):
     token = models.CharField(
         max_length=64,
         unique=True,
-        db_index=True,
         help_text="Secure token for invitation link"
     )
     email = models.EmailField(help_text="Email address invitation was sent to")

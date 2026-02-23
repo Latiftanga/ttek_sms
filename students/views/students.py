@@ -539,7 +539,7 @@ def student_detail_pdf(request, pk):
         import traceback
         logger.error(f"Failed to generate student PDF: {str(e)}\n{traceback.format_exc()}")
         from django.contrib import messages
-        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
         return redirect('students:student_detail', pk=pk)
 
 

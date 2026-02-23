@@ -731,7 +731,7 @@ def download_report_pdf(request, student_id):
 
     except (ValueError, ValidationError, IOError) as e:
         logger.error(f"Failed to generate PDF: {str(e)}")
-        messages.error(request, f'Failed to generate PDF: {str(e)}')
+        messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
         return redirect('gradebook:reports')
 
 

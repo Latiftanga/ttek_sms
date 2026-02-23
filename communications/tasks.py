@@ -222,19 +222,19 @@ def send_communication_task(self, schema_name, recipient, message, sms_record_id
                 if not api_key:
                     raise ValueError("Arkesel API key not configured for this school")
                 response = send_via_arkesel(recipient, message, sender_id=sender_id, api_key=api_key)
-                logger.info(f"Arkesel SMS sent to {recipient}: {response}")
+                logger.debug(f"Arkesel SMS sent to {recipient}: {response}")
 
             elif backend == 'hubtel':
                 if not api_key:
                     raise ValueError("Hubtel API key not configured for this school")
                 response = send_via_hubtel(recipient, message, sender_id=sender_id, api_key=api_key)
-                logger.info(f"Hubtel SMS sent to {recipient}: {response}")
+                logger.debug(f"Hubtel SMS sent to {recipient}: {response}")
 
             elif backend == 'africastalking':
                 if not api_key:
                     raise ValueError("Africa's Talking API key not configured for this school")
                 response = send_via_africastalking(recipient, message, sender_id=sender_id, api_key=api_key)
-                logger.info(f"Africa's Talking SMS sent to {recipient}: {response}")
+                logger.debug(f"Africa's Talking SMS sent to {recipient}: {response}")
 
             else:
                 # Console backend for development

@@ -528,7 +528,6 @@ class GuardianInvitation(models.Model):
     token = models.CharField(
         max_length=64,
         unique=True,
-        db_index=True,
         help_text="Secure token for invitation link"
     )
     email = models.EmailField(help_text="Email address invitation was sent to")

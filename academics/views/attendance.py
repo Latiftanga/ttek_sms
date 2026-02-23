@@ -937,7 +937,8 @@ def attendance_export(request):
     # Permission filtering: restrict teachers to their classes
     allowed_ids = _get_teacher_allowed_class_ids(request.user)
 
-    # Get records
+    # Get records (capped at 50,000 rows to prevent memory issues)
+    MAX_EXPORT_ROWS = 50_000
     records = AttendanceRecord.objects.select_related(
         'session', 'student', 'session__class_assigned'
     ).filter(
@@ -947,7 +948,7 @@ def attendance_export(request):
         'session__date',
         'session__class_assigned__name',
         'student__last_name',
-    )
+    )[:MAX_EXPORT_ROWS]
 
     if allowed_ids is not None:
         records = records.filter(
