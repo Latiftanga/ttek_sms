@@ -1,3 +1,5 @@
+import logging
+
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse
 from django.http import HttpResponse
@@ -10,6 +12,8 @@ from teachers.forms import TeacherForm
 from academics.models import Class, ClassSubject, TimetableEntry
 from students.models import Student
 from .utils import admin_required, htmx_render
+
+logger = logging.getLogger(__name__)
 
 
 @admin_required
@@ -196,13 +200,10 @@ def teacher_detail(request, pk):
 @admin_required
 def teacher_detail_pdf(request, pk):
     """Download PDF profile for a teacher."""
-    import logging
     from io import BytesIO
     from django.template.loader import render_to_string
     from django.conf import settings as django_settings
     from django.db import connection
-
-    logger = logging.getLogger(__name__)
 
     teacher = get_object_or_404(
         Teacher.objects.select_related('user'),

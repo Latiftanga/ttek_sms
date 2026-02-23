@@ -403,9 +403,13 @@ def send_bulk_notifications(self, notification_type, distribution_type, tenant_s
             if filters.get('student_ids'):
                 invoices = invoices.filter(student_id__in=filters['student_ids'])
 
-        # Queue individual tasks
+        # Queue individual tasks (limit batch size to prevent queue flooding)
+        MAX_BATCH = 500
         queued_count = 0
-        for invoice in invoices:
+        for invoice in invoices.iterator():
+            if queued_count >= MAX_BATCH:
+                logger.warning(f"Bulk notification batch limit ({MAX_BATCH}) reached, remaining invoices skipped")
+                break
             send_invoice_notification.delay(
                 invoice_id=str(invoice.pk),
                 notification_type=notification_type,

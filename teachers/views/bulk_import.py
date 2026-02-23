@@ -385,7 +385,8 @@ def bulk_export(request):
     if status_filter:
         teachers = teachers.filter(status=status_filter)
 
-    teachers = teachers.order_by('first_name', 'last_name')
+    MAX_EXPORT_ROWS = 10_000
+    teachers = teachers.order_by('first_name', 'last_name')[:MAX_EXPORT_ROWS]
 
     # Build export data
     export_data = []

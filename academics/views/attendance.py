@@ -1466,5 +1466,5 @@ def weekly_attendance_register_pdf(request, pk):
         return redirect('academics:attendance_reports')
     except Exception as e:
         logger.error(f"Error generating attendance PDF: {e}")
-        messages.error(request, f'Error generating PDF: {str(e)}')
+        messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
         return redirect('academics:attendance_reports')

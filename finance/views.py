@@ -519,17 +519,7 @@ def invoice_generate(request):
 
 def create_student_invoice(student, academic_year, term, due_date, created_by):
     """Create an invoice for a student based on applicable fee structures."""
-    # Check if invoice already exists
-    existing = Invoice.objects.filter(
-        student=student,
-        academic_year=academic_year,
-        term=term
-    ).first()
-
-    if existing:
-        return None
-
-    # Get applicable fee structures
+    # Get applicable fee structures (read-only, safe outside transaction)
     fee_structures = FeeStructure.objects.filter(
         academic_year=academic_year,
         is_active=True
@@ -553,6 +543,16 @@ def create_student_invoice(student, academic_year, term, due_date, created_by):
         return None
 
     with transaction.atomic():
+        # Atomic duplicate check — prevents race condition
+        existing = Invoice.objects.select_for_update().filter(
+            student=student,
+            academic_year=academic_year,
+            term=term
+        ).exists()
+
+        if existing:
+            return None
+
         # Create invoice
         invoice = Invoice.objects.create(
             student=student,
@@ -1086,10 +1086,12 @@ def export_report(request):
 
     report_type = request.GET.get('type', 'collection')
 
+    MAX_EXPORT_ROWS = 10_000
+
     if report_type == 'collection':
         payments = Payment.objects.filter(
             status='COMPLETED'
-        ).select_related('invoice__student').order_by('-transaction_date')
+        ).select_related('invoice__student').order_by('-transaction_date')[:MAX_EXPORT_ROWS]
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="collection_report.csv"'
@@ -1112,7 +1114,7 @@ def export_report(request):
     elif report_type == 'outstanding':
         invoices = Invoice.objects.filter(
             balance__gt=0
-        ).select_related('student', 'student__current_class').order_by('student__last_name')
+        ).select_related('student', 'student__current_class').order_by('student__last_name')[:MAX_EXPORT_ROWS]
 
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="outstanding_report.csv"'
@@ -1545,7 +1547,7 @@ def invoice_search(request):
     return HttpResponse(html)
 
 
-@login_required
+@admin_required
 def api_student_balance(request, student_id):
     """Get student's current balance."""
     student = get_object_or_404(Student, pk=student_id)
@@ -1562,7 +1564,7 @@ def api_student_balance(request, student_id):
     })
 
 
-@login_required
+@admin_required
 def api_class_fees(request, class_id):
     """Get fee structures for a class."""
     class_obj = get_object_or_404(Class, pk=class_id)
@@ -1971,8 +1973,32 @@ def notification_center(request):
             'rate': int((paid / total * 100) if total > 0 else 0),
         })
 
+    # Paginate invoices
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in [25, 50, 100]:
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
+
+    paginator = Paginator(invoices, per_page)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    invoice_list = list(page_obj)
+
+    # Prefetch primary guardians in bulk to avoid N+1
+    from students.models import StudentGuardian
+    student_ids = [inv.student_id for inv in invoice_list]
+    guardian_map = {}
+    if student_ids:
+        sg_qs = StudentGuardian.objects.filter(
+            student_id__in=student_ids, is_primary=True
+        ).select_related('guardian')
+        guardian_map = {sg.student_id: sg.guardian for sg in sg_qs}
+
     # Get last notification and guardian info for each invoice
-    invoice_list = list(invoices)
     for invoice in invoice_list:
         last_log = invoice.notification_logs.first()
         invoice.last_notification = last_log
@@ -1981,8 +2007,8 @@ def notification_center(request):
             invoice.days_overdue = (today - invoice.due_date).days
         else:
             invoice.days_overdue = 0
-        # Get guardian contact info
-        primary_guardian = invoice.student.get_primary_guardian() if hasattr(invoice.student, 'get_primary_guardian') else None
+        # Get guardian contact info from prefetched map
+        primary_guardian = guardian_map.get(invoice.student_id)
         invoice.guardian_phone = primary_guardian.phone_number if primary_guardian else None
         invoice.guardian_email = primary_guardian.email if primary_guardian else None
 
@@ -1992,6 +2018,9 @@ def notification_center(request):
     context = {
         'invoices': invoice_list,
         'overdue_invoices': overdue_invoices,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'per_page': per_page,
         'classes': classes,
         'class_summary': class_summary,
         'total_invoices': total_invoices,

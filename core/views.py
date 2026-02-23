@@ -375,7 +375,10 @@ def setup_wizard_terms(request):
             return setup_wizard(request)
 
         # Get term data from form
-        term_count = int(request.POST.get('term_count', 3))
+        try:
+            term_count = int(request.POST.get('term_count', 3))
+        except (ValueError, TypeError):
+            term_count = 3
         created_count = 0
 
         for i in range(1, term_count + 1):
@@ -475,7 +478,10 @@ def setup_wizard_add_class(request):
     if request.method == 'POST':
         # Get separate level_type and level_number fields
         level_type = request.POST.get('level_type', 'basic')
-        level_number = int(request.POST.get('level_number', 1))
+        try:
+            level_number = int(request.POST.get('level_number', 1))
+        except (ValueError, TypeError):
+            level_number = 1
         section = request.POST.get('section', '').strip()
         programme_id = request.POST.get('programme', '').strip()
 
@@ -710,7 +716,10 @@ def setup_wizard_houses(request):
     from students.models import House
 
     if request.method == 'POST':
-        house_count = int(request.POST.get('house_count', 4))
+        try:
+            house_count = int(request.POST.get('house_count', 4))
+        except (ValueError, TypeError):
+            house_count = 4
 
         for i in range(1, house_count + 1):
             name = request.POST.get(f'house_{i}_name', '').strip()
@@ -740,19 +749,21 @@ def setup_wizard_seed(request):
     from io import StringIO
 
     if request.method == 'POST':
+        from django.db import transaction as db_transaction
         seed_type = request.POST.get('seed_type', 'all')
         output = StringIO()
 
         try:
-            if seed_type == 'academics' or seed_type == 'all':
-                call_command('seed_academics', stdout=output)
+            with db_transaction.atomic():
+                if seed_type in ('academics', 'all'):
+                    call_command('seed_academics', stdout=output)
 
-            if seed_type == 'grading' or seed_type == 'all':
-                call_command('seed_grading_data', stdout=output)
+                if seed_type in ('grading', 'all'):
+                    call_command('seed_grading_data', stdout=output)
 
             messages.success(request, 'Seed data imported successfully.')
-        except Exception as e:
-            messages.error(request, f'Error importing seed data: {str(e)}')
+        except Exception:
+            messages.error(request, 'Error importing seed data. Please try again.')
 
         return setup_wizard(request)
 

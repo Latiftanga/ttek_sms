@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 import logging
 import json
 
+from django.core.cache import cache as django_cache
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
@@ -175,6 +176,12 @@ def score_import_upload(request, class_id, subject_id):
 
     try:
         wb = openpyxl.load_workbook(file, read_only=True)
+    except Exception:
+        return render(request, 'gradebook/partials/import_error.html', {
+            'error': 'Could not read the Excel file. Please ensure it is a valid .xlsx file.'
+        })
+
+    try:
         ws = wb.active
 
         # Get assignments for validation
@@ -245,8 +252,6 @@ def score_import_upload(request, class_id, subject_id):
 
             preview_data.append(row_data)
 
-        wb.close()
-
         # Store data in session for confirmation
         import_data = []
         for row in preview_data:
@@ -259,9 +264,13 @@ def score_import_upload(request, class_id, subject_id):
                             'points': str(score['value']),
                         })
 
-        request.session['import_data'] = json.dumps(import_data)
-        request.session['import_class_id'] = str(class_id)
-        request.session['import_subject_id'] = str(subject_id)
+        cache_key = f'score_import:{request.user.pk}'
+        django_cache.set(cache_key, json.dumps({
+            'data': import_data,
+            'class_id': str(class_id),
+            'subject_id': str(subject_id),
+        }), 1800)  # 30 min TTL
+        request.session['score_import_cache_key'] = cache_key
 
         return render(request, 'gradebook/partials/import_preview.html', {
             'class_obj': class_obj,
@@ -273,11 +282,13 @@ def score_import_upload(request, class_id, subject_id):
             'has_errors': len(errors) > 0,
         })
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error parsing import file")
         return render(request, 'gradebook/partials/import_error.html', {
-            'error': f'Error reading file: {str(e)}'
+            'error': 'Error reading file. Please ensure it is a valid score import template.'
         })
+    finally:
+        wb.close()
 
 
 @login_required
@@ -303,25 +314,27 @@ def score_import_confirm(request, class_id, subject_id):
             'error': 'Grades are locked for this term.'
         })
 
-    # Get data from session
-    import_data_json = request.session.get('import_data')
-    if not import_data_json:
+    # Get data from cache
+    cache_key = request.session.get('score_import_cache_key', '')
+    cached = django_cache.get(cache_key) if cache_key else None
+    if not cached:
         return render(request, 'gradebook/partials/import_error.html', {
             'error': 'No import data found. Please upload the file again.'
         })
 
-    # Validate session data matches current request
-    if (request.session.get('import_class_id') != str(class_id) or
-        request.session.get('import_subject_id') != str(subject_id)):
-        return render(request, 'gradebook/partials/import_error.html', {
-            'error': 'Import data mismatch. Please upload the file again.'
-        })
-
     try:
-        import_data = json.loads(import_data_json)
-    except json.JSONDecodeError:
+        cached_data = json.loads(cached)
+        import_data = cached_data['data']
+    except (json.JSONDecodeError, KeyError):
         return render(request, 'gradebook/partials/import_error.html', {
             'error': 'Invalid import data. Please upload the file again.'
+        })
+
+    # Validate cached data matches current request
+    if (cached_data.get('class_id') != str(class_id) or
+        cached_data.get('subject_id') != str(subject_id)):
+        return render(request, 'gradebook/partials/import_error.html', {
+            'error': 'Import data mismatch. Please upload the file again.'
         })
 
     # Ownership validation: Verify all students and assignments belong to this class/subject
@@ -375,18 +388,22 @@ def score_import_confirm(request, class_id, subject_id):
     updated_count = 0
     affected_combos = set()  # Track (student_id, subject_id, term_id) for batch recalc
 
+    # Pre-fetch existing scores to avoid per-row queries
+    import_keys = [(item['student_id'], item['assignment_id']) for item in import_data]
+    existing_scores = {}
+    if import_keys:
+        student_ids = {k[0] for k in import_keys}
+        assignment_ids = {k[1] for k in import_keys}
+        for s in Score.objects.filter(student_id__in=student_ids, assignment_id__in=assignment_ids):
+            existing_scores[(s.student_id, s.assignment_id)] = s.points
+
     with signals_disabled(), transaction.atomic():
         for item in import_data:
             student_id = item['student_id']
             assignment_id = item['assignment_id']
             points = Decimal(item['points'])
 
-            existing = Score.objects.filter(
-                student_id=student_id,
-                assignment_id=assignment_id
-            ).first()
-
-            old_value = existing.points if existing else None
+            old_value = existing_scores.get((student_id, assignment_id))
 
             score, created = Score.objects.update_or_create(
                 student_id=student_id,
@@ -417,25 +434,30 @@ def score_import_confirm(request, class_id, subject_id):
 
     # Batch recalculate grades for all affected students after signals re-enabled
     from ..signals import recalculate_subject_grade, recalculate_term_report
-    affected_students = set()
+    affected_student_ids = {combo[0] for combo in affected_combos}
+    student_map = {s.pk: s for s in Student.objects.filter(pk__in=affected_student_ids)}
+
     for student_id, subj_id, term_id in affected_combos:
-        recalculate_subject_grade(
-            student=Student.objects.get(pk=student_id),
-            subject=subject,
-            term=current_term
-        )
-        affected_students.add(student_id)
+        student_obj = student_map.get(student_id)
+        if student_obj:
+            recalculate_subject_grade(
+                student=student_obj,
+                subject=subject,
+                term=current_term
+            )
 
-    for student_id in affected_students:
-        recalculate_term_report(
-            student=Student.objects.get(pk=student_id),
-            term=current_term
-        )
+    for student_id in affected_student_ids:
+        student_obj = student_map.get(student_id)
+        if student_obj:
+            recalculate_term_report(
+                student=student_obj,
+                term=current_term
+            )
 
-    # Clear session data
-    request.session.pop('import_data', None)
-    request.session.pop('import_class_id', None)
-    request.session.pop('import_subject_id', None)
+    # Clear cached import data
+    cache_key = request.session.pop('score_import_cache_key', '')
+    if cache_key:
+        django_cache.delete(cache_key)
 
     return render(request, 'gradebook/partials/import_success.html', {
         'created_count': created_count,

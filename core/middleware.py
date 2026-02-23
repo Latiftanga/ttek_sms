@@ -1,7 +1,10 @@
+import logging
 from django.http import JsonResponse
 from django.shortcuts import render
 from django_tenants.middleware.main import TenantMainMiddleware
 from django_tenants.utils import get_public_schema_name
+
+logger = logging.getLogger(__name__)
 
 
 class TenantNotFoundMiddleware(TenantMainMiddleware):
@@ -200,7 +203,8 @@ class HealthCheckMiddleware:
                 cursor.execute('SELECT 1')
             return {'status': 'healthy'}
         except Exception as e:
-            return {'status': 'unhealthy', 'error': str(e)}
+            logger.warning(f"Health check database failed: {e}")
+            return {'status': 'unhealthy', 'error': 'Database check failed'}
 
     def _check_redis(self):
         """Check Redis connectivity."""
@@ -211,7 +215,8 @@ class HealthCheckMiddleware:
                 return {'status': 'healthy'}
             return {'status': 'unhealthy', 'error': 'Cache read/write failed'}
         except Exception as e:
-            return {'status': 'unhealthy', 'error': str(e)}
+            logger.warning(f"Health check redis failed: {e}")
+            return {'status': 'unhealthy', 'error': 'Cache check failed'}
 
     def _check_celery(self):
         """Check Celery worker status."""
@@ -224,7 +229,8 @@ class HealthCheckMiddleware:
                 return {'status': 'healthy', 'workers': worker_count}
             return {'status': 'unhealthy', 'error': 'No workers responding'}
         except Exception as e:
-            return {'status': 'unknown', 'error': str(e)}
+            logger.warning(f"Health check celery failed: {e}")
+            return {'status': 'unknown', 'error': 'Worker check failed'}
 
     def _get_version(self):
         """Get app version info."""

@@ -194,7 +194,7 @@ class BaseGatewayAdapter(ABC):
         Returns:
             Amount in pesewas (smallest currency unit)
         """
-        return int(amount * 100)
+        return int((amount * 100).to_integral_value())
 
     def parse_amount(self, pesewas: int) -> Decimal:
         """
