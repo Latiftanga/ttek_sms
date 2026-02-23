@@ -349,11 +349,15 @@ def scholarship_assign(request, pk):
     if request.method == 'POST':
         form = StudentScholarshipForm(request.POST)
         if form.is_valid():
+            from django.db import IntegrityError
             student_scholarship = form.save(commit=False)
             student_scholarship.scholarship = scholarship
             student_scholarship.approved_by = request.user
-            student_scholarship.save()
-            messages.success(request, f'Scholarship assigned to {student_scholarship.student.full_name}.')
+            try:
+                student_scholarship.save()
+                messages.success(request, f'Scholarship assigned to {student_scholarship.student.full_name}.')
+            except IntegrityError:
+                messages.error(request, 'This student already has this scholarship for the selected academic year.')
             return redirect('finance:scholarships')
     else:
         form = StudentScholarshipForm(initial={

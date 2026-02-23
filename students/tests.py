@@ -397,7 +397,8 @@ class BulkImportViewTests(BulkImportTestCase):
         self.assertEqual(jane_row['guardian_name'], 'Mary Smith')  # Name from CSV, not from DB
 
     def test_bulk_import_stores_session_data(self):
-        """Test bulk import stores valid data in session."""
+        """Test bulk import stores valid data in cache (referenced via session key)."""
+        from django.core.cache import cache
         data = self.get_valid_student_data()
         file = self.create_csv_file(data)
         response = self.client.post(
@@ -406,8 +407,10 @@ class BulkImportViewTests(BulkImportTestCase):
         )
         self.assertEqual(response.status_code, 200)
         session = self.client.session
-        self.assertIn('bulk_import_data', session)
-        stored_data = json.loads(session['bulk_import_data'])
+        self.assertIn('bulk_import_cache_key', session)
+        cached = cache.get(session['bulk_import_cache_key'])
+        self.assertIsNotNone(cached)
+        stored_data = json.loads(cached)
         self.assertEqual(len(stored_data), 2)
 
     def test_bulk_import_gender_normalization(self):
@@ -442,15 +445,18 @@ class BulkImportConfirmViewTests(BulkImportTestCase):
         self.assertIn('Session expired', response.context['error'])
 
     def test_bulk_import_confirm_invalid_session_data(self):
-        """Test POST with invalid session data returns error."""
+        """Test POST with invalid cached data returns error."""
+        from django.core.cache import cache
+        cache_key = 'bulk_import_data:test_invalid'
+        cache.set(cache_key, 'invalid json {', 1800)
         session = self.client.session
-        session['bulk_import_data'] = 'invalid json {'
+        session['bulk_import_cache_key'] = cache_key
         session.save()
 
         response = self.client.post(reverse('students:bulk_import_confirm'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('error', response.context)
-        self.assertIn('Invalid session data', response.context['error'])
+        self.assertIn('Invalid', response.context['error'])
 
     def test_bulk_import_confirm_creates_students(self):
         """Test POST with valid session data creates students."""
@@ -502,17 +508,21 @@ class BulkImportConfirmViewTests(BulkImportTestCase):
         self.assertEqual(Enrollment.objects.count(), 0)
 
     def test_bulk_import_confirm_clears_session(self):
-        """Test session data is cleared after confirm."""
+        """Test cached data is cleared after confirm."""
+        from django.core.cache import cache
         data = self.get_valid_student_data()
         file = self.create_csv_file(data)
         self.client.post(reverse('students:bulk_import'), {'file': file})
 
-        self.assertIn('bulk_import_data', self.client.session)
+        self.assertIn('bulk_import_cache_key', self.client.session)
+        cache_key = self.client.session['bulk_import_cache_key']
+        self.assertIsNotNone(cache.get(cache_key))
+
         self.client.post(reverse('students:bulk_import_confirm'))
 
-        # Session should be cleared
-        session = self.client.session
-        self.assertNotIn('bulk_import_data', session)
+        # Cache and session key should be cleared
+        self.assertIsNone(cache.get(cache_key))
+        self.assertNotIn('bulk_import_cache_key', self.client.session)
 
     def test_bulk_import_confirm_htmx_response(self):
         """Test HTMX request returns refresh header."""
