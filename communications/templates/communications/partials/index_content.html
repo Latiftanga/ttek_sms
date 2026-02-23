@@ -204,8 +204,8 @@
                         </div>
                         {% endif %}
                         {% if request.user.is_superuser or request.user.is_school_admin %}
-                        {% if sms_gateway.ready or email_gateway.ready %}
                         <div class="divider my-1 text-xs text-base-content/40">Staff</div>
+                        {% if sms_gateway.ready or email_gateway.ready %}
                         <a href="#"
                            hx-get="{% url 'communications:send_to_staff' %}"
                            hx-target="#modal-sms-content"
@@ -217,6 +217,14 @@
                                 <div class="text-xs text-base-content/50">SMS &amp; Email to teachers</div>
                             </div>
                         </a>
+                        {% else %}
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-base-200/50 opacity-50 cursor-not-allowed">
+                            <i class="fa-solid fa-chalkboard-user text-base-content/30 w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm text-base-content/50">Message Staff</div>
+                                <div class="text-xs text-base-content/30">SMS/Email not configured</div>
+                            </div>
+                        </div>
                         {% endif %}
                         {% endif %}
                     </div>
