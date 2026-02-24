@@ -1178,8 +1178,34 @@
             url += `&term=${termId}`;
         }
 
-        window.open(url, '_blank');
-        document.getElementById('pdf_register_modal').close();
+        // Use fetch + blob to download without navigating away or opening a new tab
+        const btn = document.querySelector('#pdf_register_modal .btn-error');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Generating...';
+        btn.disabled = true;
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error('PDF generation failed');
+                return response.blob();
+            })
+            .then(blob => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `Attendance_Register.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(a.href);
+                document.getElementById('pdf_register_modal').close();
+            })
+            .catch(() => {
+                alert('Failed to generate PDF. Please try again.');
+            })
+            .finally(() => {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            });
     }
 
     // Initialize term dates on page load

@@ -380,9 +380,13 @@ def calculate_class_grades(request, class_id):
                 date__lte=current_term.end_date
             )
             session_ids = list(attendance_sessions.values_list('id', flat=True))
-            total_school_days = len(session_ids)
+            # Use distinct dates for total_school_days so per-lesson classes
+            # (multiple sessions per day) don't inflate the count on report cards
+            total_school_days = attendance_sessions.values('date').distinct().count()
 
             # Bulk fetch attendance stats per student in one query
+            # Count distinct dates (not raw records) so per-lesson classes
+            # report days_present/days_absent correctly on report cards
             attendance_by_student = {}  # {student_id: {days_present, days_absent, times_late}}
             if session_ids:
                 from django.db.models import Count, Q as _Q
@@ -390,11 +394,17 @@ def calculate_class_grades(request, class_id):
                     session_id__in=session_ids,
                     student_id__in=student_ids
                 ).values('student_id').annotate(
-                    days_present=Count('id', filter=_Q(status__in=['P', 'L'])),
-                    days_absent=Count('id', filter=_Q(status='A')),
+                    # Distinct dates where student was present or late in at least one session
+                    days_present=Count(
+                        'session__date',
+                        filter=_Q(status__in=['P', 'L']),
+                        distinct=True
+                    ),
                     times_late=Count('id', filter=_Q(status='L')),
                 )
                 for row in attendance_stats:
+                    # days_absent = school days minus days they showed up
+                    row['days_absent'] = total_school_days - row['days_present']
                     attendance_by_student[row['student_id']] = row
 
             # Calculate aggregates for each report

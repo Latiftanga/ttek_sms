@@ -12,12 +12,12 @@
         }
 
         @page {
-            size: A4 landscape;
-            margin: 1cm;
+            size: A4 portrait;
+            margin: 10mm 8mm;
             @bottom-center {
                 content: "Page " counter(page) " of " counter(pages);
                 font-family: 'Helvetica', sans-serif;
-                font-size: 8pt;
+                font-size: 7pt;
                 color: #666;
             }
         }
@@ -31,28 +31,28 @@
 
         /* Header Branding */
         .header {
-            margin-bottom: 1rem;
+            margin-bottom: 8px;
             border-bottom: 3px solid var(--primary);
-            padding-bottom: 0.5rem;
+            padding-bottom: 6px;
         }
 
         .logo {
-            width: 60px;
-            height: 60px;
+            width: 45px;
+            height: 45px;
             object-fit: contain;
         }
 
         .school-info h1 {
             margin: 0;
-            font-size: 14pt;
+            font-size: 12pt;
             color: var(--primary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .school-info p {
-            margin: 2px 0;
-            font-size: 8pt;
+            margin: 1px 0;
+            font-size: 7pt;
             color: #666;
         }
 
@@ -64,23 +64,23 @@
         /* Document Title */
         .doc-title {
             text-align: center;
-            margin-bottom: 0.75rem;
+            margin-bottom: 6px;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
-            padding: 10px 15px;
-            border-radius: 6px;
+            padding: 6px 10px;
+            border-radius: 5px;
         }
 
         .doc-title h2 {
-            font-size: 13pt;
+            font-size: 11pt;
             margin: 0;
             text-transform: uppercase;
             letter-spacing: 2px;
         }
 
         .doc-title p {
-            margin: 5px 0 0 0;
-            font-size: 10pt;
+            margin: 2px 0 0 0;
+            font-size: 9pt;
             opacity: 0.95;
         }
 
@@ -88,40 +88,42 @@
         .meta-info {
             display: table;
             width: 100%;
-            margin-bottom: 0.75rem;
-            font-size: 9pt;
+            margin-bottom: 6px;
+            font-size: 8pt;
             background: #f8f9fa;
             border-radius: 4px;
-            padding: 6px 0;
+            padding: 4px 0;
         }
 
-        .meta-row {
-            display: table-row;
-        }
+        .meta-row { display: table-row; }
+        .meta-cell { display: table-cell; padding: 2px 8px; }
+        .meta-label { font-weight: bold; color: var(--primary); }
 
-        .meta-cell {
-            display: table-cell;
-            padding: 3px 10px;
-        }
-
-        .meta-label {
+        /* Week label */
+        .week-label {
+            font-size: 9pt;
             font-weight: bold;
             color: var(--primary);
-            width: 110px;
+            margin-bottom: 4px;
+            padding: 4px 8px;
+            background: #f0f0ff;
+            border-left: 3px solid var(--primary);
+            border-radius: 0 4px 4px 0;
         }
 
         /* Attendance Table */
         .attendance-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
-            margin-bottom: 1rem;
+            margin-bottom: 8px;
             border: 2px solid var(--primary);
         }
 
         .attendance-table th,
         .attendance-table td {
             border: 1px solid #ccc;
-            padding: 5px 6px;
+            padding: 4px 3px;
             text-align: center;
             vertical-align: middle;
         }
@@ -129,24 +131,23 @@
         .attendance-table thead th {
             background: var(--primary);
             color: white;
-            font-size: 8pt;
+            font-size: 7pt;
             text-transform: uppercase;
             font-weight: bold;
             border-color: var(--primary);
         }
 
         .attendance-table thead th.day-header {
-            width: 70px;
             background: linear-gradient(180deg, var(--primary), var(--secondary));
         }
 
         .attendance-table thead th.day-header .day-name {
-            font-size: 9pt;
+            font-size: 8pt;
             font-weight: bold;
         }
 
         .attendance-table thead th.day-header .day-date {
-            font-size: 7pt;
+            font-size: 6.5pt;
             font-weight: normal;
             opacity: 0.9;
         }
@@ -156,56 +157,43 @@
         }
 
         .attendance-table td.sn {
-            width: 28px;
             font-weight: bold;
             background-color: #f3f4f6;
             color: var(--primary);
+            font-size: 8pt;
         }
 
         .attendance-table td.name {
             text-align: left;
-            white-space: nowrap;
             font-size: 8pt;
-            padding-left: 8px;
+            padding-left: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .attendance-table td.adm-no {
             font-family: monospace;
-            font-size: 7pt;
+            font-size: 6.5pt;
             color: #666;
-            width: 85px;
         }
 
         .attendance-table td.status-cell {
-            width: 70px;
-            height: 22px;
-            font-size: 11pt;
+            font-size: 10pt;
             font-weight: bold;
+            height: 20px;
         }
 
-        .status-present {
-            color: #16a34a;
-        }
-
-        .status-absent {
-            color: #dc2626;
-            background-color: #fef2f2 !important;
-        }
-
-        .status-late {
-            color: #ca8a04;
-            background-color: #fefce8 !important;
-        }
-
-        .status-empty {
-            color: #d1d5db;
-        }
+        .status-present { color: #16a34a; }
+        .status-absent { color: #dc2626; background-color: #fef2f2 !important; }
+        .status-late { color: #ca8a04; background-color: #fefce8 !important; }
+        .status-excused { color: #6366f1; background-color: #eef2ff !important; }
+        .status-empty { color: #d1d5db; }
 
         .attendance-table td.total-cell {
-            width: 35px;
             font-weight: bold;
             background-color: #f3f4f6;
-            font-size: 9pt;
+            font-size: 8pt;
         }
 
         .total-present { color: #16a34a; }
@@ -216,11 +204,8 @@
             background-color: var(--primary) !important;
             color: white !important;
             font-weight: bold;
+            font-size: 7pt;
             border-color: var(--primary);
-        }
-
-        .attendance-table tfoot .day-total {
-            font-size: 8pt;
         }
 
         .attendance-table tfoot .day-total .present { color: #86efac; }
@@ -228,50 +213,42 @@
 
         /* Legend */
         .legend {
-            margin-top: 0.75rem;
-            padding: 8px 12px;
+            padding: 5px 8px;
             background: linear-gradient(90deg, #f8f9fa, #fff);
-            border-left: 4px solid var(--accent);
+            border-left: 3px solid var(--accent);
             border-radius: 0 4px 4px 0;
-            font-size: 8pt;
+            font-size: 7pt;
+            margin-bottom: 8px;
         }
 
-        .legend-title {
-            font-weight: bold;
-            color: var(--primary);
-            margin-right: 15px;
-        }
-
-        .legend-item {
-            display: inline-block;
-            margin-right: 18px;
-        }
+        .legend-title { font-weight: bold; color: var(--primary); margin-right: 10px; }
+        .legend-item { display: inline-block; margin-right: 12px; }
 
         .legend-symbol {
             display: inline-block;
-            width: 18px;
-            height: 18px;
+            width: 14px;
+            height: 14px;
             text-align: center;
-            line-height: 18px;
+            line-height: 14px;
             font-weight: bold;
-            margin-right: 4px;
+            margin-right: 2px;
             border: 1px solid #ddd;
-            border-radius: 3px;
-            font-size: 9pt;
+            border-radius: 2px;
+            font-size: 7pt;
         }
 
         /* Summary Section */
         .summary-section {
-            margin-top: 1rem;
+            margin-top: 8px;
             page-break-inside: avoid;
         }
 
         .summary-title {
-            font-size: 10pt;
-            margin-bottom: 8px;
+            font-size: 9pt;
+            margin-bottom: 4px;
             color: var(--primary);
             border-bottom: 2px solid var(--accent);
-            padding-bottom: 4px;
+            padding-bottom: 2px;
             display: inline-block;
         }
 
@@ -284,68 +261,66 @@
         .summary-table th,
         .summary-table td {
             border: 1px solid #ddd;
-            padding: 8px 12px;
+            padding: 6px 8px;
             text-align: center;
         }
 
         .summary-table th {
             background: var(--primary);
             color: white;
-            font-size: 8pt;
+            font-size: 7pt;
             text-transform: uppercase;
         }
 
         .summary-table td {
-            font-size: 12pt;
+            font-size: 11pt;
             font-weight: bold;
         }
 
-        .summary-table .rate-cell {
-            font-size: 14pt;
-        }
+        .summary-table .rate-cell { font-size: 13pt; }
 
         /* Signatures */
         .signatures {
-            margin-top: 1.5rem;
+            margin-top: 1.2rem;
             display: table;
             width: 100%;
+            page-break-inside: avoid;
         }
 
         .signature-box {
             display: table-cell;
             width: 33%;
-            padding: 10px 15px;
+            padding: 6px 10px;
             text-align: center;
         }
 
         .signature-line {
             border-bottom: 2px solid var(--primary);
-            height: 35px;
-            margin-bottom: 6px;
+            height: 28px;
+            margin-bottom: 3px;
         }
 
         .signature-label {
-            font-size: 8pt;
+            font-size: 7pt;
             color: #666;
             font-weight: bold;
         }
 
         /* Footer */
         .footer {
-            margin-top: 1rem;
-            font-size: 7pt;
+            margin-top: 8px;
+            font-size: 6pt;
             color: #888;
             text-align: center;
             border-top: 1px solid #eee;
-            padding-top: 0.5rem;
+            padding-top: 3px;
         }
 
-        .footer .brand {
-            color: var(--primary);
-            font-weight: bold;
-        }
+        .footer .brand { color: var(--primary); font-weight: bold; }
 
-        /* Print helpers */
+        /* Page breaks between weeks */
+        .page-break { page-break-before: always; }
+
         @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
@@ -353,12 +328,18 @@
 </head>
 <body>
 
-    <!-- Header -->
+    <!-- Weekly Attendance Tables (one week per page) -->
+    {% for chunk in day_chunks %}
+    {% if not forloop.first %}
+    <div class="page-break"></div>
+    {% endif %}
+
+    <!-- Header (repeated on every page) -->
     <div class="header">
         <table style="width: 100%; border: none;">
             <tr>
                 {% if logo_base64 %}
-                <td style="width: 70px; border: none; vertical-align: top;">
+                <td style="width: 55px; border: none; vertical-align: top;">
                     <img src="{{ logo_base64 }}" class="logo" alt="School Logo">
                 </td>
                 {% endif %}
@@ -380,8 +361,8 @@
                         {% endif %}
                     </div>
                 </td>
-                <td style="width: 180px; border: none; text-align: right; vertical-align: top; font-size: 8pt;">
-                    <div style="background: #f8f9fa; padding: 8px; border-radius: 4px;">
+                <td style="width: 140px; border: none; text-align: right; vertical-align: top; font-size: 7pt;">
+                    <div style="background: #f8f9fa; padding: 5px; border-radius: 3px;">
                         <strong style="color: {{ school.primary_color|default:'#4F46E5' }};">Term:</strong> {{ current_term.name|default:"N/A" }}<br>
                         <strong style="color: {{ school.primary_color|default:'#4F46E5' }};">Year:</strong> {{ current_term.academic_year.name|default:"N/A" }}<br>
                         <strong style="color: {{ school.primary_color|default:'#4F46E5' }};">Printed:</strong> {{ generated_at|date:"M j, Y" }}
@@ -402,49 +383,69 @@
         <div class="meta-row">
             <div class="meta-cell meta-label">Class Teacher:</div>
             <div class="meta-cell">{{ class.class_teacher.full_name|default:"Not Assigned" }}</div>
-            <div class="meta-cell meta-label">Total Students:</div>
+            <div class="meta-cell meta-label">Students:</div>
             <div class="meta-cell">{{ students|length }}</div>
-            <div class="meta-cell meta-label">Sessions Recorded:</div>
-            <div class="meta-cell">{{ total_sessions }}</div>
+            <div class="meta-cell meta-label">Days Recorded:</div>
+            <div class="meta-cell">{{ days_recorded }} of {{ total_days }}</div>
         </div>
     </div>
 
-    <!-- Attendance Table -->
+    <div class="week-label">
+        Week of {{ chunk.start_date|date:"M j" }} - {{ chunk.end_date|date:"M j, Y" }}
+    </div>
+
     <table class="attendance-table">
+        <colgroup>
+            <col style="width: 22px;"><!-- S/N -->
+            <col style="width: 72px;"><!-- Adm No -->
+            <col><!-- Name — takes remaining space -->
+            {% for day in chunk.days %}
+            <col style="width: 52px;"><!-- Day columns -->
+            {% endfor %}
+            <col style="width: 22px;"><!-- P -->
+            <col style="width: 22px;"><!-- A -->
+            <col style="width: 22px;"><!-- L -->
+        </colgroup>
         <thead>
             <tr>
-                <th style="width: 28px;">S/N</th>
-                <th style="width: 85px;">Adm. No</th>
-                <th style="text-align: left; min-width: 140px;">Student Name</th>
-                {% for day in week_days %}
+                <th>S/N</th>
+                <th>Adm. No</th>
+                <th style="text-align: left;">Student Name</th>
+                {% for day in chunk.days %}
                 <th class="day-header">
                     <div class="day-name">{{ day.name }}</div>
                     <div class="day-date">{{ day.date|date:"M j" }}</div>
                 </th>
                 {% endfor %}
-                <th style="width: 32px;" title="Present">P</th>
-                <th style="width: 32px;" title="Absent">A</th>
-                <th style="width: 32px;" title="Late">L</th>
+                <th title="Present">P</th>
+                <th title="Absent">A</th>
+                <th title="Late">L</th>
             </tr>
         </thead>
         <tbody>
-            {% for student in students %}
+            {% for student in chunk.students %}
             <tr>
                 <td class="sn">{{ forloop.counter }}</td>
                 <td class="adm-no">{{ student.obj.admission_number }}</td>
                 <td class="name">{{ student.obj.last_name }}, {{ student.obj.first_name }}</td>
                 {% for day_status in student.daily_status %}
-                <td class="status-cell {% if day_status == 'P' %}status-present{% elif day_status == 'A' %}status-absent{% elif day_status == 'L' %}status-late{% else %}status-empty{% endif %}">
+                <td class="status-cell {% if day_status == 'P' %}status-present{% elif day_status == 'A' %}status-absent{% elif day_status == 'L' %}status-late{% elif day_status == 'E' %}status-excused{% else %}status-empty{% endif %}">
                     {% if day_status %}{{ day_status }}{% else %}-{% endif %}
                 </td>
                 {% endfor %}
+                {% if forloop.parentloop.last %}
                 <td class="total-cell total-present">{{ student.present_count }}</td>
                 <td class="total-cell total-absent">{{ student.absent_count }}</td>
                 <td class="total-cell total-late">{{ student.late_count }}</td>
+                {% else %}
+                <td class="total-cell" style="color: #bbb;">-</td>
+                <td class="total-cell" style="color: #bbb;">-</td>
+                <td class="total-cell" style="color: #bbb;">-</td>
+                {% endif %}
             </tr>
             {% empty %}
             <tr>
-                <td colspan="{{ week_days|length|add:6 }}" style="text-align: center; padding: 20px; color: #666;">
+                <td colspan="{{ chunk.days|length|add:6 }}" style="text-align: center; padding: 20px; color: #666;">
                     No students enrolled in this class
                 </td>
             </tr>
@@ -452,8 +453,8 @@
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="3" style="text-align: right; padding-right: 10px;">Daily Totals:</td>
-                {% for day in week_days %}
+                <td colspan="3" style="text-align: right; padding-right: 6px;">Totals:</td>
+                {% for day in chunk.days %}
                 <td class="day-total">
                     {% if day.total_records > 0 %}
                     <span class="present">{{ day.present_count }}</span>/<span class="absent">{{ day.absent_count }}</span>
@@ -462,25 +463,33 @@
                     {% endif %}
                 </td>
                 {% endfor %}
+                {% if forloop.last %}
                 <td>{{ totals.present }}</td>
                 <td>{{ totals.absent }}</td>
                 <td>{{ totals.late }}</td>
+                {% else %}
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                {% endif %}
             </tr>
         </tfoot>
     </table>
 
-    <!-- Legend -->
+    <!-- Legend (on every page for reference) -->
     <div class="legend">
         <span class="legend-title">Legend:</span>
         <span class="legend-item"><span class="legend-symbol status-present">P</span> Present</span>
         <span class="legend-item"><span class="legend-symbol status-absent">A</span> Absent</span>
         <span class="legend-item"><span class="legend-symbol status-late">L</span> Late</span>
+        <span class="legend-item"><span class="legend-symbol status-excused">E</span> Excused</span>
         <span class="legend-item"><span class="legend-symbol status-empty">-</span> No Record</span>
     </div>
+    {% endfor %}
 
-    <!-- Summary -->
+    <!-- Summary (on last page) -->
     <div class="summary-section">
-        <h3 class="summary-title">Weekly Summary</h3>
+        <h3 class="summary-title">Overall Summary</h3>
         <table class="summary-table">
             <thead>
                 <tr>
@@ -488,6 +497,7 @@
                     <th>Present</th>
                     <th>Absent</th>
                     <th>Late</th>
+                    {% if totals.excused %}<th>Excused</th>{% endif %}
                     <th>Attendance Rate</th>
                 </tr>
             </thead>
@@ -497,6 +507,7 @@
                     <td class="total-present">{{ totals.present }}</td>
                     <td class="total-absent">{{ totals.absent }}</td>
                     <td class="total-late">{{ totals.late }}</td>
+                    {% if totals.excused %}<td style="color: #6366f1;">{{ totals.excused }}</td>{% endif %}
                     <td class="rate-cell" style="{% if totals.rate >= 80 %}color: #16a34a;{% elif totals.rate >= 60 %}color: #ca8a04;{% else %}color: #dc2626;{% endif %}">
                         {{ totals.rate }}%
                     </td>

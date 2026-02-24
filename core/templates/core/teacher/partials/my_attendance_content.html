@@ -433,7 +433,7 @@
                             {% endif %}
                         </div>
                         <div class="flex items-center gap-3 text-xs text-base-content/60">
-                            <span>{{ item.total|default:0 }} sessions</span>
+                            <span>{{ item.sessions|default:0 }} sessions</span>
                             <span class="text-success">{{ item.present|default:0 }}P</span>
                             <span class="text-error">{{ item.absent|default:0 }}A</span>
                         </div>
@@ -474,7 +474,7 @@
                                 </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge badge-ghost badge-sm">{{ item.total|default:0 }}</span>
+                                <span class="badge badge-ghost badge-sm">{{ item.sessions|default:0 }}</span>
                             </td>
                             <td class="text-center text-success font-medium">{{ item.present|default:0 }}</td>
                             <td class="text-center text-error font-medium">{{ item.absent|default:0 }}</td>

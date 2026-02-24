@@ -1189,7 +1189,9 @@ class TermReport(models.Model):
         if not sessions.exists():
             return
 
-        self.total_school_days = sessions.count()
+        # Use distinct dates so per-lesson classes (multiple sessions per day)
+        # don't inflate total_school_days on report cards
+        self.total_school_days = sessions.values('date').distinct().count()
 
         # Get student's attendance records
         records = AttendanceRecord.objects.filter(
@@ -1197,9 +1199,12 @@ class TermReport(models.Model):
             student=self.student
         )
 
+        # Count distinct dates (not raw records) for days_present
         present_statuses = ['P', 'L']  # Present and Late count as present
-        self.days_present = records.filter(status__in=present_statuses).count()
-        self.days_absent = records.filter(status='A').count()
+        self.days_present = records.filter(
+            status__in=present_statuses
+        ).values('session__date').distinct().count()
+        self.days_absent = self.total_school_days - self.days_present
         self.times_late = records.filter(status='L').count()
 
         if self.total_school_days > 0:

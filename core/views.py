@@ -2722,7 +2722,8 @@ def my_attendance(request):
     class_stats = records_qs.values('session__class_assigned_id').annotate(
         total=Count('id'),
         present=Count('id', filter=Q(status__in=['P', 'L'])),
-        absent=Count('id', filter=Q(status='A'))
+        absent=Count('id', filter=Q(status='A')),
+        sessions=Count('session_id', distinct=True)
     )
     class_stats_dict = {item['session__class_assigned_id']: item for item in class_stats}
 
@@ -2735,7 +2736,7 @@ def my_attendance(request):
     )
 
     # Get today's timetable entries for the teacher (for per-lesson attendance)
-    today_weekday = today.weekday()
+    today_weekday = today.isoweekday()
     teacher_timetable_entries = TimetableEntry.objects.filter(
         class_subject__teacher=teacher,
         weekday=today_weekday,
@@ -2766,6 +2767,8 @@ def my_attendance(request):
     # Get form class for per-lesson attendance (where teacher is form master)
     # This allows form masters to view reports even if they don't teach lessons
     form_class = None
+    # Build a lookup for annotated student counts from the classes queryset
+    class_student_counts = {cls.id: cls.active_student_count for cls in classes}
     for cls in homeroom_classes:
         if cls.attendance_type == Class.AttendanceType.PER_LESSON:
             # Get stats for this class
@@ -2775,7 +2778,7 @@ def my_attendance(request):
             cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
             form_class = {
                 'class': cls,
-                'student_count': cls.students.filter(status='active').count(),
+                'student_count': class_student_counts.get(cls.id, 0),
                 'rate': cls_rate,
             }
             break  # Only one form class per teacher
@@ -2783,10 +2786,11 @@ def my_attendance(request):
     # Build class summary without additional queries
     class_summary = []
     for cls in classes:
-        stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0})
+        stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0, 'sessions': 0})
         cls_total = stats['total']
         cls_present = stats['present']
         cls_absent = stats['absent']
+        cls_sessions = stats['sessions']
         cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
 
         # Check if this is a per-lesson class
@@ -2795,6 +2799,7 @@ def my_attendance(request):
         class_summary.append({
             'class': cls,
             'total': cls_total,
+            'sessions': cls_sessions,
             'present': cls_present,
             'absent': cls_absent,
             'rate': cls_rate,

@@ -11,10 +11,10 @@ from typing import Optional, Dict, List, Tuple, Any
 
 from django.db import connection
 from django.conf import settings as django_settings
-from django.db.models import Count, Max
+from django.db.models import Count, F, Max
 
 from .models import Assignment, Score, AssessmentCategory
-from academics.models import ClassSubject
+from academics.models import ClassSubject, StudentSubjectEnrollment
 from students.models import Student
 
 logger = logging.getLogger(__name__)
@@ -345,35 +345,82 @@ def check_subject_assessment_completeness(subject, term):
         'statuses': statuses,
     }
 
+def _get_enrollment_counts(cs_ids):
+    """
+    Count students per ClassSubject, matching the score entry form logic exactly.
+
+    The score entry form shows students who:
+    1. Have an active StudentSubjectEnrollment for the ClassSubject, AND
+    2. Still belong to that class (current_class matches class_assigned)
+
+    Using F() to join student.current_class against class_subject.class_assigned
+    ensures transferred students aren't counted against their old class.
+    """
+    if not cs_ids:
+        return {}
+    return dict(
+        StudentSubjectEnrollment.objects.filter(
+            class_subject_id__in=cs_ids,
+            is_active=True,
+            student__current_class_id=F('class_subject__class_assigned_id'),
+        ).values('class_subject_id').annotate(
+            count=Count('id')
+        ).values_list('class_subject_id', 'count')
+    )
+
+
+def _get_class_student_counts(class_ids):
+    """
+    Count all students per class (fallback for classes without subject enrollments).
+
+    Matches the score entry form's basic-school path which shows all students
+    in the class with current_class=class_obj (no status filter).
+    """
+    if not class_ids:
+        return {}
+    return dict(
+        Student.objects.filter(
+            current_class_id__in=class_ids
+        ).values('current_class_id').annotate(
+            count=Count('id')
+        ).values_list('current_class_id', 'count')
+    )
+
+
 def calculate_score_entry_progress(current_term):
     """Calculate the overall score entry progress for the current term."""
     if not current_term:
         return 0, 0, 0
 
     scores_entered = Score.objects.filter(assignment__term=current_term).count()
-    
+
     term_assignments = Assignment.objects.filter(term=current_term).values_list('subject_id', flat=True)
     if not term_assignments:
         return scores_entered, 0, 0
 
-    class_subject_data = ClassSubject.objects.filter(
-        subject_id__in=term_assignments
-    ).select_related('class_assigned').values(
-        'subject_id', 'class_assigned_id'
+    class_subject_data = list(
+        ClassSubject.objects.filter(
+            subject_id__in=term_assignments
+        ).values('id', 'subject_id', 'class_assigned_id')
     )
+    if not class_subject_data:
+        return scores_entered, 0, 0
+
+    cs_ids = [cs['id'] for cs in class_subject_data]
+    class_ids = list({cs['class_assigned_id'] for cs in class_subject_data})
+
+    # Build a map of (class_id, subject_id) -> ClassSubject id
+    cs_id_map = {
+        (cs['class_assigned_id'], cs['subject_id']): cs['id']
+        for cs in class_subject_data
+    }
 
     subject_classes = {}
     for cs in class_subject_data:
         subject_classes.setdefault(cs['subject_id'], set()).add(cs['class_assigned_id'])
 
-    class_student_counts = dict(
-        Student.objects.filter(
-            status='active',
-            current_class__isnull=False
-        ).values('current_class_id').annotate(
-            count=Count('id')
-        ).values_list('current_class_id', 'count')
-    )
+    enrollment_counts = _get_enrollment_counts(cs_ids)
+    class_student_counts = _get_class_student_counts(class_ids)
 
     subject_assignment_counts = dict(
         Assignment.objects.filter(
@@ -384,12 +431,15 @@ def calculate_score_entry_progress(current_term):
     )
 
     total_possible_scores = 0
-    for subject_id, class_ids in subject_classes.items():
+    for subject_id, class_ids_for_subj in subject_classes.items():
         assignment_count = subject_assignment_counts.get(subject_id, 0)
-        for class_id in class_ids:
-            student_count = class_student_counts.get(class_id, 0)
+        for class_id in class_ids_for_subj:
+            cs_id = cs_id_map.get((class_id, subject_id))
+            enrolled = enrollment_counts.get(cs_id, 0) if cs_id else 0
+            # Use enrollment count if enrollments exist, otherwise all students in class
+            student_count = enrolled if enrolled > 0 else class_student_counts.get(class_id, 0)
             total_possible_scores += assignment_count * student_count
-    
+
     score_progress = round((scores_entered / total_possible_scores * 100) if total_possible_scores > 0 else 0, 1)
 
     return scores_entered, total_possible_scores, score_progress
@@ -404,18 +454,16 @@ def get_classes_needing_scores(current_term, classes, limit=None):
     top_classes = list(classes[:limit]) if limit else list(classes)
     top_class_ids = [c.id for c in top_classes]
 
-    class_student_counts = dict(
-        Student.objects.filter(
-            status='active',
-            current_class_id__in=top_class_ids
-        ).values('current_class_id').annotate(
-            count=Count('id')
-        ).values_list('current_class_id', 'count')
-    )
+    class_student_counts = _get_class_student_counts(top_class_ids)
 
+    # Map ClassSubject records per class: {class_id: {subject_id: cs_id}}
     class_subjects_map = {}
-    for cs in ClassSubject.objects.filter(class_assigned_id__in=top_class_ids).values('class_assigned_id', 'subject_id'):
-        class_subjects_map.setdefault(cs['class_assigned_id'], set()).add(cs['subject_id'])
+    all_cs_ids = []
+    for cs in ClassSubject.objects.filter(class_assigned_id__in=top_class_ids).values('id', 'class_assigned_id', 'subject_id'):
+        class_subjects_map.setdefault(cs['class_assigned_id'], {})[cs['subject_id']] = cs['id']
+        all_cs_ids.append(cs['id'])
+
+    enrollment_counts = _get_enrollment_counts(all_cs_ids)
 
     subject_assignment_counts = dict(
         Assignment.objects.filter(term=current_term).values('subject_id').annotate(
@@ -423,31 +471,41 @@ def get_classes_needing_scores(current_term, classes, limit=None):
         ).values_list('subject_id', 'count')
     )
 
-    class_score_counts = dict(
-        Score.objects.filter(
-            assignment__term=current_term,
-            student__current_class_id__in=top_class_ids
-        ).values('student__current_class_id').annotate(
-            count=Count('id')
-        ).values_list('student__current_class_id', 'count')
-    )
+    # Count actual scores per (class, subject) so we attribute scores correctly
+    # even when students transfer between classes mid-term.
+    # Using assignment__subject_id grouping ensures scores are counted per subject
+    # and matched against the correct expected count.
+    class_subject_score_counts = {}
+    for row in Score.objects.filter(
+        assignment__term=current_term,
+        student__current_class_id__in=top_class_ids
+    ).values('student__current_class_id', 'assignment__subject_id').annotate(
+        count=Count('id')
+    ):
+        key = (row['student__current_class_id'], row['assignment__subject_id'])
+        class_subject_score_counts[key] = row['count']
 
     classes_needing_scores = []
     for cls in top_classes:
-        student_count = class_student_counts.get(cls.id, 0)
-        if student_count > 0:
-            class_subject_ids = class_subjects_map.get(cls.id, set())
-            total_assignments = sum(
-                subject_assignment_counts.get(subj_id, 0)
-                for subj_id in class_subject_ids
-            )
+        all_class_students = class_student_counts.get(cls.id, 0)
+        if all_class_students > 0:
+            subject_cs_map = class_subjects_map.get(cls.id, {})
+            total_assignments = 0
+            expected_scores = 0
+            actual_scores = 0
+            for subj_id, cs_id in subject_cs_map.items():
+                assign_count = subject_assignment_counts.get(subj_id, 0)
+                if assign_count > 0:
+                    total_assignments += assign_count
+                    enrolled = enrollment_counts.get(cs_id, 0)
+                    student_count = enrolled if enrolled > 0 else all_class_students
+                    expected_scores += assign_count * student_count
+                    actual_scores += class_subject_score_counts.get((cls.id, subj_id), 0)
             if total_assignments > 0:
-                expected_scores = total_assignments * student_count
-                actual_scores = class_score_counts.get(cls.id, 0)
                 progress = round((actual_scores / expected_scores * 100) if expected_scores > 0 else 0)
                 classes_needing_scores.append({
                     'class': cls,
-                    'student_count': student_count,
+                    'student_count': all_class_students,
                     'progress': progress,
                     'assignments': total_assignments,
                     'expected_scores': expected_scores,
@@ -469,14 +527,17 @@ def get_class_subject_progress(current_term, class_id):
     if not class_subjects.exists():
         return []
 
-    student_count = Student.objects.filter(
-        status='active', current_class_id=class_id
+    all_class_students = Student.objects.filter(
+        current_class_id=class_id
     ).count()
 
-    if student_count == 0:
+    if all_class_students == 0:
         return []
 
+    cs_ids = [cs.id for cs in class_subjects]
     subject_ids = [cs.subject_id for cs in class_subjects]
+
+    enrollment_counts = _get_enrollment_counts(cs_ids)
 
     assignment_counts = dict(
         Assignment.objects.filter(
@@ -505,6 +566,8 @@ def get_class_subject_progress(current_term, class_id):
     results = []
     for cs in class_subjects:
         assignments = assignment_counts.get(cs.subject_id, 0)
+        enrolled = enrollment_counts.get(cs.id, 0)
+        student_count = enrolled if enrolled > 0 else all_class_students
         expected = assignments * student_count
         stats = score_map.get(cs.subject_id, {})
         actual = stats.get('count', 0)

@@ -284,7 +284,7 @@ def class_attendance_edit(request, pk, session_pk):
     return render(request, 'academics/class_attendance_take.html', context)
 
 
-@admin_required
+@teacher_or_admin_required
 def class_attendance_history(request, pk):
     """Show class attendance history in a modal."""
     class_obj = get_object_or_404(Class, pk=pk)
@@ -545,7 +545,8 @@ def class_weekly_attendance_report(request, pk):
     total_present = sum(s['present'] for s in stats)
     total_absent = sum(s['absent'] for s in stats)
     total_late = sum(s['late'] for s in stats)
-    total_records = total_present + total_absent + total_late
+    total_excused = sum(s['excused'] for s in stats)
+    total_records = total_present + total_absent + total_late + total_excused
     overall_rate = round((total_present + total_late) / total_records * 100, 1) if total_records > 0 else 0
 
     context = {
@@ -944,11 +945,7 @@ def attendance_export(request):
     ).filter(
         session__date__gte=date_from,
         session__date__lte=date_to
-    ).order_by(
-        'session__date',
-        'session__class_assigned__name',
-        'student__last_name',
-    )[:MAX_EXPORT_ROWS]
+    )
 
     if allowed_ids is not None:
         records = records.filter(
@@ -959,6 +956,12 @@ def attendance_export(request):
         records = records.filter(
             session__class_assigned_id=class_filter
         )
+
+    records = records.order_by(
+        'session__date',
+        'session__class_assigned__name',
+        'student__last_name',
+    )[:MAX_EXPORT_ROWS]
 
     # Create workbook
     wb = Workbook()
@@ -1331,16 +1334,22 @@ def weekly_attendance_register_pdf(request, pk):
 
     # Build days structure for the date range (weekdays only, max 31 days)
     # Prefetch ALL sessions and records for the date range in 2 queries
+    # Support both daily and per-lesson attendance types
     sessions_by_date = {}
-    for session in AttendanceSession.objects.filter(
+    is_per_lesson = class_obj.attendance_type == Class.AttendanceType.PER_LESSON
+    all_sessions = AttendanceSession.objects.filter(
         class_assigned=class_obj,
         date__range=(date_from, date_to),
-        session_type=AttendanceSession.SessionType.DAILY
-    ):
-        sessions_by_date[session.date] = session
+    )
+    if not is_per_lesson:
+        all_sessions = all_sessions.filter(session_type=AttendanceSession.SessionType.DAILY)
+    for session in all_sessions:
+        # For per-lesson: multiple sessions per date, store list
+        # For daily: one session per date
+        sessions_by_date.setdefault(session.date, []).append(session)
 
     # Prefetch all records for these sessions in one query
-    session_ids = [s.id for s in sessions_by_date.values()]
+    session_ids = [s.id for sessions in sessions_by_date.values() for s in sessions]
     records_by_session = defaultdict(list)
     if session_ids:
         for record in AttendanceRecord.objects.filter(session_id__in=session_ids):
@@ -1364,17 +1373,42 @@ def weekly_attendance_register_pdf(request, pk):
         present_count = 0
         absent_count = 0
         late_count = 0
+        excused_count = 0
 
-        session = sessions_by_date.get(day_date)
-        if session:
-            for record in records_by_session.get(session.id, []):
-                day_records[record.student_id] = record.status
-                if record.status == 'P':
-                    present_count += 1
-                elif record.status == 'A':
-                    absent_count += 1
-                elif record.status == 'L':
-                    late_count += 1
+        day_sessions = sessions_by_date.get(day_date, [])
+        if day_sessions:
+            if is_per_lesson:
+                # Per-lesson: aggregate across all lessons in the day
+                # Best status wins: P > L > E > A (if present in any lesson, mark present)
+                STATUS_PRIORITY = {'P': 0, 'L': 1, 'E': 2, 'A': 3}
+                student_best = {}
+                for session in day_sessions:
+                    for record in records_by_session.get(session.id, []):
+                        current = student_best.get(record.student_id)
+                        if current is None or STATUS_PRIORITY.get(record.status, 99) < STATUS_PRIORITY.get(current, 99):
+                            student_best[record.student_id] = record.status
+                for student_id, status in student_best.items():
+                    day_records[student_id] = status
+                    if status == 'P':
+                        present_count += 1
+                    elif status == 'A':
+                        absent_count += 1
+                    elif status == 'L':
+                        late_count += 1
+                    elif status == 'E':
+                        excused_count += 1
+            else:
+                # Daily: single session per day
+                for record in records_by_session.get(day_sessions[0].id, []):
+                    day_records[record.student_id] = record.status
+                    if record.status == 'P':
+                        present_count += 1
+                    elif record.status == 'A':
+                        absent_count += 1
+                    elif record.status == 'L':
+                        late_count += 1
+                    elif record.status == 'E':
+                        excused_count += 1
 
         report_days.append({
             'name': day_name,
@@ -1383,7 +1417,8 @@ def weekly_attendance_register_pdf(request, pk):
             'present_count': present_count,
             'absent_count': absent_count,
             'late_count': late_count,
-            'total_records': present_count + absent_count + late_count,
+            'excused_count': excused_count,
+            'total_records': present_count + absent_count + late_count + excused_count,
         })
 
     # Build student attendance data
@@ -1392,6 +1427,7 @@ def weekly_attendance_register_pdf(request, pk):
         'present': 0,
         'absent': 0,
         'late': 0,
+        'excused': 0,
         'total': 0,
     }
 
@@ -1400,6 +1436,7 @@ def weekly_attendance_register_pdf(request, pk):
         present_count = 0
         absent_count = 0
         late_count = 0
+        excused_count = 0
 
         for day in report_days:
             status = day['records'].get(student.id, '')
@@ -1414,8 +1451,11 @@ def weekly_attendance_register_pdf(request, pk):
             elif status == 'L':
                 late_count += 1
                 totals['late'] += 1
+            elif status == 'E':
+                excused_count += 1
+                totals['excused'] += 1
 
-        totals['total'] += present_count + absent_count + late_count
+        totals['total'] += present_count + absent_count + late_count + excused_count
 
         student_data.append({
             'obj': student,
@@ -1423,13 +1463,41 @@ def weekly_attendance_register_pdf(request, pk):
             'present_count': present_count,
             'absent_count': absent_count,
             'late_count': late_count,
+            'excused_count': excused_count,
         })
 
     # Calculate attendance rate
     totals['rate'] = round((totals['present'] + totals['late']) / totals['total'] * 100, 1) if totals['total'] > 0 else 0
 
-    # Calculate total expected sessions (days with attendance taken)
-    total_sessions = sum(1 for day in report_days if day['total_records'] > 0)
+    # Calculate attendance session counts
+    days_recorded = sum(1 for day in report_days if day['total_records'] > 0)
+    total_days = len(report_days)
+
+    # Split days into weekly chunks (5 weekdays per page, A4 portrait)
+    # Group by calendar week so each page is Mon-Fri of the same week
+    from itertools import groupby
+    day_chunks = []
+    for _, week_group in groupby(report_days, key=lambda d: d['date'].isocalendar()[1]):
+        chunk_days = list(week_group)
+        chunk_students = []
+        # Find the slice indices for this chunk's days in the full report_days list
+        start_idx = report_days.index(chunk_days[0])
+        end_idx = start_idx + len(chunk_days)
+        for student in student_data:
+            chunk_students.append({
+                'obj': student['obj'],
+                'daily_status': student['daily_status'][start_idx:end_idx],
+                'present_count': student['present_count'],
+                'absent_count': student['absent_count'],
+                'late_count': student['late_count'],
+                'excused_count': student.get('excused_count', 0),
+            })
+        day_chunks.append({
+            'days': chunk_days,
+            'students': chunk_students,
+            'start_date': chunk_days[0]['date'],
+            'end_date': chunk_days[-1]['date'],
+        })
 
     try:
         from weasyprint import HTML
@@ -1437,10 +1505,11 @@ def weekly_attendance_register_pdf(request, pk):
         context = {
             'class': class_obj,
             'students': student_data,
-            'week_days': report_days,  # Keep template variable name for compatibility
+            'day_chunks': day_chunks,
             'week_start': date_from,
             'week_end': date_to,
-            'total_sessions': total_sessions,
+            'days_recorded': days_recorded,
+            'total_days': total_days,
             'totals': totals,
             'school': school,
             'logo_base64': school_ctx.get('logo_base64'),
