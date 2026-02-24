@@ -22,8 +22,8 @@
                             {{ alloc.subject.is_core|yesno:"Core,Elective" }}
                         </span>
                         {% endif %}
-                        {% if alloc.timetable_periods %}
-                        <span class="badge badge-ghost badge-xs flex-shrink-0">{{ alloc.timetable_periods }}/wk</span>
+                        {% if alloc.periods_per_week %}
+                        <span class="badge badge-ghost badge-xs flex-shrink-0">{{ alloc.periods_per_week }}/wk</span>
                         {% endif %}
                     </div>
                     <div class="flex flex-wrap gap-x-3 text-xs text-base-content/60 mt-0.5">

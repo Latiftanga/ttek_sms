@@ -13,7 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, FileResponse
 from django.utils import timezone
 from django.db import connection, models, transaction
-from django.db.models import Count, Q, Sum, Case, When, IntegerField
+from django.db.models import Count, Q, Sum
 from django.contrib import messages
 from django.core.paginator import Paginator
 
@@ -306,19 +306,9 @@ def get_register_tab_context(class_obj, request=None, page=1, search='', gender=
 
 def get_teachers_tab_context(class_obj):
     """Context for the Teachers/Subjects tab with periods calculated from timetable."""
-    # Get subject allocations with period counts from timetable
     subject_allocations = ClassSubject.objects.filter(
         class_assigned=class_obj
-    ).select_related('subject', 'teacher').annotate(
-        # Count periods: single = 1, double = 2
-        timetable_periods=Sum(
-            Case(
-                When(timetable_entries__is_double=True, then=2),
-                default=1,
-                output_field=IntegerField()
-            )
-        )
-    ).order_by('subject__name')
+    ).select_related('subject', 'teacher').order_by('subject__name')
 
     return {
         'class': class_obj,
@@ -496,18 +486,10 @@ def class_register(request, pk):
 # ============ CLASS SUBJECT MANAGEMENT ============
 
 def _get_class_subjects_queryset(class_obj):
-    """Helper to get annotated class subjects queryset."""
+    """Helper to get class subjects queryset."""
     return ClassSubject.objects.filter(
         class_assigned=class_obj
-    ).select_related('subject', 'teacher').annotate(
-        timetable_periods=Sum(
-            Case(
-                When(timetable_entries__is_double=True, then=2),
-                default=1,
-                output_field=IntegerField()
-            )
-        )
-    ).order_by('subject__name')
+    ).select_related('subject', 'teacher').order_by('subject__name')
 
 
 def _enroll_class_students_in_subject(class_obj, class_subject):
@@ -555,13 +537,7 @@ def class_subjects(request, pk):
     # Calculate stats using database aggregation (avoids N+1)
     stats = ClassSubject.objects.filter(class_assigned=class_obj).aggregate(
         teachers_assigned=Count('teacher', filter=Q(teacher__isnull=False)),
-        total_periods=Sum(
-            Case(
-                When(timetable_entries__is_double=True, then=2),
-                default=1,
-                output_field=IntegerField()
-            )
-        )
+        total_periods=Sum('periods_per_week')
     )
 
     context = {
@@ -787,7 +763,7 @@ def class_student_remove(request, class_pk, student_pk):
 
 @admin_required
 def class_student_electives(request, class_pk, student_pk):
-    """Manage manual subject assignments for a student (HTMX modal endpoint)."""
+    """Manage subject enrollments for a student (HTMX modal endpoint)."""
     class_obj = get_object_or_404(Class, pk=class_pk)
     student = get_object_or_404(Student, pk=student_pk, current_class=class_obj)
 
@@ -795,24 +771,30 @@ def class_student_electives(request, class_pk, student_pk):
     if request.method == 'GET' and not request.htmx:
         return redirect('academics:class_detail', pk=class_pk)
 
-    # Get subjects that require manual assignment (auto_enroll=False)
-    manual_subjects = ClassSubject.objects.filter(
-        class_assigned=class_obj,
-        auto_enroll=False
-    ).select_related('subject', 'teacher')
+    # Get ALL class subjects (core + elective)
+    all_subjects = ClassSubject.objects.filter(
+        class_assigned=class_obj
+    ).select_related('subject', 'teacher').order_by('subject__name')
 
-    # Get current enrollments for manual subjects
+    # Ensure auto-enroll subjects have enrollment records (handles legacy data)
+    for cs in all_subjects.filter(auto_enroll=True):
+        StudentSubjectEnrollment.objects.get_or_create(
+            student=student,
+            class_subject=cs,
+            defaults={'is_active': True}
+        )
+
+    # Get current active enrollments
     enrolled_ids = list(StudentSubjectEnrollment.objects.filter(
         student=student,
         class_subject__class_assigned=class_obj,
-        class_subject__auto_enroll=False,
         is_active=True
     ).values_list('class_subject_id', flat=True))
 
     context = {
         'class': class_obj,
         'student': student,
-        'manual_subjects': manual_subjects,
+        'all_subjects': all_subjects,
         'enrolled_ids': enrolled_ids,
     }
 
@@ -820,8 +802,8 @@ def class_student_electives(request, class_pk, student_pk):
         # Get selected subject IDs
         selected_ids = request.POST.getlist('subjects')
 
-        # Update enrollments for manual subjects only
-        for class_subject in manual_subjects:
+        # Update enrollments for all subjects
+        for class_subject in all_subjects:
             should_be_enrolled = str(class_subject.id) in selected_ids
 
             if should_be_enrolled:
@@ -1092,12 +1074,22 @@ def class_sync_subjects(request, pk):
         status='active'
     )
 
+    # Sync only creates missing enrollments — does NOT reactivate
+    # enrollments that were manually deactivated by an admin.
     enrolled_count = 0
+    class_subjects = ClassSubject.objects.filter(
+        class_assigned=class_obj,
+        auto_enroll=True
+    )
     for student in students:
-        enrollments = StudentSubjectEnrollment.enroll_student_in_class_subjects(
-            student, class_obj
-        )
-        enrolled_count += len(enrollments)
+        for class_subject in class_subjects:
+            _, created = StudentSubjectEnrollment.objects.get_or_create(
+                student=student,
+                class_subject=class_subject,
+                defaults={'is_active': True}
+            )
+            if created:
+                enrolled_count += 1
 
     if request.htmx:
         if enrolled_count > 0:

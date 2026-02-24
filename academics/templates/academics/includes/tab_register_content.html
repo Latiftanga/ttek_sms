@@ -53,21 +53,12 @@
         <!-- Quick Actions - visible on mobile, hover on desktop -->
         <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
-                  hx-get="{% url 'students:student_edit' student.pk %}"
-                  hx-target="#main-content"
-                  hx-push-url="true"
-                  title="Edit">
-                <i class="fa-solid fa-pen text-base-content/50"></i>
-            </span>
-            {% if manual_subjects %}
-            <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
                   hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
                   hx-target="#modal-edit-content"
                   hx-on::after-request="document.getElementById('modal_edit').showModal()"
-                  title="Assign Subjects">
+                  title="Manage Subjects">
                 <i class="fa-solid fa-book-bookmark text-base-content/50"></i>
             </span>
-            {% endif %}
             <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
                   hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
                   hx-target="#tab-register"

@@ -30,7 +30,7 @@
 {% if subject_allocations %}
 <div class="space-y-2 max-h-[50vh] overflow-y-auto">
     {% for alloc in subject_allocations %}
-    <div class="flex items-center gap-3 p-3 bg-base-200/50 rounded-lg">
+    <div class="group flex items-center gap-3 p-3 bg-base-200/50 rounded-lg">
         <!-- Subject Icon -->
         <div class="avatar placeholder flex-shrink-0">
             <div class="w-10 h-10 rounded-lg {% if alloc.subject.is_core %}bg-primary/20 text-primary{% else %}bg-secondary/20 text-secondary{% endif %} flex items-center justify-center">
@@ -54,26 +54,26 @@
                 {% else %}
                 <span class="text-warning"><i class="fa-solid fa-circle-exclamation mr-1"></i>No teacher</span>
                 {% endif %}
-                {% if alloc.timetable_periods %}
-                <span class="ml-2"><i class="fa-solid fa-clock mr-1"></i>{{ alloc.timetable_periods }}/wk</span>
+                {% if alloc.periods_per_week %}
+                <span class="ml-2"><i class="fa-solid fa-clock mr-1"></i>{{ alloc.periods_per_week }}/wk</span>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Actions -->
-        <div class="flex items-center gap-1">
+        <!-- Actions (visible on hover, always visible on mobile) -->
+        <div class="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <button class="btn btn-ghost btn-xs btn-square"
                     hx-get="{% url 'academics:class_subject_create' class.pk %}?subject_id={{ alloc.pk }}"
                     hx-target="#modal-edit-content"
                     title="Edit">
-                <i class="fa-solid fa-pen"></i>
+                <i class="fa-solid fa-pen text-base-content/50"></i>
             </button>
-            <button class="btn btn-ghost btn-xs btn-square text-error"
+            <button class="btn btn-ghost btn-xs btn-square"
                     hx-post="{% url 'academics:class_subject_delete' class.pk alloc.pk %}"
                     hx-target="#modal-edit-content"
                     hx-confirm="Remove {{ alloc.subject.name }} from this class?"
                     title="Remove">
-                <i class="fa-solid fa-trash"></i>
+                <i class="fa-solid fa-trash text-error/50"></i>
             </button>
         </div>
     </div>

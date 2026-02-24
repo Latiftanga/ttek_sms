@@ -1,20 +1,20 @@
 {% load core_tags %}
 
-<div class="flex items-center justify-between mb-4 pb-3 border-b border-base-200">
+<div class="flex items-center justify-between mb-2 pb-2 border-b border-base-200">
     <div>
-        <h3 class="text-lg font-bold">Assign Subjects</h3>
+        <h3 class="text-base font-bold">Manage Subjects</h3>
         <p class="text-xs text-base-content/60">{{ student.full_name }}</p>
     </div>
 </div>
 
-{% if not manual_subjects %}
-<div class="alert alert-info mb-4">
+{% if not all_subjects %}
+<div class="alert alert-info py-2 text-sm">
     <i class="fa-solid fa-info-circle"></i>
-    <span>No subjects require manual assignment for this class.</span>
+    <span>No subjects added to this class yet.</span>
 </div>
-<div class="modal-action border-t border-base-200 pt-4 mt-4">
+<div class="modal-action pt-3 mt-2">
     <form method="dialog">
-        <button class="btn">Close</button>
+        <button class="btn btn-sm">Close</button>
     </form>
 </div>
 {% else %}
@@ -25,42 +25,29 @@
       hx-swap="innerHTML">
     {% csrf_token %}
 
-    <div class="alert alert-info mb-4 py-2 text-sm">
-        <i class="fa-solid fa-info-circle"></i>
-        <span>Select the subjects this student should take. These are subjects that are not automatically assigned to all students.</span>
-    </div>
+    <p class="text-xs text-base-content/60 mb-2">Uncheck to remove from gradebook.</p>
 
-    <div class="space-y-2 max-h-64 overflow-y-auto">
-        {% for cs in manual_subjects %}
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-base-200 hover:bg-base-200/50 cursor-pointer transition-colors">
+    <div class="space-y-1 max-h-60 overflow-y-auto -mx-1 px-1">
+        {% for cs in all_subjects %}
+        <label class="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-base-200/50 cursor-pointer">
             <input type="checkbox"
                    name="subjects"
                    value="{{ cs.pk }}"
-                   class="checkbox checkbox-primary checkbox-sm"
+                   class="checkbox checkbox-primary checkbox-xs"
                    {% if cs.pk in enrolled_ids %}checked{% endif %}>
-            <div class="flex-1">
-                <span class="font-medium">{{ cs.subject.name }}</span>
-                {% if cs.subject.code %}
-                <span class="text-xs text-base-content/50">({{ cs.subject.code }})</span>
-                {% endif %}
-                {% if cs.teacher %}
-                <p class="text-xs text-base-content/60">{{ cs.teacher.full_name }}</p>
-                {% endif %}
-            </div>
-            {% if school.has_programmes %}
-            {% if cs.subject.is_core %}
+            <span class="flex-1 text-sm">{{ cs.subject.name }}</span>
+            {% if cs.auto_enroll %}
             <span class="badge badge-primary badge-xs">Core</span>
             {% else %}
             <span class="badge badge-secondary badge-xs">Elective</span>
-            {% endif %}
             {% endif %}
         </label>
         {% endfor %}
     </div>
 
-    <div class="modal-action border-t border-base-200 pt-4 mt-4">
-        <button type="button" class="btn" onclick="document.getElementById('modal_edit').close()">Cancel</button>
-        <button type="submit" class="btn btn-primary">
+    <div class="modal-action border-t border-base-200 pt-3 mt-3">
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_edit').close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
             <i class="fa-solid fa-check"></i> Save
         </button>
     </div>

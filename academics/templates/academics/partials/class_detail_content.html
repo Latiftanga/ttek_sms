@@ -310,7 +310,6 @@
                         <option value="-name">Name Z-A</option>
                         <option value="admission">Admission #</option>
                     </select>
-                    {% if manual_subjects %}
                     <button type="button" class="btn btn-sm btn-outline btn-secondary"
                             hx-get="{% url 'academics:class_bulk_subject_assign' class.pk %}"
                             hx-target="#modal-edit-content"
@@ -320,7 +319,6 @@
                         <i class="fa-solid fa-layer-group"></i>
                         <span>Bulk Assign</span>
                     </button>
-                    {% endif %}
                 </div>
             </div>
 
@@ -361,7 +359,6 @@
                         <option value="admission">Adm #</option>
                     </select>
                 </div>
-                {% if manual_subjects %}
                 <button type="button" class="btn btn-sm btn-outline btn-secondary w-full"
                         hx-get="{% url 'academics:class_bulk_subject_assign' class.pk %}"
                         hx-target="#modal-edit-content"
@@ -370,7 +367,6 @@
                     <i class="fa-solid fa-layer-group"></i>
                     Bulk Assign Subjects
                 </button>
-                {% endif %}
             </div>
         </div>
 

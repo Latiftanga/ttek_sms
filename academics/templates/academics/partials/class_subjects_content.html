@@ -21,11 +21,11 @@
                 {{ class.level_display }}{% if school.has_programmes and class.programme %} &bull; {{ class.programme.name }}{% endif %}
             </p>
         </div>
-            <div class="dropdown dropdown-end">
-                <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+            <details class="dropdown dropdown-end">
+                <summary class="btn btn-ghost btn-sm btn-square">
                     <i class="fa-solid fa-ellipsis-vertical"></i>
-                </label>
-                <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50">
+                </summary>
+                <ul class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50">
                     <li>
                         <button hx-get="{% url 'academics:apply_template' class.pk %}"
                                 hx-target="#modal-container"
@@ -52,7 +52,7 @@
                         </a>
                     </li>
                 </ul>
-            </div>
+            </details>
         </div>
 
         <!-- Stats Bar -->
@@ -101,7 +101,7 @@
         {% if subject_allocations %}
         <div id="subjects-list" class="divide-y divide-base-200">
             {% for alloc in subject_allocations %}
-            <div class="flex items-center gap-3 p-3 hover:bg-base-50 transition-colors">
+            <div class="group flex items-center gap-3 p-3 hover:bg-base-50 transition-colors">
                 <!-- Subject Icon -->
                 <div class="avatar placeholder flex-shrink-0">
                     <div class="w-10 h-10 rounded-lg {% if alloc.subject.is_core %}bg-primary/20 text-primary{% else %}bg-secondary/20 text-secondary{% endif %} flex items-center justify-center">
@@ -118,9 +118,9 @@
                             {{ alloc.subject.is_core|yesno:"Core,Elective" }}
                         </span>
                         {% endif %}
-                        {% if alloc.timetable_periods %}
+                        {% if alloc.periods_per_week %}
                         <span class="badge badge-xs badge-info badge-outline">
-                            <i class="fa-solid fa-clock mr-1"></i>{{ alloc.timetable_periods }}/wk
+                            <i class="fa-solid fa-clock mr-1"></i>{{ alloc.periods_per_week }}/wk
                         </span>
                         {% endif %}
                     </div>
@@ -139,21 +139,21 @@
                     </div>
                 </div>
 
-                <!-- Actions -->
-                <div class="flex items-center gap-1">
-                    <button class="btn btn-ghost btn-sm btn-square"
+                <!-- Actions (visible on hover, always visible on mobile) -->
+                <div class="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button class="btn btn-ghost btn-xs btn-square"
                             hx-get="{% url 'academics:class_subject_create' class.pk %}?subject_id={{ alloc.pk }}"
                             hx-target="#modal-container"
                             hx-on::after-request="document.getElementById('modal_form').showModal()"
                             title="Edit">
-                        <i class="fa-solid fa-pen text-xs"></i>
+                        <i class="fa-solid fa-pen text-base-content/50"></i>
                     </button>
-                    <button class="btn btn-ghost btn-sm btn-square text-error"
+                    <button class="btn btn-ghost btn-xs btn-square"
                             hx-post="{% url 'academics:class_subject_delete' class.pk alloc.pk %}"
                             hx-swap="none"
                             hx-confirm="Remove {{ alloc.subject.name }} from this class?"
                             title="Remove">
-                        <i class="fa-solid fa-trash text-xs"></i>
+                        <i class="fa-solid fa-trash text-error/50"></i>
                     </button>
                 </div>
             </div>
