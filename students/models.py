@@ -779,6 +779,14 @@ class Exeat(models.Model):
     )
     approved_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(blank=True)
+    rejected_by = models.ForeignKey(
+        'teachers.Teacher',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='exeats_rejected'
+    )
+    rejected_at = models.DateTimeField(null=True, blank=True)
 
     # Notifications
     guardian_notified_approval = models.BooleanField(default=False)
@@ -855,20 +863,45 @@ class Exeat(models.Model):
 
     def recommend(self, teacher):
         """Housemaster recommends external exeat for senior approval."""
-        self.recommended_by = teacher
-        self.recommended_at = timezone.now()
-        self.status = self.Status.RECOMMENDED
-        self.save(update_fields=['recommended_by', 'recommended_at', 'status', 'updated_at'])
+        updated = Exeat.objects.filter(
+            pk=self.pk, status=self.Status.PENDING
+        ).update(
+            recommended_by=teacher,
+            recommended_at=timezone.now(),
+            status=self.Status.RECOMMENDED,
+        )
+        if updated:
+            self.refresh_from_db()
+            return True
+        return False
 
     def approve(self, teacher):
-        """Approve the exeat."""
-        self.approved_by = teacher
-        self.approved_at = timezone.now()
-        self.status = self.Status.APPROVED
-        self.save(update_fields=['approved_by', 'approved_at', 'status', 'updated_at'])
+        """Approve the exeat. Uses atomic update to prevent race conditions."""
+        valid_statuses = [self.Status.PENDING, self.Status.RECOMMENDED]
+        updated = Exeat.objects.filter(
+            pk=self.pk, status__in=valid_statuses
+        ).update(
+            approved_by=teacher,
+            approved_at=timezone.now(),
+            status=self.Status.APPROVED,
+        )
+        if updated:
+            self.refresh_from_db()
+            return True
+        return False
 
-    def reject(self, reason=''):
-        """Reject the exeat."""
-        self.status = self.Status.REJECTED
-        self.rejection_reason = reason
-        self.save(update_fields=['status', 'rejection_reason', 'updated_at'])
+    def reject(self, teacher=None, reason=''):
+        """Reject the exeat. Uses atomic update to prevent race conditions."""
+        valid_statuses = [self.Status.PENDING, self.Status.RECOMMENDED, self.Status.OVERDUE]
+        updated = Exeat.objects.filter(
+            pk=self.pk, status__in=valid_statuses
+        ).update(
+            status=self.Status.REJECTED,
+            rejection_reason=reason,
+            rejected_by=teacher,
+            rejected_at=timezone.now(),
+        )
+        if updated:
+            self.refresh_from_db()
+            return True
+        return False

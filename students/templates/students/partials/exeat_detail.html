@@ -285,7 +285,8 @@
                                 {% if exeat.approved_at %}
                                 <p class="text-base-content/50">{{ exeat.approved_at|date:"M j, Y g:i A" }}{% if exeat.approved_by %} by {{ exeat.approved_by.full_name }}{% endif %}</p>
                                 {% elif exeat.status == 'rejected' %}
-                                <p class="text-error">Rejected{% if exeat.rejection_reason %}: {{ exeat.rejection_reason }}{% endif %}</p>
+                                <p class="text-error">Rejected{% if exeat.rejected_by %} by {{ exeat.rejected_by.full_name }}{% endif %}{% if exeat.rejected_at %} on {{ exeat.rejected_at|date:"M j, Y g:i A" }}{% endif %}</p>
+                                {% if exeat.rejection_reason %}<p class="text-error text-xs">Reason: {{ exeat.rejection_reason }}</p>{% endif %}
                                 {% else %}
                                 <p class="text-base-content/50">Pending</p>
                                 {% endif %}

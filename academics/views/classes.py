@@ -777,12 +777,20 @@ def class_student_electives(request, class_pk, student_pk):
     ).select_related('subject', 'teacher').order_by('subject__name')
 
     # Ensure auto-enroll subjects have enrollment records (handles legacy data)
-    for cs in all_subjects.filter(auto_enroll=True):
-        StudentSubjectEnrollment.objects.get_or_create(
-            student=student,
-            class_subject=cs,
-            defaults={'is_active': True}
+    auto_enroll_subjects = list(all_subjects.filter(auto_enroll=True))
+    if auto_enroll_subjects:
+        existing_cs_ids = set(
+            StudentSubjectEnrollment.objects.filter(
+                student=student,
+                class_subject__in=auto_enroll_subjects,
+            ).values_list('class_subject_id', flat=True)
         )
+        to_create = [
+            StudentSubjectEnrollment(student=student, class_subject=cs, is_active=True)
+            for cs in auto_enroll_subjects if cs.id not in existing_cs_ids
+        ]
+        if to_create:
+            StudentSubjectEnrollment.objects.bulk_create(to_create, ignore_conflicts=True)
 
     # Get current active enrollments
     enrolled_ids = list(StudentSubjectEnrollment.objects.filter(
@@ -1076,20 +1084,34 @@ def class_sync_subjects(request, pk):
 
     # Sync only creates missing enrollments — does NOT reactivate
     # enrollments that were manually deactivated by an admin.
-    enrolled_count = 0
-    class_subjects = ClassSubject.objects.filter(
+    class_subjects = list(ClassSubject.objects.filter(
         class_assigned=class_obj,
         auto_enroll=True
+    ))
+    student_list = list(students)
+
+    # Fetch all existing enrollments in one query
+    existing = set(
+        StudentSubjectEnrollment.objects.filter(
+            student__in=student_list,
+            class_subject__in=class_subjects,
+        ).values_list('student_id', 'class_subject_id')
     )
-    for student in students:
-        for class_subject in class_subjects:
-            _, created = StudentSubjectEnrollment.objects.get_or_create(
-                student=student,
-                class_subject=class_subject,
-                defaults={'is_active': True}
-            )
-            if created:
-                enrolled_count += 1
+
+    # Build list of missing enrollments
+    to_create = []
+    for student in student_list:
+        for cs in class_subjects:
+            if (student.id, cs.id) not in existing:
+                to_create.append(StudentSubjectEnrollment(
+                    student=student,
+                    class_subject=cs,
+                    is_active=True,
+                ))
+
+    if to_create:
+        StudentSubjectEnrollment.objects.bulk_create(to_create, ignore_conflicts=True)
+    enrolled_count = len(to_create)
 
     if request.htmx:
         if enrolled_count > 0:

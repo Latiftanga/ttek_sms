@@ -486,16 +486,10 @@ def exeat_create(request):
 
             # Internal exeats: auto-approve (creating IS the approval)
             # External exeats by senior/admin: auto-approve
-            # External exeats by regular housemaster: auto-recommend for senior approval
-            if exeat.exeat_type == 'internal' or is_admin_or_senior:
-                exeat.approved_by = teacher
-                exeat.approved_at = timezone.now()
-                exeat.status = Exeat.Status.APPROVED
-            else:
-                # Regular housemaster creating external → auto-recommend
-                exeat.recommended_by = teacher
-                exeat.recommended_at = timezone.now()
-                exeat.status = Exeat.Status.RECOMMENDED
+            # (Regular housemasters are blocked from external exeats above)
+            exeat.approved_by = teacher
+            exeat.approved_at = timezone.now()
+            exeat.status = Exeat.Status.APPROVED
 
             exeat.save()
 
@@ -566,8 +560,8 @@ def exeat_student_search(request):
 
         # Filter by house based on user role
         if is_school_admin(user):
-            # Admin can search all active students (those without houses shown as disabled)
-            students = base_qs
+            # Admin can search all active students with houses
+            students = base_qs.filter(house__isnull=False)
         elif assignment:
             # Housemaster can only search students in their house
             students = base_qs.filter(house=assignment.house)
@@ -718,7 +712,10 @@ def exeat_approve(request, pk):
             messages.error(request, "You can't approve this exeat.")
             return redirect('students:exeat_detail', pk=pk)
 
-        exeat.approve(teacher)
+        if not exeat.approve(teacher):
+            messages.error(request, "This exeat has already been processed by another user.")
+            return redirect('students:exeat_detail', pk=pk)
+
         messages.success(request, f'Internal exeat approved for {exeat.student.full_name}.')
 
         # Send SMS notification to guardian with feedback
@@ -738,7 +735,10 @@ def exeat_approve(request, pk):
             messages.error(request, "You can't recommend this exeat.")
             return redirect('students:exeat_detail', pk=pk)
 
-        exeat.recommend(teacher)
+        if not exeat.recommend(teacher):
+            messages.error(request, "This exeat has already been processed by another user.")
+            return redirect('students:exeat_detail', pk=pk)
+
         messages.success(request, 'External exeat recommended for senior housemaster approval.')
 
     # External exeat - final approval by senior housemaster
@@ -747,7 +747,10 @@ def exeat_approve(request, pk):
             messages.error(request, "Only the senior housemaster can approve external exeats.")
             return redirect('students:exeat_detail', pk=pk)
 
-        exeat.approve(teacher)
+        if not exeat.approve(teacher):
+            messages.error(request, "This exeat has already been processed by another user.")
+            return redirect('students:exeat_detail', pk=pk)
+
         messages.success(request, f'External exeat approved for {exeat.student.full_name}.')
 
         # Send SMS notification to guardian with feedback
@@ -799,7 +802,11 @@ def exeat_reject(request, pk):
         return redirect('students:exeat_detail', pk=pk)
 
     reason = request.POST.get('reason', '')
-    exeat.reject(reason)
+    teacher = get_teacher_profile(user)
+    if not exeat.reject(teacher=teacher, reason=reason):
+        messages.error(request, "This exeat has already been processed by another user.")
+        return redirect('students:exeat_detail', pk=pk)
+
     messages.success(request, f'Exeat rejected for {exeat.student.full_name}.')
 
     if request.htmx:

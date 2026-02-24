@@ -823,7 +823,7 @@ class CopySubjectsForm(forms.Form):
                 subject=source_cs.subject,
                 teacher=source_cs.teacher if copy_teachers else None,
                 periods_per_week=source_cs.periods_per_week,
-                auto_enroll=source_cs.auto_enroll if copy_auto_enroll else True
+                auto_enroll=source_cs.auto_enroll if copy_auto_enroll else False
             )
             created_count += 1
 
@@ -935,6 +935,9 @@ class CopyTimetableForm(forms.Form):
                 ).exists()
 
                 if teacher_conflict:
+                    if existing and not overwrite:
+                        skipped_count += 1
+                        continue
                     # Create without teacher to avoid conflict
                     class_subject_no_teacher, _ = ClassSubject.objects.get_or_create(
                         class_assigned=self.target_class,
@@ -946,7 +949,7 @@ class CopyTimetableForm(forms.Form):
                         period=entry.period,
                         weekday=entry.weekday,
                         is_double=entry.is_double,
-                        classroom=None  # Don't copy classroom to avoid conflicts
+                        classroom=None
                     )
                     created_count += 1
                     continue
