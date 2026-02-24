@@ -579,6 +579,11 @@ def bulk_export(request):
     MAX_EXPORT_ROWS = 10_000
     students = students.order_by('last_name', 'first_name')[:MAX_EXPORT_ROWS]
 
+    # Detect school type for conditional columns
+    school_ctx = get_school_context()
+    school = school_ctx.get('school')
+    shs_school = is_shs_school(school)
+
     # Build export data
     export_data = []
     for student in students:
@@ -590,25 +595,30 @@ def bulk_export(request):
             primary_guardian = sg.guardian
             guardian_relationship = sg.get_relationship_display()
 
-        export_data.append({
+        row = {
             'Admission Number': student.admission_number,
             'First Name': student.first_name,
             'Middle Name': student.middle_name or '',
             'Last Name': student.last_name,
             'Date of Birth': student.date_of_birth.strftime('%Y-%m-%d') if student.date_of_birth else '',
             'Gender': student.get_gender_display() if student.gender else '',
-            'Phone': student.phone or '',
-            'Address': student.address or '',
             'Current Class': student.current_class.name if student.current_class else '',
-            'House': student.house.name if student.house else '',
-            'Residence Type': student.get_residence_type_display() if student.residence_type else '',
             'Status': student.get_status_display(),
             'Admission Date': student.admission_date.strftime('%Y-%m-%d') if student.admission_date else '',
             'Guardian Name': primary_guardian.full_name if primary_guardian else '',
             'Guardian Phone': primary_guardian.phone_number if primary_guardian else '',
             'Guardian Email': primary_guardian.email or '' if primary_guardian else '',
             'Guardian Relationship': guardian_relationship,
-        })
+        }
+
+        # SHS-specific columns
+        if shs_school:
+            row['House'] = student.house.name if student.house else ''
+            row['Residence Type'] = student.get_residence_type_display() if student.residence_type else ''
+            row['Phone'] = student.phone or ''
+            row['Address'] = student.address or ''
+
+        export_data.append(row)
 
     # Create Excel file
     df = pd.DataFrame(export_data)
