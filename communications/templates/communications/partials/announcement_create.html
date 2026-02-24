@@ -1,0 +1,175 @@
+{% load core_tags %}
+
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{{ back_url }}"
+           hx-get="{{ back_url }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-accent to-primary flex items-center justify-center shrink-0"
+           title="Go back">
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold">New Announcement</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">Post an announcement to staff members</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ back_url }}"
+               hx-get="{{ back_url }}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-xs sm:btn-sm">
+                <span class="hidden sm:inline">Cancel</span>
+                <i class="fa-solid fa-times sm:hidden"></i>
+            </a>
+            <button type="submit" form="announcement-form" class="btn btn-primary btn-xs sm:btn-sm">
+                <i class="fa-solid fa-bullhorn"></i>
+                <span class="hidden sm:inline">Post Announcement</span>
+            </button>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-error py-3">
+        <i class="fa-solid fa-exclamation-circle"></i>
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <form id="announcement-form"
+          method="post"
+          action="{% url 'communications:announcement_create' %}">
+        {% csrf_token %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <!-- Content (appears first on mobile) -->
+            <div class="lg:col-span-2 order-1 lg:order-2">
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-3 sm:p-4">
+                        <h2 class="font-semibold text-base flex items-center gap-2 mb-3">
+                            <i class="fa-solid fa-pen text-primary"></i>
+                            Content
+                        </h2>
+                        <div class="space-y-4">
+                            <label class="floating-label w-full">
+                                <input type="text" name="title" class="input input-sm w-full"
+                                       placeholder="Announcement title..."
+                                       value="{{ title|default:'' }}"
+                                       required
+                                       maxlength="255">
+                                <span>Title *</span>
+                            </label>
+
+                            <label class="floating-label w-full">
+                                <textarea name="message"
+                                          class="textarea textarea-sm w-full h-40"
+                                          placeholder="Type your announcement message here..."
+                                          required>{{ message|default:'' }}</textarea>
+                                <span>Message *</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Options (appears second on mobile) -->
+            <div class="lg:col-span-1 order-2 lg:order-1">
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-3 sm:p-4">
+                        <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                            <i class="fa-solid fa-sliders text-primary text-xs"></i>
+                            Options
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="grid grid-cols-2 lg:grid-cols-1 gap-3">
+                                <label class="floating-label w-full">
+                                    <select name="group" class="select select-sm w-full"
+                                            hx-get="{% url 'communications:staff_recipients' %}"
+                                            hx-target="#announcement-recipient-info"
+                                            hx-trigger="change"
+                                            hx-swap="innerHTML"
+                                            hx-include="this">
+                                        <option value="all" {% if target_group == 'all' or not target_group %}selected{% endif %}>All Staff</option>
+                                        <option value="teaching" {% if target_group == 'teaching' %}selected{% endif %}>Teaching Staff</option>
+                                        <option value="non_teaching" {% if target_group == 'non_teaching' %}selected{% endif %}>Non-Teaching Staff</option>
+                                    </select>
+                                    <span>Target Group</span>
+                                </label>
+
+                                <label class="floating-label w-full">
+                                    <select name="priority" class="select select-sm w-full">
+                                        <option value="normal" {% if priority != 'urgent' %}selected{% endif %}>Normal</option>
+                                        <option value="urgent" {% if priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                                    </select>
+                                    <span>Priority</span>
+                                </label>
+                            </div>
+
+                            <!-- Recipient info -->
+                            <div id="announcement-recipient-info">
+                                <div class="bg-base-200 rounded-lg p-3">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="font-medium">All Staff</span>
+                                        <span class="badge badge-primary">{{ staff_total }} staff</span>
+                                    </div>
+                                    <div class="flex items-center gap-4 mt-2 text-xs text-base-content/70">
+                                        <span class="flex items-center gap-1">
+                                            <i class="fa-solid fa-phone text-success"></i>
+                                            {{ staff_with_phone }} with phone
+                                        </span>
+                                        <span class="flex items-center gap-1">
+                                            <i class="fa-solid fa-envelope text-info"></i>
+                                            {{ staff_with_email }} with email
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="divider my-0 text-xs text-base-content/40">Also Send Via</div>
+
+                            <p class="text-xs text-base-content/60">
+                                All targeted staff get a bell notification. Optionally also push via:
+                            </p>
+                            <div class="space-y-3">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" name="send_sms" class="checkbox checkbox-sm checkbox-primary"
+                                           {% if not sms_gateway.ready %}disabled{% elif send_sms_checked %}checked{% endif %}>
+                                    <span class="text-sm">
+                                        <i class="fa-solid fa-comment-sms"></i> SMS
+                                        {% if not sms_gateway.ready %}
+                                        <span class="text-xs text-base-content/50">(not configured)</span>
+                                        {% endif %}
+                                    </span>
+                                </label>
+
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" name="send_email" class="checkbox checkbox-sm checkbox-info"
+                                           id="ann-email-check"
+                                           onchange="document.getElementById('ann-subject-field').classList.toggle('hidden', !this.checked)"
+                                           {% if not email_gateway.ready %}disabled{% elif send_email_checked %}checked{% endif %}>
+                                    <span class="text-sm">
+                                        <i class="fa-solid fa-envelope"></i> Email
+                                        {% if not email_gateway.ready %}
+                                        <span class="text-xs text-base-content/50">(not configured)</span>
+                                        {% endif %}
+                                    </span>
+                                </label>
+
+                                <div id="ann-subject-field" class="{% if not send_email_checked %}hidden{% endif %}">
+                                    <label class="floating-label w-full">
+                                        <input type="text" name="subject" class="input input-sm w-full"
+                                               placeholder="Email subject line..."
+                                               value="{{ subject|default:'' }}">
+                                        <span>Email Subject</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>

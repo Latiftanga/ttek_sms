@@ -1,6 +1,6 @@
 {% load core_tags %}
 
-<h3 class="text-lg font-bold mb-4">Create Template</h3>
+<h3 class="text-lg font-bold mb-4">{% if template %}Edit{% else %}Create{% endif %} Template</h3>
 
 {% if error %}
 <div class="alert alert-error mb-4">
@@ -10,8 +10,8 @@
 {% endif %}
 
 <form method="post"
-      action="{% url 'communications:template_create' %}"
-      hx-post="{% url 'communications:template_create' %}"
+      action="{% if template %}{% url 'communications:template_edit' template.pk %}{% else %}{% url 'communications:template_create' %}{% endif %}"
+      hx-post="{% if template %}{% url 'communications:template_edit' template.pk %}{% else %}{% url 'communications:template_create' %}{% endif %}"
       hx-target="#modal-template-content">
     {% csrf_token %}
 
@@ -22,6 +22,7 @@
                    name="name"
                    class="input input-bordered input-sm w-full"
                    placeholder="e.g., Absence Notification"
+                   value="{{ template.name|default:'' }}"
                    required>
         </label>
 
@@ -29,7 +30,7 @@
             <span class="label">Message Type</span>
             <select name="message_type">
                 {% for value, label in type_choices %}
-                <option value="{{ value }}">{{ label }}</option>
+                <option value="{{ value }}" {% if template and template.message_type == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </label>
@@ -39,7 +40,7 @@
             <textarea name="content"
                       class="textarea textarea-bordered textarea-sm w-full h-28"
                       placeholder="Dear Parent, {student_name} was marked absent today..."
-                      required></textarea>
+                      required>{{ template.content|default:'' }}</textarea>
         </label>
 
         <div class="bg-base-200 rounded-lg p-2 text-sm">
@@ -57,7 +58,7 @@
         <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_template').close()">Cancel</button>
         <button type="submit" class="btn btn-sm btn-primary">
             <i class="fa-solid fa-save"></i>
-            Save Template
+            {% if template %}Update{% else %}Save{% endif %} Template
         </button>
     </div>
 </form>

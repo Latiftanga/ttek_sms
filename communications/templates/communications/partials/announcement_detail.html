@@ -1,0 +1,109 @@
+{% load core_tags %}
+
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{{ back_url }}"
+           hx-get="{{ back_url }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-accent to-primary flex items-center justify-center shrink-0"
+           title="Go back">
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold truncate">{{ announcement.title }}</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">
+                Posted {{ announcement.created_at|timesince }} ago by {{ announcement.created_by.get_full_name|default:"System" }}
+            </p>
+        </div>
+        {% if announcement.priority == 'urgent' %}
+        <span class="badge badge-error badge-sm">Urgent</span>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Main Content -->
+        <div class="lg:col-span-2">
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-5">
+                    <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-bullhorn text-primary text-xs"></i>
+                        Message
+                    </h3>
+                    <div class="prose prose-sm max-w-none">
+                        {{ announcement.message|linebreaksbr }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-4">
+            <!-- Details Card -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-circle-info text-info text-xs"></i>
+                        Details
+                    </h3>
+                    <div class="text-sm space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Target</span>
+                            <span class="font-medium">{{ announcement.get_target_group_display }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Priority</span>
+                            <span class="font-medium {% if announcement.priority == 'urgent' %}text-error{% endif %}">
+                                {{ announcement.get_priority_display }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Recipients</span>
+                            <span class="font-medium">{{ announcement.recipient_count }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Posted</span>
+                            <span class="font-medium">{{ announcement.created_at|date:"M d, Y H:i" }}</span>
+                        </div>
+                        {% if announcement.sent_via_sms or announcement.sent_via_email %}
+                        <div class="divider my-1"></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-base-content/60 text-xs">Sent via:</span>
+                            {% if announcement.sent_via_sms %}
+                            <span class="badge badge-ghost badge-xs">SMS</span>
+                            {% endif %}
+                            {% if announcement.sent_via_email %}
+                            <span class="badge badge-ghost badge-xs">Email</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if read_count is not None %}
+            <!-- Read Stats (Admin only) -->
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-eye text-success text-xs"></i>
+                        Read Status
+                    </h3>
+                    <div class="flex items-center gap-3">
+                        <div class="radial-progress text-primary text-sm"
+                             style="--value:{% widthratio read_count announcement.recipient_count 100 %}; --size:3.5rem;"
+                             role="progressbar">
+                            {% widthratio read_count announcement.recipient_count 100 %}%
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold">{{ read_count }} <span class="text-sm font-normal text-base-content/60">of {{ announcement.recipient_count }}</span></div>
+                            <div class="text-xs text-base-content/60">staff have read this</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

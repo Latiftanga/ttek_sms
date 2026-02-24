@@ -82,23 +82,22 @@
             </p>
         </div>
 
-        <div>
+        <div class="sms-char-counter-wrapper">
             <label class="floating-label w-full">
                 <span>Message <span class="text-error">*</span></span>
-                <textarea id="absent-message-input"
-                          name="message"
-                          class="textarea textarea-bordered w-full h-24"
+                <textarea name="message"
+                          class="textarea textarea-bordered w-full h-24 sms-textarea"
                           placeholder="Type your message here..."
                           required
-                          oninput="updateAbsentCharCount(this)">{{ default_message }}</textarea>
+                          oninput="smsCharCount(this)">{{ default_message }}</textarea>
             </label>
             <div class="flex justify-between text-xs text-base-content/60 mt-1 ml-1">
                 <span>
-                    <span id="absent-char-count" class="font-mono">{{ default_message|length }}</span>/160 chars
+                    <span class="sms-char-count font-mono">{{ default_message|length }}</span>/160 chars
                     <span class="mx-1">•</span>
-                    <span id="absent-sms-count" class="font-bold">1</span> SMS
+                    <span class="sms-sms-count font-bold">1</span> SMS
                 </span>
-                <span id="absent-char-warning" class="text-warning {% if default_message|length <= 160 %}hidden{% endif %}">Long message</span>
+                <span class="sms-char-warning text-warning {% if default_message|length <= 160 %}hidden{% endif %}">Long message</span>
             </div>
         </div>
 
@@ -135,30 +134,16 @@ function updateSelectedCount() {
     document.getElementById('selected-count').textContent = checked;
 }
 
-function updateAbsentCharCount(textarea) {
-    const count = textarea.value.length;
-    const smsCount = Math.ceil(count / 160) || 1;
-    document.getElementById('absent-char-count').textContent = count;
-    document.getElementById('absent-sms-count').textContent = smsCount;
-
-    const warning = document.getElementById('absent-char-warning');
-    if (count > 160) {
-        warning.classList.remove('hidden');
-    } else {
-        warning.classList.add('hidden');
-    }
-}
-
 // Update count when checkboxes change
 document.querySelectorAll('.absent-checkbox').forEach(cb => {
     cb.addEventListener('change', updateSelectedCount);
 });
 
 // Initialize char count
-document.addEventListener('DOMContentLoaded', function() {
-    const textarea = document.getElementById('absent-message-input');
-    if (textarea) updateAbsentCharCount(textarea);
-});
+(function() {
+    var ta = document.querySelector('#modal-sms-content .sms-textarea');
+    if (ta && ta.value) smsCharCount(ta);
+})();
 </script>
 
 {% else %}

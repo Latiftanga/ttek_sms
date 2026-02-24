@@ -1,0 +1,125 @@
+{% load core_tags %}
+
+<div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center gap-2 sm:gap-3">
+        <a href="/communications/"
+           hx-get="/communications/"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-accent to-primary flex items-center justify-center shrink-0"
+           title="Back to Communications">
+            <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+        </a>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-base sm:text-xl font-bold">Announcements</h1>
+            <p class="text-[10px] sm:text-xs text-base-content/60">
+                {% if paginator.count %}{{ paginator.count }} announcement{{ paginator.count|pluralize }}{% else %}No announcements{% endif %}
+            </p>
+        </div>
+        <a href="{% url 'communications:announcement_create' %}"
+           hx-get="{% url 'communications:announcement_create' %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-primary btn-xs sm:btn-sm gap-1">
+            <i class="fa-solid fa-plus"></i>
+            <span class="hidden sm:inline">New Announcement</span>
+        </a>
+    </div>
+
+    {% if announcements %}
+    <!-- Announcements List -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0 divide-y divide-base-200">
+            {% for ann in announcements %}
+            <a href="{% url 'communications:announcement_detail' ann.pk %}"
+               hx-get="{% url 'communications:announcement_detail' ann.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="flex items-center gap-3 p-3 sm:p-4 hover:bg-base-200/50 transition-colors cursor-pointer group">
+                <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center flex-shrink-0
+                            {% if ann.priority == 'urgent' %}bg-error/10{% else %}bg-accent/10{% endif %}">
+                    <i class="fa-solid fa-bullhorn {% if ann.priority == 'urgent' %}text-error{% else %}text-accent{% endif %}"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <h3 class="font-semibold text-sm truncate group-hover:text-primary">{{ ann.title }}</h3>
+                        {% if ann.priority == 'urgent' %}
+                        <span class="badge badge-error badge-xs">Urgent</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-base-content/60 truncate">{{ ann.message|truncatechars:100 }}</p>
+                    <div class="flex items-center gap-3 mt-1 text-[10px] sm:text-xs text-base-content/50">
+                        <span>{{ ann.created_at|timesince }} ago</span>
+                        <span>{{ ann.get_target_group_display }}</span>
+                        <span>{{ ann.read_count }}/{{ ann.recipient_count }} read</span>
+                        {% if ann.sent_via_sms %}<span class="badge badge-ghost badge-xs">SMS</span>{% endif %}
+                        {% if ann.sent_via_email %}<span class="badge badge-ghost badge-xs">Email</span>{% endif %}
+                    </div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-base-content/30 hidden sm:block"></i>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="text-sm text-base-content/60">
+                    {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }}
+                </div>
+                <div class="join">
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}"
+                       hx-get="{% url 'communications:announcements' %}?page={{ page_obj.previous_page_number }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-angle-left"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angle-left"></i></button>
+                    {% endif %}
+                    <button class="join-item btn btn-sm btn-active">{{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</button>
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}"
+                       hx-get="{% url 'communications:announcements' %}?page={{ page_obj.next_page_number }}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="join-item btn btn-sm">
+                        <i class="fa-solid fa-angle-right"></i>
+                    </a>
+                    {% else %}
+                    <button class="join-item btn btn-sm btn-disabled"><i class="fa-solid fa-angle-right"></i></button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body py-12">
+            <div class="text-center">
+                <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-bullhorn text-2xl text-base-content/30"></i>
+                </div>
+                <h3 class="font-bold text-lg mb-1">No Announcements Yet</h3>
+                <p class="text-sm text-base-content/60 mb-4">Create your first announcement to notify staff members.</p>
+                <a href="{% url 'communications:announcement_create' %}"
+                   hx-get="{% url 'communications:announcement_create' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus mr-1"></i> New Announcement
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

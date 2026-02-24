@@ -1,7 +1,7 @@
 {% load core_tags %}
 
 <!-- Page Header -->
-<div class="flex items-center gap-2 sm:gap-3 mb-6">
+<div class="flex items-center gap-2 sm:gap-3 mb-4">
     <a href="{{ back_url|default:'/communications/' }}"
        hx-get="{{ back_url|default:'/communications/' }}"
        hx-target="#main-content"
@@ -14,30 +14,30 @@
         <h1 class="text-base sm:text-xl font-bold">Message History</h1>
         <p class="text-[10px] sm:text-xs text-base-content/60">View sent messages and delivery status</p>
     </div>
-    <div class="dropdown dropdown-end">
-        <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+    <details class="dropdown dropdown-end">
+        <summary class="btn btn-ghost btn-sm btn-square">
             <i class="fa-solid fa-ellipsis-vertical"></i>
-        </label>
-        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+        </summary>
+        <ul class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
             <li>
                 <a href="{% url 'communications:history_export' %}?status={{ status_filter }}&type={{ type_filter }}&search={{ search }}">
                     <i class="fa-solid fa-file-excel text-success"></i> Export Excel
                 </a>
             </li>
         </ul>
-    </div>
+    </details>
 </div>
 
-<!-- Channel Tabs -->
-<div class="tabs tabs-bordered mb-4">
-    <a class="tab {% if channel == 'sms' %}tab-active{% endif %}"
+<!-- Channel Tabs (boxed, equal-width) -->
+<div class="tabs tabs-boxed mb-3 bg-base-200">
+    <a class="tab flex-1 {% if channel == 'sms' %}tab-active{% endif %}"
        href="{% url 'communications:history' %}?channel=sms"
        hx-get="{% url 'communications:history' %}?channel=sms"
        hx-target="#main-content"
        hx-push-url="true">
         <i class="fa-solid fa-comment-sms mr-1"></i> SMS
     </a>
-    <a class="tab {% if channel == 'email' %}tab-active{% endif %}"
+    <a class="tab flex-1 {% if channel == 'email' %}tab-active{% endif %}"
        href="{% url 'communications:history' %}?channel=email"
        hx-get="{% url 'communications:history' %}?channel=email"
        hx-target="#main-content"
@@ -46,75 +46,55 @@
     </a>
 </div>
 
-<!-- Filters -->
-<div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
-    <div class="card-body p-4">
-        <form hx-get="{% url 'communications:history' %}"
-              hx-target="#main-content"
-              hx-push-url="true"
-              class="flex flex-wrap gap-4 items-end">
-            <input type="hidden" name="channel" value="{{ channel }}">
-            <div class="form-control flex-1 min-w-48">
-                <label class="label py-1">
-                    <span class="label-text text-xs">Search</span>
-                </label>
-                <input type="text"
-                       name="search"
-                       value="{{ search }}"
-                       placeholder="Phone, name, or message..."
-                       class="input input-bordered input-sm">
-            </div>
-            <div class="form-control">
-                <label class="label py-1">
-                    <span class="label-text text-xs">Status</span>
-                </label>
-                <select name="status" class="select select-bordered select-sm">
-                    <option value="">All Status</option>
-                    {% for value, label in status_choices %}
-                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-control">
-                <label class="label py-1">
-                    <span class="label-text text-xs">Type</span>
-                </label>
-                <select name="type" class="select select-bordered select-sm">
-                    <option value="">All Types</option>
-                    {% for value, label in type_choices %}
-                    <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-search"></i>
-                Filter
-            </button>
-            {% if search or status_filter or type_filter %}
-            <a href="{% url 'communications:history' %}?channel={{ channel }}"
-               hx-get="{% url 'communications:history' %}?channel={{ channel }}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="btn btn-ghost btn-sm">
-                Clear
-            </a>
-            {% endif %}
-        </form>
-    </div>
-</div>
+<!-- Compact Filters -->
+<form hx-get="{% url 'communications:history' %}"
+      hx-target="#main-content"
+      hx-push-url="true"
+      class="flex flex-wrap gap-2 items-end mb-4">
+    <input type="hidden" name="channel" value="{{ channel }}">
+    <input type="text"
+           name="search"
+           value="{{ search }}"
+           placeholder="Search..."
+           class="input input-bordered input-sm flex-1 min-w-32">
+    <select name="status" class="select select-bordered select-sm">
+        <option value="">All Status</option>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="type" class="select select-bordered select-sm hidden sm:inline-flex">
+        <option value="">All Types</option>
+        {% for value, label in type_choices %}
+        <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-search"></i>
+    </button>
+    {% if search or status_filter or type_filter %}
+    <a href="{% url 'communications:history' %}?channel={{ channel }}"
+       hx-get="{% url 'communications:history' %}?channel={{ channel }}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm">
+        Clear
+    </a>
+    {% endif %}
+</form>
 
 <!-- Messages Table -->
 <div class="card bg-base-100 shadow-sm border border-base-200">
     <div class="card-body p-0">
         {% if messages %}
         <div class="overflow-x-auto">
-            <table class="table">
+            <table class="table table-sm">
                 <thead>
                     <tr class="text-xs uppercase text-base-content/60">
                         <th>Recipient</th>
-                        {% if channel == 'email' %}<th>Subject</th>{% endif %}
-                        <th>Message</th>
-                        <th>Type</th>
+                        {% if channel == 'email' %}<th class="hidden sm:table-cell">Subject</th>{% endif %}
+                        <th class="hidden sm:table-cell">Message</th>
+                        <th class="hidden sm:table-cell">Type</th>
                         <th>Status</th>
                         <th>Sent</th>
                     </tr>
@@ -124,32 +104,26 @@
                     <tr class="hover">
                         <td>
                             <div>
-                                <div class="font-medium">{{ msg.recipient_name|default:"-" }}</div>
+                                <div class="font-medium text-sm">{{ msg.recipient_name|default:"-" }}</div>
                                 {% if channel == 'email' %}
                                 <div class="text-xs text-base-content/50">{{ msg.recipient_email }}</div>
                                 {% else %}
                                 <div class="text-xs text-base-content/50 font-mono">{{ msg.recipient_phone }}</div>
                                 {% if msg.student %}
-                                <div class="text-xs text-base-content/50">
-                                    Student: {{ msg.student.full_name }}
-                                </div>
+                                <div class="text-xs text-base-content/50">{{ msg.student.full_name }}</div>
                                 {% endif %}
                                 {% endif %}
                             </div>
                         </td>
                         {% if channel == 'email' %}
-                        <td>
-                            <div class="max-w-xs">
-                                <p class="text-sm truncate" title="{{ msg.subject }}">{{ msg.subject|truncatechars:50 }}</p>
-                            </div>
+                        <td class="hidden sm:table-cell">
+                            <p class="text-sm truncate max-w-xs" title="{{ msg.subject }}">{{ msg.subject|truncatechars:50 }}</p>
                         </td>
                         {% endif %}
-                        <td>
-                            <div class="max-w-xs">
-                                <p class="text-sm truncate" title="{{ msg.message }}">{{ msg.message|truncatechars:80 }}</p>
-                            </div>
+                        <td class="hidden sm:table-cell">
+                            <p class="text-sm truncate max-w-xs" title="{{ msg.message }}">{{ msg.message|truncatechars:60 }}</p>
                         </td>
-                        <td>
+                        <td class="hidden sm:table-cell">
                             <span class="badge badge-ghost badge-sm">{{ msg.get_message_type_display }}</span>
                         </td>
                         <td>
@@ -158,20 +132,15 @@
                             {% elif msg.status == 'delivered' %}
                             <span class="badge badge-success badge-sm">Delivered</span>
                             {% elif msg.status == 'failed' %}
-                            <div>
-                                <span class="badge badge-error badge-sm">Failed</span>
-                                {% if msg.error_message %}
-                                <p class="text-xs text-error mt-1">{{ msg.error_message|truncatechars:30 }}</p>
-                                {% endif %}
-                            </div>
+                            <span class="badge badge-error badge-sm">Failed</span>
                             {% elif msg.status == 'pending' %}
                             <span class="badge badge-warning badge-sm">Pending</span>
                             {% else %}
                             <span class="badge badge-ghost badge-sm">{{ msg.get_status_display }}</span>
                             {% endif %}
                         </td>
-                        <td class="text-xs text-base-content/60">
-                            <div>{{ msg.created_at|date:"M d, Y" }}</div>
+                        <td class="text-xs text-base-content/60 whitespace-nowrap">
+                            <div>{{ msg.created_at|date:"M d" }}</div>
                             <div>{{ msg.created_at|time:"H:i" }}</div>
                         </td>
                     </tr>

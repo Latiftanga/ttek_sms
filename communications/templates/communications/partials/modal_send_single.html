@@ -62,7 +62,7 @@
         {% if templates %}
         <label class="select select-bordered w-full">
             <span class="label">Quick Template</span>
-            <select onchange="if(this.value) { document.getElementById('message-input').value = this.value; updateCharCount(document.getElementById('message-input')); }">
+            <select onchange="if(this.value) { var ta = this.closest('form').querySelector('.sms-textarea'); ta.value = this.value; smsCharCount(ta); }">
                 <option value="">-- Select a template --</option>
                 {% for template in templates %}
                 <option value="{{ template.content }}">{{ template.name }}</option>
@@ -71,23 +71,22 @@
         </label>
         {% endif %}
 
-        <div>
+        <div class="sms-char-counter-wrapper">
             <label class="floating-label w-full">
                 <span>Message <span class="text-error">*</span></span>
-                <textarea id="message-input"
-                          name="message"
-                          class="textarea textarea-bordered w-full h-28"
+                <textarea name="message"
+                          class="textarea textarea-bordered w-full h-28 sms-textarea"
                           placeholder="Type your message here..."
                           required
-                          oninput="updateCharCount(this)">{{ message|default:'' }}</textarea>
+                          oninput="smsCharCount(this)">{{ message|default:'' }}</textarea>
             </label>
             <div class="flex justify-between text-xs text-base-content/60 mt-1 ml-1">
                 <span>
-                    <span id="char-count" class="font-mono">0</span>/160 chars
+                    <span class="sms-char-count font-mono">0</span>/160 chars
                     <span class="mx-1">•</span>
-                    <span id="sms-count" class="font-bold">1</span> SMS
+                    <span class="sms-sms-count font-bold">1</span> SMS
                 </span>
-                <span id="char-warning" class="text-warning hidden">Long message - may cost more</span>
+                <span class="sms-char-warning text-warning hidden">Long message - may cost more</span>
             </div>
         </div>
     </div>
@@ -103,23 +102,9 @@
 </form>
 
 <script>
-function updateCharCount(textarea) {
-    const count = textarea.value.length;
-    const smsCount = Math.ceil(count / 160) || 1;
-    document.getElementById('char-count').textContent = count;
-    document.getElementById('sms-count').textContent = smsCount;
-
-    const warning = document.getElementById('char-warning');
-    if (count > 160) {
-        warning.classList.remove('hidden');
-    } else {
-        warning.classList.add('hidden');
-    }
-}
-// Initialize on load
-document.addEventListener('DOMContentLoaded', function() {
-    const textarea = document.getElementById('message-input');
-    if (textarea && textarea.value) updateCharCount(textarea);
-});
+(function() {
+    var ta = document.querySelector('#modal-sms-content .sms-textarea');
+    if (ta && ta.value) smsCharCount(ta);
+})();
 </script>
 {% endif %}

@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}
+{% load core_tags %}
+
+{% block title %}Announcements - {{ block.super }}{% endblock %}
+
+{% block content %}
+{% include "communications/partials/announcements_content.html" %}
+{% endblock %}

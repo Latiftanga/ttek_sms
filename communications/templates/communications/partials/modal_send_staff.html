@@ -84,15 +84,15 @@
                     hx-trigger="change"
                     hx-swap="innerHTML"
                     hx-include="this">
-                <option value="all" selected>All Staff</option>
-                <option value="teaching">Teaching Staff</option>
-                <option value="non_teaching">Non-Teaching Staff</option>
+                <option value="all" {% if group == 'all' or not group %}selected{% endif %}>All Staff</option>
+                <option value="teaching" {% if group == 'teaching' %}selected{% endif %}>Teaching Staff</option>
+                <option value="non_teaching" {% if group == 'non_teaching' %}selected{% endif %}>Non-Teaching Staff</option>
             </select>
         </label>
 
         <!-- Recipient info (loaded dynamically) -->
         <div id="staff-recipient-info"
-             hx-get="{% url 'communications:staff_recipients' %}?group=all"
+             hx-get="{% url 'communications:staff_recipients' %}?group={{ group|default:'all' }}"
              hx-trigger="load"
              hx-swap="innerHTML">
             <div class="bg-base-200 rounded-lg p-3 text-sm text-base-content/60">
@@ -107,7 +107,7 @@
             <div class="flex flex-wrap gap-4">
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" name="send_sms" class="checkbox checkbox-sm checkbox-primary"
-                           {% if sms_gateway.ready %}checked{% else %}disabled{% endif %}>
+                           {% if not sms_gateway.ready %}disabled{% elif send_sms_checked or not error %}checked{% endif %}>
                     <span class="text-sm">
                         <i class="fa-solid fa-comment-sms"></i> SMS
                         {% if not sms_gateway.ready %}
@@ -119,7 +119,7 @@
                     <input type="checkbox" name="send_email" class="checkbox checkbox-sm checkbox-info"
                            id="staff-email-check"
                            onchange="document.getElementById('staff-subject-field').classList.toggle('hidden', !this.checked)"
-                           {% if email_gateway.ready %}checked{% else %}disabled{% endif %}>
+                           {% if not email_gateway.ready %}disabled{% elif send_email_checked or not error %}checked{% endif %}>
                     <span class="text-sm">
                         <i class="fa-solid fa-envelope"></i> Email
                         {% if not email_gateway.ready %}
@@ -131,31 +131,31 @@
         </div>
 
         <!-- Subject (shown when email is checked) -->
-        <div id="staff-subject-field" class="{% if not email_gateway.ready %}hidden{% endif %}">
+        <div id="staff-subject-field" class="{% if error %}{% if not send_email_checked %}hidden{% endif %}{% elif not email_gateway.ready %}hidden{% endif %}">
             <label class="floating-label w-full">
                 <span>Subject <span class="text-error">*</span></span>
                 <input type="text" name="subject" class="input input-bordered w-full"
-                       placeholder="Email subject line...">
+                       placeholder="Email subject line..."
+                       value="{{ subject|default:'' }}">
             </label>
         </div>
 
-        <div>
+        <div class="sms-char-counter-wrapper">
             <label class="floating-label w-full">
                 <span>Message <span class="text-error">*</span></span>
-                <textarea id="staff-message-input"
-                          name="message"
-                          class="textarea textarea-bordered w-full h-28"
+                <textarea name="message"
+                          class="textarea textarea-bordered w-full h-28 sms-textarea"
                           placeholder="Type your message here..."
                           required
-                          oninput="updateStaffCharCount(this)"></textarea>
+                          oninput="smsCharCount(this)">{{ message|default:'' }}</textarea>
             </label>
             <div class="flex justify-between text-xs text-base-content/60 mt-1 ml-1">
                 <span>
-                    <span id="staff-char-count" class="font-mono">0</span>/160 chars
+                    <span class="sms-char-count font-mono">0</span>/160 chars
                     <span class="mx-1">•</span>
-                    <span id="staff-sms-count" class="font-bold">1</span> SMS
+                    <span class="sms-sms-count font-bold">1</span> SMS
                 </span>
-                <span id="staff-char-warning" class="text-warning hidden">Long message - may cost more</span>
+                <span class="sms-char-warning text-warning hidden">Long message - may cost more</span>
             </div>
         </div>
 
@@ -179,18 +179,9 @@
 </form>
 
 <script>
-function updateStaffCharCount(textarea) {
-    const count = textarea.value.length;
-    const smsCount = Math.ceil(count / 160) || 1;
-    document.getElementById('staff-char-count').textContent = count;
-    document.getElementById('staff-sms-count').textContent = smsCount;
-
-    const warning = document.getElementById('staff-char-warning');
-    if (count > 160) {
-        warning.classList.remove('hidden');
-    } else {
-        warning.classList.add('hidden');
-    }
-}
+(function() {
+    var ta = document.querySelector('#modal-sms-content .sms-textarea');
+    if (ta && ta.value) smsCharCount(ta);
+})();
 </script>
 {% endif %}

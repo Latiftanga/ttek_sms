@@ -1,3 +1,6 @@
+import uuid
+
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -183,3 +186,75 @@ class EmailMessage(models.Model):
         self.status = self.Status.FAILED
         self.error_message = str(error)
         self.save(update_fields=['status', 'error_message'])
+
+
+class Announcement(models.Model):
+    """Staff announcements with optional SMS/Email push."""
+
+    class TargetGroup(models.TextChoices):
+        ALL = 'all', 'All Staff'
+        TEACHING = 'teaching', 'Teaching Staff'
+        NON_TEACHING = 'non_teaching', 'Non-Teaching Staff'
+
+    class Priority(models.TextChoices):
+        NORMAL = 'normal', 'Normal'
+        URGENT = 'urgent', 'Urgent'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    target_group = models.CharField(
+        max_length=15,
+        choices=TargetGroup.choices,
+        default=TargetGroup.ALL,
+    )
+    priority = models.CharField(
+        max_length=10,
+        choices=Priority.choices,
+        default=Priority.NORMAL,
+    )
+    sent_via_sms = models.BooleanField(default=False)
+    sent_via_email = models.BooleanField(default=False)
+    recipient_count = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='announcements',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['target_group']),
+        ]
+
+    def __str__(self):
+        return self.title
+
+
+class AnnouncementRead(models.Model):
+    """Tracks which users have read an announcement."""
+
+    announcement = models.ForeignKey(
+        Announcement,
+        on_delete=models.CASCADE,
+        related_name='reads',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='announcement_reads',
+    )
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('announcement', 'user')
+        indexes = [
+            models.Index(fields=['announcement', 'user']),
+        ]
+
+    def __str__(self):
+        return f"{self.user} read {self.announcement}"

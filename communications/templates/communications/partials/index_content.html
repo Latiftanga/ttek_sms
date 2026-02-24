@@ -1,6 +1,6 @@
 {% load core_tags %}
 
-<div class="space-y-6">
+<div class="space-y-4">
     <!-- Page Header -->
     <div class="flex items-center gap-2 sm:gap-3">
         <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
@@ -10,11 +10,11 @@
             <h1 class="text-base sm:text-xl font-bold">Communications</h1>
             <p class="text-[10px] sm:text-sm text-base-content/60">Send SMS notifications to parents and guardians</p>
         </div>
-        <div class="dropdown dropdown-end">
-            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+        <details class="dropdown dropdown-end">
+            <summary class="btn btn-ghost btn-sm btn-square">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
-            </label>
-            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+            </summary>
+            <ul class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
                 <li>
                     <a href="{% url 'communications:history' %}"
                        hx-get="{% url 'communications:history' %}"
@@ -32,7 +32,7 @@
                     </a>
                 </li>
             </ul>
-        </div>
+        </details>
     </div>
 
     <!-- Gateway Status Alerts -->
@@ -88,57 +88,35 @@
     {% endif %}
     {% endif %}
 
-    <!-- Stats Row -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-3 flex-row items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-paper-plane text-primary"></i>
-                </div>
-                <div>
-                    <div class="text-xl font-bold text-primary">{{ stats.total_today }}</div>
-                    <div class="text-xs text-base-content/60">Today</div>
-                </div>
+    <!-- Compact Stats Bar -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="flex items-center divide-x divide-base-200">
+            <div class="flex-1 flex items-center gap-2 p-3">
+                <i class="fa-solid fa-paper-plane text-primary text-xs"></i>
+                <span class="font-bold text-primary">{{ stats.total_today }}</span>
+                <span class="text-xs text-base-content/60">Today</span>
             </div>
-        </div>
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-3 flex-row items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-check text-success"></i>
-                </div>
-                <div>
-                    <div class="text-xl font-bold text-success">{{ stats.sent_today }}</div>
-                    <div class="text-xs text-base-content/60">Sent</div>
-                </div>
+            <div class="flex-1 flex items-center gap-2 p-3">
+                <i class="fa-solid fa-check text-success text-xs"></i>
+                <span class="font-bold text-success">{{ stats.sent_today }}</span>
+                <span class="text-xs text-base-content/60">Sent</span>
             </div>
-        </div>
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-3 flex-row items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-xmark text-error"></i>
-                </div>
-                <div>
-                    <div class="text-xl font-bold text-error">{{ stats.failed_today }}</div>
-                    <div class="text-xs text-base-content/60">Failed</div>
-                </div>
+            <div class="flex-1 flex items-center gap-2 p-3">
+                <i class="fa-solid fa-xmark text-error text-xs"></i>
+                <span class="font-bold text-error">{{ stats.failed_today }}</span>
+                <span class="text-xs text-base-content/60 hidden sm:inline">Failed</span>
             </div>
-        </div>
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-3 flex-row items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-clock text-warning"></i>
-                </div>
-                <div>
-                    <div class="text-xl font-bold text-warning">{{ stats.pending }}</div>
-                    <div class="text-xs text-base-content/60">Pending</div>
-                </div>
+            <div class="flex-1 flex items-center gap-2 p-3">
+                <i class="fa-solid fa-clock text-warning text-xs"></i>
+                <span class="font-bold text-warning">{{ stats.pending }}</span>
+                <span class="text-xs text-base-content/60 hidden sm:inline">Pending</span>
             </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- Quick Actions & Templates -->
-        <div class="lg:col-span-1 space-y-4">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <!-- Quick Actions -->
+        <div class="lg:col-span-2">
             <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-4">
                     <h2 class="font-bold mb-3 flex items-center gap-2">
@@ -203,72 +181,54 @@
                             </div>
                         </div>
                         {% endif %}
-                        {% if request.user.is_superuser or request.user.is_school_admin %}
                         <div class="divider my-1 text-xs text-base-content/40">Staff</div>
+                        {% if request.user.is_superuser or request.user.is_school_admin %}
                         {% if sms_gateway.ready or email_gateway.ready %}
                         <a href="#"
                            hx-get="{% url 'communications:send_to_staff' %}"
                            hx-target="#modal-sms-content"
                            onclick="document.getElementById('modal_sms').showModal()"
-                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors cursor-pointer">
+                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer">
                             <i class="fa-solid fa-chalkboard-user text-accent w-5"></i>
                             <div>
                                 <div class="font-medium text-sm">Message Staff</div>
-                                <div class="text-xs text-base-content/50">SMS &amp; Email to teachers</div>
+                                <div class="text-xs text-base-content/50">SMS or email to staff</div>
                             </div>
                         </a>
-                        {% else %}
-                        <div class="flex items-center gap-3 p-2 rounded-lg bg-base-200/50 opacity-50 cursor-not-allowed">
-                            <i class="fa-solid fa-chalkboard-user text-base-content/30 w-5"></i>
-                            <div>
-                                <div class="font-medium text-sm text-base-content/50">Message Staff</div>
-                                <div class="text-xs text-base-content/30">SMS/Email not configured</div>
-                            </div>
-                        </div>
                         {% endif %}
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Templates -->
-            <div class="card bg-base-100 shadow-sm border border-base-200">
-                <div class="card-body p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="font-bold flex items-center gap-2">
-                            <i class="fa-solid fa-file-lines text-accent"></i>
-                            Templates
-                        </h2>
-                        <a href="{% url 'communications:templates' %}"
-                           hx-get="{% url 'communications:templates' %}"
+                        <a href="{% url 'communications:announcement_create' %}"
+                           hx-get="{% url 'communications:announcement_create' %}"
                            hx-target="#main-content"
                            hx-push-url="true"
-                           class="btn btn-ghost btn-xs">
-                            Manage
+                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-bullhorn text-accent w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm">Post Announcement</div>
+                                <div class="text-xs text-base-content/50">Notify staff with optional SMS/Email</div>
+                            </div>
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'communications:announcements_feed' %}"
+                           hx-get="{% url 'communications:announcements_feed' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-rectangle-list text-info w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm">View Announcements</div>
+                                <div class="text-xs text-base-content/50">Browse staff announcements</div>
+                            </div>
                         </a>
                     </div>
-
-                    {% if templates %}
-                    <div class="space-y-2">
-                        {% for template in templates|slice:":3" %}
-                        <div class="p-2 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors">
-                            <div class="font-medium text-sm">{{ template.name }}</div>
-                            <div class="text-xs text-base-content/60 truncate">{{ template.content|truncatechars:40 }}</div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="text-sm text-base-content/50 text-center py-4">No templates yet</p>
-                    {% endif %}
                 </div>
             </div>
         </div>
 
         <!-- Recent Messages -->
-        <div class="lg:col-span-2">
+        <div class="lg:col-span-3">
             <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-0">
-                    <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <div class="flex items-center justify-between p-4 pb-2">
                         <h2 class="font-bold flex items-center gap-2">
                             <i class="fa-solid fa-envelope text-info"></i>
                             Recent Messages
@@ -283,59 +243,27 @@
                     </div>
 
                     {% if messages %}
-                    <div class="overflow-x-auto">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr class="text-xs bg-base-200">
-                                    <th>Recipient</th>
-                                    <th class="hidden sm:table-cell">Type</th>
-                                    <th>Status</th>
-                                    <th class="hidden md:table-cell">Time</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for msg in messages|slice:":10" %}
-                                <tr class="hover">
-                                    <td>
-                                        <div class="flex items-center gap-2">
-                                            <div class="avatar placeholder">
-                                                <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center">
-                                                    <i class="fa-solid fa-user text-xs"></i>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div class="font-medium text-sm">{{ msg.recipient_name|default:"Unknown" }}</div>
-                                                <div class="text-xs text-base-content/50 font-mono">{{ msg.recipient_phone }}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="hidden sm:table-cell">
-                                        <span class="badge badge-ghost badge-sm">{{ msg.get_message_type_display }}</span>
-                                    </td>
-                                    <td>
-                                        {% if msg.status == 'sent' %}
-                                        <span class="badge badge-success badge-sm gap-1">
-                                            <i class="fa-solid fa-check text-xs"></i> Sent
-                                        </span>
-                                        {% elif msg.status == 'failed' %}
-                                        <span class="badge badge-error badge-sm gap-1">
-                                            <i class="fa-solid fa-xmark text-xs"></i> Failed
-                                        </span>
-                                        {% elif msg.status == 'pending' %}
-                                        <span class="badge badge-warning badge-sm gap-1">
-                                            <i class="fa-solid fa-clock text-xs"></i> Pending
-                                        </span>
-                                        {% else %}
-                                        <span class="badge badge-ghost badge-sm">{{ msg.get_status_display }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="hidden md:table-cell text-xs text-base-content/60">
-                                        {{ msg.created_at|timesince }} ago
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div class="divide-y divide-base-200">
+                        {% for msg in messages|slice:":8" %}
+                        <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-base-200/50">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-sm truncate">{{ msg.recipient_name|default:"Unknown" }}</span>
+                                    {% if msg.status == 'sent' %}
+                                    <span class="badge badge-success badge-xs">Sent</span>
+                                    {% elif msg.status == 'failed' %}
+                                    <span class="badge badge-error badge-xs">Failed</span>
+                                    {% elif msg.status == 'pending' %}
+                                    <span class="badge badge-warning badge-xs">Pending</span>
+                                    {% else %}
+                                    <span class="badge badge-ghost badge-xs">{{ msg.get_status_display }}</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-xs text-base-content/50 truncate">{{ msg.message|truncatechars:60 }}</p>
+                            </div>
+                            <span class="text-[10px] text-base-content/40 whitespace-nowrap">{{ msg.created_at|timesince }} ago</span>
+                        </div>
+                        {% endfor %}
                     </div>
                     {% else %}
                     <div class="text-center py-12">
@@ -372,3 +300,20 @@
         <button>close</button>
     </form>
 </dialog>
+
+<script>
+function smsCharCount(textarea) {
+    var wrapper = textarea.closest('.sms-char-counter-wrapper');
+    if (!wrapper) return;
+    var count = textarea.value.length;
+    var smsCount = Math.ceil(count / 160) || 1;
+    wrapper.querySelector('.sms-char-count').textContent = count;
+    wrapper.querySelector('.sms-sms-count').textContent = smsCount;
+    var warning = wrapper.querySelector('.sms-char-warning');
+    if (count > 160) {
+        warning.classList.remove('hidden');
+    } else {
+        warning.classList.add('hidden');
+    }
+}
+</script>

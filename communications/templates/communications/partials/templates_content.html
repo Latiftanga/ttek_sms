@@ -51,6 +51,12 @@
             </div>
             <p class="text-sm text-base-content/70 mt-2 line-clamp-3">{{ template.content }}</p>
             <div class="card-actions justify-end mt-4">
+                <button class="btn btn-ghost btn-xs"
+                        hx-get="{% url 'communications:template_edit' template.pk %}"
+                        hx-target="#modal-template-content"
+                        onclick="document.getElementById('modal_template').showModal()">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </button>
                 <form hx-post="{% url 'communications:template_delete' template.pk %}"
                       hx-confirm="Delete '{{ template.name }}'? This cannot be undone."
                       hx-swap="none"

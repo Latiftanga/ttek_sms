@@ -248,13 +248,14 @@
             background: var(--color-base-200);
             opacity: 0;
             visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+            transition: opacity 0.15s ease, visibility 0.15s ease;
             pointer-events: none;
         }
         #nav-loader.active {
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
+            transition: none;
         }
 
         /* Safari dropdown fix - ensure clickable elements work correctly */

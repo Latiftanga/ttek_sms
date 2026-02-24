@@ -15,5 +15,11 @@ urlpatterns = [
     path('history/export/', views.message_history_export, name='history_export'),
     path('templates/', views.templates_list, name='templates'),
     path('templates/create/', views.template_create, name='template_create'),
+    path('templates/<int:pk>/edit/', views.template_edit, name='template_edit'),
     path('templates/<int:pk>/delete/', views.template_delete, name='template_delete'),
+    # Announcements
+    path('announcements/', views.announcements_list, name='announcements'),
+    path('announcements/create/', views.announcement_create, name='announcement_create'),
+    path('announcements/feed/', views.announcements_feed, name='announcements_feed'),
+    path('announcements/<uuid:pk>/', views.announcement_detail, name='announcement_detail'),
 ]

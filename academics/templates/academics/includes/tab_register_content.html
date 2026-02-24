@@ -3,12 +3,7 @@
 {% if students %}
 <div class="divide-y divide-base-200">
     {% for student in students %}
-    <a href="{% url 'students:student_detail' student.pk %}"
-       hx-get="{% url 'students:student_detail' student.pk %}"
-       hx-target="#main-content"
-       hx-swap="innerHTML"
-       hx-push-url="true"
-       class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors cursor-pointer group">
+    <div class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors group">
 
         <!-- Avatar with gender indicator -->
         <div class="avatar placeholder shrink-0">
@@ -52,14 +47,14 @@
 
         <!-- Quick Actions - visible on mobile, hover on desktop -->
         <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
+            <span class="btn btn-ghost btn-xs btn-square"
                   hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
                   hx-target="#modal-edit-content"
                   hx-on::after-request="document.getElementById('modal_edit').showModal()"
                   title="Manage Subjects">
                 <i class="fa-solid fa-book-bookmark text-base-content/50"></i>
             </span>
-            <span class="btn btn-ghost btn-xs btn-square" onclick="event.preventDefault(); event.stopPropagation();"
+            <span class="btn btn-ghost btn-xs btn-square"
                   hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
                   hx-target="#tab-register"
                   hx-swap="innerHTML"
@@ -69,9 +64,7 @@
             </span>
         </div>
 
-        <!-- Chevron -->
-        <i class="fa-solid fa-chevron-right text-base-content/30 text-xs shrink-0"></i>
-    </a>
+    </div>
     {% endfor %}
 </div>
 
