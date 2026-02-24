@@ -5,10 +5,7 @@ app_name = 'communications'
 
 urlpatterns = [
     path('', views.index, name='index'),
-    path('send/', views.send_single, name='send_single'),
-    path('send/class/', views.send_to_class, name='send_to_class'),
     path('send/class/recipients/', views.class_recipients, name='class_recipients'),
-    path('send/staff/', views.send_to_staff, name='send_to_staff'),
     path('send/staff/recipients/', views.staff_recipients, name='staff_recipients'),
     path('notify-absent/', views.notify_absent, name='notify_absent'),
     path('history/', views.message_history, name='history'),
@@ -20,6 +17,8 @@ urlpatterns = [
     # Announcements
     path('announcements/', views.announcements_list, name='announcements'),
     path('announcements/create/', views.announcement_create, name='announcement_create'),
+    path('announcements/recipients/', views.announcement_recipients, name='announcement_recipients'),
+    path('announcements/search/', views.announcement_search, name='announcement_search'),
     path('announcements/feed/', views.announcements_feed, name='announcements_feed'),
     path('announcements/<uuid:pk>/', views.announcement_detail, name='announcement_detail'),
 ]

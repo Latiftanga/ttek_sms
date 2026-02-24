@@ -189,12 +189,25 @@ class EmailMessage(models.Model):
 
 
 class Announcement(models.Model):
-    """Staff announcements with optional SMS/Email push."""
+    """Announcements with optional SMS/Email push to staff, parents, or students."""
 
     class TargetGroup(models.TextChoices):
         ALL = 'all', 'All Staff'
         TEACHING = 'teaching', 'Teaching Staff'
         NON_TEACHING = 'non_teaching', 'Non-Teaching Staff'
+
+    class Audience(models.TextChoices):
+        STAFF = 'staff', 'Staff'
+        PARENTS = 'parents', 'Parents'
+        STUDENTS = 'students', 'Students'
+
+    class Scope(models.TextChoices):
+        ALL = 'all', 'All'
+        TEACHING = 'teaching', 'Teaching Staff'
+        NON_TEACHING = 'non_teaching', 'Non-Teaching Staff'
+        LEVEL = 'level', 'By Level'
+        CLASS = 'class', 'By Class'
+        INDIVIDUAL = 'individual', 'Individual'
 
     class Priority(models.TextChoices):
         NORMAL = 'normal', 'Normal'
@@ -203,10 +216,26 @@ class Announcement(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     message = models.TextField()
+    # Legacy field — kept for backward compat with existing data
     target_group = models.CharField(
         max_length=15,
         choices=TargetGroup.choices,
         default=TargetGroup.ALL,
+    )
+    audience = models.CharField(
+        max_length=10,
+        choices=Audience.choices,
+        default=Audience.STAFF,
+    )
+    scope = models.CharField(
+        max_length=15,
+        choices=Scope.choices,
+        default=Scope.ALL,
+    )
+    scope_detail = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Class PK, level_type:number, or comma-separated IDs for individual',
     )
     priority = models.CharField(
         max_length=10,
@@ -228,11 +257,45 @@ class Announcement(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['-created_at']),
-            models.Index(fields=['target_group']),
+            models.Index(fields=['audience']),
         ]
 
     def __str__(self):
         return self.title
+
+    def get_audience_display_label(self):
+        """Return human-readable label like 'Parents — Basic 3' or 'Teaching Staff'."""
+        from academics.models import Class as ClassModel
+
+        audience_label = self.get_audience_display()
+
+        if self.scope == self.Scope.ALL:
+            if self.audience == self.Audience.STAFF:
+                return 'All Staff'
+            return f'All {audience_label}'
+
+        if self.scope in (self.Scope.TEACHING, self.Scope.NON_TEACHING):
+            return self.get_scope_display()
+
+        if self.scope == self.Scope.LEVEL and self.scope_detail:
+            try:
+                level_type, level_number = self.scope_detail.split(':')
+                class_obj = ClassModel(level_type=level_type, level_number=int(level_number))
+                return f'{audience_label} — {class_obj.get_level_display()}'
+            except (ValueError, AttributeError):
+                return f'{audience_label} — {self.scope_detail}'
+
+        if self.scope == self.Scope.CLASS and self.scope_detail:
+            try:
+                cls = ClassModel.objects.get(pk=self.scope_detail)
+                return f'{audience_label} — {cls.name}'
+            except ClassModel.DoesNotExist:
+                return f'{audience_label} — Class'
+
+        if self.scope == self.Scope.INDIVIDUAL:
+            return f'{audience_label} — Individual'
+
+        return audience_label
 
 
 class AnnouncementRead(models.Model):

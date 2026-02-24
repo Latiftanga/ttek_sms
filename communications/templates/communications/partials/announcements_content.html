@@ -51,7 +51,7 @@
                     <p class="text-xs text-base-content/60 truncate">{{ ann.message|truncatechars:100 }}</p>
                     <div class="flex items-center gap-3 mt-1 text-[10px] sm:text-xs text-base-content/50">
                         <span>{{ ann.created_at|timesince }} ago</span>
-                        <span>{{ ann.get_target_group_display }}</span>
+                        <span class="badge badge-ghost badge-xs">{{ ann.get_audience_display }}</span>
                         <span>{{ ann.read_count }}/{{ ann.recipient_count }} read</span>
                         {% if ann.sent_via_sms %}<span class="badge badge-ghost badge-xs">SMS</span>{% endif %}
                         {% if ann.sent_via_email %}<span class="badge badge-ghost badge-xs">Email</span>{% endif %}

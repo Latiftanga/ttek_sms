@@ -20,7 +20,7 @@ from core.utils import (
 import pandas as pd
 
 from .models import SMSMessage, SMSTemplate, EmailMessage, Announcement, AnnouncementRead
-from .utils import validate_phone_number, normalize_phone_number, get_sms_gateway_status, get_email_gateway_status
+from .utils import normalize_phone_number, get_sms_gateway_status, get_email_gateway_status
 from students.models import Student, StudentGuardian
 from academics.models import Class, AttendanceRecord
 from teachers.models import Teacher
@@ -209,6 +209,196 @@ def _send_bulk_email_to_teachers(teachers, subject, message_text, school_name, u
     return queued, failed, skipped
 
 
+def _send_bulk_sms_to_parents(students, message_text, school_name, user):
+    """
+    Bulk-create SMSMessage records for student guardians and queue Celery tasks.
+    Returns (queued, failed, skipped) counts.
+    """
+    sms_records = []
+    student_sms_map = {}
+    seen_phones = set()
+    skipped = 0
+
+    for student in students:
+        phone = normalize_phone_number(student.guardian_phone) if student.guardian_phone else None
+        if not phone:
+            skipped += 1
+            continue
+        if phone in seen_phones:
+            skipped += 1
+            continue
+        seen_phones.add(phone)
+
+        personalized = message_text.replace('{student_name}', student.full_name)
+        personalized = personalized.replace('{class_name}', student.current_class.name if student.current_class else '')
+        personalized = personalized.replace('{school_name}', school_name)
+
+        sms = SMSMessage(
+            recipient_phone=phone,
+            recipient_name=student.guardian_name or '',
+            student=student,
+            message=personalized,
+            message_type=SMSMessage.MessageType.ANNOUNCEMENT,
+            created_by=user,
+        )
+        sms_records.append(sms)
+        student_sms_map[student.pk] = (sms, phone, personalized)
+
+    queued = 0
+    failed = 0
+
+    if sms_records:
+        SMSMessage.objects.bulk_create(sms_records)
+
+        from .tasks import send_communication_task
+        from django.db import connection as db_connection
+
+        for student in students:
+            if student.pk not in student_sms_map:
+                continue
+            sms, phone, personalized = student_sms_map[student.pk]
+            try:
+                send_communication_task.delay(
+                    db_connection.schema_name,
+                    phone,
+                    personalized,
+                    sms_record_id=str(sms.pk)
+                )
+                queued += 1
+            except Exception as e:
+                logger.error("Failed to queue SMS for parent of student %s: %s", student.pk, e)
+                sms.mark_failed("Failed to queue for sending")
+                failed += 1
+
+    return queued, failed, skipped
+
+
+def _send_bulk_email_to_parents(students, subject, message_text, school_name, user):
+    """
+    Bulk-create EmailMessage records for student guardians and queue Celery tasks.
+    Returns (queued, failed, skipped) counts.
+    """
+    email_records = []
+    student_email_map = {}
+    seen_emails = set()
+    skipped = 0
+
+    for student in students:
+        email = student.guardian_email
+        if not email:
+            skipped += 1
+            continue
+        if email in seen_emails:
+            skipped += 1
+            continue
+        seen_emails.add(email)
+
+        personalized = message_text.replace('{student_name}', student.full_name)
+        personalized = personalized.replace('{class_name}', student.current_class.name if student.current_class else '')
+        personalized = personalized.replace('{school_name}', school_name)
+
+        record = EmailMessage(
+            recipient_email=email,
+            recipient_name=student.guardian_name or '',
+            subject=subject,
+            message=personalized,
+            message_type=EmailMessage.MessageType.ANNOUNCEMENT,
+            created_by=user,
+        )
+        email_records.append(record)
+        student_email_map[student.pk] = record
+
+    queued = 0
+    failed = 0
+
+    if email_records:
+        EmailMessage.objects.bulk_create(email_records)
+
+        from .tasks import send_email_task
+        from django.db import connection as db_connection
+
+        for student in students:
+            if student.pk not in student_email_map:
+                continue
+            record = student_email_map[student.pk]
+            try:
+                send_email_task.delay(
+                    db_connection.schema_name,
+                    str(record.pk)
+                )
+                queued += 1
+            except Exception as e:
+                logger.error("Failed to queue email for parent of student %s: %s", student.pk, e)
+                record.mark_failed("Failed to queue for sending")
+                failed += 1
+
+    return queued, failed, skipped
+
+
+def _send_bulk_sms_to_students(students, message_text, school_name, user):
+    """
+    Bulk-create SMSMessage records for students and queue Celery tasks.
+    Returns (queued, failed, skipped) counts.
+    """
+    sms_records = []
+    student_sms_map = {}
+    seen_phones = set()
+    skipped = 0
+
+    for student in students:
+        phone = normalize_phone_number(student.phone) if student.phone else None
+        if not phone:
+            skipped += 1
+            continue
+        if phone in seen_phones:
+            skipped += 1
+            continue
+        seen_phones.add(phone)
+
+        personalized = message_text.replace('{student_name}', student.full_name)
+        personalized = personalized.replace('{class_name}', student.current_class.name if student.current_class else '')
+        personalized = personalized.replace('{school_name}', school_name)
+
+        sms = SMSMessage(
+            recipient_phone=phone,
+            recipient_name=student.full_name,
+            student=student,
+            message=personalized,
+            message_type=SMSMessage.MessageType.ANNOUNCEMENT,
+            created_by=user,
+        )
+        sms_records.append(sms)
+        student_sms_map[student.pk] = (sms, phone, personalized)
+
+    queued = 0
+    failed = 0
+
+    if sms_records:
+        SMSMessage.objects.bulk_create(sms_records)
+
+        from .tasks import send_communication_task
+        from django.db import connection as db_connection
+
+        for student in students:
+            if student.pk not in student_sms_map:
+                continue
+            sms, phone, personalized = student_sms_map[student.pk]
+            try:
+                send_communication_task.delay(
+                    db_connection.schema_name,
+                    phone,
+                    personalized,
+                    sms_record_id=str(sms.pk)
+                )
+                queued += 1
+            except Exception as e:
+                logger.error("Failed to queue SMS for student %s: %s", student.pk, e)
+                sms.mark_failed("Failed to queue for sending")
+                failed += 1
+
+    return queued, failed, skipped
+
+
 # =============================================================================
 # COMMUNICATIONS DASHBOARD
 # =============================================================================
@@ -259,266 +449,6 @@ def index(request):
         'communications/partials/index_content.html',
         context
     )
-
-
-@login_required
-@teacher_or_admin_required
-def send_single(request):
-    """Send SMS to a single recipient."""
-    templates = SMSTemplate.objects.filter(is_active=True)
-
-    if request.method == 'GET':
-        return render(request, 'communications/partials/modal_send_single.html', {
-            'templates': templates,
-        })
-
-    if request.method != 'POST':
-        return HttpResponse(status=405)
-
-    phone = request.POST.get('phone', '').strip()
-    message = request.POST.get('message', '').strip()
-    recipient_name = request.POST.get('recipient_name', '').strip()
-
-    if not phone or not message:
-        return render(request, 'communications/partials/modal_send_single.html', {
-            'error': 'Phone number and message are required.',
-            'templates': templates,
-            'phone': phone,
-            'message': message,
-            'recipient_name': recipient_name,
-        })
-
-    # Normalize phone number (add Ghana country code if needed)
-    if phone.startswith('0'):
-        phone = '+233' + phone[1:]
-    elif not phone.startswith('+'):
-        phone = '+233' + phone
-
-    try:
-        validate_phone_number(phone)
-    except Exception as e:
-        return render(request, 'communications/partials/modal_send_single.html', {
-            'error': str(e),
-            'templates': templates,
-            'phone': phone,
-            'message': message,
-            'recipient_name': recipient_name,
-        })
-
-    # Create SMS record and queue via Celery (don't use send_sms() to avoid duplicate record)
-    sms = SMSMessage.objects.create(
-        recipient_phone=phone,
-        recipient_name=recipient_name,
-        message=message,
-        message_type=SMSMessage.MessageType.GENERAL,
-        created_by=request.user,
-    )
-
-    try:
-        from .tasks import send_communication_task
-        from django.db import connection as db_connection
-        send_communication_task.delay(
-            db_connection.schema_name,
-            phone,
-            message,
-            sms_record_id=str(sms.pk)
-        )
-    except Exception as e:
-        sms.mark_failed(str(e))
-        return render(request, 'communications/partials/modal_send_single.html', {
-            'error': f'Failed to queue: {str(e)}',
-            'templates': templates,
-            'phone': phone,
-            'message': message,
-            'recipient_name': recipient_name,
-        })
-
-    # Show success state
-    return render(request, 'communications/partials/modal_send_single.html', {
-        'success': True,
-    })
-
-
-@login_required
-@teacher_or_admin_required
-def send_to_class(request):
-    """Send SMS to all parents in a class."""
-    classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
-    templates = SMSTemplate.objects.filter(is_active=True)
-
-    if request.method == 'GET':
-        return render(request, 'communications/partials/modal_send_class.html', {
-            'classes': classes,
-            'templates': templates,
-        })
-
-    if request.method != 'POST':
-        return HttpResponse(status=405)
-
-    class_id = request.POST.get('class_id')
-    message = request.POST.get('message', '').strip()
-
-    if not class_id or not message:
-        return render(request, 'communications/partials/modal_send_class.html', {
-            'error': 'Class and message are required.',
-            'classes': classes,
-            'templates': templates,
-            'selected_class': int(class_id) if class_id else None,
-            'message': message,
-        })
-
-    class_obj = get_object_or_404(Class, pk=class_id)
-
-    # Fetch all students and prefetch guardians to avoid N+1
-    all_students = list(Student.objects.filter(current_class=class_obj, status='active'))
-    _prefetch_primary_guardians(all_students)
-    students_with_phone = [s for s in all_students if s.guardian_phone]
-    skipped_count = len(all_students) - len(students_with_phone)
-
-    if not students_with_phone:
-        return render(request, 'communications/partials/modal_send_class.html', {
-            'success': True,
-            'sent_count': 0,
-            'failed_count': 0,
-            'skipped_count': skipped_count,
-        })
-
-    # Prepare SMS records for bulk creation, deduplicating by phone number
-    sms_records = []
-    student_sms_map = {}  # Map student_id to (sms_record, phone, message)
-    seen_phones = set()  # Track phones to avoid sending duplicates (e.g. siblings)
-
-    for student in students_with_phone:
-        phone = normalize_phone_number(student.guardian_phone)
-        if not phone:
-            skipped_count += 1
-            continue
-
-        if phone in seen_phones:
-            skipped_count += 1
-            continue
-        seen_phones.add(phone)
-
-        # Personalize message
-        personalized = message.replace('{student_name}', student.full_name)
-        personalized = personalized.replace('{class_name}', class_obj.name)
-
-        sms = SMSMessage(
-            recipient_phone=phone,
-            recipient_name=student.guardian_name or '',
-            student=student,
-            message=personalized,
-            message_type=SMSMessage.MessageType.ANNOUNCEMENT,
-            created_by=request.user,
-        )
-        sms_records.append(sms)
-        student_sms_map[student.pk] = (sms, phone, personalized)
-
-    # Bulk create all SMS records (single INSERT)
-    SMSMessage.objects.bulk_create(sms_records)
-
-    # Queue Celery tasks directly (don't use send_sms() which creates duplicate records)
-    from .tasks import send_communication_task
-    from django.db import connection as db_connection
-
-    queued_count = 0
-    failed_count = 0
-    for student in students_with_phone:
-        if student.pk not in student_sms_map:
-            continue
-
-        sms, phone, personalized = student_sms_map[student.pk]
-        try:
-            send_communication_task.delay(
-                db_connection.schema_name,
-                phone,
-                personalized,
-                sms_record_id=str(sms.pk)
-            )
-            queued_count += 1
-        except Exception as e:
-            logger.error("Failed to queue SMS for student %s: %s", student.pk, e)
-            sms.mark_failed("Failed to queue for sending")
-            failed_count += 1
-
-    # Show success state with counts
-    return render(request, 'communications/partials/modal_send_class.html', {
-        'success': True,
-        'sent_count': queued_count,
-        'failed_count': failed_count,
-        'skipped_count': skipped_count,
-    })
-
-
-@login_required
-@admin_required
-def send_to_staff(request):
-    """Send SMS/Email to staff members."""
-    sms_gateway = get_sms_gateway_status()
-    email_gateway = get_email_gateway_status()
-
-    if request.method == 'GET':
-        return render(request, 'communications/partials/modal_send_staff.html', {
-            'sms_gateway': sms_gateway,
-            'email_gateway': email_gateway,
-        })
-
-    if request.method != 'POST':
-        return HttpResponse(status=405)
-
-    group = request.POST.get('group', 'all')
-    message_text = request.POST.get('message', '').strip()
-    send_sms = request.POST.get('send_sms') == 'on'
-    send_email = request.POST.get('send_email') == 'on'
-    subject = request.POST.get('subject', '').strip()
-
-    form_context = {
-        'sms_gateway': sms_gateway,
-        'email_gateway': email_gateway,
-        'group': group,
-        'message': message_text,
-        'send_sms_checked': send_sms,
-        'send_email_checked': send_email,
-        'subject': subject,
-    }
-
-    if not message_text:
-        form_context['error'] = 'Message is required.'
-        return render(request, 'communications/partials/modal_send_staff.html', form_context)
-
-    if not send_sms and not send_email:
-        form_context['error'] = 'Select at least one channel (SMS or Email).'
-        return render(request, 'communications/partials/modal_send_staff.html', form_context)
-
-    if send_email and not subject:
-        form_context['error'] = 'Subject is required when sending email.'
-        return render(request, 'communications/partials/modal_send_staff.html', form_context)
-
-    teachers = _get_targeted_teachers(group, need_email=send_email)
-    school = getattr(connection, 'tenant', None)
-    school_name = school.display_name if school else ''
-
-    result_context = {'success': True}
-
-    if send_sms:
-        sms_queued, sms_failed, sms_skipped = _send_bulk_sms_to_teachers(
-            teachers, message_text, school_name, request.user,
-        )
-        result_context['send_sms'] = True
-        result_context['sms_queued'] = sms_queued
-        result_context['sms_failed'] = sms_failed
-        result_context['sms_skipped'] = sms_skipped
-
-    if send_email:
-        email_queued, email_failed, email_skipped = _send_bulk_email_to_teachers(
-            teachers, subject, message_text, school_name, request.user,
-        )
-        result_context['send_email'] = True
-        result_context['email_queued'] = email_queued
-        result_context['email_failed'] = email_failed
-        result_context['email_skipped'] = email_skipped
-
-    return render(request, 'communications/partials/modal_send_staff.html', result_context)
 
 
 @login_required
@@ -1064,6 +994,191 @@ def template_delete(request, pk):
 # ANNOUNCEMENTS
 # =============================================================================
 
+def _get_students_for_scope(scope, scope_detail):
+    """Return active students filtered by scope. Prefetches guardians."""
+    students = Student.objects.filter(status='active').select_related('current_class')
+    if scope == 'level' and scope_detail:
+        try:
+            level_type, level_number = scope_detail.split(':')
+            students = students.filter(
+                current_class__level_type=level_type,
+                current_class__level_number=int(level_number),
+            )
+        except (ValueError, AttributeError):
+            students = students.none()
+    elif scope == 'class' and scope_detail:
+        students = students.filter(current_class_id=scope_detail)
+    elif scope == 'individual' and scope_detail:
+        ids = [i.strip() for i in scope_detail.split(',') if i.strip()]
+        valid_ids = []
+        for i in ids:
+            try:
+                valid_ids.append(int(i))
+            except (ValueError, TypeError):
+                pass
+        students = students.filter(pk__in=valid_ids)
+    result = list(students)
+    _prefetch_primary_guardians(result)
+    return result
+
+
+@login_required
+@admin_required
+def announcement_recipients(request):
+    """HTMX endpoint: return recipient count + coverage stats."""
+    audience = request.GET.get('audience', 'staff')
+    scope = request.GET.get('scope', 'all')
+    scope_detail = request.GET.get('scope_detail', '')
+
+    if audience == 'staff':
+        teachers = Teacher.objects.filter(status=Teacher.Status.ACTIVE)
+        if scope == 'teaching':
+            teachers = teachers.filter(staff_category=Teacher.StaffCategory.TEACHING)
+        elif scope == 'non_teaching':
+            teachers = teachers.filter(staff_category=Teacher.StaffCategory.NON_TEACHING)
+        elif scope == 'individual' and scope_detail:
+            ids = [i.strip() for i in scope_detail.split(',') if i.strip()]
+            teachers = teachers.filter(pk__in=ids)
+        total = teachers.count()
+        with_phone = teachers.exclude(phone_number='').exclude(phone_number__isnull=True).count()
+        with_email = teachers.exclude(email='').exclude(email__isnull=True).count()
+        return HttpResponse(f'''
+            <div class="bg-base-200 rounded-lg p-3">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="font-medium">Staff</span>
+                    <span class="badge badge-primary">{total} recipients</span>
+                </div>
+                <div class="flex items-center gap-4 mt-2 text-xs text-base-content/70">
+                    <span class="flex items-center gap-1">
+                        <i class="fa-solid fa-phone text-success"></i>
+                        {with_phone} with phone
+                    </span>
+                    <span class="flex items-center gap-1">
+                        <i class="fa-solid fa-envelope text-info"></i>
+                        {with_email} with email
+                    </span>
+                </div>
+            </div>
+        ''')
+
+    # Parents or Students
+    students_qs = Student.objects.filter(status='active').select_related('current_class')
+    if scope == 'level' and scope_detail:
+        try:
+            level_type, level_number = scope_detail.split(':')
+            students_qs = students_qs.filter(
+                current_class__level_type=level_type,
+                current_class__level_number=int(level_number),
+            )
+        except (ValueError, AttributeError):
+            students_qs = students_qs.none()
+    elif scope == 'class' and scope_detail:
+        students_qs = students_qs.filter(current_class_id=scope_detail)
+    elif scope == 'individual' and scope_detail:
+        ids = [i.strip() for i in scope_detail.split(',') if i.strip()]
+        students_qs = students_qs.filter(pk__in=ids)
+
+    total = students_qs.count()
+
+    if audience == 'parents':
+        with_phone = students_qs.filter(
+            student_guardians__is_primary=True,
+            student_guardians__guardian__phone_number__isnull=False,
+        ).exclude(
+            student_guardians__guardian__phone_number='',
+        ).distinct().count()
+        with_email = students_qs.filter(
+            student_guardians__is_primary=True,
+            student_guardians__guardian__email__isnull=False,
+        ).exclude(
+            student_guardians__guardian__email='',
+        ).distinct().count()
+        label = 'Parents'
+        phone_label = f'{with_phone} guardians with phone'
+        email_html = f'''
+            <span class="flex items-center gap-1">
+                <i class="fa-solid fa-envelope text-info"></i>
+                {with_email} with email
+            </span>
+        '''
+    else:
+        with_phone = students_qs.exclude(phone='').exclude(phone__isnull=True).count()
+        label = 'Students'
+        phone_label = f'{with_phone} with phone'
+        email_html = ''
+
+    return HttpResponse(f'''
+        <div class="bg-base-200 rounded-lg p-3">
+            <div class="flex items-center justify-between text-sm">
+                <span class="font-medium">{escape(label)}</span>
+                <span class="badge badge-primary">{total} recipients</span>
+            </div>
+            <div class="flex items-center gap-4 mt-2 text-xs text-base-content/70">
+                <span class="flex items-center gap-1">
+                    <i class="fa-solid fa-phone text-success"></i>
+                    {phone_label}
+                </span>
+                {email_html}
+            </div>
+        </div>
+    ''')
+
+
+@login_required
+@admin_required
+def announcement_search(request):
+    """HTMX endpoint: search recipients for individual scope."""
+    audience = request.GET.get('audience', 'staff')
+    q = request.GET.get('q', '').strip()
+
+    if len(q) < 2:
+        return HttpResponse('<div class="text-xs text-base-content/50 p-2">Type at least 2 characters...</div>')
+
+    items = []
+    if audience == 'staff':
+        teachers = Teacher.objects.filter(
+            status=Teacher.Status.ACTIVE,
+        ).filter(
+            Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        )[:15]
+        for t in teachers:
+            items.append(f'''
+                <button type="button"
+                        class="flex items-center gap-2 p-2 hover:bg-base-200 rounded w-full text-left"
+                        @click="addRecipient('{t.pk}', '{escape(t.full_name)}')">
+                    <i class="fa-solid fa-user-tie text-accent text-xs"></i>
+                    <span class="text-sm">{escape(t.full_name)}</span>
+                    <span class="text-xs text-base-content/50 ml-auto">{escape(t.phone_number or 'No phone')}</span>
+                </button>
+            ''')
+    else:
+        students = Student.objects.filter(
+            status='active',
+        ).filter(
+            Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        ).select_related('current_class')[:15]
+        _prefetch_primary_guardians(list(students))
+        for s in students:
+            if audience == 'parents':
+                detail = escape(s.guardian_name or 'No guardian')
+            else:
+                detail = escape(s.current_class.name if s.current_class else 'No class')
+            items.append(f'''
+                <button type="button"
+                        class="flex items-center gap-2 p-2 hover:bg-base-200 rounded w-full text-left"
+                        @click="addRecipient('{s.pk}', '{escape(s.full_name)}')">
+                    <i class="fa-solid fa-user-graduate text-primary text-xs"></i>
+                    <span class="text-sm">{escape(s.full_name)}</span>
+                    <span class="text-xs text-base-content/50 ml-auto">{detail}</span>
+                </button>
+            ''')
+
+    if not items:
+        return HttpResponse('<div class="text-xs text-base-content/50 p-2">No results found</div>')
+
+    return HttpResponse('<div class="divide-y divide-base-200">' + ''.join(items) + '</div>')
+
+
 @login_required
 @admin_required
 def announcements_list(request):
@@ -1098,30 +1213,26 @@ def announcements_list(request):
 @login_required
 @admin_required
 def announcement_create(request):
-    """Create a new staff announcement."""
+    """Create a new announcement targeting staff, parents, or students."""
     sms_gateway = get_sms_gateway_status()
     email_gateway = get_email_gateway_status()
+    classes = Class.objects.filter(is_active=True).order_by('level_type', 'level_number', 'name')
+
+    breadcrumbs = [
+        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+        {'label': 'Communications', 'url': '/communications/'},
+        {'label': 'Announcements', 'url': reverse('communications:announcements')},
+        {'label': 'New Announcement'},
+    ]
+    back_url = reverse('communications:announcements')
 
     if request.method == 'GET':
-        # Pre-compute staff counts so template doesn't need a secondary HTMX load
-        all_teachers = Teacher.objects.filter(status=Teacher.Status.ACTIVE)
-        staff_total = all_teachers.count()
-        staff_with_phone = all_teachers.exclude(phone_number='').exclude(phone_number__isnull=True).count()
-        staff_with_email = all_teachers.exclude(email='').exclude(email__isnull=True).count()
-
         context = {
             'sms_gateway': sms_gateway,
             'email_gateway': email_gateway,
-            'staff_total': staff_total,
-            'staff_with_phone': staff_with_phone,
-            'staff_with_email': staff_with_email,
-            'breadcrumbs': [
-                {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
-                {'label': 'Communications', 'url': '/communications/'},
-                {'label': 'Announcements', 'url': reverse('communications:announcements')},
-                {'label': 'New Announcement'},
-            ],
-            'back_url': reverse('communications:announcements'),
+            'classes': classes,
+            'breadcrumbs': breadcrumbs,
+            'back_url': back_url,
         }
         return htmx_render(
             request,
@@ -1135,46 +1246,40 @@ def announcement_create(request):
 
     title = request.POST.get('title', '').strip()
     message_text = request.POST.get('message', '').strip()
-    target_group = request.POST.get('group', 'all')
+    audience = request.POST.get('audience', 'staff')
+    scope = request.POST.get('scope', 'all')
+    scope_detail = request.POST.get('scope_detail', '').strip()
     priority = request.POST.get('priority', 'normal')
     send_sms = request.POST.get('send_sms') == 'on'
     send_email = request.POST.get('send_email') == 'on'
     subject = request.POST.get('subject', '').strip()
 
-    # Validate target_group and priority
-    valid_groups = {c[0] for c in Announcement.TargetGroup.choices}
-    if target_group not in valid_groups:
-        target_group = 'all'
+    # Validate choices
+    valid_audiences = {c[0] for c in Announcement.Audience.choices}
+    if audience not in valid_audiences:
+        audience = 'staff'
+    valid_scopes = {c[0] for c in Announcement.Scope.choices}
+    if scope not in valid_scopes:
+        scope = 'all'
     valid_priorities = {c[0] for c in Announcement.Priority.choices}
     if priority not in valid_priorities:
         priority = 'normal'
 
-    # Re-compute staff counts for validation error re-rendering
-    all_teachers = Teacher.objects.filter(status=Teacher.Status.ACTIVE)
-    staff_total = all_teachers.count()
-    staff_with_phone = all_teachers.exclude(phone_number='').exclude(phone_number__isnull=True).count()
-    staff_with_email = all_teachers.exclude(email='').exclude(email__isnull=True).count()
-
     form_context = {
         'sms_gateway': sms_gateway,
         'email_gateway': email_gateway,
+        'classes': classes,
         'title': title,
         'message': message_text,
-        'target_group': target_group,
+        'audience': audience,
+        'scope': scope,
+        'scope_detail': scope_detail,
         'priority': priority,
         'send_sms_checked': send_sms,
         'send_email_checked': send_email,
         'subject': subject,
-        'staff_total': staff_total,
-        'staff_with_phone': staff_with_phone,
-        'staff_with_email': staff_with_email,
-        'breadcrumbs': [
-            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
-            {'label': 'Communications', 'url': '/communications/'},
-            {'label': 'Announcements', 'url': reverse('communications:announcements')},
-            {'label': 'New Announcement'},
-        ],
-        'back_url': reverse('communications:announcements'),
+        'breadcrumbs': breadcrumbs,
+        'back_url': back_url,
     }
 
     if not title or not message_text:
@@ -1195,56 +1300,133 @@ def announcement_create(request):
             form_context
         )
 
-    # Get targeted teachers
-    need_email = send_email
-    teachers = _get_targeted_teachers(target_group, need_email=need_email)
-
     school = getattr(connection, 'tenant', None)
     school_name = school.display_name if school else ''
 
-    # Create the announcement
-    announcement = Announcement.objects.create(
-        title=title,
-        message=message_text,
-        target_group=target_group,
-        priority=priority,
-        sent_via_sms=send_sms,
-        sent_via_email=send_email,
-        recipient_count=len(teachers),
-        created_by=request.user,
-    )
-
-    # Create notifications for teachers with user accounts
+    # Resolve recipients and dispatch sending based on audience
     from core.models import Notification
-    detail_url = reverse('communications:announcement_detail', args=[announcement.pk])
-    notification_type = 'warning' if priority == 'urgent' else 'info'
-    for teacher in teachers:
-        if teacher.user_id:
-            Notification.create_notification(
-                user=teacher.user,
-                title=f'Announcement: {title}',
-                message=message_text[:200],
-                notification_type=notification_type,
-                category='system',
-                icon='fa-solid fa-bullhorn',
-                link=detail_url,
+    recipient_count = 0
+
+    if audience == 'staff':
+        # Map scope to teacher group filter
+        if scope in ('teaching', 'non_teaching'):
+            group = scope
+        elif scope == 'individual' and scope_detail:
+            group = 'individual'
+        else:
+            group = 'all'
+
+        if group == 'individual':
+            ids = [i.strip() for i in scope_detail.split(',') if i.strip()]
+            teachers = list(Teacher.objects.filter(
+                status=Teacher.Status.ACTIVE, pk__in=ids,
+            ))
+            if send_email:
+                for t in teachers:
+                    if not hasattr(t, 'user'):
+                        pass  # user already loaded
+                teachers = list(Teacher.objects.filter(
+                    status=Teacher.Status.ACTIVE, pk__in=ids,
+                ).select_related('user'))
+        else:
+            teachers = _get_targeted_teachers(group, need_email=send_email)
+
+        recipient_count = len(teachers)
+
+        # Create the announcement
+        announcement = Announcement.objects.create(
+            title=title,
+            message=message_text,
+            audience=audience,
+            scope=scope,
+            scope_detail=scope_detail,
+            target_group=group if group in ('all', 'teaching', 'non_teaching') else 'all',
+            priority=priority,
+            sent_via_sms=send_sms,
+            sent_via_email=send_email,
+            recipient_count=recipient_count,
+            created_by=request.user,
+        )
+
+        # Bell notifications for staff with user accounts
+        detail_url = reverse('communications:announcement_detail', args=[announcement.pk])
+        notification_type = 'warning' if priority == 'urgent' else 'info'
+        for teacher in teachers:
+            if teacher.user_id:
+                Notification.create_notification(
+                    user=teacher.user,
+                    title=f'Announcement: {title}',
+                    message=message_text[:200],
+                    notification_type=notification_type,
+                    category='system',
+                    icon='fa-solid fa-bullhorn',
+                    link=detail_url,
+                )
+
+        if send_sms:
+            _send_bulk_sms_to_teachers(
+                teachers, message_text, school_name, request.user,
+                message_type=SMSMessage.MessageType.ANNOUNCEMENT,
+            )
+        if send_email:
+            _send_bulk_email_to_teachers(
+                teachers, subject, message_text, school_name, request.user,
+                message_type=EmailMessage.MessageType.ANNOUNCEMENT,
             )
 
-    # Send SMS if requested
-    if send_sms:
-        _send_bulk_sms_to_teachers(
-            teachers, message_text, school_name, request.user,
-            message_type=SMSMessage.MessageType.ANNOUNCEMENT,
+    elif audience == 'parents':
+        students = _get_students_for_scope(scope, scope_detail)
+        recipient_count = len(students)
+
+        announcement = Announcement.objects.create(
+            title=title,
+            message=message_text,
+            audience=audience,
+            scope=scope,
+            scope_detail=scope_detail,
+            priority=priority,
+            sent_via_sms=send_sms,
+            sent_via_email=send_email,
+            recipient_count=recipient_count,
+            created_by=request.user,
         )
 
-    # Send Email if requested
-    if send_email:
-        _send_bulk_email_to_teachers(
-            teachers, subject, message_text, school_name, request.user,
-            message_type=EmailMessage.MessageType.ANNOUNCEMENT,
+        if send_sms:
+            _send_bulk_sms_to_parents(
+                students, message_text, school_name, request.user,
+            )
+        if send_email:
+            _send_bulk_email_to_parents(
+                students, subject, message_text, school_name, request.user,
+            )
+
+    else:  # students
+        students = _get_students_for_scope(scope, scope_detail)
+        recipient_count = len(students)
+
+        announcement = Announcement.objects.create(
+            title=title,
+            message=message_text,
+            audience=audience,
+            scope=scope,
+            scope_detail=scope_detail,
+            priority=priority,
+            sent_via_sms=send_sms,
+            sent_via_email=send_email,
+            recipient_count=recipient_count,
+            created_by=request.user,
         )
 
-    django_messages.success(request, f'Announcement "{title}" posted to {len(teachers)} staff members.')
+        if send_sms:
+            _send_bulk_sms_to_students(
+                students, message_text, school_name, request.user,
+            )
+
+    audience_label = announcement.get_audience_display_label()
+    django_messages.success(
+        request,
+        f'Announcement "{title}" posted to {recipient_count} recipients ({audience_label}).'
+    )
 
     detail_redirect_url = reverse('communications:announcement_detail', args=[announcement.pk])
     if request.htmx:
@@ -1301,19 +1483,21 @@ def announcements_feed(request):
     user = request.user
     teacher = getattr(user, 'teacher_profile', None)
 
-    # Filter announcements relevant to this user
-    announcements = Announcement.objects.select_related('created_by')
+    # Filter announcements relevant to this user (staff-audience only)
+    announcements = Announcement.objects.select_related('created_by').filter(
+        audience='staff',
+    )
 
     if teacher:
         if teacher.staff_category == Teacher.StaffCategory.TEACHING:
             announcements = announcements.filter(
-                target_group__in=['all', 'teaching']
+                scope__in=['all', 'teaching', 'individual']
             )
         elif teacher.staff_category == Teacher.StaffCategory.NON_TEACHING:
             announcements = announcements.filter(
-                target_group__in=['all', 'non_teaching']
+                scope__in=['all', 'non_teaching', 'individual']
             )
-    # Admins without teacher profile see all
+    # Admins without teacher profile see all staff announcements
 
     # Annotate read/unread for this user
     announcements = announcements.annotate(

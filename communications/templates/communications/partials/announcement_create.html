@@ -1,6 +1,52 @@
 {% load core_tags %}
 
-<div class="space-y-4">
+<div class="space-y-4"
+     x-data="{
+         audience: '{{ audience|default:'staff' }}',
+         scope: '{{ scope|default:'all' }}',
+         scopeDetail: '{{ scope_detail|default:'' }}',
+         recipients: [],
+         get scopeDetailValue() {
+             if (this.scope === 'individual') {
+                 return this.recipients.map(r => r.id).join(',');
+             }
+             return this.scopeDetail;
+         },
+         addRecipient(id, name) {
+             if (!this.recipients.find(r => r.id === id)) {
+                 this.recipients.push({id, name});
+                 this.scopeDetail = this.recipients.map(r => r.id).join(',');
+                 this.refreshRecipientInfo();
+             }
+         },
+         removeRecipient(id) {
+             this.recipients = this.recipients.filter(r => r.id !== id);
+             this.scopeDetail = this.recipients.map(r => r.id).join(',');
+             this.refreshRecipientInfo();
+         },
+         refreshRecipientInfo() {
+             let detail = this.scope === 'individual'
+                 ? this.recipients.map(r => r.id).join(',')
+                 : this.scopeDetail;
+             let url = '{% url 'communications:announcement_recipients' %}?audience=' + this.audience + '&scope=' + this.scope + '&scope_detail=' + encodeURIComponent(detail);
+             htmx.ajax('GET', url, '#recipient-info');
+         },
+         onAudienceChange() {
+             if (this.audience === 'staff') {
+                 if (!['all','teaching','non_teaching','individual'].includes(this.scope)) this.scope = 'all';
+             } else {
+                 if (['teaching','non_teaching'].includes(this.scope)) this.scope = 'all';
+             }
+             this.recipients = [];
+             this.scopeDetail = '';
+             this.refreshRecipientInfo();
+         },
+         onScopeChange() {
+             this.recipients = [];
+             this.scopeDetail = '';
+             this.refreshRecipientInfo();
+         }
+     }">
     <!-- Page Header -->
     <div class="flex items-center gap-2 sm:gap-3">
         <a href="{{ back_url }}"
@@ -13,7 +59,7 @@
         </a>
         <div class="flex-1 min-w-0">
             <h1 class="text-base sm:text-xl font-bold">New Announcement</h1>
-            <p class="text-[10px] sm:text-xs text-base-content/60">Post an announcement to staff members</p>
+            <p class="text-[10px] sm:text-xs text-base-content/60">Send to staff, parents, or students</p>
         </div>
         <div class="flex gap-2">
             <a href="{{ back_url }}"
@@ -42,6 +88,9 @@
           method="post"
           action="{% url 'communications:announcement_create' %}">
         {% csrf_token %}
+        <input type="hidden" name="audience" :value="audience">
+        <input type="hidden" name="scope" :value="scope">
+        <input type="hidden" name="scope_detail" :value="scopeDetailValue">
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             <!-- Content (appears first on mobile) -->
@@ -83,54 +132,130 @@
                             Options
                         </h3>
                         <div class="space-y-3">
-                            <div class="grid grid-cols-2 lg:grid-cols-1 gap-3">
-                                <label class="floating-label w-full">
-                                    <select name="group" class="select select-sm w-full"
-                                            hx-get="{% url 'communications:staff_recipients' %}"
-                                            hx-target="#announcement-recipient-info"
-                                            hx-trigger="change"
-                                            hx-swap="innerHTML"
-                                            hx-include="this">
-                                        <option value="all" {% if target_group == 'all' or not target_group %}selected{% endif %}>All Staff</option>
-                                        <option value="teaching" {% if target_group == 'teaching' %}selected{% endif %}>Teaching Staff</option>
-                                        <option value="non_teaching" {% if target_group == 'non_teaching' %}selected{% endif %}>Non-Teaching Staff</option>
-                                    </select>
-                                    <span>Target Group</span>
-                                </label>
-
-                                <label class="floating-label w-full">
-                                    <select name="priority" class="select select-sm w-full">
-                                        <option value="normal" {% if priority != 'urgent' %}selected{% endif %}>Normal</option>
-                                        <option value="urgent" {% if priority == 'urgent' %}selected{% endif %}>Urgent</option>
-                                    </select>
-                                    <span>Priority</span>
-                                </label>
+                            <!-- Audience Selector -->
+                            <div>
+                                <label class="text-xs font-medium text-base-content/70 mb-1 block">Audience</label>
+                                <div class="flex gap-1">
+                                    <button type="button"
+                                            class="btn btn-xs flex-1"
+                                            :class="audience === 'staff' ? 'btn-primary' : 'btn-ghost border-base-300'"
+                                            @click="audience = 'staff'; onAudienceChange()">
+                                        <i class="fa-solid fa-chalkboard-user text-[10px]"></i> Staff
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-xs flex-1"
+                                            :class="audience === 'parents' ? 'btn-primary' : 'btn-ghost border-base-300'"
+                                            @click="audience = 'parents'; onAudienceChange()">
+                                        <i class="fa-solid fa-users text-[10px]"></i> Parents
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-xs flex-1"
+                                            :class="audience === 'students' ? 'btn-primary' : 'btn-ghost border-base-300'"
+                                            @click="audience = 'students'; onAudienceChange()">
+                                        <i class="fa-solid fa-user-graduate text-[10px]"></i> Students
+                                    </button>
+                                </div>
                             </div>
 
-                            <!-- Recipient info -->
-                            <div id="announcement-recipient-info">
-                                <div class="bg-base-200 rounded-lg p-3">
-                                    <div class="flex items-center justify-between text-sm">
-                                        <span class="font-medium">All Staff</span>
-                                        <span class="badge badge-primary">{{ staff_total }} staff</span>
-                                    </div>
-                                    <div class="flex items-center gap-4 mt-2 text-xs text-base-content/70">
-                                        <span class="flex items-center gap-1">
-                                            <i class="fa-solid fa-phone text-success"></i>
-                                            {{ staff_with_phone }} with phone
+                            <!-- Scope Selector -->
+                            <div>
+                                <label class="text-xs font-medium text-base-content/70 mb-1 block">Scope</label>
+                                <select class="select select-sm w-full"
+                                        x-model="scope"
+                                        @change="onScopeChange()">
+                                    <option value="all">All</option>
+                                    <template x-if="audience === 'staff'">
+                                        <option value="teaching">Teaching Staff</option>
+                                    </template>
+                                    <template x-if="audience === 'staff'">
+                                        <option value="non_teaching">Non-Teaching Staff</option>
+                                    </template>
+                                    <template x-if="audience !== 'staff'">
+                                        <option value="level">By Level</option>
+                                    </template>
+                                    <template x-if="audience !== 'staff'">
+                                        <option value="class">By Class</option>
+                                    </template>
+                                    <option value="individual">Individual</option>
+                                </select>
+                            </div>
+
+                            <!-- Scope Detail: Level selector -->
+                            <div x-show="scope === 'level'" x-cloak>
+                                <label class="text-xs font-medium text-base-content/70 mb-1 block">Level</label>
+                                <select class="select select-sm w-full"
+                                        x-model="scopeDetail"
+                                        @change="refreshRecipientInfo()">
+                                    <option value="">Select a level...</option>
+                                    {% regroup classes by get_level_display as level_list %}
+                                    {% for level in level_list %}
+                                    <option value="{{ level.list.0.level_type }}:{{ level.list.0.level_number }}">{{ level.grouper }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Scope Detail: Class selector -->
+                            <div x-show="scope === 'class'" x-cloak>
+                                <label class="text-xs font-medium text-base-content/70 mb-1 block">Class</label>
+                                <select class="select select-sm w-full"
+                                        x-model="scopeDetail"
+                                        @change="refreshRecipientInfo()">
+                                    <option value="">Select a class...</option>
+                                    {% for cls in classes %}
+                                    <option value="{{ cls.pk }}">{{ cls.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Scope Detail: Individual search -->
+                            <div x-show="scope === 'individual'" x-cloak>
+                                <label class="text-xs font-medium text-base-content/70 mb-1 block">Search &amp; Add</label>
+                                <input type="text"
+                                       class="input input-sm w-full"
+                                       placeholder="Search by name..."
+                                       hx-get="{% url 'communications:announcement_search' %}"
+                                       hx-trigger="keyup changed delay:300ms"
+                                       hx-target="#search-results"
+                                       :hx-vals="JSON.stringify({audience: audience})"
+                                       name="q"
+                                       autocomplete="off">
+                                <div id="search-results" class="mt-1 max-h-40 overflow-y-auto bg-base-100 border border-base-200 rounded-lg empty:hidden"></div>
+
+                                <!-- Selected chips -->
+                                <div class="flex flex-wrap gap-1 mt-2" x-show="recipients.length > 0">
+                                    <template x-for="r in recipients" :key="r.id">
+                                        <span class="badge badge-sm badge-primary gap-1">
+                                            <span x-text="r.name"></span>
+                                            <button type="button" @click="removeRecipient(r.id)" class="text-primary-content/70 hover:text-primary-content">&times;</button>
                                         </span>
-                                        <span class="flex items-center gap-1">
-                                            <i class="fa-solid fa-envelope text-info"></i>
-                                            {{ staff_with_email }} with email
-                                        </span>
-                                    </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Priority -->
+                            <label class="floating-label w-full">
+                                <select name="priority" class="select select-sm w-full">
+                                    <option value="normal" {% if priority != 'urgent' %}selected{% endif %}>Normal</option>
+                                    <option value="urgent" {% if priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                                </select>
+                                <span>Priority</span>
+                            </label>
+
+                            <!-- Recipient info (HTMX-populated) -->
+                            <div id="recipient-info">
+                                <div class="bg-base-200 rounded-lg p-3 text-sm text-base-content/60">
+                                    <i class="fa-solid fa-info-circle mr-1"></i>
+                                    Select audience and scope to see recipients
                                 </div>
                             </div>
 
                             <div class="divider my-0 text-xs text-base-content/40">Also Send Via</div>
 
-                            <p class="text-xs text-base-content/60">
+                            <p class="text-xs text-base-content/60" x-show="audience === 'staff'">
                                 All targeted staff get a bell notification. Optionally also push via:
+                            </p>
+                            <p class="text-xs text-base-content/60" x-show="audience !== 'staff'" x-cloak>
+                                Select channels to deliver this announcement:
                             </p>
                             <div class="space-y-3">
                                 <label class="flex items-center gap-2 cursor-pointer">
@@ -144,7 +269,8 @@
                                     </span>
                                 </label>
 
-                                <label class="flex items-center gap-2 cursor-pointer">
+                                <label class="flex items-center gap-2 cursor-pointer"
+                                       x-show="audience !== 'students'">
                                     <input type="checkbox" name="send_email" class="checkbox checkbox-sm checkbox-info"
                                            id="ann-email-check"
                                            onchange="document.getElementById('ann-subject-field').classList.toggle('hidden', !this.checked)"
@@ -173,3 +299,15 @@
         </div>
     </form>
 </div>
+
+<script>
+// Trigger initial recipient info load
+document.addEventListener('alpine:init', () => {
+    setTimeout(() => {
+        let el = document.querySelector('[x-data]');
+        if (el && el.__x) {
+            el.__x.$data.refreshRecipientInfo();
+        }
+    }, 100);
+});
+</script>

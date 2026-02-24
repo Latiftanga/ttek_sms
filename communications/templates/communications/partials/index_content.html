@@ -124,29 +124,20 @@
                         Quick Actions
                     </h2>
                     <div class="space-y-1">
+                        {% if request.user.is_superuser or request.user.is_school_admin %}
+                        <a href="{% url 'communications:announcement_create' %}"
+                           hx-get="{% url 'communications:announcement_create' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-bullhorn text-accent w-5"></i>
+                            <div>
+                                <div class="font-medium text-sm">New Announcement</div>
+                                <div class="text-xs text-base-content/50">Send to staff, parents, or students</div>
+                            </div>
+                        </a>
+                        {% endif %}
                         {% if sms_gateway.ready %}
-                        <a href="#"
-                           hx-get="{% url 'communications:send_single' %}"
-                           hx-target="#modal-sms-content"
-                           onclick="document.getElementById('modal_sms').showModal()"
-                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer">
-                            <i class="fa-solid fa-user text-primary w-5"></i>
-                            <div>
-                                <div class="font-medium text-sm">Send to Individual</div>
-                                <div class="text-xs text-base-content/50">Single recipient</div>
-                            </div>
-                        </a>
-                        <a href="#"
-                           hx-get="{% url 'communications:send_to_class' %}"
-                           hx-target="#modal-sms-content"
-                           onclick="document.getElementById('modal_sms').showModal()"
-                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer">
-                            <i class="fa-solid fa-users text-secondary w-5"></i>
-                            <div>
-                                <div class="font-medium text-sm">Send to Class</div>
-                                <div class="text-xs text-base-content/50">All parents in a class</div>
-                            </div>
-                        </a>
                         <a href="#"
                            hx-get="{% url 'communications:notify_absent' %}"
                            hx-target="#modal-sms-content"
@@ -160,53 +151,12 @@
                         </a>
                         {% else %}
                         <div class="flex items-center gap-3 p-2 rounded-lg bg-base-200/50 opacity-50 cursor-not-allowed">
-                            <i class="fa-solid fa-user text-base-content/30 w-5"></i>
-                            <div>
-                                <div class="font-medium text-sm text-base-content/50">Send to Individual</div>
-                                <div class="text-xs text-base-content/30">SMS not configured</div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3 p-2 rounded-lg bg-base-200/50 opacity-50 cursor-not-allowed">
-                            <i class="fa-solid fa-users text-base-content/30 w-5"></i>
-                            <div>
-                                <div class="font-medium text-sm text-base-content/50">Send to Class</div>
-                                <div class="text-xs text-base-content/30">SMS not configured</div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3 p-2 rounded-lg bg-base-200/50 opacity-50 cursor-not-allowed">
                             <i class="fa-solid fa-user-xmark text-base-content/30 w-5"></i>
                             <div>
                                 <div class="font-medium text-sm text-base-content/50">Notify Absent Parents</div>
                                 <div class="text-xs text-base-content/30">SMS not configured</div>
                             </div>
                         </div>
-                        {% endif %}
-                        <div class="divider my-1 text-xs text-base-content/40">Staff</div>
-                        {% if request.user.is_superuser or request.user.is_school_admin %}
-                        {% if sms_gateway.ready or email_gateway.ready %}
-                        <a href="#"
-                           hx-get="{% url 'communications:send_to_staff' %}"
-                           hx-target="#modal-sms-content"
-                           onclick="document.getElementById('modal_sms').showModal()"
-                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer">
-                            <i class="fa-solid fa-chalkboard-user text-accent w-5"></i>
-                            <div>
-                                <div class="font-medium text-sm">Message Staff</div>
-                                <div class="text-xs text-base-content/50">SMS or email to staff</div>
-                            </div>
-                        </a>
-                        {% endif %}
-                        <a href="{% url 'communications:announcement_create' %}"
-                           hx-get="{% url 'communications:announcement_create' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors cursor-pointer">
-                            <i class="fa-solid fa-bullhorn text-accent w-5"></i>
-                            <div>
-                                <div class="font-medium text-sm">Post Announcement</div>
-                                <div class="text-xs text-base-content/50">Notify staff with optional SMS/Email</div>
-                            </div>
-                        </a>
                         {% endif %}
                         <a href="{% url 'communications:announcements_feed' %}"
                            hx-get="{% url 'communications:announcements_feed' %}"
@@ -216,7 +166,7 @@
                             <i class="fa-solid fa-rectangle-list text-info w-5"></i>
                             <div>
                                 <div class="font-medium text-sm">View Announcements</div>
-                                <div class="text-xs text-base-content/50">Browse staff announcements</div>
+                                <div class="text-xs text-base-content/50">Browse announcements</div>
                             </div>
                         </a>
                     </div>
