@@ -10,7 +10,7 @@ from django.contrib import messages
 import pandas as pd
 
 from accounts.models import User
-from academics.models import Class
+from academics.models import Class, ClassSubject, StudentSubjectEnrollment
 from core.models import AcademicYear
 from gradebook.utils import get_school_context
 from students.models import Student, Enrollment, Guardian, StudentGuardian, House
@@ -418,6 +418,35 @@ def bulk_import_confirm(request):
                             student.user = user
                             student.save(update_fields=['user'])
                             accounts_created += 1
+
+                # Auto-enroll students in class subjects
+                students_by_class = {}
+                for student in created_students:
+                    if student.current_class_id:
+                        students_by_class.setdefault(student.current_class_id, []).append(student)
+
+                for class_id, class_students in students_by_class.items():
+                    class_subjects = list(ClassSubject.objects.filter(
+                        class_assigned_id=class_id, auto_enroll=True,
+                    ))
+                    if class_subjects:
+                        existing = set(
+                            StudentSubjectEnrollment.objects.filter(
+                                student__in=class_students, class_subject__in=class_subjects,
+                            ).values_list('student_id', 'class_subject_id')
+                        )
+                        to_create = [
+                            StudentSubjectEnrollment(
+                                student=s, class_subject=cs, is_active=True,
+                            )
+                            for s in class_students
+                            for cs in class_subjects
+                            if (s.id, cs.id) not in existing
+                        ]
+                        if to_create:
+                            StudentSubjectEnrollment.objects.bulk_create(
+                                to_create, ignore_conflicts=True,
+                            )
 
                 created_count = len(created_students)
         except Exception as e:

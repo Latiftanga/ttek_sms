@@ -13,7 +13,7 @@ from django.core.paginator import Paginator
 
 from accounts.models import User
 from core.email_backend import get_from_email
-from academics.models import Class
+from academics.models import Class, StudentSubjectEnrollment
 from students.models import Student, Guardian, StudentGuardian, Enrollment
 from students.forms import StudentForm, GuardianForm
 from .utils import admin_required, htmx_render, create_enrollment_for_student, generate_temp_password
@@ -167,6 +167,11 @@ def student_create(request):
         if created:
             student.current_class = enrollment.class_assigned
             student.save()
+        # Auto-enroll in class subjects (core/auto-enroll subjects)
+        if student.current_class:
+            StudentSubjectEnrollment.enroll_student_in_class_subjects(
+                student, student.current_class
+            )
         # Redirect to edit page to add guardians
         return redirect('students:student_edit', pk=student.pk)
 
@@ -229,6 +234,11 @@ def student_edit(request, pk):
         if created:
             student.current_class = enrollment.class_assigned
             student.save()
+        # Auto-enroll in class subjects (core/auto-enroll subjects)
+        if student.current_class:
+            StudentSubjectEnrollment.enroll_student_in_class_subjects(
+                student, student.current_class
+            )
         return redirect('students:student_detail', pk=student.pk)
 
     return htmx_render(
