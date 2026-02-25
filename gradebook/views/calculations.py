@@ -415,7 +415,7 @@ def calculate_class_grades(request, class_id):
                 student_grades = grades_by_student.get(student.id, [])
 
                 if student_grades:
-                    total = sum(g.total_score for g in student_grades if g.total_score)
+                    total = sum(g.total_score for g in student_grades if g.total_score is not None)
                     count = len([g for g in student_grades if g.total_score is not None])
 
                     report.total_marks = total
@@ -464,8 +464,6 @@ def calculate_class_grades(request, class_id):
                             best_n = grade_points[:grading_system.aggregate_subjects_count]
                             report.aggregate = sum(best_n)
 
-                report.out_of = len(students)
-
                 # Apply bulk-prefetched attendance data (no per-student queries)
                 att = attendance_by_student.get(student.id)
                 if att and total_school_days > 0:
@@ -495,7 +493,7 @@ def calculate_class_grades(request, class_id):
                 reports_to_update,
                 ['total_marks', 'average', 'subjects_taken', 'subjects_passed',
                  'subjects_failed', 'credits_count', 'core_subjects_total',
-                 'core_subjects_passed', 'aggregate', 'out_of', 'promoted',
+                 'core_subjects_passed', 'aggregate', 'promoted',
                  'promotion_remarks', 'days_present', 'days_absent',
                  'total_school_days', 'times_late', 'attendance_percentage',
                  'attendance_rating'],
@@ -504,17 +502,26 @@ def calculate_class_grades(request, class_id):
 
             # ========== PHASE 5: Calculate overall positions ==========
 
+            # Split into ranked (have grades) and unranked (no grades)
+            ranked_reports = [r for r in reports_to_update if r.subjects_taken and r.subjects_taken > 0]
+            unranked_reports = [r for r in reports_to_update if not r.subjects_taken or r.subjects_taken == 0]
+
+            # Set out_of to the number of students who actually have grades
+            ranked_count = len(ranked_reports)
+            for report in reports_to_update:
+                report.out_of = ranked_count
+
             # SHS uses aggregate (lower is better), Basic uses average (higher is better)
             if grading_system and grading_system.level == 'SHS':
-                reports_to_update.sort(
+                ranked_reports.sort(
                     key=lambda r: (r.aggregate is None, r.aggregate or 999, -(r.average or 0))
                 )
             else:
-                reports_to_update.sort(key=lambda r: -(r.average or 0))
+                ranked_reports.sort(key=lambda r: -(r.average or 0))
 
             position = 0
             last_value = None
-            for i, report in enumerate(reports_to_update, 1):
+            for i, report in enumerate(ranked_reports, 1):
                 if grading_system and grading_system.level == 'SHS':
                     current_value = report.aggregate
                 else:
@@ -525,10 +532,14 @@ def calculate_class_grades(request, class_id):
                 report.position = position
                 last_value = current_value
 
-            # Bulk update positions
+            # Unranked students get no position
+            for report in unranked_reports:
+                report.position = None
+
+            # Bulk update positions and out_of
             TermReport.objects.bulk_update(
                 reports_to_update,
-                ['position'],
+                ['position', 'out_of'],
                 batch_size=config.BULK_UPDATE_BATCH_SIZE
             )
 

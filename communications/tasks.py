@@ -254,18 +254,13 @@ def send_communication_task(self, schema_name, recipient, message, sms_record_id
 
         except Exception as e:
             logger.error(f"SMS Error to {recipient}: {e}")
-            if self.request.retries >= self.max_retries:
-                # Final retry exhausted — mark as failed
-                if sms_record:
-                    sms_record.mark_failed(str(e))
-                return {"status": "failed", "error": str(e)}
-            # Retry with backoff
+            # Retry with backoff if retries remain
             try:
                 raise self.retry(exc=e)
             except MaxRetriesExceededError:
                 if sms_record:
-                    sms_record.mark_failed("Max retries exceeded")
-                return {"status": "failed", "error": "Max retries exceeded"}
+                    sms_record.mark_failed(str(e))
+                return {"status": "failed", "error": str(e)}
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)

@@ -115,7 +115,7 @@ class SMSTemplate(models.Model):
         """Render template with context variables."""
         message = self.content
         for key, value in context.items():
-            message = message.replace(f'{{{key}}}', str(value))
+            message = message.replace(f'{{{key}}}', str(value) if value is not None else '')
         return message
 
 

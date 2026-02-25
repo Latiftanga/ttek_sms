@@ -1412,7 +1412,7 @@ def announcement_create(request):
             scope_detail=scope_detail,
             priority=priority,
             sent_via_sms=send_sms,
-            sent_via_email=send_email,
+            sent_via_email=False,  # Email not supported for students yet
             recipient_count=recipient_count,
             created_by=request.user,
         )
