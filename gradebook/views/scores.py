@@ -665,6 +665,12 @@ def assignment_edit(request, pk):
 
     is_admin = is_school_admin(request.user)
 
+    # Verify teacher is assigned to this subject in at least one class
+    if not is_admin:
+        teacher = getattr(request.user, 'teacher_profile', None)
+        if not teacher or not ClassSubject.objects.filter(subject=subject, teacher=teacher).exists():
+            return HttpResponse("Not authorized to edit this assignment", status=403)
+
     if request.method == 'POST':
         date_str = request.POST.get('date', '').strip()
         points_possible = request.POST.get('points_possible', '').strip()
@@ -730,6 +736,13 @@ def assignment_delete(request, pk):
     assignment = get_object_or_404(Assignment, pk=pk)
     subject = assignment.subject
     current_term = assignment.term
+
+    # Only admins or the assigned teacher can delete assignments
+    is_admin = is_school_admin(request.user)
+    if not is_admin:
+        teacher = getattr(request.user, 'teacher_profile', None)
+        if not teacher or not ClassSubject.objects.filter(subject=subject, teacher=teacher).exists():
+            return HttpResponse("Not authorized to delete this assignment", status=403)
 
     # Check for existing scores (they will be cascade deleted)
     score_count = Score.objects.filter(assignment=assignment).count()

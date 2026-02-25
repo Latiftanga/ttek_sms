@@ -3,6 +3,7 @@ Celery tasks for gradebook app.
 Handles async report distribution via email and SMS.
 """
 import logging
+from decimal import Decimal
 from io import BytesIO
 
 from celery import shared_task
@@ -71,21 +72,21 @@ def generate_report_pdf(term_report, tenant_schema):
             if subject_id not in category_scores:
                 category_scores[subject_id] = {}
             if category_id not in category_scores[subject_id]:
-                category_scores[subject_id][category_id] = {'earned': 0, 'possible': 0}
+                category_scores[subject_id][category_id] = {'earned': Decimal('0'), 'possible': Decimal('0')}
 
-            category_scores[subject_id][category_id]['earned'] += float(score.points)
-            category_scores[subject_id][category_id]['possible'] += float(score.assignment.points_possible)
+            category_scores[subject_id][category_id]['earned'] += score.points
+            category_scores[subject_id][category_id]['possible'] += score.assignment.points_possible
 
         # Attach category scores to each subject grade
         for sg in subject_grades:
             sg.category_scores = {}
             subject_cat_scores = category_scores.get(sg.subject_id, {})
             for cat in categories:
-                cat_data = subject_cat_scores.get(cat.pk, {'earned': 0, 'possible': 0})
+                cat_data = subject_cat_scores.get(cat.pk, {'earned': Decimal('0'), 'possible': Decimal('0')})
                 if cat_data['possible'] > 0:
                     percentage = (cat_data['earned'] / cat_data['possible']) * 100
-                    weighted = (percentage * cat.percentage) / 100
-                    sg.category_scores[cat.pk] = round(weighted, 1)
+                    weighted = (percentage * Decimal(str(cat.percentage))) / 100
+                    sg.category_scores[cat.pk] = float(round(weighted, 2))
                 else:
                     sg.category_scores[cat.pk] = None
 

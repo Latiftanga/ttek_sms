@@ -359,11 +359,14 @@ def score_import_confirm(request, class_id, subject_id):
 
         # Convert to appropriate types for comparison
         try:
-            # Handle both string and int IDs
-            if isinstance(student_id, str) and student_id.isdigit():
+            if isinstance(student_id, str):
                 student_id = int(student_id)
-            if isinstance(assignment_id, str) and assignment_id.isdigit():
-                assignment_id = int(assignment_id)
+        except (ValueError, TypeError):
+            pass
+        try:
+            if isinstance(assignment_id, str):
+                from uuid import UUID
+                assignment_id = UUID(assignment_id)
         except (ValueError, TypeError):
             pass
 

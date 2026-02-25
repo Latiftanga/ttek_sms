@@ -392,11 +392,9 @@ def calculate_score_entry_progress(current_term):
     if not current_term:
         return 0, 0, 0
 
-    scores_entered = Score.objects.filter(assignment__term=current_term).count()
-
     term_assignments = Assignment.objects.filter(term=current_term).values_list('subject_id', flat=True)
     if not term_assignments:
-        return scores_entered, 0, 0
+        return 0, 0, 0
 
     class_subject_data = list(
         ClassSubject.objects.filter(
@@ -404,7 +402,7 @@ def calculate_score_entry_progress(current_term):
         ).values('id', 'subject_id', 'class_assigned_id')
     )
     if not class_subject_data:
-        return scores_entered, 0, 0
+        return 0, 0, 0
 
     cs_ids = [cs['id'] for cs in class_subject_data]
     class_ids = list({cs['class_assigned_id'] for cs in class_subject_data})
@@ -429,6 +427,15 @@ def calculate_score_entry_progress(current_term):
             count=Count('id')
         ).values_list('subject_id', 'count')
     )
+
+    # Only count scores for subjects currently assigned to classes
+    assigned_subject_ids = list({cs['subject_id'] for cs in class_subject_data})
+    assigned_class_ids = list({cs['class_assigned_id'] for cs in class_subject_data})
+    scores_entered = Score.objects.filter(
+        assignment__term=current_term,
+        assignment__subject_id__in=assigned_subject_ids,
+        student__current_class_id__in=assigned_class_ids,
+    ).count()
 
     total_possible_scores = 0
     for subject_id, class_ids_for_subj in subject_classes.items():
@@ -475,15 +482,25 @@ def get_classes_needing_scores(current_term, classes, limit=None):
     # even when students transfer between classes mid-term.
     # Using assignment__subject_id grouping ensures scores are counted per subject
     # and matched against the correct expected count.
+    # Only count scores for subjects currently assigned to each class
+    all_subject_ids = set()
+    for subj_map in class_subjects_map.values():
+        all_subject_ids.update(subj_map.keys())
+
     class_subject_score_counts = {}
-    for row in Score.objects.filter(
-        assignment__term=current_term,
-        student__current_class_id__in=top_class_ids
-    ).values('student__current_class_id', 'assignment__subject_id').annotate(
-        count=Count('id')
-    ):
-        key = (row['student__current_class_id'], row['assignment__subject_id'])
-        class_subject_score_counts[key] = row['count']
+    if all_subject_ids:
+        for row in Score.objects.filter(
+            assignment__term=current_term,
+            student__current_class_id__in=top_class_ids,
+            assignment__subject_id__in=all_subject_ids,
+        ).values('student__current_class_id', 'assignment__subject_id').annotate(
+            count=Count('id')
+        ):
+            # Only count if this subject is still assigned to this class
+            class_id = row['student__current_class_id']
+            subj_id = row['assignment__subject_id']
+            if subj_id in class_subjects_map.get(class_id, {}):
+                class_subject_score_counts[(class_id, subj_id)] = row['count']
 
     classes_needing_scores = []
     for cls in top_classes:

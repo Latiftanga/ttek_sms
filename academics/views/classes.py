@@ -218,12 +218,27 @@ def class_edit(request, pk):
 
 @admin_required
 def class_delete(request, pk):
-    """Delete a class."""
+    """Delete a class. Blocks if students are assigned."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
     cls = get_object_or_404(Class, pk=pk)
     class_name = cls.name
+
+    # Block deletion if students are assigned to this class
+    student_count = Student.objects.filter(current_class=cls).count()
+    if student_count > 0:
+        messages.error(
+            request,
+            f'Cannot delete "{class_name}" — {student_count} student(s) '
+            f'are currently assigned to this class. Reassign or remove students first.'
+        )
+        if request.htmx:
+            response = HttpResponse(status=204)
+            response['HX-Refresh'] = 'true'
+            return response
+        return redirect('academics:classes')
+
     cls.delete()
 
     messages.success(request, f'Class "{class_name}" has been deleted.')
@@ -614,32 +629,36 @@ def class_subject_create(request, pk):
 
 @admin_required
 def class_subject_delete(request, class_pk, pk):
-    """Delete a subject allocation from a class, cleaning up orphaned scores."""
+    """Delete a subject allocation from a class. Blocks if scores exist."""
     allocation = get_object_or_404(ClassSubject, pk=pk, class_assigned_id=class_pk)
 
-    # Clean up scores for students in this class for this subject's assignments
     from gradebook.models import Score
-    from core.models import Term
 
-    current_term = Term.objects.filter(is_current=True).first()
-    if current_term:
-        student_ids = Student.objects.filter(
-            current_class_id=class_pk, status='active'
-        ).values_list('id', flat=True)
-        orphaned_scores = Score.objects.filter(
-            student_id__in=student_ids,
-            assignment__subject=allocation.subject,
-            assignment__term=current_term,
+    # Check if any scores exist for this subject in this class (any term)
+    student_ids = Student.objects.filter(
+        current_class_id=class_pk, status='active'
+    ).values_list('id', flat=True)
+
+    score_count = Score.objects.filter(
+        student_id__in=student_ids,
+        assignment__subject=allocation.subject,
+    ).count()
+
+    if score_count > 0:
+        messages.error(
+            request,
+            f'Cannot remove {allocation.subject.name} — {score_count} score(s) '
+            f'already entered. Remove scores first before deleting the subject allocation.'
         )
-        score_count = orphaned_scores.count()
-        if score_count:
-            orphaned_scores.delete()
-            logger.info(
-                "Deleted %d orphaned scores for subject %s in class %s",
-                score_count, allocation.subject, allocation.class_assigned,
-            )
+        if request.htmx:
+            response = HttpResponse(status=204)
+            response['HX-Refresh'] = 'true'
+            return response
+        return redirect('academics:class_subjects', pk=class_pk)
 
     allocation.delete()
+
+    messages.success(request, f'{allocation.subject.name} removed from class.')
 
     if request.htmx:
         # Trigger page refresh
