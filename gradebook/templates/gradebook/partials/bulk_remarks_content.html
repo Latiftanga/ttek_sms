@@ -197,12 +197,14 @@
                         <div class="form-control">
                             <label class="label py-0.5 sm:py-1">
                                 <span class="label-text text-xs">Conduct</span>
+                                <span class="htmx-indicator loading loading-spinner loading-xs"></span>
                             </label>
                             <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
                                     hx-post="{% url 'gradebook:bulk_remark_save' %}"
                                     hx-vals='{"student_id": "{{ student.pk }}", "field": "conduct_rating"}'
                                     hx-trigger="change"
                                     hx-swap="none"
+                                    hx-indicator="closest .form-control"
                                     name="value">
                                 <option value="">Select...</option>
                                 {% for value, label in conduct_choices %}
@@ -215,12 +217,14 @@
                         <div class="form-control">
                             <label class="label py-0.5 sm:py-1">
                                 <span class="label-text text-xs">Attitude</span>
+                                <span class="htmx-indicator loading loading-spinner loading-xs"></span>
                             </label>
                             <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
                                     hx-post="{% url 'gradebook:bulk_remark_save' %}"
                                     hx-vals='{"student_id": "{{ student.pk }}", "field": "attitude_rating"}'
                                     hx-trigger="change"
                                     hx-swap="none"
+                                    hx-indicator="closest .form-control"
                                     name="value">
                                 <option value="">Select...</option>
                                 {% for value, label in rating_choices %}
@@ -233,12 +237,14 @@
                         <div class="form-control">
                             <label class="label py-0.5 sm:py-1">
                                 <span class="label-text text-xs">Interest</span>
+                                <span class="htmx-indicator loading loading-spinner loading-xs"></span>
                             </label>
                             <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
                                     hx-post="{% url 'gradebook:bulk_remark_save' %}"
                                     hx-vals='{"student_id": "{{ student.pk }}", "field": "interest_rating"}'
                                     hx-trigger="change"
                                     hx-swap="none"
+                                    hx-indicator="closest .form-control"
                                     name="value">
                                 <option value="">Select...</option>
                                 {% for value, label in rating_choices %}

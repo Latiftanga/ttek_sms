@@ -56,7 +56,8 @@
     <div id="content-overview"
          hx-get="{% url 'gradebook:analytics_overview' %}"
          hx-trigger="load"
-         hx-swap="innerHTML">
+         hx-swap="innerHTML"
+         hx-on::response-error="this.innerHTML = '<div class=\'alert alert-error\'><i class=\'fa-solid fa-circle-exclamation\'></i><span>Failed to load overview. <button class=\'link\' onclick=\'htmx.trigger(this.closest(&quot;[hx-get]&quot;), &quot;load&quot;)\'>Retry</button></span></div>'">
         <div class="flex justify-center py-12">
             <span class="loading loading-spinner loading-lg"></span>
         </div>
@@ -83,7 +84,8 @@
     <div id="content-terms" class="hidden"
          hx-get="{% url 'gradebook:analytics_terms' %}"
          hx-trigger="revealed"
-         hx-swap="innerHTML">
+         hx-swap="innerHTML"
+         hx-on::response-error="this.innerHTML = '<div class=\'alert alert-error\'><i class=\'fa-solid fa-circle-exclamation\'></i><span>Failed to load comparison. <button class=\'link\' onclick=\'htmx.trigger(this.closest(&quot;[hx-get]&quot;), &quot;revealed&quot;)\'>Retry</button></span></div>'">
         <div class="flex justify-center py-12">
             <span class="loading loading-spinner loading-lg"></span>
         </div>

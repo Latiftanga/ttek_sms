@@ -97,9 +97,9 @@
         <!-- Error state -->
         <template x-if="state === 'error'">
             <span class="inline-flex gap-1">
-                <button class="btn btn-error btn-sm md:btn-md gap-2" disabled>
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span x-text="errorText">Export failed</span>
+                <button @click="startExport()" class="btn btn-error btn-sm md:btn-md gap-2">
+                    <i class="fa-solid fa-arrow-rotate-right"></i>
+                    <span x-text="errorText">Export failed</span> — Retry
                 </button>
                 <button @click="reset()" class="btn btn-ghost btn-sm md:btn-md btn-square">
                     <i class="fa-solid fa-xmark"></i>
