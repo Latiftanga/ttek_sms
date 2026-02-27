@@ -832,7 +832,8 @@ class SubjectTermGrade(models.Model):
             if not assignments:
                 continue
 
-            weight_per_assignment = category.get_weight_per_assignment(self.subject, self.term)
+            # Calculate weight inline from pre-fetched data to avoid N+1 query
+            weight_per_assignment = Decimal(str(category.percentage)) / Decimal(str(len(assignments)))
             category_total = Decimal('0.0')
 
             for assignment in assignments:

@@ -1,52 +1,43 @@
 {% load core_tags %}
 
-<div class="modal modal-open">
-    <div class="modal-box max-w-lg">
-        <form hx-post="{% if mode == 'edit' %}{% url 'gradebook:remark_template_edit' template.pk %}{% else %}{% url 'gradebook:remark_template_create' %}{% endif %}"
-              hx-swap="innerHTML"
-              hx-target="#modal-container">
-            <h3 class="font-bold text-lg flex items-center gap-2 mb-4">
-                <i class="fa-solid fa-wand-magic-sparkles text-secondary"></i>
-                {% if mode == 'edit' %}Edit Template{% else %}New Template{% endif %}
-            </h3>
+<h3 class="font-bold text-lg flex items-center gap-2 mb-4">
+    <i class="fa-solid fa-wand-magic-sparkles text-secondary"></i>
+    {% if mode == 'edit' %}Edit Template{% else %}New Template{% endif %}
+</h3>
 
-            {% if error %}
-            <div class="alert alert-error py-2 text-sm mb-4">
-                <i class="fa-solid fa-exclamation-circle"></i>
-                <span>{{ error }}</span>
-            </div>
-            {% endif %}
-
-            <div class="space-y-3">
-                {% with current_category=template.category|default:form_data.category %}
-                {% select_input "category" options=categories value=current_category label="Category" size="sm" help_text="Templates are grouped by performance category" %}
-                {% endwith %}
-
-                {% with current_content=template.content|default:form_data.content %}
-                {% textarea_input "content" value=current_content label="Remark Content" placeholder="Enter the remark template text..." rows=4 required=True size="sm" help_text="Placeholders: {student_name}, {average}, {position}" %}
-                {% endwith %}
-
-                {% with current_order=template.order|default:form_data.order|default:"0" %}
-                {% number_input "order" value=current_order label="Display Order" min=0 size="sm" help_text="Lower numbers appear first" %}
-                {% endwith %}
-
-                {% if mode == 'edit' %}
-                {% checkbox_input "is_active" checked=template.is_active label="Active" size="sm" help_text="Inactive templates won't appear for teachers" %}
-                {% endif %}
-            </div>
-
-            <div class="modal-action">
-                <button type="button"
-                        onclick="document.getElementById('modal-container').innerHTML = ''"
-                        class="btn btn-sm btn-ghost">
-                    Cancel
-                </button>
-                <button type="submit" class="btn btn-sm btn-primary">
-                    {% if mode == 'edit' %}Update{% else %}Create{% endif %}
-                </button>
-            </div>
-        </form>
-    </div>
-    <div class="modal-backdrop bg-black/50"
-         onclick="document.getElementById('modal-container').innerHTML = ''"></div>
+{% if error %}
+<div class="alert alert-error py-2 text-sm mb-4">
+    <i class="fa-solid fa-exclamation-circle"></i>
+    <span>{{ error }}</span>
 </div>
+{% endif %}
+
+<form hx-post="{% if mode == 'edit' %}{% url 'gradebook:remark_template_edit' template.pk %}{% else %}{% url 'gradebook:remark_template_create' %}{% endif %}"
+      hx-swap="innerHTML"
+      hx-target="#modal-container">
+
+    <div class="space-y-3">
+        {% with current_category=template.category|default:form_data.category %}
+        {% select_input "category" options=categories value=current_category label="Category" size="sm" help_text="Templates are grouped by performance category" %}
+        {% endwith %}
+
+        {% with current_content=template.content|default:form_data.content %}
+        {% textarea_input "content" value=current_content label="Remark Content" placeholder="Enter the remark template text..." rows=4 required=True size="sm" help_text="Placeholders: {student_name}, {average}, {position}" %}
+        {% endwith %}
+
+        {% with current_order=template.order|default:form_data.order|default:"0" %}
+        {% number_input "order" value=current_order label="Display Order" min=0 size="sm" help_text="Lower numbers appear first" %}
+        {% endwith %}
+
+        {% if mode == 'edit' %}
+        {% checkbox_input "is_active" checked=template.is_active label="Active" size="sm" help_text="Inactive templates won't appear for teachers" %}
+        {% endif %}
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('modal_form').close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
+            {% if mode == 'edit' %}Update{% else %}Create{% endif %}
+        </button>
+    </div>
+</form>

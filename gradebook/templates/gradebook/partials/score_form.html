@@ -95,6 +95,11 @@
         </div>
 
         {% if students %}
+        <!-- Mobile scroll hint -->
+        <div class="md:hidden flex items-center justify-end gap-2 text-xs text-base-content/50 mb-2">
+            <i class="fa-solid fa-arrows-left-right"></i>
+            <span>Scroll for more</span>
+        </div>
         <div class="overflow-x-auto -mx-2 sm:-mx-3 md:-mx-4 px-2 sm:px-3 md:px-4 lg:mx-0 lg:px-0 scroll-shadow-container">
             <table class="table table-xs sm:table-sm table-pin-rows">
                 <thead>

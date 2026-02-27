@@ -13,7 +13,8 @@
 
 <form method="post"
       hx-post="{% if scale %}{% url 'gradebook:grade_scale_edit' scale.pk %}{% else %}{% url 'gradebook:grade_scale_create' system.pk %}{% endif %}"
-      hx-target="#modal-content">
+      hx-target="#modal-content"
+      hx-swap="innerHTML">
 
     <div class="space-y-3">
         <div class="grid grid-cols-2 gap-3">

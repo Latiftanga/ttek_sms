@@ -4,6 +4,7 @@ import logging
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import HttpResponse
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -137,22 +138,21 @@ def bulk_remark_save(request):
         if not student.current_class or student.current_class.class_teacher != user.teacher_profile:
             return HttpResponse(status=403)
 
-    # Get or create term report
-    term_report, created = TermReport.objects.get_or_create(
-        student=student,
-        term=current_term,
-        defaults={'out_of': 1}
-    )
-
-    # Update the field
+    # Update the field atomically
     allowed_fields = [
         'class_teacher_remark', 'conduct_rating', 'attitude_rating',
         'interest_rating',
     ]
 
     if field in allowed_fields:
-        setattr(term_report, field, value)
-        term_report.save(update_fields=[field])
+        with transaction.atomic():
+            term_report, created = TermReport.objects.get_or_create(
+                student=student,
+                term=current_term,
+                defaults={'out_of': 1}
+            )
+            setattr(term_report, field, value)
+            term_report.save(update_fields=[field])
 
         # Return success indicator
         response = HttpResponse(status=200)

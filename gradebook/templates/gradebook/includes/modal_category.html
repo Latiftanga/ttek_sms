@@ -13,7 +13,8 @@
 
 <form method="post"
       hx-post="{% if category %}{% url 'gradebook:category_edit' category.pk %}{% else %}{% url 'gradebook:category_create' %}{% endif %}"
-      hx-target="#modal-content">
+      hx-target="#modal-content"
+      hx-swap="innerHTML">
 
     <div class="space-y-3">
         {% select_input "category_type" options=category_types value=category.category_type label="Type" size="sm" %}

@@ -23,7 +23,7 @@
         </div>
         <button hx-get="{% url 'gradebook:remark_template_create' %}"
                 hx-target="#modal-container"
-                hx-swap="innerHTML"
+                hx-on::after-request="document.getElementById('modal_form').showModal()"
                 class="btn btn-primary btn-xs sm:btn-sm gap-1">
             <i class="fa-solid fa-plus"></i>
             <span class="hidden sm:inline">Add Template</span>
@@ -79,7 +79,7 @@
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button hx-get="{% url 'gradebook:remark_template_edit' template.pk %}"
                                     hx-target="#modal-container"
-                                    hx-swap="innerHTML"
+                                    hx-on::after-request="document.getElementById('modal_form').showModal()"
                                     class="btn btn-ghost btn-xs btn-square">
                                 <i class="fa-solid fa-pen text-xs"></i>
                             </button>
@@ -107,7 +107,7 @@
                 </p>
                 <button hx-get="{% url 'gradebook:remark_template_create' %}"
                         hx-target="#modal-container"
-                        hx-swap="innerHTML"
+                        hx-on::after-request="document.getElementById('modal_form').showModal()"
                         class="btn btn-primary btn-sm gap-2 mx-auto">
                     <i class="fa-solid fa-plus"></i>
                     Create First Template
@@ -134,17 +134,21 @@
     </div>
 </div>
 
-<!-- Modal Container -->
-<div id="modal-container"></div>
-
-<script>
-// refreshTemplates event handled by hx-trigger on container
-
-document.addEventListener('closeModal', function() {
-    const modal = document.querySelector('.modal.modal-open');
-    if (modal) {
-        modal.classList.remove('modal-open');
-    }
-    document.getElementById('modal-container').innerHTML = '';
-});
-</script>
+<!-- Modal for forms -->
+<dialog id="modal_form" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box max-w-lg overflow-visible">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </form>
+        <div id="modal-container" class="overflow-visible">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
