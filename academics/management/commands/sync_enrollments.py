@@ -114,19 +114,42 @@ class Command(BaseCommand):
             if not students:
                 continue
 
-            # Get existing enrollments
-            existing = set(
+            # Get existing active enrollments
+            active_existing = set(
+                StudentSubjectEnrollment.objects.filter(
+                    student__in=students,
+                    class_subject__in=class_subjects,
+                    is_active=True,
+                ).values_list('student_id', 'class_subject_id')
+            )
+
+            # Reactivate inactive enrollments
+            inactive_to_reactivate = StudentSubjectEnrollment.objects.filter(
+                student__in=students,
+                class_subject__in=class_subjects,
+                is_active=False,
+            )
+            reactivate_count = inactive_to_reactivate.count()
+            if reactivate_count:
+                self.stdout.write(
+                    f'  {prefix}{cls.name}: reactivating {reactivate_count} inactive enrollment(s)'
+                )
+                if not dry_run:
+                    inactive_to_reactivate.update(is_active=True)
+                created_count += reactivate_count
+
+            # Build truly missing enrollments (no record at all)
+            all_existing = set(
                 StudentSubjectEnrollment.objects.filter(
                     student__in=students,
                     class_subject__in=class_subjects,
                 ).values_list('student_id', 'class_subject_id')
             )
 
-            # Build missing enrollments
             to_create = []
             for student in students:
                 for cs in class_subjects:
-                    if (student.id, cs.id) not in existing:
+                    if (student.id, cs.id) not in all_existing:
                         to_create.append(
                             StudentSubjectEnrollment(
                                 student=student,
@@ -146,7 +169,22 @@ class Command(BaseCommand):
                     )
                 created_count += len(to_create)
 
-        if created_count == 0:
+        # Deactivate orphaned enrollments (student no longer in the class)
+        orphaned = StudentSubjectEnrollment.objects.filter(
+            is_active=True,
+        ).exclude(
+            student__current_class_id=F('class_subject__class_assigned_id'),
+        )
+        orphan_count = orphaned.count()
+        if orphan_count:
+            self.stdout.write(
+                f'  {prefix}Deactivating {orphan_count} orphaned enrollment(s) '
+                f'(students no longer in the class)'
+            )
+            if not dry_run:
+                orphaned.update(is_active=False)
+
+        if created_count == 0 and orphan_count == 0:
             self.stdout.write('  All enrollments up to date.')
 
         return created_count
