@@ -149,6 +149,13 @@
                         <i class="fa-solid fa-pen text-base-content/50"></i>
                     </button>
                     <button class="btn btn-ghost btn-xs btn-square"
+                            hx-get="{% url 'academics:class_subject_students' class.pk alloc.pk %}"
+                            hx-target="#modal-container"
+                            hx-on::after-request="document.getElementById('modal_form').showModal()"
+                            title="Manage Students">
+                        <i class="fa-solid fa-users text-base-content/50"></i>
+                    </button>
+                    <button class="btn btn-ghost btn-xs btn-square"
                             hx-post="{% url 'academics:class_subject_delete' class.pk alloc.pk %}"
                             hx-swap="none"
                             hx-confirm="Remove {{ alloc.subject.name }} from this class?"

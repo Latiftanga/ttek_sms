@@ -769,6 +769,12 @@ def class_student_remove(request, class_pk, student_pk):
 
     class_obj = get_object_or_404(Class, pk=class_pk)
     student = get_object_or_404(Student, pk=student_pk, current_class_id=class_pk)
+    # Deactivate all active enrollments for this class
+    StudentSubjectEnrollment.objects.filter(
+        student=student,
+        class_subject__class_assigned=class_obj,
+        is_active=True,
+    ).update(is_active=False)
     student.current_class = None
     student.save()
 
@@ -855,6 +861,79 @@ def class_student_electives(request, class_pk, student_pk):
         return render(request, 'academics/includes/modal_student_subjects_success.html', tab_context)
 
     return render(request, 'academics/includes/modal_student_subjects.html', context)
+
+
+@admin_required
+def class_subject_students(request, class_pk, pk):
+    """Manage which students are enrolled in a specific subject."""
+    from gradebook.models import Score
+
+    class_obj = get_object_or_404(Class, pk=class_pk)
+    class_subject = get_object_or_404(ClassSubject, pk=pk, class_assigned=class_obj)
+    subject = class_subject.subject
+
+    students = Student.objects.filter(
+        current_class=class_obj, status='active'
+    ).order_by('last_name', 'first_name')
+
+    # Non-HTMX GET (direct URL access/refresh) - redirect to class subjects
+    if request.method == 'GET' and not request.htmx:
+        return redirect('academics:class_subjects', pk=class_pk)
+
+    if request.method == 'POST':
+        selected_ids = set(request.POST.getlist('students'))
+        unenrolled_students = []
+
+        for student in students:
+            sid = str(student.pk)
+            should_be_enrolled = sid in selected_ids
+
+            if should_be_enrolled:
+                enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
+                    student=student, class_subject=class_subject,
+                    defaults={'is_active': True}
+                )
+                if not created and not enrollment.is_active:
+                    enrollment.is_active = True
+                    enrollment.save()
+            else:
+                updated = StudentSubjectEnrollment.objects.filter(
+                    student=student, class_subject=class_subject, is_active=True
+                ).update(is_active=False)
+                if updated:
+                    unenrolled_students.append(student)
+
+        # Delete scores for unenrolled students in this subject
+        if unenrolled_students:
+            Score.objects.filter(
+                student__in=unenrolled_students,
+                assignment__subject=subject,
+            ).delete()
+
+        return render(request, 'academics/includes/modal_subject_students_success.html', {
+            'class_subject': class_subject, 'class': class_obj,
+        })
+
+    # GET: render modal with checkboxes
+    enrolled_student_ids = set(
+        StudentSubjectEnrollment.objects.filter(
+            class_subject=class_subject, is_active=True
+        ).values_list('student_id', flat=True)
+    )
+
+    # Find students who have scores for this subject (to show warning indicator)
+    students_with_scores = set(
+        Score.objects.filter(
+            student__in=students,
+            assignment__subject=subject,
+        ).values_list('student_id', flat=True)
+    )
+
+    return render(request, 'academics/includes/modal_subject_students.html', {
+        'class': class_obj, 'class_subject': class_subject,
+        'students': students, 'enrolled_student_ids': enrolled_student_ids,
+        'students_with_scores': students_with_scores,
+    })
 
 
 @login_required
@@ -1101,15 +1180,20 @@ def class_sync_subjects(request, pk):
         status='active'
     )
 
-    # Sync only creates missing enrollments — does NOT reactivate
-    # enrollments that were manually deactivated by an admin.
     class_subjects = list(ClassSubject.objects.filter(
         class_assigned=class_obj,
         auto_enroll=True
     ))
     student_list = list(students)
 
-    # Fetch all existing enrollments in one query
+    # Reactivate inactive enrollments for auto_enroll subjects
+    reactivated_count = StudentSubjectEnrollment.objects.filter(
+        student__in=student_list,
+        class_subject__in=class_subjects,
+        is_active=False,
+    ).update(is_active=True)
+
+    # Fetch existing enrollments (active only, since we just reactivated inactive ones)
     existing = set(
         StudentSubjectEnrollment.objects.filter(
             student__in=student_list,
@@ -1130,7 +1214,7 @@ def class_sync_subjects(request, pk):
 
     if to_create:
         StudentSubjectEnrollment.objects.bulk_create(to_create, ignore_conflicts=True)
-    enrolled_count = len(to_create)
+    enrolled_count = len(to_create) + reactivated_count
 
     if request.htmx:
         if enrolled_count > 0:

@@ -1,0 +1,86 @@
+{% load core_tags %}
+
+<div class="flex items-center justify-between mb-2 pb-2 border-b border-base-200">
+    <div>
+        <h3 class="text-base font-bold">Manage Students</h3>
+        <p class="text-xs text-base-content/60">{{ class_subject.subject.name }}</p>
+    </div>
+</div>
+
+{% if not students %}
+<div class="alert alert-info py-2 text-sm">
+    <i class="fa-solid fa-info-circle"></i>
+    <span>No active students in this class.</span>
+</div>
+<div class="modal-action pt-3 mt-2">
+    <form method="dialog">
+        <button class="btn btn-sm">Close</button>
+    </form>
+</div>
+{% else %}
+<form method="post"
+      action="{% url 'academics:class_subject_students' class.pk class_subject.pk %}"
+      hx-post="{% url 'academics:class_subject_students' class.pk class_subject.pk %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <div class="flex items-center justify-between mb-2">
+        <p class="text-xs text-base-content/60">
+            <span id="enrolled-count">{{ enrolled_student_ids|length }}</span> of {{ students|length }} enrolled
+        </p>
+        <label class="flex items-center gap-2 cursor-pointer">
+            <span class="text-xs text-base-content/60">Select All</span>
+            <input type="checkbox" id="select-all" class="checkbox checkbox-primary checkbox-xs">
+        </label>
+    </div>
+
+    <div class="space-y-1 max-h-60 overflow-y-auto -mx-1 px-1">
+        {% for student in students %}
+        <label class="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-base-200/50 cursor-pointer">
+            <input type="checkbox"
+                   name="students"
+                   value="{{ student.pk }}"
+                   class="checkbox checkbox-primary checkbox-xs student-checkbox"
+                   {% if student.pk in enrolled_student_ids %}checked{% endif %}>
+            <span class="flex-1 text-sm">{{ student.last_name }}, {{ student.first_name }}</span>
+            {% if student.pk in students_with_scores %}
+            <span class="tooltip tooltip-left" data-tip="Has scores — removing will delete them">
+                <i class="fa-solid fa-chart-column text-warning text-xs"></i>
+            </span>
+            {% endif %}
+        </label>
+        {% endfor %}
+    </div>
+
+    <div class="modal-action border-t border-base-200 pt-3 mt-3">
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_form').close()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-check"></i> Save
+        </button>
+    </div>
+</form>
+
+<script>
+(function() {
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    const countEl = document.getElementById('enrolled-count');
+
+    function updateCount() {
+        const checked = document.querySelectorAll('.student-checkbox:checked').length;
+        countEl.textContent = checked;
+        selectAll.checked = checked === checkboxes.length;
+        selectAll.indeterminate = checked > 0 && checked < checkboxes.length;
+    }
+
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        updateCount();
+    });
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
+    updateCount();
+})();
+</script>
+{% endif %}
