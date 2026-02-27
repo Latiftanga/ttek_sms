@@ -226,6 +226,7 @@ def student_edit(request, pk):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    old_class = student.current_class
     form = StudentForm(request.POST, request.FILES, instance=student)
     if form.is_valid():
         student = form.save()
@@ -234,11 +235,10 @@ def student_edit(request, pk):
         if created:
             student.current_class = enrollment.class_assigned
             student.save()
-        # Auto-enroll in class subjects (core/auto-enroll subjects)
-        if student.current_class:
-            StudentSubjectEnrollment.enroll_student_in_class_subjects(
-                student, student.current_class
-            )
+        # Sync enrollments: deactivate old class, create/reactivate new class
+        StudentSubjectEnrollment.sync_enrollments_for_student(
+            student, new_class=student.current_class, old_class=old_class
+        )
         return redirect('students:student_detail', pk=student.pk)
 
     return htmx_render(

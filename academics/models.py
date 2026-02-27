@@ -415,6 +415,31 @@ class StudentSubjectEnrollment(models.Model):
         return f"{self.student} - {self.class_subject.subject.name}"
 
     @classmethod
+    def sync_enrollments_for_student(cls, student, new_class=None, old_class=None):
+        """
+        Sync enrollments when a student's class changes.
+        - Deactivates enrollments for old_class (if provided and different from new_class)
+        - Creates/reactivates enrollments for new_class auto_enroll subjects
+        """
+        if old_class and old_class != new_class:
+            cls.objects.filter(
+                student=student,
+                class_subject__class_assigned=old_class,
+                is_active=True,
+            ).update(is_active=False)
+
+        if new_class:
+            # Reactivate inactive enrollments for auto_enroll subjects
+            cls.objects.filter(
+                student=student,
+                class_subject__class_assigned=new_class,
+                class_subject__auto_enroll=True,
+                is_active=False,
+            ).update(is_active=True)
+            # Create any missing enrollments
+            cls.enroll_student_in_class_subjects(student, new_class)
+
+    @classmethod
     def enroll_student_in_class_subjects(cls, student, class_obj, enrolled_by=None):
         """
         Auto-enroll a student in subjects marked for auto-enrollment.
