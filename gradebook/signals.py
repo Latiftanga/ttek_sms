@@ -9,6 +9,7 @@ import threading
 from decimal import Decimal
 
 from django.core.cache import cache
+from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
@@ -130,68 +131,69 @@ def recalculate_subject_grade(student, subject, term):
         return
 
     try:
-        # Get or create the SubjectTermGrade
-        grade, created = SubjectTermGrade.objects.get_or_create(
-            student=student,
-            subject=subject,
-            term=term
-        )
-
-        # Get active categories ordered by display order
-        categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
-
-        # Prefetch all assignments for this subject/term (single query)
-        all_assignments = list(Assignment.objects.filter(
-            subject=subject,
-            term=term
-        ).select_related('assessment_category'))
-
-        # Build lookups using shared utilities
-        assignments_lookup = build_assignments_lookup(all_assignments)
-
-        # Prefetch all scores for this student
-        assignment_ids = [a.pk for a in all_assignments]
-        scores = []
-        if assignment_ids:
-            scores = list(Score.objects.filter(
+        with transaction.atomic():
+            # Get or create the SubjectTermGrade
+            grade, created = SubjectTermGrade.objects.get_or_create(
                 student=student,
-                assignment_id__in=assignment_ids
-            ))
-        scores_lookup = build_scores_lookup(scores)
+                subject=subject,
+                term=term
+            )
 
-        # Use consolidated calculation utility
-        calc_result = calculate_category_scores(
-            student_id=student.id,
-            subject_id=subject.id,
-            categories=categories,
-            assignments_by_subject_category=assignments_lookup,
-            scores_lookup=scores_lookup
-        )
+            # Get active categories ordered by display order
+            categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
 
-        # Apply results to grade object
-        grade.category_scores = calc_result['category_scores_json']
-        grade.class_score = calc_result['class_score']
-        grade.exam_score = calc_result['exam_score']
-        grade.total_score = calc_result['total_score']
+            # Prefetch all assignments for this subject/term (single query)
+            all_assignments = list(Assignment.objects.filter(
+                subject=subject,
+                term=term
+            ).select_related('assessment_category'))
 
-        # Determine grade from grading system (cached lookup for efficiency)
-        grading_system = None
-        if student.current_class:
-            level = 'SHS' if student.current_class.level_type == 'shs' else 'BASIC'
-            grading_system = get_grading_system_cached(level)
-        else:
-            grading_system = get_grading_system_cached('BASIC')
+            # Build lookups using shared utilities
+            assignments_lookup = build_assignments_lookup(all_assignments)
 
-        # Use consolidated grade lookup utility (with cached grade scales)
-        grade.is_passing = False
-        if grading_system and grade.total_score is not None:
-            grade_scales = get_grade_scales_cached(grading_system)
-            grade_info = determine_grade_from_scales(grade.total_score, grade_scales)
-            grade.grade = grade_info['grade']
-            grade.grade_remark = grade_info['grade_remark']
-            grade.is_passing = grade_info['is_passing']
+            # Prefetch all scores for this student
+            assignment_ids = [a.pk for a in all_assignments]
+            scores = []
+            if assignment_ids:
+                scores = list(Score.objects.filter(
+                    student=student,
+                    assignment_id__in=assignment_ids
+                ))
+            scores_lookup = build_scores_lookup(scores)
 
-        grade.save()
+            # Use consolidated calculation utility
+            calc_result = calculate_category_scores(
+                student_id=student.id,
+                subject_id=subject.id,
+                categories=categories,
+                assignments_by_subject_category=assignments_lookup,
+                scores_lookup=scores_lookup
+            )
+
+            # Apply results to grade object
+            grade.category_scores = calc_result['category_scores_json']
+            grade.class_score = calc_result['class_score']
+            grade.exam_score = calc_result['exam_score']
+            grade.total_score = calc_result['total_score']
+
+            # Determine grade from grading system (cached lookup for efficiency)
+            grading_system = None
+            if student.current_class:
+                level = 'SHS' if student.current_class.level_type == 'shs' else 'BASIC'
+                grading_system = get_grading_system_cached(level)
+            else:
+                grading_system = get_grading_system_cached('BASIC')
+
+            # Use consolidated grade lookup utility (with cached grade scales)
+            grade.is_passing = False
+            if grading_system and grade.total_score is not None:
+                grade_scales = get_grade_scales_cached(grading_system)
+                grade_info = determine_grade_from_scales(grade.total_score, grade_scales)
+                grade.grade = grade_info['grade']
+                grade.grade_remark = grade_info['grade_remark']
+                grade.is_passing = grade_info['is_passing']
+
+            grade.save()
 
         logger.debug(
             f"Recalculated grade for {student} in {subject.name}: "
@@ -215,44 +217,45 @@ def recalculate_term_report(student, term):
         return
 
     try:
-        # Get all subject grades for this student/term
-        subject_grades = SubjectTermGrade.objects.filter(
-            student=student,
-            term=term,
-            total_score__isnull=False
-        )
+        with transaction.atomic():
+            # Get all subject grades for this student/term
+            subject_grades = SubjectTermGrade.objects.filter(
+                student=student,
+                term=term,
+                total_score__isnull=False
+            )
 
-        if not subject_grades.exists():
-            return None
+            if not subject_grades.exists():
+                return None
 
-        # Get or create term report
-        report, created = TermReport.objects.get_or_create(
-            student=student,
-            term=term
-        )
+            # Get or create term report
+            report, created = TermReport.objects.get_or_create(
+                student=student,
+                term=term
+            )
 
-        # Calculate aggregates
-        total_marks = Decimal('0.0')
-        subjects_taken = 0
-        subjects_passed = 0
+            # Calculate aggregates
+            total_marks = Decimal('0.0')
+            subjects_taken = 0
+            subjects_passed = 0
 
-        for grade in subject_grades:
-            if grade.total_score is not None:
-                total_marks += grade.total_score
-                subjects_taken += 1
-                if grade.is_passing:
-                    subjects_passed += 1
+            for grade in subject_grades:
+                if grade.total_score is not None:
+                    total_marks += grade.total_score
+                    subjects_taken += 1
+                    if grade.is_passing:
+                        subjects_passed += 1
 
-        report.total_marks = total_marks
-        report.subjects_taken = subjects_taken
-        report.subjects_passed = subjects_passed
-        report.subjects_failed = subjects_taken - subjects_passed
-        report.average = round(total_marks / subjects_taken, 2) if subjects_taken > 0 else Decimal('0.0')
+            report.total_marks = total_marks
+            report.subjects_taken = subjects_taken
+            report.subjects_passed = subjects_passed
+            report.subjects_failed = subjects_taken - subjects_passed
+            report.average = round(total_marks / subjects_taken, 2) if subjects_taken > 0 else Decimal('0.0')
 
-        # Calculate attendance from attendance records
-        report.calculate_attendance()
+            # Calculate attendance from attendance records
+            report.calculate_attendance()
 
-        report.save()
+            report.save()
 
         logger.debug(
             f"Recalculated term report for {student}: "

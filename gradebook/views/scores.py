@@ -587,6 +587,7 @@ def assignments(request, subject_id):
 
 
 @login_required
+@teacher_or_admin_required
 def assignment_create(request):
     """Create a new assignment with auto-generated name based on category."""
     if request.method != 'POST':

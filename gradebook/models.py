@@ -1153,7 +1153,7 @@ class TermReport(models.Model):
         >= 60% → FAIR, < 60% → POOR
         """
         if attendance_percentage is None:
-            return ''
+            return 'FAIR'
         pct = float(attendance_percentage)
         if pct >= 95:
             return 'EXCELLENT'
@@ -1204,7 +1204,7 @@ class TermReport(models.Model):
         self.days_present = records.filter(
             status__in=present_statuses
         ).values('session__date').distinct().count()
-        self.days_absent = self.total_school_days - self.days_present
+        self.days_absent = max(0, self.total_school_days - self.days_present)
         self.times_late = records.filter(status='L').count()
 
         if self.total_school_days > 0:

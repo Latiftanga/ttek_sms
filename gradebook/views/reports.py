@@ -253,6 +253,7 @@ def student_report(request, student_id):
 
 
 @login_required
+@teacher_or_admin_required
 def report_remarks_edit(request, student_id):
     """Edit teacher remarks for a student's term report."""
     current_term = Term.get_current()
