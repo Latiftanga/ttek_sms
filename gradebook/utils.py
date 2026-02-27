@@ -429,13 +429,26 @@ def calculate_score_entry_progress(current_term):
     )
 
     # Only count scores for subjects currently assigned to classes
+    # and only from enrolled students (to match expected count denominator)
     assigned_subject_ids = list({cs['subject_id'] for cs in class_subject_data})
-    assigned_class_ids = list({cs['class_assigned_id'] for cs in class_subject_data})
-    scores_entered = Score.objects.filter(
-        assignment__term=current_term,
-        assignment__subject_id__in=assigned_subject_ids,
-        student__current_class_id__in=assigned_class_ids,
-    ).count()
+    all_enrolled_student_ids = set(
+        StudentSubjectEnrollment.objects.filter(
+            class_subject_id__in=cs_ids,
+            is_active=True,
+            student__current_class_id=F('class_subject__class_assigned_id'),
+        ).values_list('student_id', flat=True)
+    )
+
+    score_filter = {
+        'assignment__term': current_term,
+        'assignment__subject_id__in': assigned_subject_ids,
+    }
+    if all_enrolled_student_ids:
+        score_filter['student_id__in'] = all_enrolled_student_ids
+    else:
+        assigned_class_ids = list({cs['class_assigned_id'] for cs in class_subject_data})
+        score_filter['student__current_class_id__in'] = assigned_class_ids
+    scores_entered = Score.objects.filter(**score_filter).count()
 
     total_possible_scores = 0
     for subject_id, class_ids_for_subj in subject_classes.items():
@@ -478,25 +491,44 @@ def get_classes_needing_scores(current_term, classes, limit=None):
         ).values_list('subject_id', 'count')
     )
 
-    # Count actual scores per (class, subject) so we attribute scores correctly
-    # even when students transfer between classes mid-term.
-    # Using assignment__subject_id grouping ensures scores are counted per subject
-    # and matched against the correct expected count.
-    # Only count scores for subjects currently assigned to each class
+    # Count actual scores per (class, subject), only from enrolled students
+    # to match the expected count denominator.
     all_subject_ids = set()
     for subj_map in class_subjects_map.values():
         all_subject_ids.update(subj_map.keys())
 
+    # Get enrolled student IDs per class for filtering scores
+    enrolled_ids_by_class = {}
+    if all_cs_ids:
+        for row in StudentSubjectEnrollment.objects.filter(
+            class_subject_id__in=all_cs_ids,
+            is_active=True,
+            student__current_class_id=F('class_subject__class_assigned_id'),
+        ).values('class_subject__class_assigned_id', 'student_id'):
+            enrolled_ids_by_class.setdefault(
+                row['class_subject__class_assigned_id'], set()
+            ).add(row['student_id'])
+
+    all_enrolled_ids = set()
+    for ids in enrolled_ids_by_class.values():
+        all_enrolled_ids.update(ids)
+
     class_subject_score_counts = {}
     if all_subject_ids:
+        score_filter = {
+            'assignment__term': current_term,
+            'assignment__subject_id__in': all_subject_ids,
+        }
+        if all_enrolled_ids:
+            score_filter['student_id__in'] = all_enrolled_ids
+        else:
+            score_filter['student__current_class_id__in'] = top_class_ids
+
         for row in Score.objects.filter(
-            assignment__term=current_term,
-            student__current_class_id__in=top_class_ids,
-            assignment__subject_id__in=all_subject_ids,
+            **score_filter
         ).values('student__current_class_id', 'assignment__subject_id').annotate(
             count=Count('id')
         ):
-            # Only count if this subject is still assigned to this class
             class_id = row['student__current_class_id']
             subj_id = row['assignment__subject_id']
             if subj_id in class_subjects_map.get(class_id, {}):
@@ -564,10 +596,36 @@ def get_class_subject_progress(current_term, class_id):
         ).values_list('subject_id', 'count')
     )
 
+    # Get enrolled student IDs per subject for filtering scores
+    enrolled_student_ids_by_subject = {}
+    if cs_ids:
+        for row in StudentSubjectEnrollment.objects.filter(
+            class_subject_id__in=cs_ids,
+            is_active=True,
+            student__current_class_id=F('class_subject__class_assigned_id'),
+        ).values('class_subject__subject_id', 'student_id'):
+            enrolled_student_ids_by_subject.setdefault(
+                row['class_subject__subject_id'], set()
+            ).add(row['student_id'])
+
+    # All enrolled student IDs (union across subjects)
+    all_enrolled_ids = set()
+    for ids in enrolled_student_ids_by_subject.values():
+        all_enrolled_ids.update(ids)
+
+    # Count scores — if enrollments exist, only count scores from enrolled students
+    has_enrollments = bool(all_enrolled_ids)
+    score_filter = {
+        'assignment__term': current_term,
+        'assignment__subject_id__in': subject_ids,
+    }
+    if has_enrollments:
+        score_filter['student_id__in'] = all_enrolled_ids
+    else:
+        score_filter['student__current_class_id'] = class_id
+
     score_qs = Score.objects.filter(
-        assignment__term=current_term,
-        assignment__subject_id__in=subject_ids,
-        student__current_class_id=class_id,
+        **score_filter
     ).values('assignment__subject_id').annotate(
         count=Count('id'),
         last_activity=Max('updated_at'),
