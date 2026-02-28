@@ -389,6 +389,10 @@ class AssessmentCategory(models.Model):
                 f'Total percentage cannot exceed 100%. Current: {total}%, Adding: {self.percentage}%'
             )
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def get_weight_per_assignment(self, subject, term):
         """
         Calculate the weight of each assignment in this category for a specific subject/term.
@@ -1092,6 +1096,12 @@ class TermReport(models.Model):
     def __str__(self):
         return f"{self.student} - {self.term}: Position {self.position}/{self.out_of}"
 
+    def save(self, *args, **kwargs):
+        # Clear promoted_to if not promoted (prevent stale references)
+        if self.promoted is not True:
+            self.promoted_to = None
+        super().save(*args, **kwargs)
+
     def calculate_aggregates(self, grading_system=None):
         """
         Recalculate all aggregates from SubjectTermGrades.
@@ -1217,12 +1227,18 @@ class TermReport(models.Model):
                 self.attendance_percentage
             )
 
-    def check_promotion(self, grading_system):
+    def check_promotion(self, grading_system, core_grades=None):
         """
         Check promotion eligibility and store result.
         Returns tuple of (is_eligible, reasons).
+
+        Args:
+            grading_system: GradingSystem instance
+            core_grades: Optional prefetched core SubjectTermGrades to avoid N+1
         """
-        is_eligible, reasons = grading_system.check_promotion_eligibility(self)
+        is_eligible, reasons = grading_system.check_promotion_eligibility(
+            self, core_grades=core_grades
+        )
         self.promotion_remarks = '; '.join(reasons) if reasons else 'Meets all requirements'
         return is_eligible, reasons
 

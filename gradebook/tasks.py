@@ -204,6 +204,12 @@ def build_feedback_context(term_report):
     except Exception:
         pass
 
+    import re as _re
+
+    # Strip HTML from user-submitted text fields to prevent injection
+    def _strip_html(text):
+        return _re.sub(r'<[^>]+>', '', text) if text else ''
+
     return {
         'student_name': student.first_name,
         'full_name': str(student),
@@ -216,7 +222,7 @@ def build_feedback_context(term_report):
         'attendance': f"{term_report.attendance_percentage:.0f}" if term_report.attendance_percentage else '-',
         'subjects_passed': term_report.subjects_passed or 0,
         'subjects_failed': term_report.subjects_failed or 0,
-        'remark': (term_report.class_teacher_remark or '')[:50],  # Truncate long remarks
+        'remark': _strip_html(term_report.class_teacher_remark or '')[:50],
         'school_name': school_name,
         'date': timezone.now().strftime('%b %d, %Y'),
     }
@@ -326,7 +332,6 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
                 'student', 'student__current_class', 'term'
             ).get(pk=term_report_id)
         except TermReport.DoesNotExist:
-            # Non-retryable - report doesn't exist
             logger.error(f"TermReport {term_report_id} not found")
             return {'success': False, 'error': 'Report not found'}
 
@@ -338,28 +343,21 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
             except User.DoesNotExist:
                 pass
 
-        # Create distribution log
-        log = ReportDistributionLog.objects.create(
-            term_report=term_report,
-            distribution_type=distribution_type,
-            sent_by=sent_by,
-        )
-
         # Get guardian contact info
         guardian_email = getattr(student, 'guardian_email', None) or getattr(student, 'parent_email', None)
         guardian_phone = getattr(student, 'guardian_phone', None) or getattr(student, 'parent_phone', None)
 
+        # Track results — log is only created once at the end (no partial saves)
+        email_status = email_error = email_sent_to = email_sent_at = None
+        sms_status = sms_error = sms_sent_to = sms_sent_at = sms_message = None
         results = {'email': None, 'sms': None}
 
         # Send Email
         if distribution_type in ('EMAIL', 'BOTH') and guardian_email:
             try:
-                # Generate PDF
                 pdf_buffer = generate_report_pdf(term_report, tenant_schema)
 
-                # Prepare email
                 subject = f"Report Card - {student.first_name} {student.last_name} - {term_report.term.name}"
-
                 email_context = {
                     'student': student,
                     'term_report': term_report,
@@ -381,25 +379,19 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
                 )
                 email.send()
 
-                # Update log
-                log.email_status = 'SENT'
-                log.email_sent_to = guardian_email
-                log.email_sent_at = timezone.now()
+                email_status = 'SENT'
+                email_sent_to = guardian_email
+                email_sent_at = timezone.now()
                 results['email'] = 'sent'
 
             except RETRYABLE_EXCEPTIONS as e:
-                # Transient error - retry with exponential backoff
                 logger.warning(f"Retryable error sending email for report {term_report_id}: {str(e)}")
-                log.email_status = 'FAILED'
-                log.email_error = f"Retry {self.request.retries + 1}: {str(e)[:450]}"
-                log.save()
                 raise self.retry(exc=e, countdown=config.TASK_RETRY_DELAY * (2 ** self.request.retries))
 
             except Exception as e:
-                # Non-retryable error
                 logger.error(f"Failed to send email for report {term_report_id}: {str(e)}")
-                log.email_status = 'FAILED'
-                log.email_error = str(e)[:500]
+                email_status = 'FAILED'
+                email_error = str(e)[:500]
                 results['email'] = f'failed: {str(e)}'
 
         # Send SMS
@@ -410,7 +402,6 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
 
                 sms_text = generate_sms_summary(term_report, custom_template=sms_template)
 
-                # Create SMS record first
                 sms_record = SMSMessage.objects.create(
                     recipient_phone=guardian_phone,
                     recipient_name=getattr(student, 'guardian_name', ''),
@@ -421,38 +412,46 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
                     created_by=sent_by,
                 )
 
-                # Send synchronously (we're already in a Celery task)
                 sms_result = send_sms_sync(guardian_phone, sms_text)
 
                 if sms_result.get('success'):
-                    log.sms_status = 'SENT'
-                    log.sms_sent_to = guardian_phone
-                    log.sms_sent_at = timezone.now()
-                    log.sms_message = sms_record
+                    sms_status = 'SENT'
+                    sms_sent_to = guardian_phone
+                    sms_sent_at = timezone.now()
+                    sms_message = sms_record
                     sms_record.mark_sent(sms_result.get('response', ''))
                     results['sms'] = 'sent'
                 else:
-                    log.sms_status = 'FAILED'
-                    log.sms_error = sms_result.get('error', 'Unknown error')[:500]
+                    sms_status = 'FAILED'
+                    sms_error = sms_result.get('error', 'Unknown error')[:500]
                     sms_record.mark_failed(sms_result.get('error', ''))
                     results['sms'] = f"failed: {sms_result.get('error')}"
 
             except RETRYABLE_EXCEPTIONS as e:
-                # Transient error - retry with exponential backoff
                 logger.warning(f"Retryable error sending SMS for report {term_report_id}: {str(e)}")
-                log.sms_status = 'FAILED'
-                log.sms_error = f"Retry {self.request.retries + 1}: {str(e)[:450]}"
-                log.save()
                 raise self.retry(exc=e, countdown=config.TASK_RETRY_DELAY * (2 ** self.request.retries))
 
             except Exception as e:
-                # Non-retryable error
                 logger.error(f"Failed to send SMS for report {term_report_id}: {str(e)}")
-                log.sms_status = 'FAILED'
-                log.sms_error = str(e)[:500]
+                sms_status = 'FAILED'
+                sms_error = str(e)[:500]
                 results['sms'] = f'failed: {str(e)}'
 
-        log.save()
+        # Create distribution log once with final state (no partial saves)
+        log = ReportDistributionLog.objects.create(
+            term_report=term_report,
+            distribution_type=distribution_type,
+            sent_by=sent_by,
+            email_status=email_status or '',
+            email_sent_to=email_sent_to or '',
+            email_sent_at=email_sent_at,
+            email_error=email_error or '',
+            sms_status=sms_status or '',
+            sms_sent_to=sms_sent_to or '',
+            sms_sent_at=sms_sent_at,
+            sms_error=sms_error or '',
+            sms_message=sms_message,
+        )
 
         return {
             'success': True,
@@ -525,23 +524,32 @@ def export_class_reports_zip(self, class_id, tenant_schema):
 
         errors = []
 
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-            for i, term_report in enumerate(term_reports):
-                self.update_state(
-                    state='PROGRESS',
-                    meta={'current': i + 1, 'total': total},
-                )
-                try:
-                    pdf_buffer = generate_report_pdf(term_report, tenant_schema)
-                    admission = term_report.student.admission_number
-                    zf.writestr(
-                        f"report_card_{admission}.pdf",
-                        pdf_buffer.getvalue(),
+        try:
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for i, term_report in enumerate(term_reports):
+                    self.update_state(
+                        state='PROGRESS',
+                        meta={'current': i + 1, 'total': total},
                     )
-                except Exception as e:
-                    student_name = str(term_report.student)
-                    logger.error(f"PDF generation failed for {student_name}: {e}")
-                    errors.append(f"{student_name}: {str(e)[:100]}")
+                    try:
+                        pdf_buffer = generate_report_pdf(term_report, tenant_schema)
+                        admission = term_report.student.admission_number
+                        zf.writestr(
+                            f"report_card_{admission}.pdf",
+                            pdf_buffer.getvalue(),
+                        )
+                    except Exception as e:
+                        student_name = str(term_report.student)
+                        logger.error(f"PDF generation failed for {student_name}: {e}")
+                        errors.append(f"{student_name}: {str(e)[:100]}")
+        except Exception:
+            # Clean up partial ZIP on failure
+            if os.path.exists(zip_path):
+                try:
+                    os.remove(zip_path)
+                except OSError:
+                    logger.warning(f"Could not delete failed ZIP: {zip_path}")
+            raise
 
         relative_filename = f"{tenant_schema}/{zip_filename}"
         return {
@@ -631,18 +639,30 @@ def distribute_bulk_reports(self, class_id, distribution_type, tenant_schema, se
         ).values_list('pk', flat=True)
 
         queued_count = 0
+        failed_count = 0
         for report_id in term_reports:
-            distribute_single_report.delay(
-                str(report_id),
-                distribution_type,
-                tenant_schema,
-                sent_by_id,
-                sms_template
-            )
-            queued_count += 1
+            try:
+                distribute_single_report.delay(
+                    str(report_id),
+                    distribution_type,
+                    tenant_schema,
+                    sent_by_id,
+                    sms_template
+                )
+                queued_count += 1
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"Failed to queue report {report_id}: {e}")
+
+        if failed_count and queued_count == 0:
+            return {
+                'success': False,
+                'error': f'Failed to queue all {failed_count} reports',
+            }
 
         return {
             'success': True,
             'class': class_obj.name,
             'queued': queued_count,
+            'failed': failed_count,
         }
