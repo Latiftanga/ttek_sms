@@ -162,6 +162,7 @@ def report_cards(request):
 
 
 @login_required
+@teacher_or_admin_required
 def student_report(request, student_id):
     """View individual student report card with Ghana-specific data.
 
@@ -266,7 +267,7 @@ def report_remarks_edit(request, student_id):
     term_report, created = TermReport.objects.get_or_create(
         student=student,
         term=current_term,
-        defaults={'out_of': 1}
+        defaults={'out_of': 0}
     )
 
     if request.method == 'GET':
@@ -326,6 +327,7 @@ def report_remarks_edit(request, student_id):
 
 
 @login_required
+@teacher_or_admin_required
 def report_card_print(request, student_id):
     """Print-friendly report card with Ghana-specific data.
 
@@ -474,6 +476,7 @@ def report_card_print(request, student_id):
 # ============ Report Distribution ============
 
 @login_required
+@teacher_or_admin_required
 def report_distribution(request, class_id):
     """
     Report distribution page for a class.
@@ -694,6 +697,7 @@ def send_bulk_reports(request, class_id):
 
 
 @login_required
+@teacher_or_admin_required
 def download_report_pdf(request, student_id):
     """Download PDF report for a student."""
     current_term = Term.get_current()

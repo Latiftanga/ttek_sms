@@ -10,6 +10,14 @@ from ..models import (
     GradingSystem, GradeScale, AssessmentCategory
 )
 
+
+def _safe_int(value, default=0):
+    """Safely convert a value to int, returning default on failure."""
+    try:
+        return int(value or default)
+    except (ValueError, TypeError):
+        return default
+
 @login_required
 @admin_required
 def gradebook_settings(request):
@@ -259,7 +267,7 @@ def category_create(request):
 
     name = request.POST.get('name', '').strip()
     short_name = request.POST.get('short_name', '').strip().upper()
-    percentage = int(request.POST.get('percentage', 0))
+    percentage = _safe_int(request.POST.get('percentage', 0))
 
     if not name or not short_name:
         return render(request, 'gradebook/includes/modal_category.html', {
@@ -279,9 +287,9 @@ def category_create(request):
         })
 
     # Parse advisory fields
-    expected_assessments = int(request.POST.get('expected_assessments', 0) or 0)
-    min_assessments = int(request.POST.get('min_assessments', 0) or 0)
-    max_assessments = int(request.POST.get('max_assessments', 0) or 0)
+    expected_assessments = _safe_int(request.POST.get('expected_assessments', 0))
+    min_assessments = _safe_int(request.POST.get('min_assessments', 0))
+    max_assessments = _safe_int(request.POST.get('max_assessments', 0))
 
     # Validate advisory fields
     if min_assessments > 0 and max_assessments > 0 and min_assessments > max_assessments:
@@ -295,7 +303,7 @@ def category_create(request):
         short_name=short_name,
         category_type=request.POST.get('category_type', 'OTHER'),
         percentage=percentage,
-        order=int(request.POST.get('order', 0)),
+        order=_safe_int(request.POST.get('order', 0)),
         expected_assessments=expected_assessments,
         min_assessments=min_assessments,
         max_assessments=max_assessments,
@@ -322,9 +330,9 @@ def category_edit(request, pk):
         return HttpResponse(status=405)
 
     # Parse advisory fields
-    expected_assessments = int(request.POST.get('expected_assessments', 0) or 0)
-    min_assessments = int(request.POST.get('min_assessments', 0) or 0)
-    max_assessments = int(request.POST.get('max_assessments', 0) or 0)
+    expected_assessments = _safe_int(request.POST.get('expected_assessments', 0))
+    min_assessments = _safe_int(request.POST.get('min_assessments', 0))
+    max_assessments = _safe_int(request.POST.get('max_assessments', 0))
 
     # Validate advisory fields
     if min_assessments > 0 and max_assessments > 0 and min_assessments > max_assessments:
@@ -334,11 +342,25 @@ def category_edit(request, pk):
             'error': 'Minimum assessments cannot be greater than maximum assessments.',
         })
 
+    new_percentage = _safe_int(request.POST.get('percentage', 0))
+
+    # Check total won't exceed 100% (excluding this category's current percentage)
+    current_total = AssessmentCategory.objects.filter(
+        is_active=True
+    ).exclude(pk=category.pk).aggregate(total=models.Sum('percentage'))['total'] or 0
+
+    if current_total + new_percentage > 100:
+        return render(request, 'gradebook/includes/modal_category.html', {
+            'category': category,
+            'category_types': AssessmentCategory.CATEGORY_TYPES,
+            'error': f'Total percentage would exceed 100%. Other categories: {current_total}%',
+        })
+
     category.name = request.POST.get('name', '').strip()
     category.short_name = request.POST.get('short_name', '').strip().upper()
     category.category_type = request.POST.get('category_type', 'OTHER')
-    category.percentage = int(request.POST.get('percentage', 0))
-    category.order = int(request.POST.get('order', 0))
+    category.percentage = new_percentage
+    category.order = _safe_int(request.POST.get('order', 0))
     category.expected_assessments = expected_assessments
     category.min_assessments = min_assessments
     category.max_assessments = max_assessments

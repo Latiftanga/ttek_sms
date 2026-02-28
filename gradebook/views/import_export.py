@@ -5,6 +5,7 @@ from django.http import HttpResponse as DjangoHttpResponse
 from decimal import Decimal, InvalidOperation
 import logging
 import json
+import uuid
 
 from django.core.cache import cache as django_cache
 from django.shortcuts import render, get_object_or_404
@@ -264,7 +265,8 @@ def score_import_upload(request, class_id, subject_id):
                             'points': str(score['value']),
                         })
 
-        cache_key = f'score_import:{request.user.pk}'
+        nonce = uuid.uuid4().hex[:12]
+        cache_key = f'score_import:{request.user.pk}:{nonce}'
         django_cache.set(cache_key, json.dumps({
             'data': import_data,
             'class_id': str(class_id),

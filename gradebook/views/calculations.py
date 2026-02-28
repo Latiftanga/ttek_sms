@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.db import IntegrityError, transaction
 
-from .base import admin_required, htmx_render, is_school_admin
+from .base import admin_required, htmx_render, is_school_admin, teacher_or_admin_required
 from ..models import (
     GradingSystem, AssessmentCategory, Assignment,
     Score, SubjectTermGrade, TermReport,
@@ -593,6 +593,7 @@ def toggle_grade_lock(request, term_id):
 
 
 @login_required
+@teacher_or_admin_required
 def grade_lock_status(request):
     """Get current term's lock status (for HTMX refresh)."""
     current_term = Term.get_current()

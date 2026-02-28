@@ -145,11 +145,21 @@ def bulk_remark_save(request):
     ]
 
     if field in allowed_fields:
+        # Validate rating fields against model choices
+        if field == 'conduct_rating' and value:
+            valid_values = [c[0] for c in TermReport.CONDUCT_CHOICES]
+            if value not in valid_values:
+                return HttpResponse('Invalid conduct rating', status=400)
+        elif field in ('attitude_rating', 'interest_rating') and value:
+            valid_values = [c[0] for c in TermReport.RATING_CHOICES]
+            if value not in valid_values:
+                return HttpResponse('Invalid rating value', status=400)
+
         with transaction.atomic():
             term_report, created = TermReport.objects.get_or_create(
                 student=student,
                 term=current_term,
-                defaults={'out_of': 1}
+                defaults={'out_of': 0}
             )
             setattr(term_report, field, value)
             term_report.save(update_fields=[field])
@@ -258,7 +268,10 @@ def remark_template_create(request):
 
     category = request.POST.get('category', 'GENERAL')
     content = request.POST.get('content', '').strip()
-    order = int(request.POST.get('order', 0))
+    try:
+        order = int(request.POST.get('order', 0) or 0)
+    except (ValueError, TypeError):
+        order = 0
 
     if not content:
         return render(request, 'gradebook/includes/modal_remark_template.html', {
@@ -301,7 +314,10 @@ def remark_template_edit(request, pk):
 
     category = request.POST.get('category', 'GENERAL')
     content = request.POST.get('content', '').strip()
-    order = int(request.POST.get('order', 0))
+    try:
+        order = int(request.POST.get('order', 0) or 0)
+    except (ValueError, TypeError):
+        order = 0
     is_active = request.POST.get('is_active') == 'on'
 
     if not content:

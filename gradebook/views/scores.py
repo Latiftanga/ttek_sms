@@ -5,7 +5,7 @@ import logging
 
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.db import transaction
 
 from .base import (
@@ -253,8 +253,13 @@ def score_entry_student(request, class_id, subject_id, student_id):
     assignments = context['assignments']
     class_obj = context['class_obj']
 
-    # Get the specific student
+    # Get the specific student and verify they're in the filtered list (respects enrollment)
     student = get_object_or_404(Student, pk=student_id, current_class=class_obj)
+
+    # Verify student is in the enrollment-filtered list (prevents access to unenrolled students)
+    student_ids = {s.id for s in students}
+    if student.id not in student_ids:
+        raise Http404("Student is not enrolled in this subject.")
 
     # Find current student index for prev/next navigation
     current_index = next((i for i, s in enumerate(students) if s.id == student.id), 0)
