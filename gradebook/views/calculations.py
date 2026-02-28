@@ -59,12 +59,15 @@ def calculate_grades(request):
 
 
 @login_required
-@admin_required
+@teacher_or_admin_required
 def calculate_class_grades(request, class_id):
     """
     Calculate grades for all students in a class.
     Uses Ghana grading standards with configurable pass marks,
     WAEC aggregate calculation, and promotion eligibility checks.
+
+    Admins can recalculate any class. Teachers can only recalculate
+    classes where they are the form master (class_teacher).
 
     OPTIMIZED: Uses bulk prefetching and bulk_update to minimize queries.
     Before: ~3000+ queries for 40 students x 12 subjects
@@ -78,10 +81,22 @@ def calculate_class_grades(request, class_id):
         return HttpResponse('No current term set', status=400)
 
     class_obj = get_object_or_404(Class, pk=class_id)
+
+    # Teachers can only recalculate their own homeroom class
+    if not is_school_admin(request.user):
+        if not (hasattr(request.user, 'teacher_profile') and request.user.teacher_profile
+                and request.user.teacher_profile == class_obj.class_teacher):
+            return HttpResponse('You can only recalculate grades for your own class', status=403)
+
+    # Auto-detect grading system from class level if not provided
     grading_system_id = request.POST.get('grading_system_id')
-    if not grading_system_id:
-        return HttpResponse('A grading system is required to calculate grades', status=400)
-    grading_system = get_object_or_404(GradingSystem, pk=grading_system_id)
+    if grading_system_id:
+        grading_system = get_object_or_404(GradingSystem, pk=grading_system_id)
+    else:
+        level = 'SHS' if class_obj.level_type == 'shs' else 'BASIC'
+        grading_system = GradingSystem.objects.filter(level=level, is_active=True).first()
+        if not grading_system:
+            return HttpResponse(f'No active {level} grading system found', status=400)
 
     # Check if this is the final term (Term 3) for promotion decisions
     is_final_term = current_term.term_number == 3 if hasattr(current_term, 'term_number') else False
@@ -558,7 +573,19 @@ def calculate_class_grades(request, class_id):
         logger.error(f'Error calculating grades for class {class_id}: {str(e)}')
         return HttpResponse(f'Error: {str(e)}', status=500)
 
-    # Return success HTML
+    # Return success response
+    # If HTMX request (e.g. from report cards page), trigger a content refresh
+    if request.headers.get('HX-Request'):
+        response = HttpResponse(status=204)
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {
+                'message': f'Grades recalculated for {len(students)} students in {class_obj.name}',
+                'type': 'success',
+            },
+            'refreshReports': True,
+        })
+        return response
+
     return HttpResponse(f'''
         <div class="alert alert-success mt-2">
             <i class="fa-solid fa-check-circle"></i>

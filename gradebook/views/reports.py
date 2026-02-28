@@ -145,6 +145,7 @@ def report_cards(request):
         'is_admin': is_admin,
         'status_choices': Student.Status.choices if is_admin else [],
         'status_filter': status_filter,
+        'grades_locked': current_term.grades_locked if current_term else False,
         # Navigation
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},

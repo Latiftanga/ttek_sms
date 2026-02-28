@@ -67,6 +67,16 @@
         <i class="fa-solid fa-paper-plane"></i>
         <span class="hidden sm:inline">Distribute</span><span class="sm:hidden">Send</span> <span class="hidden md:inline">Reports</span>
     </a>
+    {% if not grades_locked %}
+    <button class="btn btn-outline btn-sm md:btn-md gap-2"
+            hx-post="{% url 'gradebook:calculate_class' selected_class.pk %}"
+            hx-confirm="Recalculate grades for {{ selected_class.name }}? This will update all scores, positions, and report cards."
+            hx-swap="none"
+            hx-on::after-request="if(event.detail.successful) { htmx.trigger(document.body, 'refreshReports'); }">
+        <i class="fa-solid fa-calculator"></i>
+        <span class="hidden sm:inline">Recalculate</span> Grades
+    </button>
+    {% endif %}
     <div x-data="pdfExport({{ selected_class.pk }})" class="inline-flex">
         <!-- Idle state -->
         <template x-if="state === 'idle'">
@@ -269,6 +279,11 @@
 {% endif %}
 
 {% if selected_class and status_filter == 'active' %}
+<!-- Refresh reports content when grades are recalculated -->
+<div hx-trigger="refreshReports from:body"
+     hx-get="{% url 'gradebook:reports' %}?class={{ selected_class.pk }}&status={{ status_filter }}"
+     hx-target="#main-content"
+     hx-swap="innerHTML"></div>
 <script>
 function pdfExport(classId) {
     return {
