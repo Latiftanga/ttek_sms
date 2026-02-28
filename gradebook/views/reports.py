@@ -85,10 +85,27 @@ def report_cards(request):
                 return redirect('core:index')
 
         if status_filter == 'active':
-            # Active students: filter by current_class (existing behavior)
-            students = list(Student.objects.filter(
+            # Active students: filter by current_class
+            # For classes with subject enrollments (SHS), exclude students
+            # who have no active enrollments (fully unenrolled).
+            # For basic classes (no enrollments), show all students.
+            from academics.models import StudentSubjectEnrollment
+            has_enrollments = StudentSubjectEnrollment.objects.filter(
+                class_subject__class_assigned=class_obj,
+                is_active=True
+            ).exists()
+
+            qs = Student.objects.filter(
                 current_class=class_obj
-            ).only(
+            )
+            if has_enrollments:
+                enrolled_ids = StudentSubjectEnrollment.objects.filter(
+                    class_subject__class_assigned=class_obj,
+                    is_active=True
+                ).values_list('student_id', flat=True).distinct()
+                qs = qs.filter(id__in=enrolled_ids)
+
+            students = list(qs.only(
                 'id', 'first_name', 'last_name', 'admission_number', 'status'
             ).order_by('last_name', 'first_name'))
         elif is_admin:

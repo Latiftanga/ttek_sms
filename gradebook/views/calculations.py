@@ -325,9 +325,15 @@ def calculate_class_grades(request, class_id):
 
             # ========== PHASE 3: Calculate positions per subject ==========
 
+            # Only include enrolled students in position calculations
+            students_with_subjects = [
+                s for s in students if student_subject_map.get(s.id)
+            ]
+            student_ids_with_subjects = [s.id for s in students_with_subjects]
+
             # Refresh grades for position calculation
             all_grades = list(SubjectTermGrade.objects.filter(
-                student_id__in=student_ids,
+                student_id__in=student_ids_with_subjects,
                 subject_id__in=subject_ids,
                 term=current_term,
                 total_score__isnull=False
@@ -361,13 +367,10 @@ def calculate_class_grades(request, class_id):
 
             # ========== PHASE 4: Calculate term reports ==========
 
-            # Get or create TermReport objects
-            # Only for students who have at least one subject enrollment
-            students_with_subjects = [
-                s for s in students if student_subject_map.get(s.id)
-            ]
-            student_ids_with_subjects = [s.id for s in students_with_subjects]
-
+            # Only create/update reports for students with active enrollments.
+            # For basic schools (no enrollments), this equals all students.
+            # We don't delete old reports for unenrolled students — they're
+            # preserved for transcript/historical access.
             existing_reports = {
                 r.student_id: r
                 for r in TermReport.objects.filter(
@@ -385,15 +388,6 @@ def calculate_class_grades(request, class_id):
 
             if reports_to_create:
                 TermReport.objects.bulk_create(reports_to_create)
-
-            # Clean up stale reports for students who no longer have any enrollments
-            unenrolled_ids = set(student_ids) - set(student_ids_with_subjects)
-            if unenrolled_ids:
-                TermReport.objects.filter(
-                    student_id__in=unenrolled_ids,
-                    term=current_term,
-                    subjects_taken=0,
-                ).delete()
 
             # Build grade lookup for aggregates
             grades_by_student = defaultdict(list)
@@ -422,7 +416,7 @@ def calculate_class_grades(request, class_id):
                 from django.db.models import Count, Q as _Q
                 attendance_stats = AttendanceRecord.objects.filter(
                     session_id__in=session_ids,
-                    student_id__in=student_ids
+                    student_id__in=student_ids_with_subjects
                 ).values('student_id').annotate(
                     # Distinct dates where student was present or late in at least one session
                     days_present=Count(
@@ -532,11 +526,18 @@ def calculate_class_grades(request, class_id):
 
             # ========== PHASE 5: Calculate overall positions ==========
 
-            # Split into ranked (have grades) and unranked (no grades)
-            ranked_reports = [r for r in reports_to_update if r.subjects_taken and r.subjects_taken > 0]
-            unranked_reports = [r for r in reports_to_update if not r.subjects_taken or r.subjects_taken == 0]
+            # Only students with grades are ranked.
+            # Unenrolled students won't have grades in the calculation
+            # so they naturally get position=None.
+            ranked_reports = [
+                r for r in reports_to_update
+                if r.subjects_taken and r.subjects_taken > 0
+            ]
+            unranked_reports = [
+                r for r in reports_to_update
+                if r not in ranked_reports
+            ]
 
-            # Set out_of to the number of students who actually have grades
             ranked_count = len(ranked_reports)
             for report in reports_to_update:
                 report.out_of = ranked_count
@@ -580,9 +581,9 @@ def calculate_class_grades(request, class_id):
             )
 
             logger.info(
-                f'Calculated grades for {len(students_with_subjects)} students in {class_obj.name} '
+                f'Calculated grades for {class_obj.name}: '
+                f'{ranked_count} ranked, {len(unranked_reports)} unranked '
                 f'using {grading_system.name if grading_system else "default"} grading system'
-                f'{f" ({len(unenrolled_ids)} unenrolled skipped)" if unenrolled_ids else ""}'
             )
 
     except (ValueError, ValidationError, IntegrityError) as e:

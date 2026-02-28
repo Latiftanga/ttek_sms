@@ -50,6 +50,14 @@
                         <i class="fa-solid fa-file-pdf"></i> Download PDF
                     </a>
                 </li>
+                <li>
+                    <a href="{% url 'gradebook:transcript' student.pk %}"
+                       hx-get="{% url 'gradebook:transcript' student.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true">
+                        <i class="fa-solid fa-scroll"></i> Transcript
+                    </a>
+                </li>
             </ul>
         </div>
     </div>
