@@ -1,105 +1,60 @@
 {% load core_tags %}
-<div id="assignments-container">
-    <h3 class="font-bold text-lg mb-1">
-        <i class="fa-solid fa-list-check text-primary"></i>
-        Assignments
-    </h3>
-    <p class="text-sm text-base-content/60 mb-4">{{ subject.name }} &middot; {{ current_term.name }}</p>
-
-    <!-- Add Assignment Form -->
-    <form hx-post="{% url 'gradebook:assignment_create' %}"
-          hx-target="#assignments-container"
-          hx-swap="outerHTML"
-          class="bg-base-200/50 rounded-lg p-3 mb-4 border border-base-300">
-        <input type="hidden" name="subject_id" value="{{ subject.pk }}">
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
-            <!-- Category -->
-            <div>
-                {% select_input "category_id" category_options label="Category" placeholder="Select..." required=True size="sm" %}
-            </div>
-
-            <!-- Date Administered -->
-            <div class="form-control">
-                <label class="label py-0.5">
-                    <span class="label-text text-xs font-medium">Date</span>
-                </label>
-                <input type="date"
-                       name="date"
-                       class="input input-bordered input-sm w-full"
-                       value="{% now 'Y-m-d' %}"
-                       required>
-            </div>
-
-            <!-- Max Points -->
-            <div class="form-control">
-                <label class="label py-0.5">
-                    <span class="label-text text-xs font-medium">Marked Over</span>
-                </label>
-                <div class="flex gap-1">
-                    <input type="number"
-                           name="points_possible"
-                           class="input input-bordered input-sm w-full"
-                           value="100"
-                           min="1"
-                           max="9999"
-                           required>
-                    <button type="submit" class="btn btn-sm btn-primary">
-                        <i class="fa-solid fa-plus"></i>
-                    </button>
-                </div>
-            </div>
+<div id="assignments-container" class="flex flex-col min-h-0 flex-1">
+    <div class="flex items-center justify-between mb-3 shrink-0">
+        <div>
+            <h3 class="font-bold text-lg flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-primary"></i>
+                Assignments
+            </h3>
+            <p class="text-xs text-base-content/60 mt-0.5">{{ subject.name }} &middot; {{ current_term.name }}</p>
         </div>
-    </form>
-
-    <div id="assignments-list">
         {% if assignments %}
-        <div class="space-y-2">
-            {% for assign in assignments %}
-            <div class="flex items-center justify-between p-3 rounded-lg bg-base-200/30 hover:bg-base-200/50 transition-colors">
-                <!-- Assignment Info -->
-                <div class="flex items-center gap-3 min-w-0 flex-1">
-                    <div class="text-base-content/40 text-sm w-6">{{ forloop.counter }}</div>
-                    <div class="min-w-0 flex-1">
-                        <div class="font-medium text-sm truncate">{{ assign.name }}</div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="badge badge-ghost badge-xs">{{ assign.assessment_category.short_name }}</span>
-                            <span class="text-xs text-base-content/50">{{ assign.points_possible }} pts</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="flex items-center gap-1">
-                    <button class="btn btn-ghost btn-xs btn-square"
-                            hx-get="{% url 'gradebook:assignment_edit' assign.pk %}"
-                            hx-target="#assignments-list"
-                            hx-swap="innerHTML"
-                            title="Edit assignment">
-                        <i class="fa-solid fa-pen text-xs text-info"></i>
-                    </button>
-                    <button class="btn btn-ghost btn-xs btn-square"
-                            hx-post="{% url 'gradebook:assignment_delete' assign.pk %}"
-                            hx-target="#assignments-container"
-                            hx-swap="outerHTML"
-                            hx-confirm="Delete {{ assign.name }}? All scores for this assignment will be lost."
-                            title="Delete assignment">
-                        <i class="fa-solid fa-trash text-xs text-error"></i>
-                    </button>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center py-8 text-base-content/40">
-            <i class="fa-solid fa-clipboard text-3xl mb-2"></i>
-            <p class="text-sm">No assignments yet</p>
-            <p class="text-xs">Select a category, date and max points to add one</p>
-        </div>
+        <span class="badge badge-primary badge-sm">{{ assignments|length }}</span>
         {% endif %}
     </div>
 
-    <div class="modal-action">
-        <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Close</button>
+    <!-- Assignments List + Inline Add -->
+    <div id="assignments-list" class="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+        {% if assignments %}
+        <div class="space-y-1.5">
+            {% for assign in assignments %}
+            {% include "gradebook/partials/assignment_row.html" with assign=assign num=forloop.counter %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-base-200 flex items-center justify-center">
+                <i class="fa-solid fa-clipboard text-base-content/30 text-xl"></i>
+            </div>
+            <p class="text-sm font-medium text-base-content/60">No assignments yet</p>
+            <p class="text-xs text-base-content/40 mt-1">Add one below</p>
+        </div>
+        {% endif %}
+
+        <!-- Inline Add Row -->
+        {% now "Y-m-d" as today_date %}
+        <form hx-post="{% url 'gradebook:assignment_create' %}"
+              hx-target="#assignments-container"
+              hx-swap="outerHTML"
+              class="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 p-2.5 sm:p-3 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 mt-2">
+            <input type="hidden" name="subject_id" value="{{ subject.pk }}">
+
+            <div class="flex-1 sm:flex-[2] min-w-0">
+                {% select_input "category_id" category_options placeholder="Category..." required=True size="sm" %}
+            </div>
+            <div class="flex-1 min-w-0">
+                {% date_input "date" value=today_date required=True size="sm" %}
+            </div>
+            <div class="flex-1 min-w-0">
+                {% number_input "points_possible" value="100" placeholder="Points" min=1 max=9999 required=True size="sm" %}
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary gap-1 shrink-0">
+                <i class="fa-solid fa-plus"></i> Add
+            </button>
+        </form>
+    </div>
+
+    <div class="modal-action pt-3 mt-3 border-t border-base-200 shrink-0">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
     </div>
 </div>

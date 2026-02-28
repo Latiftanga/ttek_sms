@@ -1,96 +1,42 @@
 {% load core_tags %}
+<form id="assignment-row-{{ assignment.pk }}"
+      hx-post="{% url 'gradebook:assignment_edit' assignment.pk %}"
+      hx-target="#assignments-container"
+      hx-swap="outerHTML"
+      class="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 p-2.5 sm:p-3 rounded-xl border-2 border-primary/30 bg-primary/5 transition-all">
+    {% csrf_token %}
 
-<!-- Assignment Edit Form -->
-<div class="p-4 bg-base-200 rounded-lg border border-base-300">
-    <form hx-post="{% url 'gradebook:assignment_edit' assignment.pk %}"
-          hx-target="#assignments-container"
-          hx-swap="outerHTML">
-        {% csrf_token %}
+    {% if is_admin %}
+    <div class="flex-1 sm:flex-[2] min-w-0">
+        {% select_input "category_id" category_options value=selected_category_pk placeholder="Category..." required=True size="sm" %}
+    </div>
+    <div class="flex-1 min-w-0">
+        {% text_input "name" value=assignment.name placeholder="Name" required=True size="sm" %}
+    </div>
+    {% else %}
+    <div class="flex items-center gap-2 flex-1 min-w-0 px-1">
+        <span class="font-medium text-sm truncate">{{ assignment.name }}</span>
+        <span class="badge badge-ghost badge-xs">{{ assignment.assessment_category.short_name }}</span>
+    </div>
+    {% endif %}
 
-        <div class="flex items-center justify-between mb-4">
-            <h4 class="font-medium">Edit Assignment</h4>
-            <button type="button"
-                    hx-get="{% url 'gradebook:assignments' assignment.subject.pk %}"
-                    hx-target="#assignments-container"
-                    hx-swap="outerHTML"
-                    class="btn btn-ghost btn-sm btn-circle">
-                <i class="fa-solid fa-times"></i>
-            </button>
-        </div>
+    <div class="flex-1 min-w-0">
+        {% date_input "date" value=assignment_date_str required=True size="sm" %}
+    </div>
+    <div class="flex-1 min-w-0">
+        {% number_input "points_possible" value=assignment.points_possible placeholder="Points" min=1 max=9999 step="0.01" required=True size="sm" %}
+    </div>
 
-        {% if not is_admin %}
-        <!-- Read-only info for teachers -->
-        <div class="mb-3 text-sm">
-            <span class="text-base-content/60">Assignment:</span>
-            <span class="font-medium">{{ assignment.name }}</span>
-            <span class="badge badge-ghost badge-xs ml-1">{{ assignment.assessment_category.short_name }}</span>
-        </div>
-        {% endif %}
-
-        <div class="space-y-3">
-            {% if is_admin %}
-            <div class="grid grid-cols-2 gap-2">
-                <!-- Category -->
-                <div>
-                    {% select_input "category_id" category_options value=selected_category_pk label="Category" required=True size="sm" %}
-                </div>
-
-                <!-- Name -->
-                <div class="form-control">
-                    <label class="label py-0.5">
-                        <span class="label-text text-xs font-medium">Name</span>
-                    </label>
-                    <input type="text"
-                           name="name"
-                           value="{{ assignment.name }}"
-                           class="input input-bordered input-sm w-full"
-                           required>
-                </div>
-            </div>
-            {% endif %}
-
-            <div class="grid grid-cols-2 gap-2">
-                <!-- Date -->
-                <div class="form-control">
-                    <label class="label py-0.5">
-                        <span class="label-text text-xs font-medium">Date</span>
-                    </label>
-                    <input type="date"
-                           name="date"
-                           value="{{ assignment.date|date:'Y-m-d' }}"
-                           class="input input-bordered input-sm w-full"
-                           required>
-                </div>
-
-                <!-- Max Points -->
-                <div class="form-control">
-                    <label class="label py-0.5">
-                        <span class="label-text text-xs font-medium">Marked Over</span>
-                    </label>
-                    <input type="number"
-                           name="points_possible"
-                           value="{{ assignment.points_possible }}"
-                           class="input input-bordered input-sm w-full"
-                           min="1"
-                           max="9999"
-                           step="0.01"
-                           required>
-                </div>
-            </div>
-        </div>
-
-        <div class="flex gap-2 mt-4 pt-3 border-t border-base-300">
-            <button type="button"
-                    hx-get="{% url 'gradebook:assignments' assignment.subject.pk %}"
-                    hx-target="#assignments-container"
-                    hx-swap="outerHTML"
-                    class="btn btn-ghost btn-sm flex-1">
-                Cancel
-            </button>
-            <button type="submit" class="btn btn-primary btn-sm flex-1">
-                <i class="fa-solid fa-check"></i>
-                Save
-            </button>
-        </div>
-    </form>
-</div>
+    <div class="flex gap-1 shrink-0">
+        <button type="submit" class="btn btn-sm btn-primary btn-square min-h-[32px] min-w-[32px]" title="Save">
+            <i class="fa-solid fa-check text-xs"></i>
+        </button>
+        <button type="button"
+                hx-get="{% url 'gradebook:assignments' assignment.subject.pk %}"
+                hx-target="#assignments-container"
+                hx-swap="outerHTML"
+                class="btn btn-sm btn-ghost btn-square min-h-[32px] min-w-[32px]" title="Cancel">
+            <i class="fa-solid fa-times text-xs"></i>
+        </button>
+    </div>
+</form>

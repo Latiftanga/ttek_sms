@@ -728,6 +728,7 @@ def assignment_edit(request, pk):
         'categories': categories,
         'category_options': category_options,
         'selected_category_pk': str(assignment.assessment_category.pk),
+        'assignment_date_str': assignment.date.strftime('%Y-%m-%d') if assignment.date else '',
         'is_admin': is_admin,
     })
 
