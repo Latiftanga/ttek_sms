@@ -5,9 +5,7 @@ import logging
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
-from django_ratelimit.decorators import ratelimit
-
-from .base import admin_required, htmx_render
+from .base import admin_required, htmx_render, ratelimit
 from ..models import GradingSystem, SubjectTermGrade, TermReport
 from .. import config
 from academics.models import Class

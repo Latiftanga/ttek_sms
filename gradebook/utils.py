@@ -709,15 +709,13 @@ def check_transcript_permission(user, student):
     Returns:
         tuple: (has_permission: bool, error_message: str or None)
     """
-    # Import here to avoid circular imports
-    from .views import is_school_admin
+    from core.utils import is_school_admin
 
     if is_school_admin(user):
         return True, None
 
-    if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
-        teacher = user.teacher_profile
-        if student.current_class and student.current_class.class_teacher == teacher:
+    if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile') and user.teacher_profile:
+        if student.current_class and student.current_class.class_teacher == user.teacher_profile:
             return True, None
         return False, 'You can only view transcripts for students in your homeroom class.'
 

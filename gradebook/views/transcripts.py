@@ -220,8 +220,7 @@ def download_transcript_pdf(request, student_id):
         logger.error("WeasyPrint not installed")
         messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
         return redirect('gradebook:transcript', student_id=student_id)
-    except (ValueError, ValidationError, IOError) as e:
-        import traceback
-        logger.error(f"Failed to generate transcript PDF: {str(e)}\n{traceback.format_exc()}")
+    except (ValueError, ValidationError, IOError, OSError, TypeError) as e:
+        logger.error(f"Failed to generate transcript PDF: {e}", exc_info=True)
         messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
         return redirect('gradebook:transcript', student_id=student_id)
