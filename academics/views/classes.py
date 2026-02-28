@@ -737,15 +737,16 @@ def class_student_enroll(request, pk):
         form = StudentEnrollmentForm(request.POST, class_instance=class_obj)
         if form.is_valid():
             students_to_add = form.cleaned_data['students']
-            for student in students_to_add:
-                student.current_class = class_obj
-                student.save()
+            with transaction.atomic():
+                for student in students_to_add:
+                    student.current_class = class_obj
+                    student.save()
 
-                # Auto-enroll in class subjects
-                # SHS: core subjects only | Other levels: all subjects
-                StudentSubjectEnrollment.enroll_student_in_class_subjects(
-                    student, class_obj
-                )
+                    # Auto-enroll in class subjects
+                    # SHS: core subjects only | Other levels: all subjects
+                    StudentSubjectEnrollment.enroll_student_in_class_subjects(
+                        student, class_obj
+                    )
 
             if request.htmx:
                 response = HttpResponse()

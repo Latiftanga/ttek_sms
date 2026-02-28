@@ -861,6 +861,9 @@
                 window._navClickPending = false;
                 var loader = document.getElementById('nav-loader');
                 if (loader) loader.classList.remove('active');
+                console.warn('HTMX send error:', e.detail);
+                e.detail.elt.classList.add('htmx-request-failed');
+                NetworkManager.showRetryToast(e.detail.elt, 'Network error');
             });
 
             document.body.addEventListener('htmx:responseError', function(e) {
@@ -874,13 +877,6 @@
                 window._navClickPending = false;
                 var loader = document.getElementById('nav-loader');
                 if (loader) loader.classList.remove('active');
-            });
-
-            // Handle send errors (network failures)
-            document.body.addEventListener('htmx:sendError', function(e) {
-                console.warn('HTMX send error:', e.detail);
-                e.detail.elt.classList.add('htmx-request-failed');
-                NetworkManager.showRetryToast(e.detail.elt, 'Network error');
             });
 
             // Handle timeout

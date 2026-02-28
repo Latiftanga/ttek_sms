@@ -106,9 +106,9 @@ def index(request):
         'templates': templates,
         'classes_by_level': classes_by_level,
         'stats': {
-            'total_classes': classes.count(),
-            'total_subjects': subjects.count(),
-            'total_programmes': programmes.count(),
+            'total_classes': len(classes),
+            'total_subjects': len(subjects),
+            'total_programmes': len(programmes),
             'total_students': total_students,
             'total_capacity': total_capacity,
             'attendance_rate': attendance_rate,

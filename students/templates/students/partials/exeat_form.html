@@ -34,7 +34,7 @@
           method="post"
           action="{% url 'students:exeat_create' %}"
           class="space-y-4"
-          hx-on:guardianLoaded="var btn=document.querySelector('button[type=submit][form=exeat-form]'); if(btn){btn.disabled=!event.detail.canSubmit; btn.classList.toggle('btn-disabled',!event.detail.canSubmit)}"
+          hx-on:guardianLoaded="var btn=document.querySelector('button[type=submit][form=exeat-form]'); if(btn){btn.disabled=!event.detail.canSubmit; btn.classList.toggle('btn-disabled',!event.detail.canSubmit)}">
         {% csrf_token %}
 
         <!-- Student & Type -->

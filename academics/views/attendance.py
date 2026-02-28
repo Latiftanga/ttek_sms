@@ -6,7 +6,7 @@ from io import BytesIO
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import connection, models, transaction
+from django.db import connection, IntegrityError, models, transaction
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse, JsonResponse
@@ -170,12 +170,20 @@ def class_attendance_take(request, pk):
     target_date = timezone.now().date()  # For now, default to today
 
     # Check if session exists (for daily attendance)
-    session, created = AttendanceSession.objects.get_or_create(
-        class_assigned=class_obj,
-        date=target_date,
-        session_type=AttendanceSession.SessionType.DAILY,
-        defaults={'created_by': teacher}
-    )
+    try:
+        session, created = AttendanceSession.objects.get_or_create(
+            class_assigned=class_obj,
+            date=target_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+            defaults={'created_by': teacher}
+        )
+    except IntegrityError:
+        session = AttendanceSession.objects.get(
+            class_assigned=class_obj,
+            date=target_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        created = False
 
     if request.method == 'POST':
         from django.urls import reverse
@@ -449,17 +457,26 @@ def take_lesson_attendance(request, timetable_entry_id):
     target_date = timezone.now().date()
 
     # Get or create the lesson attendance session
-    session, created = AttendanceSession.objects.get_or_create(
-        class_assigned=class_obj,
-        date=target_date,
-        timetable_entry=entry,
-        session_type=AttendanceSession.SessionType.LESSON,
-        defaults={
-            'created_by': teacher,
-            'period': entry.period,
-            'class_subject': class_subject,
-        }
-    )
+    try:
+        session, created = AttendanceSession.objects.get_or_create(
+            class_assigned=class_obj,
+            date=target_date,
+            timetable_entry=entry,
+            session_type=AttendanceSession.SessionType.LESSON,
+            defaults={
+                'created_by': teacher,
+                'period': entry.period,
+                'class_subject': class_subject,
+            }
+        )
+    except IntegrityError:
+        session = AttendanceSession.objects.get(
+            class_assigned=class_obj,
+            date=target_date,
+            timetable_entry=entry,
+            session_type=AttendanceSession.SessionType.LESSON,
+        )
+        created = False
 
     # Get students for this lesson (considers elective enrollment)
     students = get_students_for_lesson(class_obj, class_subject)
@@ -629,12 +646,18 @@ def attendance_reports(request):
         sessions = sessions.filter(class_assigned_id=class_filter)
         records = records.filter(session__class_assigned_id=class_filter)
 
-    # Calculate summary stats
+    # Calculate summary stats in a single aggregate query
     total_sessions = sessions.count()
-    total_records = records.count()
-    present_count = records.filter(status__in=['P', 'L']).count()
-    absent_count = records.filter(status='A').count()
-    late_count = records.filter(status='L').count()
+    record_agg = records.aggregate(
+        total_records=Count('id'),
+        present_count=Count('id', filter=Q(status__in=['P', 'L'])),
+        absent_count=Count('id', filter=Q(status='A')),
+        late_count=Count('id', filter=Q(status='L')),
+    )
+    total_records = record_agg['total_records'] or 0
+    present_count = record_agg['present_count'] or 0
+    absent_count = record_agg['absent_count'] or 0
+    late_count = record_agg['late_count'] or 0
 
     attendance_rate = 0
     if total_records > 0:

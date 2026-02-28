@@ -2,6 +2,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 from django.db.models import Count, Q
+from django.db.models.deletion import ProtectedError
 
 from core.utils import requires_programmes
 
@@ -106,7 +107,16 @@ def programme_delete(request, pk):
         return HttpResponse(status=405)
 
     programme = get_object_or_404(Programme, pk=pk)
-    programme.delete()
+    try:
+        programme.delete()
+    except ProtectedError:
+        if request.htmx:
+            return HttpResponse(
+                '<div class="alert alert-error"><i class="fa-solid fa-circle-exclamation"></i>'
+                '<span>Cannot delete — this programme still has classes assigned.</span></div>',
+                status=409
+            )
+        return redirect('academics:index')
 
     if request.htmx:
         return render(request, 'academics/partials/programmes_list.html', get_programmes_list_context())
