@@ -9,6 +9,7 @@ from django.db.models import Q, Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.http import HttpResponse
+from django.urls import reverse
 from django.utils import timezone
 
 from core.models import AcademicYear
@@ -512,7 +513,7 @@ def exeat_create(request):
 
             if request.htmx:
                 response = HttpResponse(status=204)
-                response['HX-Redirect'] = f'/students/exeats/{exeat.pk}/'
+                response['HX-Redirect'] = reverse('students:exeat_detail', args=[exeat.pk])
                 return response
             return redirect('students:exeat_detail', pk=exeat.pk)
         else:
@@ -769,7 +770,7 @@ def exeat_approve(request, pk):
 
     if request.htmx:
         response = HttpResponse(status=204)
-        response['HX-Redirect'] = f'/students/exeats/{pk}/'
+        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
         return response
     return redirect('students:exeat_detail', pk=pk)
 
@@ -811,7 +812,7 @@ def exeat_reject(request, pk):
 
     if request.htmx:
         response = HttpResponse(status=204)
-        response['HX-Redirect'] = f'/students/exeats/{pk}/'
+        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
         return response
     return redirect('students:exeat_detail', pk=pk)
 
@@ -846,7 +847,7 @@ def exeat_depart(request, pk):
 
     if request.htmx:
         response = HttpResponse(status=204)
-        response['HX-Redirect'] = f'/students/exeats/{pk}/'
+        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
         return response
     return redirect('students:exeat_detail', pk=pk)
 
@@ -892,7 +893,7 @@ def exeat_return(request, pk):
 
     if request.htmx:
         response = HttpResponse(status=204)
-        response['HX-Redirect'] = f'/students/exeats/{pk}/'
+        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
         return response
     return redirect('students:exeat_detail', pk=pk)
 

@@ -991,9 +991,14 @@
 {{ trend_data|json_script:"trend-data" }}
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        initTrendChart();
-    });
+    // Use IIFE with retry — DOMContentLoaded doesn't fire on HTMX swaps
+    (function tryInitChart() {
+        if (typeof Chart !== 'undefined') {
+            initTrendChart();
+        } else {
+            setTimeout(tryInitChart, 100);
+        }
+    })();
 
     function initTrendChart() {
         const ctx = document.getElementById('attendanceTrendChart');

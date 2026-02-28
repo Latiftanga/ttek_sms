@@ -299,7 +299,7 @@ def student_detail(request, pk):
     else:
         student._cached_primary_guardian = None
     enrollments = student.enrollments.all()  # Uses prefetched data
-    student_guardians = student.get_guardians_with_relationships()
+    student_guardians = student.student_guardians.all()  # Uses prefetched data (guardian already select_related)
 
     breadcrumbs = [
         {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},

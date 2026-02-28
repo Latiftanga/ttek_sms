@@ -870,6 +870,11 @@
                 window._navClickPending = false;
                 var loader = document.getElementById('nav-loader');
                 if (loader) loader.classList.remove('active');
+                // Handle session expiry — redirect to login on 401/403
+                var status = e.detail.xhr ? e.detail.xhr.status : 0;
+                if (status === 401 || status === 403) {
+                    window.location.href = '/accounts/login/?next=' + encodeURIComponent(window.location.pathname);
+                }
             });
 
             // Dismiss on aborted requests (e.g. navigating away mid-request)

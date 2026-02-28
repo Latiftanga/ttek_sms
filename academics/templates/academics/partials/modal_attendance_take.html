@@ -192,9 +192,11 @@ function markAll(status) {
     }
 }
 
-// Add event listeners to all radio buttons
-document.addEventListener('DOMContentLoaded', function() {
+// Add event listeners to all radio buttons (runs immediately — no DOMContentLoaded needed
+// since this script is inline after the form elements in the HTMX partial)
+(function() {
     const form = document.getElementById('attendance-form');
+    if (!form) return;
     form.querySelectorAll('input[type="radio"]').forEach(radio => {
         radio.addEventListener('change', function() {
             updateRowBackground(this);
@@ -206,5 +208,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize progress
     updateProgress();
-});
+})();
 </script>

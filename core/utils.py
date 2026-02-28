@@ -160,12 +160,14 @@ def cache_page_per_tenant(timeout=300):
         def wrapper(request, *args, **kwargs):
             from django.db import connection
 
-            # Build tenant-aware cache key
+            # Build tenant-aware cache key (varies by user role to prevent
+            # admin UI being served from cache to non-admin users)
             schema = getattr(connection, 'schema_name', 'public')
             is_htmx = request.headers.get('HX-Request', '')
             path = request.get_full_path()
+            role = 'admin' if is_school_admin(request.user) else 'staff'
 
-            cache_key = f"page:{schema}:{view_func.__name__}:{path}:htmx={is_htmx}"
+            cache_key = f"page:{schema}:{view_func.__name__}:{path}:htmx={is_htmx}:role={role}"
 
             # Try to get cached response
             cached = cache.get(cache_key)
