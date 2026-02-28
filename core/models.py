@@ -217,6 +217,21 @@ class AcademicYear(models.Model):
         # Invalidate cache when academic year is saved
         cache_key = f'current_academic_year_{connection.schema_name}'
         cache.delete(cache_key)
+        # Purge old score audit logs when switching to a new academic year
+        if self.is_current:
+            self._purge_old_audit_logs()
+
+    def _purge_old_audit_logs(self):
+        """Delete score audit logs older than 6 months."""
+        from datetime import timedelta
+        try:
+            from gradebook.models import ScoreAuditLog
+            cutoff = timezone.now() - timedelta(days=180)
+            deleted, _ = ScoreAuditLog.objects.filter(created_at__lt=cutoff).delete()
+            if deleted:
+                logger.info(f'Purged {deleted} old score audit log(s) for {connection.schema_name}')
+        except Exception as e:
+            logger.warning(f'Failed to purge audit logs: {e}')
 
     @classmethod
     def get_current(cls):

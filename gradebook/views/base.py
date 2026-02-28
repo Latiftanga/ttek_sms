@@ -2,6 +2,7 @@
 import logging
 
 from django.core.cache import cache
+from django.db import connection
 from django.http import JsonResponse
 
 from academics.models import Subject, ClassSubject
@@ -35,10 +36,11 @@ def ratelimit(key='user', rate='100/h', block=True):
                 limit, period_seconds = 100, 3600  # Default: 100/hour
 
             # Build cache key
+            schema = getattr(connection, 'schema_name', 'public')
             if key == 'user' and request.user.is_authenticated:
-                cache_key = f"ratelimit:{view_func.__name__}:user:{request.user.pk}"
+                cache_key = f"ratelimit:{schema}:{view_func.__name__}:user:{request.user.pk}"
             else:
-                cache_key = f"ratelimit:{view_func.__name__}:ip:{get_client_ip(request)}"
+                cache_key = f"ratelimit:{schema}:{view_func.__name__}:ip:{get_client_ip(request)}"
 
             # Atomically create the key if it doesn't exist
             if cache.add(cache_key, 1, period_seconds):
