@@ -84,7 +84,8 @@
                     <div class="space-y-2">
                         {% if can_approve_internal %}
                         <form hx-post="{% url 'students:exeat_approve' exeat.pk %}"
-                              hx-confirm="Approve this internal exeat?">
+                              hx-confirm="Approve this internal exeat?"
+                              hx-disabled-elt="find button">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-success btn-sm w-full">
                                 <i class="fa-solid fa-check"></i> Approve
@@ -94,7 +95,8 @@
 
                         {% if can_recommend %}
                         <form hx-post="{% url 'students:exeat_approve' exeat.pk %}"
-                              hx-confirm="Recommend this exeat for senior housemaster approval?">
+                              hx-confirm="Recommend this exeat for senior housemaster approval?"
+                              hx-disabled-elt="find button">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-info btn-sm w-full">
                                 <i class="fa-solid fa-thumbs-up"></i> Recommend
@@ -104,7 +106,8 @@
 
                         {% if can_approve_external %}
                         <form hx-post="{% url 'students:exeat_approve' exeat.pk %}"
-                              hx-confirm="Give final approval for this external exeat?">
+                              hx-confirm="Give final approval for this external exeat?"
+                              hx-disabled-elt="find button">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-success btn-sm w-full">
                                 <i class="fa-solid fa-check-double"></i> Final Approve
@@ -114,7 +117,8 @@
 
                         {% if can_mark_departed %}
                         <form hx-post="{% url 'students:exeat_depart' exeat.pk %}"
-                              hx-confirm="Mark student as departed?">
+                              hx-confirm="Mark student as departed?"
+                              hx-disabled-elt="find button">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-accent btn-sm w-full">
                                 <i class="fa-solid fa-door-open"></i> Mark Departed
@@ -124,7 +128,8 @@
 
                         {% if can_mark_returned %}
                         <form hx-post="{% url 'students:exeat_return' exeat.pk %}"
-                              hx-confirm="Mark student as returned?">
+                              hx-confirm="Mark student as returned?"
+                              hx-disabled-elt="find button">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-primary btn-sm w-full">
                                 <i class="fa-solid fa-door-closed"></i> Mark Returned

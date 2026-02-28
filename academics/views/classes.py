@@ -740,7 +740,7 @@ def class_student_enroll(request, pk):
             with transaction.atomic():
                 for student in students_to_add:
                     student.current_class = class_obj
-                    student.save()
+                    student.save(update_fields=['current_class', 'updated_at'])
 
                     # Auto-enroll in class subjects
                     # SHS: core subjects only | Other levels: all subjects

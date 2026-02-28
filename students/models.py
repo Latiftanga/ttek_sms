@@ -167,11 +167,15 @@ class StudentGuardian(models.Model):
     def save(self, *args, **kwargs):
         # If this is set as primary, unset other primary guardians for this student
         if self.is_primary:
-            StudentGuardian.objects.filter(
-                student=self.student,
-                is_primary=True
-            ).exclude(pk=self.pk).update(is_primary=False)
-        super().save(*args, **kwargs)
+            from django.db import transaction
+            with transaction.atomic():
+                StudentGuardian.objects.select_for_update().filter(
+                    student=self.student,
+                    is_primary=True,
+                ).exclude(pk=self.pk).update(is_primary=False)
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
 
 class Student(models.Model):

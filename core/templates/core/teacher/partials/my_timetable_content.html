@@ -286,13 +286,13 @@ function showDay(dayNum) {
     });
 }
 
-// Auto-select today's tab on mobile
-document.addEventListener('DOMContentLoaded', function() {
+// Auto-select today's tab on mobile (IIFE — runs on HTMX swap too)
+(function() {
     const today = new Date().getDay();
     // Convert JS day (0=Sun) to Django day (1=Mon)
     const djangoDay = today === 0 ? 5 : today; // Sunday shows Friday
     if (djangoDay >= 1 && djangoDay <= 5) {
         showDay(djangoDay);
     }
-});
+})();
 </script>

@@ -278,7 +278,12 @@ def promotion_process(request):
                     continue
 
                 try:
-                    repeat_class = Class.objects.get(pk=repeat_target_id)
+                    repeat_class = Class.objects.get(
+                        pk=repeat_target_id,
+                        level_type=class_obj.level_type,
+                        level_number=class_obj.level_number,
+                        is_active=True,
+                    )
                 except Class.DoesNotExist:
                     errors.append(f'{student.full_name}: Invalid repeat target class')
                     continue

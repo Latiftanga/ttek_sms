@@ -433,12 +433,12 @@ document.getElementById('modal_sms_feedback')?.addEventListener('show', function
     updateSmsPreview();
 });
 
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
+// Initialize (IIFE — runs on HTMX swap too)
+(function() {
     const textarea = document.getElementById('sms-template-input');
     if (textarea) {
         textarea.value = smsTemplates.basic;
         updateSmsPreview();
     }
-});
+})();
 </script>

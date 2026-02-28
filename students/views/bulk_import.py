@@ -393,6 +393,7 @@ def bulk_import_confirm(request):
                             student=student,
                             academic_year=current_year,
                             class_assigned=student.current_class,
+                            class_name=student.current_class.name,
                             status=Enrollment.Status.ACTIVE,
                         )
                         for student in created_students
