@@ -362,16 +362,22 @@ def calculate_class_grades(request, class_id):
             # ========== PHASE 4: Calculate term reports ==========
 
             # Get or create TermReport objects
+            # Only for students who have at least one subject enrollment
+            students_with_subjects = [
+                s for s in students if student_subject_map.get(s.id)
+            ]
+            student_ids_with_subjects = [s.id for s in students_with_subjects]
+
             existing_reports = {
                 r.student_id: r
                 for r in TermReport.objects.filter(
-                    student_id__in=student_ids,
+                    student_id__in=student_ids_with_subjects,
                     term=current_term
                 )
             }
 
             reports_to_create = []
-            for student in students:
+            for student in students_with_subjects:
                 if student.id not in existing_reports:
                     report = TermReport(student=student, term=current_term)
                     reports_to_create.append(report)
@@ -379,6 +385,15 @@ def calculate_class_grades(request, class_id):
 
             if reports_to_create:
                 TermReport.objects.bulk_create(reports_to_create)
+
+            # Clean up stale reports for students who no longer have any enrollments
+            unenrolled_ids = set(student_ids) - set(student_ids_with_subjects)
+            if unenrolled_ids:
+                TermReport.objects.filter(
+                    student_id__in=unenrolled_ids,
+                    term=current_term,
+                    subjects_taken=0,
+                ).delete()
 
             # Build grade lookup for aggregates
             grades_by_student = defaultdict(list)
@@ -425,7 +440,7 @@ def calculate_class_grades(request, class_id):
             # Calculate aggregates for each report
             reports_to_update = []
 
-            for student in students:
+            for student in students_with_subjects:
                 report = existing_reports[student.id]
                 student_grades = grades_by_student.get(student.id, [])
 
@@ -565,8 +580,9 @@ def calculate_class_grades(request, class_id):
             )
 
             logger.info(
-                f'Calculated grades for {len(students)} students in {class_obj.name} '
+                f'Calculated grades for {len(students_with_subjects)} students in {class_obj.name} '
                 f'using {grading_system.name if grading_system else "default"} grading system'
+                f'{f" ({len(unenrolled_ids)} unenrolled skipped)" if unenrolled_ids else ""}'
             )
 
     except (ValueError, ValidationError, IntegrityError) as e:
@@ -579,7 +595,7 @@ def calculate_class_grades(request, class_id):
         response = HttpResponse(status=204)
         response['HX-Trigger'] = json.dumps({
             'showToast': {
-                'message': f'Grades recalculated for {len(students)} students in {class_obj.name}',
+                'message': f'Grades recalculated for {len(students_with_subjects)} students in {class_obj.name}',
                 'type': 'success',
             },
             'refreshReports': True,
@@ -591,7 +607,7 @@ def calculate_class_grades(request, class_id):
             <i class="fa-solid fa-check-circle"></i>
             <div>
                 <div class="font-bold">Grades Calculated Successfully!</div>
-                <div class="text-sm">{len(students)} students in {class_obj.name} \
+                <div class="text-sm">{len(students_with_subjects)} students in {class_obj.name} \
 using {grading_system.name if grading_system else "default"} grading system</div>
             </div>
             <a href="/gradebook/reports/?class={class_id}" class="btn btn-sm btn-ghost">View Reports</a>
