@@ -7,6 +7,14 @@ from django_tenants.utils import schema_context
 
 logger = logging.getLogger(__name__)
 
+
+def _mask_phone(phone):
+    """Mask phone number for logging, e.g. +233****5678."""
+    if not phone or len(phone) < 6:
+        return '***'
+    return phone[:4] + '****' + phone[-4:]
+
+
 # API endpoints
 ARKESEL_API_URL = "https://sms.arkesel.com/api/v2/sms/send"
 HUBTEL_API_URL = "https://smsc.hubtel.com/v1/messages/send"
@@ -208,7 +216,7 @@ def send_communication_task(self, schema_name, recipient, message, sms_record_id
 
             # Check if SMS is enabled for this school
             if not sms_settings['enabled']:
-                logger.info(f"[SMS DISABLED] SMS not enabled for this school. Message to {recipient} not sent.")
+                logger.info(f"[SMS DISABLED] SMS not enabled. Message to {_mask_phone(recipient)} not sent.")
                 if sms_record:
                     sms_record.mark_failed("SMS not enabled for this school")
                 return {"status": "disabled", "message": "SMS not enabled for this school"}
@@ -223,25 +231,23 @@ def send_communication_task(self, schema_name, recipient, message, sms_record_id
                 if not api_key:
                     raise ValueError("Arkesel API key not configured for this school")
                 response = send_via_arkesel(recipient, message, sender_id=sender_id, api_key=api_key)
-                logger.debug(f"Arkesel SMS sent to {recipient}: {response}")
+                logger.debug(f"Arkesel SMS sent to {_mask_phone(recipient)}")
 
             elif backend == 'hubtel':
                 if not api_key:
                     raise ValueError("Hubtel API key not configured for this school")
                 response = send_via_hubtel(recipient, message, sender_id=sender_id, api_key=api_key)
-                logger.debug(f"Hubtel SMS sent to {recipient}: {response}")
+                logger.debug(f"Hubtel SMS sent to {_mask_phone(recipient)}")
 
             elif backend == 'africastalking':
                 if not api_key:
                     raise ValueError("Africa's Talking API key not configured for this school")
                 response = send_via_africastalking(recipient, message, sender_id=sender_id, api_key=api_key)
-                logger.debug(f"Africa's Talking SMS sent to {recipient}: {response}")
+                logger.debug(f"Africa's Talking SMS sent to {_mask_phone(recipient)}")
 
             else:
                 # Console backend for development
-                logger.info(f"[CONSOLE SMS] To: {recipient}")
-                logger.info(f"[CONSOLE SMS] From: {sender_id}")
-                logger.info(f"[CONSOLE SMS] Message: {message}")
+                logger.info(f"[CONSOLE SMS] To: {_mask_phone(recipient)}, From: {sender_id}")
                 if sms_record:
                     sms_record.mark_sent("Console: logged only")
                 return {"status": "logged", "provider": "console"}

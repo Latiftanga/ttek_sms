@@ -122,7 +122,7 @@ def _send_bulk_sms_to_teachers(teachers, message_text, school_name, user, messag
     failed = 0
 
     if sms_records:
-        SMSMessage.objects.bulk_create(sms_records)
+        SMSMessage.objects.bulk_create(sms_records, batch_size=500)
 
         from .tasks import send_communication_task
         from django.db import connection as db_connection
@@ -186,7 +186,7 @@ def _send_bulk_email_to_teachers(teachers, subject, message_text, school_name, u
     failed = 0
 
     if email_records:
-        EmailMessage.objects.bulk_create(email_records)
+        EmailMessage.objects.bulk_create(email_records, batch_size=500)
 
         from .tasks import send_email_task
         from django.db import connection as db_connection
@@ -248,7 +248,7 @@ def _send_bulk_sms_to_parents(students, message_text, school_name, user):
     failed = 0
 
     if sms_records:
-        SMSMessage.objects.bulk_create(sms_records)
+        SMSMessage.objects.bulk_create(sms_records, batch_size=500)
 
         from .tasks import send_communication_task
         from django.db import connection as db_connection
@@ -312,7 +312,7 @@ def _send_bulk_email_to_parents(students, subject, message_text, school_name, us
     failed = 0
 
     if email_records:
-        EmailMessage.objects.bulk_create(email_records)
+        EmailMessage.objects.bulk_create(email_records, batch_size=500)
 
         from .tasks import send_email_task
         from django.db import connection as db_connection
@@ -374,7 +374,7 @@ def _send_bulk_sms_to_students(students, message_text, school_name, user):
     failed = 0
 
     if sms_records:
-        SMSMessage.objects.bulk_create(sms_records)
+        SMSMessage.objects.bulk_create(sms_records, batch_size=500)
 
         from .tasks import send_communication_task
         from django.db import connection as db_connection
@@ -630,7 +630,7 @@ def notify_absent(request):
         student_sms_map[student.pk] = (sms, phone, message)
 
     # Bulk create all SMS records (single INSERT)
-    SMSMessage.objects.bulk_create(sms_records)
+    SMSMessage.objects.bulk_create(sms_records, batch_size=500)
 
     # Queue Celery tasks directly (don't use send_sms() which creates duplicate records)
     from .tasks import send_communication_task
@@ -1318,16 +1318,10 @@ def announcement_create(request):
 
         if group == 'individual':
             ids = [i.strip() for i in scope_detail.split(',') if i.strip()]
-            teachers = list(Teacher.objects.filter(
-                status=Teacher.Status.ACTIVE, pk__in=ids,
-            ))
+            qs = Teacher.objects.filter(status=Teacher.Status.ACTIVE, pk__in=ids)
             if send_email:
-                for t in teachers:
-                    if not hasattr(t, 'user'):
-                        pass  # user already loaded
-                teachers = list(Teacher.objects.filter(
-                    status=Teacher.Status.ACTIVE, pk__in=ids,
-                ).select_related('user'))
+                qs = qs.select_related('user')
+            teachers = list(qs)
         else:
             teachers = _get_targeted_teachers(group, need_email=send_email)
 

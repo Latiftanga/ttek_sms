@@ -6,6 +6,13 @@ from django.core.exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
 
+def _mask_phone(phone):
+    """Mask phone number for logging, e.g. +233****5678."""
+    if not phone or len(phone) < 6:
+        return '***'
+    return phone[:4] + '****' + phone[-4:]
+
+
 def get_sms_gateway_status():
     """
     Check if SMS gateway is properly configured and enabled.
@@ -194,8 +201,9 @@ def normalize_phone_number(phone):
     if len(phone) == 9 and phone[0] in '235':
         return '+233' + phone
 
-    # Return as-is with + prefix
-    return '+' + phone if not phone.startswith('+') else phone
+    # Reject unrecognized formats
+    logger.debug("Unrecognized phone format: %s***", phone[:4])
+    return None
 
 
 def validate_phone_number(phone):
@@ -298,7 +306,7 @@ def send_sms(to_phone, message, student=None, message_type='general', created_by
         }
 
     except Exception as e:
-        logger.error(f"Failed to queue SMS to {to_phone}: {e}")
+        logger.error(f"Failed to queue SMS to {_mask_phone(to_phone)}: {e}")
         return {'success': False, 'error': str(e)}
 
 
@@ -327,7 +335,7 @@ def send_sms_sync(to_phone, message, sender_id=None, api_key=None):
         sms_settings = get_school_sms_settings()
 
         if not sms_settings['enabled']:
-            logger.info(f"[SMS DISABLED] Message to {validated_phone} not sent")
+            logger.info(f"[SMS DISABLED] Message to {_mask_phone(validated_phone)} not sent")
             return {'success': False, 'error': 'SMS not enabled for this school'}
 
         backend = sms_settings['backend']
@@ -354,9 +362,9 @@ def send_sms_sync(to_phone, message, sender_id=None, api_key=None):
 
         else:
             # Console backend
-            logger.info(f"[CONSOLE SMS] To: {validated_phone}, From: {sender}, Message: {message}")
+            logger.info(f"[CONSOLE SMS] To: {_mask_phone(validated_phone)}, From: {sender}")
             return {'success': True, 'response': 'logged', 'provider': 'console'}
 
     except Exception as e:
-        logger.error(f"SMS send error to {to_phone}: {e}")
+        logger.error(f"SMS send error to {_mask_phone(to_phone)}: {e}")
         return {'success': False, 'error': str(e)}
