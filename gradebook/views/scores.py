@@ -334,22 +334,22 @@ def score_save(request):
         student = Student.objects.select_related('current_class').get(pk=student_id)
     except Student.DoesNotExist:
         return _build_error_response(
-            message="Student not found",
+            message="Invalid request",
             student_id=student_id,
             assignment_id=assignment_id,
-            error_code='student_not_found',
-            hint="The student may have been removed"
+            error_code='invalid_request',
+            hint="Please refresh the page and try again"
         )
 
     try:
         assignment = Assignment.objects.select_related('term', 'subject').get(pk=assignment_id)
     except Assignment.DoesNotExist:
         return _build_error_response(
-            message="Assignment not found",
+            message="Invalid request",
             student_id=student_id,
             assignment_id=assignment_id,
-            error_code='assignment_not_found',
-            hint="The assignment may have been deleted"
+            error_code='invalid_request',
+            hint="Please refresh the page and try again"
         )
 
     # Early check for authorization (before transaction)

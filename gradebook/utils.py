@@ -300,13 +300,51 @@ def get_all_categories_assessment_status(subject, term):
     - message: human-readable status message
     - weight_per_assignment: the weight each assignment carries
     """
-    categories = AssessmentCategory.objects.filter(is_active=True).order_by('order')
-    results = []
+    categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
 
+    # Single query: count assignments per category for this subject/term
+    counts_qs = Assignment.objects.filter(
+        assessment_category__in=categories,
+        subject=subject,
+        term=term,
+    ).values('assessment_category_id').annotate(count=Count('id'))
+    counts_by_cat = {row['assessment_category_id']: row['count'] for row in counts_qs}
+
+    results = []
     for category in categories:
-        status = category.get_assessment_status(subject, term)
-        status['category'] = category
-        status['weight_per_assignment'] = float(category.get_weight_per_assignment(subject, term))
+        count = counts_by_cat.get(category.id, 0)
+
+        # Build status dict
+        status = {
+            'count': count,
+            'expected': category.expected_assessments,
+            'min': category.min_assessments,
+            'max': category.max_assessments,
+            'status': 'ok',
+            'message': '',
+            'category': category,
+        }
+
+        if category.min_assessments > 0 and count < category.min_assessments:
+            status['status'] = 'below_min'
+            status['message'] = f'Requires at least {category.min_assessments} assessment(s), has {count}'
+        elif category.max_assessments > 0 and count > category.max_assessments:
+            status['status'] = 'above_max'
+            status['message'] = f'Maximum {category.max_assessments} assessment(s) allowed, has {count}'
+        elif category.expected_assessments > 0:
+            if count < category.expected_assessments:
+                status['status'] = 'below_expected'
+                status['message'] = f'Expected {category.expected_assessments}, has {count}'
+            elif count > category.expected_assessments:
+                status['status'] = 'above_expected'
+                status['message'] = f'Expected {category.expected_assessments}, has {count}'
+
+        # Weight per assignment
+        if count > 0:
+            status['weight_per_assignment'] = float(Decimal(str(category.percentage)) / Decimal(str(count)))
+        else:
+            status['weight_per_assignment'] = 0.0
+
         results.append(status)
 
     return results
@@ -778,7 +816,7 @@ def build_academic_history(term_reports, grades_by_term, include_all_grades=Fals
         total_subjects_passed += report.subjects_passed or 0
         total_credits += report.credits_count or 0
 
-        if report.average:
+        if report.average is not None:
             cumulative_score_sum += float(report.average)
             term_count += 1
 

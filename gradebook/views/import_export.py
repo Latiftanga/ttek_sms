@@ -1,3 +1,5 @@
+import zipfile
+
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
@@ -177,7 +179,7 @@ def score_import_upload(request, class_id, subject_id):
 
     try:
         wb = openpyxl.load_workbook(file, read_only=True)
-    except Exception:
+    except (openpyxl.utils.exceptions.InvalidFileException, KeyError, ValueError, zipfile.BadZipFile):
         return render(request, 'gradebook/partials/import_error.html', {
             'error': 'Could not read the Excel file. Please ensure it is a valid .xlsx file.'
         })
@@ -284,8 +286,8 @@ def score_import_upload(request, class_id, subject_id):
             'has_errors': len(errors) > 0,
         })
 
-    except Exception:
-        logger.exception("Error parsing import file")
+    except (KeyError, IndexError, TypeError, ValueError, InvalidOperation) as e:
+        logger.exception("Error parsing import file: %s", e)
         return render(request, 'gradebook/partials/import_error.html', {
             'error': 'Error reading file. Please ensure it is a valid score import template.'
         })
