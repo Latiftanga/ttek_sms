@@ -85,7 +85,8 @@
     <button class="btn btn-primary"
             hx-post="{% url 'gradebook:import_confirm' class_obj.pk subject.pk %}"
             hx-target="#import-container"
-            hx-swap="innerHTML">
+            hx-swap="innerHTML"
+            hx-disabled-elt="this">
         <i class="fa-solid fa-check"></i>
         Import {{ total_scores }} Score(s)
     </button>

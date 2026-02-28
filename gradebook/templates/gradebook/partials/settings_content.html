@@ -87,7 +87,7 @@
                         </button>
                         <button class="btn btn-ghost btn-sm btn-square text-error"
                                 hx-post="{% url 'gradebook:category_delete' cat.pk %}"
-                                hx-confirm="Delete {{ cat.name }}? This will affect all assignments in this category.">
+                                hx-confirm="Delete {{ cat.name }}?{% if cat.assignment_count %} This will permanently delete {{ cat.assignment_count }} assignment{{ cat.assignment_count|pluralize }} and all their scores.{% endif %}">
                             <i class="fa-solid fa-trash text-xs"></i>
                         </button>
                     </div>

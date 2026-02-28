@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.db import models
+from django.db.models import Count
 
 from .base import admin_required, htmx_render
 from ..models import (
@@ -23,7 +24,9 @@ def _safe_int(value, default=0):
 def gradebook_settings(request):
     """Gradebook settings - grading systems and categories (Admin only)."""
     grading_systems = GradingSystem.objects.prefetch_related('scales')
-    categories = AssessmentCategory.objects.order_by('order')
+    categories = AssessmentCategory.objects.annotate(
+        assignment_count=Count('assignments')
+    ).order_by('order')
 
     # Check if percentages sum to 100
     total_percentage = sum(c.percentage for c in categories if c.is_active)
