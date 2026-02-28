@@ -777,7 +777,7 @@ def class_student_remove(request, class_pk, student_pk):
         is_active=True,
     ).update(is_active=False)
     student.current_class = None
-    student.save()
+    student.save(update_fields=['current_class', 'updated_at'])
 
     if request.htmx:
         # Return updated register tab content

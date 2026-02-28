@@ -3958,7 +3958,7 @@ def enroll_student(request, class_id):
 
     # Enroll student in the class
     student.current_class = class_obj
-    student.save()
+    student.save(update_fields=['current_class', 'updated_at'])
 
     # Auto-enroll in core subjects
     StudentSubjectEnrollment.enroll_student_in_core_subjects(student, class_obj, enrolled_by=teacher)
@@ -4005,7 +4005,7 @@ def remove_student(request, class_id, student_id):
 
     # Remove from class
     student.current_class = None
-    student.save()
+    student.save(update_fields=['current_class', 'updated_at'])
 
     # Return success response with refresh trigger
     response = HttpResponse(status=204)
