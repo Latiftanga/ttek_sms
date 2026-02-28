@@ -114,15 +114,6 @@ class Command(BaseCommand):
             if not students:
                 continue
 
-            # Get existing active enrollments
-            active_existing = set(
-                StudentSubjectEnrollment.objects.filter(
-                    student__in=students,
-                    class_subject__in=class_subjects,
-                    is_active=True,
-                ).values_list('student_id', 'class_subject_id')
-            )
-
             # Reactivate inactive enrollments
             inactive_to_reactivate = StudentSubjectEnrollment.objects.filter(
                 student__in=students,

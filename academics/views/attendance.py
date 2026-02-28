@@ -171,7 +171,7 @@ def class_attendance_take(request, pk):
 
     # Check if session exists (for daily attendance)
     try:
-        session, created = AttendanceSession.objects.get_or_create(
+        session, _created = AttendanceSession.objects.get_or_create(
             class_assigned=class_obj,
             date=target_date,
             session_type=AttendanceSession.SessionType.DAILY,
@@ -183,7 +183,6 @@ def class_attendance_take(request, pk):
             date=target_date,
             session_type=AttendanceSession.SessionType.DAILY,
         )
-        created = False
 
     if request.method == 'POST':
         from django.urls import reverse
