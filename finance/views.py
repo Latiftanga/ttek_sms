@@ -807,10 +807,11 @@ def payment_record(request):
     if request.method == 'POST':
         form = PaymentForm(request.POST)
         if form.is_valid():
-            payment = form.save(commit=False)
-            payment.received_by = request.user
-            payment.status = 'COMPLETED'
-            payment.save()
+            with transaction.atomic():
+                payment = form.save(commit=False)
+                payment.received_by = request.user
+                payment.status = 'COMPLETED'
+                payment.save()
             messages.success(request, f'Payment recorded successfully. Receipt: {payment.receipt_number}')
             return redirect('finance:payments')
     else:
@@ -1747,31 +1748,37 @@ def payment_callback(request):
     adapter = get_gateway_adapter(gateway_config)
     response = adapter.verify_payment(reference)
 
-    if response.success:
-        # Update payment
-        payment.status = 'COMPLETED'
-        payment.transaction_date = timezone.now()
-        payment.save()
+    # Atomically update payment to prevent double-processing
+    with transaction.atomic():
+        payment = Payment.objects.select_for_update().get(pk=payment.pk)
 
-        # Update gateway transaction
-        gateway_tx.gateway_transaction_id = response.transaction_id
-        gateway_tx.gateway_fee = response.gateway_fee
-        gateway_tx.net_amount = response.amount - response.gateway_fee
-        gateway_tx.full_response = response.raw_response
-        gateway_tx.save()
+        # Re-check status under lock
+        if payment.status == 'COMPLETED':
+            messages.success(request, 'Payment was successful!')
+            return redirect('finance:payment_detail', pk=payment.pk)
 
-        # Invoice totals are updated automatically via Payment.save()
-        messages.success(request, f'Payment successful! Receipt: {payment.receipt_number}')
-        return redirect('finance:payment_detail', pk=payment.pk)
-    else:
-        payment.status = 'FAILED'
-        payment.save()
+        if response.success:
+            payment.status = 'COMPLETED'
+            payment.transaction_date = timezone.now()
+            payment.save()
 
-        gateway_tx.full_response = response.raw_response
-        gateway_tx.save()
+            gateway_tx.gateway_transaction_id = response.transaction_id
+            gateway_tx.gateway_fee = response.gateway_fee
+            gateway_tx.net_amount = response.amount - response.gateway_fee
+            gateway_tx.full_response = response.raw_response
+            gateway_tx.save()
 
-        messages.error(request, f'Payment verification failed: {response.message}')
-        return redirect('finance:invoice_detail', pk=payment.invoice.pk)
+            messages.success(request, f'Payment successful! Receipt: {payment.receipt_number}')
+            return redirect('finance:payment_detail', pk=payment.pk)
+        else:
+            payment.status = 'FAILED'
+            payment.save()
+
+            gateway_tx.full_response = response.raw_response
+            gateway_tx.save()
+
+            messages.error(request, f'Payment verification failed: {response.message}')
+            return redirect('finance:invoice_detail', pk=payment.invoice.pk)
 
 
 @csrf_exempt
@@ -1820,7 +1827,7 @@ def payment_webhook(request):
         logger.warning(f"Payment webhook for unknown reference: {reference[:20]}...")
         return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
-    # Skip if already processed
+    # Skip if already processed (quick check before signature verification)
     if payment.status == 'COMPLETED':
         return JsonResponse({'status': 'success', 'message': 'Already processed'})
 
@@ -1837,24 +1844,30 @@ def payment_webhook(request):
         logger.warning(f"Payment webhook signature verification failed for {reference[:20]}...")
         return JsonResponse({'status': 'error', 'message': 'Signature verification failed'}, status=403)
 
-    # Signature verified - now store webhook data
-    gateway_tx.callback_data = payload
-    gateway_tx.save()
+    # Atomically update payment to prevent double-processing from concurrent webhooks
+    with transaction.atomic():
+        payment = Payment.objects.select_for_update().get(pk=payment.pk)
 
-    if response.success:
-        # Payment successful
-        payment.status = 'COMPLETED'
-        payment.transaction_date = timezone.now()
-        payment.save()
+        # Re-check status under lock
+        if payment.status == 'COMPLETED':
+            return JsonResponse({'status': 'success', 'message': 'Already processed'})
 
-        gateway_tx.gateway_transaction_id = response.transaction_id
-        gateway_tx.gateway_fee = response.gateway_fee
-        gateway_tx.net_amount = response.amount - response.gateway_fee
+        gateway_tx.callback_data = payload
         gateway_tx.save()
 
-        logger.info(f"Payment {reference[:20]}... confirmed via webhook")
-        return JsonResponse({'status': 'success', 'message': 'Payment confirmed'})
-    else:
+        if response.success:
+            payment.status = 'COMPLETED'
+            payment.transaction_date = timezone.now()
+            payment.save()
+
+            gateway_tx.gateway_transaction_id = response.transaction_id
+            gateway_tx.gateway_fee = response.gateway_fee
+            gateway_tx.net_amount = response.amount - response.gateway_fee
+            gateway_tx.save()
+
+            logger.info(f"Payment {reference[:20]}... confirmed via webhook")
+            return JsonResponse({'status': 'success', 'message': 'Payment confirmed'})
+
         # Payment failed (but webhook signature was valid)
         payment.status = 'FAILED'
         payment.save()
