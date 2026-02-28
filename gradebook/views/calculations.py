@@ -91,9 +91,9 @@ def calculate_class_grades(request, class_id):
         with signals_disabled(), transaction.atomic():
             # ========== PHASE 1: Bulk prefetch all data ==========
 
-            # Get students
+            # Get active students only (inactive/withdrawn should not affect ranking)
             students = list(Student.objects.filter(
-                current_class=class_obj
+                current_class=class_obj, status='active'
             ).order_by('last_name', 'first_name'))
 
             if not students:
@@ -511,26 +511,32 @@ def calculate_class_grades(request, class_id):
             for report in reports_to_update:
                 report.out_of = ranked_count
 
-            # SHS uses aggregate (lower is better), Basic uses average (higher is better)
-            if grading_system and grading_system.level == 'SHS':
-                ranked_reports.sort(
-                    key=lambda r: (r.aggregate is None, r.aggregate or 999, -(r.average or 0))
-                )
-            else:
-                ranked_reports.sort(key=lambda r: -(r.average or 0))
+            # Always rank by average (higher is better) for all class levels.
+            # Aggregate is still calculated for SHS report cards but not used for positioning.
+            ranked_reports.sort(
+                key=lambda r: -(r.average if r.average is not None else Decimal('0'))
+            )
 
             position = 0
             last_value = None
             for i, report in enumerate(ranked_reports, 1):
-                if grading_system and grading_system.level == 'SHS':
-                    current_value = report.aggregate
-                else:
-                    current_value = report.average
+                # Round to 2dp for safe comparison (avoids Decimal precision artifacts)
+                current_value = round(report.average, 2) if report.average is not None else None
 
                 if current_value != last_value:
                     position = i
                 report.position = position
                 last_value = current_value
+
+            # Log position assignments for debugging
+            if ranked_reports:
+                logger.info(
+                    f'Position assignments for {class_obj.name}: ' +
+                    ', '.join(
+                        f'{r.student_id}:avg={r.average}/pos={r.position}'
+                        for r in ranked_reports
+                    )
+                )
 
             # Unranked students get no position
             for report in unranked_reports:
