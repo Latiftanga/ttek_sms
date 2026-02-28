@@ -110,7 +110,7 @@ def analytics_class_data(request, class_id):
     subject_performance = calculate_subject_performance(subject_grades, pass_mark=pass_mark)
 
     # Get grade distribution
-    grade_distribution = calculate_grade_distribution(subject_grades)
+    grade_distribution = calculate_grade_distribution(subject_grades, grading_system=grading_system)
 
     # Get top performers
     top_performers = term_reports[:config.TOP_PERFORMERS_LIMIT] if term_reports else []
@@ -238,15 +238,22 @@ def analytics_term_comparison(request):
         academic_year=current_term.academic_year
     ).order_by('term_number')
 
-    term_data = []
-    for term in terms:
-        stats = TermReport.objects.filter(term=term).aggregate(
+    # Single grouped query instead of one per term
+    term_stats = {
+        row['term_id']: row
+        for row in TermReport.objects.filter(
+            term__in=terms
+        ).values('term_id').annotate(
             avg_score=Avg('average'),
             total_students=Count('id'),
             passed=Count('id', filter=Q(subjects_failed=0)),
         )
+    }
 
-        if stats['total_students'] > 0:
+    term_data = []
+    for term in terms:
+        stats = term_stats.get(term.pk)
+        if stats and stats['total_students'] > 0:
             term_data.append({
                 'term': term,
                 'average': round(stats['avg_score'] or 0, 1),
