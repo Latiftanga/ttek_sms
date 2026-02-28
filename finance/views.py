@@ -1891,12 +1891,18 @@ def notification_center(request):
     today = timezone.now().date()
 
     # Get invoices with balance
+    from django.db.models import Prefetch
     invoices = Invoice.objects.filter(
         balance__gt=0,
         status__in=['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']
     ).select_related(
         'student', 'student__current_class', 'academic_year', 'term'
-    ).prefetch_related('notification_logs').order_by('student__last_name', 'student__first_name')
+    ).prefetch_related(
+        Prefetch(
+            'notification_logs',
+            queryset=FinanceNotificationLog.objects.order_by('-created_at'),
+        )
+    ).order_by('student__last_name', 'student__first_name')
 
     # Apply filters
     status_filter = request.GET.get('status', '')

@@ -251,6 +251,19 @@ class PaymentForm(forms.ModelForm):
             status__in=['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']
         ).select_related('student').order_by('-created_at')
 
+    def clean(self):
+        cleaned_data = super().clean()
+        invoice = cleaned_data.get('invoice')
+        amount = cleaned_data.get('amount')
+
+        if invoice and amount and amount > invoice.balance:
+            self.add_error(
+                'amount',
+                f'Payment of {amount} exceeds outstanding balance of {invoice.balance}.'
+            )
+
+        return cleaned_data
+
 
 class GatewayConfigForm(forms.ModelForm):
     """Form for configuring payment gateways."""
