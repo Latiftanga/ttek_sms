@@ -247,6 +247,18 @@ def send_invoice_notification(self, invoice_id, notification_type, distribution_
         results = {'email': None, 'sms': None}
         context = build_invoice_context(invoice)
 
+        # Warn if no contact info available for the requested distribution type
+        if distribution_type in ('EMAIL', 'BOTH') and not guardian_email:
+            logger.warning(f"No guardian email for student {student.full_name} (invoice {invoice_id})")
+            log.email_status = 'FAILED'
+            log.email_error = 'No guardian email address available'
+            results['email'] = 'skipped: no email'
+        if distribution_type in ('SMS', 'BOTH') and not guardian_phone:
+            logger.warning(f"No guardian phone for student {student.full_name} (invoice {invoice_id})")
+            log.sms_status = 'FAILED'
+            log.sms_error = 'No guardian phone number available'
+            results['sms'] = 'skipped: no phone'
+
         # Send Email
         if distribution_type in ('EMAIL', 'BOTH') and guardian_email:
             try:
@@ -394,14 +406,21 @@ def send_bulk_notifications(self, notification_type, distribution_type, tenant_s
             status__in=['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']
         ).select_related('student', 'student__current_class')
 
-        # Apply filters
+        # Apply filters (only allow known safe keys)
+        ALLOWED_STATUSES = {'ISSUED', 'PARTIALLY_PAID', 'OVERDUE'}
         if filters:
-            if filters.get('status'):
-                invoices = invoices.filter(status=filters['status'])
-            if filters.get('class_id'):
-                invoices = invoices.filter(student__current_class_id=filters['class_id'])
-            if filters.get('student_ids'):
-                invoices = invoices.filter(student_id__in=filters['student_ids'])
+            status = filters.get('status')
+            if status and status in ALLOWED_STATUSES:
+                invoices = invoices.filter(status=status)
+            class_id = filters.get('class_id')
+            if class_id:
+                try:
+                    invoices = invoices.filter(student__current_class_id=int(class_id))
+                except (ValueError, TypeError):
+                    pass
+            student_ids = filters.get('student_ids')
+            if student_ids and isinstance(student_ids, list):
+                invoices = invoices.filter(student_id__in=student_ids)
 
         # Queue individual tasks (limit batch size to prevent queue flooding)
         MAX_BATCH = 500

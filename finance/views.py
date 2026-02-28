@@ -593,13 +593,27 @@ def create_student_invoice(student, academic_year, term, due_date, created_by):
             is_active=True
         ).select_related('scholarship')
 
+        # Build per-category subtotals for category-specific scholarships
+        category_subtotals = {}
+        for structure in applicable_structures:
+            cat = structure.category
+            category_subtotals[cat] = category_subtotals.get(cat, Decimal('0.00')) + structure.amount
+
         for ss in student_scholarships:
             scholarship = ss.scholarship
+            # Determine the base amount this scholarship applies to
+            if scholarship.applies_to_categories:
+                applicable_amount = sum(
+                    category_subtotals.get(cat, Decimal('0.00'))
+                    for cat in scholarship.applies_to_categories
+                )
+            else:
+                applicable_amount = subtotal
+
             if scholarship.discount_type == 'FULL':
-                discount = subtotal
-                break
+                discount += applicable_amount
             elif scholarship.discount_type == 'PERCENTAGE':
-                discount += subtotal * (scholarship.discount_value / 100)
+                discount += applicable_amount * (scholarship.discount_value / Decimal('100'))
             elif scholarship.discount_type == 'FIXED':
                 discount += scholarship.discount_value
 
@@ -617,7 +631,9 @@ def create_student_invoice(student, academic_year, term, due_date, created_by):
 def invoice_detail(request, pk):
     """View invoice details."""
     invoice = get_object_or_404(
-        Invoice.objects.select_related('student', 'academic_year', 'term', 'created_by'),
+        Invoice.objects.select_related(
+            'student', 'academic_year', 'term', 'created_by'
+        ).prefetch_related('items', 'payments'),
         pk=pk
     )
 
@@ -683,6 +699,18 @@ def invoice_cancel(request, pk):
     if invoice.status == 'PAID':
         messages.error(request, 'Cannot cancel a paid invoice.')
         return redirect('finance:invoice_detail', pk=pk)
+
+    # Check for completed payments — can't cancel with payments made
+    completed_payments = invoice.payments.filter(status='COMPLETED').exists()
+    if completed_payments:
+        messages.error(
+            request,
+            'Cannot cancel an invoice with completed payments. Refund payments first.'
+        )
+        return redirect('finance:invoice_detail', pk=pk)
+
+    # Cancel any pending payments associated with this invoice
+    invoice.payments.filter(status='PENDING').update(status='CANCELLED')
 
     invoice.status = 'CANCELLED'
     invoice.save()
@@ -1507,7 +1535,9 @@ def student_search(request):
         class_name = escape(student.current_class.name) if student.current_class else 'No class'
         name = escape(student.full_name)
         adm = escape(student.admission_number)
-        html += f'''<li><a onclick="selectStudent('{student.pk}', '{name}')" class="text-sm">
+        # Use data attributes instead of inline JS to avoid XSS via quotes in names
+        html += f'''<li><a data-student-id="{student.pk}" data-student-name="{name}"
+            onclick="selectStudent(this.dataset.studentId, this.dataset.studentName)" class="text-sm">
             <span class="font-medium">{name}</span>
             <span class="text-xs text-base-content/60">{adm} • {class_name}</span>
         </a></li>'''
@@ -1541,7 +1571,11 @@ def invoice_search(request):
         balance = f"{invoice.balance:.2f}"
         inv_num = escape(invoice.invoice_number)
         name = escape(invoice.student.full_name)
-        html += f'''<li><a onclick="selectInvoice('{invoice.pk}', '{inv_num}', '{name}', '{balance}')" class="text-sm py-2">
+        # Use data attributes instead of inline JS to avoid XSS via quotes in names
+        html += f'''<li><a data-invoice-id="{invoice.pk}" data-invoice-num="{inv_num}"
+            data-student-name="{name}" data-balance="{balance}"
+            onclick="selectInvoice(this.dataset.invoiceId, this.dataset.invoiceNum, this.dataset.studentName, this.dataset.balance)"
+            class="text-sm py-2">
             <div class="flex flex-col">
                 <span class="font-medium">{inv_num}</span>
                 <span class="text-xs text-base-content/60">{name} • Balance: GHS {balance}</span>
