@@ -50,7 +50,6 @@ urlpatterns = [
     path('classes/<int:pk>/promote/', views.class_promote, name='class_promote'),
     path('classes/<int:pk>/export/', views.class_export, name='class_export'),
     path('classes/<int:pk>/pdf/', views.class_detail_pdf, name='class_detail_pdf'),
-    path('classes/<int:pk>/sync-subjects/', views.class_sync_subjects, name='class_sync_subjects'),
 
     # Attendance reports
     path('attendance/', views.attendance_reports, name='attendance_reports'),

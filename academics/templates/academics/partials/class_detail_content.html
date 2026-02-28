@@ -112,20 +112,6 @@
                             <i class="fa-solid fa-gear w-4"></i> Class Settings
                         </button>
                     </li>
-                    <li>
-                        <a href="{% url 'students:promotion' %}"
-                           hx-get="{% url 'students:promotion' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true">
-                            <i class="fa-solid fa-arrow-up-right-dots w-4 text-success"></i> Promote Classes
-                        </a>
-                    </li>
-                    <li>
-                        <button hx-post="{% url 'academics:class_sync_subjects' class.pk %}"
-                                hx-confirm="Sync subject enrollments for all students in this class? This will enroll students in all auto-enroll subjects.">
-                            <i class="fa-solid fa-rotate w-4 text-info"></i> Sync Enrollments
-                        </button>
-                    </li>
                     <li class="menu-title text-xs mt-2">Export</li>
                     <li>
                         <a href="{% url 'academics:class_export' class.pk %}">
