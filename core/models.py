@@ -418,6 +418,12 @@ class SchoolSettings(models.Model):
         default=False,
         help_text="Enable SMS messaging for this school"
     )
+    sms_webhook_secret = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text="Secret token for SMS delivery webhook verification"
+    )
 
     # Email Configuration
     EMAIL_BACKEND_CHOICES = [
@@ -486,6 +492,14 @@ class SchoolSettings(models.Model):
         help_text="When setup was completed"
     )
 
+    def get_or_create_webhook_secret(self):
+        """Generate and persist a webhook secret if one doesn't exist."""
+        if not self.sms_webhook_secret:
+            import secrets
+            self.sms_webhook_secret = secrets.token_urlsafe(32)
+            self.save(update_fields=['sms_webhook_secret'])
+        return self.sms_webhook_secret
+
     @property
     def period_label(self):
         """Return 'Term' or 'Semester' based on setting."""
@@ -545,6 +559,8 @@ class DocumentVerification(models.Model):
         TRANSCRIPT = 'transcript', _('Transcript')
         STUDENT_PROFILE = 'student_profile', _('Student Profile')
         STAFF_PROFILE = 'staff_profile', _('Staff Profile')
+        INVOICE = 'invoice', _('Invoice')
+        RECEIPT = 'receipt', _('Receipt')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     verification_code = models.CharField(

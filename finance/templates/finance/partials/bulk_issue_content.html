@@ -1,0 +1,119 @@
+<h3 class="text-lg font-bold mb-2">Issue Draft Invoices</h3>
+<p class="text-sm text-base-content/60 mb-4">
+    {{ draft_count }} draft invoice{{ draft_count|pluralize }} ready to issue.
+</p>
+
+{% if draft_count == 0 %}
+<div class="alert alert-info py-3 text-sm">
+    <i class="fa-solid fa-info-circle"></i>
+    <span>No draft invoices to issue.</span>
+</div>
+<div class="modal-action">
+    <button type="button" class="btn" onclick="this.closest('dialog').close()">Close</button>
+</div>
+{% else %}
+<form method="post"
+      action="{% url 'finance:invoice_bulk_issue' %}"
+      hx-post="{% url 'finance:invoice_bulk_issue' %}"
+      hx-target="#main-content">
+    {% csrf_token %}
+
+    <div x-data="{ scope: 'all' }" class="space-y-4">
+        <!-- Scope Selection -->
+        <div class="space-y-2">
+            <label class="label text-sm font-medium">Issue invoices for:</label>
+
+            <label class="flex items-center gap-3 p-3 rounded-lg border border-base-200 cursor-pointer hover:bg-base-200/50 transition"
+                   :class="scope === 'all' && 'border-primary bg-primary/5'">
+                <input type="radio" name="scope" value="all" class="radio radio-primary radio-sm"
+                       x-model="scope" checked />
+                <div>
+                    <span class="font-medium text-sm">All Students</span>
+                    <span class="badge badge-ghost badge-sm ml-2">{{ draft_count }}</span>
+                    <p class="text-xs text-base-content/60">Issue all draft invoices</p>
+                </div>
+            </label>
+
+            <label class="flex items-center gap-3 p-3 rounded-lg border border-base-200 cursor-pointer hover:bg-base-200/50 transition"
+                   :class="scope === 'class' && 'border-primary bg-primary/5'">
+                <input type="radio" name="scope" value="class" class="radio radio-primary radio-sm"
+                       x-model="scope" />
+                <div>
+                    <span class="font-medium text-sm">By Class</span>
+                    <p class="text-xs text-base-content/60">Issue drafts for a specific class</p>
+                </div>
+            </label>
+
+            <label class="flex items-center gap-3 p-3 rounded-lg border border-base-200 cursor-pointer hover:bg-base-200/50 transition"
+                   :class="scope === 'student' && 'border-primary bg-primary/5'">
+                <input type="radio" name="scope" value="student" class="radio radio-primary radio-sm"
+                       x-model="scope" />
+                <div>
+                    <span class="font-medium text-sm">Individual Student</span>
+                    <p class="text-xs text-base-content/60">Issue drafts for one student</p>
+                </div>
+            </label>
+        </div>
+
+        <!-- Class Selector -->
+        <div x-show="scope === 'class'" x-cloak>
+            <select name="class_id" class="select select-bordered select-sm w-full">
+                <option value="">Select a class...</option>
+                {% for cls in classes %}
+                <option value="{{ cls.pk }}">{{ cls.name }} ({{ cls.draft_count }} draft{{ cls.draft_count|pluralize }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Student Search -->
+        <div x-show="scope === 'student'" x-cloak hx-disinherit="*">
+            <div class="relative">
+                <input type="text"
+                       id="bulk-student-search"
+                       name="q"
+                       placeholder="Search by name or admission #..."
+                       class="input input-bordered input-sm w-full"
+                       hx-get="{% url 'finance:student_search' %}"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-target="#bulk-student-results"
+                       hx-swap="innerHTML"
+                       autocomplete="off" />
+                <input type="hidden" name="student_id" id="bulk-student-id" value="">
+                <div id="bulk-student-results" class="relative"></div>
+            </div>
+            <div id="bulk-selected-student" class="mt-2 hidden">
+                <span class="badge badge-primary gap-2">
+                    <span id="bulk-selected-student-name"></span>
+                    <button type="button" onclick="clearBulkStudent()" class="btn btn-ghost btn-xs btn-circle">
+                        <i class="fa-solid fa-times text-xs"></i>
+                    </button>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-action">
+        <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-paper-plane"></i>
+            Issue Invoices
+        </button>
+    </div>
+</form>
+
+<script>
+function selectStudent(id, name) {
+    document.getElementById('bulk-student-id').value = id;
+    document.getElementById('bulk-student-search').value = '';
+    document.getElementById('bulk-selected-student-name').textContent = name;
+    document.getElementById('bulk-selected-student').classList.remove('hidden');
+    document.getElementById('bulk-student-results').innerHTML = '';
+}
+
+function clearBulkStudent() {
+    document.getElementById('bulk-student-id').value = '';
+    document.getElementById('bulk-selected-student').classList.add('hidden');
+    document.getElementById('bulk-selected-student-name').textContent = '';
+}
+</script>
+{% endif %}

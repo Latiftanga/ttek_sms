@@ -206,9 +206,7 @@ class PaymentForm(forms.ModelForm):
             'reference', 'transaction_date', 'notes'
         ]
         widgets = {
-            'invoice': forms.Select(attrs={
-                'class': 'select select-bordered w-full'
-            }),
+            'invoice': forms.HiddenInput(),
             'amount': forms.NumberInput(attrs={
                 'class': 'input input-bordered w-full',
                 'placeholder': '0.00',

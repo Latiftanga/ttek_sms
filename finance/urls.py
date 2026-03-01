@@ -28,6 +28,7 @@ urlpatterns = [
     path('invoices/<uuid:pk>/edit/', views.invoice_edit, name='invoice_edit'),
     path('invoices/<uuid:pk>/cancel/', views.invoice_cancel, name='invoice_cancel'),
     path('invoices/<uuid:pk>/print/', views.invoice_print, name='invoice_print'),
+    path('invoices/bulk-issue/', views.invoice_bulk_issue, name='invoice_bulk_issue'),
 
     # Payments
     path('payments/', views.payments, name='payments'),

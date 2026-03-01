@@ -21,11 +21,25 @@
         </label>
         <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50">
             <li>
+                {% if has_fee_structures %}
                 <button hx-get="{% url 'finance:invoice_generate' %}"
                         hx-target="#invoice-modal-content"
                         hx-swap="innerHTML"
                         onclick="document.getElementById('invoice-modal').showModal()">
                     <i class="fa-solid fa-plus text-primary"></i> Generate Invoices
+                </button>
+                {% else %}
+                <span class="text-base-content/40 cursor-not-allowed">
+                    <i class="fa-solid fa-plus text-base-content/30"></i> Generate Invoices
+                </span>
+                {% endif %}
+            </li>
+            <li>
+                <button hx-get="{% url 'finance:invoice_bulk_issue' %}"
+                        hx-target="#bulk-issue-modal-content"
+                        hx-swap="innerHTML"
+                        onclick="document.getElementById('bulk-issue-modal').showModal()">
+                    <i class="fa-solid fa-paper-plane text-info"></i> Issue Drafts
                 </button>
             </li>
             <li>
@@ -50,6 +64,37 @@
         <button>close</button>
     </form>
 </dialog>
+
+<!-- Bulk Issue Modal -->
+<dialog id="bulk-issue-modal" class="modal">
+    <div class="modal-box max-w-md">
+        <div id="bulk-issue-modal-content">
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+{% if not has_fee_structures %}
+<div class="alert alert-warning mb-4 py-3">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <div class="flex-1">
+        <h3 class="font-bold text-sm">No Fee Structures Defined</h3>
+        <p class="text-xs">Create fee structures for the current academic year before generating invoices.</p>
+    </div>
+    <a href="{% url 'finance:fee_structures' %}"
+       hx-get="{% url 'finance:fee_structures' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-sm btn-warning">
+        Set Up Fees
+    </a>
+</div>
+{% endif %}
 
 <!-- Stats Cards -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -266,6 +311,7 @@
                             <i class="fa-solid fa-file-invoice text-base-content/30 text-2xl"></i>
                         </div>
                         <h3 class="font-semibold text-base-content/70">No Invoices Found</h3>
+                        {% if has_fee_structures %}
                         <p class="text-sm text-base-content/50 mb-4">Generate invoices for students to get started</p>
                         <button hx-get="{% url 'finance:invoice_generate' %}"
                                 hx-target="#invoice-modal-content"
@@ -275,6 +321,17 @@
                             <i class="fa-solid fa-plus"></i>
                             Generate First Invoice
                         </button>
+                        {% else %}
+                        <p class="text-sm text-base-content/50 mb-4">You need to create fee structures before generating invoices</p>
+                        <a href="{% url 'finance:fee_structures' %}"
+                           hx-get="{% url 'finance:fee_structures' %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-money-bill-wave"></i>
+                            Set Up Fee Structures
+                        </a>
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>

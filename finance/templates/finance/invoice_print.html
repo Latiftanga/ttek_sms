@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice {{ invoice.invoice_number }}</title>
     <style>
+        @page {
+            size: A4;
+            margin: 15mm 15mm 20mm 15mm;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,55 +16,60 @@
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 14px;
+            font-size: 11px;
             color: #333;
             background: #fff;
-            padding: 20px;
         }
-        .invoice-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 30px;
-            border: 1px solid #ddd;
-        }
+
+        /* Header */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            border-bottom: 3px solid #333;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+        }
+        .school-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .school-logo {
+            width: 55px;
+            height: 55px;
+            object-fit: contain;
         }
         .school-info h1 {
-            font-size: 24px;
+            font-size: 18px;
             color: #333;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
         }
         .school-info p {
-            font-size: 12px;
+            font-size: 9px;
             color: #666;
         }
         .invoice-title {
             text-align: right;
         }
         .invoice-title h2 {
-            font-size: 28px;
+            font-size: 22px;
             color: #333;
             text-transform: uppercase;
         }
         .invoice-number {
-            font-size: 16px;
+            font-size: 13px;
             color: #666;
-            margin-top: 5px;
+            margin-top: 3px;
         }
         .status-badge {
             display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
-            margin-top: 10px;
+            margin-top: 5px;
         }
         .status-PAID { background: #d4edda; color: #155724; }
         .status-ISSUED { background: #cce5ff; color: #004085; }
@@ -69,36 +78,41 @@
         .status-DRAFT { background: #e2e3e5; color: #383d41; }
         .status-CANCELLED { background: #f5f5f5; color: #999; }
 
+        /* Details Grid */
         .details-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .detail-section {
+            width: 48%;
         }
         .detail-section h3 {
-            font-size: 12px;
+            font-size: 9px;
             color: #666;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
             border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
+            padding-bottom: 3px;
         }
         .detail-section p {
-            margin-bottom: 3px;
+            margin-bottom: 2px;
+            font-size: 11px;
         }
         .detail-section .name {
             font-weight: bold;
-            font-size: 16px;
+            font-size: 13px;
         }
 
+        /* Table */
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
+            margin-bottom: 15px;
         }
         th, td {
-            padding: 12px;
+            padding: 7px 10px;
             text-align: left;
             border-bottom: 1px solid #ddd;
         }
@@ -106,27 +120,27 @@
             background: #f5f5f5;
             font-weight: 600;
             text-transform: uppercase;
-            font-size: 12px;
+            font-size: 9px;
             letter-spacing: 0.5px;
         }
-        td.amount {
+        td { font-size: 11px; }
+        td.amount, th.amount {
             text-align: right;
             font-family: 'Courier New', monospace;
         }
-        th.amount {
-            text-align: right;
-        }
 
+        /* Totals */
         .totals {
             display: flex;
             justify-content: flex-end;
-            margin-bottom: 30px;
+            margin-bottom: 15px;
         }
         .totals-table {
-            width: 300px;
+            width: 250px;
         }
         .totals-table tr td {
-            padding: 8px 12px;
+            padding: 5px 10px;
+            font-size: 11px;
         }
         .totals-table tr td:last-child {
             text-align: right;
@@ -135,165 +149,192 @@
         .totals-table tr.total {
             background: #f5f5f5;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 13px;
         }
         .totals-table tr.balance {
             background: #333;
             color: #fff;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 14px;
         }
 
+        /* Notes */
+        .notes {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 3px;
+            margin-bottom: 15px;
+        }
+        .notes h4 {
+            font-size: 9px;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 3px;
+        }
+        .notes p { font-size: 10px; }
+
+        /* Verification */
+        .verification-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px dashed #ccc;
+        }
+        .qr-cell img {
+            width: 50px;
+            height: 50px;
+        }
+        .verification-info .title {
+            font-weight: bold;
+            font-size: 9px;
+            text-transform: uppercase;
+            color: #333;
+        }
+        .verification-info .code {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            margin: 2px 0;
+        }
+        .verification-info .hint {
+            font-size: 8px;
+            color: #999;
+        }
+
+        /* Footer */
         .footer {
             text-align: center;
             border-top: 1px solid #ddd;
-            padding-top: 20px;
+            padding-top: 10px;
             color: #666;
-            font-size: 12px;
+            font-size: 9px;
         }
         .footer p {
-            margin-bottom: 5px;
-        }
-
-        .notes {
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 30px;
-        }
-        .notes h4 {
-            font-size: 12px;
-            text-transform: uppercase;
-            color: #666;
-            margin-bottom: 5px;
-        }
-
-        @media print {
-            body {
-                padding: 0;
-            }
-            .invoice-container {
-                border: none;
-                padding: 0;
-            }
-            .no-print {
-                display: none;
-            }
+            margin-bottom: 3px;
         }
     </style>
 </head>
 <body>
-    <div class="invoice-container">
-        <!-- Header -->
-        <div class="header">
-            <div class="school-info">
+    <!-- Header -->
+    <div class="header">
+        <div class="school-info">
+            {% if logo_base64 %}
+            <img src="{{ logo_base64 }}" class="school-logo" alt="">
+            {% endif %}
+            <div>
                 <h1>{{ school.name|default:"School Name" }}</h1>
                 <p>{{ school.address|default:"School Address" }}</p>
                 <p>{{ school.phone|default:"Phone" }} | {{ school.email|default:"Email" }}</p>
             </div>
-            <div class="invoice-title">
-                <h2>Invoice</h2>
-                <div class="invoice-number">#{{ invoice.invoice_number }}</div>
-                <span class="status-badge status-{{ invoice.status }}">{{ invoice.get_status_display }}</span>
-            </div>
         </div>
-
-        <!-- Details Grid -->
-        <div class="details-grid">
-            <div class="detail-section">
-                <h3>Bill To</h3>
-                <p class="name">{{ invoice.student.full_name }}</p>
-                <p>{{ invoice.student.admission_number }}</p>
-                <p>{{ invoice.student.current_class.name|default:"-" }}</p>
-                {% if invoice.student.guardian_name %}
-                <p>Guardian: {{ invoice.student.guardian_name }}</p>
-                {% endif %}
-            </div>
-            <div class="detail-section">
-                <h3>Invoice Details</h3>
-                <p><strong>Academic Year:</strong> {{ invoice.academic_year.name }}</p>
-                <p><strong>Term:</strong> {{ invoice.term.name }}</p>
-                <p><strong>Issue Date:</strong> {{ invoice.issue_date|date:"M d, Y" }}</p>
-                <p><strong>Due Date:</strong> {{ invoice.due_date|date:"M d, Y" }}</p>
-            </div>
-        </div>
-
-        <!-- Line Items -->
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 50%">Description</th>
-                    <th>Category</th>
-                    <th class="amount">Amount (GHS)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td>{{ item.description }}</td>
-                    <td>{{ item.get_category_display }}</td>
-                    <td class="amount">{{ item.amount|floatformat:2 }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="3" style="text-align: center; color: #999;">No items</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        <!-- Totals -->
-        <div class="totals">
-            <table class="totals-table">
-                <tr>
-                    <td>Subtotal</td>
-                    <td>GHS {{ invoice.subtotal|floatformat:2 }}</td>
-                </tr>
-                {% if invoice.discount %}
-                <tr>
-                    <td>Discount</td>
-                    <td>- GHS {{ invoice.discount|floatformat:2 }}</td>
-                </tr>
-                {% endif %}
-                <tr class="total">
-                    <td>Total</td>
-                    <td>GHS {{ invoice.total_amount|floatformat:2 }}</td>
-                </tr>
-                <tr>
-                    <td>Amount Paid</td>
-                    <td>GHS {{ invoice.amount_paid|floatformat:2 }}</td>
-                </tr>
-                <tr class="balance">
-                    <td>Balance Due</td>
-                    <td>GHS {{ invoice.balance|floatformat:2 }}</td>
-                </tr>
-            </table>
-        </div>
-
-        <!-- Notes -->
-        {% if invoice.notes %}
-        <div class="notes">
-            <h4>Notes</h4>
-            <p>{{ invoice.notes }}</p>
-        </div>
-        {% endif %}
-
-        <!-- Footer -->
-        <div class="footer">
-            <p>Thank you for your payment</p>
-            <p>Please retain this invoice for your records</p>
-            <p style="margin-top: 10px; font-size: 10px;">Generated on {% now "M d, Y H:i" %}</p>
+        <div class="invoice-title">
+            <h2>Invoice</h2>
+            <div class="invoice-number">#{{ invoice.invoice_number }}</div>
+            <span class="status-badge status-{{ invoice.status }}">{{ invoice.get_status_display }}</span>
         </div>
     </div>
 
-    <!-- Print Button -->
-    <div style="text-align: center; margin-top: 20px;" class="no-print">
-        <button onclick="window.print()" style="padding: 10px 30px; font-size: 16px; cursor: pointer; background: #333; color: #fff; border: none; border-radius: 5px;">
-            Print Invoice
-        </button>
-        <button onclick="window.close()" style="padding: 10px 30px; font-size: 16px; cursor: pointer; background: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 5px; margin-left: 10px;">
-            Close
-        </button>
+    <!-- Details Grid -->
+    <div class="details-grid">
+        <div class="detail-section">
+            <h3>Bill To</h3>
+            <p class="name">{{ invoice.student.full_name }}</p>
+            <p>{{ invoice.student.admission_number }}</p>
+            <p>{{ invoice.student.current_class.name|default:"-" }}</p>
+            {% if invoice.student.guardian_name %}
+            <p>Guardian: {{ invoice.student.guardian_name }}</p>
+            {% endif %}
+        </div>
+        <div class="detail-section">
+            <h3>Invoice Details</h3>
+            <p><strong>Academic Year:</strong> {{ invoice.academic_year.name }}</p>
+            <p><strong>Term:</strong> {{ invoice.term.name }}</p>
+            <p><strong>Issue Date:</strong> {{ invoice.issue_date|date:"M d, Y" }}</p>
+            <p><strong>Due Date:</strong> {{ invoice.due_date|date:"M d, Y" }}</p>
+        </div>
+    </div>
+
+    <!-- Line Items -->
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 50%">Description</th>
+                <th>Category</th>
+                <th class="amount">Amount (GHS)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.description }}</td>
+                <td>{{ item.get_category_display }}</td>
+                <td class="amount">{{ item.amount|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" style="text-align: center; color: #999;">No items</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Totals -->
+    <div class="totals">
+        <table class="totals-table">
+            <tr>
+                <td>Subtotal</td>
+                <td>GHS {{ invoice.subtotal|floatformat:2 }}</td>
+            </tr>
+            {% if invoice.discount %}
+            <tr>
+                <td>Discount</td>
+                <td>- GHS {{ invoice.discount|floatformat:2 }}</td>
+            </tr>
+            {% endif %}
+            <tr class="total">
+                <td>Total</td>
+                <td>GHS {{ invoice.total_amount|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Amount Paid</td>
+                <td>GHS {{ invoice.amount_paid|floatformat:2 }}</td>
+            </tr>
+            <tr class="balance">
+                <td>Balance Due</td>
+                <td>GHS {{ invoice.balance|floatformat:2 }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Notes -->
+    {% if invoice.notes %}
+    <div class="notes">
+        <h4>Notes</h4>
+        <p>{{ invoice.notes }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Verification -->
+    {% if qr_code_base64 and verification %}
+    <div class="verification-section">
+        <div class="qr-cell">
+            <img src="{{ qr_code_base64 }}" alt="QR">
+        </div>
+        <div class="verification-info">
+            <div class="title">Document Verification</div>
+            <div class="code">{{ verification.verification_code }}</div>
+            <div class="hint">Scan QR code or visit /verify/{{ verification.verification_code }}/ to verify</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Thank you for your payment</p>
+        <p>Please retain this invoice for your records</p>
+        <p style="margin-top: 5px; font-size: 8px;">Generated on {% now "M d, Y H:i" %}</p>
     </div>
 </body>
 </html>

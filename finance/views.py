@@ -393,10 +393,12 @@ def scholarship_assign(request, pk):
 # INVOICES
 # =============================================================================
 
-@admin_required
-def invoices(request):
-    """List all invoices with filtering."""
+def _build_invoices_context(request):
+    """Build the context dict for the invoices list page."""
     current_year = AcademicYear.get_current()
+    has_fee_structures = FeeStructure.objects.filter(
+        academic_year=current_year, is_active=True
+    ).exists() if current_year else False
 
     invoices_list = Invoice.objects.select_related(
         'student', 'academic_year', 'term'
@@ -439,13 +441,15 @@ def invoices(request):
     paid_count = all_invoices.filter(status='PAID').count()
     pending_count = all_invoices.filter(status__in=['ISSUED', 'PARTIALLY_PAID']).count()
     overdue_count = all_invoices.filter(status='OVERDUE').count()
+    draft_count = all_invoices.filter(status='DRAFT').count()
 
-    context = {
+    return {
         'invoices': invoices_page,
         'page_obj': invoices_page,
         'paginator': paginator,
         'per_page': per_page,
         'current_year': current_year,
+        'has_fee_structures': has_fee_structures,
         'status_choices': Invoice.STATUS_CHOICES,
         'classes': Class.objects.filter(is_active=True),
         'status_filter': status_filter,
@@ -455,6 +459,7 @@ def invoices(request):
         'paid_count': paid_count,
         'pending_count': pending_count,
         'overdue_count': overdue_count,
+        'draft_count': draft_count,
         # Navigation
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
@@ -463,6 +468,12 @@ def invoices(request):
         ],
         'back_url': '/finance/',
     }
+
+
+@admin_required
+def invoices(request):
+    """List all invoices with filtering."""
+    context = _build_invoices_context(request)
 
     return htmx_render(
         request,
@@ -495,10 +506,36 @@ def invoice_generate(request):
                     status='active'
                 )
             else:
+                if request.htmx:
+                    response = HttpResponse(status=204)
+                    response['HX-Trigger'] = json.dumps({
+                        'showToast': {'message': 'Please select a class or student.', 'type': 'error'}
+                    })
+                    return response
                 messages.error(request, 'Please select a class or student.')
                 return redirect('finance:invoice_generate')
 
+            # Check if fee structures exist before looping
+            fee_structure_count = FeeStructure.objects.filter(
+                academic_year=current_year,
+                is_active=True,
+            ).filter(
+                Q(term=term) | Q(term__isnull=True)
+            ).count()
+
+            if fee_structure_count == 0:
+                err = 'No active fee structures found for this academic year and term. Please create fee structures first.'
+                if request.htmx:
+                    response = HttpResponse(status=204)
+                    response['HX-Trigger'] = json.dumps({
+                        'showToast': {'message': err, 'type': 'error'},
+                    })
+                    return response
+                messages.error(request, err)
+                return redirect('finance:invoice_generate')
+
             invoices_created = 0
+            notified_students = []
             for student in students:
                 invoice = create_student_invoice(
                     student=student,
@@ -509,8 +546,42 @@ def invoice_generate(request):
                 )
                 if invoice:
                     invoices_created += 1
+                    notified_students.append(student)
 
-            messages.success(request, f'{invoices_created} invoice(s) generated successfully.')
+            # Bell notifications for guardians
+            if notified_students:
+                from core.notifications import notify_guardian
+                for s in notified_students:
+                    notify_guardian(
+                        s,
+                        title='New Invoice Generated',
+                        message=f'A new fee invoice has been generated for {s.full_name}.',
+                        category='finance',
+                        notification_type='info',
+                        icon='fa-solid fa-file-invoice-dollar',
+                        link=reverse('finance:fee_payments'),
+                    )
+
+            if invoices_created == 0:
+                msg = 'No new invoices generated. Students may already have invoices for this term, or no fee structures match their class.'
+                toast_type = 'warning'
+            else:
+                msg = f'{invoices_created} invoice(s) generated successfully.'
+                toast_type = 'success'
+            if request.htmx:
+                invoices_ctx = _build_invoices_context(request)
+                response = render(
+                    request,
+                    'finance/partials/invoices_content.html',
+                    invoices_ctx,
+                )
+                response['HX-Trigger'] = json.dumps({
+                    'closeModal': True,
+                    'showToast': {'message': msg, 'type': toast_type},
+                })
+                response['HX-Push-Url'] = reverse('finance:invoices')
+                return response
+            messages.success(request, msg)
             return redirect('finance:invoices')
     else:
         form = InvoiceGenerateForm(initial={
@@ -693,6 +764,48 @@ def invoice_edit(request, pk):
 
 
 @admin_required
+def invoice_bulk_issue(request):
+    """Issue draft invoices with optional filters."""
+    if request.method == 'POST':
+        scope = request.POST.get('scope', 'all')
+        drafts = Invoice.objects.filter(status='DRAFT')
+
+        if scope == 'class':
+            class_id = request.POST.get('class_id')
+            if class_id:
+                drafts = drafts.filter(student__current_class_id=class_id)
+        elif scope == 'student':
+            student_id = request.POST.get('student_id')
+            if student_id:
+                drafts = drafts.filter(student_id=student_id)
+
+        updated = drafts.update(
+            status='ISSUED',
+            issue_date=timezone.now().date(),
+        )
+        messages.success(request, f'{updated} invoice{"s" if updated != 1 else ""} issued successfully.')
+        return redirect('finance:invoices')
+
+    # GET: render the modal content
+    draft_count = Invoice.objects.filter(status='DRAFT').count()
+    classes = Class.objects.filter(is_active=True).order_by('name')
+    # Count drafts per class
+    class_draft_counts = dict(
+        Invoice.objects.filter(status='DRAFT')
+        .values_list('student__current_class_id')
+        .annotate(count=Count('id'))
+        .values_list('student__current_class_id', 'count')
+    )
+    for cls in classes:
+        cls.draft_count = class_draft_counts.get(cls.pk, 0)
+
+    return render(request, 'finance/partials/bulk_issue_content.html', {
+        'draft_count': draft_count,
+        'classes': classes,
+    })
+
+
+@admin_required
 def invoice_cancel(request, pk):
     """Cancel an invoice."""
     if request.method != 'POST':
@@ -729,18 +842,74 @@ def invoice_cancel(request, pk):
 
 @admin_required
 def invoice_print(request, pk):
-    """Print-friendly invoice view."""
+    """Generate invoice PDF using WeasyPrint."""
     invoice = get_object_or_404(
         Invoice.objects.select_related('student', 'academic_year', 'term'),
         pk=pk
     )
 
+    school = connection.tenant
+
+    # Encode logo as base64 for PDF
+    logo_base64 = None
+    try:
+        from gradebook.utils import encode_logo_base64
+        if school and school.logo:
+            logo_base64 = encode_logo_base64(school.logo, connection.schema_name)
+    except Exception:
+        logger.debug("Could not encode logo for invoice %s", pk)
+
+    # Create verification record and generate QR code
+    from core.models import DocumentVerification
+    from core.utils import generate_verification_qr
+    verification = None
+    qr_code_base64 = None
+    try:
+        verification = DocumentVerification.create_for_document(
+            document_type=DocumentVerification.DocumentType.INVOICE,
+            student=invoice.student,
+            title=f"Invoice #{invoice.invoice_number}",
+            user=request.user,
+            term=invoice.term,
+            academic_year=invoice.academic_year.name if invoice.academic_year else '',
+        )
+        qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
+    except Exception:
+        logger.warning("Could not create verification record for invoice %s", pk)
+
     context = {
         'invoice': invoice,
         'items': invoice.items.all(),
+        'school': school,
+        'logo_base64': logo_base64,
+        'verification': verification,
+        'qr_code_base64': qr_code_base64,
     }
 
-    return render(request, 'finance/invoice_print.html', context)
+    try:
+        from weasyprint import HTML
+        from django.template.loader import render_to_string
+        from django.conf import settings as django_settings
+        from io import BytesIO
+
+        html_string = render_to_string('finance/invoice_print.html', context)
+        html = HTML(string=html_string, base_url=str(django_settings.BASE_DIR))
+        pdf_buffer = BytesIO()
+        html.write_pdf(pdf_buffer)
+        pdf_buffer.seek(0)
+
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="invoice_{invoice.invoice_number}.pdf"'
+        return response
+
+    except ImportError:
+        logger.error("WeasyPrint not installed")
+        messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
+        return redirect('finance:invoice_detail', pk=pk)
+    except Exception as e:
+        logger.error("Failed to generate invoice PDF: %s", e, exc_info=True)
+        messages.error(request, 'Failed to generate PDF. Please try again.')
+        return redirect('finance:invoice_detail', pk=pk)
 
 
 # =============================================================================
@@ -844,6 +1013,20 @@ def payment_record(request):
                 payment.received_by = request.user
                 payment.status = 'COMPLETED'
                 payment.save()
+
+            # Bell notification for guardian
+            if payment.invoice and payment.invoice.student:
+                from core.notifications import notify_guardian
+                student = payment.invoice.student
+                notify_guardian(
+                    student,
+                    title='Payment Confirmed',
+                    message=f'Payment of {payment.amount} received for {student.full_name}.',
+                    category='finance',
+                    notification_type='success',
+                    icon='fa-solid fa-circle-check',
+                )
+
             messages.success(request, f'Payment recorded successfully. Receipt: {payment.receipt_number}')
             return redirect('finance:payments')
     else:
@@ -880,17 +1063,73 @@ def payment_detail(request, pk):
 
 @admin_required
 def payment_receipt(request, pk):
-    """Print-friendly payment receipt."""
+    """Generate payment receipt PDF using WeasyPrint."""
     payment = get_object_or_404(
-        Payment.objects.select_related('invoice__student', 'received_by'),
+        Payment.objects.select_related('invoice__student', 'invoice__academic_year', 'invoice__term', 'received_by'),
         pk=pk
     )
 
+    school = connection.tenant
+
+    # Encode logo as base64 for PDF
+    logo_base64 = None
+    try:
+        from gradebook.utils import encode_logo_base64
+        if school and school.logo:
+            logo_base64 = encode_logo_base64(school.logo, connection.schema_name)
+    except Exception:
+        logger.debug("Could not encode logo for receipt %s", pk)
+
+    # Create verification record and generate QR code
+    from core.models import DocumentVerification
+    from core.utils import generate_verification_qr
+    verification = None
+    qr_code_base64 = None
+    try:
+        verification = DocumentVerification.create_for_document(
+            document_type=DocumentVerification.DocumentType.RECEIPT,
+            student=payment.invoice.student,
+            title=f"Receipt #{payment.receipt_number}",
+            user=request.user,
+            term=payment.invoice.term,
+            academic_year=payment.invoice.academic_year.name if payment.invoice.academic_year else '',
+        )
+        qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
+    except Exception:
+        logger.warning("Could not create verification record for receipt %s", pk)
+
     context = {
         'payment': payment,
+        'school': school,
+        'logo_base64': logo_base64,
+        'verification': verification,
+        'qr_code_base64': qr_code_base64,
     }
 
-    return render(request, 'finance/payment_receipt.html', context)
+    try:
+        from weasyprint import HTML
+        from django.template.loader import render_to_string
+        from django.conf import settings as django_settings
+        from io import BytesIO
+
+        html_string = render_to_string('finance/payment_receipt.html', context)
+        html = HTML(string=html_string, base_url=str(django_settings.BASE_DIR))
+        pdf_buffer = BytesIO()
+        html.write_pdf(pdf_buffer)
+        pdf_buffer.seek(0)
+
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="receipt_{payment.receipt_number}.pdf"'
+        return response
+
+    except ImportError:
+        logger.error("WeasyPrint not installed")
+        messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
+        return redirect('finance:payment_detail', pk=pk)
+    except Exception as e:
+        logger.error("Failed to generate receipt PDF: %s", e, exc_info=True)
+        messages.error(request, 'Failed to generate PDF. Please try again.')
+        return redirect('finance:payment_detail', pk=pk)
 
 
 # =============================================================================
@@ -1558,9 +1797,9 @@ def invoice_search(request):
     if len(q) < 2:
         return HttpResponse('')
 
+    payable_statuses = {'ISSUED', 'PARTIALLY_PAID', 'OVERDUE'}
+
     invoices = Invoice.objects.filter(
-        status__in=['ISSUED', 'PARTIALLY_PAID', 'OVERDUE']
-    ).filter(
         Q(invoice_number__icontains=q) |
         Q(student__first_name__icontains=q) |
         Q(student__last_name__icontains=q) |
@@ -1568,23 +1807,41 @@ def invoice_search(request):
     ).select_related('student')[:10]
 
     if not invoices:
-        return HttpResponse('<div class="p-2 text-sm text-base-content/60">No pending invoices found</div>')
+        return HttpResponse('<div class="p-2 text-sm text-base-content/60">No invoices found</div>')
 
     html = '<ul class="menu bg-base-100 shadow-lg rounded-box absolute z-50 w-full mt-1 max-h-48 overflow-y-auto">'
     for invoice in invoices:
         balance = f"{invoice.balance:.2f}"
         inv_num = escape(invoice.invoice_number)
         name = escape(invoice.student.full_name)
-        # Use data attributes instead of inline JS to avoid XSS via quotes in names
-        html += f'''<li><a data-invoice-id="{invoice.pk}" data-invoice-num="{inv_num}"
-            data-student-name="{name}" data-balance="{balance}"
-            onclick="selectInvoice(this.dataset.invoiceId, this.dataset.invoiceNum, this.dataset.studentName, this.dataset.balance)"
-            class="text-sm py-2">
-            <div class="flex flex-col">
-                <span class="font-medium">{inv_num}</span>
-                <span class="text-xs text-base-content/60">{name} • Balance: GHS {balance}</span>
-            </div>
-        </a></li>'''
+        status_label = escape(invoice.get_status_display())
+        payable = invoice.status in payable_statuses
+
+        if payable:
+            html += f'''<li><a data-invoice-id="{invoice.pk}" data-invoice-num="{inv_num}"
+                data-student-name="{name}" data-balance="{balance}"
+                onclick="selectInvoice(this.dataset.invoiceId, this.dataset.invoiceNum, this.dataset.studentName, this.dataset.balance)"
+                class="text-sm py-2">
+                <div class="flex flex-col">
+                    <span class="font-medium">{inv_num}</span>
+                    <span class="text-xs text-base-content/60">{name} • Balance: GHS {balance}</span>
+                </div>
+            </a></li>'''
+        else:
+            if invoice.status == 'DRAFT':
+                hint = 'issue invoice first'
+            elif invoice.status == 'PAID':
+                hint = 'fully paid'
+            elif invoice.status == 'CANCELLED':
+                hint = 'cancelled'
+            else:
+                hint = status_label.lower()
+            html += f'''<li class="disabled"><span class="text-sm py-2 opacity-50 cursor-not-allowed">
+                <div class="flex flex-col">
+                    <span class="font-medium">{inv_num}</span>
+                    <span class="text-xs text-error">{name} • {hint}</span>
+                </div>
+            </span></li>'''
     html += '</ul>'
 
     return HttpResponse(html)
@@ -1902,6 +2159,19 @@ def payment_webhook(request):
             gateway_tx.gateway_fee = Decimal(str(response.gateway_fee or 0))
             gateway_tx.net_amount = Decimal(str(response.amount or 0)) - gateway_tx.gateway_fee
             gateway_tx.save()
+
+            # Bell notification for guardian
+            if payment.invoice and payment.invoice.student:
+                from core.notifications import notify_guardian
+                student = payment.invoice.student
+                notify_guardian(
+                    student,
+                    title='Payment Confirmed',
+                    message=f'Payment of {payment.amount} received for {student.full_name}.',
+                    category='finance',
+                    notification_type='success',
+                    icon='fa-solid fa-circle-check',
+                )
 
             logger.info(f"Payment {reference[:20]}... confirmed via webhook")
             return JsonResponse({'status': 'success', 'message': 'Payment confirmed'})
