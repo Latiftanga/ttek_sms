@@ -1,3 +1,4 @@
+import logging
 import json
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
@@ -5,7 +6,7 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncDate
 from django.contrib import messages
@@ -13,10 +14,12 @@ from django.core.paginator import Paginator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils.html import escape
+from core.email_backend import get_from_email
 from core.utils import cache_page_per_tenant, admin_required, htmx_render
 
 from .models import (
-    PaymentGateway, PaymentGatewayConfig, FeeStructure, CATEGORY_CHOICES,
+    PaymentGateway, PaymentGatewayConfig, PaymentGatewayTransaction,
+    FeeStructure, CATEGORY_CHOICES,
     Scholarship, StudentScholarship, Invoice, InvoiceItem, Payment
 )
 from .forms import (
@@ -27,6 +30,7 @@ from students.models import Student
 from academics.models import Class
 from core.models import AcademicYear, Term
 
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -2249,3 +2253,496 @@ def notification_history(request):
         'finance/partials/notification_history_content.html',
         context
     )
+
+
+# =============================================================================
+# GUARDIAN / PARENT PAYMENT VIEWS
+# =============================================================================
+
+@login_required
+def fee_payments(request):
+    """Guardian view for viewing fee payments for their wards."""
+    from students.models import StudentGuardian
+
+    user = request.user
+    guardian = getattr(user, 'guardian_profile', None)
+    current_year = AcademicYear.get_current()
+    current_term = Term.get_current()
+
+    # Check if online payments are available
+    online_payments_enabled = PaymentGatewayConfig.objects.filter(
+        is_active=True,
+        is_primary=True,
+        verification_status='VERIFIED'
+    ).exists()
+
+    # Get selected ward filter from query params
+    selected_ward_id = request.GET.get('ward')
+
+    wards_fees = []
+    all_invoices = []
+    all_payments = []
+    total_outstanding = 0
+
+    if guardian:
+        student_guardians = StudentGuardian.objects.filter(
+            guardian=guardian
+        ).select_related('student', 'student__current_class')
+
+        ward_students = []
+        ward_sgs = []
+        for sg in student_guardians:
+            if sg.student.status == 'active':
+                ward_students.append(sg.student)
+                ward_sgs.append(sg)
+
+        ward_ids = [s.id for s in ward_students]
+
+        # Batch-fetch invoice aggregates for all wards
+        year_filter = {'academic_year': current_year} if current_year else {}
+        invoice_aggregates = {}
+        if ward_ids:
+            for row in Invoice.objects.filter(
+                student_id__in=ward_ids, **year_filter
+            ).exclude(status='CANCELLED').values('student_id').annotate(
+                total_fees=Sum('total_amount'),
+                total_paid=Sum('amount_paid'),
+                total_balance=Sum('balance')
+            ):
+                invoice_aggregates[row['student_id']] = row
+
+        # Batch-fetch recent payments grouped by student
+        payments_by_student = {}
+        if ward_ids:
+            for payment in Payment.objects.filter(
+                invoice__student_id__in=ward_ids,
+                status='COMPLETED'
+            ).select_related('invoice').order_by('-transaction_date'):
+                sid = payment.invoice.student_id
+                if sid not in payments_by_student:
+                    payments_by_student[sid] = []
+                if len(payments_by_student[sid]) < 5:
+                    payments_by_student[sid].append(payment)
+
+        for sg, student in zip(ward_sgs, ward_students):
+            agg = invoice_aggregates.get(student.id, {})
+            total_fees = agg.get('total_fees') or 0
+            total_paid = agg.get('total_paid') or 0
+            balance = agg.get('total_balance') or 0
+
+            # Per-student queries for sliced results (can't batch slices)
+            invoices = Invoice.objects.filter(
+                student=student, **year_filter
+            ).exclude(status='CANCELLED').order_by('-created_at')
+
+            current_invoice = invoices.filter(term=current_term).first() if current_term else None
+
+            wards_fees.append({
+                'student': student,
+                'relationship': sg.get_relationship_display(),
+                'total_fees': total_fees,
+                'total_paid': total_paid,
+                'balance': balance,
+                'current_invoice': current_invoice,
+                'invoices': invoices[:3],
+                'recent_payments': payments_by_student.get(student.id, []),
+            })
+
+            total_outstanding += balance
+
+        # For detailed view - get all invoices and payments (optionally filtered by ward)
+        if selected_ward_id:
+            try:
+                selected_student = next(
+                    (s for s in ward_students if str(s.pk) == selected_ward_id),
+                    None
+                )
+                if selected_student:
+                    all_invoices = Invoice.objects.filter(
+                        student=selected_student
+                    ).exclude(status='CANCELLED').select_related(
+                        'student', 'term', 'academic_year'
+                    ).prefetch_related('items').order_by('-created_at')
+
+                    all_payments = Payment.objects.filter(
+                        invoice__student=selected_student,
+                        status='COMPLETED'
+                    ).select_related('invoice').order_by('-transaction_date')
+            except (ValueError, StopIteration):
+                pass
+        else:
+            # All wards' invoices and payments
+            all_invoices = Invoice.objects.filter(
+                student__in=ward_students
+            ).exclude(status='CANCELLED').select_related(
+                'student', 'term', 'academic_year'
+            ).prefetch_related('items').order_by('-created_at')[:20]
+
+            all_payments = Payment.objects.filter(
+                invoice__student__in=ward_students,
+                status='COMPLETED'
+            ).select_related('invoice', 'invoice__student').order_by('-transaction_date')[:10]
+
+    context = {
+        'guardian': guardian,
+        'wards_fees': wards_fees,
+        'all_invoices': all_invoices,
+        'all_payments': all_payments,
+        'total_outstanding': total_outstanding,
+        'selected_ward_id': selected_ward_id,
+        'current_year': current_year,
+        'current_term': current_term,
+        'online_payments_enabled': online_payments_enabled,
+    }
+    return htmx_render(request, 'finance/parent/fee_payments.html', 'finance/parent/partials/fee_payments_content.html', context)
+
+
+@login_required
+def guardian_pay_invoice(request, invoice_id):
+    """
+    Guardian view to initiate online payment for an invoice.
+    Verifies the guardian has access to this invoice's student.
+    """
+    from students.models import StudentGuardian
+    from .gateways import get_gateway_adapter
+    import uuid as uuid_module
+
+    user = request.user
+    guardian = getattr(user, 'guardian_profile', None)
+
+    if not guardian:
+        messages.error(request, 'No guardian profile found.')
+        return redirect('finance:fee_payments')
+
+    # Get the invoice
+    invoice = get_object_or_404(
+        Invoice.objects.select_related('student'),
+        pk=invoice_id
+    )
+
+    # Verify guardian has access to this student
+    has_access = StudentGuardian.objects.filter(
+        guardian=guardian,
+        student=invoice.student
+    ).exists()
+
+    if not has_access:
+        messages.error(request, 'You do not have access to this invoice.')
+        return redirect('finance:fee_payments')
+
+    # Check invoice can be paid
+    if invoice.status in ['PAID', 'CANCELLED']:
+        messages.error(request, 'This invoice cannot be paid.')
+        return redirect('finance:fee_payments')
+
+    if invoice.balance <= 0:
+        messages.error(request, 'This invoice has no outstanding balance.')
+        return redirect('finance:fee_payments')
+
+    # Get primary gateway config
+    gateway_config = PaymentGatewayConfig.objects.filter(
+        is_active=True,
+        is_primary=True
+    ).select_related('gateway').first()
+
+    if not gateway_config:
+        messages.error(request, 'Online payments are not available. Please contact the school.')
+        return redirect('finance:fee_payments')
+
+    if gateway_config.verification_status != 'VERIFIED':
+        messages.error(request, 'Payment gateway is not configured. Please contact the school.')
+        return redirect('finance:fee_payments')
+
+    # Get gateway adapter
+    adapter = get_gateway_adapter(gateway_config)
+
+    # Generate unique reference
+    reference = f"GP-{invoice.invoice_number}-{uuid_module.uuid4().hex[:8].upper()}"
+
+    # Get payer email from guardian
+    payer_email = guardian.email or user.email or 'noreply@school.com'
+    payer_name = guardian.full_name
+    payer_phone = guardian.phone or ''
+
+    # Build callback URL - guardian specific
+    callback_url = request.build_absolute_uri(
+        reverse('finance:guardian_payment_callback')
+    ) + f'?reference={reference}'
+
+    # Metadata for tracking
+    metadata = {
+        'invoice_id': str(invoice.pk),
+        'invoice_number': invoice.invoice_number,
+        'student_id': str(invoice.student.pk),
+        'student_name': invoice.student.full_name,
+        'guardian_id': str(guardian.pk),
+        'guardian_name': guardian.full_name,
+        'source': 'guardian_portal',
+    }
+
+    # Initialize payment with gateway
+    response = adapter.initialize_payment(
+        amount=invoice.balance,
+        email=payer_email,
+        reference=reference,
+        callback_url=callback_url,
+        metadata=metadata
+    )
+
+    if response.success:
+        # Create pending payment record
+        payment = Payment.objects.create(
+            invoice=invoice,
+            amount=invoice.balance,
+            method='ONLINE',
+            status='PENDING',
+            reference=reference,
+            payer_email=payer_email,
+            payer_name=payer_name,
+            payer_phone=payer_phone,
+        )
+
+        # Create gateway transaction record
+        PaymentGatewayTransaction.objects.create(
+            payment=payment,
+            gateway_config=gateway_config,
+            gateway_reference=response.gateway_reference or '',
+            amount_charged=invoice.balance,
+            net_amount=invoice.balance,
+            full_response=response.raw_response,
+        )
+
+        # Redirect to payment gateway
+        return redirect(response.authorization_url)
+    else:
+        messages.error(request, f'Could not initiate payment: {response.message}')
+        return redirect('finance:fee_payments')
+
+
+def _send_payment_receipt_email(payment, guardian):
+    """
+    Send payment receipt email to guardian.
+    Returns True if email was sent successfully, False otherwise.
+    """
+    from django.core.mail import send_mail
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+    from datetime import datetime
+
+    # Get recipient email
+    recipient_email = payment.payer_email or guardian.email
+    if not recipient_email:
+        logger.warning(f"No email address for payment receipt {payment.receipt_number}")
+        return False
+
+    # Get school from tenant
+    school = getattr(connection, 'tenant', None)
+
+    # Build context
+    context = {
+        'payment': payment,
+        'invoice': payment.invoice,
+        'student': payment.invoice.student,
+        'guardian': guardian,
+        'school': school,
+        'current_year': datetime.now().year,
+    }
+
+    # Render email
+    subject = f"Payment Receipt - {payment.receipt_number}"
+    html_message = render_to_string('finance/emails/payment_receipt_email.html', context)
+    plain_message = strip_tags(html_message)
+
+    try:
+        send_mail(
+            subject,
+            plain_message,
+            get_from_email(),
+            [recipient_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info(f"Payment receipt email sent for {payment.receipt_number} to {recipient_email}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send payment receipt email for {payment.receipt_number}: {str(e)}")
+        return False
+
+
+@login_required
+def guardian_payment_callback(request):
+    """
+    Handle return from payment gateway for guardian payments.
+    Verifies the payment and redirects to success page or fee payments.
+    """
+    from .gateways import get_gateway_adapter
+
+    reference = request.GET.get('reference', '')
+
+    if not reference:
+        messages.error(request, 'Invalid payment callback.')
+        return redirect('finance:fee_payments')
+
+    # Find the payment
+    try:
+        payment = Payment.objects.select_related(
+            'invoice__student'
+        ).get(reference=reference)
+    except Payment.DoesNotExist:
+        messages.error(request, 'Payment not found.')
+        return redirect('finance:fee_payments')
+
+    # If already processed, redirect to appropriate page
+    if payment.status == 'COMPLETED':
+        return redirect('finance:guardian_payment_success', payment_id=payment.pk)
+    elif payment.status in ['FAILED', 'CANCELLED']:
+        return redirect('finance:guardian_payment_failed', payment_id=payment.pk)
+
+    # Get gateway transaction
+    try:
+        gateway_tx = payment.gateway_transaction
+        gateway_config = gateway_tx.gateway_config
+    except PaymentGatewayTransaction.DoesNotExist:
+        messages.error(request, 'Payment configuration error.')
+        return redirect('finance:fee_payments')
+
+    # Verify with gateway
+    adapter = get_gateway_adapter(gateway_config)
+    response = adapter.verify_payment(reference)
+
+    if response.success:
+        # Update payment
+        payment.status = 'COMPLETED'
+        payment.transaction_date = timezone.now()
+        payment.save()
+
+        # Update gateway transaction
+        gateway_tx.gateway_transaction_id = response.transaction_id or ''
+        gateway_tx.gateway_fee = response.gateway_fee or 0
+        gateway_tx.net_amount = response.amount - (response.gateway_fee or 0)
+        gateway_tx.full_response = response.raw_response
+        gateway_tx.save()
+
+        # Invoice totals are updated automatically via Payment.save()
+
+        # Send receipt email to guardian
+        guardian = getattr(request.user, 'guardian_profile', None)
+        if guardian:
+            # Refresh payment with updated invoice data
+            payment.refresh_from_db()
+            payment.invoice.refresh_from_db()
+            _send_payment_receipt_email(payment, guardian)
+
+        # Redirect to success page
+        return redirect('finance:guardian_payment_success', payment_id=payment.pk)
+    else:
+        payment.status = 'FAILED'
+        payment.save()
+        # Store error message in session for display on failed page
+        request.session['payment_error_message'] = response.message
+        return redirect('finance:guardian_payment_failed', payment_id=payment.pk)
+
+
+@login_required
+def guardian_payment_success(request, payment_id):
+    """
+    Display payment success confirmation page for guardians.
+    Shows receipt details and allows printing.
+    """
+    from students.models import StudentGuardian
+
+    user = request.user
+    guardian = getattr(user, 'guardian_profile', None)
+
+    if not guardian:
+        messages.error(request, 'No guardian profile found.')
+        return redirect('finance:fee_payments')
+
+    # Get the payment with related data
+    payment = get_object_or_404(
+        Payment.objects.select_related(
+            'invoice__student',
+            'invoice__term',
+            'invoice__academic_year'
+        ).prefetch_related('invoice__items'),
+        pk=payment_id,
+        status='COMPLETED'
+    )
+
+    # Verify guardian has access to this student
+    has_access = StudentGuardian.objects.filter(
+        guardian=guardian,
+        student=payment.invoice.student
+    ).exists()
+
+    if not has_access:
+        messages.error(request, 'You do not have access to this payment.')
+        return redirect('finance:fee_payments')
+
+    # Get school from tenant for branding
+    school = getattr(connection, 'tenant', None)
+
+    context = {
+        'payment': payment,
+        'invoice': payment.invoice,
+        'student': payment.invoice.student,
+        'school': school,
+        'guardian': guardian,
+    }
+
+    # For HTMX requests, return partial content
+    if request.htmx:
+        return render(request, 'finance/parent/partials/payment_success_content.html', context)
+    return render(request, 'finance/parent/payment_success.html', context)
+
+
+@login_required
+def guardian_payment_failed(request, payment_id):
+    """
+    Display payment failed page for guardians.
+    Shows error details and allows retry.
+    """
+    from students.models import StudentGuardian
+
+    user = request.user
+    guardian = getattr(user, 'guardian_profile', None)
+
+    if not guardian:
+        messages.error(request, 'No guardian profile found.')
+        return redirect('finance:fee_payments')
+
+    # Get the payment with related data
+    payment = get_object_or_404(
+        Payment.objects.select_related(
+            'invoice__student',
+            'invoice__term',
+            'invoice__academic_year'
+        ),
+        pk=payment_id
+    )
+
+    # Verify guardian has access to this student
+    has_access = StudentGuardian.objects.filter(
+        guardian=guardian,
+        student=payment.invoice.student
+    ).exists()
+
+    if not has_access:
+        messages.error(request, 'You do not have access to this payment.')
+        return redirect('finance:fee_payments')
+
+    # Get error message from session if available
+    error_message = request.session.pop('payment_error_message', None)
+
+    context = {
+        'payment': payment,
+        'invoice': payment.invoice,
+        'student': payment.invoice.student,
+        'guardian': guardian,
+        'error_message': error_message,
+    }
+
+    # For HTMX requests, return partial content
+    if request.htmx:
+        return render(request, 'finance/parent/partials/payment_failed_content.html', context)
+    return render(request, 'finance/parent/payment_failed.html', context)

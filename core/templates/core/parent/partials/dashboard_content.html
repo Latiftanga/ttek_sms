@@ -31,8 +31,8 @@
                 </a>
             </li>
             <li>
-                <a href="{% url 'core:fee_payments' %}"
-                   hx-get="{% url 'core:fee_payments' %}"
+                <a href="{% url 'finance:fee_payments' %}"
+                   hx-get="{% url 'finance:fee_payments' %}"
                    hx-target="#main-content"
                    hx-push-url="true">
                     <i class="fa-solid fa-credit-card text-primary"></i> Fee Payments
@@ -219,8 +219,8 @@
                 <i class="fa-solid fa-file-lines"></i>
                 View Reports
             </a>
-            <a href="{% url 'core:fee_payments' %}"
-               hx-get="{% url 'core:fee_payments' %}"
+            <a href="{% url 'finance:fee_payments' %}"
+               hx-get="{% url 'finance:fee_payments' %}"
                hx-target="#main-content"
                hx-push-url="true"
                class="btn btn-ghost btn-sm">

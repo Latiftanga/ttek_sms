@@ -63,6 +63,13 @@ urlpatterns = [
     path('api/students/search/', views.student_search, name='student_search'),
     path('api/invoices/search/', views.invoice_search, name='invoice_search'),
 
+    # Guardian/Parent Payment Views
+    path('fee-payments/', views.fee_payments, name='fee_payments'),
+    path('fee-payments/pay/<uuid:invoice_id>/', views.guardian_pay_invoice, name='guardian_pay_invoice'),
+    path('fee-payments/callback/', views.guardian_payment_callback, name='guardian_payment_callback'),
+    path('fee-payments/success/<uuid:payment_id>/', views.guardian_payment_success, name='guardian_payment_success'),
+    path('fee-payments/failed/<uuid:payment_id>/', views.guardian_payment_failed, name='guardian_payment_failed'),
+
     # Notifications
     path('notifications/', views.notification_center, name='notification_center'),
     path('notifications/send/<uuid:pk>/', views.send_invoice_notification_view, name='send_notification'),

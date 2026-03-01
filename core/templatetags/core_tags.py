@@ -203,7 +203,7 @@ NAVIGATION_CONFIG = [
     {
         'label': 'Fee Payments',
         'icon': 'fa-solid fa-credit-card',
-        'url_name': 'core:fee_payments',
+        'url_name': 'finance:fee_payments',
         'roles': ['parent'],
     },
 ]
