@@ -256,11 +256,17 @@ class PaymentForm(forms.ModelForm):
         invoice = cleaned_data.get('invoice')
         amount = cleaned_data.get('amount')
 
-        if invoice and amount and amount > invoice.balance:
-            self.add_error(
-                'amount',
-                f'Payment of {amount} exceeds outstanding balance of {invoice.balance}.'
-            )
+        if invoice:
+            if invoice.balance <= 0:
+                self.add_error(
+                    'invoice',
+                    'This invoice has no outstanding balance.'
+                )
+            elif amount and amount > invoice.balance:
+                self.add_error(
+                    'amount',
+                    f'Payment of {amount} exceeds outstanding balance of {invoice.balance}.'
+                )
 
         return cleaned_data
 

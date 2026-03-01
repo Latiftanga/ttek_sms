@@ -411,12 +411,18 @@ class Invoice(models.Model):
 
     def update_totals(self):
         """Recalculate totals from line items using efficient aggregate queries."""
-        self.subtotal = self.items.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        self.total_amount = self.subtotal - self.discount
-        self.amount_paid = self.payments.filter(status='COMPLETED').aggregate(
-            total=Sum('amount')
-        )['total'] or Decimal('0.00')
-        self.save()
+        from django.db import transaction
+
+        with transaction.atomic():
+            # Lock this invoice row to prevent concurrent updates
+            Invoice.objects.select_for_update().filter(pk=self.pk).exists()
+
+            self.subtotal = self.items.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            self.total_amount = self.subtotal - self.discount
+            self.amount_paid = self.payments.filter(status='COMPLETED').aggregate(
+                total=Sum('amount')
+            )['total'] or Decimal('0.00')
+            self.save()
 
 
 class InvoiceItem(models.Model):

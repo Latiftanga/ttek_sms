@@ -1797,8 +1797,8 @@ def payment_callback(request):
             payment.save()
 
             gateway_tx.gateway_transaction_id = response.transaction_id
-            gateway_tx.gateway_fee = response.gateway_fee
-            gateway_tx.net_amount = response.amount - response.gateway_fee
+            gateway_tx.gateway_fee = Decimal(str(response.gateway_fee or 0))
+            gateway_tx.net_amount = Decimal(str(response.amount or 0)) - gateway_tx.gateway_fee
             gateway_tx.full_response = response.raw_response
             gateway_tx.save()
 
@@ -1828,9 +1828,9 @@ def payment_webhook(request):
     import logging
     logger = logging.getLogger(__name__)
 
-    # Get signature from headers
+    # Get signature from headers (each gateway uses a different header)
     signature = request.headers.get('X-Paystack-Signature', '') or \
-                request.headers.get('X-Flutterwave-Signature', '') or \
+                request.headers.get('verif-hash', '') or \
                 request.headers.get('X-Hubtel-Signature', '')
 
     try:
@@ -1895,8 +1895,8 @@ def payment_webhook(request):
             payment.save()
 
             gateway_tx.gateway_transaction_id = response.transaction_id
-            gateway_tx.gateway_fee = response.gateway_fee
-            gateway_tx.net_amount = response.amount - response.gateway_fee
+            gateway_tx.gateway_fee = Decimal(str(response.gateway_fee or 0))
+            gateway_tx.net_amount = Decimal(str(response.amount or 0)) - gateway_tx.gateway_fee
             gateway_tx.save()
 
             logger.info(f"Payment {reference[:20]}... confirmed via webhook")
