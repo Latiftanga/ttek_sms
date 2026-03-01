@@ -1575,7 +1575,7 @@ def unreachable_parents(request):
 
     no_guardian_students = active_students.exclude(
         pk__in=students_with_guardian
-    ).order_by('current_class__level_type', 'current_class__level_number', 'full_name')
+    ).order_by('current_class__level_type', 'current_class__level_number', 'last_name', 'first_name')
 
     # Students whose primary guardian has no phone number
     no_phone_sg = StudentGuardian.objects.filter(
@@ -1586,7 +1586,8 @@ def unreachable_parents(request):
     ).order_by(
         'student__current_class__level_type',
         'student__current_class__level_number',
-        'student__full_name',
+        'student__last_name',
+        'student__first_name',
     )
 
     # Students whose primary guardian has no email
@@ -1598,7 +1599,8 @@ def unreachable_parents(request):
     ).order_by(
         'student__current_class__level_type',
         'student__current_class__level_number',
-        'student__full_name',
+        'student__last_name',
+        'student__first_name',
     )
 
     with_guardian_count = len(set(students_with_guardian))

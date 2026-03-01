@@ -25,8 +25,21 @@
                 {% csrf_token %}
 
                 <div class="form-control mb-4">
-                    <label class="label"><span class="label-text font-medium">Student</span></label>
-                    {{ form.student }}
+                    <label class="label"><span class="label-text font-medium">Students</span></label>
+                    <div class="relative" hx-disinherit="*">
+                        <input type="text"
+                               id="scholarship-student-search"
+                               name="q"
+                               placeholder="Search by name or admission #..."
+                               class="input input-bordered w-full"
+                               hx-get="{% url 'finance:student_search' %}"
+                               hx-trigger="keyup changed delay:300ms"
+                               hx-target="#scholarship-student-results"
+                               hx-swap="innerHTML"
+                               autocomplete="off" />
+                        <div id="scholarship-student-results" class="relative"></div>
+                    </div>
+                    <div id="scholarship-selected-students" class="flex flex-wrap gap-2 mt-2"></div>
                 </div>
 
                 <div class="form-control mb-4">
@@ -105,3 +118,32 @@
         </div>
     </div>
 </div>
+
+<script>
+var selectedStudents = {};
+
+function selectStudent(id, name) {
+    if (selectedStudents[id]) return;
+    selectedStudents[id] = name;
+
+    var container = document.getElementById('scholarship-selected-students');
+    var badge = document.createElement('span');
+    badge.className = 'badge badge-primary gap-2';
+    badge.id = 'student-badge-' + id;
+    badge.innerHTML =
+        '<input type="hidden" name="student_ids" value="' + id + '">' +
+        '<span>' + name + '</span>' +
+        '<button type="button" onclick="removeStudent(\'' + id + '\')" class="btn btn-ghost btn-xs btn-circle">' +
+        '<i class="fa-solid fa-times text-xs"></i></button>';
+    container.appendChild(badge);
+
+    document.getElementById('scholarship-student-search').value = '';
+    document.getElementById('scholarship-student-results').innerHTML = '';
+}
+
+function removeStudent(id) {
+    delete selectedStudents[id];
+    var badge = document.getElementById('student-badge-' + id);
+    if (badge) badge.remove();
+}
+</script>

@@ -352,17 +352,33 @@ def scholarship_assign(request, pk):
 
     if request.method == 'POST':
         form = StudentScholarshipForm(request.POST)
-        if form.is_valid():
+        student_ids = request.POST.getlist('student_ids')
+        if form.is_valid() and student_ids:
             from django.db import IntegrityError
-            student_scholarship = form.save(commit=False)
-            student_scholarship.scholarship = scholarship
-            student_scholarship.approved_by = request.user
-            try:
-                student_scholarship.save()
-                messages.success(request, f'Scholarship assigned to {student_scholarship.student.full_name}.')
-            except IntegrityError:
-                messages.error(request, 'This student already has this scholarship for the selected academic year.')
-            return redirect('finance:scholarships')
+            students = Student.objects.filter(pk__in=student_ids, status='active')
+            assigned = []
+            skipped = []
+            for student in students:
+                try:
+                    StudentScholarship.objects.create(
+                        student=student,
+                        scholarship=scholarship,
+                        academic_year=form.cleaned_data['academic_year'],
+                        reason=form.cleaned_data['reason'],
+                        start_date=form.cleaned_data['start_date'],
+                        end_date=form.cleaned_data['end_date'],
+                        approved_by=request.user,
+                    )
+                    assigned.append(student.full_name)
+                except IntegrityError:
+                    skipped.append(student.full_name)
+            if assigned:
+                messages.success(request, f'Scholarship assigned to {", ".join(assigned)}.')
+            if skipped:
+                messages.warning(request, f'Already assigned: {", ".join(skipped)}.')
+            return redirect('finance:scholarship_assign', pk=scholarship.pk)
+        elif not student_ids:
+            messages.error(request, 'Please select at least one student.')
     else:
         form = StudentScholarshipForm(initial={
             'scholarship': scholarship,
