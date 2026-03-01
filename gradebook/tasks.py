@@ -57,7 +57,10 @@ def generate_report_pdf(term_report, tenant_schema):
             is_active=True
         ).order_by('order'))
 
-        # Calculate category-wise scores for each subject
+        # Recompute category-wise scores for each subject from raw Score data.
+        # We can't rely solely on the stored SubjectTermGrade.category_scores
+        # because the template filter needs the scores attached as a Python
+        # attribute (not the JSONField which may differ in key format).
         from .models import Score
         category_scores = {}
         scores_qs = Score.objects.filter(
