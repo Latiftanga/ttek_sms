@@ -1027,6 +1027,10 @@ def payment_record(request):
                     icon='fa-solid fa-circle-check',
                 )
 
+            # Send payment confirmation SMS to guardian
+            from .tasks import send_payment_confirmation_sms
+            send_payment_confirmation_sms.delay(str(payment.pk), connection.schema_name)
+
             messages.success(request, f'Payment recorded successfully. Receipt: {payment.receipt_number}')
             return redirect('finance:payments')
     else:
@@ -2173,6 +2177,10 @@ def payment_webhook(request):
                     icon='fa-solid fa-circle-check',
                 )
 
+            # Send payment confirmation SMS to guardian
+            from .tasks import send_payment_confirmation_sms
+            send_payment_confirmation_sms.delay(str(payment.pk), connection.schema_name)
+
             logger.info(f"Payment {reference[:20]}... confirmed via webhook")
             return JsonResponse({'status': 'success', 'message': 'Payment confirmed'})
 
@@ -2902,6 +2910,10 @@ def guardian_payment_callback(request):
             payment.refresh_from_db()
             payment.invoice.refresh_from_db()
             _send_payment_receipt_email(payment, guardian)
+
+        # Send payment confirmation SMS to guardian
+        from .tasks import send_payment_confirmation_sms
+        send_payment_confirmation_sms.delay(str(payment.pk), connection.schema_name)
 
         # Redirect to success page
         return redirect('finance:guardian_payment_success', payment_id=payment.pk)

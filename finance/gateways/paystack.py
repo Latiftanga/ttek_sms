@@ -96,7 +96,7 @@ class PaystackAdapter(BaseGatewayAdapter):
             "reference": reference,
             "callback_url": callback_url,
             "currency": "GHS",
-            "channels": ["card", "mobile_money", "bank_transfer"],
+            "channels": ["card", "mobile_money", "bank_transfer", "ussd"],
         }
 
         if metadata:

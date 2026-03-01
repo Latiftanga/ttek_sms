@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 TASK_MAX_RETRIES = 3
 TASK_RETRY_DELAY = 60  # seconds
-SMS_MAX_LENGTH = 160
+SMS_MAX_LENGTH = 320
 
 
 # =============================================================================
@@ -27,19 +27,19 @@ SMS_MAX_LENGTH = 160
 FINANCE_SMS_TEMPLATES = {
     'invoice_issued': (
         "Dear Parent, {student_name}'s fees for {term}: GHS {total_amount}. "
-        "Due: {due_date}. Invoice: {invoice_number}."
+        "Due: {due_date}. Pay here: {pay_url} - {school_name}"
     ),
     'payment_received': (
         "Dear Parent, payment of GHS {amount_paid} received for {student_name}. "
-        "Balance: GHS {balance}. Receipt: {receipt_number}. Thank you!"
+        "Balance: GHS {balance}. Receipt: {receipt_number}. Thank you! - {school_name}"
     ),
     'overdue_reminder': (
         "REMINDER: {student_name}'s fees of GHS {balance} is overdue since {due_date}. "
-        "Please pay urgently. Invoice: {invoice_number}."
+        "Please pay urgently: {pay_url} - {school_name}"
     ),
     'balance_reminder': (
         "Dear Parent, {student_name} has outstanding fees of GHS {balance}. "
-        "Due: {due_date}. Please ensure payment. Invoice: {invoice_number}."
+        "Due: {due_date}. Pay here: {pay_url} - {school_name}"
     ),
 }
 
@@ -58,6 +58,17 @@ def build_invoice_context(invoice):
     except Exception:
         pass
 
+    # Build payment URL from tenant domain (no request available in Celery tasks)
+    pay_url = ''
+    try:
+        from django_tenants.utils import get_tenant_domain_model
+        Domain = get_tenant_domain_model()
+        domain = Domain.objects.filter(tenant=connection.tenant, is_primary=True).first()
+        if domain and invoice.status in ('ISSUED', 'PARTIALLY_PAID', 'OVERDUE') and invoice.balance > 0:
+            pay_url = f"https://{domain.domain}/finance/fee-payments/pay/{invoice.pk}/"
+    except Exception:
+        pass
+
     return {
         'student_name': student.full_name,
         'first_name': student.first_name,
@@ -73,6 +84,7 @@ def build_invoice_context(invoice):
         'school_name': school_name,
         'guardian_name': primary_guardian.full_name if primary_guardian else 'Parent/Guardian',
         'date': timezone.now().strftime('%b %d, %Y'),
+        'pay_url': pay_url,
     }
 
 
@@ -444,3 +456,85 @@ def send_bulk_notifications(self, notification_type, distribution_type, tenant_s
             'success': True,
             'queued_count': queued_count,
         }
+
+
+@shared_task(bind=True, max_retries=TASK_MAX_RETRIES, default_retry_delay=TASK_RETRY_DELAY)
+def send_payment_confirmation_sms(self, payment_id, tenant_schema):
+    """
+    Send SMS confirmation to guardian after a successful payment.
+
+    Args:
+        payment_id: UUID of the Payment
+        tenant_schema: Schema name for tenant context
+    """
+    from django_tenants.utils import schema_context
+
+    with schema_context(tenant_schema):
+        from .models import Payment, FinanceNotificationLog
+        from communications.utils import send_sms_sync
+        from communications.models import SMSMessage
+
+        try:
+            payment = Payment.objects.select_related(
+                'invoice__student', 'invoice__term', 'invoice__academic_year'
+            ).get(pk=payment_id)
+        except Payment.DoesNotExist:
+            logger.error(f"Payment {payment_id} not found for confirmation SMS")
+            return {'success': False, 'error': 'Payment not found'}
+
+        invoice = payment.invoice
+        student = invoice.student
+
+        # Get guardian phone
+        primary_guardian = student.get_primary_guardian() if hasattr(student, 'get_primary_guardian') else None
+        guardian_phone = primary_guardian.phone_number if primary_guardian else None
+        if not guardian_phone:
+            guardian_phone = getattr(student, 'guardian_phone', None)
+
+        if not guardian_phone:
+            logger.warning(f"No guardian phone for student {student.full_name} (payment {payment_id})")
+            return {'success': False, 'error': 'No guardian phone number'}
+
+        # Build and render SMS
+        context = build_payment_context(payment)
+        sms_text = render_sms_template('payment_received', context)
+
+        try:
+            # Create SMS record
+            sms_record = SMSMessage.objects.create(
+                recipient_phone=guardian_phone,
+                recipient_name=context.get('guardian_name', ''),
+                student=student,
+                message=sms_text,
+                message_type=SMSMessage.MessageType.FEE_REMINDER,
+                status=SMSMessage.Status.PENDING,
+            )
+
+            # Send synchronously
+            sms_result = send_sms_sync(guardian_phone, sms_text)
+
+            # Create notification log
+            log = FinanceNotificationLog.objects.create(
+                invoice=invoice,
+                notification_type='PAYMENT_RECEIVED',
+                distribution_type='SMS',
+            )
+
+            if sms_result.get('success'):
+                log.sms_status = 'SENT'
+                log.sms_sent_to = guardian_phone
+                log.sms_sent_at = timezone.now()
+                log.sms_message = sms_record
+                sms_record.mark_sent(sms_result.get('response', ''))
+                log.save()
+                return {'success': True, 'payment_id': str(payment_id)}
+            else:
+                log.sms_status = 'FAILED'
+                log.sms_error = sms_result.get('error', 'Unknown error')[:500]
+                sms_record.mark_failed(sms_result.get('error', ''))
+                log.save()
+                return {'success': False, 'error': sms_result.get('error')}
+
+        except Exception as e:
+            logger.error(f"Failed to send payment confirmation SMS for {payment_id}: {e}")
+            return {'success': False, 'error': str(e)}
