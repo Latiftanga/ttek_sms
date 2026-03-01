@@ -851,7 +851,9 @@ def notification_mark_read(request, pk):
             headers={'HX-Redirect': notification.link}
         )
 
-    return notifications_dropdown(request)
+    response = notifications_dropdown(request)
+    response['HX-Trigger'] = 'refreshNotificationBadge'
+    return response
 
 
 @login_required
@@ -864,8 +866,11 @@ def notifications_mark_all_read(request):
             user=request.user,
             is_read=False
         ).update(is_read=True, read_at=timezone.now())
+        Notification._invalidate_unread_cache(request.user.pk)
 
-    return notifications_dropdown(request)
+    response = notifications_dropdown(request)
+    response['HX-Trigger'] = 'refreshNotificationBadge'
+    return response
 
 
 @login_required

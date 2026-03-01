@@ -1,3 +1,5 @@
+import hmac
+import json
 import logging
 from functools import wraps
 from io import BytesIO
@@ -7,7 +9,9 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages as django_messages
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.utils.html import escape
 from django.db import connection
@@ -1385,6 +1389,20 @@ def announcement_create(request):
             created_by=request.user,
         )
 
+        # Bell notifications for parents
+        detail_url = reverse('communications:announcement_detail', args=[announcement.pk])
+        notification_type = 'warning' if priority == 'urgent' else 'info'
+        from core.notifications import notify_guardians_bulk
+        notify_guardians_bulk(
+            students,
+            title=f'Announcement: {title}',
+            message=message_text[:200],
+            category='system',
+            notification_type=notification_type,
+            icon='fa-solid fa-bullhorn',
+            link=detail_url,
+        )
+
         if send_sms:
             _send_bulk_sms_to_parents(
                 students, message_text, school_name, request.user,
@@ -1409,6 +1427,20 @@ def announcement_create(request):
             sent_via_email=False,  # Email not supported for students yet
             recipient_count=recipient_count,
             created_by=request.user,
+        )
+
+        # Bell notifications for students
+        detail_url = reverse('communications:announcement_detail', args=[announcement.pk])
+        notification_type = 'warning' if priority == 'urgent' else 'info'
+        from core.notifications import notify_students_bulk
+        notify_students_bulk(
+            students,
+            title=f'Announcement: {title}',
+            message=message_text[:200],
+            category='system',
+            notification_type=notification_type,
+            icon='fa-solid fa-bullhorn',
+            link=detail_url,
         )
 
         if send_sms:
@@ -1524,3 +1556,191 @@ def announcements_feed(request):
         'communications/partials/announcements_feed.html',
         context
     )
+
+
+# =============================================================================
+# UNREACHABLE PARENTS REPORT
+# =============================================================================
+
+@admin_required
+def unreachable_parents(request):
+    """Report of students with missing or incomplete guardian contact info."""
+    active_students = Student.objects.filter(status='active').select_related('current_class')
+    total_active = active_students.count()
+
+    # Students with no guardian linked at all
+    students_with_guardian = StudentGuardian.objects.filter(
+        student__status='active'
+    ).values_list('student_id', flat=True).distinct()
+
+    no_guardian_students = active_students.exclude(
+        pk__in=students_with_guardian
+    ).order_by('current_class__level_type', 'current_class__level_number', 'full_name')
+
+    # Students whose primary guardian has no phone number
+    no_phone_sg = StudentGuardian.objects.filter(
+        student__status='active',
+        is_primary=True,
+    ).select_related('student', 'student__current_class', 'guardian').filter(
+        Q(guardian__phone_number='') | Q(guardian__phone_number__isnull=True)
+    ).order_by(
+        'student__current_class__level_type',
+        'student__current_class__level_number',
+        'student__full_name',
+    )
+
+    # Students whose primary guardian has no email
+    no_email_sg = StudentGuardian.objects.filter(
+        student__status='active',
+        is_primary=True,
+    ).select_related('student', 'student__current_class', 'guardian').filter(
+        Q(guardian__email='') | Q(guardian__email__isnull=True)
+    ).order_by(
+        'student__current_class__level_type',
+        'student__current_class__level_number',
+        'student__full_name',
+    )
+
+    with_guardian_count = len(set(students_with_guardian))
+    coverage_pct = round(with_guardian_count / total_active * 100, 1) if total_active else 0
+
+    # Excel export
+    if request.GET.get('export') == 'excel':
+        rows = []
+        for s in no_guardian_students:
+            rows.append({
+                'Student': s.full_name,
+                'Class': str(s.current_class) if s.current_class else '-',
+                'Issue': 'No guardian linked',
+                'Guardian': '-',
+                'Phone': '-',
+                'Email': '-',
+            })
+        for sg in no_phone_sg:
+            rows.append({
+                'Student': sg.student.full_name,
+                'Class': str(sg.student.current_class) if sg.student.current_class else '-',
+                'Issue': 'Guardian has no phone',
+                'Guardian': sg.guardian.full_name,
+                'Phone': '-',
+                'Email': sg.guardian.email or '-',
+            })
+        for sg in no_email_sg:
+            rows.append({
+                'Student': sg.student.full_name,
+                'Class': str(sg.student.current_class) if sg.student.current_class else '-',
+                'Issue': 'Guardian has no email',
+                'Guardian': sg.guardian.full_name,
+                'Phone': sg.guardian.phone_number or '-',
+                'Email': '-',
+            })
+
+        df = pd.DataFrame(rows) if rows else pd.DataFrame(
+            columns=['Student', 'Class', 'Issue', 'Guardian', 'Phone', 'Email']
+        )
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Unreachable Parents')
+            from openpyxl.utils import get_column_letter
+            worksheet = writer.sheets['Unreachable Parents']
+            for idx, col in enumerate(df.columns):
+                max_length = max(
+                    df[col].astype(str).map(len).max() if len(df) > 0 else 0,
+                    len(col)
+                )
+                worksheet.column_dimensions[get_column_letter(idx + 1)].width = min(max_length + 2, 50)
+
+        output.seek(0)
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M')
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="unreachable_parents_{timestamp}.xlsx"'
+        return response
+
+    context = {
+        'total_active': total_active,
+        'with_guardian_count': with_guardian_count,
+        'coverage_pct': coverage_pct,
+        'no_guardian_students': no_guardian_students,
+        'no_phone_records': no_phone_sg,
+        'no_email_records': no_email_sg,
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Communications', 'url': '/communications/'},
+            {'label': 'Unreachable Parents'},
+        ],
+        'back_url': reverse('communications:index'),
+    }
+
+    return htmx_render(
+        request,
+        'communications/unreachable_report.html',
+        'communications/partials/unreachable_report_content.html',
+        context
+    )
+
+
+# =============================================================================
+# SMS DELIVERY WEBHOOK
+# =============================================================================
+
+@csrf_exempt
+@require_POST
+def sms_delivery_webhook(request, schema_name, token):
+    """
+    Receive SMS delivery status updates from providers.
+    URL is in the public schema (no tenant subdomain required).
+    """
+    from django_tenants.utils import schema_context
+    from core.models import SchoolSettings
+
+    try:
+        with schema_context(schema_name):
+            settings = SchoolSettings.load()
+            if not settings.sms_webhook_secret or not hmac.compare_digest(
+                token, settings.sms_webhook_secret
+            ):
+                return JsonResponse({'status': 'error', 'message': 'Invalid token'}, status=403)
+
+            try:
+                payload = json.loads(request.body)
+            except (json.JSONDecodeError, ValueError):
+                return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+
+            # Extract provider message ID from various provider formats
+            provider_message_id = (
+                # Arkesel
+                payload.get('sms_id', '') or
+                payload.get('message_id', '') or
+                # Hubtel
+                payload.get('MessageId', '') or
+                # Africa's Talking
+                payload.get('id', '')
+            )
+
+            if not provider_message_id:
+                return JsonResponse({'status': 'ok', 'message': 'No message ID'})
+
+            # Extract delivery status
+            raw_status = str(
+                payload.get('status', '') or
+                payload.get('Status', '') or
+                payload.get('deliveryStatus', '')
+            ).lower()
+
+            delivered_statuses = {'delivered', 'success', 'sent', 'deliveredtonetwork'}
+
+            if raw_status in delivered_statuses:
+                try:
+                    sms = SMSMessage.objects.get(provider_message_id=provider_message_id)
+                    sms.mark_delivered()
+                except SMSMessage.DoesNotExist:
+                    pass
+
+            return JsonResponse({'status': 'ok'})
+
+    except Exception:
+        logger.exception("SMS delivery webhook error for schema %s", schema_name)
+        return JsonResponse({'status': 'ok'})

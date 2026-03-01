@@ -227,22 +227,36 @@ def send_communication_task(self, schema_name, recipient, message, sms_record_id
 
             response = None
 
+            provider_message_id = ''
+
             if backend == 'arkesel':
                 if not api_key:
                     raise ValueError("Arkesel API key not configured for this school")
                 response = send_via_arkesel(recipient, message, sender_id=sender_id, api_key=api_key)
+                # Extract provider message ID from Arkesel response
+                try:
+                    provider_message_id = response.get('data', [{}])[0].get('id', '')
+                except (IndexError, AttributeError):
+                    pass
                 logger.debug(f"Arkesel SMS sent to {_mask_phone(recipient)}")
 
             elif backend == 'hubtel':
                 if not api_key:
                     raise ValueError("Hubtel API key not configured for this school")
                 response = send_via_hubtel(recipient, message, sender_id=sender_id, api_key=api_key)
+                provider_message_id = response.get('MessageId', '') if response else ''
                 logger.debug(f"Hubtel SMS sent to {_mask_phone(recipient)}")
 
             elif backend == 'africastalking':
                 if not api_key:
                     raise ValueError("Africa's Talking API key not configured for this school")
                 response = send_via_africastalking(recipient, message, sender_id=sender_id, api_key=api_key)
+                # Extract provider message ID from Africa's Talking response
+                try:
+                    recipients_data = response.get('SMSMessageData', {}).get('Recipients', [])
+                    provider_message_id = recipients_data[0].get('messageId', '') if recipients_data else ''
+                except (IndexError, AttributeError):
+                    pass
                 logger.debug(f"Africa's Talking SMS sent to {_mask_phone(recipient)}")
 
             else:
@@ -254,6 +268,9 @@ def send_communication_task(self, schema_name, recipient, message, sms_record_id
 
             # Mark as sent if we have a record
             if sms_record:
+                if provider_message_id:
+                    sms_record.provider_message_id = provider_message_id
+                    sms_record.save(update_fields=['provider_message_id'])
                 sms_record.mark_sent(str(response) if response else '')
 
             return {"status": "sent", "provider": backend, "response": str(response)}

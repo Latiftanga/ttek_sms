@@ -108,6 +108,36 @@ def _save_attendance_records(request, session, students, redirect_url,
                 )
 
         total = len(records_to_create) + len(records_to_update)
+
+        # Notify guardians and students of absences
+        absent_students = []
+        for rec in records_to_create:
+            if rec.status == 'A':
+                absent_students.append(rec.student)
+        for rec in records_to_update:
+            if rec.status == 'A':
+                absent_students.append(rec.student)
+
+        if absent_students:
+            from core.notifications import notify_guardian, notify_student
+            for s in absent_students:
+                notify_guardian(
+                    s,
+                    title='Absence Recorded',
+                    message=f'{s.full_name} was marked absent today.',
+                    category='attendance',
+                    notification_type='warning',
+                    icon='fa-solid fa-user-xmark',
+                )
+                notify_student(
+                    s,
+                    title='Absence Recorded',
+                    message='You were marked absent today.',
+                    category='attendance',
+                    notification_type='warning',
+                    icon='fa-solid fa-user-xmark',
+                )
+
         messages.success(request, f'{success_msg} ({total} records).')
     except Exception as e:
         logger.error("Failed to save attendance: %s", e)

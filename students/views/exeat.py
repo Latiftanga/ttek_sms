@@ -719,6 +719,25 @@ def exeat_approve(request, pk):
 
         messages.success(request, f'Internal exeat approved for {exeat.student.full_name}.')
 
+        # Bell notifications for guardian and student
+        from core.notifications import notify_guardian, notify_student
+        notify_guardian(
+            exeat.student,
+            title='Exeat Approved',
+            message=f'Internal exeat for {exeat.student.full_name} has been approved.',
+            category='students',
+            notification_type='success',
+            icon='fa-solid fa-door-open',
+        )
+        notify_student(
+            exeat.student,
+            title='Exeat Approved',
+            message='Your internal exeat has been approved.',
+            category='students',
+            notification_type='success',
+            icon='fa-solid fa-door-open',
+        )
+
         # Send SMS notification to guardian with feedback
         sms_result = send_exeat_approval_sms(exeat, user)
         if sms_result.is_success:
@@ -753,6 +772,25 @@ def exeat_approve(request, pk):
             return redirect('students:exeat_detail', pk=pk)
 
         messages.success(request, f'External exeat approved for {exeat.student.full_name}.')
+
+        # Bell notifications for guardian and student
+        from core.notifications import notify_guardian, notify_student
+        notify_guardian(
+            exeat.student,
+            title='Exeat Approved',
+            message=f'External exeat for {exeat.student.full_name} has been approved.',
+            category='students',
+            notification_type='success',
+            icon='fa-solid fa-door-open',
+        )
+        notify_student(
+            exeat.student,
+            title='Exeat Approved',
+            message='Your external exeat has been approved.',
+            category='students',
+            notification_type='success',
+            icon='fa-solid fa-door-open',
+        )
 
         # Send SMS notification to guardian with feedback
         sms_result = send_exeat_approval_sms(exeat, user)
@@ -809,6 +847,25 @@ def exeat_reject(request, pk):
         return redirect('students:exeat_detail', pk=pk)
 
     messages.success(request, f'Exeat rejected for {exeat.student.full_name}.')
+
+    # Bell notifications for guardian and student
+    from core.notifications import notify_guardian, notify_student
+    notify_guardian(
+        exeat.student,
+        title='Exeat Rejected',
+        message=f'Exeat request for {exeat.student.full_name} has been rejected.',
+        category='students',
+        notification_type='warning',
+        icon='fa-solid fa-door-closed',
+    )
+    notify_student(
+        exeat.student,
+        title='Exeat Rejected',
+        message='Your exeat request has been rejected.',
+        category='students',
+        notification_type='warning',
+        icon='fa-solid fa-door-closed',
+    )
 
     if request.htmx:
         response = HttpResponse(status=204)
@@ -879,6 +936,17 @@ def exeat_return(request, pk):
 
     exeat.mark_returned()
     messages.success(request, f'{exeat.student.full_name} has returned.')
+
+    # Bell notification for guardian
+    from core.notifications import notify_guardian
+    notify_guardian(
+        exeat.student,
+        title='Student Returned',
+        message=f'{exeat.student.full_name} has returned from exeat.',
+        category='students',
+        notification_type='info',
+        icon='fa-solid fa-house-chimney',
+    )
 
     # Send SMS notification to guardian with feedback
     sms_result = send_exeat_return_sms(exeat, request.user)

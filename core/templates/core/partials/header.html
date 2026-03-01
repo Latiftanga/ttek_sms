@@ -74,14 +74,15 @@
             <button tabindex="0" class="btn btn-ghost btn-circle">
                 <div class="indicator"
                      hx-get="{% url 'core:notifications_badge' %}"
-                     hx-trigger="load, every 60s"
+                     hx-trigger="load, every 60s, refreshNotificationBadge from:body"
                      hx-swap="innerHTML"
                      hx-target="find .indicator-item">
                     <i class="fa-regular fa-bell text-xl"></i>
                     <span class="badge badge-xs badge-ghost indicator-item opacity-0"></span>
                 </div>
             </button>
-            <div tabindex="0" class="dropdown-content z-[1] mt-3 shadow-lg bg-base-100 rounded-box border border-base-200"
+            <div tabindex="0" id="notifications-content"
+                 class="dropdown-content z-[1] mt-3 shadow-lg bg-base-100 rounded-box border border-base-200"
                  style="width: 320px;"
                  hx-get="{% url 'core:notifications_dropdown' %}"
                  hx-trigger="intersect once"

@@ -14,6 +14,8 @@ urlpatterns = [
     path('templates/create/', views.template_create, name='template_create'),
     path('templates/<int:pk>/edit/', views.template_edit, name='template_edit'),
     path('templates/<int:pk>/delete/', views.template_delete, name='template_delete'),
+    # Reports
+    path('unreachable/', views.unreachable_parents, name='unreachable_parents'),
     # Announcements
     path('announcements/', views.announcements_list, name='announcements'),
     path('announcements/create/', views.announcement_create, name='announcement_create'),

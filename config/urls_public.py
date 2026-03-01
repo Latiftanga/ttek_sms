@@ -5,6 +5,7 @@ from django.urls import path, include
 from django.http import JsonResponse
 from schools.views import public_home
 from core.views import service_worker, offline, manifest
+from communications.views import sms_delivery_webhook
 
 # Configure admin site
 admin.site.site_header = getattr(settings, 'ADMIN_SITE_HEADER', 'TTEK SMS Admin')
@@ -25,6 +26,11 @@ urlpatterns = [
 
     path('admin/', admin.site.urls),
     path('health/', health_check, name='health_check'),
+
+    # SMS delivery webhook (no tenant subdomain required)
+    path('sms/webhook/<str:schema_name>/<str:token>/',
+         sms_delivery_webhook, name='sms_delivery_webhook'),
+
     path('', public_home, name='public_home'),
 ]
 

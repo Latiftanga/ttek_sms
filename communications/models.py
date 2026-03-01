@@ -43,9 +43,14 @@ class SMSMessage(models.Model):
         choices=Status.choices,
         default=Status.PENDING
     )
+    provider_message_id = models.CharField(
+        max_length=100, blank=True, default='', db_index=True,
+        help_text="Message ID from SMS provider for delivery tracking"
+    )
     provider_response = models.TextField(blank=True)
     error_message = models.TextField(blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         'accounts.User',
@@ -82,6 +87,11 @@ class SMSMessage(models.Model):
         self.status = self.Status.FAILED
         self.error_message = str(error)
         self.save(update_fields=['status', 'error_message'])
+
+    def mark_delivered(self):
+        self.status = self.Status.DELIVERED
+        self.delivered_at = timezone.now()
+        self.save(update_fields=['status', 'delivered_at'])
 
 
 class SMSTemplate(models.Model):
