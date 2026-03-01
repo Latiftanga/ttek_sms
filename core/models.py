@@ -3,7 +3,7 @@ import secrets
 import logging
 from io import BytesIO
 from django.conf import settings
-from django.db import models, connection
+from django.db import models, connection, transaction
 from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.utils.translation import gettext_lazy as _
@@ -210,10 +210,11 @@ class AcademicYear(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean()  # Run validation before saving
-        # Ensure only one academic year is current
-        if self.is_current:
-            AcademicYear.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            # Ensure only one academic year is current
+            if self.is_current:
+                AcademicYear.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
+            super().save(*args, **kwargs)
         # Invalidate cache when academic year is saved
         cache_key = f'current_academic_year_{connection.schema_name}'
         cache.delete(cache_key)
@@ -333,10 +334,11 @@ class Term(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean()  # Run validation before saving
-        # Ensure only one term is current
-        if self.is_current:
-            Term.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            # Ensure only one term is current
+            if self.is_current:
+                Term.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
+            super().save(*args, **kwargs)
         # Invalidate cache when term is saved
         cache_key = f'current_term_{connection.schema_name}'
         cache.delete(cache_key)

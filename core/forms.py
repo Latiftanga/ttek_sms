@@ -146,13 +146,18 @@ class SMSSettingsForm(forms.ModelForm):
         }
 
     def clean_sms_sender_id(self):
-        """Validate SMS sender ID length (GSM standard max 11 characters)."""
+        """Validate SMS sender ID (GSM standard: max 11 alphanumeric characters)."""
+        import re
         sender_id = self.cleaned_data.get('sms_sender_id', '')
-        if sender_id and len(sender_id) > 11:
-            raise forms.ValidationError(
-                f'Sender ID must be 11 characters or fewer (currently {len(sender_id)}). '
-                'This is a GSM standard limit for alphanumeric sender IDs.'
-            )
+        if sender_id:
+            if len(sender_id) > 11:
+                raise forms.ValidationError(
+                    f'Sender ID must be 11 characters or fewer (currently {len(sender_id)}).'
+                )
+            if not re.match(r'^[a-zA-Z0-9]+$', sender_id):
+                raise forms.ValidationError(
+                    'Sender ID must contain only letters and numbers (no spaces or special characters).'
+                )
         return sender_id
 
 
