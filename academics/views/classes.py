@@ -2,6 +2,7 @@
 import io
 import json
 import logging
+import re
 from datetime import datetime
 from io import BytesIO
 
@@ -35,6 +36,12 @@ def get_classes_list_context():
         student_count=Count('students', filter=models.Q(students__status='active'))
     ).order_by('level_number', 'section')
     return {'classes': classes}
+
+
+def _safe_filename(name, extension):
+    """Sanitize a name for use in Content-Disposition filename."""
+    safe = re.sub(r'[^\w\s-]', '', name).replace(' ', '_')
+    return f"{safe}.{extension}"
 
 
 @admin_required
@@ -885,31 +892,32 @@ def class_subject_students(request, class_pk, pk):
         selected_ids = set(request.POST.getlist('students'))
         unenrolled_students = []
 
-        for student in students:
-            sid = str(student.pk)
-            should_be_enrolled = sid in selected_ids
+        with transaction.atomic():
+            for student in students:
+                sid = str(student.pk)
+                should_be_enrolled = sid in selected_ids
 
-            if should_be_enrolled:
-                enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
-                    student=student, class_subject=class_subject,
-                    defaults={'is_active': True}
-                )
-                if not created and not enrollment.is_active:
-                    enrollment.is_active = True
-                    enrollment.save()
-            else:
-                updated = StudentSubjectEnrollment.objects.filter(
-                    student=student, class_subject=class_subject, is_active=True
-                ).update(is_active=False)
-                if updated:
-                    unenrolled_students.append(student)
+                if should_be_enrolled:
+                    enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
+                        student=student, class_subject=class_subject,
+                        defaults={'is_active': True}
+                    )
+                    if not created and not enrollment.is_active:
+                        enrollment.is_active = True
+                        enrollment.save()
+                else:
+                    updated = StudentSubjectEnrollment.objects.filter(
+                        student=student, class_subject=class_subject, is_active=True
+                    ).update(is_active=False)
+                    if updated:
+                        unenrolled_students.append(student)
 
-        # Delete scores for unenrolled students in this subject
-        if unenrolled_students:
-            Score.objects.filter(
-                student__in=unenrolled_students,
-                assignment__subject=subject,
-            ).delete()
+            # Delete scores for unenrolled students in this subject
+            if unenrolled_students:
+                Score.objects.filter(
+                    student__in=unenrolled_students,
+                    assignment__subject=subject,
+                ).delete()
 
         return render(request, 'academics/includes/modal_subject_students_success.html', {
             'class_subject': class_subject, 'class': class_obj,
@@ -1286,7 +1294,7 @@ def class_export(request, pk):
     response = DjangoHttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    filename = f"{class_obj.name.replace(' ', '_')}_Register.xlsx"
+    filename = _safe_filename(f"{class_obj.name}_Register", "xlsx")
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     wb.save(response)
@@ -1421,7 +1429,7 @@ def class_detail_pdf(request, pk):
         pdf_buffer.seek(0)
 
         response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
-        filename = f"{class_obj.name.replace(' ', '_')}_Register.pdf"
+        filename = _safe_filename(f"{class_obj.name}_Register", "pdf")
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 
@@ -1443,10 +1451,14 @@ SUBJECT_IMPORT_COLUMNS = [
 
 
 def clean_value(val):
-    """Clean a value from pandas, handling NaN and whitespace."""
+    """Clean a value from pandas, handling NaN, whitespace, and formula injection."""
     if pd.isna(val):
         return ''
-    return str(val).strip()
+    val = str(val).strip()
+    # Strip leading formula injection characters
+    if val and val[0] in ('=', '+', '-', '@'):
+        val = val.lstrip('=+\\-@')
+    return val
 
 
 @admin_required

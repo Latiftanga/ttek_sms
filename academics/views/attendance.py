@@ -712,9 +712,10 @@ def attendance_reports(request):
     all_sessions = sessions.order_by('-date')
     paginator = Paginator(all_sessions, 15)  # 15 sessions per page
 
+    from django.core.paginator import EmptyPage, PageNotAnInteger
     try:
         paginated_sessions = paginator.page(history_page)
-    except Exception:
+    except (EmptyPage, PageNotAnInteger):
         paginated_sessions = paginator.page(1)
 
     session_ids = [s.id for s in paginated_sessions]
