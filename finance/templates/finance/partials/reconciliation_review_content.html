@@ -1,0 +1,421 @@
+<!-- Page Header -->
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'finance:reconciliation_upload' %}"
+       hx-get="{% url 'finance:reconciliation_upload' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Upload">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Review Reconciliation</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">
+            {{ recon.get_bank_display }} &mdash; {{ recon.file_name }}
+            <span class="badge badge-sm
+                {% if recon.status == 'CONFIRMED' %}badge-success
+                {% elif recon.status == 'CANCELLED' %}badge-error
+                {% else %}badge-warning{% endif %}">
+                {{ recon.get_status_display }}
+            </span>
+        </p>
+    </div>
+    {% if recon.status == 'PENDING' %}
+    <form method="post" action="{% url 'finance:reconciliation_cancel' pk=recon.pk %}"
+          hx-confirm="Cancel this reconciliation? All unconfirmed matches will be discarded.">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-ghost btn-sm text-error">
+            <i class="fa-solid fa-xmark"></i>
+            <span class="hidden sm:inline">Cancel</span>
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+<!-- Summary Stats -->
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-list text-primary"></i>
+                </div>
+                <div>
+                    <div class="text-xl font-bold">{{ recon.total_rows }}</div>
+                    <div class="text-[10px] text-base-content/60">Total Rows</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                    <i class="fa-solid fa-check-double text-success"></i>
+                </div>
+                <div>
+                    <div class="text-xl font-bold text-success">{{ matched|length }}</div>
+                    <div class="text-[10px] text-base-content/60">Matched</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                    <i class="fa-solid fa-question text-warning"></i>
+                </div>
+                <div>
+                    <div class="text-xl font-bold text-warning">{{ unmatched|length }}</div>
+                    <div class="text-[10px] text-base-content/60">Unmatched</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                    <i class="fa-solid fa-circle-check text-info"></i>
+                </div>
+                <div>
+                    <div class="text-xl font-bold text-info">{{ confirmed|length }}</div>
+                    <div class="text-[10px] text-base-content/60">Confirmed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-3">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                    <i class="fa-solid fa-coins text-accent"></i>
+                </div>
+                <div>
+                    <div class="text-lg font-bold">GHS {{ recon.total_amount|floatformat:2 }}</div>
+                    <div class="text-[10px] text-base-content/60">Total Credits</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div x-data="{ tab: 'matched' }" class="space-y-4">
+    <div class="tabs tabs-box">
+        <a class="tab" :class="tab === 'matched' && 'tab-active'" @click="tab = 'matched'">
+            Matched <span class="badge badge-success badge-sm ml-1">{{ matched|length }}</span>
+        </a>
+        <a class="tab" :class="tab === 'unmatched' && 'tab-active'" @click="tab = 'unmatched'">
+            Unmatched <span class="badge badge-warning badge-sm ml-1">{{ unmatched|length }}</span>
+        </a>
+        <a class="tab" :class="tab === 'confirmed' && 'tab-active'" @click="tab = 'confirmed'">
+            Confirmed <span class="badge badge-info badge-sm ml-1">{{ confirmed|length }}</span>
+        </a>
+        <a class="tab" :class="tab === 'duplicates' && 'tab-active'" @click="tab = 'duplicates'">
+            Duplicates <span class="badge badge-ghost badge-sm ml-1">{{ duplicates|length }}</span>
+        </a>
+        <a class="tab" :class="tab === 'skipped' && 'tab-active'" @click="tab = 'skipped'">
+            Skipped <span class="badge badge-ghost badge-sm ml-1">{{ skipped|length }}</span>
+        </a>
+        {% if excluded %}
+        <a class="tab" :class="tab === 'excluded' && 'tab-active'" @click="tab = 'excluded'">
+            Excluded <span class="badge badge-ghost badge-sm ml-1">{{ excluded|length }}</span>
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Matched Tab -->
+    <div x-show="tab === 'matched'" x-cloak>
+        {% if matched %}
+        <form method="post" action="{% url 'finance:reconciliation_confirm' pk=recon.pk %}">
+            {% csrf_token %}
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-0">
+                    <div class="flex items-center justify-between p-4 border-b border-base-200">
+                        <h2 class="font-bold flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                                <i class="fa-solid fa-check-double text-success"></i>
+                            </div>
+                            Matched Rows
+                        </h2>
+                        {% if recon.status == 'PENDING' %}
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="fa-solid fa-check"></i>
+                            Confirm Selected
+                        </button>
+                        {% endif %}
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    {% if recon.status == 'PENDING' %}
+                                    <th>
+                                        <label>
+                                            <input type="checkbox" class="checkbox checkbox-sm checkbox-success"
+                                                   onchange="document.querySelectorAll('.match-cb').forEach(c => c.checked = this.checked)">
+                                        </label>
+                                    </th>
+                                    {% endif %}
+                                    <th>#</th>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Reference</th>
+                                    <th>Amount</th>
+                                    <th>Invoice</th>
+                                    <th>Student</th>
+                                    <th>Match</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in matched %}
+                                <tr id="row-{{ row.pk }}">
+                                    {% if recon.status == 'PENDING' %}
+                                    <td>
+                                        <label>
+                                            <input type="checkbox" name="row_ids" value="{{ row.pk }}"
+                                                   class="checkbox checkbox-sm checkbox-success match-cb" checked>
+                                        </label>
+                                    </td>
+                                    {% endif %}
+                                    <td class="text-base-content/50">{{ row.row_number }}</td>
+                                    <td class="whitespace-nowrap">{{ row.transaction_date|date:"d M Y"|default:"-" }}</td>
+                                    <td class="max-w-48 truncate" title="{{ row.description }}">{{ row.description }}</td>
+                                    <td class="font-mono text-xs">{{ row.reference|default:"-" }}</td>
+                                    <td class="font-bold text-success whitespace-nowrap">GHS {{ row.credit_amount|floatformat:2 }}</td>
+                                    <td>
+                                        {% if row.matched_invoice %}
+                                        <a href="{% url 'finance:invoice_detail' pk=row.matched_invoice.pk %}"
+                                           class="link link-primary text-xs font-mono">
+                                            {{ row.matched_invoice.invoice_number }}
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-sm">
+                                        {% if row.matched_invoice %}
+                                        {{ row.matched_invoice.student.full_name }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-sm
+                                            {% if row.match_confidence == 'high' %}badge-success
+                                            {% elif row.match_confidence == 'medium' %}badge-warning
+                                            {% else %}badge-ghost{% endif %}">
+                                            {{ row.match_method }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </form>
+        {% else %}
+        <div class="text-center py-8 text-base-content/50">
+            <i class="fa-solid fa-check-double text-4xl mb-2"></i>
+            <p>No matched rows</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Unmatched Tab -->
+    <div x-show="tab === 'unmatched'" x-cloak>
+        {% if unmatched %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="flex items-center justify-between p-4 border-b border-base-200">
+                    <h2 class="font-bold flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                            <i class="fa-solid fa-question text-warning"></i>
+                        </div>
+                        Unmatched Rows
+                    </h2>
+                    <span class="text-sm text-base-content/60">Search and assign invoices manually</span>
+                </div>
+                <div class="divide-y divide-base-200">
+                    {% for row in unmatched %}
+                    <div id="row-{{ row.pk }}" class="p-4">
+                        {% include 'finance/partials/reconciliation_row.html' with row=row %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-base-content/50">
+            <i class="fa-solid fa-circle-check text-4xl mb-2 text-success"></i>
+            <p>All credit rows have been matched</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Confirmed Tab -->
+    <div x-show="tab === 'confirmed'" x-cloak>
+        {% if confirmed %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Invoice</th>
+                                <th>Student</th>
+                                <th>Receipt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in confirmed %}
+                            <tr>
+                                <td class="text-base-content/50">{{ row.row_number }}</td>
+                                <td class="whitespace-nowrap">{{ row.transaction_date|date:"d M Y"|default:"-" }}</td>
+                                <td class="max-w-48 truncate" title="{{ row.description }}">{{ row.description }}</td>
+                                <td class="font-bold text-success whitespace-nowrap">GHS {{ row.credit_amount|floatformat:2 }}</td>
+                                <td>
+                                    {% if row.matched_invoice %}
+                                    <span class="font-mono text-xs">{{ row.matched_invoice.invoice_number }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-sm">
+                                    {% if row.matched_invoice %}{{ row.matched_invoice.student.full_name }}{% endif %}
+                                </td>
+                                <td>
+                                    {% if row.payment %}
+                                    <a href="{% url 'finance:payment_detail' pk=row.payment.pk %}"
+                                       class="link link-primary text-xs font-mono">
+                                        {{ row.payment.receipt_number }}
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-base-content/50">
+            <i class="fa-solid fa-hourglass text-4xl mb-2"></i>
+            <p>No confirmed payments yet</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Duplicates Tab -->
+    <div x-show="tab === 'duplicates'" x-cloak>
+        {% if duplicates %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Reference</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in duplicates %}
+                            <tr class="opacity-60">
+                                <td>{{ row.row_number }}</td>
+                                <td class="whitespace-nowrap">{{ row.transaction_date|date:"d M Y"|default:"-" }}</td>
+                                <td class="max-w-48 truncate" title="{{ row.description }}">{{ row.description }}</td>
+                                <td class="font-mono text-xs">{{ row.reference|default:"-" }}</td>
+                                <td class="whitespace-nowrap">GHS {{ row.credit_amount|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-base-content/50">
+            <p>No duplicate rows found</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Skipped Tab -->
+    <div x-show="tab === 'skipped'" x-cloak>
+        {% if skipped %}
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Reference</th>
+                                <th>Debit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in skipped %}
+                            <tr class="opacity-60">
+                                <td>{{ row.row_number }}</td>
+                                <td class="whitespace-nowrap">{{ row.transaction_date|date:"d M Y"|default:"-" }}</td>
+                                <td class="max-w-48 truncate" title="{{ row.description }}">{{ row.description }}</td>
+                                <td class="font-mono text-xs">{{ row.reference|default:"-" }}</td>
+                                <td class="text-error whitespace-nowrap">GHS {{ row.debit_amount|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-base-content/50">
+            <p>No skipped (debit) rows</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Excluded Tab -->
+    {% if excluded %}
+    <div x-show="tab === 'excluded'" x-cloak>
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-0">
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Reference</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in excluded %}
+                            <tr class="opacity-60">
+                                <td>{{ row.row_number }}</td>
+                                <td class="whitespace-nowrap">{{ row.transaction_date|date:"d M Y"|default:"-" }}</td>
+                                <td class="max-w-48 truncate" title="{{ row.description }}">{{ row.description }}</td>
+                                <td class="font-mono text-xs">{{ row.reference|default:"-" }}</td>
+                                <td class="whitespace-nowrap">GHS {{ row.credit_amount|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

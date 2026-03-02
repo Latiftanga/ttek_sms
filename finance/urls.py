@@ -76,4 +76,12 @@ urlpatterns = [
     path('notifications/send/<uuid:pk>/', views.send_invoice_notification_view, name='send_notification'),
     path('notifications/bulk/', views.send_bulk_notifications_view, name='send_bulk_notifications'),
     path('notifications/history/', views.notification_history, name='notification_history'),
+
+    # Bank Reconciliation
+    path('reconciliation/', views.reconciliation_upload, name='reconciliation_upload'),
+    path('reconciliation/history/', views.reconciliation_history, name='reconciliation_history'),
+    path('reconciliation/<uuid:pk>/review/', views.reconciliation_review, name='reconciliation_review'),
+    path('reconciliation/<uuid:pk>/confirm/', views.reconciliation_confirm, name='reconciliation_confirm'),
+    path('reconciliation/<uuid:pk>/cancel/', views.reconciliation_cancel, name='reconciliation_cancel'),
+    path('api/reconciliation/row/<uuid:row_pk>/match/', views.reconciliation_match_row, name='reconciliation_match_row'),
 ]

@@ -111,6 +111,11 @@ NAVIGATION_CONFIG = [
                 'icon': 'fa-solid fa-chart-bar',
                 'url_name': 'finance:reports',
             },
+            {
+                'label': 'Bank Reconciliation',
+                'icon': 'fa-solid fa-file-invoice-dollar',
+                'url_name': 'finance:reconciliation_upload',
+            },
         ]
     },
     {

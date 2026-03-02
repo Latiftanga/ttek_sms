@@ -20,11 +20,13 @@ from core.utils import cache_page_per_tenant, admin_required, htmx_render
 from .models import (
     PaymentGateway, PaymentGatewayConfig, PaymentGatewayTransaction,
     FeeStructure, CATEGORY_CHOICES,
-    Scholarship, StudentScholarship, Invoice, InvoiceItem, Payment
+    Scholarship, StudentScholarship, Invoice, InvoiceItem, Payment,
+    BankReconciliation, BankStatementRow,
 )
 from .forms import (
     FeeStructureForm, ScholarshipForm, StudentScholarshipForm,
-    InvoiceGenerateForm, PaymentForm, GatewayConfigForm
+    InvoiceGenerateForm, PaymentForm, GatewayConfigForm,
+    BankReconciliationUploadForm,
 )
 from students.models import Student
 from academics.models import Class
@@ -3044,3 +3046,242 @@ def guardian_payment_failed(request, payment_id):
     if request.htmx:
         return render(request, 'finance/parent/partials/payment_failed_content.html', context)
     return render(request, 'finance/parent/payment_failed.html', context)
+
+
+# =============================================================================
+# BANK RECONCILIATION
+# =============================================================================
+
+@admin_required
+def reconciliation_upload(request):
+    """Upload a bank statement for reconciliation."""
+    if request.method == 'POST':
+        form = BankReconciliationUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            bank = form.cleaned_data['bank']
+            uploaded_file = form.cleaned_data['file']
+            ext = uploaded_file.name.rsplit('.', 1)[-1].lower()
+
+            from .parsers import get_statement_parser
+            parser = get_statement_parser(bank)
+
+            try:
+                parsed_rows = parser.parse(uploaded_file, ext)
+            except ValueError as e:
+                form.add_error('file', str(e))
+            else:
+                from .reconciliation import match_rows_to_invoices
+
+                recon = BankReconciliation.objects.create(
+                    bank=bank,
+                    file_name=uploaded_file.name,
+                    uploaded_by=request.user,
+                )
+                match_rows_to_invoices(parsed_rows, recon)
+                recon.update_stats()
+                return redirect('finance:reconciliation_review', pk=recon.pk)
+    else:
+        form = BankReconciliationUploadForm()
+
+    context = {'form': form}
+    return htmx_render(
+        request,
+        'finance/reconciliation_upload.html',
+        'finance/partials/reconciliation_upload_content.html',
+        context,
+    )
+
+
+@admin_required
+def reconciliation_review(request, pk):
+    """Review matched rows and confirm payments."""
+    recon = get_object_or_404(BankReconciliation, pk=pk)
+    rows = recon.rows.select_related('matched_invoice__student').all()
+
+    matched = [r for r in rows if r.match_status == 'MATCHED']
+    unmatched = [r for r in rows if r.match_status == 'UNMATCHED']
+    duplicates = [r for r in rows if r.match_status == 'DUPLICATE']
+    skipped = [r for r in rows if r.match_status == 'SKIPPED']
+    confirmed = [r for r in rows if r.match_status == 'CONFIRMED']
+    excluded = [r for r in rows if r.match_status == 'EXCLUDED']
+
+    context = {
+        'recon': recon,
+        'matched': matched,
+        'unmatched': unmatched,
+        'duplicates': duplicates,
+        'skipped': skipped,
+        'confirmed': confirmed,
+        'excluded': excluded,
+    }
+    return htmx_render(
+        request,
+        'finance/reconciliation_review.html',
+        'finance/partials/reconciliation_review_content.html',
+        context,
+    )
+
+
+@admin_required
+@require_POST
+def reconciliation_match_row(request, row_pk):
+    """Manually assign an invoice to an unmatched row, or exclude it."""
+    row = get_object_or_404(
+        BankStatementRow.objects.select_related(
+            'reconciliation', 'matched_invoice__student'
+        ),
+        pk=row_pk,
+    )
+
+    action = request.POST.get('action', '')
+
+    if action == 'exclude':
+        row.match_status = 'EXCLUDED'
+        row.matched_invoice = None
+        row.match_method = 'manual_exclude'
+        row.match_confidence = ''
+        row.save()
+    elif action == 'match':
+        invoice_id = request.POST.get('invoice_id', '')
+        if invoice_id:
+            invoice = get_object_or_404(Invoice, pk=invoice_id)
+            row.match_status = 'MATCHED'
+            row.matched_invoice = invoice
+            row.match_method = 'manual'
+            row.match_confidence = 'high'
+            row.save()
+    elif action == 'unmatch':
+        row.match_status = 'UNMATCHED'
+        row.matched_invoice = None
+        row.match_method = ''
+        row.match_confidence = ''
+        row.save()
+
+    row.reconciliation.update_stats()
+
+    # Return updated row partial
+    return render(request, 'finance/partials/reconciliation_row.html', {'row': row})
+
+
+@admin_required
+@require_POST
+def reconciliation_confirm(request, pk):
+    """Create payments for selected matched rows."""
+    recon = get_object_or_404(BankReconciliation, pk=pk)
+
+    if recon.status != 'PENDING':
+        messages.error(request, 'This reconciliation has already been processed.')
+        return redirect('finance:reconciliation_review', pk=pk)
+
+    selected_ids = request.POST.getlist('row_ids')
+    if not selected_ids:
+        messages.error(request, 'No rows selected for confirmation.')
+        return redirect('finance:reconciliation_review', pk=pk)
+
+    rows = recon.rows.filter(
+        pk__in=selected_ids, match_status='MATCHED', matched_invoice__isnull=False
+    ).select_related('matched_invoice__student')
+
+    if not rows.exists():
+        messages.error(request, 'No valid matched rows found.')
+        return redirect('finance:reconciliation_review', pk=pk)
+
+    confirmed_count = 0
+
+    with transaction.atomic():
+        for row in rows:
+            payment = Payment(
+                invoice=row.matched_invoice,
+                amount=row.credit_amount,
+                method='BANK_TRANSFER',
+                status='COMPLETED',
+                reference=row.reference or f"RECON-{recon.pk}-R{row.row_number}",
+                transaction_date=row.transaction_date or timezone.now(),
+                received_by=request.user,
+                notes=f"Bank reconciliation: {recon.file_name} (row {row.row_number})",
+            )
+            payment.save()
+
+            row.match_status = 'CONFIRMED'
+            row.payment = payment
+            row.save()
+            confirmed_count += 1
+
+            # Queue SMS
+            from .tasks import send_payment_confirmation_sms
+            send_payment_confirmation_sms.delay(
+                str(payment.pk), connection.schema_name
+            )
+
+            # Bell notification
+            if payment.invoice and payment.invoice.student:
+                from core.notifications import notify_guardian
+                student = payment.invoice.student
+                notify_guardian(
+                    student,
+                    title='Payment Confirmed',
+                    message=f'Payment of GHS {payment.amount} received for {student.full_name}.',
+                    category='finance',
+                    notification_type='success',
+                    icon='fa-solid fa-circle-check',
+                )
+
+    recon.update_stats()
+
+    # If all matched rows confirmed, mark reconciliation as confirmed
+    remaining_matched = recon.rows.filter(match_status='MATCHED').count()
+    if remaining_matched == 0:
+        recon.status = 'CONFIRMED'
+        recon.confirmed_at = timezone.now()
+        recon.save()
+
+    messages.success(request, f'{confirmed_count} payment(s) confirmed successfully.')
+    return redirect('finance:reconciliation_review', pk=pk)
+
+
+@admin_required
+def reconciliation_history(request):
+    """Paginated list of past reconciliation uploads."""
+    reconciliations = BankReconciliation.objects.select_related('uploaded_by').all()
+
+    per_page = request.GET.get('per_page', '25')
+    try:
+        per_page = int(per_page)
+        if per_page not in (25, 50, 100):
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
+
+    paginator = Paginator(reconciliations, per_page)
+    page_num = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_num)
+
+    context = {
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'per_page': per_page,
+    }
+    return htmx_render(
+        request,
+        'finance/reconciliation_history.html',
+        'finance/partials/reconciliation_history_content.html',
+        context,
+    )
+
+
+@admin_required
+@require_POST
+def reconciliation_cancel(request, pk):
+    """Cancel a pending reconciliation and delete its rows."""
+    recon = get_object_or_404(BankReconciliation, pk=pk)
+
+    if recon.status != 'PENDING':
+        messages.error(request, 'Only pending reconciliations can be cancelled.')
+        return redirect('finance:reconciliation_history')
+
+    recon.rows.all().delete()
+    recon.status = 'CANCELLED'
+    recon.save()
+
+    messages.success(request, 'Reconciliation cancelled.')
+    return redirect('finance:reconciliation_history')

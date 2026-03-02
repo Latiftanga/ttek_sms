@@ -1,0 +1,171 @@
+<!-- Page Header -->
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'finance:reconciliation_upload' %}"
+       hx-get="{% url 'finance:reconciliation_upload' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Upload">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Reconciliation History</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">Past bank statement uploads and reconciliation sessions</p>
+    </div>
+    <a href="{% url 'finance:reconciliation_upload' %}"
+       hx-get="{% url 'finance:reconciliation_upload' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-plus"></i>
+        <span class="hidden sm:inline">New Upload</span>
+    </a>
+</div>
+
+<!-- History Table -->
+<div class="card bg-base-100 shadow-sm border border-base-200">
+    <div class="card-body p-0">
+        <div class="flex items-center justify-between p-4 border-b border-base-200">
+            <h2 class="font-bold flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <i class="fa-solid fa-clock-rotate-left text-primary"></i>
+                </div>
+                All Reconciliations
+            </h2>
+            <span class="badge badge-ghost">{{ paginator.count }} total</span>
+        </div>
+
+        {% if page_obj %}
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Bank</th>
+                        <th>File</th>
+                        <th>Uploaded By</th>
+                        <th>Rows</th>
+                        <th>Matched</th>
+                        <th>Confirmed</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for recon in page_obj %}
+                    <tr>
+                        <td class="whitespace-nowrap">{{ recon.created_at|date:"d M Y H:i" }}</td>
+                        <td>{{ recon.get_bank_display }}</td>
+                        <td class="max-w-32 truncate" title="{{ recon.file_name }}">{{ recon.file_name }}</td>
+                        <td>{{ recon.uploaded_by.get_full_name|default:recon.uploaded_by.username }}</td>
+                        <td>{{ recon.total_rows }}</td>
+                        <td class="text-success">{{ recon.matched_count }}</td>
+                        <td class="text-info">{{ recon.confirmed_count }}</td>
+                        <td class="font-bold whitespace-nowrap">GHS {{ recon.total_amount|floatformat:2 }}</td>
+                        <td>
+                            <span class="badge badge-sm
+                                {% if recon.status == 'CONFIRMED' %}badge-success
+                                {% elif recon.status == 'CANCELLED' %}badge-error
+                                {% else %}badge-warning{% endif %}">
+                                {{ recon.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if recon.status == 'PENDING' %}
+                            <a href="{% url 'finance:reconciliation_review' pk=recon.pk %}"
+                               hx-get="{% url 'finance:reconciliation_review' pk=recon.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-ghost btn-xs">
+                                <i class="fa-solid fa-eye"></i> Review
+                            </a>
+                            {% else %}
+                            <a href="{% url 'finance:reconciliation_review' pk=recon.pk %}"
+                               hx-get="{% url 'finance:reconciliation_review' pk=recon.pk %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="btn btn-ghost btn-xs">
+                                <i class="fa-solid fa-eye"></i> View
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 border-t border-base-200">
+            <div class="text-sm text-base-content/60">
+                Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }}
+            </div>
+            <div class="join">
+                {% if page_obj.has_previous %}
+                <a href="?page=1&per_page={{ per_page }}"
+                   hx-get="{% url 'finance:reconciliation_history' %}?page=1&per_page={{ per_page }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="join-item btn btn-sm">
+                    <i class="fa-solid fa-angles-left"></i>
+                </a>
+                <a href="?page={{ page_obj.previous_page_number }}&per_page={{ per_page }}"
+                   hx-get="{% url 'finance:reconciliation_history' %}?page={{ page_obj.previous_page_number }}&per_page={{ per_page }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="join-item btn btn-sm">
+                    <i class="fa-solid fa-angle-left"></i>
+                </a>
+                {% endif %}
+
+                <span class="join-item btn btn-sm btn-active">{{ page_obj.number }}</span>
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&per_page={{ per_page }}"
+                   hx-get="{% url 'finance:reconciliation_history' %}?page={{ page_obj.next_page_number }}&per_page={{ per_page }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="join-item btn btn-sm">
+                    <i class="fa-solid fa-angle-right"></i>
+                </a>
+                <a href="?page={{ page_obj.paginator.num_pages }}&per_page={{ per_page }}"
+                   hx-get="{% url 'finance:reconciliation_history' %}?page={{ page_obj.paginator.num_pages }}&per_page={{ per_page }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="join-item btn btn-sm">
+                    <i class="fa-solid fa-angles-right"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-base-content/60">Per page:</span>
+                <select class="select select-sm select-bordered w-20"
+                        hx-get="{% url 'finance:reconciliation_history' %}"
+                        hx-target="#main-content"
+                        hx-push-url="true"
+                        name="per_page">
+                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-12">
+            <i class="fa-solid fa-inbox text-4xl text-base-content/20 mb-3"></i>
+            <p class="text-base-content/50">No reconciliations yet</p>
+            <a href="{% url 'finance:reconciliation_upload' %}"
+               hx-get="{% url 'finance:reconciliation_upload' %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-primary btn-sm mt-3">
+                <i class="fa-solid fa-upload"></i> Upload First Statement
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>

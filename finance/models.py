@@ -642,3 +642,144 @@ class FinanceNotificationLog(models.Model):
             return self.sms_status == 'SENT'
         else:  # BOTH
             return self.email_status == 'SENT' or self.sms_status == 'SENT'
+
+
+# =============================================================================
+# BANK RECONCILIATION
+# =============================================================================
+
+BANK_CHOICES = [
+    ('GCB', 'GCB Bank'),
+    ('ECOBANK', 'Ecobank'),
+    ('STANBIC', 'Stanbic Bank'),
+    ('FIDELITY', 'Fidelity Bank'),
+    ('GENERIC', 'Other / Generic'),
+]
+
+RECONCILIATION_STATUS_CHOICES = [
+    ('PENDING', 'Pending Review'),
+    ('CONFIRMED', 'Confirmed'),
+    ('CANCELLED', 'Cancelled'),
+]
+
+ROW_MATCH_STATUS_CHOICES = [
+    ('MATCHED', 'Matched'),
+    ('UNMATCHED', 'Unmatched'),
+    ('SKIPPED', 'Skipped'),
+    ('DUPLICATE', 'Duplicate'),
+    ('CONFIRMED', 'Confirmed'),
+    ('EXCLUDED', 'Excluded'),
+]
+
+
+class BankReconciliation(models.Model):
+    """Tracks a bank statement upload and reconciliation session."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    bank = models.CharField(max_length=20, choices=BANK_CHOICES)
+    file_name = models.CharField(max_length=255)
+    status = models.CharField(
+        max_length=20, choices=RECONCILIATION_STATUS_CHOICES, default='PENDING'
+    )
+
+    # Stats
+    total_rows = models.PositiveIntegerField(default=0)
+    credit_rows = models.PositiveIntegerField(default=0)
+    matched_count = models.PositiveIntegerField(default=0)
+    confirmed_count = models.PositiveIntegerField(default=0)
+    total_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0.00')
+    )
+    confirmed_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0.00')
+    )
+
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='bank_reconciliations',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_bank_display()} - {self.file_name} ({self.get_status_display()})"
+
+    def update_stats(self):
+        """Recalculate stats from rows."""
+        rows = self.rows.all()
+        self.total_rows = rows.count()
+        credit_qs = rows.exclude(match_status='SKIPPED')
+        self.credit_rows = credit_qs.count()
+        self.matched_count = rows.filter(match_status='MATCHED').count()
+        self.confirmed_count = rows.filter(match_status='CONFIRMED').count()
+        self.total_amount = (
+            credit_qs.aggregate(total=Sum('credit_amount'))['total']
+            or Decimal('0.00')
+        )
+        self.confirmed_amount = (
+            rows.filter(match_status='CONFIRMED').aggregate(
+                total=Sum('credit_amount')
+            )['total']
+            or Decimal('0.00')
+        )
+        self.save()
+
+
+class BankStatementRow(models.Model):
+    """A single parsed row from a bank statement."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    reconciliation = models.ForeignKey(
+        BankReconciliation, on_delete=models.CASCADE, related_name='rows'
+    )
+    row_number = models.PositiveIntegerField()
+
+    # Parsed data
+    transaction_date = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=True)
+    reference = models.CharField(max_length=500, blank=True)
+    credit_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0.00')
+    )
+    debit_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0.00')
+    )
+
+    # Match result
+    match_status = models.CharField(
+        max_length=20, choices=ROW_MATCH_STATUS_CHOICES, default='UNMATCHED'
+    )
+    matched_invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reconciliation_rows',
+    )
+    match_method = models.CharField(max_length=50, blank=True)
+    match_confidence = models.CharField(
+        max_length=10, blank=True, help_text="high / medium / low"
+    )
+
+    # After confirmation
+    payment = models.ForeignKey(
+        Payment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reconciliation_rows',
+    )
+
+    class Meta:
+        ordering = ['row_number']
+        indexes = [
+            models.Index(fields=['reconciliation', 'match_status']),
+        ]
+
+    def __str__(self):
+        return f"Row {self.row_number}: {self.description[:50]}"

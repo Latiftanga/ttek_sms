@@ -1,0 +1,107 @@
+<div class="flex flex-col sm:flex-row sm:items-center gap-3">
+    <!-- Row info -->
+    <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="badge badge-ghost badge-sm">Row {{ row.row_number }}</span>
+            <span class="text-sm text-base-content/50">{{ row.transaction_date|date:"d M Y"|default:"No date" }}</span>
+            <span class="font-bold text-success">GHS {{ row.credit_amount|floatformat:2 }}</span>
+        </div>
+        <p class="text-sm truncate" title="{{ row.description }}">{{ row.description }}</p>
+        {% if row.reference %}
+        <p class="text-xs font-mono text-base-content/50">Ref: {{ row.reference }}</p>
+        {% endif %}
+
+        {% if row.match_status == 'MATCHED' and row.matched_invoice %}
+        <div class="mt-1 flex items-center gap-2">
+            <span class="badge badge-success badge-sm">Matched</span>
+            <span class="font-mono text-xs">{{ row.matched_invoice.invoice_number }}</span>
+            <span class="text-xs">{{ row.matched_invoice.student.full_name }}</span>
+        </div>
+        {% elif row.match_status == 'EXCLUDED' %}
+        <div class="mt-1">
+            <span class="badge badge-ghost badge-sm">Excluded</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Actions -->
+    {% if row.match_status == 'UNMATCHED' %}
+    <div class="flex items-center gap-2" x-data="{ searching: false, results: '' }">
+        <div class="relative" x-show="searching" x-cloak>
+            <input type="text" placeholder="Search invoice..."
+                   class="input input-bordered input-sm w-48"
+                   hx-get="{% url 'finance:invoice_search' %}"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-target="#invoice-results-{{ row.pk }}"
+                   name="q"
+                   autocomplete="off">
+            <div id="invoice-results-{{ row.pk }}" class="absolute z-50 w-64 mt-1"
+                 onclick="handleInvoiceSelect(event, '{{ row.pk }}')"></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" @click="searching = !searching" title="Search invoice">
+            <i class="fa-solid fa-search"></i>
+        </button>
+        <form method="post"
+              action="{% url 'finance:reconciliation_match_row' row_pk=row.pk %}"
+              hx-post="{% url 'finance:reconciliation_match_row' row_pk=row.pk %}"
+              hx-target="#row-{{ row.pk }}"
+              hx-swap="innerHTML">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="exclude">
+            <button type="submit" class="btn btn-ghost btn-sm text-base-content/50" title="Exclude this row">
+                <i class="fa-solid fa-ban"></i>
+            </button>
+        </form>
+    </div>
+    {% elif row.match_status == 'MATCHED' %}
+    <form method="post"
+          action="{% url 'finance:reconciliation_match_row' row_pk=row.pk %}"
+          hx-post="{% url 'finance:reconciliation_match_row' row_pk=row.pk %}"
+          hx-target="#row-{{ row.pk }}"
+          hx-swap="innerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="unmatch">
+        <button type="submit" class="btn btn-ghost btn-sm text-warning" title="Remove match">
+            <i class="fa-solid fa-unlink"></i>
+        </button>
+    </form>
+    {% elif row.match_status == 'EXCLUDED' %}
+    <form method="post"
+          action="{% url 'finance:reconciliation_match_row' row_pk=row.pk %}"
+          hx-post="{% url 'finance:reconciliation_match_row' row_pk=row.pk %}"
+          hx-target="#row-{{ row.pk }}"
+          hx-swap="innerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="unmatch">
+        <button type="submit" class="btn btn-ghost btn-sm" title="Undo exclude">
+            <i class="fa-solid fa-undo"></i>
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+<script>
+function handleInvoiceSelect(event, rowPk) {
+    const link = event.target.closest('a[data-invoice-id]');
+    if (!link) return;
+    event.preventDefault();
+    const invoiceId = link.dataset.invoiceId;
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/finance/api/reconciliation/row/' + rowPk + '/match/';
+    form.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="' +
+        document.querySelector('[name=csrfmiddlewaretoken]').value + '">' +
+        '<input type="hidden" name="action" value="match">' +
+        '<input type="hidden" name="invoice_id" value="' + invoiceId + '">';
+
+    // Use HTMX to submit
+    form.setAttribute('hx-post', form.action);
+    form.setAttribute('hx-target', '#row-' + rowPk);
+    form.setAttribute('hx-swap', 'innerHTML');
+
+    document.body.appendChild(form);
+    htmx.trigger(form, 'submit');
+    document.body.removeChild(form);
+}
+</script>

@@ -1,0 +1,128 @@
+<!-- Page Header -->
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'finance:index' %}"
+       hx-get="{% url 'finance:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0"
+       title="Back to Finance">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Bank Reconciliation</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60">Upload a bank statement to match deposits to invoices</p>
+    </div>
+    <a href="{% url 'finance:reconciliation_history' %}"
+       hx-get="{% url 'finance:reconciliation_history' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-ghost btn-sm">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span class="hidden sm:inline">History</span>
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Upload Form (2/3) -->
+    <div class="lg:col-span-2">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4 sm:p-6">
+                <h2 class="font-bold flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <i class="fa-solid fa-file-arrow-up text-primary"></i>
+                    </div>
+                    Upload Bank Statement
+                </h2>
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-error mb-4">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <div>
+                        {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <form method="post" enctype="multipart/form-data" class="space-y-4">
+                    {% csrf_token %}
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-medium">Bank</span>
+                        </label>
+                        {{ form.bank }}
+                        {% if form.bank.errors %}
+                        <label class="label">
+                            <span class="label-text-alt text-error">{{ form.bank.errors.0 }}</span>
+                        </label>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-medium">Statement File</span>
+                        </label>
+                        {{ form.file }}
+                        {% if form.file.errors %}
+                        <label class="label">
+                            <span class="label-text-alt text-error">{{ form.file.errors.0 }}</span>
+                        </label>
+                        {% else %}
+                        <label class="label">
+                            <span class="label-text-alt text-base-content/50">{{ form.file.help_text }}</span>
+                        </label>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-sm w-full sm:w-auto">
+                        <i class="fa-solid fa-upload"></i>
+                        Upload &amp; Match
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Sidebar (1/3) -->
+    <div class="space-y-6">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-circle-info text-info"></i>
+                    How It Works
+                </h2>
+                <ol class="list-decimal list-inside space-y-2 text-sm text-base-content/70">
+                    <li>Select your bank and upload the statement (CSV or Excel)</li>
+                    <li>The system matches deposits to invoices using invoice numbers and admission numbers</li>
+                    <li>Review matches and manually assign any unmatched rows</li>
+                    <li>Confirm to create payments in bulk</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h2 class="font-bold flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-lightbulb text-warning"></i>
+                    Tips
+                </h2>
+                <ul class="space-y-2 text-sm text-base-content/70">
+                    <li class="flex gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Best results when parents include the invoice number (e.g. INV-2026-00012) as payment reference</span>
+                    </li>
+                    <li class="flex gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Admission numbers in the description are also matched automatically</span>
+                    </li>
+                    <li class="flex gap-2">
+                        <i class="fa-solid fa-check text-success mt-0.5"></i>
+                        <span>Duplicate references (already recorded payments) are flagged</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

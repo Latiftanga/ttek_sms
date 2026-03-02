@@ -1,7 +1,7 @@
 from django import forms
 from .models import (
     FeeStructure, CATEGORY_CHOICES, Scholarship, StudentScholarship,
-    Invoice, Payment, PaymentGatewayConfig
+    Invoice, Payment, PaymentGatewayConfig, BANK_CHOICES,
 )
 from students.models import Student
 from academics.models import Class
@@ -339,3 +339,30 @@ class GatewayConfigForm(forms.ModelForm):
         self.fields['merchant_id'].required = False
         self.fields['encryption_key'].required = False
         self.fields['merchant_account'].required = False
+
+
+class BankReconciliationUploadForm(forms.Form):
+    """Upload a bank statement CSV/Excel for reconciliation."""
+
+    bank = forms.ChoiceField(
+        choices=BANK_CHOICES,
+        widget=forms.Select(attrs={
+            'class': 'select select-bordered select-sm w-full',
+        }),
+    )
+    file = forms.FileField(
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'file-input file-input-bordered file-input-sm w-full',
+            'accept': '.csv,.xlsx',
+        }),
+        help_text='Accepted formats: CSV (.csv) or Excel (.xlsx)',
+    )
+
+    def clean_file(self):
+        f = self.cleaned_data['file']
+        ext = f.name.rsplit('.', 1)[-1].lower() if '.' in f.name else ''
+        if ext not in ('csv', 'xlsx'):
+            raise forms.ValidationError('Only .csv and .xlsx files are supported.')
+        if f.size > 10 * 1024 * 1024:  # 10 MB
+            raise forms.ValidationError('File size must not exceed 10 MB.')
+        return f
