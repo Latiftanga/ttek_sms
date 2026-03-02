@@ -111,6 +111,26 @@ class ClassForm(forms.ModelForm):
         elif level_type == Class.LevelType.SHS and level_number and level_number > 3:
             self.add_error('level_number', 'SHS only has levels 1-3.')
 
+        # Check for duplicate class
+        if level_type and level_number:
+            section = cleaned_data.get('section', '')
+            qs = Class.objects.filter(
+                level_type=level_type,
+                level_number=level_number,
+                section=section,
+            )
+            if programme:
+                qs = qs.filter(programme=programme)
+            else:
+                qs = qs.filter(programme__isnull=True)
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError(
+                    'This class already exists. A class with the same level, '
+                    'number, programme, and section cannot be created twice.'
+                )
+
         return cleaned_data
 
 

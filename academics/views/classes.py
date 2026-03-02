@@ -235,25 +235,36 @@ def class_delete(request, pk):
     # Block deletion if students are assigned to this class
     student_count = Student.objects.filter(current_class=cls).count()
     if student_count > 0:
+        if request.htmx:
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = json.dumps({
+                'showToast': {
+                    'message': f'Cannot delete "{class_name}" — {student_count} student(s) '
+                               f'are assigned. Reassign or remove students first.',
+                    'type': 'error',
+                }
+            })
+            return response
         messages.error(
             request,
             f'Cannot delete "{class_name}" — {student_count} student(s) '
             f'are currently assigned to this class. Reassign or remove students first.'
         )
-        if request.htmx:
-            response = HttpResponse(status=204)
-            response['HX-Refresh'] = 'true'
-            return response
         return redirect('academics:classes')
 
     cls.delete()
 
-    messages.success(request, f'Class "{class_name}" has been deleted.')
-
     if request.htmx:
-        response = HttpResponse(status=200)
+        response = HttpResponse(status=204)
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {
+                'message': f'Class "{class_name}" has been deleted.',
+                'type': 'success',
+            }
+        })
         response['HX-Redirect'] = reverse('academics:classes')
         return response
+    messages.success(request, f'Class "{class_name}" has been deleted.')
     return redirect('academics:classes')
 
 

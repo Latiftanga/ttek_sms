@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from teachers.models import Teacher
 from django.utils import timezone
@@ -128,13 +129,45 @@ class Class(models.Model):
         ordering = ['level_type', 'level_number', 'programme', 'section']
         verbose_name = "Class"
         verbose_name_plural = "Classes"
-        unique_together = ['level_type', 'level_number', 'programme', 'section']
+        constraints = [
+            # SHS classes: unique on level_type + level_number + programme + section
+            models.UniqueConstraint(
+                fields=['level_type', 'level_number', 'programme', 'section'],
+                condition=models.Q(programme__isnull=False),
+                name='unique_class_with_programme',
+            ),
+            # Non-SHS classes: unique on level_type + level_number + section
+            # (programme is NULL, and NULL != NULL bypasses unique_together)
+            models.UniqueConstraint(
+                fields=['level_type', 'level_number', 'section'],
+                condition=models.Q(programme__isnull=True),
+                name='unique_class_without_programme',
+            ),
+        ]
         indexes = [
             models.Index(fields=['class_teacher'], name='class_teacher_idx'),
         ]
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        qs = Class.objects.filter(
+            level_type=self.level_type,
+            level_number=self.level_number,
+            section=self.section,
+        )
+        if self.programme:
+            qs = qs.filter(programme=self.programme)
+        else:
+            qs = qs.filter(programme__isnull=True)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
+            raise ValidationError(
+                f"A class with this combination already exists: "
+                f"{self.generate_name()}"
+            )
 
     def save(self, *args, **kwargs):
         self.name = self.generate_name()

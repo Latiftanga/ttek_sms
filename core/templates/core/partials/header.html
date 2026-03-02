@@ -120,8 +120,9 @@
                         <span class="text-white text-xs font-medium truncate max-w-[160px]">{{ school.short_name|default:school.name|default:"School" }}</span>
                     </div>
                 </li>
-                <li class="menu-title px-4 py-2">
-                    <span class="text-base font-bold text-base-content">{{ user.get_full_name|default:user.email }}</span>
+                <li class="menu-title px-4 py-2 max-w-full overflow-hidden">
+                    <span class="text-base font-bold text-base-content truncate block">{{ user.get_full_name|default:user.email }}</span>
+                    <span class="text-xs font-normal opacity-60 truncate block">{{ user.email }}</span>
                     <span class="text-xs font-normal opacity-60">{{ user.role_label }}</span>
                 </li>
                 <li>
