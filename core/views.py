@@ -1327,12 +1327,6 @@ def index(request):
         total=Count('id'),
         male=Count('id', filter=Q(gender='M')),
         female=Count('id', filter=Q(gender='F')),
-        creche=Count('id', filter=Q(current_class__level_type='creche')),
-        nursery=Count('id', filter=Q(current_class__level_type='nursery')),
-        kg=Count('id', filter=Q(current_class__level_type='kg')),
-        primary=Count('id', filter=Q(current_class__level_type='primary')),
-        jhs=Count('id', filter=Q(current_class__level_type='jhs')),
-        shs=Count('id', filter=Q(current_class__level_type='shs')),
         unassigned=Count('id', filter=Q(current_class__isnull=True)),
     )
 
@@ -1354,26 +1348,35 @@ def index(request):
             status='active'
         ).count()
 
-    # Students by level (filtered by enabled levels)
-    # Map enabled level codes to their display names and database keys
-    level_display_map = {
-        'creche': ('Creche', 'creche'),
-        'nursery': ('Nursery', 'nursery'),
-        'kg': ('KG', 'kg'),
-        'basic': ('Basic', ['primary', 'jhs']),  # Basic combines Primary and JHS
-        'shs': ('SHS', 'shs'),
+    # Students by level — show actual levels (Basic 1, Form 2, etc.)
+    # Single query: count active students per (level_type, level_number)
+    level_counts = (
+        Student.objects.filter(
+            status='active',
+            current_class__isnull=False,
+            current_class__level_type__in=enabled_level_values,
+        )
+        .values('current_class__level_type', 'current_class__level_number')
+        .annotate(count=Count('id'))
+        .order_by('current_class__level_type', 'current_class__level_number')
+    )
+
+    # Map level_type + level_number to display names
+    level_name_map = {
+        'creche': 'Creche {}',
+        'nursery': 'Nursery {}',
+        'kg': 'KG {}',
+        'basic': 'Basic {}',
+        'shs': 'Form {}',
     }
 
     students_by_level = {}
-    for level_code in enabled_level_values:
-        if level_code in level_display_map:
-            display_name, db_keys = level_display_map[level_code]
-            if isinstance(db_keys, list):
-                # For 'basic', combine primary and jhs counts
-                count = sum(student_stats.get(k, 0) for k in db_keys)
-            else:
-                count = student_stats.get(db_keys, 0)
-            students_by_level[display_name] = count
+    for entry in level_counts:
+        lt = entry['current_class__level_type']
+        ln = entry['current_class__level_number']
+        fmt = level_name_map.get(lt, '{} ' + str(ln))
+        display_name = fmt.format(ln)
+        students_by_level[display_name] = entry['count']
 
     # Always show unassigned
     students_by_level['Unassigned'] = student_stats['unassigned']
