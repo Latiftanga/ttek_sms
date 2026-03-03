@@ -302,43 +302,25 @@ class HouseMasterForm(forms.ModelForm):
         is_senior = cleaned_data.get('is_senior')
 
         if teacher and house and academic_year:
-            # Check if this teacher is already assigned to this house
-            duplicate = HouseMaster.objects.filter(
-                teacher=teacher,
-                house=house,
+            # Single query to check all constraints
+            existing = HouseMaster.objects.filter(
                 academic_year=academic_year,
-                is_active=True
+                is_active=True,
             )
             if self.instance.pk:
-                duplicate = duplicate.exclude(pk=self.instance.pk)
-            if duplicate.exists():
-                raise forms.ValidationError(
-                    _("This teacher is already assigned to this house.")
-                )
+                existing = existing.exclude(pk=self.instance.pk)
+            existing = existing.values_list('teacher_id', 'house_id', 'is_senior')
 
-            # Check if teacher already assigned to another house
-            teacher_assignment = HouseMaster.objects.filter(
-                teacher=teacher,
-                academic_year=academic_year,
-                is_active=True
-            ).exclude(house=house)
-            if self.instance.pk:
-                teacher_assignment = teacher_assignment.exclude(pk=self.instance.pk)
-            if teacher_assignment.exists():
-                raise forms.ValidationError(
-                    _("This teacher is already assigned to another house.")
-                )
-
-            # If marking as senior, check there isn't another senior
-            if is_senior:
-                senior_exists = HouseMaster.objects.filter(
-                    academic_year=academic_year,
-                    is_senior=True,
-                    is_active=True
-                )
-                if self.instance.pk:
-                    senior_exists = senior_exists.exclude(pk=self.instance.pk)
-                if senior_exists.exists():
+            for t_id, h_id, senior in existing:
+                if t_id == teacher.pk and h_id == house.pk:
+                    raise forms.ValidationError(
+                        _("This teacher is already assigned to this house.")
+                    )
+                if t_id == teacher.pk and h_id != house.pk:
+                    raise forms.ValidationError(
+                        _("This teacher is already assigned to another house.")
+                    )
+                if is_senior and senior:
                     raise forms.ValidationError(
                         _("There is already a senior housemaster for this academic year.")
                     )

@@ -124,6 +124,7 @@ def bulk_import(request):
             gender = clean_value(row.get('gender', '')).upper()
             guardian_name = clean_value(row.get('guardian_name', ''))
             guardian_phone = clean_value(row.get('guardian_phone', ''))
+            guardian_email = clean_value(row.get('guardian_email', '')).lower()
             guardian_relationship = clean_value(row.get('guardian_relationship', 'guardian')).lower()
             admission_number = clean_value(row.get('admission_number', ''))
             class_name = clean_value(row.get('class_name', ''))
@@ -229,6 +230,7 @@ def bulk_import(request):
                     'guardian_pk': guardian_pk,
                     'guardian_name': guardian_name,
                     'guardian_phone': guardian_phone,
+                    'guardian_email': guardian_email,
                     'guardian_relationship': guardian_relationship,
                     'student_email': student_email,  # Optional - for account creation
                 }
@@ -301,9 +303,12 @@ def bulk_import_confirm(request):
         if not row.get('guardian_pk') and row.get('guardian_phone') and row.get('guardian_name'):
             phone = row['guardian_phone']
             if phone not in guardian_phone_map:
+                defaults = {'full_name': row['guardian_name']}
+                if row.get('guardian_email'):
+                    defaults['email'] = row['guardian_email']
                 guardian, _ = Guardian.objects.get_or_create(
                     phone_number=phone,
-                    defaults={'full_name': row['guardian_name']}
+                    defaults=defaults,
                 )
                 guardian_phone_map[phone] = guardian.pk
             row['guardian_pk'] = guardian_phone_map[phone]

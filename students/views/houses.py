@@ -44,16 +44,16 @@ def house_index(request):
         for assignment in assignments:
             housemaster_map.setdefault(assignment.house_id, []).append(assignment)
 
-    # Attach housemasters to each house
+    # Attach housemasters and compute stats in a single pass
+    total_houses = 0
+    active_houses = 0
+    total_students = 0
     for house in houses:
         house.current_housemasters = housemaster_map.get(house.pk, [])
-
-    # Get aggregate stats in a single query instead of iterating
-    total_houses = houses.count()
-    active_houses = houses.filter(is_active=True).count()
-    total_students = Student.objects.filter(
-        status='active', house__isnull=False
-    ).count()
+        total_houses += 1
+        if house.is_active:
+            active_houses += 1
+            total_students += house.student_count_val
 
     avg_per_house = round(total_students / active_houses) if active_houses > 0 else 0
 

@@ -1,9 +1,10 @@
-import re
 import secrets
 import string
 from datetime import datetime
 
 import pandas as pd
+
+from django import forms
 
 from core.models import AcademicYear
 from core.utils import (  # noqa: F401
@@ -23,28 +24,19 @@ def normalize_phone_number(phone):
     Normalize a phone number to local format.
     Accepts: 0241234567, +233241234567, 233241234567
     Returns (is_valid, normalized_phone, error_message) tuple.
+
+    Uses the canonical validate_phone_number from forms.py.
     """
+    from students.forms import validate_phone_number
+
     if not phone:
         return False, None, "Phone number is required"
 
-    cleaned = re.sub(r'[^\d+]', '', phone)
-    if cleaned.startswith('+'):
-        cleaned = cleaned[1:]
-    if cleaned.startswith('233'):
-        cleaned = '0' + cleaned[3:]
-
-    # Handle leading zero stripped by Excel/pandas (e.g., 0241234567 → 241234567)
-    if len(cleaned) == 9 and not cleaned.startswith('0'):
-        cleaned = '0' + cleaned
-
-    if len(cleaned) < 10:
-        return False, None, "Phone number too short (minimum 10 digits)"
-    if len(cleaned) > 15:
-        return False, None, "Phone number too long (maximum 15 digits)"
-    if not cleaned.isdigit():
-        return False, None, "Phone number should contain only digits"
-
-    return True, cleaned, None
+    try:
+        normalized = validate_phone_number(phone)
+        return True, normalized, None
+    except forms.ValidationError as e:
+        return False, None, e.message
 
 
 def create_enrollment_for_student(student):

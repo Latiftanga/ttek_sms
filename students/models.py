@@ -1,11 +1,19 @@
+import logging
 import secrets
 import uuid
 from datetime import timedelta
+from io import BytesIO
 
+from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
+
+from PIL import Image, UnidentifiedImageError
+
+logger = logging.getLogger(__name__)
 
 
 class House(models.Model):
@@ -369,13 +377,6 @@ class Student(models.Model):
 
     def save(self, *args, **kwargs):
         """Override save to resize and validate photo if uploaded."""
-        import logging
-        from io import BytesIO
-        from django.core.files.base import ContentFile
-        from django.core.exceptions import ValidationError
-        from PIL import Image, UnidentifiedImageError
-
-        logger = logging.getLogger(__name__)
         PHOTO_MAX_SIZE = (150, 150)
         ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
         MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB
@@ -500,6 +501,8 @@ class Enrollment(models.Model):
             models.Index(fields=['academic_year', 'status']),
             # Lookup enrollments by class
             models.Index(fields=['class_assigned']),
+            # Enrollment history lookups by student
+            models.Index(fields=['student']),
         ]
 
     def save(self, *args, **kwargs):
