@@ -98,7 +98,7 @@ def _get_score_entry_base_context(request, class_id, subject_id):
         can_edit = False
     editing_allowed = can_edit and not grades_locked
 
-    # Filter students by subject enrollment (SHS) or show all (Basic)
+    # Only show students enrolled in this specific subject
     if class_subject:
         enrolled_student_ids = list(StudentSubjectEnrollment.objects.filter(
             class_subject=class_subject,
@@ -107,21 +107,12 @@ def _get_score_entry_base_context(request, class_id, subject_id):
     else:
         enrolled_student_ids = []
 
-    if enrolled_student_ids:
-        # SHS behavior: Only show students enrolled in this specific subject
-        students = list(Student.objects.filter(
-            id__in=enrolled_student_ids,
-            current_class=class_obj
-        ).only(
-            'id', 'first_name', 'last_name', 'admission_number'
-        ).order_by('last_name', 'first_name'))
-    else:
-        # Basic school behavior: Show all students in the class
-        students = list(Student.objects.filter(
-            current_class=class_obj
-        ).only(
-            'id', 'first_name', 'last_name', 'admission_number'
-        ).order_by('last_name', 'first_name'))
+    students = list(Student.objects.filter(
+        id__in=enrolled_student_ids,
+        current_class=class_obj
+    ).only(
+        'id', 'first_name', 'last_name', 'admission_number'
+    ).order_by('last_name', 'first_name')) if enrolled_student_ids else []
 
     # Get assignments for this subject/term
     assignments = list(Assignment.objects.filter(

@@ -203,6 +203,9 @@
                         <div class="font-semibold truncate">{{ item.class.name }}</div>
                         <div class="flex items-center gap-2 text-xs text-base-content/60">
                             <span><i class="fa-solid fa-users mr-1"></i>{{ item.student_count }}</span>
+                            {% if item.unenrolled_count %}
+                            <span class="text-warning" title="{{ item.unenrolled_count }} student{{ item.unenrolled_count|pluralize }} in class not enrolled in any subject"><i class="fa-solid fa-user-xmark mr-0.5"></i>{{ item.unenrolled_count }}</span>
+                            {% endif %}
                             <span><i class="fa-solid fa-clipboard-list mr-1"></i>{{ item.assignments }}</span>
                         </div>
                         <div class="flex items-center gap-2 mt-1">
@@ -280,7 +283,9 @@
                                 <span class="font-medium">{{ item.class.name }}</span>
                             </a>
                         </td>
-                        <td class="text-center">{{ item.student_count }}</td>
+                        <td class="text-center">
+                            {{ item.student_count }}{% if item.unenrolled_count %}<span class="text-warning ml-1" title="{{ item.unenrolled_count }} student{{ item.unenrolled_count|pluralize }} in class not enrolled in any subject"><i class="fa-solid fa-user-xmark text-[10px]"></i>{{ item.unenrolled_count }}</span>{% endif %}
+                        </td>
                         <td class="text-center">{{ item.assignments }}</td>
                         <td class="text-center">
                             <span class="font-mono text-sm">{{ item.actual_scores }}/{{ item.expected_scores }}</span>

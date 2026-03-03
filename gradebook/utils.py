@@ -456,7 +456,6 @@ def calculate_score_entry_progress(current_term):
         subject_classes.setdefault(cs['subject_id'], set()).add(cs['class_assigned_id'])
 
     enrollment_counts = _get_enrollment_counts(cs_ids)
-    class_student_counts = _get_class_student_counts(class_ids)
 
     subject_assignment_counts = dict(
         Assignment.objects.filter(
@@ -466,9 +465,7 @@ def calculate_score_entry_progress(current_term):
         ).values_list('subject_id', 'count')
     )
 
-    # Build per-subject enrolled student IDs to avoid the union-based over-counting bug:
-    # using the union of all enrolled students across subjects would count stale scores
-    # for subjects a student is no longer enrolled in.
+    # Build per-subject enrolled student IDs for per-subject score filtering.
     assigned_subject_ids = list({cs['subject_id'] for cs in class_subject_data})
     enrolled_ids_by_cs = {}
     if cs_ids:
@@ -501,16 +498,12 @@ def calculate_score_entry_progress(current_term):
         for class_id in class_ids_for_subj:
             cs_id = cs_id_map.get((class_id, subject_id))
             enrolled = enrollment_counts.get(cs_id, 0) if cs_id else 0
-            student_count = enrolled if enrolled > 0 else class_student_counts.get(class_id, 0)
-            total_possible_scores += assignment_count * student_count
+            total_possible_scores += assignment_count * enrolled
 
-            # Filter actual scores by per-subject enrolled students
+            # Only count scores from enrolled students
             per_student = score_by_class_subject_student.get((class_id, subject_id), {})
             enrolled_ids = enrolled_ids_by_cs.get(cs_id, set()) if cs_id else set()
-            if enrolled_ids:
-                scores_entered += sum(cnt for sid, cnt in per_student.items() if sid in enrolled_ids)
-            else:
-                scores_entered += sum(per_student.values())
+            scores_entered += sum(cnt for sid, cnt in per_student.items() if sid in enrolled_ids)
 
     score_progress = round((scores_entered / total_possible_scores * 100) if total_possible_scores > 0 else 0, 1)
 
@@ -543,15 +536,11 @@ def get_classes_needing_scores(current_term, classes, limit=None):
         ).values_list('subject_id', 'count')
     )
 
-    # Count actual scores per (class, subject), only from enrolled students
-    # to match the expected count denominator.
     all_subject_ids = set()
     for subj_map in class_subjects_map.values():
         all_subject_ids.update(subj_map.keys())
 
-    # Get enrolled student IDs per ClassSubject for per-subject filtering.
-    # Using per-CS (not per-class union) prevents over-counting scores for
-    # subjects where a student is not enrolled but has stale scores.
+    # Get enrolled student IDs per ClassSubject for per-subject score filtering.
     enrolled_ids_by_cs = {}
     if all_cs_ids:
         for row in StudentSubjectEnrollment.objects.filter(
@@ -561,8 +550,7 @@ def get_classes_needing_scores(current_term, classes, limit=None):
         ).values('class_subject_id', 'student_id'):
             enrolled_ids_by_cs.setdefault(row['class_subject_id'], set()).add(row['student_id'])
 
-    # Count scores per (class, subject, student) so we can filter per-subject
-    # enrollment in Python instead of using a union of all enrolled students.
+    # Count scores per (class, subject, student) for per-subject filtering.
     class_subject_student_scores = {}
     if all_subject_ids:
         for row in Score.objects.filter(
@@ -582,40 +570,45 @@ def get_classes_needing_scores(current_term, classes, limit=None):
     classes_needing_scores = []
     for cls in top_classes:
         all_class_students = class_student_counts.get(cls.id, 0)
-        if all_class_students > 0:
-            subject_cs_map = class_subjects_map.get(cls.id, {})
-            total_assignments = 0
-            expected_scores = 0
-            actual_scores = 0
-            for subj_id, cs_id in subject_cs_map.items():
-                assign_count = subject_assignment_counts.get(subj_id, 0)
-                if assign_count > 0:
-                    total_assignments += assign_count
-                    enrolled = enrollment_counts.get(cs_id, 0)
-                    student_count = enrolled if enrolled > 0 else all_class_students
-                    expected_scores += assign_count * student_count
+        subject_cs_map = class_subjects_map.get(cls.id, {})
+        total_assignments = 0
+        expected_scores = 0
+        actual_scores = 0
 
-                    # Filter actual scores by per-subject enrolled students
-                    per_student = class_subject_student_scores.get((cls.id, subj_id), {})
-                    enrolled_ids = enrolled_ids_by_cs.get(cs_id, set()) if cs_id else set()
-                    if enrolled_ids:
-                        actual_scores += sum(
-                            cnt for sid, cnt in per_student.items() if sid in enrolled_ids
-                        )
-                    else:
-                        actual_scores += sum(per_student.values())
+        # Collect unique enrolled students across all subjects in this class
+        class_enrolled_ids = set()
+        for subj_id, cs_id in subject_cs_map.items():
+            class_enrolled_ids.update(enrolled_ids_by_cs.get(cs_id, set()))
 
-            if total_assignments > 0:
-                progress = round((actual_scores / expected_scores * 100) if expected_scores > 0 else 0)
-                classes_needing_scores.append({
-                    'class': cls,
-                    'student_count': all_class_students,
-                    'progress': progress,
-                    'assignments': total_assignments,
-                    'expected_scores': expected_scores,
-                    'actual_scores': actual_scores,
-                    'remaining_scores': expected_scores - actual_scores,
-                })
+            assign_count = subject_assignment_counts.get(subj_id, 0)
+            if assign_count > 0:
+                total_assignments += assign_count
+                enrolled = enrollment_counts.get(cs_id, 0)
+                expected_scores += assign_count * enrolled
+
+                # Only count scores from enrolled students
+                per_student = class_subject_student_scores.get((cls.id, subj_id), {})
+                enrolled_ids = enrolled_ids_by_cs.get(cs_id, set()) if cs_id else set()
+                actual_scores += sum(
+                    cnt for sid, cnt in per_student.items() if sid in enrolled_ids
+                )
+
+        enrolled_count = len(class_enrolled_ids)
+        unenrolled_count = all_class_students - enrolled_count if all_class_students > enrolled_count else 0
+
+        if total_assignments > 0:
+            progress = round((actual_scores / expected_scores * 100) if expected_scores > 0 else 0)
+            classes_needing_scores.append({
+                'class': cls,
+                'student_count': enrolled_count,
+                'total_in_class': all_class_students,
+                'unenrolled_count': unenrolled_count,
+                'progress': progress,
+                'assignments': total_assignments,
+                'expected_scores': expected_scores,
+                'actual_scores': actual_scores,
+                'remaining_scores': expected_scores - actual_scores,
+            })
     return classes_needing_scores
 
 
@@ -631,13 +624,6 @@ def get_class_subject_progress(current_term, class_id):
     if not class_subjects.exists():
         return []
 
-    all_class_students = Student.objects.filter(
-        current_class_id=class_id
-    ).count()
-
-    if all_class_students == 0:
-        return []
-
     cs_ids = [cs.id for cs in class_subjects]
     subject_ids = [cs.subject_id for cs in class_subjects]
 
@@ -651,7 +637,7 @@ def get_class_subject_progress(current_term, class_id):
         ).values_list('subject_id', 'count')
     )
 
-    # Get enrolled student IDs per subject for filtering scores
+    # Get enrolled student IDs per subject for per-subject score filtering.
     enrolled_student_ids_by_subject = {}
     if cs_ids:
         for row in StudentSubjectEnrollment.objects.filter(
@@ -663,14 +649,7 @@ def get_class_subject_progress(current_term, class_id):
                 row['class_subject__subject_id'], set()
             ).add(row['student_id'])
 
-    # All enrolled student IDs (union across subjects)
-    all_enrolled_ids = set()
-    for ids in enrolled_student_ids_by_subject.values():
-        all_enrolled_ids.update(ids)
-
-    # Count scores per (subject, student) so we can filter per-subject enrollment
-    # in Python. Using the union of all enrolled students would over-count scores
-    # for subjects where a student is not enrolled but has stale scores.
+    # Count scores per (subject, student) for per-subject enrollment filtering.
     raw_score_qs = Score.objects.filter(
         assignment__term=current_term,
         assignment__subject_id__in=subject_ids,
@@ -693,26 +672,16 @@ def get_class_subject_progress(current_term, class_id):
     for cs in class_subjects:
         assignments = assignment_counts.get(cs.subject_id, 0)
         enrolled = enrollment_counts.get(cs.id, 0)
-        student_count = enrolled if enrolled > 0 else all_class_students
-        expected = assignments * student_count
+        expected = assignments * enrolled
 
-        # Filter actual scores by per-subject enrolled students
+        # Only count scores from enrolled students
         per_subject_scores = subject_student_scores.get(cs.subject_id, {})
         enrolled_ids = enrolled_student_ids_by_subject.get(cs.subject_id, set())
-        if enrolled_ids:
-            # SHS: only count scores from students enrolled in THIS subject
-            actual = sum(s['count'] for sid, s in per_subject_scores.items() if sid in enrolled_ids)
-            last_activity = max(
-                (s['last_activity'] for sid, s in per_subject_scores.items() if sid in enrolled_ids and s['last_activity']),
-                default=None,
-            )
-        else:
-            # Basic: count all scores (already filtered by class)
-            actual = sum(s['count'] for s in per_subject_scores.values())
-            last_activity = max(
-                (s['last_activity'] for s in per_subject_scores.values() if s['last_activity']),
-                default=None,
-            )
+        actual = sum(s['count'] for sid, s in per_subject_scores.items() if sid in enrolled_ids)
+        last_activity = max(
+            (s['last_activity'] for sid, s in per_subject_scores.items() if sid in enrolled_ids and s['last_activity']),
+            default=None,
+        )
 
         progress = round((actual / expected * 100) if expected > 0 else 0)
         results.append({

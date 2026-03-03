@@ -139,31 +139,18 @@ def calculate_class_grades(request, class_id):
                 is_active=True
             ).select_related('class_subject__subject')
 
-            has_enrollments = enrollments.exists()
+            # Only grade students for subjects they are enrolled in
+            for enrollment in enrollments:
+                sid = enrollment.student_id
+                subj_id = enrollment.class_subject.subject_id
+                if sid not in student_subject_map:
+                    student_subject_map[sid] = set()
+                student_subject_map[sid].add(subj_id)
 
-            if has_enrollments:
-                # Use enrollments to determine which subjects each student takes
-                for enrollment in enrollments:
-                    sid = enrollment.student_id
-                    subj_id = enrollment.class_subject.subject_id
-                    if sid not in student_subject_map:
-                        student_subject_map[sid] = set()
-                    student_subject_map[sid].add(subj_id)
-
-                logger.info(
-                    f'Using subject enrollments for {class_obj.name}: '
-                    f'{len(student_subject_map)} students with specific subjects'
-                )
-            else:
-                # No enrollments - all students take all subjects (Basic school behavior)
-                all_subject_ids = set(subject_ids)
-                for student in students:
-                    student_subject_map[student.id] = all_subject_ids
-
-                logger.info(
-                    f'No subject enrollments for {class_obj.name}: '
-                    f'all students will be graded on all {len(subjects)} subjects'
-                )
+            logger.info(
+                f'Subject enrollments for {class_obj.name}: '
+                f'{len(student_subject_map)} students with enrolled subjects'
+            )
 
             # Prefetch all categories (small table, usually 2-3 rows)
             categories = list(AssessmentCategory.objects.filter(is_active=True))
