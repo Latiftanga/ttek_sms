@@ -15,6 +15,7 @@ from ..models import (
     Score, SubjectTermGrade, TermReport,
 )
 from ..signals import signals_disabled
+from ..utils import calculate_category_scores, determine_grade_from_scales
 from .. import config
 from academics.models import Class, ClassSubject, StudentSubjectEnrollment, AttendanceSession, AttendanceRecord
 from students.models import Student
@@ -240,13 +241,11 @@ def calculate_class_grades(request, class_id):
                 for grade in grades_to_create:
                     existing_grades[(grade.student_id, grade.subject_id)] = grade
 
-            # Calculate scores for each grade using prefetched data
+            # Calculate scores for each grade using shared utility + prefetched data
             for student in students:
-                # Get subjects this student is enrolled in
                 enrolled_subject_ids = student_subject_map.get(student.id, set())
 
                 for subject in subjects:
-                    # Skip if student is not enrolled in this subject
                     if subject.id not in enrolled_subject_ids:
                         continue
 
@@ -254,65 +253,27 @@ def calculate_class_grades(request, class_id):
                     if not grade:
                         continue
 
-                    # Calculate scores using prefetched data (no DB queries)
-                    category_totals = {}
-                    total = Decimal('0.0')
-
-                    for category in categories:
-                        cat_assignments = assignments_by_subject_category.get(
-                            (subject.id, category.id), []
-                        )
-
-                        if not cat_assignments:
-                            continue
-
-                        # Calculate weight per assignment
-                        weight_per_assignment = (
-                            Decimal(str(category.percentage)) / Decimal(str(len(cat_assignments)))
-                        )
-                        category_total = Decimal('0.0')
-
-                        for assign in cat_assignments:
-                            score = scores_lookup.get((student.id, assign.id))
-                            if score:
-                                score_pct = Decimal(str(score.points)) / Decimal(str(assign.points_possible))
-                                category_total += score_pct * weight_per_assignment
-
-                        # Store by both short_name and category_type for flexibility
-                        category_totals[category.short_name] = round(category_total, 2)
-                        category_totals[f'_type_{category.category_type}'] = round(category_total, 2)
-                        total += category_total
-
-                    # Update grade object using category_type (with fallback to short_name)
-                    grade.class_score = category_totals.get(
-                        '_type_CLASS_SCORE', category_totals.get('CA', Decimal('0.0'))
+                    # Use shared utility (no DB queries — uses prefetched lookups)
+                    calc_result = calculate_category_scores(
+                        student_id=student.id,
+                        subject_id=subject.id,
+                        categories=categories,
+                        assignments_by_subject_category=dict(assignments_by_subject_category),
+                        scores_lookup=scores_lookup,
                     )
-                    grade.exam_score = category_totals.get(
-                        '_type_EXAM', category_totals.get('EXAM', Decimal('0.0'))
-                    )
-                    grade.total_score = round(total, 2)
 
-                    # Build category_scores in the format expected by get_category_score filter:
-                    # {str(category.pk): {"score": float, "short_name": str, "name": str}}
-                    grade.category_scores = {}
-                    for category in categories:
-                        short_name = category.short_name
-                        if short_name in category_totals:
-                            grade.category_scores[str(category.pk)] = {
-                                'score': float(category_totals[short_name]),
-                                'short_name': short_name,
-                                'name': category.name,
-                            }
+                    grade.category_scores = calc_result['category_scores_json']
+                    grade.class_score = calc_result['class_score']
+                    grade.exam_score = calc_result['exam_score']
+                    grade.total_score = calc_result['total_score']
 
                     # Determine grade from scale (no DB query - uses prefetched scales)
-                    grade.is_passing = False  # Default to not passing
+                    grade.is_passing = False
                     if grading_system and grade.total_score is not None:
-                        for scale in grade_scales:
-                            if scale.min_percentage <= grade.total_score <= scale.max_percentage:
-                                grade.grade = scale.grade_label
-                                grade.grade_remark = scale.interpretation
-                                grade.is_passing = scale.is_pass
-                                break
+                        grade_info = determine_grade_from_scales(grade.total_score, grade_scales)
+                        grade.grade = grade_info['grade']
+                        grade.grade_remark = grade_info['grade_remark']
+                        grade.is_passing = grade_info['is_passing']
 
                     grades_to_update.append(grade)
 
