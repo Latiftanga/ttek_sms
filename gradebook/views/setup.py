@@ -1,15 +1,26 @@
 from decimal import Decimal, InvalidOperation
+from django.db import connection, models
+from django.db.models import Count
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
-from django.db import models
-from django.db.models import Count
 
 from .base import admin_required, htmx_render
 from ..models import (
     GradingSystem, GradeScale, AssessmentCategory
 )
+
+
+def _get_school_levels():
+    """Return SCHOOL_LEVELS filtered by the current tenant's education system."""
+    tenant = connection.tenant
+    education_system = getattr(tenant, 'education_system', 'both')
+    if education_system == 'basic':
+        return [lvl for lvl in GradingSystem.SCHOOL_LEVELS if lvl[0] == 'BASIC']
+    elif education_system == 'shs':
+        return [lvl for lvl in GradingSystem.SCHOOL_LEVELS if lvl[0] == 'SHS']
+    return GradingSystem.SCHOOL_LEVELS
 
 
 def _safe_int(value, default=0):
@@ -69,7 +80,7 @@ def grading_system_create(request):
     """Create a new grading system (Admin only)."""
     if request.method == 'GET':
         return render(request, 'gradebook/includes/modal_grading_system.html', {
-            'levels': GradingSystem.SCHOOL_LEVELS,
+            'levels': _get_school_levels(),
         })
 
     if request.method != 'POST':
@@ -82,7 +93,7 @@ def grading_system_create(request):
     if not name:
         return render(request, 'gradebook/includes/modal_grading_system.html', {
             'error': 'Name is required.',
-            'levels': GradingSystem.SCHOOL_LEVELS,
+            'levels': _get_school_levels(),
         })
 
     GradingSystem.objects.create(
@@ -105,7 +116,7 @@ def grading_system_edit(request, pk):
     if request.method == 'GET':
         return render(request, 'gradebook/includes/modal_grading_system.html', {
             'system': system,
-            'levels': GradingSystem.SCHOOL_LEVELS,
+            'levels': _get_school_levels(),
         })
 
     if request.method != 'POST':

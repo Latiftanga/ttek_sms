@@ -36,6 +36,7 @@
                 <input type="checkbox" name="is_mandatory" class="checkbox checkbox-primary checkbox-sm" {% if form.is_mandatory.value %}checked{% endif %}>
                 <span class="label-text text-sm">Mandatory</span>
             </label>
+            {% if school.has_shs_levels %}
             <label class="label cursor-pointer justify-start gap-2 p-0">
                 <input type="checkbox" name="applies_to_boarding" class="checkbox checkbox-primary checkbox-sm" {% if form.applies_to_boarding.value %}checked{% endif %}>
                 <span class="label-text text-sm">Boarding</span>
@@ -44,6 +45,7 @@
                 <input type="checkbox" name="applies_to_day" class="checkbox checkbox-primary checkbox-sm" {% if form.applies_to_day.value %}checked{% endif %}>
                 <span class="label-text text-sm">Day</span>
             </label>
+            {% endif %}
             <label class="label cursor-pointer justify-start gap-2 p-0">
                 <input type="checkbox" name="is_active" class="checkbox checkbox-primary checkbox-sm" {% if form.is_active.value %}checked{% endif %}>
                 <span class="label-text text-sm">Active</span>

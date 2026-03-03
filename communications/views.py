@@ -1220,7 +1220,12 @@ def announcement_create(request):
     """Create a new announcement targeting staff, parents, or students."""
     sms_gateway = get_sms_gateway_status()
     email_gateway = get_email_gateway_status()
-    classes = Class.objects.filter(is_active=True).order_by('level_type', 'level_number', 'name')
+    # Filter classes by school's allowed level types so basic schools
+    # don't see SHS levels and vice versa
+    allowed_levels = connection.tenant.get_allowed_level_types()
+    classes = Class.objects.filter(
+        is_active=True, level_type__in=allowed_levels
+    ).order_by('level_type', 'level_number', 'name')
 
     breadcrumbs = [
         {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},

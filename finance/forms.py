@@ -60,6 +60,13 @@ class FeeStructureForm(forms.ModelForm):
         self.fields['class_assigned'].required = False
         self.fields['term'].required = False
 
+        # Hide boarding/day fields for schools without SHS levels
+        from django.db import connection
+        tenant = connection.tenant
+        if not getattr(tenant, 'has_shs_levels', False):
+            del self.fields['applies_to_boarding']
+            del self.fields['applies_to_day']
+
 
 class ScholarshipForm(forms.ModelForm):
     """Form for creating/editing scholarships."""

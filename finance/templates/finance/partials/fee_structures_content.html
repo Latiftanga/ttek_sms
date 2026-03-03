@@ -164,9 +164,11 @@
                             <!-- Amount -->
                             <div class="text-right">
                                 <div class="text-lg font-bold text-primary">GHS {{ structure.amount|floatformat:2 }}</div>
+                                {% if school.has_shs_levels %}
                                 <div class="text-xs text-base-content/60">
                                     {% if not structure.applies_to_day %}Boarding{% elif not structure.applies_to_boarding %}Day{% else %}All{% endif %}
                                 </div>
+                                {% endif %}
                             </div>
 
                             <!-- Actions -->
@@ -317,10 +319,12 @@
                         <i class="fa-solid fa-check text-success mt-0.5"></i>
                         <span>Mandatory fees auto-apply to invoices</span>
                     </li>
+                    {% if school.has_shs_levels %}
                     <li class="flex items-start gap-2">
                         <i class="fa-solid fa-check text-success mt-0.5"></i>
                         <span>Use boarding/day to target students</span>
                     </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
