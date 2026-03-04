@@ -237,8 +237,13 @@ def determine_grade_from_scales(
     if total_score is None:
         return result
 
-    for scale in grade_scales:
-        if scale.min_percentage <= total_score <= scale.max_percentage:
+    # Threshold-based matching: scales must be sorted by -min_percentage
+    # (highest first). The first scale whose min_percentage the score meets
+    # or exceeds is the match. This is the industry-standard approach used
+    # in WASSCE/BECE and most grading systems — it eliminates gaps between
+    # ranges and makes max_percentage purely informational.
+    for scale in sorted(grade_scales, key=lambda s: s.min_percentage, reverse=True):
+        if total_score >= scale.min_percentage:
             result['grade'] = scale.grade_label
             result['grade_remark'] = scale.interpretation
             result['is_passing'] = scale.is_pass

@@ -100,19 +100,20 @@ class GradingSystem(models.Model):
         if score is None:
             return None
 
-        # Use prefetched scales if provided (O(n) lookup, but avoids DB query)
+        # Threshold-based matching: first scale where score >= min_percentage
+        # wins (scales sorted highest-first). Industry-standard approach that
+        # eliminates gaps between ranges.
         if grade_scales is not None:
             score_decimal = Decimal(str(score))
-            for scale in grade_scales:
-                if scale.min_percentage <= score_decimal <= scale.max_percentage:
+            for scale in sorted(grade_scales, key=lambda s: s.min_percentage, reverse=True):
+                if score_decimal >= scale.min_percentage:
                     return scale
             return None
 
-        # Fallback to database query (for backwards compatibility)
+        # Fallback to database query
         return self.scales.filter(
             min_percentage__lte=score,
-            max_percentage__gte=score
-        ).first()
+        ).order_by('-min_percentage').first()
 
     def calculate_aggregate(self, subject_grades, grade_scales=None):
         """
@@ -1128,16 +1129,14 @@ class TermReport(models.Model):
         self.subjects_passed = len(passed_grades)
         self.subjects_failed = count - self.subjects_passed
 
-        # Count credits using grade scale lookup
+        # Count credits using threshold-based grade scale lookup
         if grading_system:
             grade_scales = list(grading_system.scales.all().order_by('-min_percentage'))
             credits = 0
             for sg in grades_list:
-                for scale in grade_scales:
-                    if scale.min_percentage <= sg.total_score <= scale.max_percentage:
-                        if scale.is_credit:
-                            credits += 1
-                        break
+                scale = grading_system.get_grade_for_score(sg.total_score, grade_scales)
+                if scale and scale.is_credit:
+                    credits += 1
             self.credits_count = credits
         else:
             # Fallback: count subjects with is_passing as credits

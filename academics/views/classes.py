@@ -650,12 +650,12 @@ def class_subject_delete(request, class_pk, pk):
     """Delete a subject allocation from a class. Blocks if scores exist."""
     allocation = get_object_or_404(ClassSubject, pk=pk, class_assigned_id=class_pk)
 
-    from gradebook.models import Score
+    from gradebook.models import Score, SubjectTermGrade, TermReport
 
     # Check if any scores exist for this subject in this class (any term)
-    student_ids = Student.objects.filter(
+    student_ids = list(Student.objects.filter(
         current_class_id=class_pk, status='active'
-    ).values_list('id', flat=True)
+    ).values_list('id', flat=True))
 
     score_count = Score.objects.filter(
         student_id__in=student_ids,
@@ -674,9 +674,22 @@ def class_subject_delete(request, class_pk, pk):
             return response
         return redirect('academics:class_subjects', pk=class_pk)
 
+    # Clean up orphaned SubjectTermGrade records for this subject+class
+    deleted_grades = SubjectTermGrade.objects.filter(
+        student_id__in=student_ids,
+        subject=allocation.subject,
+    ).delete()[0]
+
+    # Recalculate TermReport aggregates for affected students
+    if deleted_grades:
+        for term_report in TermReport.objects.filter(student_id__in=student_ids):
+            term_report.calculate_aggregates()
+            term_report.save()
+
     allocation.delete()
 
-    messages.success(request, f'{allocation.subject.name} removed from class.')
+    grade_msg = f' ({deleted_grades} grade record(s) cleaned up)' if deleted_grades else ''
+    messages.success(request, f'{allocation.subject.name} removed from class.{grade_msg}')
 
     if request.htmx:
         # Trigger page refresh

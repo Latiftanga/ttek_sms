@@ -399,15 +399,14 @@ def calculate_class_grades(request, class_id):
                     report.subjects_passed = len(passed)
                     report.subjects_failed = count - len(passed)
 
-                    # Count credits by looking up each score in grade scales
+                    # Count credits using threshold-based grade scale lookup
                     credits = 0
-                    for g in student_grades:
-                        if g.total_score is not None and grade_scales:
-                            for scale in grade_scales:
-                                if scale.min_percentage <= g.total_score <= scale.max_percentage:
-                                    if scale.is_credit:
-                                        credits += 1
-                                    break
+                    if grading_system and grade_scales:
+                        for g in student_grades:
+                            if g.total_score is not None:
+                                scale = grading_system.get_grade_for_score(g.total_score, grade_scales)
+                                if scale and scale.is_credit:
+                                    credits += 1
                     report.credits_count = credits
 
                     # Core subjects
@@ -425,11 +424,9 @@ def calculate_class_grades(request, class_id):
                         grade_points = []
                         for g in student_grades:
                             if g.total_score is not None:
-                                for scale in grade_scales:
-                                    if scale.min_percentage <= g.total_score <= scale.max_percentage:
-                                        if scale.aggregate_points:
-                                            grade_points.append(scale.aggregate_points)
-                                        break
+                                scale = grading_system.get_grade_for_score(g.total_score, grade_scales)
+                                if scale and scale.aggregate_points:
+                                    grade_points.append(scale.aggregate_points)
 
                         if grade_points:
                             grade_points.sort()

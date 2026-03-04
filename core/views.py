@@ -2892,7 +2892,9 @@ def my_attendance(request):
 @login_required
 def take_attendance(request, class_id):
     """Teacher takes attendance for a specific class."""
-    from academics.models import Class, ClassSubject, AttendanceSession, AttendanceRecord
+    from academics.models import Class, ClassSubject, AttendanceSession
+    from academics.utils import should_use_lesson_attendance
+    from academics.views.attendance import _save_attendance_records
     from students.models import Student
 
     user = request.user
@@ -2916,10 +2918,14 @@ def take_attendance(request, class_id):
         messages.error(request, 'You are not assigned to this class.')
         return redirect('core:my_attendance')
 
+    # Per-lesson classes should go through the lesson selection flow
+    if should_use_lesson_attendance(class_obj):
+        return redirect('academics:lesson_attendance_list', pk=class_id)
+
     target_date = timezone.now().date()
 
     # Get or create session with explicit session_type
-    session, created = AttendanceSession.objects.get_or_create(
+    session, _created = AttendanceSession.objects.get_or_create(
         class_assigned=class_obj,
         date=target_date,
         session_type=AttendanceSession.SessionType.DAILY,
@@ -2928,59 +2934,11 @@ def take_attendance(request, class_id):
 
     if request.method == 'POST':
         students = list(Student.objects.filter(current_class=class_obj, status='active'))
-
-        # Get existing records for bulk update vs create
-        existing_records = {
-            r.student_id: r for r in AttendanceRecord.objects.filter(
-                session=session,
-                student__in=students
-            ).select_for_update()
-        }
-
-        records_to_create = []
-        records_to_update = []
-
-        for student in students:
-            status_key = f"status_{student.id}"
-            new_status = request.POST.get(status_key, AttendanceRecord.Status.PRESENT)
-
-            if student.id in existing_records:
-                # Update existing record
-                record = existing_records[student.id]
-                if record.status != new_status:
-                    record.status = new_status
-                    records_to_update.append(record)
-            else:
-                # Create new record
-                records_to_create.append(AttendanceRecord(
-                    session=session,
-                    student=student,
-                    status=new_status
-                ))
-
-        # Bulk operations with error handling
-        try:
-            if records_to_create:
-                AttendanceRecord.objects.bulk_create(records_to_create)
-            if records_to_update:
-                AttendanceRecord.objects.bulk_update(records_to_update, ['status'])
-
-            total_saved = len(records_to_create) + len(records_to_update)
-            messages.success(request, f'Attendance saved for {class_obj.name} ({total_saved} records).')
-        except Exception as e:
-            messages.error(request, f'Failed to save attendance: {str(e)}')
-            if request.htmx:
-                response = HttpResponse(status=500)
-                response['HX-Reswap'] = 'none'
-                return response
-            return redirect('core:take_attendance', class_id=class_id)
-
-        if request.htmx:
-            response = HttpResponse(status=204)
-            response['HX-Redirect'] = reverse('core:my_attendance')
-            return response
-
-        return redirect('core:my_attendance')
+        redirect_url = reverse('core:my_attendance')
+        return _save_attendance_records(
+            request, session, students, redirect_url,
+            success_msg=f'Attendance saved for {class_obj.name}'
+        )
 
     # GET: Prepare form data
     students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name', 'last_name')
