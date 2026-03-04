@@ -3007,8 +3007,8 @@ def take_attendance(request, class_id):
 @login_required
 def my_grading(request):
     """Teacher's grading dashboard - view and enter scores for assigned classes."""
-    from django.db.models import Count, Q
-    from academics.models import ClassSubject
+    from django.db.models import Count, F
+    from academics.models import ClassSubject, StudentSubjectEnrollment
     from gradebook.models import Assignment, Score, AssessmentCategory
 
     user = request.user
@@ -3021,26 +3021,32 @@ def my_grading(request):
     teacher = user.teacher_profile
     current_term = Term.get_current()
 
-    # Get teacher's class-subject assignments with student counts (optimized - single query)
+    # Get teacher's class-subject assignments
     assignments = ClassSubject.objects.filter(
         teacher=teacher,
         class_assigned__is_active=True
-    ).select_related('class_assigned', 'subject').annotate(
-        student_count=Count(
-            'class_assigned__students',
-            filter=Q(class_assigned__students__status='active')
-        )
-    ).order_by(
+    ).select_related('class_assigned', 'subject').order_by(
         'class_assigned__level_number', 'class_assigned__name', 'subject__name'
     )
 
-    # Pre-compute assignment and score counts efficiently (eliminates N+1 queries)
+    # Pre-compute enrollment, assignment, and score counts efficiently
     assignment_counts = {}
-    score_counts = {}
+    enrollment_counts = {}
+    enrolled_ids_by_cs = {}
 
     if current_term and assignments.exists():
+        cs_ids = list(assignments.values_list('id', flat=True))
         subject_ids = list(assignments.values_list('subject_id', flat=True).distinct())
-        class_ids = list(assignments.values_list('class_assigned_id', flat=True).distinct())
+
+        # Get enrolled student counts per ClassSubject
+        for row in StudentSubjectEnrollment.objects.filter(
+            class_subject_id__in=cs_ids,
+            is_active=True,
+            student__current_class_id=F('class_subject__class_assigned_id'),
+        ).values('class_subject_id', 'student_id'):
+            enrolled_ids_by_cs.setdefault(row['class_subject_id'], set()).add(row['student_id'])
+
+        enrollment_counts = {cs_id: len(ids) for cs_id, ids in enrolled_ids_by_cs.items()}
 
         # Get assignment counts per subject in one query
         assignment_counts = dict(
@@ -3052,40 +3058,46 @@ def my_grading(request):
             ).values_list('subject_id', 'count')
         )
 
-        # Get score counts per (class, subject) combination in one query
+        # Get score counts per (class, subject, student) for per-subject filtering
         score_data = Score.objects.filter(
             assignment__term=current_term,
             assignment__subject_id__in=subject_ids,
-            student__current_class_id__in=class_ids
         ).values(
             'student__current_class_id',
-            'assignment__subject_id'
+            'assignment__subject_id',
+            'student_id',
         ).annotate(count=Count('id'))
 
+        # Build lookup: {(class_id, subject_id): {student_id: count}}
+        score_by_cs_student = {}
         for item in score_data:
             key = (item['student__current_class_id'], item['assignment__subject_id'])
-            score_counts[key] = item['count']
+            score_by_cs_student.setdefault(key, {})[item['student_id']] = item['count']
 
     # Build class data using pre-computed values (no additional queries)
     class_data = []
-    for assignment in assignments:
-        cls_id = assignment.class_assigned_id
-        subject_id = assignment.subject_id
-        student_count = assignment.student_count
+    for cs in assignments:
+        cls_id = cs.class_assigned_id
+        subj_id = cs.subject_id
+        enrolled = enrollment_counts.get(cs.id, 0)
 
-        term_assignments = assignment_counts.get(subject_id, 0)
-        scores_entered = score_counts.get((cls_id, subject_id), 0)
+        term_assignments = assignment_counts.get(subj_id, 0)
 
-        if term_assignments > 0 and student_count > 0:
-            total_possible = term_assignments * student_count
+        # Only count scores from enrolled students
+        per_student = score_by_cs_student.get((cls_id, subj_id), {})
+        enrolled_ids = enrolled_ids_by_cs.get(cs.id, set())
+        scores_entered = sum(cnt for sid, cnt in per_student.items() if sid in enrolled_ids)
+
+        if term_assignments > 0 and enrolled > 0:
+            total_possible = term_assignments * enrolled
             progress = round((scores_entered / total_possible) * 100)
         else:
             progress = 0
 
         class_data.append({
-            'class': assignment.class_assigned,
-            'subject': assignment.subject,
-            'student_count': student_count,
+            'class': cs.class_assigned,
+            'subject': cs.subject,
+            'student_count': enrolled,
             'assignments': term_assignments,
             'scores_entered': scores_entered,
             'progress': progress,
@@ -3108,7 +3120,7 @@ def my_grading(request):
 @login_required
 def enter_scores(request, class_id, subject_id):
     """Teacher enters scores for a specific class/subject."""
-    from academics.models import Class, ClassSubject, Subject
+    from academics.models import Class, ClassSubject, StudentSubjectEnrollment, Subject
     from gradebook.models import Assignment, Score, AssessmentCategory
     from students.models import Student
     from collections import defaultdict
@@ -3126,24 +3138,29 @@ def enter_scores(request, class_id, subject_id):
     current_term = Term.get_current()
 
     # Check permission: must be assigned to teach this subject in this class
-    is_assigned = ClassSubject.objects.filter(
+    class_subject = ClassSubject.objects.filter(
         class_assigned=class_obj,
         subject=subject,
         teacher=teacher
-    ).exists()
+    ).first()
 
-    if not is_assigned:
+    if not class_subject:
         messages.error(request, 'You are not assigned to teach this subject in this class.')
         return redirect('core:my_grading')
 
     # Check if grades are locked
     grades_locked = current_term.grades_locked if current_term else True
 
-    # Get students - only fetch needed fields
+    # Only show students enrolled in this subject
+    enrolled_student_ids = list(StudentSubjectEnrollment.objects.filter(
+        class_subject=class_subject,
+        is_active=True
+    ).values_list('student_id', flat=True))
+
     students = list(Student.objects.filter(
-        current_class=class_obj,
-        status='active'
-    ).only('id', 'first_name', 'last_name', 'admission_number', 'photo').order_by('last_name', 'first_name'))
+        id__in=enrolled_student_ids,
+        current_class=class_obj
+    ).only('id', 'first_name', 'last_name', 'admission_number', 'photo').order_by('last_name', 'first_name')) if enrolled_student_ids else []
 
     # Get assignments for this subject/term
     assignments_list = list(Assignment.objects.filter(
@@ -3254,7 +3271,7 @@ def enter_scores(request, class_id, subject_id):
 @login_required
 def enter_scores_student(request, class_id, subject_id, student_id):
     """HTMX endpoint for per-student score entry (mobile-optimized)."""
-    from academics.models import Class, ClassSubject, Subject
+    from academics.models import Class, ClassSubject, StudentSubjectEnrollment, Subject
     from gradebook.models import Assignment, Score
     from students.models import Student
 
@@ -3270,22 +3287,27 @@ def enter_scores_student(request, class_id, subject_id, student_id):
     current_term = Term.get_current()
 
     # Check permission
-    is_assigned = ClassSubject.objects.filter(
+    class_subject = ClassSubject.objects.filter(
         class_assigned=class_obj,
         subject=subject,
         teacher=teacher
-    ).exists()
+    ).first()
 
-    if not is_assigned:
+    if not class_subject:
         return HttpResponse('Not authorized', status=403)
 
     grades_locked = current_term.grades_locked if current_term else True
 
-    # Get all students for navigation
+    # Only show enrolled students for navigation
+    enrolled_student_ids = list(StudentSubjectEnrollment.objects.filter(
+        class_subject=class_subject,
+        is_active=True
+    ).values_list('student_id', flat=True))
+
     students = list(Student.objects.filter(
-        current_class=class_obj,
-        status='active'
-    ).only('id', 'first_name', 'last_name', 'admission_number', 'photo').order_by('last_name', 'first_name'))
+        id__in=enrolled_student_ids,
+        current_class=class_obj
+    ).only('id', 'first_name', 'last_name', 'admission_number', 'photo').order_by('last_name', 'first_name')) if enrolled_student_ids else []
 
     # Get specific student
     student = get_object_or_404(Student, pk=student_id, current_class=class_obj)
