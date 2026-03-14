@@ -607,7 +607,7 @@
                 <div class="school-details">
                     <div class="school-name">{% if rc_config.rc_display_name %}{{ rc_config.rc_display_name|pipe_to_br }}{% else %}{{ school.name|default:"School Name" }}{% endif %}</div>
                     {% if school.motto %}
-                    <div class="school-motto">"{{ school.motto }}"</div>
+                    <div class="school-motto">"{{ school.motto|pipe_to_br }}"</div>
                     {% endif %}
                     {% if school.address %}
                     <div class="school-address">
