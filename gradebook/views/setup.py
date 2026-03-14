@@ -10,6 +10,7 @@ from .base import admin_required, htmx_render
 from ..models import (
     GradingSystem, GradeScale, AssessmentCategory
 )
+from core.models import SchoolSettings
 
 
 def _get_school_levels():
@@ -42,10 +43,13 @@ def gradebook_settings(request):
     # Check if percentages sum to 100
     total_percentage = sum(c.percentage for c in categories if c.is_active)
 
+    school_settings = SchoolSettings.load()
+
     context = {
         'grading_systems': grading_systems,
         'categories': categories,
         'total_percentage': total_percentage,
+        'school_settings': school_settings,
         # Navigation
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
@@ -60,6 +64,33 @@ def gradebook_settings(request):
         'gradebook/partials/settings_content.html',
         context
     )
+
+
+# ============ Report Card Configuration ============
+
+@login_required
+@admin_required
+def report_card_config_update(request):
+    """Update report card configuration."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    school_settings = SchoolSettings.load()
+
+    school_settings.rc_title = request.POST.get('rc_title', 'Terminal Report Card').strip()
+    school_settings.rc_show_student_photo = 'rc_show_student_photo' in request.POST
+    school_settings.rc_show_class_teacher = 'rc_show_class_teacher' in request.POST
+    school_settings.rc_show_position = 'rc_show_position' in request.POST
+    school_settings.rc_show_aggregate = 'rc_show_aggregate' in request.POST
+    school_settings.rc_show_attendance = 'rc_show_attendance' in request.POST
+    school_settings.rc_show_conduct = 'rc_show_conduct' in request.POST
+    school_settings.rc_show_promotion = 'rc_show_promotion' in request.POST
+    school_settings.rc_show_grading_key = 'rc_show_grading_key' in request.POST
+    school_settings.rc_show_qr_code = 'rc_show_qr_code' in request.POST
+    school_settings.save()
+
+    context = {'school_settings': school_settings, 'rc_success': True}
+    return render(request, 'gradebook/partials/card_report.html', context)
 
 
 # ============ Grading System CRUD ============

@@ -201,6 +201,174 @@
     </div>
 </div>
 
+<!-- Report Card Configuration -->
+<div class="mt-6">
+    {% include "gradebook/partials/card_report.html" %}
+</div>
+
+<!-- Report Card Settings Modal -->
+<dialog id="modal_report_card" class="modal modal-middle">
+    <div class="modal-box max-w-md p-0">
+        <!-- Header -->
+        <div class="flex items-center justify-between p-4 pb-3 border-b border-base-200">
+            <h3 class="font-bold flex items-center gap-2">
+                <i class="fa-solid fa-file-lines text-primary"></i>
+                Report Card Settings
+            </h3>
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </form>
+        </div>
+
+        <form method="post"
+              action="{% url 'gradebook:report_card_config_update' %}"
+              hx-post="{% url 'gradebook:report_card_config_update' %}"
+              hx-target="#card-report"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) document.getElementById('modal_report_card').close()">
+            {% csrf_token %}
+            <div class="p-4 space-y-4">
+                <!-- Title -->
+                <div class="form-control">
+                    <label class="label py-0.5">
+                        <span class="label-text text-xs font-semibold uppercase tracking-wider text-base-content/50">Report Title</span>
+                    </label>
+                    <input type="text" name="rc_title" value="{{ school_settings.rc_title|default:'Terminal Report Card' }}"
+                           class="input input-bordered input-sm w-full" placeholder="e.g. Terminal Report Card" maxlength="100">
+                </div>
+
+                <!-- Student Info Group -->
+                <div class="rounded-lg border border-base-200 overflow-hidden">
+                    <div class="bg-base-200/50 px-3 py-1.5">
+                        <span class="text-[10px] uppercase tracking-wider font-semibold text-base-content/50">
+                            <i class="fa-solid fa-user-circle mr-1"></i>Student Info
+                        </span>
+                    </div>
+                    <div class="divide-y divide-base-200">
+                        <label class="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-base-200/30">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-camera text-xs text-base-content/40 w-4 text-center"></i>
+                                <span class="text-sm">Student Photo</span>
+                            </div>
+                            <input type="checkbox" name="rc_show_student_photo" value="true"
+                                   {% if school_settings.rc_show_student_photo %}checked{% endif %}
+                                   class="toggle toggle-sm toggle-primary" />
+                        </label>
+                        <label class="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-base-200/30">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-chalkboard-user text-xs text-base-content/40 w-4 text-center"></i>
+                                <span class="text-sm">Class Teacher</span>
+                            </div>
+                            <input type="checkbox" name="rc_show_class_teacher" value="true"
+                                   {% if school_settings.rc_show_class_teacher %}checked{% endif %}
+                                   class="toggle toggle-sm toggle-primary" />
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Academic Group -->
+                <div class="rounded-lg border border-base-200 overflow-hidden">
+                    <div class="bg-base-200/50 px-3 py-1.5">
+                        <span class="text-[10px] uppercase tracking-wider font-semibold text-base-content/50">
+                            <i class="fa-solid fa-graduation-cap mr-1"></i>Academic
+                        </span>
+                    </div>
+                    <div class="divide-y divide-base-200">
+                        <label class="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-base-200/30">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-ranking-star text-xs text-base-content/40 w-4 text-center"></i>
+                                <span class="text-sm">Position / Ranking</span>
+                            </div>
+                            <input type="checkbox" name="rc_show_position" value="true"
+                                   {% if school_settings.rc_show_position %}checked{% endif %}
+                                   class="toggle toggle-sm toggle-primary" />
+                        </label>
+                        <label class="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-base-200/30">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-calculator text-xs text-base-content/40 w-4 text-center"></i>
+                                <span class="text-sm">Aggregate Score</span>
+                            </div>
+                            <input type="checkbox" name="rc_show_aggregate" value="true"
+                                   {% if school_settings.rc_show_aggregate %}checked{% endif %}
+                                   class="toggle toggle-sm toggle-primary" />
+                        </label>
+                        <label class="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-base-200/30">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-arrow-up-right-dots text-xs text-base-content/40 w-4 text-center"></i>
+                                <span class="text-sm">Promotion Status</span>
+                            </div>
+                            <input type="checkbox" name="rc_show_promotion" value="true"
+                                   {% if school_settings.rc_show_promotion %}checked{% endif %}
+                                   class="toggle toggle-sm toggle-primary" />
+                        </label>
+                        <label class="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-base-200/30">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-table-list text-xs text-base-content/40 w-4 text-center"></i>
+                                <span class="text-sm">Grading Scale Key</span>
+                            </div>
+                            <input type="checkbox" name="rc_show_grading_key" value="true"
+                                   {% if school_settings.rc_show_grading_key %}checked{% endif %}
+                                   class="toggle toggle-sm toggle-primary" />
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Extra Sections Group -->
+                <div class="rounded-lg border border-base-200 overflow-hidden">
+                    <div class="bg-base-200/50 px-3 py-1.5">
+                        <span class="text-[10px] uppercase tracking-wider font-semibold text-base-content/50">
+                            <i class="fa-solid fa-puzzle-piece mr-1"></i>Extra Sections
+                        </span>
+                    </div>
+                    <div class="divide-y divide-base-200">
+                        <label class="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-base-200/30">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-calendar-check text-xs text-base-content/40 w-4 text-center"></i>
+                                <span class="text-sm">Attendance Record</span>
+                            </div>
+                            <input type="checkbox" name="rc_show_attendance" value="true"
+                                   {% if school_settings.rc_show_attendance %}checked{% endif %}
+                                   class="toggle toggle-sm toggle-primary" />
+                        </label>
+                        <label class="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-base-200/30">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-clipboard-check text-xs text-base-content/40 w-4 text-center"></i>
+                                <span class="text-sm">Conduct & Behavior</span>
+                            </div>
+                            <input type="checkbox" name="rc_show_conduct" value="true"
+                                   {% if school_settings.rc_show_conduct %}checked{% endif %}
+                                   class="toggle toggle-sm toggle-primary" />
+                        </label>
+                        <label class="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-base-200/30">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-qrcode text-xs text-base-content/40 w-4 text-center"></i>
+                                <span class="text-sm">QR Verification Code</span>
+                            </div>
+                            <input type="checkbox" name="rc_show_qr_code" value="true"
+                                   {% if school_settings.rc_show_qr_code %}checked{% endif %}
+                                   class="toggle toggle-sm toggle-primary" />
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex justify-end gap-2 p-4 pt-2 border-t border-base-200">
+                <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_report_card').close()">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="fa-solid fa-check"></i>
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
 <!-- Modal -->
 <dialog id="modal_gradebook" class="modal modal-middle">
     <div class="modal-box max-w-md">

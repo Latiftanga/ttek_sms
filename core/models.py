@@ -492,6 +492,18 @@ class SchoolSettings(models.Model):
         help_text="When setup was completed"
     )
 
+    # Report Card Configuration
+    rc_show_student_photo = models.BooleanField(default=True, help_text="Show student photo on report card")
+    rc_show_class_teacher = models.BooleanField(default=True, help_text="Show class teacher name on report card")
+    rc_show_position = models.BooleanField(default=True, help_text="Show student position/ranking")
+    rc_show_aggregate = models.BooleanField(default=True, help_text="Show aggregate score (SHS)")
+    rc_show_attendance = models.BooleanField(default=True, help_text="Show attendance record section")
+    rc_show_conduct = models.BooleanField(default=True, help_text="Show conduct & behavior section")
+    rc_show_promotion = models.BooleanField(default=True, help_text="Show promotion status")
+    rc_show_grading_key = models.BooleanField(default=True, help_text="Show grading scale key in footer")
+    rc_show_qr_code = models.BooleanField(default=True, help_text="Show QR verification code")
+    rc_title = models.CharField(max_length=100, default="Terminal Report Card", help_text="Custom report card title")
+
     def get_or_create_webhook_secret(self):
         """Generate and persist a webhook secret if one doesn't exist."""
         if not self.sms_webhook_secret:

@@ -1,0 +1,115 @@
+{% load core_tags %}
+
+<div id="card-report" class="card bg-base-100 shadow-sm border border-base-200 h-full overflow-hidden">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold flex items-center gap-2">
+                <i class="fa-solid fa-file-lines text-primary"></i>
+                Report Card Configuration
+            </h2>
+            <button class="btn btn-sm btn-primary"
+                    onclick="document.getElementById('modal_report_card').showModal()">
+                <i class="fa-solid fa-gear"></i>
+                Configure
+            </button>
+        </div>
+
+        {% if rc_success %}
+        {% include "core/partials/alert.html" with type="success" message="Report card settings updated" %}
+        {% endif %}
+
+        <!-- Title -->
+        <div class="flex items-center gap-2 p-2.5 rounded-lg bg-primary/5 border border-primary/10 mb-3">
+            <i class="fa-solid fa-heading text-primary text-xs"></i>
+            <span class="text-xs text-base-content/60">Title:</span>
+            <span class="font-semibold text-sm truncate">{{ school_settings.rc_title|default:"Terminal Report Card" }}</span>
+        </div>
+
+        <!-- Grouped Settings -->
+        <div class="space-y-3 text-sm">
+            <!-- Student Info -->
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-base-content/40 font-semibold mb-1.5 px-1">Student Info</div>
+                <div class="grid grid-cols-2 gap-1.5">
+                    {% with val=school_settings.rc_show_student_photo %}
+                    <div class="flex items-center gap-2 p-2 rounded-lg border border-base-200 {% if val %}bg-success/5 border-success/20{% endif %}">
+                        <i class="fa-solid fa-camera text-xs {% if val %}text-success{% else %}text-base-content/30{% endif %}"></i>
+                        <span class="text-xs flex-1">Student Photo</span>
+                        <i class="fa-solid {% if val %}fa-circle-check text-success{% else %}fa-circle-xmark text-base-content/20{% endif %} text-sm"></i>
+                    </div>
+                    {% endwith %}
+                    {% with val=school_settings.rc_show_class_teacher %}
+                    <div class="flex items-center gap-2 p-2 rounded-lg border border-base-200 {% if val %}bg-success/5 border-success/20{% endif %}">
+                        <i class="fa-solid fa-chalkboard-user text-xs {% if val %}text-success{% else %}text-base-content/30{% endif %}"></i>
+                        <span class="text-xs flex-1">Class Teacher</span>
+                        <i class="fa-solid {% if val %}fa-circle-check text-success{% else %}fa-circle-xmark text-base-content/20{% endif %} text-sm"></i>
+                    </div>
+                    {% endwith %}
+                </div>
+            </div>
+
+            <!-- Academic -->
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-base-content/40 font-semibold mb-1.5 px-1">Academic</div>
+                <div class="grid grid-cols-2 gap-1.5">
+                    {% with val=school_settings.rc_show_position %}
+                    <div class="flex items-center gap-2 p-2 rounded-lg border border-base-200 {% if val %}bg-success/5 border-success/20{% endif %}">
+                        <i class="fa-solid fa-ranking-star text-xs {% if val %}text-success{% else %}text-base-content/30{% endif %}"></i>
+                        <span class="text-xs flex-1">Position</span>
+                        <i class="fa-solid {% if val %}fa-circle-check text-success{% else %}fa-circle-xmark text-base-content/20{% endif %} text-sm"></i>
+                    </div>
+                    {% endwith %}
+                    {% with val=school_settings.rc_show_aggregate %}
+                    <div class="flex items-center gap-2 p-2 rounded-lg border border-base-200 {% if val %}bg-success/5 border-success/20{% endif %}">
+                        <i class="fa-solid fa-calculator text-xs {% if val %}text-success{% else %}text-base-content/30{% endif %}"></i>
+                        <span class="text-xs flex-1">Aggregate</span>
+                        <i class="fa-solid {% if val %}fa-circle-check text-success{% else %}fa-circle-xmark text-base-content/20{% endif %} text-sm"></i>
+                    </div>
+                    {% endwith %}
+                    {% with val=school_settings.rc_show_promotion %}
+                    <div class="flex items-center gap-2 p-2 rounded-lg border border-base-200 {% if val %}bg-success/5 border-success/20{% endif %}">
+                        <i class="fa-solid fa-arrow-up-right-dots text-xs {% if val %}text-success{% else %}text-base-content/30{% endif %}"></i>
+                        <span class="text-xs flex-1">Promotion</span>
+                        <i class="fa-solid {% if val %}fa-circle-check text-success{% else %}fa-circle-xmark text-base-content/20{% endif %} text-sm"></i>
+                    </div>
+                    {% endwith %}
+                    {% with val=school_settings.rc_show_grading_key %}
+                    <div class="flex items-center gap-2 p-2 rounded-lg border border-base-200 {% if val %}bg-success/5 border-success/20{% endif %}">
+                        <i class="fa-solid fa-table-list text-xs {% if val %}text-success{% else %}text-base-content/30{% endif %}"></i>
+                        <span class="text-xs flex-1">Grading Key</span>
+                        <i class="fa-solid {% if val %}fa-circle-check text-success{% else %}fa-circle-xmark text-base-content/20{% endif %} text-sm"></i>
+                    </div>
+                    {% endwith %}
+                </div>
+            </div>
+
+            <!-- Extra Sections -->
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-base-content/40 font-semibold mb-1.5 px-1">Extra Sections</div>
+                <div class="grid grid-cols-3 gap-1.5">
+                    {% with val=school_settings.rc_show_attendance %}
+                    <div class="flex flex-col items-center gap-1 p-2 rounded-lg border border-base-200 {% if val %}bg-success/5 border-success/20{% endif %}">
+                        <i class="fa-solid fa-calendar-check text-sm {% if val %}text-success{% else %}text-base-content/30{% endif %}"></i>
+                        <span class="text-[10px] text-center">Attendance</span>
+                        <i class="fa-solid {% if val %}fa-circle-check text-success{% else %}fa-circle-xmark text-base-content/20{% endif %} text-xs"></i>
+                    </div>
+                    {% endwith %}
+                    {% with val=school_settings.rc_show_conduct %}
+                    <div class="flex flex-col items-center gap-1 p-2 rounded-lg border border-base-200 {% if val %}bg-success/5 border-success/20{% endif %}">
+                        <i class="fa-solid fa-clipboard-check text-sm {% if val %}text-success{% else %}text-base-content/30{% endif %}"></i>
+                        <span class="text-[10px] text-center">Conduct</span>
+                        <i class="fa-solid {% if val %}fa-circle-check text-success{% else %}fa-circle-xmark text-base-content/20{% endif %} text-xs"></i>
+                    </div>
+                    {% endwith %}
+                    {% with val=school_settings.rc_show_qr_code %}
+                    <div class="flex flex-col items-center gap-1 p-2 rounded-lg border border-base-200 {% if val %}bg-success/5 border-success/20{% endif %}">
+                        <i class="fa-solid fa-qrcode text-sm {% if val %}text-success{% else %}text-base-content/30{% endif %}"></i>
+                        <span class="text-[10px] text-center">QR Code</span>
+                        <i class="fa-solid {% if val %}fa-circle-check text-success{% else %}fa-circle-xmark text-base-content/20{% endif %} text-xs"></i>
+                    </div>
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

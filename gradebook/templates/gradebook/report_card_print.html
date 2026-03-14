@@ -620,13 +620,14 @@
                 </div>
             </div>
             <div class="report-title-box">
-                <div class="report-title">Terminal Report Card</div>
+                <div class="report-title">{{ rc_config.rc_title|default:"Terminal Report Card" }}</div>
                 <div class="term-badge">{{ current_term.name }} &mdash; {{ current_term.academic_year.name }}</div>
             </div>
         </div>
 
         <!-- STUDENT INFO -->
         <div class="student-info">
+            {% if rc_config.rc_show_student_photo %}
             <div class="student-photo">
                 {% if student.photo %}
                 <img src="{{ student.photo.url }}" alt="">
@@ -634,6 +635,7 @@
                 &#128100;
                 {% endif %}
             </div>
+            {% endif %}
             <div class="student-details">
                 <div class="info-item">
                     <span class="info-label">Full Name</span>
@@ -657,7 +659,7 @@
                     <span class="info-value">{{ student.house.name }}</span>
                 </div>
                 {% endif %}
-                {% if student.current_class.class_teacher %}
+                {% if rc_config.rc_show_class_teacher and student.current_class.class_teacher %}
                 <div class="info-item">
                     <span class="info-label">Class Teacher</span>
                     <span class="info-value">{{ student.current_class.class_teacher.full_name }}</span>
@@ -669,6 +671,7 @@
         {% if term_report %}
         <!-- PERFORMANCE SUMMARY -->
         <div class="summary-grid">
+            {% if rc_config.rc_show_position %}
             <div class="summary-card highlight">
                 <div class="summary-value">{{ term_report.position|default:"-" }}<sup style="font-size:8pt;">{% if term_report.position %}{{ term_report.position|ordinal_suffix }}{% endif %}</sup></div>
                 <div class="summary-label">Position</div>
@@ -677,6 +680,7 @@
                 <div class="summary-value">{{ term_report.out_of|default:"-" }}</div>
                 <div class="summary-label">Out Of</div>
             </div>
+            {% endif %}
             <div class="summary-card">
                 <div class="summary-value">{{ term_report.average|floatformat:1|default:"-" }}%</div>
                 <div class="summary-label">Average</div>
@@ -695,7 +699,7 @@
             </div>
         </div>
 
-        {% if term_report.aggregate %}
+        {% if rc_config.rc_show_aggregate and term_report.aggregate %}
         <!-- AGGREGATE (for SHS) -->
         <div class="promotion-box">
             <div>
@@ -725,7 +729,7 @@
                     {% endfor %}
                     <th>Total</th>
                     <th>Grade</th>
-                    <th>Pos.</th>
+                    {% if rc_config.rc_show_position %}<th>Pos.</th>{% endif %}
                     <th style="width: 14%;">Remark</th>
                 </tr>
             </thead>
@@ -746,7 +750,7 @@
                             {{ grade.grade|default:'-' }}
                         </span>
                     </td>
-                    <td class="pos-col">{{ grade.position|default:'-' }}</td>
+                    {% if rc_config.rc_show_position %}<td class="pos-col">{{ grade.position|default:'-' }}</td>{% endif %}
                     <td style="font-size: 7pt;">{{ grade.grade_remark|default:"-" }}</td>
                 </tr>
                 {% empty %}
@@ -766,7 +770,7 @@
                     {% endfor %}
                     <th>Total</th>
                     <th>Grade</th>
-                    <th>Pos.</th>
+                    {% if rc_config.rc_show_position %}<th>Pos.</th>{% endif %}
                     <th style="width: 14%;">Remark</th>
                 </tr>
             </thead>
@@ -787,7 +791,7 @@
                             {{ grade.grade|default:'-' }}
                         </span>
                     </td>
-                    <td class="pos-col">{{ grade.position|default:'-' }}</td>
+                    {% if rc_config.rc_show_position %}<td class="pos-col">{{ grade.position|default:'-' }}</td>{% endif %}
                     <td style="font-size: 7pt;">{{ grade.grade_remark|default:"-" }}</td>
                 </tr>
                 {% endfor %}
@@ -798,6 +802,7 @@
         {% if term_report %}
         <div class="section-divider"></div>
 
+        {% if rc_config.rc_show_conduct %}
         <!-- CONDUCT & BEHAVIOR -->
         <div class="section-title">Conduct &amp; Behavior</div>
         <table class="ratings-table">
@@ -818,7 +823,9 @@
                 <td class="rating-value">{{ term_report.get_attendance_rating_display|default:"-" }}</td>
             </tr>
         </table>
+        {% endif %}
 
+        {% if rc_config.rc_show_attendance %}
         {% if term_report.days_present is not None or term_report.days_absent is not None %}
         <!-- ATTENDANCE -->
         <div class="section-title">Attendance Record</div>
@@ -845,6 +852,7 @@
             </div>
         </div>
         {% endif %}
+        {% endif %}
 
         <div class="section-divider"></div>
 
@@ -861,7 +869,7 @@
             </div>
         </div>
 
-        {% if term_report.promoted is not None %}
+        {% if rc_config.rc_show_promotion and term_report.promoted is not None %}
         <!-- PROMOTION STATUS -->
         <div class="promotion-box">
             <div class="promotion-status {% if term_report.promoted %}promoted{% else %}repeated{% endif %}">
@@ -900,7 +908,7 @@
 
         <!-- FOOTER -->
         <div class="footer">
-            {% if grading_system and grading_system.scales.all %}
+            {% if rc_config.rc_show_grading_key and grading_system and grading_system.scales.all %}
             <div class="grading-key">
                 <div class="grading-key-title">Grading Scale</div>
                 <div class="grading-key-items">
@@ -918,7 +926,7 @@
             </div>
             {% endif %}
 
-            {% if qr_code_base64 %}
+            {% if rc_config.rc_show_qr_code and qr_code_base64 %}
             <div class="qr-section">
                 <img src="{{ qr_code_base64 }}" alt="QR">
             </div>

@@ -575,14 +575,14 @@
                     </td>
                 </tr>
             </table>
-            <div class="report-title">Terminal Report Card</div>
+            <div class="report-title">{{ rc_config.rc_title|default:"Terminal Report Card" }}</div>
             <div class="term-badge">{{ current_term.name }} &mdash; {{ current_term.academic_year.name }}</div>
         </div>
 
         <!-- STUDENT INFO -->
         <div class="student-info">
             <div class="student-info-row">
-                {% if student_photo_base64 %}
+                {% if rc_config.rc_show_student_photo and student_photo_base64 %}
                 <div class="student-photo-cell">
                     <img src="{{ student_photo_base64 }}" alt="">
                 </div>
@@ -610,6 +610,7 @@
         <!-- PERFORMANCE SUMMARY -->
         <table class="summary-table">
             <tr>
+                {% if rc_config.rc_show_position %}
                 <td class="summary-cell highlight">
                     <div class="summary-value">{{ term_report.position|default:"-" }}{{ term_report.position|ordinal_suffix }}</div>
                     <div class="summary-label">Position</div>
@@ -618,6 +619,7 @@
                     <div class="summary-value">{{ term_report.out_of|default:"-" }}</div>
                     <div class="summary-label">Out Of</div>
                 </td>
+                {% endif %}
                 <td class="summary-cell">
                     <div class="summary-value">{{ term_report.average|floatformat:1|default:"-" }}%</div>
                     <div class="summary-label">Average</div>
@@ -637,7 +639,7 @@
             </tr>
         </table>
 
-        {% if term_report.aggregate %}
+        {% if rc_config.rc_show_aggregate and term_report.aggregate %}
         <!-- AGGREGATE -->
         <div class="aggregate-box">
             <div class="aggregate-left">
@@ -675,7 +677,7 @@
                             {% endfor %}
                             <th>Total</th>
                             <th>Grade</th>
-                            <th>Pos.</th>
+                            {% if rc_config.rc_show_position %}<th>Pos.</th>{% endif %}
                             <th style="width: 14%;">Remark</th>
                         </tr>
                     </thead>
@@ -696,7 +698,7 @@
                                     {{ grade.grade|default:'-' }}
                                 </span>
                             </td>
-                            <td class="pos-col">{{ grade.position|default:'-' }}</td>
+                            {% if rc_config.rc_show_position %}<td class="pos-col">{{ grade.position|default:'-' }}</td>{% endif %}
                             <td style="font-size: 7pt;">{{ grade.grade_remark|default:"-" }}</td>
                         </tr>
                         {% empty %}
@@ -716,7 +718,7 @@
                             {% endfor %}
                             <th>Total</th>
                             <th>Grade</th>
-                            <th>Pos.</th>
+                            {% if rc_config.rc_show_position %}<th>Pos.</th>{% endif %}
                             <th style="width: 14%;">Remark</th>
                         </tr>
                     </thead>
@@ -737,7 +739,7 @@
                                     {{ grade.grade|default:'-' }}
                                 </span>
                             </td>
-                            <td class="pos-col">{{ grade.position|default:'-' }}</td>
+                            {% if rc_config.rc_show_position %}<td class="pos-col">{{ grade.position|default:'-' }}</td>{% endif %}
                             <td style="font-size: 7pt;">{{ grade.grade_remark|default:"-" }}</td>
                         </tr>
                         {% endfor %}
@@ -750,6 +752,7 @@
         {% if term_report %}
         <div class="section-divider"></div>
 
+        {% if rc_config.rc_show_conduct %}
         <!-- CONDUCT & BEHAVIOR -->
         <div class="section-title">Conduct &amp; Behavior</div>
         <table class="ratings-table">
@@ -770,7 +773,9 @@
                 <td class="rating-cell-value">{{ term_report.get_attendance_rating_display|default:"-" }}</td>
             </tr>
         </table>
+        {% endif %}
 
+        {% if rc_config.rc_show_attendance %}
         {% if term_report.days_present is not None or term_report.days_absent is not None %}
         <!-- ATTENDANCE -->
         <div class="section-title">Attendance</div>
@@ -799,6 +804,7 @@
             </tr>
         </table>
         {% endif %}
+        {% endif %}
 
         <div class="section-divider"></div>
 
@@ -817,7 +823,7 @@
             </tr>
         </table>
 
-        {% if term_report.promoted is not None %}
+        {% if rc_config.rc_show_promotion and term_report.promoted is not None %}
         <!-- PROMOTION -->
         <div class="promotion-box">
             <span class="promotion-status {% if term_report.promoted %}promoted{% else %}repeated{% endif %}">
@@ -859,7 +865,7 @@
         <!-- FOOTER -->
         <table class="footer-table">
             <tr>
-                {% if grading_system and grading_system.scales.all %}
+                {% if rc_config.rc_show_grading_key and grading_system and grading_system.scales.all %}
                 <td class="grading-key">
                     <span class="grading-key-title">Grading Scale:</span>
                     {% for scale in grading_system.scales.all|dictsort:"min_percentage" reversed %}
@@ -885,7 +891,7 @@
                 </td>
                 {% endif %}
 
-                {% if qr_code_base64 %}
+                {% if rc_config.rc_show_qr_code and qr_code_base64 %}
                 <td class="qr-cell">
                     <img src="{{ qr_code_base64 }}" alt="">
                 </td>

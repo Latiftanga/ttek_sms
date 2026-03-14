@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('progress/<int:class_id>/', views.class_progress_detail, name='class_progress_detail'),
     path('settings/', views.gradebook_settings, name='settings'),
+    path('settings/report-card/', views.report_card_config_update, name='report_card_config_update'),
 
     # Grading System CRUD
     path('grading-systems/', views.grading_systems, name='grading_systems'),

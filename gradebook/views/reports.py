@@ -24,7 +24,7 @@ from ..models import (
 from ..utils import get_school_context
 from academics.models import Class
 from students.models import Student, Enrollment
-from core.models import Term
+from core.models import SchoolSettings, Term
 from schools.models import School
 
 logger = logging.getLogger(__name__)
@@ -473,6 +473,8 @@ def report_card_print(request, student_id):
     except (ValidationError, IntegrityError) as e:
         logger.warning(f"Could not create verification record: {e}")
 
+    rc_config = SchoolSettings.load()
+
     context = {
         'student': student,
         'current_term': current_term,
@@ -486,6 +488,7 @@ def report_card_print(request, student_id):
         'school': school,
         'verification': verification,
         'qr_code_base64': qr_code_base64,
+        'rc_config': rc_config,
     }
 
     return render(request, 'gradebook/report_card_print.html', context)

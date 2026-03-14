@@ -1,0 +1,81 @@
+<div id="card-report" class="card bg-base-100 shadow-sm border border-base-200 h-full overflow-hidden">
+    <div class="h-1 school-gradient-subtle"></div>
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg school-gradient flex items-center justify-center">
+                    <i class="fa-solid fa-file-lines text-white text-xs"></i>
+                </div>
+                Report Card
+            </h3>
+            <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal_report_card').showModal()">
+                <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+        </div>
+
+        {% if success %}
+        {% include "core/partials/alert.html" with type="success" message="Updated successfully" %}
+        {% endif %}
+
+        <div class="space-y-1.5 text-sm">
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Title</span>
+                <span class="font-medium text-right truncate max-w-[60%]">{{ school_settings.rc_title|default:"Terminal Report Card" }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Student Photo</span>
+                <span class="{% if school_settings.rc_show_student_photo %}text-success{% else %}text-base-content/40{% endif %}">
+                    <i class="fa-solid {% if school_settings.rc_show_student_photo %}fa-check-circle{% else %}fa-times-circle{% endif %} text-xs"></i>
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Class Teacher</span>
+                <span class="{% if school_settings.rc_show_class_teacher %}text-success{% else %}text-base-content/40{% endif %}">
+                    <i class="fa-solid {% if school_settings.rc_show_class_teacher %}fa-check-circle{% else %}fa-times-circle{% endif %} text-xs"></i>
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Position</span>
+                <span class="{% if school_settings.rc_show_position %}text-success{% else %}text-base-content/40{% endif %}">
+                    <i class="fa-solid {% if school_settings.rc_show_position %}fa-check-circle{% else %}fa-times-circle{% endif %} text-xs"></i>
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Aggregate</span>
+                <span class="{% if school_settings.rc_show_aggregate %}text-success{% else %}text-base-content/40{% endif %}">
+                    <i class="fa-solid {% if school_settings.rc_show_aggregate %}fa-check-circle{% else %}fa-times-circle{% endif %} text-xs"></i>
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Attendance</span>
+                <span class="{% if school_settings.rc_show_attendance %}text-success{% else %}text-base-content/40{% endif %}">
+                    <i class="fa-solid {% if school_settings.rc_show_attendance %}fa-check-circle{% else %}fa-times-circle{% endif %} text-xs"></i>
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Conduct</span>
+                <span class="{% if school_settings.rc_show_conduct %}text-success{% else %}text-base-content/40{% endif %}">
+                    <i class="fa-solid {% if school_settings.rc_show_conduct %}fa-check-circle{% else %}fa-times-circle{% endif %} text-xs"></i>
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Promotion</span>
+                <span class="{% if school_settings.rc_show_promotion %}text-success{% else %}text-base-content/40{% endif %}">
+                    <i class="fa-solid {% if school_settings.rc_show_promotion %}fa-check-circle{% else %}fa-times-circle{% endif %} text-xs"></i>
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">Grading Key</span>
+                <span class="{% if school_settings.rc_show_grading_key %}text-success{% else %}text-base-content/40{% endif %}">
+                    <i class="fa-solid {% if school_settings.rc_show_grading_key %}fa-check-circle{% else %}fa-times-circle{% endif %} text-xs"></i>
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-base-content/60">QR Code</span>
+                <span class="{% if school_settings.rc_show_qr_code %}text-success{% else %}text-base-content/40{% endif %}">
+                    <i class="fa-solid {% if school_settings.rc_show_qr_code %}fa-check-circle{% else %}fa-times-circle{% endif %} text-xs"></i>
+                </span>
+            </div>
+        </div>
+    </div>
+</div>

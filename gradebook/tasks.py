@@ -153,6 +153,9 @@ def generate_report_pdf(term_report, tenant_schema):
         except (ValueError, ValidationError, IntegrityError) as e:
             logger.warning(f"Could not create verification record: {e}")
 
+        from core.models import SchoolSettings
+        rc_config = SchoolSettings.load()
+
         context = {
             'student': student,
             'term_report': term_report,
@@ -166,6 +169,7 @@ def generate_report_pdf(term_report, tenant_schema):
             'student_photo_base64': student_photo_base64,
             'verification': verification,
             'qr_code_base64': qr_code_base64,
+            'rc_config': rc_config,
         }
 
         html_string = render_to_string('gradebook/report_card_pdf.html', context)
