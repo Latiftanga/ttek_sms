@@ -359,23 +359,23 @@
             margin-bottom: 6px;
         }
 
-        .rating-cell {
-            width: 25%;
-            text-align: center;
-            padding: 4px;
+        .rating-cell-label {
+            width: 90px;
+            padding: 3px 6px;
+            background: #f9fafb;
             background: #f9fafb;
             border: 1px solid #d1d5db;
-        }
-
-        .rating-label {
-            font-size: 6pt;
+            font-size: 7pt;
             color: #6b7280;
             text-transform: uppercase;
+            font-weight: 600;
         }
 
-        .rating-value {
-            font-size: 9pt;
-            font-weight: bold;
+        .rating-cell-value {
+            padding: 3px 6px;
+            border: 1px solid #d1d5db;
+            font-size: 8pt;
+            font-weight: 600;
             color: #111827;
         }
 
@@ -573,11 +573,6 @@
                         <div class="school-address">Digital Address: {{ school.digital_address }}</div>
                         {% endif %}
                     </td>
-                    {% if logo_base64 %}
-                    <td class="logo-cell">
-                        <img src="{{ logo_base64 }}" class="school-logo" alt="">
-                    </td>
-                    {% endif %}
                 </tr>
             </table>
             <div class="report-title">Terminal Report Card</div>
@@ -759,22 +754,20 @@
         <div class="section-title">Conduct &amp; Behavior</div>
         <table class="ratings-table">
             <tr>
-                <td class="rating-cell">
-                    <div class="rating-label">Conduct</div>
-                    <div class="rating-value">{{ term_report.get_conduct_rating_display|default:"-" }}</div>
-                </td>
-                <td class="rating-cell">
-                    <div class="rating-label">Attitude</div>
-                    <div class="rating-value">{{ term_report.get_attitude_rating_display|default:"-" }}</div>
-                </td>
-                <td class="rating-cell">
-                    <div class="rating-label">Interest</div>
-                    <div class="rating-value">{{ term_report.get_interest_rating_display|default:"-" }}</div>
-                </td>
-                <td class="rating-cell">
-                    <div class="rating-label">Attendance</div>
-                    <div class="rating-value">{{ term_report.get_attendance_rating_display|default:"-" }}</div>
-                </td>
+                <td class="rating-cell-label">Conduct</td>
+                <td class="rating-cell-value">{{ term_report.conduct_rating|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td class="rating-cell-label">Attitude</td>
+                <td class="rating-cell-value">{{ term_report.attitude_rating|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td class="rating-cell-label">Interest</td>
+                <td class="rating-cell-value">{{ term_report.interest_rating|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td class="rating-cell-label">Attendance</td>
+                <td class="rating-cell-value">{{ term_report.get_attendance_rating_display|default:"-" }}</td>
             </tr>
         </table>
 

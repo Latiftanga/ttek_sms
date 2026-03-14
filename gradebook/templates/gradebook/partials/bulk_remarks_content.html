@@ -190,26 +190,24 @@
                         {% endif %}
                     </div>
 
-                    <!-- Ratings Grid - Better Mobile Layout -->
-                    <div class="grid grid-cols-2 gap-2 sm:gap-3 mb-3">
+                    <!-- Ratings Fields -->
+                    <div class="grid grid-cols-1 gap-2 sm:gap-3 mb-3">
                         <!-- Conduct -->
                         <div class="form-control">
                             <label class="label py-0.5 sm:py-1">
                                 <span class="label-text text-xs">Conduct</span>
                                 <span class="htmx-indicator loading loading-spinner loading-xs"></span>
                             </label>
-                            <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
-                                    hx-post="{% url 'gradebook:bulk_remark_save' %}"
-                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "conduct_rating"}'
-                                    hx-trigger="change"
-                                    hx-swap="none"
-                                    hx-indicator="closest .form-control"
-                                    name="value">
-                                <option value="">Select...</option>
-                                {% for value, label in conduct_choices %}
-                                <option value="{{ value }}" {% if student.term_report and student.term_report.conduct_rating == value %}selected{% endif %}>{{ value }} - {{ label }}</option>
-                                {% endfor %}
-                            </select>
+                            <input type="text"
+                                   class="input input-bordered input-sm w-full text-xs sm:text-sm"
+                                   hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                                   hx-vals='{"student_id": "{{ student.pk }}", "field": "conduct_rating"}'
+                                   hx-trigger="input delay:500ms"
+                                   hx-swap="none"
+                                   hx-indicator="closest .form-control"
+                                   name="value"
+                                   placeholder="e.g. Very Good"
+                                   value="{% if student.term_report %}{{ student.term_report.conduct_rating }}{% endif %}">
                         </div>
 
                         <!-- Attitude -->
@@ -218,18 +216,16 @@
                                 <span class="label-text text-xs">Attitude</span>
                                 <span class="htmx-indicator loading loading-spinner loading-xs"></span>
                             </label>
-                            <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
-                                    hx-post="{% url 'gradebook:bulk_remark_save' %}"
-                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "attitude_rating"}'
-                                    hx-trigger="change"
-                                    hx-swap="none"
-                                    hx-indicator="closest .form-control"
-                                    name="value">
-                                <option value="">Select...</option>
-                                {% for value, label in rating_choices %}
-                                <option value="{{ value }}" {% if student.term_report and student.term_report.attitude_rating == value %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
+                            <input type="text"
+                                   class="input input-bordered input-sm w-full text-xs sm:text-sm"
+                                   hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                                   hx-vals='{"student_id": "{{ student.pk }}", "field": "attitude_rating"}'
+                                   hx-trigger="input delay:500ms"
+                                   hx-swap="none"
+                                   hx-indicator="closest .form-control"
+                                   name="value"
+                                   placeholder="e.g. Good"
+                                   value="{% if student.term_report %}{{ student.term_report.attitude_rating }}{% endif %}">
                         </div>
 
                         <!-- Interest -->
@@ -238,18 +234,16 @@
                                 <span class="label-text text-xs">Interest</span>
                                 <span class="htmx-indicator loading loading-spinner loading-xs"></span>
                             </label>
-                            <select class="select select-bordered select-sm w-full text-xs sm:text-sm"
-                                    hx-post="{% url 'gradebook:bulk_remark_save' %}"
-                                    hx-vals='{"student_id": "{{ student.pk }}", "field": "interest_rating"}'
-                                    hx-trigger="change"
-                                    hx-swap="none"
-                                    hx-indicator="closest .form-control"
-                                    name="value">
-                                <option value="">Select...</option>
-                                {% for value, label in rating_choices %}
-                                <option value="{{ value }}" {% if student.term_report and student.term_report.interest_rating == value %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
+                            <input type="text"
+                                   class="input input-bordered input-sm w-full text-xs sm:text-sm"
+                                   hx-post="{% url 'gradebook:bulk_remark_save' %}"
+                                   hx-vals='{"student_id": "{{ student.pk }}", "field": "interest_rating"}'
+                                   hx-trigger="input delay:500ms"
+                                   hx-swap="none"
+                                   hx-indicator="closest .form-control"
+                                   name="value"
+                                   placeholder="e.g. Excellent"
+                                   value="{% if student.term_report %}{{ student.term_report.interest_rating }}{% endif %}">
                         </div>
 
                         <!-- Attendance (auto-computed from attendance records) -->

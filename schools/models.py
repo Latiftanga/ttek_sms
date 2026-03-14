@@ -108,7 +108,7 @@ class School(TenantMixin):
     # Basic Info
     name = models.CharField(max_length=100)
     short_name = models.CharField(max_length=20, help_text="Short name for sidebar display")
-    motto = models.CharField(max_length=200, help_text="School motto")
+    motto = models.CharField(max_length=200, help_text="School motto or slogan")
     is_active = models.BooleanField(default=True, help_text="Inactive schools cannot be accessed")
     education_system = models.CharField(
         max_length=10,

@@ -1,5 +1,6 @@
 from django import forms
 from .models import SchoolSettings, AcademicYear, Term
+from schools.models import Region
 
 
 class SchoolBasicInfoForm(forms.Form):
@@ -18,8 +19,8 @@ class SchoolBasicInfoForm(forms.Form):
     motto = forms.CharField(
         max_length=200,
         required=False,
-        label='Motto',
-        widget=forms.TextInput(attrs={'placeholder': 'School motto'})
+        label='Motto / Slogan',
+        widget=forms.TextInput(attrs={'placeholder': 'School motto or slogan'})
     )
 
 
@@ -85,11 +86,11 @@ class SchoolContactForm(forms.Form):
         label='City',
         widget=forms.TextInput(attrs={'placeholder': 'City'})
     )
-    region = forms.CharField(
-        max_length=100,
+    region = forms.ModelChoiceField(
+        queryset=Region.objects.all(),
         required=False,
         label='Region',
-        widget=forms.TextInput(attrs={'placeholder': 'Region'})
+        empty_label='Select Region...',
     )
 
 

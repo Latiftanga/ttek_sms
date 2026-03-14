@@ -232,7 +232,7 @@
 
         .summary-card {
             text-align: center;
-            padding: 8px 4px;
+            padding: 6px 4px;
             background: white;
             border: 1px solid var(--primary);
             border-radius: 4px;
@@ -249,7 +249,7 @@
         }
 
         .summary-value {
-            font-size: 14pt;
+            font-size: 12pt;
             font-weight: 700;
             color: var(--primary);
             line-height: 1.1;
@@ -353,30 +353,28 @@
         }
 
         /* ===== RATINGS SECTION ===== */
-        .ratings-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-            margin-bottom: 8px;
+        .ratings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+            font-size: 8pt;
         }
 
-        .rating-card {
-            background: var(--gray-50);
+        .ratings-table td {
+            padding: 3px 6px;
             border: 1px solid var(--gray-200);
-            border-radius: 4px;
-            padding: 6px;
-            text-align: center;
         }
 
-        .rating-label {
+        .ratings-table .rating-label {
             font-size: 7pt;
             color: var(--gray-500);
             text-transform: uppercase;
-            margin-bottom: 2px;
+            width: 90px;
+            background: var(--gray-50);
+            font-weight: 600;
         }
 
-        .rating-value {
-            font-size: 9pt;
+        .ratings-table .rating-value {
             font-weight: 600;
             color: var(--gray-900);
         }
@@ -476,7 +474,7 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 20px;
-            margin: 15px 0 8px;
+            margin: 10px 0 6px;
         }
 
         .signature-box {
@@ -487,7 +485,7 @@
             font-size: 8pt;
             font-weight: 600;
             color: var(--gray-900);
-            margin-top: 25px;
+            margin-top: 20px;
         }
 
         .signature-line {
@@ -500,7 +498,7 @@
         }
 
         .signature-line.no-name {
-            margin-top: 25px;
+            margin-top: 20px;
         }
 
         /* ===== FOOTER ===== */
@@ -620,9 +618,6 @@
                     <div class="school-address">Digital Address: {{ school.digital_address }}</div>
                     {% endif %}
                 </div>
-                {% if school.logo %}
-                <img src="{{ school.logo.url }}" class="school-logo" alt="">
-                {% endif %}
             </div>
             <div class="report-title-box">
                 <div class="report-title">Terminal Report Card</div>
@@ -805,24 +800,24 @@
 
         <!-- CONDUCT & BEHAVIOR -->
         <div class="section-title">Conduct &amp; Behavior</div>
-        <div class="ratings-grid">
-            <div class="rating-card">
-                <div class="rating-label">Conduct</div>
-                <div class="rating-value">{{ term_report.get_conduct_rating_display|default:"-" }}</div>
-            </div>
-            <div class="rating-card">
-                <div class="rating-label">Attitude to Work</div>
-                <div class="rating-value">{{ term_report.get_attitude_rating_display|default:"-" }}</div>
-            </div>
-            <div class="rating-card">
-                <div class="rating-label">Interest</div>
-                <div class="rating-value">{{ term_report.get_interest_rating_display|default:"-" }}</div>
-            </div>
-            <div class="rating-card">
-                <div class="rating-label">Attendance</div>
-                <div class="rating-value">{{ term_report.get_attendance_rating_display|default:"-" }}</div>
-            </div>
-        </div>
+        <table class="ratings-table">
+            <tr>
+                <td class="rating-label">Conduct</td>
+                <td class="rating-value">{{ term_report.conduct_rating|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td class="rating-label">Attitude</td>
+                <td class="rating-value">{{ term_report.attitude_rating|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td class="rating-label">Interest</td>
+                <td class="rating-value">{{ term_report.interest_rating|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td class="rating-label">Attendance</td>
+                <td class="rating-value">{{ term_report.get_attendance_rating_display|default:"-" }}</td>
+            </tr>
+        </table>
 
         {% if term_report.days_present is not None or term_report.days_absent is not None %}
         <!-- ATTENDANCE -->

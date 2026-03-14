@@ -92,8 +92,6 @@ def bulk_remarks_entry(request, class_id):
         'page_obj': page_obj,
         'current_term': current_term,
         'templates_by_category': templates_by_category,
-        'conduct_choices': TermReport.CONDUCT_CHOICES,
-        'rating_choices': TermReport.RATING_CHOICES,
         'completed_count': completed_count,
         'total_count': len(all_students),
         'is_admin': is_school_admin(user),
@@ -145,16 +143,6 @@ def bulk_remark_save(request):
     ]
 
     if field in allowed_fields:
-        # Validate rating fields against model choices
-        if field == 'conduct_rating' and value:
-            valid_values = [c[0] for c in TermReport.CONDUCT_CHOICES]
-            if value not in valid_values:
-                return HttpResponse('Invalid conduct rating', status=400)
-        elif field in ('attitude_rating', 'interest_rating') and value:
-            valid_values = [c[0] for c in TermReport.RATING_CHOICES]
-            if value not in valid_values:
-                return HttpResponse('Invalid rating value', status=400)
-
         with transaction.atomic():
             term_report, created = TermReport.objects.get_or_create(
                 student=student,

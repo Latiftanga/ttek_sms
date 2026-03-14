@@ -1008,22 +1008,19 @@ class TermReport(models.Model):
     ]
 
     conduct_rating = models.CharField(
-        max_length=1,
-        choices=CONDUCT_CHOICES,
+        max_length=100,
         blank=True,
-        help_text='Overall conduct grade (A-E)'
+        help_text='Overall conduct (free text)'
     )
     attitude_rating = models.CharField(
-        max_length=10,
-        choices=RATING_CHOICES,
+        max_length=100,
         blank=True,
-        help_text='Attitude to work'
+        help_text='Attitude to work (free text)'
     )
     interest_rating = models.CharField(
-        max_length=10,
-        choices=RATING_CHOICES,
+        max_length=100,
         blank=True,
-        help_text='Interest in school activities'
+        help_text='Interest in school activities (free text)'
     )
     attendance_rating = models.CharField(
         max_length=10,
