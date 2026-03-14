@@ -18,11 +18,20 @@
         {% include "core/partials/alert.html" with type="success" message="Report card settings updated" %}
         {% endif %}
 
-        <!-- Title -->
-        <div class="flex items-center gap-2 p-2.5 rounded-lg bg-primary/5 border border-primary/10 mb-3">
-            <i class="fa-solid fa-heading text-primary text-xs"></i>
-            <span class="text-xs text-base-content/60">Title:</span>
-            <span class="font-semibold text-sm truncate">{{ school_settings.rc_title|default:"Terminal Report Card" }}</span>
+        <!-- Title & Display Name -->
+        <div class="space-y-1.5 mb-3">
+            <div class="flex items-center gap-2 p-2.5 rounded-lg bg-primary/5 border border-primary/10">
+                <i class="fa-solid fa-heading text-primary text-xs"></i>
+                <span class="text-xs text-base-content/60">Title:</span>
+                <span class="font-semibold text-sm truncate">{{ school_settings.rc_title|default:"Terminal Report Card" }}</span>
+            </div>
+            {% if school_settings.rc_display_name %}
+            <div class="flex items-center gap-2 p-2.5 rounded-lg bg-info/5 border border-info/10">
+                <i class="fa-solid fa-school text-info text-xs"></i>
+                <span class="text-xs text-base-content/60">Display Name:</span>
+                <span class="font-semibold text-sm truncate">{{ school_settings.rc_display_name }}</span>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Grouped Settings -->

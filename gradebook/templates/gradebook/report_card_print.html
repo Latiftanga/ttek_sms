@@ -605,7 +605,7 @@
                 <img src="{{ school.logo.url }}" class="school-logo" alt="">
                 {% endif %}
                 <div class="school-details">
-                    <div class="school-name">{{ school.name|default:"School Name" }}</div>
+                    <div class="school-name">{% if rc_config.rc_display_name %}{{ rc_config.rc_display_name|pipe_to_br }}{% else %}{{ school.name|default:"School Name" }}{% endif %}</div>
                     {% if school.motto %}
                     <div class="school-motto">"{{ school.motto }}"</div>
                     {% endif %}

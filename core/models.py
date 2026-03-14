@@ -503,6 +503,7 @@ class SchoolSettings(models.Model):
     rc_show_grading_key = models.BooleanField(default=True, help_text="Show grading scale key in footer")
     rc_show_qr_code = models.BooleanField(default=True, help_text="Show QR verification code")
     rc_title = models.CharField(max_length=100, default="Terminal Report Card", help_text="Custom report card title")
+    rc_display_name = models.CharField(max_length=200, blank=True, default="", help_text="Custom school name for report card. Use | to split into two lines.")
 
     def get_or_create_webhook_secret(self):
         """Generate and persist a webhook secret if one doesn't exist."""

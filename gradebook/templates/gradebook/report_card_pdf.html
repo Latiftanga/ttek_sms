@@ -560,7 +560,7 @@
                     </td>
                     {% endif %}
                     <td style="text-align: center;">
-                        <div class="school-name">{{ school.name|default:"School Name" }}</div>
+                        <div class="school-name">{% if rc_config.rc_display_name %}{{ rc_config.rc_display_name|pipe_to_br }}{% else %}{{ school.name|default:"School Name" }}{% endif %}</div>
                         {% if school.motto %}
                         <div class="school-motto">"{{ school.motto }}"</div>
                         {% endif %}

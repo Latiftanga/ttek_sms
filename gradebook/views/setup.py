@@ -78,6 +78,7 @@ def report_card_config_update(request):
     school_settings = SchoolSettings.load()
 
     school_settings.rc_title = request.POST.get('rc_title', 'Terminal Report Card').strip()
+    school_settings.rc_display_name = request.POST.get('rc_display_name', '').strip()
     school_settings.rc_show_student_photo = 'rc_show_student_photo' in request.POST
     school_settings.rc_show_class_teacher = 'rc_show_class_teacher' in request.POST
     school_settings.rc_show_position = 'rc_show_position' in request.POST

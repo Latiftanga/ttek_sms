@@ -577,6 +577,14 @@ def split(value, arg):
     return value.split(arg)
 
 
+@register.filter(is_safe=True)
+def pipe_to_br(value):
+    """Replace | with <br> for multi-line display. Usage: {{ name|pipe_to_br }}"""
+    from django.utils.html import escape
+    from django.utils.safestring import mark_safe
+    return mark_safe('<br>'.join(escape(part.strip()) for part in value.split('|')))
+
+
 @register.filter
 def get_item(dictionary, key):
     """

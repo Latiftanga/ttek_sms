@@ -230,13 +230,21 @@
               hx-on::after-request="if(event.detail.successful) document.getElementById('modal_report_card').close()">
             {% csrf_token %}
             <div class="p-4 space-y-4">
-                <!-- Title -->
+                <!-- Title & Display Name -->
                 <div class="form-control">
                     <label class="label py-0.5">
                         <span class="label-text text-xs font-semibold uppercase tracking-wider text-base-content/50">Report Title</span>
                     </label>
                     <input type="text" name="rc_title" value="{{ school_settings.rc_title|default:'Terminal Report Card' }}"
                            class="input input-bordered input-sm w-full" placeholder="e.g. Terminal Report Card" maxlength="100">
+                </div>
+                <div class="form-control">
+                    <label class="label py-0.5">
+                        <span class="label-text text-xs font-semibold uppercase tracking-wider text-base-content/50">Display Name</span>
+                    </label>
+                    <input type="text" name="rc_display_name" value="{{ school_settings.rc_display_name }}"
+                           class="input input-bordered input-sm w-full" placeholder="e.g. First Line|Second Line" maxlength="200">
+                    <p class="text-[11px] text-base-content/40 mt-1 px-1">Use <kbd class="kbd kbd-xs">|</kbd> to split into two lines. Leave blank for default.</p>
                 </div>
 
                 <!-- Student Info Group -->
