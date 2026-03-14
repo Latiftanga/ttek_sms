@@ -63,9 +63,7 @@
             // Store the initial district value (for edit forms)
             const initialDistrictId = districtField.val();
 
-            function updateDistricts() {
-                const regionId = regionField.val();
-
+            function loadDistricts(regionId, selectDistrictId) {
                 if (!regionId) {
                     // No region selected - clear districts
                     districtField.empty().append('<option value="">---------</option>');
@@ -91,9 +89,9 @@
                         });
                         districtField.prop('disabled', false);
 
-                        // Re-select initial district if it exists in the new list
-                        if (initialDistrictId) {
-                            districtField.val(initialDistrictId);
+                        // Re-select district if provided
+                        if (selectDistrictId) {
+                            districtField.val(selectDistrictId);
                         }
                     },
                     error: function() {
@@ -103,15 +101,15 @@
                 });
             }
 
-            // Only run on change (not on load, to preserve existing value)
+            // Listen for change on the region field
+            // Use 'change' event which works for both native <select> and Select2
             regionField.on('change', function() {
-                // Clear initial value on change so we don't re-select old district
-                updateDistricts();
+                loadDistricts($(this).val(), null);
             });
 
-            // If region is selected but district is empty, load districts
+            // If region is selected but district is empty on page load, load districts
             if (regionField.val() && !districtField.val()) {
-                updateDistricts();
+                loadDistricts(regionField.val(), initialDistrictId);
             }
         }
     });

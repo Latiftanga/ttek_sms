@@ -140,7 +140,7 @@ class SchoolAdmin(admin.ModelAdmin):
     ordering = ('-created_on',)
 
     class Media:
-        js = ('admin/js/school_form.js',)
+        js = ('js/school_admin.js',)
 
     def get_fieldsets(self, request, obj=None):
         if obj:
