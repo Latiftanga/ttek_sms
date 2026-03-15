@@ -1,0 +1,123 @@
+{% load core_tags %}
+
+<!-- Page Header -->
+<div class="flex items-center gap-2 sm:gap-3 mb-6">
+    <a href="{% url 'core:ward_detail' student.pk %}"
+       hx-get="{% url 'core:ward_detail' student.pk %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+    </a>
+    <div class="flex-1 min-w-0">
+        <h1 class="text-base sm:text-xl font-bold">Submit Absence Excuse</h1>
+        <p class="text-[10px] sm:text-xs text-base-content/60 truncate">{{ student.full_name }}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Submit Form -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4 sm:p-5">
+            <h2 class="font-bold flex items-center gap-2 mb-4">
+                <i class="fa-solid fa-file-medical text-primary"></i>
+                New Excuse
+            </h2>
+
+            <form method="post"
+                  hx-post="{% url 'core:submit_excuse' student.pk %}"
+                  hx-target="#main-content"
+                  hx-swap="innerHTML">
+                {% csrf_token %}
+
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="form-control">
+                            <label class="label py-1">
+                                <span class="label-text text-xs">Date From</span>
+                            </label>
+                            <input type="date" name="date_from" required
+                                   class="input input-bordered input-sm w-full" />
+                        </div>
+                        <div class="form-control">
+                            <label class="label py-1">
+                                <span class="label-text text-xs">Date To</span>
+                            </label>
+                            <input type="date" name="date_to" required
+                                   class="input input-bordered input-sm w-full" />
+                        </div>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label py-1">
+                            <span class="label-text text-xs">Reason</span>
+                        </label>
+                        <select name="reason" required class="select select-bordered select-sm w-full">
+                            <option value="">Select reason...</option>
+                            {% for value, label in reason_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label py-1">
+                            <span class="label-text text-xs">Details (optional)</span>
+                        </label>
+                        <textarea name="details" rows="3" maxlength="500"
+                                  class="textarea textarea-bordered textarea-sm text-sm"
+                                  placeholder="Additional details..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-sm w-full">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        Submit Excuse
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Previous Excuses -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4 sm:p-5">
+            <h2 class="font-bold flex items-center gap-2 mb-4">
+                <i class="fa-solid fa-clock-rotate-left text-info"></i>
+                Previous Excuses
+            </h2>
+
+            {% if excuses %}
+            <div class="space-y-2">
+                {% for excuse in excuses %}
+                <div class="p-3 rounded-lg border border-base-200 bg-base-200/30">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium">{{ excuse.get_reason_display }}</span>
+                        <span class="badge badge-sm
+                            {% if excuse.status == 'approved' %}badge-success
+                            {% elif excuse.status == 'rejected' %}badge-error
+                            {% else %}badge-warning{% endif %}">
+                            {{ excuse.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="text-xs text-base-content/60">
+                        {{ excuse.date_from|date:"M d" }} — {{ excuse.date_to|date:"M d, Y" }}
+                    </div>
+                    {% if excuse.details %}
+                    <div class="text-xs text-base-content/50 mt-1 truncate">{{ excuse.details }}</div>
+                    {% endif %}
+                    {% if excuse.review_note %}
+                    <div class="text-xs text-info mt-1 italic">{{ excuse.review_note }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-6 text-base-content/40">
+                <i class="fa-solid fa-file-circle-check text-2xl mb-2"></i>
+                <p class="text-sm">No excuses submitted yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

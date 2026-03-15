@@ -57,6 +57,8 @@ urlpatterns = [
     path('attendance/notify-parents/', views.notify_absent_parents, name='notify_absent_parents'),
     path('attendance/student/<int:student_id>/', views.student_attendance_detail, name='student_attendance_detail'),
     path('attendance/class/<int:pk>/weekly-register/', views.weekly_attendance_register_pdf, name='weekly_attendance_register_pdf'),
+    path('attendance/excuses/', views.absence_excuses, name='absence_excuses'),
+    path('attendance/excuses/<int:pk>/review/', views.review_absence_excuse, name='review_excuse'),
 
     # Subject routes
     path('subjects/create/', views.subject_create, name='subject_create'),

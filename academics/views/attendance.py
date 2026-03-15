@@ -16,7 +16,8 @@ from django.utils import timezone
 from students.models import Student
 
 from ..models import (
-    Class, ClassSubject, AttendanceSession, AttendanceRecord, TimetableEntry
+    Class, ClassSubject, AttendanceSession, AttendanceRecord, TimetableEntry,
+    AbsenceExcuse,
 )
 from ..utils import (
     should_use_lesson_attendance, get_students_for_lesson, get_lesson_attendance_stats
@@ -1601,3 +1602,73 @@ def weekly_attendance_register_pdf(request, pk):
         logger.error(f"Error generating attendance PDF: {e}")
         messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
         return redirect('academics:attendance_reports')
+
+
+# ============ Absence Excuse Review ============
+
+@login_required
+@teacher_or_admin_required
+def absence_excuses(request):
+    """List and review absence excuses submitted by parents."""
+    status_filter = request.GET.get('status', 'pending')
+    excuses = AbsenceExcuse.objects.select_related(
+        'student__current_class', 'submitted_by'
+    )
+
+    if status_filter in ('pending', 'approved', 'rejected'):
+        excuses = excuses.filter(status=status_filter)
+
+    excuses = excuses.order_by('-created_at')[:50]
+
+    context = {
+        'excuses': excuses,
+        'status_filter': status_filter,
+        'pending_count': AbsenceExcuse.objects.filter(status='pending').count(),
+    }
+
+    return htmx_render(
+        request,
+        'academics/absence_excuses.html',
+        'academics/partials/absence_excuses_content.html',
+        context
+    )
+
+
+@login_required
+@teacher_or_admin_required
+def review_absence_excuse(request, pk):
+    """Approve or reject an absence excuse."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    excuse = get_object_or_404(AbsenceExcuse, pk=pk)
+    action = request.POST.get('action')
+    review_note = request.POST.get('review_note', '').strip()[:200]
+
+    if action == 'approve':
+        excuse.status = 'approved'
+    elif action == 'reject':
+        excuse.status = 'rejected'
+    else:
+        return HttpResponse(status=400)
+
+    excuse.reviewed_by = request.user
+    excuse.reviewed_at = timezone.now()
+    excuse.review_note = review_note
+    excuse.save()
+
+    # If approved, update attendance records to 'E' (excused) for those dates
+    if action == 'approve' and excuse.student.current_class:
+        AttendanceRecord.objects.filter(
+            student=excuse.student,
+            session__class_assigned=excuse.student.current_class,
+            session__date__gte=excuse.date_from,
+            session__date__lte=excuse.date_to,
+            status='A',
+        ).update(status='E')
+
+    messages.success(request, f"Excuse {action}d for {excuse.student.full_name}.")
+
+    response = HttpResponse(status=204)
+    response['HX-Trigger'] = 'refreshExcuses'
+    return response

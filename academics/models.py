@@ -771,3 +771,67 @@ class TimetableEntry(models.Model):
     @property
     def class_assigned(self):
         return self.class_subject.class_assigned
+
+
+class AbsenceExcuse(models.Model):
+    """
+    Parent-submitted absence excuse for a student.
+    Reviewed by class teacher or admin.
+    """
+    class Status(models.TextChoices):
+        PENDING = 'pending', _('Pending Review')
+        APPROVED = 'approved', _('Approved')
+        REJECTED = 'rejected', _('Rejected')
+
+    class Reason(models.TextChoices):
+        ILLNESS = 'illness', _('Illness')
+        FAMILY = 'family', _('Family Emergency')
+        MEDICAL = 'medical', _('Medical Appointment')
+        TRAVEL = 'travel', _('Travel')
+        RELIGIOUS = 'religious', _('Religious Observance')
+        OTHER = 'other', _('Other')
+
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='absence_excuses',
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='+',
+    )
+    date_from = models.DateField()
+    date_to = models.DateField()
+    reason = models.CharField(max_length=10, choices=Reason.choices)
+    details = models.TextField(
+        max_length=500,
+        blank=True,
+        help_text="Additional details about the absence"
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['student', 'status']),
+            models.Index(fields=['date_from', 'date_to']),
+        ]
+
+    def __str__(self):
+        return f"{self.student} - {self.date_from} to {self.date_to} ({self.get_status_display()})"

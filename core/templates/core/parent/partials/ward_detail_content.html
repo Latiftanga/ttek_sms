@@ -257,6 +257,14 @@
                         View Full Report
                     </a>
                     {% endif %}
+                    <a href="{% url 'core:submit_excuse' student.pk %}"
+                       hx-get="{% url 'core:submit_excuse' student.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-sm btn-outline btn-warning">
+                        <i class="fa-solid fa-file-medical"></i>
+                        Submit Excuse
+                    </a>
                     <a href="{% url 'finance:fee_payments' %}"
                        hx-get="{% url 'finance:fee_payments' %}"
                        hx-target="#main-content"

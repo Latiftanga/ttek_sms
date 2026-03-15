@@ -4606,6 +4606,65 @@ def ward_detail(request, pk):
     return htmx_render(request, 'core/parent/ward_detail.html', 'core/parent/partials/ward_detail_content.html', context)
 
 
+@login_required
+def submit_absence_excuse(request, pk):
+    """Parent submits an absence excuse for their ward."""
+    from students.models import StudentGuardian
+    from academics.models import AbsenceExcuse
+
+    guardian = getattr(request.user, 'guardian_profile', None)
+    if not guardian:
+        messages.error(request, "No guardian profile linked to your account.")
+        return redirect('core:index')
+
+    student_guardian = StudentGuardian.objects.filter(
+        guardian=guardian, student_id=pk
+    ).first()
+    if not student_guardian:
+        messages.error(request, "You are not authorized for this student.")
+        return redirect('core:my_wards')
+
+    student = student_guardian.student
+
+    if request.method == 'POST':
+        date_from = request.POST.get('date_from', '').strip()
+        date_to = request.POST.get('date_to', '').strip()
+        reason = request.POST.get('reason', '').strip()
+        details = request.POST.get('details', '').strip()[:500]
+
+        if not all([date_from, date_to, reason]):
+            messages.error(request, "Please fill in all required fields.")
+        elif reason not in dict(AbsenceExcuse.Reason.choices):
+            messages.error(request, "Invalid reason selected.")
+        else:
+            AbsenceExcuse.objects.create(
+                student=student,
+                submitted_by=request.user,
+                date_from=date_from,
+                date_to=date_to,
+                reason=reason,
+                details=details,
+            )
+            messages.success(request, "Absence excuse submitted successfully.")
+            return redirect('core:ward_detail', pk=pk)
+
+    # Get existing excuses for this student
+    excuses = AbsenceExcuse.objects.filter(student=student).order_by('-created_at')[:10]
+
+    context = {
+        'student': student,
+        'excuses': excuses,
+        'reason_choices': AbsenceExcuse.Reason.choices,
+    }
+
+    return htmx_render(
+        request,
+        'core/parent/excuse_form.html',
+        'core/parent/partials/excuse_form_content.html',
+        context
+    )
+
+
 @ratelimit(key='ip', rate='30/h')
 def verify_document(request, code):
     """

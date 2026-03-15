@@ -90,6 +90,7 @@ urlpatterns = [
     # Parent/Guardian routes
     path('my-wards/', views.my_wards, name='my_wards'),
     path('my-wards/<int:pk>/', views.ward_detail, name='ward_detail'),
+    path('my-wards/<int:pk>/excuse/', views.submit_absence_excuse, name='submit_excuse'),
     # Document verification (public)
     path('verify/<str:code>/', views.verify_document, name='verify_document'),
 ]
