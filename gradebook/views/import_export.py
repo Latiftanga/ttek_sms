@@ -17,10 +17,10 @@ from django.db import transaction
 
 
 from .base import (
-    teacher_or_admin_required, can_edit_scores, get_client_ip
+    teacher_or_admin_required, admin_required, can_edit_scores, get_client_ip
 )
 from ..models import (
-    Assignment, Score, ScoreAuditLog
+    Assignment, Score, ScoreAuditLog, SubjectTermGrade, TermReport
 )
 from ..signals import signals_disabled
 from .. import config
@@ -473,3 +473,126 @@ def score_import_confirm(request, class_id, subject_id):
         'class_obj': class_obj,
         'subject': subject,
     })
+
+
+# ============ Grade Export ============
+
+@login_required
+@admin_required
+def export_class_grades(request, class_id):
+    """Export all grades for a class to Excel with subject breakdown."""
+    current_term = Term.get_current()
+    if not current_term:
+        return HttpResponse('No current term', status=400)
+
+    class_obj = get_object_or_404(Class, pk=class_id)
+
+    # Get term reports with student info
+    reports = TermReport.objects.filter(
+        student__current_class=class_obj,
+        term=current_term,
+    ).select_related('student').order_by('student__last_name', 'student__first_name')
+
+    # Get subject grades
+    subject_grades = SubjectTermGrade.objects.filter(
+        student__current_class=class_obj,
+        term=current_term,
+    ).select_related('subject')
+
+    # Build subject grades lookup: {student_id: {subject_name: total_score}}
+    grades_by_student = {}
+    subject_names = set()
+    for sg in subject_grades:
+        if sg.student_id not in grades_by_student:
+            grades_by_student[sg.student_id] = {}
+        subj_name = sg.subject.short_name or sg.subject.name
+        grades_by_student[sg.student_id][subj_name] = {
+            'score': sg.total_score,
+            'grade': sg.grade,
+            'position': sg.position,
+        }
+        subject_names.add(subj_name)
+
+    sorted_subjects = sorted(subject_names)
+
+    # Build Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"{class_obj.name} Grades"
+
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill("solid", fgColor="2563EB")
+    thin_border = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin'),
+    )
+    center = Alignment(horizontal='center', vertical='center')
+
+    # Title row
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=4 + len(sorted_subjects))
+    title_cell = ws.cell(row=1, column=1, value=f"{class_obj.name} — {current_term.name} Grade Report")
+    title_cell.font = Font(bold=True, size=14)
+    title_cell.alignment = Alignment(horizontal='center')
+
+    # Headers (row 3)
+    headers = ['#', 'Adm. No.', 'Student Name'] + sorted_subjects + ['Average', 'Position', 'Aggregate']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+        cell.border = thin_border
+
+    # Data rows
+    for row_idx, report in enumerate(reports, 4):
+        student = report.student
+        student_grades = grades_by_student.get(student.id, {})
+
+        ws.cell(row=row_idx, column=1, value=row_idx - 3).border = thin_border
+        ws.cell(row=row_idx, column=2, value=student.admission_number).border = thin_border
+        name_cell = ws.cell(row=row_idx, column=3, value=student.full_name)
+        name_cell.border = thin_border
+        name_cell.font = Font(bold=True)
+
+        for col_offset, subj in enumerate(sorted_subjects):
+            cell = ws.cell(row=row_idx, column=4 + col_offset)
+            sg = student_grades.get(subj)
+            if sg and sg['score'] is not None:
+                cell.value = float(sg['score'])
+            cell.alignment = center
+            cell.border = thin_border
+
+        # Summary columns
+        avg_col = 4 + len(sorted_subjects)
+        ws.cell(row=row_idx, column=avg_col, value=float(report.average) if report.average else None).border = thin_border
+        ws.cell(row=row_idx, column=avg_col, value=float(report.average) if report.average else None).alignment = center
+        ws.cell(row=row_idx, column=avg_col + 1, value=report.position).border = thin_border
+        ws.cell(row=row_idx, column=avg_col + 1).alignment = center
+        ws.cell(row=row_idx, column=avg_col + 2, value=report.aggregate).border = thin_border
+        ws.cell(row=row_idx, column=avg_col + 2).alignment = center
+
+    # Auto-width columns
+    for col in range(1, len(headers) + 1):
+        letter = get_column_letter(col)
+        max_len = max(
+            (len(str(ws.cell(row=r, column=col).value or '')) for r in range(3, ws.max_row + 1)),
+            default=8
+        )
+        ws.column_dimensions[letter].width = min(max(max_len + 2, 8), 30)
+
+    ws.column_dimensions['C'].width = 25  # Student name column
+
+    # Return as download
+    from io import BytesIO
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    response = DjangoHttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"{class_obj.name}_{current_term.name}_grades.xlsx".replace(' ', '_')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response

@@ -250,6 +250,19 @@ def student_report(request, student_id):
         is_active=True
     ).prefetch_related('scales').first()
 
+    # Term-over-term trend data
+    term_trends = list(
+        TermReport.objects.filter(
+            student=student,
+            average__gt=0,
+        ).select_related('term').order_by('term__academic_year', 'term__term_number')
+        .values_list('term__name', 'average', 'position', 'out_of')
+    )
+    term_trend_json = json.dumps([
+        {'term': name, 'average': float(avg), 'position': pos, 'out_of': out_of}
+        for name, avg, pos, out_of in term_trends
+    ]) if term_trends else '[]'
+
     context = {
         'student': student,
         'current_term': current_term,
@@ -261,6 +274,8 @@ def student_report(request, student_id):
         'categories': categories,
         'grading_system': grading_system,
         'is_shs': show_core_elective,
+        'term_trend_json': term_trend_json,
+        'term_trends': term_trends,
     }
 
     return htmx_render(

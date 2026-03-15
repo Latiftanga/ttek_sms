@@ -87,6 +87,9 @@ urlpatterns = [
     path('reports/send-bulk/<int:class_id>/', views.send_bulk_reports, name='send_bulk_reports'),
     path('reports/<int:student_id>/pdf/', views.download_report_pdf, name='download_report_pdf'),
 
+    # Grade Export
+    path('reports/grades/<int:class_id>/export/', views.export_class_grades, name='export_class_grades'),
+
     # Bulk PDF Export
     path('reports/export/<int:class_id>/', views.export_class_reports, name='export_class_reports'),
     path('reports/export/status/<str:task_id>/', views.check_export_status, name='check_export_status'),

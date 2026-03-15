@@ -132,12 +132,88 @@ def dashboard(request):
             }
         assignments_by_class[class_name]['subjects'].append(assignment.subject)
 
+    # ========== Action Items ==========
+    action_items = []
+    today = timezone.localdate()
+
+    if current_term:
+        from academics.models import AttendanceSession
+        from gradebook.models import Assignment, Score, TermReport
+
+        # 1. Homeroom classes needing attendance today
+        homeroom_ids = [c.pk for c in homeroom_classes]
+        if homeroom_ids:
+            classes_with_attendance = set(
+                AttendanceSession.objects.filter(
+                    class_assigned_id__in=homeroom_ids,
+                    date=today,
+                    session_type='Daily',
+                ).values_list('class_assigned_id', flat=True)
+            )
+            for cls in homeroom_classes:
+                if cls.pk not in classes_with_attendance and cls.student_count > 0:
+                    action_items.append({
+                        'type': 'attendance',
+                        'icon': 'fa-solid fa-clipboard-check',
+                        'color': 'error',
+                        'message': f'Take attendance for {cls.name}',
+                        'url': f"/academics/attendance/take/{cls.pk}/",
+                    })
+
+        # 2. Score completion - subjects with < 100% scores entered
+        term_assignments = Assignment.objects.filter(
+            term=current_term,
+            subject__classsubject__teacher=teacher,
+        ).select_related('subject', 'assessment_category').distinct()
+
+        if term_assignments.exists():
+            # Get all assignment IDs and their class/student counts
+            for sa in subject_assignments:
+                sa_assignments = [a for a in term_assignments if a.subject_id == sa.subject_id]
+                if not sa_assignments:
+                    continue
+                student_count = class_student_counts.get(sa.class_assigned_id, 0)
+                if student_count == 0:
+                    continue
+                total_expected = student_count * len(sa_assignments)
+                filled = Score.objects.filter(
+                    assignment__in=sa_assignments,
+                    student__current_class_id=sa.class_assigned_id,
+                ).count()
+                if filled < total_expected:
+                    pct = round((filled / total_expected) * 100) if total_expected > 0 else 0
+                    action_items.append({
+                        'type': 'scores',
+                        'icon': 'fa-solid fa-pen-to-square',
+                        'color': 'warning' if pct > 50 else 'error',
+                        'message': f'{sa.class_assigned.name} — {sa.subject.name}: {pct}% scores entered',
+                        'url': f"/gradebook/scores/{sa.class_assigned_id}/{sa.subject_id}/",
+                    })
+
+        # 3. Unsigned remarks for homeroom classes
+        if homeroom_ids:
+            unsigned_count = TermReport.objects.filter(
+                student__current_class_id__in=homeroom_ids,
+                term=current_term,
+                class_teacher_remark='',
+            ).count()
+            if unsigned_count > 0:
+                first_homeroom = homeroom_classes[0]
+                action_items.append({
+                    'type': 'remarks',
+                    'icon': 'fa-solid fa-comment-dots',
+                    'color': 'warning',
+                    'message': f'{unsigned_count} student(s) missing class teacher remarks',
+                    'url': f"/gradebook/remarks/bulk/{first_homeroom.pk}/",
+                })
+
     context = {
         'teacher': teacher,
         'current_term': current_term,
         'homeroom_classes': homeroom_classes,
         'classes_taught': classes_taught,
         'assignments_by_class': assignments_by_class,
+        'action_items': action_items,
         'stats': {
             'classes_count': len(classes_taught),
             'subjects_count': subject_assignments.count(),

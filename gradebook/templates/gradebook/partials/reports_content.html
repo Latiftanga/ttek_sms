@@ -77,6 +77,12 @@
         <span class="hidden sm:inline">Recalculate</span> Grades
     </button>
     {% endif %}
+    <a href="{% url 'gradebook:export_class_grades' selected_class.pk %}"
+       class="btn btn-success btn-sm md:btn-md gap-2"
+       title="Export grades to Excel">
+        <i class="fa-solid fa-file-excel"></i>
+        <span class="hidden sm:inline">Export</span> Excel
+    </a>
     <div x-data="pdfExport({{ selected_class.pk }})" class="inline-flex">
         <!-- Idle state -->
         <template x-if="state === 'idle'">

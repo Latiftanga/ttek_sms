@@ -180,6 +180,38 @@
     </div>
 </div>
 
+<!-- Action Items -->
+{% if action_items %}
+<div class="mb-6">
+    <div class="card bg-base-100 shadow-sm border border-warning/30">
+        <div class="card-body p-3 sm:p-4">
+            <h2 class="font-bold text-sm flex items-center gap-2 mb-3">
+                <div class="w-7 h-7 rounded-lg bg-warning/10 flex items-center justify-center">
+                    <i class="fa-solid fa-triangle-exclamation text-warning text-xs"></i>
+                </div>
+                Needs Attention
+                <span class="badge badge-warning badge-sm">{{ action_items|length }}</span>
+            </h2>
+            <div class="space-y-1.5">
+                {% for item in action_items %}
+                <a href="{{ item.url }}"
+                   hx-get="{{ item.url }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="flex items-center gap-3 p-2.5 rounded-lg bg-{{ item.color }}/5 hover:bg-{{ item.color }}/10 border border-{{ item.color }}/15 transition-all group">
+                    <div class="w-8 h-8 rounded-lg bg-{{ item.color }}/10 flex items-center justify-center shrink-0">
+                        <i class="{{ item.icon }} text-{{ item.color }} text-xs"></i>
+                    </div>
+                    <span class="text-sm flex-1 min-w-0 truncate">{{ item.message }}</span>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-base-content/30 group-hover:text-{{ item.color }} transition-colors"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Main Content Grid -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
