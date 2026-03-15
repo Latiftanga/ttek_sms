@@ -189,14 +189,22 @@ def analytics_overview(request):
     )
 
     # Subject-wise school performance (using configurable pass mark)
-    subject_stats = SubjectTermGrade.objects.filter(
+    all_subject_stats = list(SubjectTermGrade.objects.filter(
         term=current_term,
         total_score__isnull=False
     ).values('subject__name', 'subject__short_name').annotate(
         avg_score=Avg('total_score'),
         students=Count('id'),
         passed=Count('id', filter=Q(total_score__gte=default_pass_mark)),
-    ).order_by('-avg_score')[:config.TOP_SUBJECTS_LIMIT]
+    ).order_by('-avg_score'))
+
+    subject_stats = all_subject_stats[:config.TOP_SUBJECTS_LIMIT]
+
+    # Bottom-performing subjects (lowest average, at least 5 students)
+    weak_subjects = [
+        s for s in reversed(all_subject_stats)
+        if s['students'] >= 5
+    ][:5]
 
     context = {
         'current_term': current_term,
@@ -214,6 +222,7 @@ def analytics_overview(request):
             ) if school_stats['total_students'] else 0,
         },
         'subject_stats': list(subject_stats),
+        'weak_subjects': weak_subjects,
         'pass_mark': default_pass_mark,
     }
 

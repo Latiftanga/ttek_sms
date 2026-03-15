@@ -734,12 +734,19 @@ def send_grade_alerts(self, class_id, tenant_schema):
 
         sent = 0
         for report in reports:
-            phone = report.student.guardian_phone
+            student = report.student
+            guardian = student.get_primary_guardian() if hasattr(student, 'get_primary_guardian') else None
+            phone = student.guardian_phone
             if not phone:
                 continue
 
+            # Respect notification preference
+            pref = getattr(guardian, 'notification_preference', 'sms') if guardian else 'sms'
+            if pref == 'none':
+                continue
+
             message = sms_template.format(
-                student_name=report.student.first_name,
+                student_name=student.first_name,
                 class_name=class_obj.name,
                 average=report.average,
                 term=current_term.name,
@@ -747,15 +754,81 @@ def send_grade_alerts(self, class_id, tenant_schema):
             )
 
             try:
-                send_sms(phone, message)
+                if pref in ('sms', 'both'):
+                    send_sms(phone, message)
+                if pref in ('email', 'both') and guardian and guardian.email:
+                    from django.core.mail import send_mail
+                    send_mail(
+                        subject=f"Grade Alert - {student.first_name}",
+                        message=message,
+                        from_email=None,
+                        recipient_list=[guardian.email],
+                        fail_silently=True,
+                    )
                 sent += 1
                 logger.info(
-                    f"Grade alert sent for {report.student.full_name} "
-                    f"(avg: {report.average}%) to {phone}"
+                    f"Grade alert sent for {student.full_name} "
+                    f"(avg: {report.average}%) via {pref}"
                 )
             except Exception as e:
                 logger.error(
-                    f"Failed to send grade alert for {report.student.full_name}: {e}"
+                    f"Failed to send grade alert for {student.full_name}: {e}"
                 )
 
         return {'sent': sent, 'class': class_obj.name, 'threshold': str(threshold)}
+
+
+@shared_task(bind=True)
+def check_scheduled_reports(self):
+    """
+    Periodic task: check all tenants for scheduled report distribution.
+    Run every 15 minutes via django-celery-beat.
+    """
+    from schools.models import School
+
+    tenants = School.objects.exclude(schema_name='public')
+    distributed = 0
+
+    for tenant in tenants:
+        try:
+            with schema_context(tenant.schema_name):
+                from core.models import SchoolSettings, Term
+                from academics.models import Class
+
+                settings_obj = SchoolSettings.load()
+                if not settings_obj.scheduled_report_date:
+                    continue
+
+                now = timezone.now()
+                if settings_obj.scheduled_report_date > now:
+                    continue  # Not yet time
+
+                current_term = Term.get_current()
+                if not current_term:
+                    continue
+
+                # Distribute reports for all classes
+                classes = Class.objects.filter(
+                    students__status='active'
+                ).distinct()
+
+                for cls in classes:
+                    distribute_bulk_reports.delay(
+                        cls.pk, 'EMAIL', tenant.schema_name
+                    )
+                    distributed += 1
+
+                # Clear the schedule so it doesn't re-trigger
+                settings_obj.scheduled_report_date = None
+                settings_obj.save(update_fields=['scheduled_report_date'])
+
+                logger.info(
+                    f"Scheduled report distribution triggered for "
+                    f"{tenant.schema_name}: {classes.count()} classes"
+                )
+        except Exception as e:
+            logger.error(
+                f"Error checking scheduled reports for {tenant.schema_name}: {e}"
+            )
+
+    return {'distributed': distributed}

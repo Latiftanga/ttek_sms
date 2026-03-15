@@ -293,6 +293,23 @@
                                {% if school_settings.auto_distribute_on_lock %}checked{% endif %}
                                class="toggle toggle-sm toggle-info" />
                     </label>
+
+                    <div class="form-control">
+                        <label class="label py-0.5">
+                            <span class="label-text text-xs">Schedule Release Date</span>
+                        </label>
+                        <input type="datetime-local" name="scheduled_report_date"
+                               value="{% if school_settings.scheduled_report_date %}{{ school_settings.scheduled_report_date|date:'Y-m-d\TH:i' }}{% endif %}"
+                               class="input input-bordered input-sm w-full" />
+                        <p class="text-[11px] text-base-content/40 mt-1 px-1">
+                            {% if school_settings.scheduled_report_date %}
+                            Scheduled for {{ school_settings.scheduled_report_date|date:"M d, Y g:i A" }}
+                            {% else %}
+                            Set a date/time to auto-email reports. Leave blank to disable.
+                            {% endif %}
+                        </p>
+                    </div>
+
                     <div class="flex justify-end">
                         <button type="submit" class="btn btn-sm btn-info">
                             <i class="fa-solid fa-check"></i> Save

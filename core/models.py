@@ -526,6 +526,11 @@ class SchoolSettings(models.Model):
         default=False,
         help_text="Automatically distribute reports via email when grades are locked"
     )
+    scheduled_report_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Schedule automatic report distribution at this date/time"
+    )
 
     def get_or_create_webhook_secret(self):
         """Generate and persist a webhook secret if one doesn't exist."""

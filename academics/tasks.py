@@ -92,9 +92,14 @@ def _process_tenant_absences(tenant):
         if absent_count < CONSECUTIVE_ABSENCE_THRESHOLD:
             continue
 
-        # Get guardian phone
+        # Get guardian and notification preference
+        guardian = student.get_primary_guardian() if hasattr(student, 'get_primary_guardian') else None
         phone = getattr(student, 'guardian_phone', None) or getattr(student, 'parent_phone', None)
         if not phone:
+            continue
+
+        pref = getattr(guardian, 'notification_preference', 'sms') if guardian else 'sms'
+        if pref == 'none':
             continue
 
         # Format dates for the SMS
@@ -109,11 +114,21 @@ def _process_tenant_absences(tenant):
         )
 
         try:
-            send_sms(phone, message)
+            if pref in ('sms', 'both'):
+                send_sms(phone, message)
+            if pref in ('email', 'both') and guardian and guardian.email:
+                from django.core.mail import send_mail
+                send_mail(
+                    subject=f"Absence Alert - {student.first_name}",
+                    message=message,
+                    from_email=None,
+                    recipient_list=[guardian.email],
+                    fail_silently=True,
+                )
             notified += 1
             logger.info(
                 f"Absence alert sent for {student.full_name} "
-                f"({absent_count} days) to {phone}"
+                f"({absent_count} days) via {pref}"
             )
         except Exception as e:
             logger.error(

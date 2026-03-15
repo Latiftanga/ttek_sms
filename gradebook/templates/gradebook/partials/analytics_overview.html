@@ -149,6 +149,38 @@
     </div>
 </div>
 
+<!-- Subjects Needing Attention -->
+{% if weak_subjects %}
+<div class="mt-6">
+    <div class="card bg-base-100 shadow-sm border border-error/20">
+        <div class="card-body p-4">
+            <h2 class="font-bold mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-error"></i>
+                Subjects Needing Attention
+            </h2>
+            <div class="space-y-2">
+                {% for subj in weak_subjects %}
+                <div class="flex items-center gap-3 p-2 bg-error/5 rounded-lg">
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium text-sm truncate">{{ subj.subject__short_name|default:subj.subject__name }}</div>
+                        <div class="text-[10px] text-base-content/50">{{ subj.students }} students · {{ subj.passed }} passed</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold text-sm {% if subj.avg_score < 50 %}text-error{% else %}text-warning{% endif %}">{{ subj.avg_score|floatformat:1 }}%</div>
+                        {% with pass_rate=subj.passed|divisibleby:1 %}
+                        <div class="text-[10px] text-base-content/40">
+                            {% widthratio subj.passed subj.students 100 %}% pass
+                        </div>
+                        {% endwith %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if class_stats %}
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>

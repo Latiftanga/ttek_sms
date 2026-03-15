@@ -207,6 +207,35 @@ def dashboard(request):
                     'url': f"/gradebook/remarks/bulk/{first_homeroom.pk}/",
                 })
 
+    # ========== Homeroom Attendance Stats ==========
+    homeroom_attendance = {}
+    if current_term and homeroom_ids:
+        from academics.models import AttendanceRecord
+
+        for cls in homeroom_classes:
+            sessions = AttendanceSession.objects.filter(
+                class_assigned=cls,
+                date__gte=current_term.start_date,
+                date__lte=today,
+                session_type='Daily',
+            )
+            total_days = sessions.values('date').distinct().count()
+            if total_days == 0 or cls.student_count == 0:
+                continue
+
+            present = AttendanceRecord.objects.filter(
+                session__in=sessions,
+                status__in=['P', 'L'],
+            ).values('student', 'session__date').distinct().count()
+
+            total_possible = total_days * cls.student_count
+            rate = round((present / total_possible) * 100, 1) if total_possible > 0 else 0
+            homeroom_attendance[cls.pk] = {
+                'rate': rate,
+                'total_days': total_days,
+                'color': 'success' if rate >= 90 else ('warning' if rate >= 75 else 'error'),
+            }
+
     context = {
         'teacher': teacher,
         'current_term': current_term,
@@ -214,6 +243,7 @@ def dashboard(request):
         'classes_taught': classes_taught,
         'assignments_by_class': assignments_by_class,
         'action_items': action_items,
+        'homeroom_attendance': homeroom_attendance,
         'stats': {
             'classes_count': len(classes_taught),
             'subjects_count': subject_assignments.count(),

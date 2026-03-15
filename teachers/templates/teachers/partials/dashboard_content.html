@@ -441,6 +441,24 @@
                             </div>
                         </div>
 
+                        <!-- Attendance Stats -->
+                        {% with att=homeroom_attendance|get_item:class.pk %}
+                        {% if att %}
+                        <div class="flex items-center gap-3 mb-3 p-2 bg-base-200/50 rounded-lg">
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs text-base-content/60">Term Attendance</span>
+                                    <span class="text-xs font-bold text-{{ att.color }}">{{ att.rate }}%</span>
+                                </div>
+                                <div class="h-1.5 bg-base-300 rounded-full overflow-hidden">
+                                    <div class="h-full bg-{{ att.color }} rounded-full" style="width: {{ att.rate }}%"></div>
+                                </div>
+                                <div class="text-[10px] text-base-content/40 mt-0.5">{{ att.total_days }} school days</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+
                         <!-- Quick Actions Grid -->
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
                             <!-- Attendance -->

@@ -98,12 +98,24 @@ class Guardian(models.Model):
         help_text="Associated user account for guardian portal login"
     )
 
+    class NotifyPref(models.TextChoices):
+        SMS = 'sms', _('SMS Only')
+        EMAIL = 'email', _('Email Only')
+        BOTH = 'both', _('SMS & Email')
+        NONE = 'none', _('No Notifications')
+
     # Personal Information
     full_name = models.CharField(_("full name"), max_length=255)
     phone_number = models.CharField(_("phone number"), max_length=20, unique=True)
     email = models.EmailField(_("email address"), blank=True, null=True)
     occupation = models.CharField(_("occupation"), max_length=100, blank=True)
     address = models.TextField(_("address"), blank=True)
+    notification_preference = models.CharField(
+        max_length=5,
+        choices=NotifyPref.choices,
+        default=NotifyPref.SMS,
+        help_text="How this guardian prefers to receive notifications"
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

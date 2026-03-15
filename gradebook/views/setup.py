@@ -129,8 +129,13 @@ def distribution_config_update(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    from django.utils.dateparse import parse_datetime
+
     school_settings = SchoolSettings.load()
     school_settings.auto_distribute_on_lock = 'auto_distribute_on_lock' in request.POST
+
+    scheduled_str = request.POST.get('scheduled_report_date', '').strip()
+    school_settings.scheduled_report_date = parse_datetime(scheduled_str) if scheduled_str else None
     school_settings.save()
 
     grading_systems_qs = GradingSystem.objects.prefetch_related('scales')
