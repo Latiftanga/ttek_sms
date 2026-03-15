@@ -255,6 +255,7 @@ class ExeatForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        student = cleaned_data.get('student')
         departure_date = cleaned_data.get('departure_date')
         expected_return_date = cleaned_data.get('expected_return_date')
 
@@ -267,6 +268,20 @@ class ExeatForm(forms.ModelForm):
         if departure_date and expected_return_date:
             if expected_return_date < departure_date:
                 self.add_error('expected_return_date', _("Return date cannot be before departure date."))
+
+        # Prevent duplicate active exeats for the same student
+        if student and departure_date and not self.instance.pk:
+            active_statuses = ['pending', 'recommended', 'approved', 'active']
+            overlapping = Exeat.objects.filter(
+                student=student,
+                status__in=active_statuses,
+                departure_date__lte=expected_return_date or departure_date,
+                expected_return_date__gte=departure_date,
+            ).exists()
+            if overlapping:
+                raise forms.ValidationError(
+                    _("This student already has an active or pending exeat that overlaps with these dates.")
+                )
 
         return cleaned_data
 

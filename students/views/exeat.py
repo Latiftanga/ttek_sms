@@ -99,6 +99,15 @@ def send_exeat_approval_sms(exeat, user=None):
             logger.warning(f"Guardian {guardian.full_name} has no phone - skipping SMS")
             return SMSResult(SMSResult.NO_PHONE)
 
+        # Check guardian notification preference
+        pref = getattr(guardian, 'notification_preference', 'sms')
+        if pref == 'none':
+            logger.info(f"Guardian {guardian.full_name} opted out of notifications")
+            return SMSResult(SMSResult.SMS_DISABLED)
+        if pref == 'email':
+            logger.info(f"Guardian {guardian.full_name} prefers email only - skipping SMS")
+            return SMSResult(SMSResult.SMS_DISABLED)
+
         # Check SMS gateway status
         gateway_status = get_sms_gateway_status()
         if not gateway_status.get('enabled'):
@@ -110,7 +119,6 @@ def send_exeat_approval_sms(exeat, user=None):
             return SMSResult(SMSResult.SMS_NOT_CONFIGURED, error=gateway_status.get('message'))
 
         # Get school name for branding
-        from django.db import connection
         school_name = getattr(connection.tenant, 'name', 'School') if hasattr(connection, 'tenant') else 'School'
 
         # Format message based on exeat type - keep concise for SMS
@@ -198,6 +206,15 @@ def send_exeat_return_sms(exeat, user=None):
             logger.warning(f"Guardian {guardian.full_name} has no phone - skipping return SMS")
             return SMSResult(SMSResult.NO_PHONE)
 
+        # Check guardian notification preference
+        pref = getattr(guardian, 'notification_preference', 'sms')
+        if pref == 'none':
+            logger.info(f"Guardian {guardian.full_name} opted out of notifications")
+            return SMSResult(SMSResult.SMS_DISABLED)
+        if pref == 'email':
+            logger.info(f"Guardian {guardian.full_name} prefers email only - skipping SMS")
+            return SMSResult(SMSResult.SMS_DISABLED)
+
         # Check SMS gateway status
         gateway_status = get_sms_gateway_status()
         if not gateway_status.get('enabled'):
@@ -209,7 +226,6 @@ def send_exeat_return_sms(exeat, user=None):
             return SMSResult(SMSResult.SMS_NOT_CONFIGURED, error=gateway_status.get('message'))
 
         # Get school name for branding
-        from django.db import connection
         school_name = getattr(connection.tenant, 'name', 'School') if hasattr(connection, 'tenant') else 'School'
 
         # Keep message concise
@@ -256,6 +272,70 @@ def send_exeat_return_sms(exeat, user=None):
 
     except Exception as e:
         logger.exception(f"Error sending exeat return SMS: {e}")
+        return SMSResult(SMSResult.ERROR, error=str(e))
+
+
+def send_exeat_rejection_sms(exeat, user=None):
+    """
+    Send SMS to guardian when exeat is rejected.
+
+    Args:
+        exeat: The rejected Exeat instance
+        user: The user who rejected (for tracking)
+
+    Returns:
+        SMSResult: Result object with status and details
+    """
+    try:
+        from communications.utils import send_sms, get_sms_gateway_status
+
+        student = exeat.student
+        guardian = student.get_primary_guardian()
+
+        if not guardian:
+            return SMSResult(SMSResult.NO_GUARDIAN)
+        if not guardian.phone_number:
+            return SMSResult(SMSResult.NO_PHONE)
+
+        # Check guardian notification preference
+        pref = getattr(guardian, 'notification_preference', 'sms')
+        if pref in ('none', 'email'):
+            return SMSResult(SMSResult.SMS_DISABLED)
+
+        gateway_status = get_sms_gateway_status()
+        if not gateway_status.get('enabled'):
+            return SMSResult(SMSResult.SMS_DISABLED)
+        if not gateway_status.get('ready'):
+            return SMSResult(SMSResult.SMS_NOT_CONFIGURED, error=gateway_status.get('message'))
+
+        school_name = getattr(connection.tenant, 'name', 'School') if hasattr(connection, 'tenant') else 'School'
+
+        reason_text = f" Reason: {exeat.rejection_reason[:50]}" if exeat.rejection_reason else ""
+        message = (
+            f"{school_name}: Dear {guardian.full_name}, the exeat request for "
+            f"{student.full_name} has been declined.{reason_text} "
+            f"Please contact the school for more info."
+        )
+
+        result = send_sms(
+            to_phone=guardian.phone_number,
+            message=message,
+            student=student,
+            message_type='exeat',
+            created_by=user
+        )
+
+        if result.get('success'):
+            return SMSResult(
+                SMSResult.SUCCESS,
+                message_id=result.get('message_id'),
+                guardian_phone=guardian.phone_number
+            )
+        else:
+            return SMSResult(SMSResult.QUEUE_FAILED, error=result.get('error', 'Unknown error'))
+
+    except Exception as e:
+        logger.exception(f"Error sending exeat rejection SMS: {e}")
         return SMSResult(SMSResult.ERROR, error=str(e))
 
 
@@ -466,11 +546,6 @@ def exeat_create(request):
             exeat = form.save(commit=False)
             teacher = get_teacher_profile(user)
 
-            # Regular housemasters can only create internal exeats
-            if not is_admin_or_senior and exeat.exeat_type == 'external':
-                messages.error(request, "Only senior housemasters or admin can create external exeats.")
-                return redirect('students:exeat_create')
-
             exeat.requested_by = user
 
             # Set housemaster from student's house (use first assignment)
@@ -485,12 +560,22 @@ def exeat_create(request):
                 exeat.contact_person = guardian.full_name
                 exeat.contact_phone = guardian.phone_number or ''
 
-            # Internal exeats: auto-approve (creating IS the approval)
-            # External exeats by senior/admin: auto-approve
-            # (Regular housemasters are blocked from external exeats above)
-            exeat.approved_by = teacher
-            exeat.approved_at = timezone.now()
-            exeat.status = Exeat.Status.APPROVED
+            # Determine approval flow based on role and exeat type
+            if exeat.exeat_type == 'internal':
+                # Internal exeats: auto-approve by creator
+                exeat.approved_by = teacher or (hm_assignment.teacher if hm_assignment else None)
+                exeat.approved_at = timezone.now()
+                exeat.status = Exeat.Status.APPROVED
+            elif is_admin_or_senior:
+                # External by admin/senior: auto-approve
+                exeat.approved_by = teacher or (hm_assignment.teacher if hm_assignment else None)
+                exeat.approved_at = timezone.now()
+                exeat.status = Exeat.Status.APPROVED
+            else:
+                # External by regular housemaster: recommend for senior approval
+                exeat.recommended_by = teacher
+                exeat.recommended_at = timezone.now()
+                exeat.status = Exeat.Status.RECOMMENDED
 
             exeat.save()
 
@@ -509,7 +594,7 @@ def exeat_create(request):
             if exeat.status == 'approved':
                 messages.success(request, f'Exeat approved for {student.full_name}.')
             else:
-                messages.success(request, 'External exeat submitted for senior housemaster approval.')
+                messages.success(request, f'External exeat for {student.full_name} submitted for senior housemaster approval.')
 
             if request.htmx:
                 response = HttpResponse(status=204)
@@ -537,7 +622,7 @@ def exeat_create(request):
         'is_senior': is_admin_or_senior,
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
-            {'label': 'Exeats', 'url': '/students/exeats/'},
+            {'label': 'Exeats', 'url': reverse('students:exeat_index')},
             {'label': 'New Request'},
         ],
     }
@@ -672,6 +757,10 @@ def exeat_detail(request, pk):
         exeat.status in ['pending', 'recommended', 'overdue'] and
         (is_admin_or_senior or is_house_housemaster)
     )
+    can_cancel = (
+        exeat.status in ['pending', 'recommended', 'approved'] and
+        (is_admin_or_senior or is_house_housemaster)
+    )
 
     context = {
         'exeat': exeat,
@@ -681,10 +770,11 @@ def exeat_detail(request, pk):
         'can_mark_departed': can_mark_departed,
         'can_mark_returned': can_mark_returned,
         'can_reject': can_reject,
+        'can_cancel': can_cancel,
         'is_senior': (assignment and assignment.is_senior) or is_school_admin(user),
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
-            {'label': 'Exeats', 'url': '/students/exeats/'},
+            {'label': 'Exeats', 'url': reverse('students:exeat_index')},
             {'label': exeat.student.full_name},
         ],
     }
@@ -867,6 +957,13 @@ def exeat_reject(request, pk):
         icon='fa-solid fa-door-closed',
     )
 
+    # Send rejection SMS to guardian
+    sms_result = send_exeat_rejection_sms(exeat, request.user)
+    if sms_result.is_success:
+        messages.info(request, f"Rejection SMS sent to guardian ({sms_result.guardian_phone}).")
+    elif sms_result.status in [SMSResult.NO_GUARDIAN, SMSResult.NO_PHONE]:
+        messages.warning(request, sms_result.user_message)
+
     if request.htmx:
         response = HttpResponse(status=204)
         response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
@@ -895,11 +992,10 @@ def exeat_depart(request, pk):
         messages.error(request, "You don't have permission to mark this exeat as departed.")
         return redirect('students:exeat_detail', pk=pk)
 
-    if exeat.status != 'approved':
-        messages.error(request, "Only approved exeats can be marked as departed.")
+    if not exeat.mark_departed():
+        messages.error(request, "This exeat cannot be marked as departed (already processed or not approved).")
         return redirect('students:exeat_detail', pk=pk)
 
-    exeat.mark_departed()
     messages.success(request, f'{exeat.student.full_name} has departed.')
 
     if request.htmx:
@@ -930,11 +1026,10 @@ def exeat_return(request, pk):
         messages.error(request, "You don't have permission to mark this exeat as returned.")
         return redirect('students:exeat_detail', pk=pk)
 
-    if exeat.status not in ['active', 'overdue']:
-        messages.error(request, "Only active or overdue exeats can be marked as returned.")
+    if not exeat.mark_returned():
+        messages.error(request, "This exeat cannot be marked as returned (already processed).")
         return redirect('students:exeat_detail', pk=pk)
 
-    exeat.mark_returned()
     messages.success(request, f'{exeat.student.full_name} has returned.')
 
     # Bell notification for guardian
@@ -958,6 +1053,40 @@ def exeat_return(request, pk):
         messages.warning(request, sms_result.user_message)
     else:
         messages.error(request, f"Return SMS failed: {sms_result.user_message}")
+
+    if request.htmx:
+        response = HttpResponse(status=204)
+        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
+        return response
+    return redirect('students:exeat_detail', pk=pk)
+
+
+@housemaster_required
+def exeat_cancel(request, pk):
+    """Cancel an exeat request."""
+    exeat = get_object_or_404(
+        Exeat.objects.select_related('student', 'student__house'), pk=pk
+    )
+    user = request.user
+    assignment = get_housemaster_assignment(user)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    can_cancel = (
+        is_school_admin(user) or
+        (assignment and assignment.is_senior) or
+        (assignment and exeat.student.house == assignment.house)
+    )
+    if not can_cancel:
+        messages.error(request, "You don't have permission to cancel this exeat.")
+        return redirect('students:exeat_detail', pk=pk)
+
+    if not exeat.cancel():
+        messages.error(request, "This exeat cannot be cancelled (already active, completed, or rejected).")
+        return redirect('students:exeat_detail', pk=pk)
+
+    messages.success(request, f'Exeat cancelled for {exeat.student.full_name}.')
 
     if request.htmx:
         response = HttpResponse(status=204)
@@ -1069,7 +1198,7 @@ def housemaster_index(request):
         'current_year': current_year,
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
-            {'label': 'Settings', 'url': '/settings/'},
+            {'label': 'Settings', 'url': reverse('core:settings')},
             {'label': 'House Masters'},
         ],
     }
@@ -1275,7 +1404,7 @@ def exeat_report(request):
         'assignment': assignment,
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
-            {'label': 'Exeats', 'url': '/students/exeats/'},
+            {'label': 'Exeats', 'url': reverse('students:exeat_index')},
             {'label': 'Reports'},
         ],
     }

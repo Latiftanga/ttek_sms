@@ -861,19 +861,30 @@ class Exeat(models.Model):
         return timezone.now() > timezone.make_aware(expected) if timezone.is_naive(expected) else timezone.now() > expected
 
     def mark_departed(self):
-        """Mark student as departed."""
-        if self.status == self.Status.APPROVED:
-            self.actual_departure = timezone.now()
-            self.status = self.Status.ACTIVE
-            self.save(update_fields=['actual_departure', 'status', 'updated_at'])
+        """Mark student as departed. Uses atomic update to prevent race conditions."""
+        updated = Exeat.objects.filter(
+            pk=self.pk, status=self.Status.APPROVED
+        ).update(
+            actual_departure=timezone.now(),
+            status=self.Status.ACTIVE,
+        )
+        if updated:
+            self.refresh_from_db()
+            return True
+        return False
 
     def mark_returned(self):
-        """Mark student as returned. Only valid from active or overdue status."""
-        if self.status not in (self.Status.ACTIVE, self.Status.OVERDUE):
-            return
-        self.actual_return = timezone.now()
-        self.status = self.Status.COMPLETED
-        self.save(update_fields=['actual_return', 'status', 'updated_at'])
+        """Mark student as returned. Uses atomic update to prevent race conditions."""
+        updated = Exeat.objects.filter(
+            pk=self.pk, status__in=[self.Status.ACTIVE, self.Status.OVERDUE]
+        ).update(
+            actual_return=timezone.now(),
+            status=self.Status.COMPLETED,
+        )
+        if updated:
+            self.refresh_from_db()
+            return True
+        return False
 
     def mark_overdue(self):
         """Mark exeat as overdue."""
@@ -904,6 +915,17 @@ class Exeat(models.Model):
             approved_at=timezone.now(),
             status=self.Status.APPROVED,
         )
+        if updated:
+            self.refresh_from_db()
+            return True
+        return False
+
+    def cancel(self):
+        """Cancel the exeat. Only valid from pending, recommended, or approved status."""
+        valid_statuses = [self.Status.PENDING, self.Status.RECOMMENDED, self.Status.APPROVED]
+        updated = Exeat.objects.filter(
+            pk=self.pk, status__in=valid_statuses
+        ).update(status=self.Status.CANCELLED)
         if updated:
             self.refresh_from_db()
             return True

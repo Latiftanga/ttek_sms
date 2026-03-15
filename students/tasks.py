@@ -1,7 +1,7 @@
 import logging
-from datetime import datetime
 
 from celery import shared_task
+from django.db.models import Q
 from django.utils import timezone
 from django_tenants.utils import schema_context
 
@@ -27,22 +27,16 @@ def check_overdue_exeats(self):
                 from students.models import Exeat
 
                 now = timezone.now()
+                today = now.date()
+                current_time = now.time()
 
-                # Find active/approved exeats past their expected return
-                overdue_exeats = []
-                candidates = Exeat.objects.filter(
+                # Find active/approved exeats past their expected return (DB-level filter)
+                overdue_exeats = list(Exeat.objects.filter(
                     status__in=['active', 'approved'],
-                ).select_related('student')
-
-                for exeat in candidates:
-                    expected = datetime.combine(
-                        exeat.expected_return_date,
-                        exeat.expected_return_time,
-                    )
-                    if timezone.is_naive(expected):
-                        expected = timezone.make_aware(expected)
-                    if now > expected:
-                        overdue_exeats.append(exeat)
+                ).filter(
+                    Q(expected_return_date__lt=today) |
+                    Q(expected_return_date=today, expected_return_time__lt=current_time)
+                ).select_related('student'))
 
                 if not overdue_exeats:
                     continue

@@ -74,6 +74,7 @@ urlpatterns = [
     path('exeats/<uuid:pk>/reject/', views.exeat_reject, name='exeat_reject'),
     path('exeats/<uuid:pk>/depart/', views.exeat_depart, name='exeat_depart'),
     path('exeats/<uuid:pk>/return/', views.exeat_return, name='exeat_return'),
+    path('exeats/<uuid:pk>/cancel/', views.exeat_cancel, name='exeat_cancel'),
 
     # Housemasters (Admin)
     path('housemasters/', views.housemaster_index, name='housemaster_index'),
