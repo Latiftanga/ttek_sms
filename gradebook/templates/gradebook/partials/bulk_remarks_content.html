@@ -22,6 +22,29 @@
             <div class="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-base-200 rounded-lg">
                 <div class="text-xs sm:text-sm font-semibold">{{ completed_count }}/{{ total_count }}</div>
             </div>
+            <!-- Auto-Generate Remarks -->
+            <div class="dropdown dropdown-end">
+                <label tabindex="0" class="btn btn-xs sm:btn-sm btn-secondary gap-1">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span class="hidden sm:inline">Auto-Fill</span>
+                </label>
+                <div tabindex="0" class="dropdown-content bg-base-100 rounded-box shadow-lg border border-base-200 p-3 w-64 z-50">
+                    <p class="text-xs text-base-content/60 mb-2">Generate remarks from templates based on each student's performance tier.</p>
+                    <button hx-post="{% url 'gradebook:bulk_remarks_generate' class_obj.pk %}"
+                            hx-confirm="Generate remarks for students without existing remarks?"
+                            class="btn btn-sm btn-secondary btn-block mb-1">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        Fill Empty Only
+                    </button>
+                    <button hx-post="{% url 'gradebook:bulk_remarks_generate' class_obj.pk %}"
+                            hx-vals='{"overwrite": "true"}'
+                            hx-confirm="This will overwrite ALL existing remarks. Continue?"
+                            class="btn btn-sm btn-ghost btn-block text-warning">
+                        <i class="fa-solid fa-rotate"></i>
+                        Overwrite All
+                    </button>
+                </div>
+            </div>
             <!-- Sign Off Button -->
             <button hx-post="{% url 'gradebook:bulk_remarks_sign' class_obj.pk %}"
                     hx-confirm="Sign off all remarks for this class? This confirms all entries are complete."

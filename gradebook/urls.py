@@ -70,6 +70,7 @@ urlpatterns = [
     path('remarks/bulk/<int:class_id>/', views.bulk_remarks_entry, name='bulk_remarks'),
     path('remarks/save/', views.bulk_remark_save, name='bulk_remark_save'),
     path('remarks/sign/<int:class_id>/', views.bulk_remarks_sign, name='bulk_remarks_sign'),
+    path('remarks/generate/<int:class_id>/', views.bulk_remarks_generate, name='bulk_remarks_generate'),
 
     # Remark Templates (Admin)
     path('remarks/templates/', views.remark_templates, name='remark_templates'),

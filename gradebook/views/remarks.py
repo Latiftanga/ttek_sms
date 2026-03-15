@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
@@ -201,6 +202,103 @@ def bulk_remarks_sign(request, class_id):
             'type': 'success'
         },
         'refreshPage': True
+    })
+    return response
+
+
+# ============ Auto-Generate Remarks ============
+
+@login_required
+def bulk_remarks_generate(request, class_id):
+    """Auto-generate class teacher remarks based on performance and templates."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    current_term = Term.get_current()
+    if not current_term:
+        return HttpResponse('No current term', status=400)
+
+    class_obj = get_object_or_404(Class, pk=class_id)
+    user = request.user
+
+    # Permission check
+    if not is_school_admin(user):
+        if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
+            return HttpResponse(status=403)
+        if class_obj.class_teacher != user.teacher_profile:
+            return HttpResponse(status=403)
+
+    overwrite = request.POST.get('overwrite') == 'true'
+
+    # Get all term reports for this class
+    reports = TermReport.objects.filter(
+        student__current_class=class_obj,
+        student__status='active',
+        term=current_term,
+    ).select_related('student')
+
+    if not reports.exists():
+        return HttpResponse('No reports found. Calculate grades first.', status=400)
+
+    # Get active templates grouped by category
+    templates = list(RemarkTemplate.objects.filter(is_active=True))
+    templates_by_category = {}
+    for t in templates:
+        templates_by_category.setdefault(t.category, []).append(t)
+
+    if not templates:
+        return HttpResponse('No remark templates found. Create templates first.', status=400)
+
+    generated = 0
+    skipped = 0
+
+    with transaction.atomic():
+        for report in reports:
+            # Skip if already has a remark and not overwriting
+            if report.class_teacher_remark and not overwrite:
+                skipped += 1
+                continue
+
+            # Determine performance category based on average
+            avg = float(report.average) if report.average else 0
+            if avg >= 80:
+                category = 'EXCELLENT'
+            elif avg >= 60:
+                category = 'GOOD'
+            elif avg >= 50:
+                category = 'AVERAGE'
+            elif avg > 0:
+                category = 'NEEDS_IMPROVEMENT'
+            else:
+                continue  # No scores, skip
+
+            # Pick a template — prefer matching category, fall back to GENERAL
+            category_templates = templates_by_category.get(category, [])
+            if not category_templates:
+                category_templates = templates_by_category.get('GENERAL', [])
+            if not category_templates:
+                continue
+
+            template = random.choice(category_templates)
+
+            # Render with student context
+            context = {
+                'student_name': report.student.first_name,
+                'full_name': report.student.full_name,
+                'average': f'{avg:.1f}',
+                'position': str(report.position or '-'),
+            }
+            report.class_teacher_remark = template.render(context)
+            report.save(update_fields=['class_teacher_remark'])
+            generated += 1
+
+    response = HttpResponse(status=200)
+    msg = f'Generated {generated} remark(s)'
+    if skipped:
+        msg += f', skipped {skipped} (already have remarks)'
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {'message': msg, 'type': 'success'},
+        'refreshPage': True,
     })
     return response
 

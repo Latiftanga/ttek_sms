@@ -525,6 +525,25 @@ def calculate_class_grades(request, class_id):
                 batch_size=config.BULK_UPDATE_BATCH_SIZE
             )
 
+            # Detect missing scores — students with subjects but no scores at all
+            missing_scores = []
+            for student in students_with_subjects:
+                enrolled_subj_ids = student_subject_map.get(student.id, set())
+                student_subjects = enrolled_subj_ids if enrolled_subj_ids else set(subject_ids)
+                for subj_id in student_subjects:
+                    has_score = any(
+                        (student.id, a.id) in scores_lookup
+                        for a in assignments
+                        if a.subject_id == subj_id
+                    )
+                    if not has_score:
+                        subj = subjects_dict.get(subj_id)
+                        if subj:
+                            missing_scores.append({
+                                'student': student.full_name,
+                                'subject': subj.short_name or subj.name,
+                            })
+
             logger.info(
                 f'Calculated grades for {class_obj.name}: '
                 f'{ranked_count} ranked, {len(unranked_reports)} unranked '
@@ -548,6 +567,26 @@ def calculate_class_grades(request, class_id):
         })
         return response
 
+    missing_html = ''
+    if missing_scores:
+        items = ''.join(
+            f'<li class="text-xs">{m["student"]} — {m["subject"]}</li>'
+            for m in missing_scores[:20]
+        )
+        extra = f'<li class="text-xs font-medium">...and {len(missing_scores) - 20} more</li>' if len(missing_scores) > 20 else ''
+        missing_html = f'''
+            <div class="alert alert-warning mt-2">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span class="font-bold">{len(missing_scores)} Missing Score(s)</span>
+                    </div>
+                    <p class="text-xs mt-1">These students have no scores for the listed subjects:</p>
+                    <ul class="list-disc list-inside mt-1 max-h-40 overflow-y-auto">{items}{extra}</ul>
+                </div>
+            </div>
+        '''
+
     return HttpResponse(f'''
         <div class="alert alert-success mt-2">
             <i class="fa-solid fa-check-circle"></i>
@@ -558,6 +597,7 @@ using {grading_system.name if grading_system else "default"} grading system</div
             </div>
             <a href="/gradebook/reports/?class={class_id}" class="btn btn-sm btn-ghost">View Reports</a>
         </div>
+        {missing_html}
     ''')
 
 
