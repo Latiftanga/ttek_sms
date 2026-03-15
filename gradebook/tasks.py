@@ -153,8 +153,18 @@ def generate_report_pdf(term_report, tenant_schema):
         except (ValueError, ValidationError, IntegrityError) as e:
             logger.warning(f"Could not create verification record: {e}")
 
-        from core.models import SchoolSettings
+        from core.models import SchoolSettings, Term
+        from .models import GradingSystem
         rc_config = SchoolSettings.load()
+        grading_system = GradingSystem.objects.filter(
+            is_active=True
+        ).prefetch_related('scales').first()
+
+        # Get next term start date if available
+        next_term = Term.objects.filter(
+            start_date__gt=current_term.end_date
+        ).order_by('start_date').first()
+        next_term_date = next_term.start_date if next_term else None
 
         context = {
             'student': student,
@@ -170,6 +180,8 @@ def generate_report_pdf(term_report, tenant_schema):
             'verification': verification,
             'qr_code_base64': qr_code_base64,
             'rc_config': rc_config,
+            'grading_system': grading_system,
+            'next_term_date': next_term_date,
         }
 
         html_string = render_to_string('gradebook/report_card_pdf.html', context)

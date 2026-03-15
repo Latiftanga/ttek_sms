@@ -603,6 +603,18 @@
                     <span class="info-label">Gender</span>
                     <span class="info-value">{{ student.gender|default:"-"|title }}</span>
                 </div>
+                {% if student.house %}
+                <div class="student-info-cell">
+                    <span class="info-label">House</span>
+                    <span class="info-value">{{ student.house.name }}</span>
+                </div>
+                {% endif %}
+                {% if rc_config.rc_show_class_teacher and student.current_class.class_teacher %}
+                <div class="student-info-cell">
+                    <span class="info-label">Class Teacher</span>
+                    <span class="info-value">{{ student.current_class.class_teacher.full_name }}</span>
+                </div>
+                {% endif %}
             </div>
         </div>
 

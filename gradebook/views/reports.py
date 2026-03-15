@@ -475,6 +475,12 @@ def report_card_print(request, student_id):
 
     rc_config = SchoolSettings.load()
 
+    # Get next term start date if available
+    next_term = Term.objects.filter(
+        start_date__gt=current_term.end_date
+    ).order_by('start_date').first()
+    next_term_date = next_term.start_date if next_term else None
+
     context = {
         'student': student,
         'current_term': current_term,
@@ -489,6 +495,7 @@ def report_card_print(request, student_id):
         'verification': verification,
         'qr_code_base64': qr_code_base64,
         'rc_config': rc_config,
+        'next_term_date': next_term_date,
     }
 
     return render(request, 'gradebook/report_card_print.html', context)
