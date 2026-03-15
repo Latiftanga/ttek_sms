@@ -12,39 +12,34 @@
                 {% if search or status_filter or type_filter or house_filter %}<span class="text-primary">(filtered)</span>{% endif %}
             </p>
         </div>
-        <div class="dropdown dropdown-end">
-            <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
-                <i class="fa-solid fa-ellipsis-vertical"></i>
-            </label>
-            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
-                <li>
-                    <a href="{% url 'students:exeat_create' %}"
-                       hx-get="{% url 'students:exeat_create' %}"
-                       hx-target="#main-content"
-                       hx-swap="innerHTML"
-                       hx-push-url="true">
-                        <i class="fa-solid fa-plus text-primary"></i> New Request
-                    </a>
-                </li>
-                {% if is_senior %}
-                <li>
-                    <a href="{% url 'students:exeat_report' %}"
-                       hx-get="{% url 'students:exeat_report' %}"
-                       hx-target="#main-content"
-                       hx-swap="innerHTML"
-                       hx-push-url="true">
-                        <i class="fa-solid fa-chart-bar"></i> Reports
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
+        <div class="flex items-center gap-2">
+            <a href="{% url 'students:exeat_create' %}"
+               hx-get="{% url 'students:exeat_create' %}"
+               hx-target="#main-content"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i>
+                <span class="hidden sm:inline">New Request</span>
+            </a>
+            {% if is_senior %}
+            <a href="{% url 'students:exeat_report' %}"
+               hx-get="{% url 'students:exeat_report' %}"
+               hx-target="#main-content"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               class="btn btn-ghost btn-sm btn-square"
+               title="Reports">
+                <i class="fa-solid fa-chart-bar"></i>
+            </a>
+            {% endif %}
         </div>
     </div>
 
     <!-- Stats Cards - 2 cols on mobile, 4 on larger screens -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <a href="?status=recommended"
-           hx-get="{% url 'students:exeat_index' %}?status=recommended"
+        <a href="?status=pending"
+           hx-get="{% url 'students:exeat_index' %}?status=pending"
            hx-target="#exeat-results"
            hx-select="#exeat-results"
            hx-swap="outerHTML"
@@ -197,12 +192,24 @@
                         <span class="badge badge-error badge-xs shrink-0">Rejected</span>
                         {% elif exeat.status == 'overdue' %}
                         <span class="badge badge-error badge-xs shrink-0 animate-pulse">Overdue</span>
+                        {% elif exeat.status == 'cancelled' %}
+                        <span class="badge badge-ghost badge-xs shrink-0">Cancelled</span>
                         {% endif %}
                     </div>
                     <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
                         <span><i class="fa-solid fa-location-dot mr-1"></i>{{ exeat.destination|truncatechars:20 }}</span>
-                        <span class="hidden xs:inline">•</span>
-                        <span class="hidden xs:inline"><i class="fa-solid fa-calendar mr-1"></i>{{ exeat.departure_date|date:"M j" }}</span>
+                        <span>•</span>
+                        <span><i class="fa-solid fa-calendar mr-1"></i>{{ exeat.departure_date|date:"M j" }}</span>
+                        {% if exeat.status == 'active' and exeat.actual_departure %}
+                        <span>•</span>
+                        <span class="text-accent"><i class="fa-solid fa-person-walking mr-1"></i>Out {{ exeat.actual_departure|timesince }} ago</span>
+                        {% elif exeat.status == 'overdue' %}
+                        <span>•</span>
+                        <span class="text-error font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Due {{ exeat.expected_return_date|date:"M j" }} {{ exeat.expected_return_time|time:"g:i A" }}</span>
+                        {% elif exeat.status == 'pending' or exeat.status == 'recommended' %}
+                        <span>•</span>
+                        <span class="text-warning">{{ exeat.created_at|timesince }} ago</span>
+                        {% endif %}
                     </div>
                 </div>
 

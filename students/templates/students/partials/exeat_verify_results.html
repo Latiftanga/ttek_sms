@@ -48,8 +48,8 @@
                             {% if item.exeat.status == 'overdue' %}
                             <div class="bg-error/10 border border-error/20 rounded p-2 mb-2">
                                 <p class="text-xs text-error font-medium">
-                                    <i class="fa-solid fa-exclamation-triangle mr-1"></i>
-                                    Student is past expected return time
+                                    <i class="fa-solid fa-triangle-exclamation animate-pulse mr-1"></i>
+                                    OVERDUE — Expected back {{ item.exeat.expected_return_date|date:"M j" }} at {{ item.exeat.expected_return_time|time:"g:i A" }}
                                 </p>
                             </div>
                             {% endif %}
@@ -64,7 +64,12 @@
                                 </div>
                                 <div>
                                     <span class="text-base-content/50">Departed</span>
-                                    <p class="font-medium">{{ item.exeat.departure_date|date:"M j" }} {{ item.exeat.departure_time|time:"g:i A" }}</p>
+                                    <p class="font-medium">
+                                        {{ item.exeat.departure_date|date:"M j" }} {{ item.exeat.departure_time|time:"g:i A" }}
+                                        {% if item.exeat.actual_departure %}
+                                        <span class="text-accent">({{ item.exeat.actual_departure|timesince }} ago)</span>
+                                        {% endif %}
+                                    </p>
                                 </div>
                                 <div>
                                     <span class="text-base-content/50">Expected return</span>

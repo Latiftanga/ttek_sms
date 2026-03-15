@@ -84,11 +84,9 @@
                             <option value="internal" {% if form.exeat_type.value == 'internal' %}selected{% endif %}>
                                 Internal (Same day, within town)
                             </option>
-                            {% if is_senior %}
                             <option value="external" {% if form.exeat_type.value == 'external' %}selected{% endif %}>
-                                External (Outside school location)
+                                External (Outside school location){% if not is_senior %} — needs senior approval{% endif %}
                             </option>
-                            {% endif %}
                         </select>
                     </label>
                 </div>
@@ -181,6 +179,25 @@
 </div>
 
 <script>
+// Smart defaults: set departure to today and current time if empty
+(function() {
+    var depDate = document.querySelector('input[name="departure_date"]');
+    var depTime = document.querySelector('input[name="departure_time"]');
+    var retDate = document.querySelector('input[name="expected_return_date"]');
+    if (depDate && !depDate.value) {
+        var today = new Date();
+        depDate.value = today.toISOString().split('T')[0];
+        if (retDate && !retDate.value) retDate.value = depDate.value;
+    }
+    if (depTime && !depTime.value) {
+        var now = new Date();
+        var hours = String(now.getHours()).padStart(2, '0');
+        var mins = String(Math.ceil(now.getMinutes() / 5) * 5).padStart(2, '0');
+        if (mins === '60') { hours = String(parseInt(hours) + 1).padStart(2, '0'); mins = '00'; }
+        depTime.value = hours + ':' + mins;
+    }
+})();
+
 function selectStudent(id, name, house) {
     document.getElementById('student_id').value = id;
     document.getElementById('student_search').value = name + ' (' + house + ')';

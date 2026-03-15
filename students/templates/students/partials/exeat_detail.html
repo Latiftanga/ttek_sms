@@ -43,6 +43,8 @@
             <span class="badge badge-error badge-lg">Rejected</span>
             {% elif exeat.status == 'overdue' %}
             <span class="badge badge-error badge-lg animate-pulse">Overdue</span>
+            {% elif exeat.status == 'cancelled' %}
+            <span class="badge badge-ghost badge-lg">Cancelled</span>
             {% endif %}
         </div>
     </div>
@@ -140,11 +142,11 @@
                         {% if can_reject %}
                         <button type="button" class="btn btn-error btn-sm btn-outline w-full"
                                 onclick="document.getElementById('reject_modal').showModal()">
-                            <i class="fa-solid fa-times"></i> {% if exeat.status == 'overdue' %}Cancel{% else %}Reject{% endif %}
+                            <i class="fa-solid fa-times"></i> Reject
                         </button>
                         {% endif %}
 
-                        {% if can_cancel %}
+                        {% if can_cancel and not can_reject %}
                         <form hx-post="{% url 'students:exeat_cancel' exeat.pk %}"
                               hx-confirm="Cancel this exeat? This cannot be undone."
                               hx-disabled-elt="find button">
@@ -220,20 +222,31 @@
                         </div>
                     </div>
 
-                    {% if exeat.actual_return %}
+                    {% if exeat.actual_departure or exeat.actual_return %}
                     <div class="divider my-2"></div>
-                    <div class="flex items-center gap-2 text-success">
+                    {% endif %}
+
+                    {% if exeat.actual_departure %}
+                    <div class="flex items-center gap-2 {% if exeat.status == 'active' %}text-accent{% else %}text-base-content/60{% endif %}">
+                        <i class="fa-solid fa-door-open"></i>
+                        <span class="text-sm">
+                            Departed: {{ exeat.actual_departure|date:"M j, Y g:i A" }}
+                            {% if exeat.status == 'active' %}<span class="text-xs">({{ exeat.actual_departure|timesince }} ago)</span>{% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    {% if exeat.actual_return %}
+                    <div class="flex items-center gap-2 text-success {% if exeat.actual_departure %}mt-1{% endif %}">
                         <i class="fa-solid fa-check-circle"></i>
                         <span class="text-sm">Returned: {{ exeat.actual_return|date:"M j, Y g:i A" }}</span>
                     </div>
                     {% endif %}
 
-                    {% if exeat.actual_departure %}
-                    <div class="mt-2">
-                        <span class="text-sm text-base-content/60">
-                            <i class="fa-solid fa-door-open mr-1"></i>
-                            Departed: {{ exeat.actual_departure|date:"M j, Y g:i A" }}
-                        </span>
+                    {% if exeat.status == 'overdue' %}
+                    <div class="alert alert-error py-2 mt-3">
+                        <i class="fa-solid fa-triangle-exclamation animate-pulse"></i>
+                        <span class="text-sm font-medium">Student has not returned. Expected back {{ exeat.expected_return_date|date:"M j" }} at {{ exeat.expected_return_time|time:"g:i A" }}.</span>
                     </div>
                     {% endif %}
                 </div>
