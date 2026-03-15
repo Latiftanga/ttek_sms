@@ -505,6 +505,13 @@ class SchoolSettings(models.Model):
     rc_title = models.CharField(max_length=100, default="Terminal Report Card", help_text="Custom report card title")
     rc_display_name = models.CharField(max_length=200, blank=True, default="", help_text="Custom school name for report card. Use | to split into two lines.")
 
+    # SMS Templates
+    absence_sms_template = models.TextField(
+        blank=True,
+        default="Dear Parent, {student_name} has been absent from {school_name} for {days} consecutive day(s) ({dates}). Please contact the school if your child is unwell. Thank you.",
+        help_text="SMS template for absence alerts. Placeholders: {student_name}, {school_name}, {days}, {dates}"
+    )
+
     def get_or_create_webhook_secret(self):
         """Generate and persist a webhook secret if one doesn't exist."""
         if not self.sms_webhook_secret:

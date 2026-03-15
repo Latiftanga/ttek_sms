@@ -19,10 +19,18 @@
     </a>
     <div class="flex-1 min-w-0">
         <h3 class="text-lg font-bold">{% if is_edit %}Edit Attendance{% else %}Mark Attendance{% endif %}</h3>
-        <p class="text-xs text-base-content/60">
-            {{ class.name }} • {{ date|date:"D, M d, Y" }}
-            {% if is_lesson and subject %} • {{ subject.name }}{% endif %}
-        </p>
+        <div class="flex items-center gap-2 text-xs text-base-content/60">
+            <span>{{ class.name }}</span>
+            <span>•</span>
+            {% if not is_lesson and not is_edit %}
+            <input type="date" value="{{ date|date:'Y-m-d' }}"
+                   class="input input-xs input-bordered w-auto"
+                   onchange="window.location.href='{% url 'academics:class_attendance_take' class.pk %}?date=' + this.value">
+            {% else %}
+            <span>{{ date|date:"D, M d, Y" }}</span>
+            {% endif %}
+            {% if is_lesson and subject %}<span>• {{ subject.name }}</span>{% endif %}
+        </div>
     </div>
     <div class="flex flex-col items-end gap-1">
         <div class="badge badge-primary">{{ student_list|length }} Students</div>
@@ -83,6 +91,7 @@
       hx-swap="beforeend"
       hx-disabled-elt="find button[type=submit]">
     {% csrf_token %}
+    <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
 
     <div class="h-[50vh] overflow-y-auto pr-1 space-y-2">
         {% for item in student_list %}

@@ -90,12 +90,14 @@ def _save_attendance_records(request, session, students, redirect_url,
             record = existing_records[student.id]
             if record.status != new_status:
                 record.status = new_status
+                record.marked_by = request.user
                 records_to_update.append(record)
         else:
             records_to_create.append(AttendanceRecord(
                 session=session,
                 student=student,
-                status=new_status
+                status=new_status,
+                marked_by=request.user,
             ))
 
     try:
@@ -104,7 +106,7 @@ def _save_attendance_records(request, session, students, redirect_url,
                 AttendanceRecord.objects.bulk_create(records_to_create)
             if records_to_update:
                 AttendanceRecord.objects.bulk_update(
-                    records_to_update, ['status']
+                    records_to_update, ['status', 'marked_by']
                 )
 
         total = len(records_to_create) + len(records_to_update)
@@ -197,7 +199,16 @@ def class_attendance_take(request, pk):
         # For per-lesson classes, redirect to lesson selection
         return redirect('academics:lesson_attendance_list', pk=pk)
 
-    target_date = timezone.now().date()  # For now, default to today
+    # Allow past-date entry via query param (e.g. ?date=2026-03-10)
+    date_str = request.GET.get('date') or request.POST.get('date')
+    if date_str:
+        try:
+            from datetime import datetime as dt
+            target_date = dt.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = timezone.now().date()
+    else:
+        target_date = timezone.now().date()
 
     # Check if session exists (for daily attendance)
     try:

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -606,6 +607,11 @@ class AttendanceRecord(models.Model):
     student = models.ForeignKey('students.Student', on_delete=models.CASCADE, related_name='attendance_records')
     status = models.CharField(max_length=1, choices=Status.choices, default=Status.PRESENT)
     remarks = models.CharField(max_length=100, blank=True)
+    marked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+', help_text="User who last marked this record"
+    )
+    marked_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ['session', 'student']

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 # Configurable thresholds
 CONSECUTIVE_ABSENCE_THRESHOLD = 3
-SMS_TEMPLATE = (
+DEFAULT_SMS_TEMPLATE = (
     "Dear Parent, {student_name} has been absent from {school_name} "
     "for {days} consecutive day(s) ({dates}). "
     "Please contact the school if your child is unwell. Thank you."
@@ -50,9 +50,14 @@ def _process_tenant_absences(tenant):
     from academics.models import AttendanceSession, AttendanceRecord
     from students.models import Student
     from communications.utils import send_sms
+    from core.models import SchoolSettings
 
     today = timezone.localdate()
     notified = 0
+
+    # Get school-specific SMS template or use default
+    settings = SchoolSettings.load()
+    sms_template = settings.absence_sms_template or DEFAULT_SMS_TEMPLATE
 
     # Get recent school days (last 10 calendar days to cover weekends)
     recent_sessions = AttendanceSession.objects.filter(
@@ -96,7 +101,7 @@ def _process_tenant_absences(tenant):
         sorted_dates = sorted(absent_days)
         dates_str = ', '.join(d.strftime('%d/%m') for d in sorted_dates)
 
-        message = SMS_TEMPLATE.format(
+        message = sms_template.format(
             student_name=student.first_name,
             school_name=tenant.name,
             days=absent_count,
