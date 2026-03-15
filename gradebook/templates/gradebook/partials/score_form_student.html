@@ -150,33 +150,54 @@
 
                 <div class="space-y-1.5 sm:space-y-2">
                     {% for assignment in category_assignments %}
-                    <div class="bg-base-100 rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
-                        <div class="flex-1 min-w-0">
-                            <div class="font-medium text-sm truncate">{{ assignment.name }}</div>
-                            <div class="text-xs text-base-content/60">Max: {{ assignment.points_possible }}</div>
+                    <div class="bg-base-100 rounded-lg p-2 sm:p-3">
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-sm truncate">{{ assignment.name }}</div>
+                                <div class="text-xs text-base-content/60">Max: {{ assignment.points_possible }}</div>
+                            </div>
+                            <div class="flex items-center gap-1.5 sm:gap-2">
+                                <input type="number"
+                                       class="input input-bordered w-20 h-11 sm:h-12 text-center text-lg font-bold score-input-mobile {% if not editing_allowed %}input-disabled{% endif %}"
+                                       name="points"
+                                       data-student="{{ student.pk }}"
+                                       data-assignment="{{ assignment.pk }}"
+                                       data-max="{{ assignment.points_possible }}"
+                                       aria-label="Score for {{ assignment.name }}"
+                                       min="0"
+                                       max="{{ assignment.points_possible }}"
+                                       step="0.5"
+                                       inputmode="decimal"
+                                       value="{{ scores_dict|get_item:assignment.pk|default:'' }}"
+                                       {% if editing_allowed %}
+                                       hx-post="{% url 'gradebook:score_save' %}"
+                                       hx-trigger="change delay:150ms"
+                                       hx-vals='{"student_id": "{{ student.pk }}", "assignment_id": "{{ assignment.pk }}"}'
+                                       hx-include="this"
+                                       hx-swap="none"
+                                       {% else %}disabled{% endif %}>
+                                <span class="text-base-content/40 text-xs sm:text-sm">/ {{ assignment.points_possible }}</span>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-1.5 sm:gap-2">
-                            <input type="number"
-                                   class="input input-bordered w-20 h-11 sm:h-12 text-center text-lg font-bold score-input-mobile {% if not editing_allowed %}input-disabled{% endif %}"
-                                   name="points"
-                                   data-student="{{ student.pk }}"
-                                   data-assignment="{{ assignment.pk }}"
-                                   data-max="{{ assignment.points_possible }}"
-                                   aria-label="Score for {{ assignment.name }}"
-                                   min="0"
-                                   max="{{ assignment.points_possible }}"
-                                   step="0.5"
-                                   inputmode="decimal"
-                                   value="{{ scores_dict|get_item:assignment.pk|default:'' }}"
-                                   {% if editing_allowed %}
-                                   hx-post="{% url 'gradebook:score_save' %}"
-                                   hx-trigger="change delay:150ms"
+                        {% if editing_allowed %}
+                        <div class="mt-1.5">
+                            <input type="text"
+                                   class="input input-bordered input-xs w-full text-xs h-7"
+                                   name="feedback"
+                                   maxlength="200"
+                                   placeholder="Feedback (optional)"
+                                   value="{{ feedback_dict|get_item:assignment.pk|default:'' }}"
+                                   hx-post="{% url 'gradebook:score_feedback_save' %}"
+                                   hx-trigger="change delay:300ms"
                                    hx-vals='{"student_id": "{{ student.pk }}", "assignment_id": "{{ assignment.pk }}"}'
                                    hx-include="this"
-                                   hx-swap="none"
-                                   {% else %}disabled{% endif %}>
-                            <span class="text-base-content/40 text-xs sm:text-sm">/ {{ assignment.points_possible }}</span>
+                                   hx-swap="none">
                         </div>
+                        {% elif feedback_dict|get_item:assignment.pk %}
+                        <div class="mt-1 text-xs text-base-content/60 italic">
+                            <i class="fa-solid fa-comment text-[10px] mr-1"></i>{{ feedback_dict|get_item:assignment.pk }}
+                        </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>

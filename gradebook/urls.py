@@ -8,6 +8,8 @@ urlpatterns = [
     path('progress/<int:class_id>/', views.class_progress_detail, name='class_progress_detail'),
     path('settings/', views.gradebook_settings, name='settings'),
     path('settings/report-card/', views.report_card_config_update, name='report_card_config_update'),
+    path('settings/grade-alerts/', views.grade_alert_config_update, name='grade_alert_config_update'),
+    path('settings/distribution/', views.distribution_config_update, name='distribution_config_update'),
 
     # Grading System CRUD
     path('grading-systems/', views.grading_systems, name='grading_systems'),
@@ -32,6 +34,7 @@ urlpatterns = [
     path('scores/<int:class_id>/<int:subject_id>/', views.score_entry_form, name='score_entry_form'),
     path('scores/<int:class_id>/<int:subject_id>/student/<int:student_id>/', views.score_entry_student, name='score_entry_student'),
     path('scores/save/', views.score_save, name='score_save'),
+    path('scores/feedback/', views.score_feedback_save, name='score_feedback_save'),
     path('scores/audit/<int:student_id>/<uuid:assignment_id>/', views.score_audit_history, name='score_audit'),
     path('scores/<int:class_id>/<int:subject_id>/changes/', views.score_changes_list, name='score_changes'),
 

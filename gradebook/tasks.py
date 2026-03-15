@@ -685,3 +685,77 @@ def distribute_bulk_reports(self, class_id, distribution_type, tenant_schema, se
             'queued': queued_count,
             'failed': failed_count,
         }
+
+
+DEFAULT_GRADE_ALERT_TEMPLATE = (
+    "Dear Parent, {student_name}'s current average in {class_name} "
+    "is {average}% ({term}). Please encourage them to improve. - {school_name}"
+)
+
+
+@shared_task(bind=True, max_retries=2)
+def send_grade_alerts(self, class_id, tenant_schema):
+    """
+    Send SMS alerts to parents of students whose average
+    falls below the configured threshold after grade calculation.
+    """
+    with schema_context(tenant_schema):
+        from .models import TermReport
+        from academics.models import Class
+        from core.models import Term, SchoolSettings
+        from communications.utils import send_sms
+        from schools.models import School
+
+        settings_obj = SchoolSettings.load()
+        if not settings_obj.grade_alert_enabled:
+            return {'sent': 0, 'reason': 'alerts disabled'}
+
+        threshold = settings_obj.grade_alert_threshold
+        sms_template = settings_obj.grade_alert_sms_template or DEFAULT_GRADE_ALERT_TEMPLATE
+
+        current_term = Term.get_current()
+        if not current_term:
+            return {'sent': 0, 'reason': 'no current term'}
+
+        try:
+            class_obj = Class.objects.get(pk=class_id)
+        except Class.DoesNotExist:
+            return {'sent': 0, 'reason': 'class not found'}
+
+        tenant = School.objects.get(schema_name=tenant_schema)
+
+        # Find students below threshold
+        reports = TermReport.objects.filter(
+            student__current_class=class_obj,
+            term=current_term,
+            average__lt=threshold,
+            average__gt=0,
+        ).select_related('student')
+
+        sent = 0
+        for report in reports:
+            phone = report.student.guardian_phone
+            if not phone:
+                continue
+
+            message = sms_template.format(
+                student_name=report.student.first_name,
+                class_name=class_obj.name,
+                average=report.average,
+                term=current_term.name,
+                school_name=tenant.name,
+            )
+
+            try:
+                send_sms(phone, message)
+                sent += 1
+                logger.info(
+                    f"Grade alert sent for {report.student.full_name} "
+                    f"(avg: {report.average}%) to {phone}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to send grade alert for {report.student.full_name}: {e}"
+                )
+
+        return {'sent': sent, 'class': class_obj.name, 'threshold': str(threshold)}

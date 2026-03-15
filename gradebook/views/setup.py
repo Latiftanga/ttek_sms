@@ -94,6 +94,59 @@ def report_card_config_update(request):
     return render(request, 'gradebook/partials/card_report.html', context)
 
 
+@login_required
+@admin_required
+def grade_alert_config_update(request):
+    """Update grade drop alert configuration."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    school_settings = SchoolSettings.load()
+    school_settings.grade_alert_enabled = 'grade_alert_enabled' in request.POST
+    school_settings.grade_alert_threshold = request.POST.get('grade_alert_threshold', 50)
+    school_settings.grade_alert_sms_template = request.POST.get('grade_alert_sms_template', '').strip()
+    school_settings.save()
+
+    # Re-render the full settings page with all required context
+    grading_systems_qs = GradingSystem.objects.prefetch_related('scales')
+    categories = AssessmentCategory.objects.annotate(
+        assignment_count=Count('assignments')
+    ).order_by('order')
+    total_percentage = sum(c.percentage for c in categories if c.is_active)
+
+    return htmx_render(request, 'gradebook/partials/settings_content.html', {
+        'school_settings': school_settings,
+        'grading_systems': grading_systems_qs,
+        'categories': categories,
+        'total_percentage': total_percentage,
+    })
+
+
+@login_required
+@admin_required
+def distribution_config_update(request):
+    """Update report distribution configuration."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    school_settings = SchoolSettings.load()
+    school_settings.auto_distribute_on_lock = 'auto_distribute_on_lock' in request.POST
+    school_settings.save()
+
+    grading_systems_qs = GradingSystem.objects.prefetch_related('scales')
+    categories = AssessmentCategory.objects.annotate(
+        assignment_count=Count('assignments')
+    ).order_by('order')
+    total_percentage = sum(c.percentage for c in categories if c.is_active)
+
+    return htmx_render(request, 'gradebook/partials/settings_content.html', {
+        'school_settings': school_settings,
+        'grading_systems': grading_systems_qs,
+        'categories': categories,
+        'total_percentage': total_percentage,
+    })
+
+
 # ============ Grading System CRUD ============
 
 @login_required

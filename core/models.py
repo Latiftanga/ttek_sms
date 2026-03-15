@@ -512,6 +512,21 @@ class SchoolSettings(models.Model):
         help_text="SMS template for absence alerts. Placeholders: {student_name}, {school_name}, {days}, {dates}"
     )
 
+    # Grade Alerts
+    grade_alert_enabled = models.BooleanField(default=False, help_text="Send SMS to parents when student average drops below threshold")
+    grade_alert_threshold = models.DecimalField(max_digits=5, decimal_places=2, default=50, help_text="Average percentage below which parents are notified")
+    grade_alert_sms_template = models.TextField(
+        blank=True,
+        default="Dear Parent, {student_name}'s current average in {class_name} is {average}% ({term}). Please encourage them to improve. - {school_name}",
+        help_text="SMS for grade alerts. Placeholders: {student_name}, {class_name}, {average}, {term}, {school_name}, {position}"
+    )
+
+    # Auto-distribute reports on grade lock
+    auto_distribute_on_lock = models.BooleanField(
+        default=False,
+        help_text="Automatically distribute reports via email when grades are locked"
+    )
+
     def get_or_create_webhook_secret(self):
         """Generate and persist a webhook secret if one doesn't exist."""
         if not self.sms_webhook_secret:

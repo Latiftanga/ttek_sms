@@ -583,6 +583,12 @@ class Score(models.Model):
         validators=[MinValueValidator(Decimal('0'))],
         help_text='Points earned on this assignment'
     )
+    feedback = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        help_text='Optional teacher feedback for this score'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

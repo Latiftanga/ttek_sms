@@ -257,13 +257,16 @@ def score_entry_student(request, class_id, subject_id, student_id):
     prev_student = students[current_index - 1] if current_index > 0 else None
     next_student = students[current_index + 1] if current_index < len(students) - 1 else None
 
-    # Get existing scores for this student
+    # Get existing scores and feedback for this student
     scores_dict = {}
+    feedback_dict = {}
     for score in Score.objects.filter(
         student=student,
         assignment__in=assignments
-    ).only('assignment_id', 'points'):
+    ).only('assignment_id', 'points', 'feedback'):
         scores_dict[score.assignment_id] = score.points
+        if score.feedback:
+            feedback_dict[score.assignment_id] = score.feedback
 
     # Group assignments by category for better mobile display
     assignments_by_category = defaultdict(list)
@@ -281,6 +284,7 @@ def score_entry_student(request, class_id, subject_id, student_id):
     context['next_student'] = next_student
     context['assignments_by_category'] = dict(assignments_by_category)
     context['scores_dict'] = scores_dict
+    context['feedback_dict'] = feedback_dict
     context['total_assignments'] = total_assignments
     context['filled_scores'] = filled_scores
 
@@ -473,6 +477,38 @@ def score_save(request):
             error_code='save_error',
             hint="Please try again. If the problem persists, contact support."
         )
+
+
+# ============ Score Feedback ============
+
+@login_required
+@teacher_or_admin_required
+def score_feedback_save(request):
+    """Save teacher feedback for a score via HTMX."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    student_id = request.POST.get('student_id', '')
+    assignment_id = request.POST.get('assignment_id', '')
+    feedback = request.POST.get('feedback', '').strip()[:200]
+
+    if not all([student_id, assignment_id]):
+        return HttpResponse(status=400)
+
+    try:
+        score = Score.objects.get(student_id=student_id, assignment_id=assignment_id)
+    except Score.DoesNotExist:
+        return HttpResponse(status=404)
+
+    # Check authorization
+    assignment = score.assignment
+    student = score.student
+    if not can_edit_scores(request.user, student.current_class, assignment.subject):
+        return HttpResponse(status=403)
+
+    score.feedback = feedback
+    score.save(update_fields=['feedback', 'updated_at'])
+    return HttpResponse(status=200)
 
 
 # ============ Score Audit History ============

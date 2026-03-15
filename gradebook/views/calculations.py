@@ -17,6 +17,8 @@ from ..models import (
 from ..signals import signals_disabled
 from ..utils import calculate_category_scores, determine_grade_from_scales
 from .. import config
+from django.db import connection
+
 from academics.models import Class, ClassSubject, StudentSubjectEnrollment, AttendanceSession, AttendanceRecord
 from students.models import Student
 from core.models import Term
@@ -554,6 +556,13 @@ def calculate_class_grades(request, class_id):
         logger.error(f'Error calculating grades for class {class_id}: {str(e)}')
         return HttpResponse(f'Error: {str(e)}', status=500)
 
+    # Trigger grade drop alerts asynchronously
+    try:
+        from gradebook.tasks import send_grade_alerts
+        send_grade_alerts.delay(class_id, connection.tenant.schema_name)
+    except Exception:
+        pass  # Non-critical — don't block grade calculation response
+
     # Return success response
     # If HTMX request (e.g. from report cards page), trigger a content refresh
     if request.headers.get('HX-Request'):
@@ -618,6 +627,25 @@ def toggle_grade_lock(request, term_id):
     else:
         term.lock_grades(request.user)
         message = f"Grades locked for {term.name}"
+
+        # Auto-distribute reports if enabled
+        try:
+            from core.models import SchoolSettings
+            settings_obj = SchoolSettings.load()
+            if settings_obj.auto_distribute_on_lock:
+                from gradebook.tasks import distribute_bulk_reports
+                tenant_schema = connection.tenant.schema_name
+                classes = Class.objects.filter(
+                    students__status='active'
+                ).distinct()
+                for cls in classes:
+                    distribute_bulk_reports.delay(
+                        cls.pk, 'EMAIL', tenant_schema,
+                        sent_by_id=request.user.pk
+                    )
+                message += " — reports queued for email distribution"
+        except Exception as e:
+            logger.error(f"Auto-distribute on lock failed: {e}")
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = json.dumps({

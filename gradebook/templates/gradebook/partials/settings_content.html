@@ -206,6 +206,104 @@
     {% include "gradebook/partials/card_report.html" %}
 </div>
 
+<!-- Grade Alerts Configuration -->
+<div class="mt-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-bell text-warning"></i>
+                    Grade Drop Alerts
+                </h2>
+                <div class="badge badge-sm {% if school_settings.grade_alert_enabled %}badge-success{% else %}badge-ghost{% endif %}">
+                    {% if school_settings.grade_alert_enabled %}Active{% else %}Off{% endif %}
+                </div>
+            </div>
+            <p class="text-xs text-base-content/60 mb-3">SMS parents when a student's average falls below the threshold after grade calculation.</p>
+
+            <form method="post"
+                  action="{% url 'gradebook:grade_alert_config_update' %}"
+                  hx-post="{% url 'gradebook:grade_alert_config_update' %}"
+                  hx-target="#main-content"
+                  hx-swap="innerHTML">
+                {% csrf_token %}
+                <div class="space-y-3">
+                    <label class="flex items-center justify-between cursor-pointer">
+                        <span class="text-sm font-medium">Enable Alerts</span>
+                        <input type="checkbox" name="grade_alert_enabled" value="true"
+                               {% if school_settings.grade_alert_enabled %}checked{% endif %}
+                               class="toggle toggle-sm toggle-warning" />
+                    </label>
+
+                    <div class="form-control">
+                        <label class="label py-0.5">
+                            <span class="label-text text-xs">Threshold (%)</span>
+                        </label>
+                        <input type="number" name="grade_alert_threshold" step="0.01" min="0" max="100"
+                               value="{{ school_settings.grade_alert_threshold|default:'50' }}"
+                               class="input input-bordered input-sm w-24" />
+                        <p class="text-[11px] text-base-content/40 mt-1 px-1">Alert when average falls below this.</p>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label py-0.5">
+                            <span class="label-text text-xs">SMS Template</span>
+                        </label>
+                        <textarea name="grade_alert_sms_template" rows="3"
+                                  class="textarea textarea-bordered textarea-sm text-xs leading-relaxed"
+                                  placeholder="Dear Parent, {student_name}'s average in {class_name} is {average}%...">{{ school_settings.grade_alert_sms_template }}</textarea>
+                        <p class="text-[11px] text-base-content/40 mt-1 px-1">Variables: {student_name}, {class_name}, {average}, {term}, {school_name}</p>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn btn-sm btn-warning">
+                            <i class="fa-solid fa-check"></i> Save
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Report Distribution Settings -->
+<div class="mt-6">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane text-info"></i>
+                    Report Distribution
+                </h2>
+            </div>
+
+            <form method="post"
+                  action="{% url 'gradebook:distribution_config_update' %}"
+                  hx-post="{% url 'gradebook:distribution_config_update' %}"
+                  hx-target="#main-content"
+                  hx-swap="innerHTML">
+                {% csrf_token %}
+                <div class="space-y-3">
+                    <label class="flex items-center justify-between cursor-pointer">
+                        <div>
+                            <span class="text-sm font-medium">Auto-distribute on Lock</span>
+                            <p class="text-[11px] text-base-content/40">Email reports to parents when grades are locked.</p>
+                        </div>
+                        <input type="checkbox" name="auto_distribute_on_lock" value="true"
+                               {% if school_settings.auto_distribute_on_lock %}checked{% endif %}
+                               class="toggle toggle-sm toggle-info" />
+                    </label>
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn btn-sm btn-info">
+                            <i class="fa-solid fa-check"></i> Save
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Report Card Settings Modal -->
 <dialog id="modal_report_card" class="modal modal-middle">
     <div class="modal-box max-w-md p-0">
