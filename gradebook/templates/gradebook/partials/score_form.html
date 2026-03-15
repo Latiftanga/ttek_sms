@@ -91,7 +91,7 @@
         <!-- Offline warning banner -->
         <div id="offline-banner" class="alert alert-warning py-2 mb-3 hidden">
             <i class="fa-solid fa-wifi-slash text-sm"></i>
-            <span class="text-sm">You are offline. Scores will not save until you reconnect.</span>
+            <span class="text-sm">You are offline. Scores will be saved locally and synced when you reconnect.</span>
         </div>
 
         {% if students %}
@@ -164,7 +164,7 @@
 
         <div class="mt-3 text-center text-[11px] text-base-content/40">
             <i class="fa-solid fa-cloud-arrow-up"></i>
-            Scores save automatically
+            Scores save automatically · works offline
         </div>
         {% else %}
         <div class="text-center py-8 text-base-content/40">
@@ -262,6 +262,15 @@
     background-color: oklch(var(--su) / 0.15) !important;
     animation: pulse-success 0.4s ease-out;
 }
+.score-input.input-warning {
+    border-color: oklch(var(--wa)) !important;
+    background-color: oklch(var(--wa) / 0.15) !important;
+    animation: pulse-queued 0.4s ease-out;
+}
+@keyframes pulse-queued {
+    0% { box-shadow: 0 0 0 0 oklch(var(--wa) / 0.5); }
+    100% { box-shadow: 0 0 0 8px oklch(var(--wa) / 0); }
+}
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20% { transform: translateX(-3px); }
@@ -282,6 +291,7 @@
 }
 </style>
 
+<script src="{% static 'gradebook/js/offline-scores.js' %}"></script>
 <script src="{% static 'gradebook/js/score-entry.js' %}"></script>
 <script>
 (function initTableScoreForm() {

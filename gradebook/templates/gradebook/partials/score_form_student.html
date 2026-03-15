@@ -132,7 +132,7 @@
         <!-- Offline warning banner -->
         <div id="offline-banner-mobile" class="alert alert-warning py-2 mb-3 hidden">
             <i class="fa-solid fa-wifi-slash text-sm"></i>
-            <span class="text-sm">You are offline. Scores will not save until you reconnect.</span>
+            <span class="text-sm">You are offline. Scores will be saved locally and synced when you reconnect.</span>
         </div>
 
         <!-- Score Entry Cards by Category -->
@@ -220,7 +220,7 @@
         <!-- Auto-save indicator -->
         <div class="mt-4 text-center text-sm text-base-content/60">
             <i class="fa-solid fa-cloud-arrow-up"></i>
-            Scores save automatically
+            Scores save automatically · works offline
         </div>
     </div>
 </div>
@@ -285,6 +285,15 @@
     background-color: oklch(var(--su) / 0.15) !important;
     animation: pulse-success-mobile 0.4s ease-out;
 }
+.score-input-mobile.input-warning {
+    border-color: oklch(var(--wa)) !important;
+    background-color: oklch(var(--wa) / 0.15) !important;
+    animation: pulse-queued-mobile 0.4s ease-out;
+}
+@keyframes pulse-queued-mobile {
+    0% { box-shadow: 0 0 0 0 oklch(var(--wa) / 0.5); }
+    100% { box-shadow: 0 0 0 12px oklch(var(--wa) / 0); }
+}
 .score-input-mobile.input-error {
     border-color: oklch(var(--er)) !important;
     background-color: oklch(var(--er) / 0.1) !important;
@@ -303,6 +312,7 @@
 }
 </style>
 
+<script src="{% static 'gradebook/js/offline-scores.js' %}"></script>
 <script src="{% static 'gradebook/js/score-entry.js' %}"></script>
 <script>
 // Global function to hide tooltip (called from onclick in HTML)

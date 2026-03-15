@@ -51,31 +51,50 @@ window.ScoreEntry = (function() {
     if (!window._scoreEntryInitialized) {
         window._scoreEntryInitialized = true;
 
-        // Pre-request: validate, skip-if-unchanged, offline gate
+        // Pre-request: validate, skip-if-unchanged, offline queue
         document.body.addEventListener('htmx:beforeRequest', function(e) {
             var input = e.detail.elt;
             if (!input.matches || !input.matches(SCORE_SELECTOR)) return;
 
-            if (!navigator.onLine) {
-                e.preventDefault();
-                markInputError(input, 'Offline', 'Score will not save until you reconnect');
-                if (typeof NetworkManager !== 'undefined') {
-                    NetworkManager.showToast('error', '', 'Cannot save while offline');
-                }
-                return;
-            }
+            var value = input.value.trim();
 
-            if (input.value.trim() === (input.dataset.originalValue || '')) {
+            if (value === (input.dataset.originalValue || '')) {
                 e.preventDefault();
                 return;
             }
 
             var max = parseFloat(input.dataset.max);
-            var validation = validateScore(input.value.trim(), max);
+            var validation = validateScore(value, max);
             if (!validation.valid) {
                 e.preventDefault();
                 markInputError(input, validation.message, validation.hint);
                 callbacks.showErrorTooltip(input, validation.message, validation.hint);
+                return;
+            }
+
+            // Offline: queue to IndexedDB instead of blocking
+            if (!navigator.onLine) {
+                e.preventDefault();
+                if (typeof OfflineScores !== 'undefined') {
+                    var csrfToken = document.querySelector('[hx-headers]');
+                    var token = '';
+                    if (csrfToken) {
+                        try { token = JSON.parse(csrfToken.getAttribute('hx-headers'))['X-CSRFToken']; } catch(ex) {}
+                    }
+                    OfflineScores.enqueue(
+                        input.dataset.student,
+                        input.dataset.assignment,
+                        value,
+                        token
+                    ).then(function() {
+                        input.dataset.originalValue = value;
+                        input.classList.add('input-warning');
+                        setTimeout(function() { input.classList.remove('input-warning'); }, 600);
+                        clearInputError(input);
+                    });
+                } else {
+                    markInputError(input, 'Offline', 'Score will not save until you reconnect');
+                }
                 return;
             }
 
@@ -129,7 +148,17 @@ window.ScoreEntry = (function() {
         function updateOfflineBanners(offline) {
             ['offline-banner', 'offline-banner-mobile'].forEach(function(id) {
                 var el = document.getElementById(id);
-                if (el) el.classList.toggle('hidden', !offline);
+                if (!el) return;
+                if (offline) {
+                    el.classList.remove('hidden');
+                } else if (typeof OfflineScores !== 'undefined') {
+                    // Stay visible briefly if there are queued items (sync indicator takes over)
+                    OfflineScores.pendingCount().then(function(count) {
+                        if (count === 0) el.classList.add('hidden');
+                    });
+                } else {
+                    el.classList.add('hidden');
+                }
             });
         }
 

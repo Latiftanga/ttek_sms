@@ -4,7 +4,7 @@
 // IMPORTANT: Increment CACHE_VERSION when deploying updates to force cache refresh
 // Format: 'v{major}.{minor}' - bump minor for small changes, major for breaking changes
 
-const CACHE_VERSION = 'v1.5';
+const CACHE_VERSION = 'v1.6';
 const CACHE_NAME = `sms-cache-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline/';
 
@@ -19,6 +19,8 @@ const PRECACHE_ASSETS = [
     '/static/js/alpine.min.js',
     '/static/js/alpine-collapse.min.js',
     '/static/js/htmx-preload.js',
+    '/static/gradebook/js/offline-scores.js',
+    '/static/gradebook/js/score-entry.js',
 ];
 
 // Media cache name (separate so it can have its own eviction policy)
