@@ -1,5 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal
+import html
 import logging
 import json
 
@@ -583,7 +584,7 @@ def calculate_class_grades(request, class_id):
     missing_html = ''
     if missing_scores:
         items = ''.join(
-            f'<li class="text-xs">{m["student"]} — {m["subject"]}</li>'
+            f'<li class="text-xs">{html.escape(str(m["student"]))} — {html.escape(str(m["subject"]))}</li>'
             for m in missing_scores[:20]
         )
         extra = f'<li class="text-xs font-medium">...and {len(missing_scores) - 20} more</li>' if len(missing_scores) > 20 else ''
@@ -605,8 +606,8 @@ def calculate_class_grades(request, class_id):
             <i class="fa-solid fa-check-circle"></i>
             <div>
                 <div class="font-bold">Grades Calculated Successfully!</div>
-                <div class="text-sm">{len(students_with_subjects)} students in {class_obj.name} \
-using {grading_system.name if grading_system else "default"} grading system</div>
+                <div class="text-sm">{len(students_with_subjects)} students in {html.escape(class_obj.name)} \
+using {html.escape(grading_system.name) if grading_system else "default"} grading system</div>
             </div>
             <a href="/gradebook/reports/?class={class_id}" class="btn btn-sm btn-ghost">View Reports</a>
         </div>

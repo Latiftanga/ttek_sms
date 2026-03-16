@@ -297,12 +297,20 @@ def report_remarks_edit(request, student_id):
     if not current_term:
         return HttpResponse('No current term set', status=400)
 
-    # Get or create term report
-    term_report, created = TermReport.objects.get_or_create(
-        student=student,
-        term=current_term,
-        defaults={'out_of': 0}
-    )
+    if request.method == 'GET':
+        # On GET, only fetch existing report — don't create one
+        term_report = TermReport.objects.filter(
+            student=student, term=current_term
+        ).first()
+        if not term_report:
+            term_report = TermReport(student=student, term=current_term, out_of=0)
+    else:
+        # On POST, get or create
+        term_report, _created = TermReport.objects.get_or_create(
+            student=student,
+            term=current_term,
+            defaults={'out_of': 0}
+        )
 
     if request.method == 'GET':
         # Check if user can edit remarks
@@ -827,6 +835,9 @@ def download_class_reports(request, filename):
 
     # Path traversal protection
     if not str(file_path).startswith(str(exports_root)):
+        return HttpResponse('Invalid path', status=400)
+
+    if file_path.is_symlink():
         return HttpResponse('Invalid path', status=400)
 
     if not file_path.exists():

@@ -2931,45 +2931,82 @@ def my_attendance(request):
 @login_required
 def take_attendance(request, class_id):
     """Teacher takes attendance for a specific class."""
+    from datetime import datetime as dt
+    from django.db import IntegrityError
     from academics.models import Class, ClassSubject, AttendanceSession
     from academics.utils import should_use_lesson_attendance
     from academics.views.attendance import _save_attendance_records
     from students.models import Student
+    from .models import SchoolSettings, SchoolHoliday
 
     user = request.user
+    is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
 
-    # Must be a teacher
-    if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
+    # Must be a teacher or admin
+    if not is_admin and (not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile')):
         messages.error(request, 'You do not have permission to take attendance.')
         return redirect('core:index')
 
-    teacher = user.teacher_profile
+    teacher = user.teacher_profile if hasattr(user, 'teacher_profile') else None
     class_obj = get_object_or_404(Class, pk=class_id)
 
-    # Check permission: must be class teacher or assigned to teach this class
-    is_class_teacher = class_obj.class_teacher == teacher
-    is_subject_teacher = ClassSubject.objects.filter(
-        class_assigned=class_obj,
-        teacher=teacher
-    ).exists()
-
-    if not is_class_teacher and not is_subject_teacher:
-        messages.error(request, 'You are not assigned to this class.')
-        return redirect('core:my_attendance')
+    # Check permission: must be class teacher or admin
+    is_class_teacher = teacher and class_obj.class_teacher == teacher
+    if not is_admin and not is_class_teacher:
+        is_subject_teacher = teacher and ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            teacher=teacher
+        ).exists()
+        if not is_subject_teacher:
+            messages.error(request, 'You are not assigned to this class.')
+            return redirect('core:my_attendance')
 
     # Per-lesson classes should go through the lesson selection flow
     if should_use_lesson_attendance(class_obj):
         return redirect('academics:lesson_attendance_list', pk=class_id)
 
-    target_date = timezone.now().date()
+    # Parse target date (supports past-date entry)
+    date_str = request.GET.get('date') or request.POST.get('date')
+    today = timezone.now().date()
+    if date_str:
+        try:
+            target_date = dt.strptime(date_str, '%Y-%m-%d').date()
+            if target_date > today:
+                messages.warning(request, 'Cannot take attendance for a future date.')
+                return redirect('core:my_attendance')
+        except ValueError:
+            target_date = today
+    else:
+        target_date = today
 
-    # Get or create session with explicit session_type
-    session, _created = AttendanceSession.objects.get_or_create(
-        class_assigned=class_obj,
-        date=target_date,
-        session_type=AttendanceSession.SessionType.DAILY,
-        defaults={'created_by': teacher}
-    )
+    # Check if this is a school day
+    school_settings = SchoolSettings.load()
+    target_weekday = target_date.isoweekday()
+    if not school_settings.is_school_day(target_weekday):
+        day_name = target_date.strftime('%A')
+        messages.warning(request, f'{day_name} is not a school day.')
+        return redirect('core:my_attendance')
+
+    # Check for holidays
+    holiday_name = SchoolHoliday.get_holiday_name(target_date)
+    if holiday_name:
+        messages.warning(request, f'{target_date.strftime("%B %d, %Y")} is a holiday ({holiday_name}). Attendance cannot be taken.')
+        return redirect('core:my_attendance')
+
+    # Get or create session with IntegrityError handling for race conditions
+    try:
+        session, _created = AttendanceSession.objects.get_or_create(
+            class_assigned=class_obj,
+            date=target_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+            defaults={'created_by': teacher}
+        )
+    except IntegrityError:
+        session = AttendanceSession.objects.get(
+            class_assigned=class_obj,
+            date=target_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
 
     if request.method == 'POST':
         students = list(Student.objects.filter(current_class=class_obj, status='active'))
@@ -3306,8 +3343,12 @@ def enter_scores_student(request, class_id, subject_id, student_id):
         current_class=class_obj
     ).only('id', 'first_name', 'last_name', 'admission_number', 'photo').order_by('last_name', 'first_name')) if enrolled_student_ids else []
 
-    # Get specific student
+    # Get specific student and verify enrollment
     student = get_object_or_404(Student, pk=student_id, current_class=class_obj)
+    enrolled_student_id_set = set(enrolled_student_ids)
+    if student.id not in enrolled_student_id_set:
+        messages.error(request, 'Student is not enrolled in this subject.')
+        return redirect('core:enter_scores', class_id=class_id, subject_id=subject_id)
 
     # Find index for prev/next
     current_index = next((i for i, s in enumerate(students) if s.id == student.id), 0)

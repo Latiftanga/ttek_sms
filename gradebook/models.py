@@ -175,7 +175,7 @@ class GradingSystem(models.Model):
         is_eligible = True
 
         # Check minimum average
-        if term_report.average < self.min_average_for_promotion:
+        if term_report.average is None or term_report.average < self.min_average_for_promotion:
             is_eligible = False
             reasons.append(
                 f"Average ({term_report.average:.1f}%) below required {self.min_average_for_promotion}%"

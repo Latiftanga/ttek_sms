@@ -508,6 +508,12 @@ def score_feedback_save(request):
     if not can_edit_scores(request.user, student.current_class, assignment.subject):
         return HttpResponse(status=403)
 
+    # Check grade lock
+    from core.models import Term
+    current_term = Term.get_current()
+    if current_term and current_term.grades_locked:
+        return HttpResponse('Grades are locked for this term', status=403)
+
     score.feedback = feedback
     score.save(update_fields=['feedback', 'updated_at'])
     return HttpResponse(status=200)

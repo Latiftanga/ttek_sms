@@ -83,7 +83,8 @@ def generate_report_pdf(term_report, tenant_schema, shared_context=None):
             if category_id not in category_scores[subject_id]:
                 category_scores[subject_id][category_id] = {'earned': Decimal('0'), 'possible': Decimal('0')}
 
-            category_scores[subject_id][category_id]['earned'] += score.points
+            if score.points is not None:
+                category_scores[subject_id][category_id]['earned'] += score.points
             category_scores[subject_id][category_id]['possible'] += score.assignment.points_possible
 
         # Attach category scores to each subject grade

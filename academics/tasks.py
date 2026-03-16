@@ -117,7 +117,7 @@ def _process_tenant_absences(tenant):
 
         # Skip if already notified for this streak (check most recent absence date)
         latest_absent = max(student_absent_dates)
-        cache_key = f'absence_notified_{student.id}'
+        cache_key = f'absence_notified_{tenant.schema_name}_{student.id}'
         from django.core.cache import cache
         last_notified_date = cache.get(cache_key)
         if last_notified_date and last_notified_date >= latest_absent:

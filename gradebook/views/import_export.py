@@ -402,7 +402,8 @@ def score_import_confirm(request, class_id, subject_id):
         student_ids = {k[0] for k in import_keys}
         assignment_ids = {k[1] for k in import_keys}
         for s in Score.objects.filter(student_id__in=student_ids, assignment_id__in=assignment_ids):
-            existing_scores[(s.student_id, s.assignment_id)] = s.points
+            # Use string keys to match JSON-deserialized types from import_data
+            existing_scores[(str(s.student_id), str(s.assignment_id))] = s.points
 
     with signals_disabled(), transaction.atomic():
         for item in import_data:

@@ -1303,9 +1303,12 @@ def notify_absent_parents(request):
             )
             return redirect('academics:attendance_reports')
 
-    # Batch fetch all recent attendance records for these students (avoid N+1)
+    # Batch fetch recent attendance records (last 30 days) for these students
+    from datetime import timedelta
+    thirty_days_ago = timezone.now().date() - timedelta(days=30)
     all_records = AttendanceRecord.objects.filter(
-        student__in=students
+        student__in=students,
+        session__date__gte=thirty_days_ago,
     ).select_related('session').order_by('student_id', '-session__date')
 
     # Group records by student and limit to 30 per student
@@ -1691,6 +1694,10 @@ def review_absence_excuse(request, pk):
         return HttpResponse(status=405)
 
     excuse = get_object_or_404(AbsenceExcuse, pk=pk)
+
+    # Only pending excuses can be reviewed
+    if excuse.status != 'pending':
+        return HttpResponse('This excuse has already been reviewed', status=400)
 
     # Permission check: teachers can only review excuses for their classes
     allowed_ids = _get_teacher_allowed_class_ids(request.user)
