@@ -501,18 +501,13 @@
             </div>
 
             <!-- Total Check -->
-            {% with total=0 %}
-            {% for cat in categories %}
-            {% endfor %}
             <div class="divider my-2"></div>
             <div class="flex items-center justify-between text-sm">
                 <span class="font-medium">Total</span>
-                <span class="badge {% if categories|length > 0 %}badge-success{% else %}badge-warning{% endif %}">
-                    {% widthratio categories.0.percentage 1 1 as temp %}
-                    100%
+                <span class="badge {% if total_percentage == 100 %}badge-success{% elif total_percentage > 100 %}badge-error{% else %}badge-warning{% endif %}">
+                    {{ total_percentage }}%
                 </span>
             </div>
-            {% endwith %}
             {% else %}
             <div class="text-center py-6">
                 <div class="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-3">

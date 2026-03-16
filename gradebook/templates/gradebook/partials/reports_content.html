@@ -178,9 +178,9 @@
                                 {% if student.term_report.position == 1 %}
                                 <span class="text-warning">{{ student.term_report.position }}</span>
                                 {% elif student.term_report.position == 2 %}
-                                <span class="text-base-content/70">{{ student.term_report.position }}</span>
+                                <span class="text-info">{{ student.term_report.position }}</span>
                                 {% elif student.term_report.position == 3 %}
-                                <span class="text-warning">{{ student.term_report.position }}</span>
+                                <span class="text-accent">{{ student.term_report.position }}</span>
                                 {% else %}
                                 {{ student.term_report.position }}
                                 {% endif %}

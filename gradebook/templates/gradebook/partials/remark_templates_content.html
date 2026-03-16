@@ -76,7 +76,7 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button hx-get="{% url 'gradebook:remark_template_edit' template.pk %}"
                                     hx-target="#modal-container"
                                     hx-on::after-request="document.getElementById('modal_form').showModal()"

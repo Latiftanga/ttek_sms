@@ -55,11 +55,14 @@ def index(request):
         'score_progress': score_progress,
     }
 
+    total_percentage = sum(c.percentage for c in categories)
+
     context = {
         'current_term': current_term,
         'classes': classes,
         'grading_systems': grading_systems,
         'categories': categories,
+        'total_percentage': total_percentage,
         'stats': stats,
         'recent_scores': recent_scores,
         'classes_needing_scores': classes_needing_scores,

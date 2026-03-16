@@ -61,9 +61,9 @@
             {% csrf_token %}
             <div class="form-control mb-4">
                 <label class="label">
-                    <span class="label-text">Select CSV or Excel file</span>
+                    <span class="label-text">Select Excel file (.xlsx)</span>
                 </label>
-                <input type="file" name="file" accept=".csv,.xlsx,.xls" class="file-input file-input-bordered w-full" required>
+                <input type="file" name="file" accept=".xlsx" class="file-input file-input-bordered w-full" required>
             </div>
             <div class="alert alert-info mb-4">
                 <i class="fa-solid fa-info-circle"></i>

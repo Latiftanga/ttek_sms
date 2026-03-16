@@ -6,7 +6,7 @@ import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.db.models import OuterRef, Subquery
 from django.db import IntegrityError
@@ -25,9 +25,60 @@ from ..utils import get_school_context
 from academics.models import Class
 from students.models import Student, Enrollment
 from core.models import SchoolSettings, Term
-from schools.models import School
+
 
 logger = logging.getLogger(__name__)
+
+
+def _get_student_report_data(student, current_term):
+    """Shared helper to build report card data for a student.
+
+    Returns dict with subject_grades, core_grades, elective_grades,
+    term_report, grade_summary, categories, grading_system, show_core_elective.
+    """
+    subject_grades = list(SubjectTermGrade.objects.filter(
+        student=student, term=current_term
+    ).select_related('subject').order_by('-subject__is_core', 'subject__name'))
+
+    school_ctx = get_school_context()
+    school = school_ctx.get('school')
+    is_shs_class = student.current_class and student.current_class.level_type == 'shs'
+
+    if school:
+        show_core_elective = school.education_system == 'shs' or (school.has_shs_levels and is_shs_class)
+    else:
+        show_core_elective = is_shs_class
+
+    if show_core_elective:
+        core_grades = [sg for sg in subject_grades if sg.subject.is_core]
+        elective_grades = [sg for sg in subject_grades if not sg.subject.is_core]
+    else:
+        core_grades = []
+        elective_grades = []
+
+    term_report = TermReport.objects.filter(
+        student=student, term=current_term
+    ).first()
+
+    grade_summary = dict(Counter(sg.grade for sg in subject_grades if sg.grade))
+
+    categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
+
+    grading_system = GradingSystem.objects.filter(
+        is_active=True
+    ).prefetch_related('scales').first()
+
+    return {
+        'subject_grades': subject_grades,
+        'core_grades': core_grades,
+        'elective_grades': elective_grades,
+        'term_report': term_report,
+        'grade_summary': grade_summary,
+        'categories': categories,
+        'grading_system': grading_system,
+        'is_shs': show_core_elective,
+        'school': school,
+    }
 
 
 # ============ Report Cards ============
@@ -205,50 +256,7 @@ def student_report(request, student_id):
             messages.error(request, 'You do not have permission to view this report.')
             return redirect('core:index')
 
-    # Get subject grades - single query
-    subject_grades = list(SubjectTermGrade.objects.filter(
-        student=student,
-        term=current_term
-    ).select_related('subject').order_by('-subject__is_core', 'subject__name'))
-
-    # Check school's education system to determine if we should show core/elective separation
-    # Only SHS schools (or schools with SHS levels) have elective subjects
-    school_ctx = get_school_context()
-    school = school_ctx.get('school')
-    is_shs_class = student.current_class and student.current_class.level_type == 'shs'
-
-    # Show core/elective only for SHS-only schools, or for SHS classes in mixed schools
-    if school:
-        show_core_elective = school.education_system == 'shs' or (school.has_shs_levels and is_shs_class)
-    else:
-        show_core_elective = is_shs_class
-
-    if show_core_elective:
-        core_grades = [sg for sg in subject_grades if sg.subject.is_core]
-        elective_grades = [sg for sg in subject_grades if not sg.subject.is_core]
-    else:
-        # For Basic-only schools, don't separate - show all subjects together
-        core_grades = []
-        elective_grades = []
-
-    # Get term report
-    term_report = TermReport.objects.filter(
-        student=student,
-        term=current_term
-    ).first()
-
-    # Compute grade summary in memory (no extra query)
-    grade_summary = dict(Counter(
-        sg.grade for sg in subject_grades if sg.grade
-    ))
-
-    # Get categories (small table)
-    categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
-
-    # Get grading system with scales prefetched
-    grading_system = GradingSystem.objects.filter(
-        is_active=True
-    ).prefetch_related('scales').first()
+    report_data = _get_student_report_data(student, current_term)
 
     # Term-over-term trend data
     term_trends = list(
@@ -266,14 +274,7 @@ def student_report(request, student_id):
     context = {
         'student': student,
         'current_term': current_term,
-        'subject_grades': subject_grades,
-        'core_grades': core_grades,
-        'elective_grades': elective_grades,
-        'term_report': term_report,
-        'grade_summary': grade_summary,
-        'categories': categories,
-        'grading_system': grading_system,
-        'is_shs': show_core_elective,
+        **report_data,
         'term_trend_json': term_trend_json,
         'term_trends': term_trends,
     }
@@ -335,8 +336,8 @@ def report_remarks_edit(request, student_id):
     remark_type = request.POST.get('remark_type')
     remark_text = request.POST.get('remark', '').strip()
 
+    saved = False
     if remark_type == 'class_teacher':
-        # Verify permission
         can_edit = is_school_admin(request.user)
         if not can_edit and hasattr(request.user, 'teacher_profile') and request.user.teacher_profile:
             if student.current_class and student.current_class.class_teacher == request.user.teacher_profile:
@@ -345,18 +346,27 @@ def report_remarks_edit(request, student_id):
         if can_edit:
             term_report.class_teacher_remark = remark_text
             term_report.save(update_fields=['class_teacher_remark'])
+            saved = True
 
     elif remark_type == 'head_teacher':
         if is_school_admin(request.user):
             term_report.head_teacher_remark = remark_text
             term_report.save(update_fields=['head_teacher_remark'])
+            saved = True
 
-    response = HttpResponse(status=204)
-    response['HX-Trigger'] = json.dumps({
-        'showToast': {'message': 'Remark saved successfully', 'type': 'success'},
-        'closeModal': True,
-    })
-    return response
+    if saved:
+        response = HttpResponse(status=204)
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {'message': 'Remark saved successfully', 'type': 'success'},
+            'closeModal': True,
+        })
+        return response
+    else:
+        response = HttpResponse(status=204)
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {'message': 'You do not have permission to edit this remark', 'type': 'error'},
+        })
+        return response
 
 
 @login_required
@@ -385,46 +395,12 @@ def report_card_print(request, student_id):
             messages.error(request, 'You do not have permission to print this report.')
             return redirect('core:index')
 
-    # Get subject grades - single query
-    subject_grades = list(SubjectTermGrade.objects.filter(
-        student=student,
-        term=current_term
-    ).select_related('subject').order_by('-subject__is_core', 'subject__name'))
-
-    # Check school's education system to determine if we should show core/elective separation
-    # Only SHS schools (or schools with SHS levels) have elective subjects
-    school_ctx = get_school_context()
-    school_obj = school_ctx.get('school')
-    is_shs_class = student.current_class and student.current_class.level_type == 'shs'
-
-    # Show core/elective only for SHS-only schools, or for SHS classes in mixed schools
-    if school_obj:
-        show_core_elective = school_obj.education_system == 'shs' or (school_obj.has_shs_levels and is_shs_class)
-    else:
-        show_core_elective = is_shs_class
-
-    if show_core_elective:
-        core_grades = [sg for sg in subject_grades if sg.subject.is_core]
-        elective_grades = [sg for sg in subject_grades if not sg.subject.is_core]
-    else:
-        # For Basic-only schools, don't separate - show all subjects together
-        core_grades = []
-        elective_grades = []
-
-    term_report = TermReport.objects.filter(
-        student=student,
-        term=current_term
-    ).first()
-
-    # Compute grade summary in memory (no extra query)
-    grade_summary = dict(Counter(
-        sg.grade for sg in subject_grades if sg.grade
-    ))
-
-    categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
+    report_data = _get_student_report_data(student, current_term)
+    subject_grades = report_data['subject_grades']
+    categories = report_data['categories']
+    school = report_data['school']
 
     # Calculate category-wise scores for each subject
-    # Get all scores for this student in current term, grouped by subject and category
     category_scores = {}
     scores_qs = Score.objects.filter(
         student=student,
@@ -456,19 +432,6 @@ def report_card_print(request, student_id):
             else:
                 sg.category_scores[cat.pk] = None
 
-    # Get grading system with scales for the grade key
-    grading_system = GradingSystem.objects.filter(
-        is_active=True
-    ).prefetch_related('scales').first()
-
-    # Get school/tenant info
-    school = None
-    try:
-        from django.db import connection
-        school = School.objects.get(schema_name=connection.schema_name)
-    except ObjectDoesNotExist:
-        pass
-
     # Create verification record and generate QR code
     verification = None
     qr_code_base64 = None
@@ -491,21 +454,18 @@ def report_card_print(request, student_id):
     rc_config = SchoolSettings.load()
 
     # Get next term start date if available
-    next_term = Term.objects.filter(
-        start_date__gt=current_term.end_date
-    ).order_by('start_date').first()
-    next_term_date = next_term.start_date if next_term else None
+    next_term = None
+    next_term_date = None
+    if current_term:
+        next_term = Term.objects.filter(
+            start_date__gt=current_term.end_date
+        ).order_by('start_date').first()
+        next_term_date = next_term.start_date if next_term else None
 
     context = {
         'student': student,
         'current_term': current_term,
-        'subject_grades': subject_grades,
-        'core_grades': core_grades,
-        'elective_grades': elective_grades,
-        'term_report': term_report,
-        'grade_summary': grade_summary,
-        'categories': categories,
-        'grading_system': grading_system,
+        **report_data,
         'school': school,
         'verification': verification,
         'qr_code_base64': qr_code_base64,

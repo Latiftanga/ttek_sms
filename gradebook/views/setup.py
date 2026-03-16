@@ -114,12 +114,17 @@ def grade_alert_config_update(request):
     ).order_by('order')
     total_percentage = sum(c.percentage for c in categories if c.is_active)
 
-    return htmx_render(request, 'gradebook/partials/settings_content.html', {
-        'school_settings': school_settings,
-        'grading_systems': grading_systems_qs,
-        'categories': categories,
-        'total_percentage': total_percentage,
-    })
+    return htmx_render(
+        request,
+        'gradebook/settings.html',
+        'gradebook/partials/settings_content.html',
+        {
+            'school_settings': school_settings,
+            'grading_systems': grading_systems_qs,
+            'categories': categories,
+            'total_percentage': total_percentage,
+        },
+    )
 
 
 @login_required
@@ -144,12 +149,17 @@ def distribution_config_update(request):
     ).order_by('order')
     total_percentage = sum(c.percentage for c in categories if c.is_active)
 
-    return htmx_render(request, 'gradebook/partials/settings_content.html', {
-        'school_settings': school_settings,
-        'grading_systems': grading_systems_qs,
-        'categories': categories,
-        'total_percentage': total_percentage,
-    })
+    return htmx_render(
+        request,
+        'gradebook/settings.html',
+        'gradebook/partials/settings_content.html',
+        {
+            'school_settings': school_settings,
+            'grading_systems': grading_systems_qs,
+            'categories': categories,
+            'total_percentage': total_percentage,
+        },
+    )
 
 
 # ============ Grading System CRUD ============

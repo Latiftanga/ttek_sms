@@ -23,13 +23,16 @@ from . import config
 logger = logging.getLogger(__name__)
 
 
-def generate_report_pdf(term_report, tenant_schema):
+def generate_report_pdf(term_report, tenant_schema, shared_context=None):
     """
     Generate PDF report card for a student.
 
     Args:
         term_report: TermReport instance
         tenant_schema: Schema name for tenant context
+        shared_context: Optional dict with pre-fetched data shared across
+            students (school, rc_config, grading_system, categories,
+            next_term_date). Avoids redundant DB queries in bulk exports.
 
     Returns:
         BytesIO: PDF content as bytes buffer
@@ -52,10 +55,13 @@ def generate_report_pdf(term_report, tenant_schema):
             term=current_term
         ).select_related('subject').order_by('-subject__is_core', 'subject__name'))
 
-        # Get assessment categories
-        categories = list(AssessmentCategory.objects.filter(
-            is_active=True
-        ).order_by('order'))
+        # Get assessment categories (use shared if available)
+        if shared_context and 'categories' in shared_context:
+            categories = shared_context['categories']
+        else:
+            categories = list(AssessmentCategory.objects.filter(
+                is_active=True
+            ).order_by('order'))
 
         # Recompute category-wise scores for each subject from raw Score data.
         # We can't rely solely on the stored SubjectTermGrade.category_scores
@@ -93,17 +99,28 @@ def generate_report_pdf(term_report, tenant_schema):
                 else:
                     sg.category_scores[cat.pk] = None
 
-        # Get school info
-        school = None
-        logo_base64 = None
+        # Get school info (use shared if available)
+        if shared_context and 'school' in shared_context:
+            school = shared_context['school']
+            logo_base64 = shared_context.get('logo_base64')
+        else:
+            school = None
+            logo_base64 = None
+            try:
+                from schools.models import School
+                from .utils import encode_image_base64
+
+                school = School.objects.get(schema_name=tenant_schema)
+                if school and school.logo:
+                    logo_base64 = encode_image_base64(school.logo)
+            except (IOError, OSError):
+                pass
+
         student_photo_base64 = None
         core_grades = []
         elective_grades = []
         try:
-            from schools.models import School
             from .utils import encode_image_base64
-
-            school = School.objects.get(schema_name=tenant_schema)
 
             # Separate core and elective grades for SHS
             is_shs_class = (
@@ -111,8 +128,10 @@ def generate_report_pdf(term_report, tenant_schema):
                 and student.current_class.level_type == 'shs'
             )
             show_core_elective = (
-                school.education_system == 'shs'
-                or (school.has_shs_levels and is_shs_class)
+                school and (
+                    school.education_system == 'shs'
+                    or (school.has_shs_levels and is_shs_class)
+                )
             )
             if show_core_elective:
                 core_grades = [
@@ -121,10 +140,6 @@ def generate_report_pdf(term_report, tenant_schema):
                 elective_grades = [
                     sg for sg in subject_grades if not sg.subject.is_core
                 ]
-
-            # Encode logo as base64 for PDF
-            if school and school.logo:
-                logo_base64 = encode_image_base64(school.logo)
 
             # Encode student photo as base64 for PDF
             if student.photo:
@@ -153,18 +168,25 @@ def generate_report_pdf(term_report, tenant_schema):
         except (ValueError, ValidationError, IntegrityError) as e:
             logger.warning(f"Could not create verification record: {e}")
 
-        from core.models import SchoolSettings, Term
-        from .models import GradingSystem
-        rc_config = SchoolSettings.load()
-        grading_system = GradingSystem.objects.filter(
-            is_active=True
-        ).prefetch_related('scales').first()
+        if shared_context and 'rc_config' in shared_context:
+            rc_config = shared_context['rc_config']
+            grading_system = shared_context.get('grading_system')
+            next_term_date = shared_context.get('next_term_date')
+        else:
+            from core.models import SchoolSettings, Term
+            from .models import GradingSystem
+            rc_config = SchoolSettings.load()
+            grading_system = GradingSystem.objects.filter(
+                is_active=True
+            ).prefetch_related('scales').first()
 
-        # Get next term start date if available
-        next_term = Term.objects.filter(
-            start_date__gt=current_term.end_date
-        ).order_by('start_date').first()
-        next_term_date = next_term.start_date if next_term else None
+            # Get next term start date if available
+            next_term_date = None
+            if current_term:
+                next_term = Term.objects.filter(
+                    start_date__gt=current_term.end_date
+                ).order_by('start_date').first()
+                next_term_date = next_term.start_date if next_term else None
 
         context = {
             'student': student,
@@ -447,8 +469,18 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
                     results['sms'] = f"failed: {sms_result.get('error')}"
 
             except RETRYABLE_EXCEPTIONS as e:
-                logger.warning(f"Retryable error sending SMS for report {term_report_id}: {str(e)}")
-                raise self.retry(exc=e, countdown=config.TASK_RETRY_DELAY * (2 ** self.request.retries))
+                # Don't retry if email already sent — would cause duplicate emails
+                if email_status == 'SENT':
+                    logger.warning(
+                        f"SMS failed for report {term_report_id} but email already sent. "
+                        f"Not retrying to avoid duplicate email. SMS error: {str(e)}"
+                    )
+                    sms_status = 'FAILED'
+                    sms_error = f'Retryable error (not retried to avoid duplicate email): {str(e)[:400]}'
+                    results['sms'] = f'failed: {str(e)}'
+                else:
+                    logger.warning(f"Retryable error sending SMS for report {term_report_id}: {str(e)}")
+                    raise self.retry(exc=e, countdown=config.TASK_RETRY_DELAY * (2 ** self.request.retries))
 
             except Exception as e:
                 logger.error(f"Failed to send SMS for report {term_report_id}: {str(e)}")
@@ -543,6 +575,29 @@ def export_class_reports_zip(self, class_id, tenant_schema):
 
         errors = []
 
+        # Pre-fetch shared data to avoid redundant queries per student
+        from .models import AssessmentCategory, GradingSystem
+        from core.models import SchoolSettings
+        shared_context = {
+            'categories': list(AssessmentCategory.objects.filter(is_active=True).order_by('order')),
+            'rc_config': SchoolSettings.load(),
+            'grading_system': GradingSystem.objects.filter(is_active=True).prefetch_related('scales').first(),
+        }
+        try:
+            from schools.models import School
+            from .utils import encode_image_base64
+            school = School.objects.get(schema_name=tenant_schema)
+            shared_context['school'] = school
+            shared_context['logo_base64'] = encode_image_base64(school.logo) if school.logo else None
+        except Exception:
+            shared_context['school'] = None
+            shared_context['logo_base64'] = None
+
+        next_term = Term.objects.filter(
+            start_date__gt=current_term.end_date
+        ).order_by('start_date').first()
+        shared_context['next_term_date'] = next_term.start_date if next_term else None
+
         try:
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                 for i, term_report in enumerate(term_reports):
@@ -551,7 +606,7 @@ def export_class_reports_zip(self, class_id, tenant_schema):
                         meta={'current': i + 1, 'total': total},
                     )
                     try:
-                        pdf_buffer = generate_report_pdf(term_report, tenant_schema)
+                        pdf_buffer = generate_report_pdf(term_report, tenant_schema, shared_context=shared_context)
                         admission = term_report.student.admission_number
                         zf.writestr(
                             f"report_card_{admission}.pdf",
@@ -722,7 +777,10 @@ def send_grade_alerts(self, class_id, tenant_schema):
         except Class.DoesNotExist:
             return {'sent': 0, 'reason': 'class not found'}
 
-        tenant = School.objects.get(schema_name=tenant_schema)
+        try:
+            tenant = School.objects.get(schema_name=tenant_schema)
+        except School.DoesNotExist:
+            return {'sent': 0, 'reason': 'school not found'}
 
         # Find students below threshold
         reports = TermReport.objects.filter(
@@ -736,7 +794,7 @@ def send_grade_alerts(self, class_id, tenant_schema):
         for report in reports:
             student = report.student
             guardian = student.get_primary_guardian() if hasattr(student, 'get_primary_guardian') else None
-            phone = student.guardian_phone
+            phone = guardian.phone_number if guardian else student.guardian_phone
             if not phone:
                 continue
 
@@ -745,13 +803,21 @@ def send_grade_alerts(self, class_id, tenant_schema):
             if pref == 'none':
                 continue
 
-            message = sms_template.format(
-                student_name=student.first_name,
-                class_name=class_obj.name,
-                average=report.average,
-                term=current_term.name,
-                school_name=tenant.name,
-            )
+            try:
+                message = sms_template.format(
+                    student_name=student.first_name,
+                    class_name=class_obj.name,
+                    average=report.average,
+                    term=current_term.name,
+                    school_name=tenant.name,
+                )
+            except (KeyError, IndexError, ValueError):
+                # Fallback if template has unknown placeholders
+                message = (
+                    f"Dear Parent, {student.first_name}'s average of "
+                    f"{report.average}% in {current_term.name} is below "
+                    f"the expected threshold. Please follow up. - {tenant.name}"
+                )
 
             try:
                 if pref in ('sms', 'both'):

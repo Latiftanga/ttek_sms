@@ -391,7 +391,9 @@ class AssessmentCategory(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        # Skip validation for programmatic saves (migrations, bulk ops)
+        if not kwargs.pop('skip_validation', False):
+            self.full_clean()
         super().save(*args, **kwargs)
 
     def get_weight_per_assignment(self, subject, term):
@@ -597,17 +599,21 @@ class Score(models.Model):
 
     def clean(self):
         """Validate that points don't exceed points_possible"""
-        if self.points > self.assignment.points_possible:
+        if self.points is not None and self.points > self.assignment.points_possible:
             raise ValidationError(
                 f'Points ({self.points}) cannot exceed points possible ({self.assignment.points_possible})'
             )
 
     def get_percentage(self):
         """Get the percentage score for this assignment"""
+        if self.points is None:
+            return Decimal('0')
         return round((Decimal(str(self.points)) / Decimal(str(self.assignment.points_possible))) * 100, 2)
 
     def get_contribution_to_final_grade(self):
         """Calculate how much this score contributes to the final grade"""
+        if self.points is None:
+            return Decimal('0')
         percentage = Decimal(str(self.points)) / Decimal(str(self.assignment.points_possible))
         weight = self.assignment.get_weight()
         return round(percentage * weight, 2)
@@ -1402,7 +1408,7 @@ class ReportDistributionLog(models.Model):
             return self.sms_status in ['SENT', 'DELIVERED']
         else:  # BOTH
             return (
-                self.email_status in ['SENT', 'DELIVERED'] or
+                self.email_status in ['SENT', 'DELIVERED'] and
                 self.sms_status in ['SENT', 'DELIVERED']
             )
 

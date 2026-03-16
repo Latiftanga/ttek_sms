@@ -77,7 +77,10 @@
                     {% select_input "type" distribution_types size="sm" %}
                     <button type="submit"
                             class="btn btn-secondary btn-sm gap-2"
-                            hx-confirm="Send reports to all students with valid contact information?">
+                            hx-confirm="Send reports to all students with valid contact information?"
+                            hx-disabled-elt="this"
+                            hx-indicator="this">
+                        <span class="loading loading-spinner loading-xs htmx-indicator"></span>
                         <i class="fa-solid fa-paper-plane"></i>
                         Send to All
                     </button>
@@ -160,7 +163,10 @@
                                     hx-post="{% url 'gradebook:send_single_report' student.pk %}"
                                     hx-vals='{"type": "EMAIL"}'
                                     hx-swap="none"
+                                    hx-indicator="closest .btn"
+                                    hx-disabled-elt="this"
                                     title="Send Email">
+                                <span class="loading loading-spinner loading-xs htmx-indicator"></span>
                                 <i class="fa-solid fa-paper-plane text-info text-xs"></i>
                             </button>
                             {% endif %}
@@ -169,7 +175,10 @@
                                     hx-post="{% url 'gradebook:send_single_report' student.pk %}"
                                     hx-vals='{"type": "SMS"}'
                                     hx-swap="none"
+                                    hx-indicator="closest .btn"
+                                    hx-disabled-elt="this"
                                     title="Send SMS">
+                                <span class="loading loading-spinner loading-xs htmx-indicator"></span>
                                 <i class="fa-solid fa-comment-sms text-warning text-xs"></i>
                             </button>
                             {% endif %}

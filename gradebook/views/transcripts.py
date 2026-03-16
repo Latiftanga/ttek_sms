@@ -20,32 +20,54 @@ from students.models import Student
 logger = logging.getLogger(__name__)
 
 
+def _check_and_redirect(request, user, student):
+    """Check transcript permission and return redirect if denied, else None."""
+    has_permission, error_msg = check_transcript_permission(user, student)
+    if not has_permission:
+        messages.error(request, error_msg or 'Permission denied.')
+        return redirect('gradebook:reports' if 'homeroom' in (error_msg or '') else 'core:index')
+    return None
+
+
+def _create_transcript_verification(student, user, request=None):
+    """Create verification record and QR code for transcript."""
+    verification = None
+    qr_code_base64 = None
+    try:
+        from core.models import DocumentVerification
+        from core.utils import generate_verification_qr
+
+        verification = DocumentVerification.create_for_document(
+            document_type=DocumentVerification.DocumentType.TRANSCRIPT,
+            student=student,
+            title=f"Academic Transcript - {student.full_name}",
+            user=user,
+        )
+        qr_code_base64 = generate_verification_qr(
+            verification.verification_code, request=request
+        )
+    except (ValidationError, IntegrityError) as e:
+        logger.warning(f"Could not create verification record: {e}")
+    return verification, qr_code_base64
+
+
 # ============ Transcripts ============
 
 @login_required
 def transcript(request, student_id):
-    """
-    View a student's complete academic transcript.
-    Shows all terms, grades, and cumulative performance.
-    """
+    """View a student's complete academic transcript."""
     student = get_object_or_404(
         Student.objects.select_related('current_class'),
         pk=student_id
     )
 
-    # Permission check
-    has_permission, error_msg = check_transcript_permission(request.user, student)
-    if not has_permission:
-        messages.error(request, error_msg)
-        return redirect('gradebook:reports' if 'homeroom' in error_msg else 'core:index')
+    denied = _check_and_redirect(request, request.user, student)
+    if denied:
+        return denied
 
-    # Get transcript data
     term_reports, all_grades, grades_by_term = get_transcript_data(student)
-
-    # Build academic history with cumulative stats
     history_data = build_academic_history(term_reports, grades_by_term, include_all_grades=True)
 
-    # Promotion history
     promotion_history = term_reports.filter(promoted__isnull=False).values(
         'term__academic_year__name',
         'term__name',
@@ -54,7 +76,6 @@ def transcript(request, student_id):
         'promotion_remarks'
     )
 
-    # Get school context
     school_ctx = get_school_context()
 
     context = {
@@ -71,7 +92,6 @@ def transcript(request, student_id):
         },
         'promotion_history': list(promotion_history),
         'school': school_ctx['school'],
-        # Navigation
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
             {'label': 'Gradebook', 'url': '/gradebook/'},
@@ -96,35 +116,14 @@ def transcript_print(request, student_id):
         pk=student_id
     )
 
-    # Permission check
-    has_permission, error_msg = check_transcript_permission(request.user, student)
-    if not has_permission:
-        messages.error(request, 'Permission denied.')
-        return redirect('gradebook:reports' if 'homeroom' in (error_msg or '') else 'core:index')
+    denied = _check_and_redirect(request, request.user, student)
+    if denied:
+        return denied
 
-    # Get transcript data and build academic history
     term_reports, _, grades_by_term = get_transcript_data(student)
     history_data = build_academic_history(term_reports, grades_by_term)
-
-    # Get school context
     school_ctx = get_school_context()
-
-    # Create verification record and generate QR code
-    verification = None
-    qr_code_base64 = None
-    try:
-        from core.models import DocumentVerification
-        from core.utils import generate_verification_qr
-
-        verification = DocumentVerification.create_for_document(
-            document_type=DocumentVerification.DocumentType.TRANSCRIPT,
-            student=student,
-            title=f"Academic Transcript - {student.full_name}",
-            user=request.user,
-        )
-        qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
-    except (ValidationError, IntegrityError) as e:
-        logger.warning(f"Could not create verification record: {e}")
+    verification, qr_code_base64 = _create_transcript_verification(student, request.user, request)
 
     context = {
         'student': student,
@@ -149,41 +148,19 @@ def download_transcript_pdf(request, student_id):
         pk=student_id
     )
 
-    # Permission check
-    has_permission, error_msg = check_transcript_permission(request.user, student)
-    if not has_permission:
-        messages.error(request, 'Permission denied.')
-        return redirect('gradebook:reports')
+    denied = _check_and_redirect(request, request.user, student)
+    if denied:
+        return denied
 
-    # Get transcript data
     term_reports, _, grades_by_term = get_transcript_data(student)
 
     if not term_reports.exists():
         messages.error(request, 'No academic records found for this student.')
         return redirect('gradebook:reports')
 
-    # Build academic history
     history_data = build_academic_history(term_reports, grades_by_term)
-
-    # Get school context with base64 logo for PDF
     school_ctx = get_school_context(include_logo_base64=True)
-
-    # Create verification record and generate QR code
-    verification = None
-    qr_code_base64 = None
-    try:
-        from core.models import DocumentVerification
-        from core.utils import generate_verification_qr
-
-        verification = DocumentVerification.create_for_document(
-            document_type=DocumentVerification.DocumentType.TRANSCRIPT,
-            student=student,
-            title=f"Academic Transcript - {student.full_name}",
-            user=request.user,
-        )
-        qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
-    except (ValidationError, IntegrityError) as e:
-        logger.warning(f"Could not create verification record: {e}")
+    verification, qr_code_base64 = _create_transcript_verification(student, request.user, request)
 
     context = {
         'student': student,
@@ -199,7 +176,6 @@ def download_transcript_pdf(request, student_id):
         'qr_code_base64': qr_code_base64,
     }
 
-    # Generate PDF using WeasyPrint
     try:
         from weasyprint import HTML
         from django.template.loader import render_to_string

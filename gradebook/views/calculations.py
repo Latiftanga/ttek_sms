@@ -231,6 +231,7 @@ def calculate_class_grades(request, class_id):
                     existing_grades[(grade.student_id, grade.subject_id)] = grade
 
             # Calculate scores for each grade using shared utility + prefetched data
+            assignments_dict = dict(assignments_by_subject_category)
             for student in students:
                 enrolled_subject_ids = student_subject_map.get(student.id, set())
 
@@ -247,7 +248,7 @@ def calculate_class_grades(request, class_id):
                         student_id=student.id,
                         subject_id=subject.id,
                         categories=categories,
-                        assignments_by_subject_category=dict(assignments_by_subject_category),
+                        assignments_by_subject_category=assignments_dict,
                         scores_lookup=scores_lookup,
                     )
 
@@ -435,6 +436,9 @@ def calculate_class_grades(request, class_id):
                             best_n = grade_points[:grading_system.aggregate_subjects_count]
                             report.aggregate = sum(best_n)
 
+                else:
+                    core_grades = []
+
                 # Apply bulk-prefetched attendance data (no per-student queries)
                 att = attendance_by_student.get(student.id)
                 if att and total_school_days > 0:
@@ -554,7 +558,7 @@ def calculate_class_grades(request, class_id):
 
     except (ValueError, ValidationError, IntegrityError) as e:
         logger.error(f'Error calculating grades for class {class_id}: {str(e)}')
-        return HttpResponse(f'Error: {str(e)}', status=500)
+        return HttpResponse('An error occurred while calculating grades. Please try again.', status=500)
 
     # Trigger grade drop alerts asynchronously
     try:

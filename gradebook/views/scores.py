@@ -496,7 +496,9 @@ def score_feedback_save(request):
         return HttpResponse(status=400)
 
     try:
-        score = Score.objects.get(student_id=student_id, assignment_id=assignment_id)
+        score = Score.objects.select_related(
+            'assignment__subject', 'student__current_class'
+        ).get(student_id=student_id, assignment_id=assignment_id)
     except Score.DoesNotExist:
         return HttpResponse(status=404)
 
@@ -609,6 +611,7 @@ def _get_assignments_context(subject, term):
 
 
 @login_required
+@teacher_or_admin_required
 def assignments(request, subject_id):
     """List assignments for a subject in current term."""
     current_term = Term.get_current()
@@ -628,6 +631,9 @@ def assignment_create(request):
     current_term = Term.get_current()
     if not current_term:
         return HttpResponse('No current term set', status=400)
+
+    if current_term.grades_locked and not is_school_admin(request.user):
+        return HttpResponse('Grades are locked for this term', status=403)
 
     subject_id = request.POST.get('subject_id')
     category_id = request.POST.get('category_id')
@@ -697,6 +703,9 @@ def assignment_edit(request, pk):
     current_term = assignment.term
 
     is_admin = is_school_admin(request.user)
+
+    if current_term.grades_locked and not is_admin:
+        return HttpResponse('Grades are locked for this term', status=403)
 
     # Verify teacher is assigned to this subject in at least one class
     if not is_admin:
@@ -773,6 +782,9 @@ def assignment_delete(request, pk):
 
     # Only admins or the assigned teacher can delete assignments
     is_admin = is_school_admin(request.user)
+
+    if current_term.grades_locked and not is_admin:
+        return HttpResponse('Grades are locked for this term', status=403)
     if not is_admin:
         teacher = getattr(request.user, 'teacher_profile', None)
         if not teacher or not ClassSubject.objects.filter(subject=subject, teacher=teacher).exists():

@@ -129,6 +129,7 @@
                   hx-encoding="multipart/form-data"
                   hx-target="#import-container"
                   hx-swap="innerHTML">
+                {% csrf_token %}
                 <div class="form-control">
                     <label class="label">
                         <span class="label-text">Select Excel file</span>

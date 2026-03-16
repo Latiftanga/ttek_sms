@@ -306,8 +306,8 @@ def calculate_class_stats(term_reports, subject_grades):
         }
 
     total_students = len(term_reports)
-    passed = sum(1 for r in term_reports if r.subjects_failed == 0)
-    avg_subjects_passed = sum(r.subjects_passed for r in term_reports) / total_students if total_students else 0
+    passed = sum(1 for r in term_reports if (r.subjects_failed or 0) == 0)
+    avg_subjects_passed = sum(r.subjects_passed or 0 for r in term_reports) / total_students if total_students else 0
 
     return {
         'average': round(sum(averages) / len(averages), 1),
