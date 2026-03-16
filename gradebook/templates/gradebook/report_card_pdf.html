@@ -857,6 +857,9 @@
                     <div class="signature-line">Class Teacher's Signature</div>
                 </td>
                 <td class="signature-cell">
+                    {% if signature_base64 %}
+                    <img src="{{ signature_base64 }}" alt="Signature" style="max-height: 40px; margin: 0 auto; display: block;">
+                    {% endif %}
                     {% if school.headmaster_name %}
                     <div class="signature-name">{{ school.headmaster_name }}</div>
                     {% endif %}

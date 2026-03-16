@@ -108,6 +108,16 @@ class SchoolAdminForm(forms.Form):
         label="Head's Title",
         widget=forms.TextInput(attrs={'placeholder': 'e.g., Headmaster, Principal'})
     )
+    headmaster_signature = forms.ImageField(
+        required=False,
+        label="Head's Signature",
+        help_text="Upload a signature image (PNG, JPG, WebP) for report cards",
+        widget=forms.ClearableFileInput(attrs={'accept': 'image/*'})
+    )
+    clear_signature = forms.BooleanField(
+        required=False,
+        label="Remove current signature",
+    )
 
 
 class AcademicSettingsForm(forms.ModelForm):

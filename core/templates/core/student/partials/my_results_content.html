@@ -13,19 +13,28 @@
             {% endif %}
         </p>
     </div>
-    {% if available_terms %}
-    <select class="select select-bordered select-xs sm:select-sm"
-            hx-get="{% url 'core:my_results' %}"
-            hx-target="#main-content"
-            hx-push-url="true"
-            name="term">
-        {% for term in available_terms %}
-        <option value="{{ term.pk }}" {% if selected_term.pk == term.pk %}selected{% endif %}>
-            {{ term.name }}
-        </option>
-        {% endfor %}
-    </select>
-    {% endif %}
+    <div class="flex items-center gap-2">
+        {% if available_terms %}
+        <select class="select select-bordered select-xs sm:select-sm"
+                hx-get="{% url 'core:my_results' %}"
+                hx-target="#main-content"
+                hx-push-url="true"
+                name="term">
+            {% for term in available_terms %}
+            <option value="{{ term.pk }}" {% if selected_term.pk == term.pk %}selected{% endif %}>
+                {{ term.name }}
+            </option>
+            {% endfor %}
+        </select>
+        {% endif %}
+        {% if term_report %}
+        <a href="{% url 'core:my_results_pdf' %}{% if selected_term %}?term={{ selected_term.pk }}{% endif %}"
+           class="btn btn-primary btn-xs sm:btn-sm gap-1">
+            <i class="fa-solid fa-file-pdf"></i>
+            <span class="hidden sm:inline">Download PDF</span>
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 {% if not subject_grades %}

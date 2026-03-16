@@ -180,6 +180,13 @@ class School(TenantMixin):
     # Administration
     headmaster_name = models.CharField(max_length=100, blank=True, verbose_name="Head's Name")
     headmaster_title = models.CharField(max_length=50, blank=True, default="Headmaster", verbose_name="Head's Title")
+    headmaster_signature = models.ImageField(
+        upload_to='school_signatures/',
+        storage=PublicSchemaStorage(),
+        blank=True,
+        null=True,
+        help_text="Headmaster's signature image (PNG, JPG, WebP) for report cards"
+    )
 
     # Metadata
     created_on = models.DateField(auto_now_add=True)

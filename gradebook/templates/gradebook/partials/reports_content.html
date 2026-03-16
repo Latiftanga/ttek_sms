@@ -126,6 +126,13 @@
         </template>
     </div>
     {% if is_admin %}
+    <button class="btn btn-info btn-sm md:btn-md gap-2"
+            hx-post="{% url 'gradebook:bulk_approve_reports' selected_class.pk %}"
+            hx-confirm="Approve all pending reports for {{ selected_class.name }}?"
+            hx-swap="none">
+        <i class="fa-solid fa-stamp"></i>
+        <span class="hidden sm:inline">Approve All</span><span class="sm:hidden">Approve</span>
+    </button>
     <a href="{% url 'gradebook:remark_templates' %}"
        hx-get="{% url 'gradebook:remark_templates' %}"
        hx-target="#main-content"

@@ -14,9 +14,12 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
 
+from django.utils import timezone
+
 from .base import (
     htmx_render, is_school_admin, teacher_or_admin_required
 )
+from core.utils import admin_required
 from ..models import (
     GradingSystem, AssessmentCategory,
     Score, SubjectTermGrade, TermReport,
@@ -251,8 +254,14 @@ def student_report(request, student_id):
 
     For teachers: Only allow viewing reports for students in their homeroom classes.
     For admins: Allow viewing all reports.
+
+    Accepts optional ?term=<uuid> query parameter to view a past term's report.
     """
-    current_term = Term.get_current()
+    term_id = request.GET.get('term')
+    if term_id:
+        current_term = get_object_or_404(Term, pk=term_id)
+    else:
+        current_term = Term.get_current()
     student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
     user = request.user
 
@@ -286,6 +295,7 @@ def student_report(request, student_id):
     context = {
         'student': student,
         'current_term': current_term,
+        'is_admin': is_school_admin(request.user),
         **report_data,
         'term_trend_json': term_trend_json,
         'term_trends': term_trends,
@@ -398,8 +408,14 @@ def report_card_print(request, student_id):
 
     For teachers: Only allow printing reports for students in their homeroom classes.
     For admins: Allow printing all reports.
+
+    Accepts optional ?term=<uuid> query parameter to view a past term's report.
     """
-    current_term = Term.get_current()
+    term_id = request.GET.get('term')
+    if term_id:
+        current_term = get_object_or_404(Term, pk=term_id)
+    else:
+        current_term = Term.get_current()
     student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
     user = request.user
 
@@ -722,8 +738,15 @@ def send_bulk_reports(request, class_id):
 @login_required
 @teacher_or_admin_required
 def download_report_pdf(request, student_id):
-    """Download PDF report for a student."""
-    current_term = Term.get_current()
+    """Download PDF report for a student.
+
+    Accepts optional ?term=<uuid> query parameter to download a past term's report.
+    """
+    term_id = request.GET.get('term')
+    if term_id:
+        current_term = get_object_or_404(Term, pk=term_id)
+    else:
+        current_term = Term.get_current()
     if not current_term:
         messages.error(request, 'No current term set.')
         return redirect('gradebook:reports')
@@ -861,3 +884,72 @@ def download_class_reports(request, filename):
         content_type='application/zip',
         filename=file_path.name,
     )
+
+
+# ============ Report Approval ============
+
+@login_required
+@admin_required
+def report_approve(request, student_id):
+    """Approve a single student's term report (head teacher approval)."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    current_term = Term.get_current()
+    if not current_term:
+        return HttpResponse('No current term set', status=400)
+
+    student = get_object_or_404(Student, pk=student_id)
+
+    try:
+        term_report = TermReport.objects.get(student=student, term=current_term)
+    except TermReport.DoesNotExist:
+        return HttpResponse('No report found for this student', status=404)
+
+    term_report.head_teacher_approved = True
+    term_report.head_teacher_approved_at = timezone.now()
+    term_report.save(update_fields=['head_teacher_approved', 'head_teacher_approved_at'])
+
+    response = HttpResponse(status=200)
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {
+            'message': f'Report approved for {student.first_name} {student.last_name}',
+            'type': 'success',
+        },
+        'closeModal': True,
+    })
+    return response
+
+
+@login_required
+@admin_required
+def bulk_approve_reports(request, class_id):
+    """Approve all term reports for students in a class for the current term."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    current_term = Term.get_current()
+    if not current_term:
+        return HttpResponse('No current term set', status=400)
+
+    class_obj = get_object_or_404(Class, pk=class_id)
+
+    now = timezone.now()
+    updated = TermReport.objects.filter(
+        student__current_class=class_obj,
+        term=current_term,
+        head_teacher_approved=False,
+    ).update(
+        head_teacher_approved=True,
+        head_teacher_approved_at=now,
+    )
+
+    response = HttpResponse(status=200)
+    response['HX-Trigger'] = json.dumps({
+        'showToast': {
+            'message': f'{updated} report(s) approved for {class_obj.name}',
+            'type': 'success',
+        },
+        'refreshReports': True,
+    })
+    return response

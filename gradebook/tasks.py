@@ -104,9 +104,11 @@ def generate_report_pdf(term_report, tenant_schema, shared_context=None):
         if shared_context and 'school' in shared_context:
             school = shared_context['school']
             logo_base64 = shared_context.get('logo_base64')
+            signature_base64 = shared_context.get('signature_base64')
         else:
             school = None
             logo_base64 = None
+            signature_base64 = None
             try:
                 from schools.models import School
                 from .utils import encode_image_base64
@@ -114,6 +116,8 @@ def generate_report_pdf(term_report, tenant_schema, shared_context=None):
                 school = School.objects.get(schema_name=tenant_schema)
                 if school and school.logo:
                     logo_base64 = encode_image_base64(school.logo)
+                if school and school.headmaster_signature:
+                    signature_base64 = encode_image_base64(school.headmaster_signature)
             except (IOError, OSError):
                 pass
 
@@ -199,6 +203,7 @@ def generate_report_pdf(term_report, tenant_schema, shared_context=None):
             'categories': categories,
             'school': school,
             'logo_base64': logo_base64,
+            'signature_base64': signature_base64,
             'student_photo_base64': student_photo_base64,
             'verification': verification,
             'qr_code_base64': qr_code_base64,
@@ -394,6 +399,19 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
         sms_status = sms_error = sms_sent_to = sms_sent_at = sms_message = None
         results = {'email': None, 'sms': None}
 
+        # Fetch school and logo for email template
+        school = None
+        logo_base64 = None
+        try:
+            from schools.models import School
+            from .utils import encode_image_base64
+
+            school = School.objects.get(schema_name=tenant_schema)
+            if school and school.logo:
+                logo_base64 = encode_image_base64(school.logo)
+        except (IOError, OSError):
+            pass
+
         # Send Email
         if distribution_type in ('EMAIL', 'BOTH') and guardian_email:
             try:
@@ -404,6 +422,8 @@ def distribute_single_report(self, term_report_id, distribution_type, tenant_sch
                     'student': student,
                     'term_report': term_report,
                     'term': term_report.term,
+                    'school': school,
+                    'logo_base64': logo_base64,
                 }
                 html_message = render_to_string('gradebook/emails/report_email.html', email_context)
 
@@ -590,9 +610,11 @@ def export_class_reports_zip(self, class_id, tenant_schema):
             school = School.objects.get(schema_name=tenant_schema)
             shared_context['school'] = school
             shared_context['logo_base64'] = encode_image_base64(school.logo) if school.logo else None
+            shared_context['signature_base64'] = encode_image_base64(school.headmaster_signature) if school.headmaster_signature else None
         except Exception:
             shared_context['school'] = None
             shared_context['logo_base64'] = None
+            shared_context['signature_base64'] = None
 
         next_term = Term.objects.filter(
             start_date__gt=current_term.end_date

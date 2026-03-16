@@ -888,6 +888,9 @@
                 <div class="signature-line no-name">Class Teacher's Signature</div>
             </div>
             <div class="signature-box">
+                {% if school.headmaster_signature %}
+                <img src="{{ school.headmaster_signature.url }}" alt="Signature" style="max-height: 40px; margin: 0 auto; display: block;">
+                {% endif %}
                 {% if school.headmaster_name %}
                 <div class="signature-name">{{ school.headmaster_name }}</div>
                 <div class="signature-line">{{ school.headmaster_title|default:"Head Teacher" }}'s Signature</div>

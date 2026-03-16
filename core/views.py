@@ -1666,11 +1666,17 @@ def settings_update_admin(request):
         return HttpResponse(status=405)
 
     tenant = request.tenant
-    form = SchoolAdminForm(request.POST)
+    form = SchoolAdminForm(request.POST, request.FILES)
 
     if form.is_valid():
         tenant.headmaster_name = form.cleaned_data['headmaster_name']
         tenant.headmaster_title = form.cleaned_data['headmaster_title']
+
+        if form.cleaned_data.get('clear_signature'):
+            tenant.headmaster_signature = None
+        elif form.cleaned_data.get('headmaster_signature'):
+            tenant.headmaster_signature = form.cleaned_data['headmaster_signature']
+
         tenant.save()
 
         if not request.htmx:
@@ -4352,6 +4358,53 @@ def my_results(request):
         'grade_scales': grade_scales,
     }
     return htmx_render(request, 'core/student/my_results.html', 'core/student/partials/my_results_content.html', context)
+
+
+@login_required
+def my_results_pdf(request):
+    """Download PDF report card for the logged-in student."""
+    from gradebook.models import TermReport
+    from gradebook.tasks import generate_report_pdf
+
+    user = request.user
+    student = getattr(user, 'student_profile', None)
+
+    if not student:
+        messages.error(request, 'No student profile linked to your account.')
+        return redirect('core:index')
+
+    # Determine which term to use
+    selected_term_id = request.GET.get('term')
+    if selected_term_id:
+        try:
+            selected_term = Term.objects.get(pk=selected_term_id)
+        except Term.DoesNotExist:
+            messages.error(request, 'Invalid term selected.')
+            return redirect('core:my_results')
+    else:
+        selected_term = Term.get_current()
+
+    if not selected_term:
+        messages.error(request, 'No term available.')
+        return redirect('core:my_results')
+
+    try:
+        term_report = TermReport.objects.get(student=student, term=selected_term)
+    except TermReport.DoesNotExist:
+        messages.error(request, 'No report found for this term.')
+        return redirect('core:my_results')
+
+    try:
+        pdf_buffer = generate_report_pdf(term_report, connection.schema_name)
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'attachment; filename="report_card_{student.admission_number}_{selected_term.name}.pdf"'
+        )
+        return response
+    except (ValueError, IOError) as e:
+        logger.error(f"Failed to generate student PDF: {e}")
+        messages.error(request, 'Failed to generate PDF. Please try again later.')
+        return redirect('core:my_results')
 
 
 @login_required

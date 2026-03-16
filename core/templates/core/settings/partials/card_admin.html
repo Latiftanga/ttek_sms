@@ -27,6 +27,14 @@
                 <span class="text-base-content/60">Head's Title</span>
                 <span class="font-medium">{{ school.headmaster_title|default:"-" }}</span>
             </div>
+            <div class="flex justify-between items-center">
+                <span class="text-base-content/60">Signature</span>
+                {% if school.headmaster_signature %}
+                <img src="{{ school.headmaster_signature.url }}" alt="Signature" class="h-6 max-w-24 object-contain">
+                {% else %}
+                <span class="font-medium text-base-content/40">Not uploaded</span>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>

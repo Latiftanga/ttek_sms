@@ -131,11 +131,35 @@
               hx-post="{% url 'core:settings_update_admin' %}"
               hx-target="#card-admin"
               hx-swap="outerHTML"
+              hx-encoding="multipart/form-data"
+              enctype="multipart/form-data"
               hx-on::after-request="if(event.detail.successful) document.getElementById('modal_admin').close()">
             {% csrf_token %}
             <div class="space-y-6 pt-2">
                 {% floating_field admin_form.headmaster_name %}
                 {% floating_field admin_form.headmaster_title %}
+
+                <!-- Signature Upload -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Head's Signature</span>
+                    </label>
+                    {% if school.headmaster_signature %}
+                    <div class="flex items-center gap-3 mb-2 p-2 bg-base-200 rounded-lg">
+                        <img src="{{ school.headmaster_signature.url }}" alt="Current signature" class="h-8 max-w-32 object-contain">
+                        <span class="text-xs text-base-content/60">Current signature</span>
+                    </div>
+                    <label class="label cursor-pointer justify-start gap-2 py-1">
+                        <input type="checkbox" name="clear_signature" value="true" class="checkbox checkbox-sm checkbox-error">
+                        <span class="label-text text-sm text-error">Remove current signature</span>
+                    </label>
+                    {% endif %}
+                    <input type="file" name="headmaster_signature" accept="image/*"
+                           class="file-input file-input-bordered file-input-sm w-full">
+                    <label class="label">
+                        <span class="label-text-alt text-base-content/50">PNG, JPG, or WebP image for report cards</span>
+                    </label>
+                </div>
             </div>
             <div class="modal-action">
                 <button type="button" class="btn" onclick="document.getElementById('modal_admin').close()">Cancel</button>

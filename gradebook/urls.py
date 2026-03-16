@@ -62,6 +62,8 @@ urlpatterns = [
     path('reports/<int:student_id>/', views.student_report, name='student_report'),
     path('reports/<int:student_id>/print/', views.report_card_print, name='report_card_print'),
     path('reports/<int:student_id>/remarks/', views.report_remarks_edit, name='report_remarks'),
+    path('reports/<int:student_id>/approve/', views.report_approve, name='report_approve'),
+    path('reports/bulk-approve/<int:class_id>/', views.bulk_approve_reports, name='bulk_approve_reports'),
 
     # Analytics
     path('analytics/', views.analytics, name='analytics'),

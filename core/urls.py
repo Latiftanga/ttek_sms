@@ -84,6 +84,7 @@ urlpatterns = [
     path('my-qualifications/', views.my_qualifications, name='my_qualifications'),
     # Student routes
     path('my-results/', views.my_results, name='my_results'),
+    path('my-results/pdf/', views.my_results_pdf, name='my_results_pdf'),
     path('timetable/', views.timetable, name='timetable'),
     path('my-fees/', views.my_fees, name='my_fees'),
 
