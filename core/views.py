@@ -1280,8 +1280,12 @@ def teacher_dashboard(request):
                 status__in=['P', 'L'],
             ).values('student', 'session__date').distinct().count()
 
-            total_possible = total_days * cls.student_count
-            rate = round((present / total_possible) * 100, 1) if total_possible > 0 else 0
+            countable = AttendanceRecord.objects.filter(
+                session__in=sessions,
+                status__in=['P', 'L', 'A'],
+            ).values('student', 'session__date').distinct().count()
+
+            rate = round((present / countable) * 100, 1) if countable > 0 else 0
             homeroom_attendance[cls.pk] = {
                 'rate': rate,
                 'total_days': total_days,
@@ -2717,7 +2721,7 @@ def my_attendance(request):
     date_to = request.GET.get('date_to', '')
 
     # Default date range: last 30 days
-    today = timezone.now().date()
+    today = timezone.localdate()
     if not date_from:
         date_from = (today - timedelta(days=30)).isoformat()
     if not date_to:
@@ -2743,24 +2747,27 @@ def my_attendance(request):
         total=Count('id'),
         present=Count('id', filter=Q(status__in=['P', 'L'])),
         absent=Count('id', filter=Q(status='A')),
-        late=Count('id', filter=Q(status='L'))
+        late=Count('id', filter=Q(status='L')),
+        countable=Count('id', filter=Q(status__in=['P', 'L', 'A']))
     )
 
     total_records = overall_stats['total']
     present_count = overall_stats['present']
     absent_count = overall_stats['absent']
     late_count = overall_stats['late']
+    countable = overall_stats['countable'] or 0
 
     attendance_rate = 0
-    if total_records > 0:
-        attendance_rate = round((present_count / total_records) * 100, 1)
+    if countable > 0:
+        attendance_rate = round((present_count / countable) * 100, 1)
 
     # Pre-compute class stats in one aggregated query (eliminates N+1)
     class_stats = records_qs.values('session__class_assigned_id').annotate(
         total=Count('id'),
         present=Count('id', filter=Q(status__in=['P', 'L'])),
         absent=Count('id', filter=Q(status='A')),
-        sessions=Count('session_id', distinct=True)
+        sessions=Count('session_id', distinct=True),
+        countable=Count('id', filter=Q(status__in=['P', 'L', 'A']))
     )
     class_stats_dict = {item['session__class_assigned_id']: item for item in class_stats}
 
@@ -2812,12 +2819,12 @@ def my_attendance(request):
     for cls in homeroom_classes:
         if cls.attendance_type == Class.AttendanceType.PER_LESSON:
             # Get stats for this class
-            cls_stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0, 'sessions': 0})
-            cls_total = cls_stats['total']
+            cls_stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0, 'sessions': 0, 'countable': 0})
+            cls_countable = cls_stats.get('countable', 0)
             cls_present = cls_stats['present']
             cls_absent = cls_stats.get('absent', 0)
             cls_sessions = cls_stats.get('sessions', 0)
-            cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
+            cls_rate = round((cls_present / cls_countable) * 100, 1) if cls_countable > 0 else 0
             form_class = {
                 'class': cls,
                 'student_count': class_student_counts.get(cls.id, 0),
@@ -2831,12 +2838,13 @@ def my_attendance(request):
     # Build class summary without additional queries
     class_summary = []
     for cls in classes:
-        stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0, 'sessions': 0})
+        stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0, 'sessions': 0, 'countable': 0})
         cls_total = stats['total']
+        cls_countable = stats.get('countable', 0)
         cls_present = stats['present']
         cls_absent = stats['absent']
         cls_sessions = stats['sessions']
-        cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
+        cls_rate = round((cls_present / cls_countable) * 100, 1) if cls_countable > 0 else 0
 
         # Check if this is a per-lesson class
         is_per_lesson = cls.attendance_type == Class.AttendanceType.PER_LESSON
@@ -2873,7 +2881,8 @@ def my_attendance(request):
     recent_sessions = sessions_qs.annotate(
         total_records=Count('records'),
         present_records=Count('records', filter=Q(records__status__in=['P', 'L'])),
-        absent_records=Count('records', filter=Q(records__status='A'))
+        absent_records=Count('records', filter=Q(records__status='A')),
+        countable_records=Count('records', filter=Q(records__status__in=['P', 'L', 'A']))
     ).order_by('-date')[:10]
 
     recent_data = []
@@ -2883,7 +2892,7 @@ def my_attendance(request):
             'total': session.total_records,
             'present': session.present_records,
             'absent': session.absent_records,
-            'rate': round((session.present_records / session.total_records) * 100, 1) if session.total_records > 0 else 0,
+            'rate': round((session.present_records / session.countable_records) * 100, 1) if session.countable_records > 0 else 0,
         })
 
     # Calculate today's completion stats
@@ -2967,7 +2976,7 @@ def take_attendance(request, class_id):
 
     # Parse target date (supports past-date entry)
     date_str = request.GET.get('date') or request.POST.get('date')
-    today = timezone.now().date()
+    today = timezone.localdate()
     if date_str:
         try:
             target_date = dt.strptime(date_str, '%Y-%m-%d').date()
@@ -4426,7 +4435,7 @@ def guardian_dashboard(request):
     """Dashboard for logged-in guardians/parents showing their wards."""
     from gradebook.models import SubjectTermGrade, TermReport
     from students.models import StudentGuardian
-    from academics.models import AttendanceSession, AttendanceRecord
+    from academics.models import AttendanceRecord
 
     user = request.user
     current_term = Term.get_current()
@@ -4454,7 +4463,7 @@ def guardian_dashboard(request):
     # Batch-fetch term reports, subject counts, and attendance data
     term_reports = {}
     subject_counts = {}
-    session_counts = {}
+    countable_counts = {}
     present_counts = {}
 
     if current_term and active_student_ids:
@@ -4468,20 +4477,22 @@ def guardian_dashboard(request):
         ).values('student_id').annotate(count=Count('id')):
             subject_counts[row['student_id']] = row['count']
 
-        # Batch attendance: session counts by class, present counts by student
+        # Batch attendance: present counts and countable records per student
         class_ids = list({s.current_class_id for _, s in active_guardians if s.current_class_id})
         if class_ids:
-            session_counts = dict(
-                AttendanceSession.objects.filter(
-                    class_assigned_id__in=class_ids,
-                    date__gte=current_term.start_date,
-                    date__lte=current_term.end_date
-                ).values('class_assigned_id').annotate(count=Count('id')).values_list('class_assigned_id', 'count')
-            )
             present_counts = dict(
                 AttendanceRecord.objects.filter(
                     student_id__in=active_student_ids,
                     status__in=['P', 'L'],
+                    session__date__gte=current_term.start_date,
+                    session__date__lte=current_term.end_date
+                ).values('student_id').annotate(count=Count('id')).values_list('student_id', 'count')
+            )
+            # Countable records (P+L+A) per student — excludes excused from denominator
+            countable_counts = dict(
+                AttendanceRecord.objects.filter(
+                    student_id__in=active_student_ids,
+                    status__in=['P', 'L', 'A'],
                     session__date__gte=current_term.start_date,
                     session__date__lte=current_term.end_date
                 ).values('student_id').annotate(count=Count('id')).values_list('student_id', 'count')
@@ -4508,10 +4519,10 @@ def guardian_dashboard(request):
                 avg_count += 1
 
             if student.current_class_id:
-                total_sessions = session_counts.get(student.current_class_id, 0)
-                if total_sessions > 0:
+                countable_total = countable_counts.get(student.id, 0)
+                if countable_total > 0:
                     present_count = present_counts.get(student.id, 0)
-                    ward_data['attendance_rate'] = round((present_count / total_sessions) * 100)
+                    ward_data['attendance_rate'] = round((present_count / countable_total) * 100)
 
         wards_data.append(ward_data)
 

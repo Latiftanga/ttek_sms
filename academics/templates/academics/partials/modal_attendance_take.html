@@ -5,6 +5,9 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
+.htmx-request .btn-loading-text { display: none; }
+.htmx-request .btn-loading-spinner { display: inline-flex; }
+.btn-loading-spinner { display: none; }
 </style>
 
 <!-- Page Header with Back Link -->
@@ -101,6 +104,16 @@
     {% csrf_token %}
     <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
 
+    <!-- Student Search -->
+    <div class="form-control mb-3">
+        <div class="input-group input-group-sm">
+            <span class="bg-base-200"><i class="fa-solid fa-search text-base-content/40"></i></span>
+            <input type="text" id="student-search" placeholder="Search student..."
+                   class="input input-sm input-bordered w-full"
+                   oninput="filterStudents(this.value)" />
+        </div>
+    </div>
+
     <div class="h-[50vh] overflow-y-auto pr-1 space-y-2">
         {% for item in student_list %}
         <div class="flex items-center justify-between p-3 border border-base-200 rounded-lg hover:bg-base-200/30 gap-3 student-row transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% elif item.status == 'E' %}bg-info/10{% endif %}">
@@ -156,8 +169,8 @@
             Cancel
         </button>
         <button type="submit" class="btn btn-primary flex-1 min-h-[48px] gap-2 text-lg font-bold shadow-md touch-action-manipulation">
-            <i class="fa-solid fa-cloud-arrow-up"></i>
-            Save Attendance
+            <span class="btn-loading-text"><i class="fa-solid fa-cloud-arrow-up"></i> Save Attendance</span>
+            <span class="btn-loading-spinner"><span class="loading loading-spinner loading-sm"></span> Saving...</span>
         </button>
     </div>
 </form>
@@ -205,6 +218,15 @@ function updateRowBackground(radio) {
     else if (radio.value === 'E') row.classList.add('bg-info/10');
 }
 
+function filterStudents(query) {
+    const rows = document.querySelectorAll('.student-row');
+    const q = query.toLowerCase();
+    rows.forEach(row => {
+        const name = row.querySelector('.font-semibold').textContent.toLowerCase();
+        row.style.display = name.includes(q) ? '' : 'none';
+    });
+}
+
 function markAll(status) {
     const form = document.getElementById('attendance-form');
     const radios = form.querySelectorAll(`input[type="radio"][value="${status}"]`);
@@ -238,5 +260,16 @@ function markAll(status) {
 
     // Initialize progress
     updateProgress();
+
+    // Unsaved changes warning
+    let formDirty = false;
+    form.addEventListener('change', () => { formDirty = true; });
+    window.addEventListener('beforeunload', (e) => {
+        if (formDirty) { e.preventDefault(); }
+    });
+    // Clear dirty flag on successful submit
+    document.body.addEventListener('htmx:afterRequest', (e) => {
+        if (e.detail.successful) formDirty = false;
+    });
 })();
 </script>

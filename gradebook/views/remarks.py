@@ -121,7 +121,7 @@ def bulk_remark_save(request):
 
     student_id = request.POST.get('student_id')
     field = request.POST.get('field')
-    value = request.POST.get('value', '').strip()
+    value = request.POST.get('value', '').strip()[:2000]
 
     current_term = Term.get_current()
     if not current_term:

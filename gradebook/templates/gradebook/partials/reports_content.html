@@ -72,7 +72,9 @@
             hx-post="{% url 'gradebook:calculate_class' selected_class.pk %}"
             hx-confirm="Recalculate grades for {{ selected_class.name }}? This will update all scores, positions, and report cards."
             hx-swap="none"
+            hx-indicator="#recalc-spinner"
             hx-on::after-request="if(event.detail.successful) { htmx.trigger(document.body, 'refreshReports'); }">
+        <span id="recalc-spinner" class="loading loading-spinner loading-sm htmx-indicator"></span>
         <i class="fa-solid fa-calculator"></i>
         <span class="hidden sm:inline">Recalculate</span> Grades
     </button>

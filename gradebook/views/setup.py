@@ -103,7 +103,12 @@ def grade_alert_config_update(request):
 
     school_settings = SchoolSettings.load()
     school_settings.grade_alert_enabled = 'grade_alert_enabled' in request.POST
-    school_settings.grade_alert_threshold = request.POST.get('grade_alert_threshold', 50)
+    try:
+        threshold = int(request.POST.get('grade_alert_threshold', 50))
+        threshold = max(0, min(100, threshold))
+    except (ValueError, TypeError):
+        threshold = 50
+    school_settings.grade_alert_threshold = threshold
     school_settings.grade_alert_sms_template = request.POST.get('grade_alert_sms_template', '').strip()
     school_settings.save()
 

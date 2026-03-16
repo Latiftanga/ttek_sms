@@ -23,7 +23,7 @@ from ..models import (
 from ..utils import (
     should_use_lesson_attendance, get_students_for_lesson, get_lesson_attendance_stats
 )
-from .base import admin_required, teacher_or_admin_required, htmx_render
+from .base import admin_required, is_school_admin, teacher_or_admin_required, htmx_render
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ def _get_teacher_allowed_class_ids(user):
     Get the set of class IDs a teacher is allowed to access.
     Returns None for admins (meaning all classes allowed).
     """
-    is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
+    is_admin = is_school_admin(user)
     if is_admin:
         return None  # No restriction
 
@@ -125,7 +125,7 @@ def _save_attendance_records(request, session, students, redirect_url,
         if absent_students:
             from core.notifications import notify_guardian, notify_student
             session_date = session.date
-            today = timezone.now().date()
+            today = timezone.localdate()
             date_label = 'today' if session_date == today else session_date.strftime('%b %d')
             for s in absent_students:
                 notify_guardian(
@@ -176,7 +176,7 @@ def class_attendance_take(request, pk):
     """
     class_obj = get_object_or_404(Class, pk=pk)
     user = request.user
-    is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
+    is_admin = is_school_admin(user)
 
     # Check permission: daily attendance requires class teacher (form master) or admin
     teacher = None
@@ -205,9 +205,9 @@ def class_attendance_take(request, pk):
             from datetime import datetime as dt
             target_date = dt.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
-            target_date = timezone.now().date()
+            target_date = timezone.localdate()
     else:
-        target_date = timezone.now().date()
+        target_date = timezone.localdate()
 
     # Prevent attendance on non-working days and holidays
     from core.models import SchoolHoliday, SchoolSettings
@@ -352,7 +352,8 @@ def class_attendance_history(request, pk):
     ).annotate(
         present_count=Count('records', filter=Q(records__status__in=['P', 'L'])),
         absent_count=Count('records', filter=Q(records__status='A')),
-        total_count=Count('records')
+        total_count=Count('records'),
+        countable_count=Count('records', filter=Q(records__status__in=['P', 'L', 'A']))
     ).order_by('-date')[:20]
 
     context = {
@@ -374,7 +375,7 @@ def lesson_attendance_list(request, pk):
     """
     class_obj = get_object_or_404(Class, pk=pk)
     user = request.user
-    is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
+    is_admin = is_school_admin(user)
 
     # Check permission
     teacher = None
@@ -400,7 +401,7 @@ def lesson_attendance_list(request, pk):
     if not should_use_lesson_attendance(class_obj):
         return redirect('academics:class_attendance_take', pk=pk)
 
-    today = timezone.now().date()
+    today = timezone.localdate()
     today_weekday = timezone.now().isoweekday()
 
     # Get all timetable entries for this class today
@@ -485,7 +486,7 @@ def take_lesson_attendance(request, timetable_entry_id):
     class_obj = entry.class_subject.class_assigned
     class_subject = entry.class_subject
     user = request.user
-    is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
+    is_admin = is_school_admin(user)
 
     # Permission check: only assigned teacher or admin
     teacher = None
@@ -509,9 +510,9 @@ def take_lesson_attendance(request, timetable_entry_id):
         try:
             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
-            target_date = timezone.now().date()
+            target_date = timezone.localdate()
     else:
-        target_date = timezone.now().date()
+        target_date = timezone.localdate()
 
     # Prevent attendance on non-working days and holidays
     from core.models import SchoolHoliday, SchoolSettings
@@ -601,7 +602,7 @@ def class_weekly_attendance_report(request, pk):
     """
     class_obj = get_object_or_404(Class, pk=pk)
     user = request.user
-    is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
+    is_admin = is_school_admin(user)
 
     # Permission check: form master or admin
     if not is_admin:
@@ -615,7 +616,7 @@ def class_weekly_attendance_report(request, pk):
             return redirect('academics:class_detail', pk=pk)
 
     # Get date range from query params or default to current week
-    today = timezone.now().date()
+    today = timezone.localdate()
     try:
         week_offset = int(request.GET.get('week', 0))
     except (ValueError, TypeError):
@@ -633,9 +634,8 @@ def class_weekly_attendance_report(request, pk):
     total_present = sum(s['present'] for s in stats)
     total_absent = sum(s['absent'] for s in stats)
     total_late = sum(s['late'] for s in stats)
-    total_excused = sum(s['excused'] for s in stats)
-    total_records = total_present + total_absent + total_late + total_excused
-    overall_rate = round((total_present + total_late) / total_records * 100, 1) if total_records > 0 else 0
+    total_countable = (total_present + total_late) + total_absent
+    overall_rate = round((total_present + total_late) / total_countable * 100, 1) if total_countable > 0 else 0
 
     context = {
         'class': class_obj,
@@ -666,7 +666,7 @@ def class_weekly_attendance_report(request, pk):
 def attendance_reports(request):
     """Attendance reports with filters."""
     user = request.user
-    is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
+    is_admin = is_school_admin(user)
 
     # Get filter parameters
     class_filter = request.GET.get('class', '')
@@ -675,7 +675,7 @@ def attendance_reports(request):
     view_mode = request.GET.get('view', 'summary')  # summary, daily, students
 
     # Default date range: last 30 days
-    today = timezone.now().date()
+    today = timezone.localdate()
     if not date_from:
         date_from = (today - timedelta(days=30)).isoformat()
     if not date_to:
@@ -720,22 +720,25 @@ def attendance_reports(request):
         present_count=Count('id', filter=Q(status__in=['P', 'L'])),
         absent_count=Count('id', filter=Q(status='A')),
         late_count=Count('id', filter=Q(status='L')),
+        countable=Count('id', filter=Q(status__in=['P', 'L', 'A'])),
     )
     total_records = record_agg['total_records'] or 0
     present_count = record_agg['present_count'] or 0
     absent_count = record_agg['absent_count'] or 0
     late_count = record_agg['late_count'] or 0
+    countable = record_agg['countable'] or 0
 
     attendance_rate = 0
-    if total_records > 0:
-        attendance_rate = round((present_count / total_records) * 100, 1)
+    if countable > 0:
+        attendance_rate = round((present_count / countable) * 100, 1)
 
     # Summary by class - use aggregated queries instead of N+1
     # Get attendance stats per class in a single query
     class_stats = records.values('session__class_assigned_id').annotate(
         total=Count('id'),
         present=Count('id', filter=Q(status__in=['P', 'L'])),
-        absent=Count('id', filter=Q(status='A'))
+        absent=Count('id', filter=Q(status='A')),
+        countable=Count('id', filter=Q(status__in=['P', 'L', 'A']))
     )
     class_stats_dict = {
         s['session__class_assigned_id']: s for s in class_stats
@@ -758,11 +761,11 @@ def attendance_reports(request):
 
     class_summary = []
     for cls in classes:
-        stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0})
-        cls_total = stats['total']
+        stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0, 'countable': 0})
+        cls_countable = stats['countable']
         cls_present = stats['present']
         cls_absent = stats['absent']
-        cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
+        cls_rate = round((cls_present / cls_countable) * 100, 1) if cls_countable > 0 else 0
 
         class_summary.append({
             'class': cls,
@@ -791,36 +794,39 @@ def attendance_reports(request):
     ).values('session_id').annotate(
         total=Count('id'),
         present=Count('id', filter=Q(status__in=['P', 'L'])),
-        absent=Count('id', filter=Q(status='A'))
+        absent=Count('id', filter=Q(status='A')),
+        countable=Count('id', filter=Q(status__in=['P', 'L', 'A']))
     )
     session_stats_dict = {s['session_id']: s for s in session_stats}
 
     daily_data = []
     for session in paginated_sessions:
-        stats = session_stats_dict.get(session.id, {'total': 0, 'present': 0, 'absent': 0})
-        s_total = stats['total']
+        stats = session_stats_dict.get(session.id, {'total': 0, 'present': 0, 'absent': 0, 'countable': 0})
+        s_countable = stats['countable']
         s_present = stats['present']
         s_absent = stats['absent']
         daily_data.append({
             'session': session,
-            'total': s_total,
+            'total': stats['total'],
             'present': s_present,
             'absent': s_absent,
-            'rate': round((s_present / s_total) * 100, 1) if s_total > 0 else 0,
+            'rate': round((s_present / s_countable) * 100, 1) if s_countable > 0 else 0,
         })
 
     # Low attendance students — use DB aggregation instead of loading all records
     student_agg = records.values('student_id').annotate(
         total=Count('id'),
         present=Count('id', filter=Q(status__in=['P', 'L'])),
+        countable=Count('id', filter=Q(status__in=['P', 'L', 'A'])),
     )
     # Filter for < 80% attendance rate in Python (DB can't easily filter on computed field)
     low_student_ids = []
     student_agg_dict = {}
     for sa in student_agg:
-        rate = round((sa['present'] / sa['total']) * 100, 1) if sa['total'] > 0 else 0
+        sa_countable = sa['countable'] or 0
+        rate = round((sa['present'] / sa_countable) * 100, 1) if sa_countable > 0 else 0
         student_agg_dict[sa['student_id']] = {**sa, 'rate': rate}
-        if sa['total'] > 0 and rate < 80:
+        if sa_countable > 0 and rate < 80:
             low_student_ids.append(sa['student_id'])
 
     # Fetch student objects only for low-attendance students
@@ -837,7 +843,7 @@ def attendance_reports(request):
                 'student': student,
                 'total': sa['total'],
                 'present': sa['present'],
-                'absent': sa['total'] - sa['present'],
+                'absent': sa['countable'] - sa['present'],
                 'rate': sa['rate'],
             })
     low_attendance_students.sort(key=lambda x: x['rate'])
@@ -847,15 +853,16 @@ def attendance_reports(request):
         day=TruncDate('session__date')
     ).values('day').annotate(
         total=Count('id'),
-        present=Count('id', filter=Q(status__in=['P', 'L']))
+        present=Count('id', filter=Q(status__in=['P', 'L'])),
+        countable=Count('id', filter=Q(status__in=['P', 'L', 'A']))
     ).order_by('day')
 
     trend_data = [
         {
             'date': item['day'].isoformat(),
-            'rate': round((item['present'] / item['total']) * 100, 1) if item['total'] > 0 else 0,
+            'rate': round((item['present'] / item['countable']) * 100, 1) if item['countable'] > 0 else 0,
             'present': item['present'],
-            'absent': item['total'] - item['present'],
+            'absent': item['countable'] - item['present'],
             'total': item['total']
         }
         for item in daily_trend
@@ -942,10 +949,10 @@ def attendance_reports(request):
             if class_filter:
                 prev_records = prev_records.filter(session__class_assigned_id=class_filter)
 
-            prev_total = prev_records.count()
-            if prev_total > 0:
+            prev_countable = prev_records.filter(status__in=['P', 'L', 'A']).count()
+            if prev_countable > 0:
                 prev_present = prev_records.filter(status__in=['P', 'L']).count()
-                prev_period_rate = round((prev_present / prev_total) * 100, 1)
+                prev_period_rate = round((prev_present / prev_countable) * 100, 1)
                 rate_change = round(attendance_rate - prev_period_rate, 1)
         except (ValueError, TypeError):
             pass
@@ -1014,7 +1021,7 @@ def attendance_export(request):
     date_to = request.GET.get('date_to', '')
 
     # Default date range
-    today = timezone.now().date()
+    today = timezone.localdate()
     if not date_from:
         date_from = (today - timedelta(days=30)).isoformat()
     if not date_to:
@@ -1048,7 +1055,8 @@ def attendance_export(request):
     export_stats = records.aggregate(
         total=Count('id'),
         present=Count('id', filter=Q(status__in=['P', 'L'])),
-        absent=Count('id', filter=Q(status='A'))
+        absent=Count('id', filter=Q(status='A')),
+        countable=Count('id', filter=Q(status__in=['P', 'L', 'A']))
     )
 
     records = records.order_by(
@@ -1142,12 +1150,13 @@ def attendance_export(request):
     total_records = export_stats['total'] or 0
     present = export_stats['present'] or 0
     absent = export_stats['absent'] or 0
+    countable = export_stats['countable'] or 0
 
     summary_row = header_row + total_records + 2
     ws.cell(row=summary_row, column=1, value=f"Total Records: {total_records}")
     ws.cell(row=summary_row, column=1).font = Font(bold=True)
 
-    rate = round((present / total_records) * 100, 1) if total_records > 0 else 0
+    rate = round((present / countable) * 100, 1) if countable > 0 else 0
     ws.cell(row=summary_row + 1, column=1, value=f"Present: {present} | Absent: {absent} | Rate: {rate}%")
 
     # Response
@@ -1186,7 +1195,7 @@ def student_attendance_detail(request, student_id):
     date_to = request.GET.get('date_to', '')
 
     # Default date range: last 30 days
-    today = timezone.now().date()
+    today = timezone.localdate()
     if not date_from:
         date_from = (today - timedelta(days=30)).isoformat()
     if not date_to:
@@ -1204,12 +1213,14 @@ def student_attendance_detail(request, student_id):
         present=Count('id', filter=Q(status__in=['P', 'L'])),
         absent=Count('id', filter=Q(status='A')),
         late=Count('id', filter=Q(status='L')),
+        countable=Count('id', filter=Q(status__in=['P', 'L', 'A'])),
     )
     total = agg['total'] or 0
     present = agg['present'] or 0
     absent = agg['absent'] or 0
     late = agg['late'] or 0
-    rate = round((present / total) * 100, 1) if total > 0 else 0
+    countable = agg['countable'] or 0
+    rate = round((present / countable) * 100, 1) if countable > 0 else 0
 
     # Build attendance calendar data
     attendance_data = []
@@ -1305,7 +1316,7 @@ def notify_absent_parents(request):
 
     # Batch fetch recent attendance records (last 30 days) for these students
     from datetime import timedelta
-    thirty_days_ago = timezone.now().date() - timedelta(days=30)
+    thirty_days_ago = timezone.localdate() - timedelta(days=30)
     all_records = AttendanceRecord.objects.filter(
         student__in=students,
         session__date__gte=thirty_days_ago,
@@ -1385,7 +1396,7 @@ def weekly_attendance_register_pdf(request, pk):
     from core.models import Term
 
     class_obj = get_object_or_404(Class, pk=pk)
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     # Get date range parameters
     date_from_str = request.GET.get('date_from', '')

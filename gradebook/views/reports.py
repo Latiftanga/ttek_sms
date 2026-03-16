@@ -12,6 +12,7 @@ from django.db.models import OuterRef, Subquery
 from django.db import IntegrityError
 from django.conf import settings
 from django.contrib import messages
+from django.core.cache import cache
 
 from .base import (
     htmx_render, is_school_admin, teacher_or_admin_required
@@ -28,6 +29,19 @@ from core.models import SchoolSettings, Term
 
 
 logger = logging.getLogger(__name__)
+
+
+def _get_cached_grading_system():
+    """Return the active grading system, cached for 5 minutes."""
+    cache_key = 'active_grading_system'
+    grading_system = cache.get(cache_key)
+    if grading_system is None:
+        grading_system = GradingSystem.objects.filter(
+            is_active=True
+        ).prefetch_related('scales').first()
+        if grading_system:
+            cache.set(cache_key, grading_system, timeout=300)
+    return grading_system
 
 
 def _get_student_report_data(student, current_term):
@@ -64,9 +78,7 @@ def _get_student_report_data(student, current_term):
 
     categories = list(AssessmentCategory.objects.filter(is_active=True).order_by('order'))
 
-    grading_system = GradingSystem.objects.filter(
-        is_active=True
-    ).prefetch_related('scales').first()
+    grading_system = _get_cached_grading_system()
 
     return {
         'subject_grades': subject_grades,

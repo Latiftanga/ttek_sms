@@ -268,11 +268,12 @@ def get_lesson_attendance_stats(class_obj, start_date=None, end_date=None):
         sc = session_counts.get(cs.id, 0)
         rs = record_stats.get(cs.id, {})
 
-        total = rs.get('total', 0) or 0
         present_cnt = rs.get('present', 0) or 0
         late_cnt = rs.get('late', 0) or 0
+        absent_cnt = rs.get('absent', 0) or 0
         present_total = present_cnt + late_cnt
-        rate = round((present_total / total) * 100, 1) if total > 0 else 0
+        countable = present_total + absent_cnt
+        rate = round((present_total / countable) * 100, 1) if countable > 0 else 0
 
         stats.append({
             'class_subject': cs,
@@ -280,7 +281,7 @@ def get_lesson_attendance_stats(class_obj, start_date=None, end_date=None):
             'teacher': cs.teacher,
             'sessions': sc,
             'present': present_cnt,
-            'absent': rs.get('absent', 0) or 0,
+            'absent': absent_cnt,
             'late': late_cnt,
             'excused': rs.get('excused', 0) or 0,
             'rate': rate,
