@@ -100,6 +100,9 @@ from .timetable import (
     timetable_entry_edit,
     timetable_entry_delete,
     teacher_schedule_preview,
+    update_school_days,
+    holiday_create,
+    holiday_delete,
 )
 
 # Periods
@@ -192,6 +195,9 @@ __all__ = [
     'timetable_entry_edit',
     'timetable_entry_delete',
     'teacher_schedule_preview',
+    'update_school_days',
+    'holiday_create',
+    'holiday_delete',
     # Periods
     'periods',
     'period_create',

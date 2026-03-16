@@ -156,8 +156,8 @@
             <div class="divide-y divide-base-200" id="classes-list">
                 {% if class_summary %}
                     {% for item in class_summary %}
-                    <a href="{% url 'academics:class_attendance_take' item.class.pk %}"
-                       hx-get="{% url 'academics:class_attendance_take' item.class.pk %}"
+                    <a href="{% if item.class.attendance_type == 'per_lesson' %}{% url 'academics:lesson_attendance_list' item.class.pk %}{% else %}{% url 'academics:class_attendance_take' item.class.pk %}{% endif %}"
+                       hx-get="{% if item.class.attendance_type == 'per_lesson' %}{% url 'academics:lesson_attendance_list' item.class.pk %}{% else %}{% url 'academics:class_attendance_take' item.class.pk %}{% endif %}"
                        hx-target="#main-content"
                        hx-push-url="true"
                        class="flex items-center gap-4 p-4 hover:bg-base-200/50 transition-colors group class-item"

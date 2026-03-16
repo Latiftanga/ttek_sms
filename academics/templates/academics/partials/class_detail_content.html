@@ -195,9 +195,9 @@
             <!-- Capacity indicator - desktop only -->
             <div class="hidden lg:flex flex-1 items-center justify-center gap-2 px-1">
                 <div class="w-16 h-1.5 bg-base-300 rounded-full overflow-hidden">
-                    <div class="h-full bg-primary rounded-full" style="width: {% widthratio total_students class.capacity 100 %}%;"></div>
+                    <div class="h-full bg-primary rounded-full" style="width: {% if class.capacity %}{% widthratio total_students class.capacity 100 %}{% else %}0{% endif %}%;"></div>
                 </div>
-                <span class="text-xs text-base-content/50">{{ total_students }}/{{ class.capacity }}</span>
+                <span class="text-xs text-base-content/50">{{ total_students }}/{{ class.capacity|default:"∞" }}</span>
             </div>
         </div>
     </div>

@@ -346,17 +346,20 @@ class SubjectTemplate(models.Model):
             .values_list('subject_id', flat=True)
         )
 
+        to_create = []
         for subject in self.subjects.filter(is_active=True):
             if subject.id in existing_subjects:
                 skipped += 1
                 continue
-
-            ClassSubject.objects.create(
+            to_create.append(ClassSubject(
                 class_assigned=class_obj,
                 subject=subject,
                 teacher=default_teacher
-            )
-            created += 1
+            ))
+
+        if to_create:
+            ClassSubject.objects.bulk_create(to_create, ignore_conflicts=True)
+            created = len(to_create)
 
         return created, skipped
 

@@ -25,7 +25,10 @@
             {% if not is_lesson and not is_edit %}
             <input type="date" value="{{ date|date:'Y-m-d' }}"
                    class="input input-xs input-bordered w-auto"
-                   onchange="window.location.href='{% url 'academics:class_attendance_take' class.pk %}?date=' + this.value">
+                   hx-get="{% url 'academics:class_attendance_take' class.pk %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   name="date">
             {% else %}
             <span>{{ date|date:"D, M d, Y" }}</span>
             {% endif %}
@@ -111,7 +114,7 @@
             <!-- Extra Large Touch Targets with Labels -->
             <div class="flex items-center gap-1.5 shrink-0">
                 <label class="touch-action-manipulation">
-                    <input type="radio" name="status_{{ item.obj.id }}" value="P" class="peer hidden" {% if item.status == 'P' %}checked{% endif %} />
+                    <input type="radio" name="status_{{ item.obj.id }}" value="P" class="peer hidden" required {% if item.status == 'P' %}checked{% endif %} />
                     <span class="flex flex-col items-center justify-center w-14 h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-success peer-checked:text-success-content peer-checked:border-success peer-checked:shadow-md transition-all active:scale-95">
                         <i class="fa-solid fa-check text-xl"></i>
                         <span class="text-[10px] font-bold mt-0.5">P</span>

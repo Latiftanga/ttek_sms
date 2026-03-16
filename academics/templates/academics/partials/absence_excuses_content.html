@@ -69,7 +69,8 @@
                 {% if excuse.status == 'pending' %}
                 <div class="flex gap-1 shrink-0">
                     <form hx-post="{% url 'academics:review_excuse' excuse.pk %}"
-                          hx-swap="none">
+                          hx-swap="none"
+                          hx-disabled-elt="find button">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="approve">
                         <button type="submit" class="btn btn-success btn-sm btn-square" title="Approve">
@@ -77,7 +78,9 @@
                         </button>
                     </form>
                     <form hx-post="{% url 'academics:review_excuse' excuse.pk %}"
-                          hx-swap="none">
+                          hx-swap="none"
+                          hx-confirm="Reject this excuse from {{ excuse.student.first_name }}?"
+                          hx-disabled-elt="find button">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="reject">
                         <button type="submit" class="btn btn-error btn-sm btn-square" title="Reject">
@@ -100,6 +103,28 @@
     </div>
     {% endfor %}
 </div>
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="flex justify-center mt-4">
+    <div class="join">
+        {% if page_obj.has_previous %}
+        <button class="join-item btn btn-sm"
+                hx-get="{% url 'academics:absence_excuses' %}?status={{ status_filter }}&page={{ page_obj.previous_page_number }}"
+                hx-target="#main-content">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        {% endif %}
+        <button class="join-item btn btn-sm btn-active">{{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</button>
+        {% if page_obj.has_next %}
+        <button class="join-item btn btn-sm"
+                hx-get="{% url 'academics:absence_excuses' %}?status={{ status_filter }}&page={{ page_obj.next_page_number }}"
+                hx-target="#main-content">
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 {% else %}
 <div class="text-center py-12 text-base-content/40">
     <i class="fa-solid fa-file-circle-check text-4xl mb-3"></i>

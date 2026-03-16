@@ -81,9 +81,10 @@
             <div class="text-xs text-base-content/60">Pending</div>
         </div>
         {% endif %}
-        <div class="bg-base-100 rounded-xl border border-base-200 p-3 text-center">
+        <div class="bg-base-100 rounded-xl border border-base-200 p-3 text-center tooltip tooltip-bottom"
+             data-tip="{{ stats.present }} present, {{ stats.absent }} absent ({{ date_from }} to {{ date_to }})">
             <div class="text-2xl font-bold {% if stats.rate >= 80 %}text-success{% elif stats.rate >= 60 %}text-warning{% else %}text-error{% endif %}">{{ stats.rate|default:0 }}%</div>
-            <div class="text-xs text-base-content/60">Rate</div>
+            <div class="text-xs text-base-content/60">Rate (30d)</div>
         </div>
     </div>
 
@@ -197,10 +198,13 @@
 
                 <!-- Radial Progress & Arrow -->
                 <div class="flex items-center gap-2 shrink-0">
-                    <div class="radial-progress text-xs {% if form_class.rate >= 80 %}text-success{% elif form_class.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
-                         style="--value:{{ form_class.rate }}; --size:2.5rem; --thickness:3px;"
-                         role="progressbar">
-                        {{ form_class.rate }}%
+                    <div class="tooltip tooltip-left"
+                         data-tip="{{ form_class.present }}P / {{ form_class.absent }}A across {{ form_class.sessions }} sessions (last 30 days)">
+                        <div class="radial-progress text-xs {% if form_class.rate >= 80 %}text-success{% elif form_class.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
+                             style="--value:{{ form_class.rate }}; --size:2.5rem; --thickness:3px;"
+                             role="progressbar">
+                            {{ form_class.rate }}%
+                        </div>
                     </div>
                     <i class="fa-solid fa-chevron-right text-base-content/30"></i>
                 </div>
@@ -271,22 +275,33 @@
                                     <i class="fa-solid fa-users"></i>
                                     {{ item.student_count }} students
                                 </span>
-                                <span class="{% if item.has_today %}text-success{% else %}text-warning{% endif %}">
-                                    {% if item.has_today %}
-                                    <i class="fa-solid fa-circle-check mr-1"></i>Done
-                                    {% else %}
-                                    <i class="fa-solid fa-clock mr-1"></i>Pending
-                                    {% endif %}
+                            </div>
+                            {% if item.has_today %}
+                            <div class="mt-1">
+                                <span class="badge badge-success badge-sm gap-1">
+                                    <i class="fa-solid fa-circle-check text-[10px]"></i>
+                                    Taken{% if item.taken_at %} at {{ item.taken_at|time:"g:i A" }}{% endif %}
                                 </span>
                             </div>
+                            {% else %}
+                            <div class="mt-1">
+                                <span class="badge badge-warning badge-sm gap-1">
+                                    <i class="fa-solid fa-clock text-[10px]"></i>
+                                    Not taken
+                                </span>
+                            </div>
+                            {% endif %}
                         </div>
 
                         <!-- Radial Progress & Arrow -->
                         <div class="flex items-center gap-2 shrink-0">
-                            <div class="radial-progress text-xs {% if item.rate >= 80 %}text-success{% elif item.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
-                                 style="--value:{{ item.rate }}; --size:2.5rem; --thickness:3px;"
-                                 role="progressbar">
-                                {{ item.rate }}%
+                            <div class="tooltip tooltip-left"
+                                 data-tip="{{ item.present }}P / {{ item.absent }}A across {{ item.sessions }} sessions (last 30 days)">
+                                <div class="radial-progress text-xs {% if item.rate >= 80 %}text-success{% elif item.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
+                                     style="--value:{{ item.rate }}; --size:2.5rem; --thickness:3px;"
+                                     role="progressbar">
+                                    {{ item.rate }}%
+                                </div>
                             </div>
                             <i class="fa-solid fa-chevron-right text-base-content/30"></i>
                         </div>
@@ -438,8 +453,11 @@
                             <span class="text-error">{{ item.absent|default:0 }}A</span>
                         </div>
                     </div>
-                    <div class="badge {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
-                        {{ item.rate }}%
+                    <div class="tooltip tooltip-left"
+                         data-tip="{{ item.present }}P / {{ item.absent }}A across {{ item.sessions }} sessions">
+                        <div class="badge {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
+                            {{ item.rate }}%
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -479,10 +497,13 @@
                             <td class="text-center text-success font-medium">{{ item.present|default:0 }}</td>
                             <td class="text-center text-error font-medium">{{ item.absent|default:0 }}</td>
                             <td class="text-center">
-                                <div class="radial-progress text-xs {% if item.rate >= 80 %}text-success{% elif item.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
-                                     style="--value:{{ item.rate }}; --size:2rem; --thickness:3px;"
-                                     role="progressbar">
-                                    {{ item.rate }}%
+                                <div class="tooltip"
+                                     data-tip="{{ item.present }}P / {{ item.absent }}A across {{ item.sessions }} sessions">
+                                    <div class="radial-progress text-xs {% if item.rate >= 80 %}text-success{% elif item.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
+                                         style="--value:{{ item.rate }}; --size:2rem; --thickness:3px;"
+                                         role="progressbar">
+                                        {{ item.rate }}%
+                                    </div>
                                 </div>
                             </td>
                         </tr>

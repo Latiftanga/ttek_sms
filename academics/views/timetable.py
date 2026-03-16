@@ -13,13 +13,28 @@ from .base import admin_required
 @admin_required
 def timetable_index(request):
     """Timetable overview - select a class to view/edit."""
+    from core.models import SchoolSettings, SchoolHoliday
+
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
     periods_count = Period.objects.filter(is_active=True).count()
+    school_settings = SchoolSettings.load()
+    holidays = SchoolHoliday.objects.all()
+
+    # Build weekday choices with active state
+    weekday_labels = {1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'}
+    school_days_set = school_settings.school_days_set
+    weekday_config = [
+        {'number': num, 'label': label, 'active': num in school_days_set}
+        for num, label in weekday_labels.items()
+    ]
 
     context = {
         'classes': classes,
         'periods_count': periods_count,
         'active_tab': 'timetable',
+        'holidays': holidays,
+        'weekday_config': weekday_config,
+        'school_settings': school_settings,
     }
 
     if request.htmx:
@@ -411,3 +426,83 @@ def teacher_schedule_preview(request):
     }
 
     return render(request, 'academics/partials/teacher_schedule_preview.html', context)
+
+
+# ============ SCHOOL DAYS & HOLIDAYS ============
+
+@login_required
+@admin_required
+def update_school_days(request):
+    """Update which weekdays are school days."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    from core.models import SchoolSettings
+    school_settings = SchoolSettings.load()
+
+    selected_days = request.POST.getlist('school_days')
+    if not selected_days:
+        messages.error(request, 'At least one school day must be selected.')
+        return redirect('academics:timetable')
+
+    school_settings.school_days = ','.join(selected_days)
+    school_settings.save()
+    messages.success(request, 'School working days updated.')
+
+    if request.htmx:
+        response = HttpResponse(status=204)
+        response['HX-Trigger'] = 'schoolDaysChanged'
+        return response
+    return redirect('academics:timetable')
+
+
+@login_required
+@admin_required
+def holiday_create(request):
+    """Add a new school holiday."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    from core.models import SchoolHoliday
+    name = request.POST.get('name', '').strip()
+    date_str = request.POST.get('date', '')
+    recurring = request.POST.get('recurring_annually') == 'on'
+
+    if not name or not date_str:
+        messages.error(request, 'Name and date are required.')
+        return redirect('academics:timetable')
+
+    try:
+        from datetime import datetime as dt
+        holiday_date = dt.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        messages.error(request, 'Invalid date format.')
+        return redirect('academics:timetable')
+
+    if SchoolHoliday.objects.filter(date=holiday_date).exists():
+        messages.warning(request, f'A holiday already exists on {holiday_date.strftime("%b %d, %Y")}.')
+        return redirect('academics:timetable')
+
+    SchoolHoliday.objects.create(name=name, date=holiday_date, recurring_annually=recurring)
+    messages.success(request, f'{name} added as a school holiday.')
+
+    if request.htmx:
+        holidays = SchoolHoliday.objects.all()
+        return render(request, 'academics/partials/card_holidays.html', {'holidays': holidays})
+    return redirect('academics:timetable')
+
+
+@login_required
+@admin_required
+def holiday_delete(request, pk):
+    """Remove a school holiday."""
+    from core.models import SchoolHoliday
+    holiday = get_object_or_404(SchoolHoliday, pk=pk)
+    name = holiday.name
+    holiday.delete()
+    messages.success(request, f'{name} removed.')
+
+    if request.htmx:
+        holidays = SchoolHoliday.objects.all()
+        return render(request, 'academics/partials/card_holidays.html', {'holidays': holidays})
+    return redirect('academics:timetable')

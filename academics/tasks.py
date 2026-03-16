@@ -73,23 +73,54 @@ def _process_tenant_absences(tenant):
     # Only check the most recent N school days
     check_days = school_days[:CONSECUTIVE_ABSENCE_THRESHOLD]
 
-    # Find students absent on ALL of the last N school days
+    # Find students absent on ALL of the last N school days using a single query
+    # instead of iterating per student (N+1 fix)
+    from django.db.models import Count as DjCount
+
+    absent_students = (
+        AttendanceRecord.objects.filter(
+            session__date__in=check_days,
+            status='A',
+            student__status='active',
+            student__current_class__isnull=False,
+        )
+        .values('student_id')
+        .annotate(absent_days_count=DjCount('session__date', distinct=True))
+        .filter(absent_days_count__gte=CONSECUTIVE_ABSENCE_THRESHOLD)
+    )
+
+    absent_student_ids = [r['student_id'] for r in absent_students]
+    if not absent_student_ids:
+        return 0
+
     active_students = Student.objects.filter(
-        status='active',
-        current_class__isnull=False,
+        pk__in=absent_student_ids,
     ).select_related('current_class')
 
-    for student in active_students:
-        # Get this student's attendance for the check days
-        absent_days = AttendanceRecord.objects.filter(
-            student=student,
-            session__date__in=check_days,
-            session__class_assigned=student.current_class,
-            status='A',
-        ).values_list('session__date', flat=True).distinct()
+    # Get absent dates per student in bulk
+    absent_records = AttendanceRecord.objects.filter(
+        student_id__in=absent_student_ids,
+        session__date__in=check_days,
+        status='A',
+    ).values_list('student_id', 'session__date')
 
-        absent_count = absent_days.count()
+    from collections import defaultdict
+    absent_dates_by_student = defaultdict(set)
+    for sid, d in absent_records:
+        absent_dates_by_student[sid].add(d)
+
+    for student in active_students:
+        student_absent_dates = absent_dates_by_student.get(student.id, set())
+        absent_count = len(student_absent_dates)
         if absent_count < CONSECUTIVE_ABSENCE_THRESHOLD:
+            continue
+
+        # Skip if already notified for this streak (check most recent absence date)
+        latest_absent = max(student_absent_dates)
+        cache_key = f'absence_notified_{student.id}'
+        from django.core.cache import cache
+        last_notified_date = cache.get(cache_key)
+        if last_notified_date and last_notified_date >= latest_absent:
             continue
 
         # Get guardian and notification preference
@@ -103,7 +134,7 @@ def _process_tenant_absences(tenant):
             continue
 
         # Format dates for the SMS
-        sorted_dates = sorted(absent_days)
+        sorted_dates = sorted(student_absent_dates)
         dates_str = ', '.join(d.strftime('%d/%m') for d in sorted_dates)
 
         message = sms_template.format(
@@ -126,6 +157,8 @@ def _process_tenant_absences(tenant):
                     fail_silently=True,
                 )
             notified += 1
+            # Track notification to prevent duplicates (expire after 7 days)
+            cache.set(cache_key, latest_absent, timeout=7 * 24 * 3600)
             logger.info(
                 f"Absence alert sent for {student.full_name} "
                 f"({absent_count} days) via {pref}"

@@ -238,8 +238,9 @@
                 <div class="mt-auto pt-3 border-t border-base-200">
                     <div class="flex items-center justify-between text-xs mb-1.5">
                         <span class="text-base-content/60">Students</span>
-                        <span class="font-semibold">{{ cls.student_count }}/{{ cls.capacity }}</span>
+                        <span class="font-semibold">{{ cls.student_count }}{% if cls.capacity %}/{{ cls.capacity }}{% endif %}</span>
                     </div>
+                    {% if cls.capacity %}
                     {% widthratio cls.student_count cls.capacity 100 as fill_percent %}
                     <div class="w-full bg-base-200 rounded-full h-2">
                         <div class="h-2 rounded-full transition-all duration-300
@@ -248,6 +249,7 @@
                             {% else %}bg-success{% endif %}"
                             style="width: {{ fill_percent }}%"></div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </a>
@@ -315,8 +317,9 @@
                 <div class="mt-auto pt-3 border-t border-base-200">
                     <div class="flex items-center justify-between text-xs mb-1.5">
                         <span class="text-base-content/60">Students</span>
-                        <span class="font-semibold">{{ cls.student_count }}/{{ cls.capacity }}</span>
+                        <span class="font-semibold">{{ cls.student_count }}{% if cls.capacity %}/{{ cls.capacity }}{% endif %}</span>
                     </div>
+                    {% if cls.capacity %}
                     {% widthratio cls.student_count cls.capacity 100 as fill_percent %}
                     <div class="w-full bg-base-200 rounded-full h-2">
                         <div class="h-2 rounded-full transition-all duration-300
@@ -325,6 +328,7 @@
                             {% else %}bg-success{% endif %}"
                             style="width: {{ fill_percent }}%"></div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </a>
@@ -395,6 +399,7 @@
                         <td class="text-center font-medium">{{ cls.student_count }}</td>
                         <td class="text-center text-base-content/60">{{ cls.capacity }}</td>
                         <td>
+                            {% if cls.capacity %}
                             {% widthratio cls.student_count cls.capacity 100 as fill_percent %}
                             <div class="flex items-center gap-2">
                                 <div class="w-16 bg-base-200 rounded-full h-1.5">
@@ -406,6 +411,9 @@
                                 </div>
                                 <span class="text-xs w-8 {% if fill_percent >= 90 %}text-error{% elif fill_percent >= 70 %}text-warning{% else %}text-success{% endif %}">{{ fill_percent }}%</span>
                             </div>
+                            {% else %}
+                            <span class="text-xs text-base-content/40">-</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

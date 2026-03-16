@@ -140,25 +140,41 @@ def dashboard(request):
         from academics.models import AttendanceSession
         from gradebook.models import Assignment, Score, TermReport
 
-        # 1. Homeroom classes needing attendance today
+        # 1. Homeroom classes needing attendance today (daily classes only, school days only)
+        from core.models import SchoolHoliday, SchoolSettings
+        school_settings = SchoolSettings.load()
         homeroom_ids = [c.pk for c in homeroom_classes]
-        if homeroom_ids:
-            classes_with_attendance = set(
-                AttendanceSession.objects.filter(
-                    class_assigned_id__in=homeroom_ids,
-                    date=today,
-                    session_type='Daily',
-                ).values_list('class_assigned_id', flat=True)
-            )
-            for cls in homeroom_classes:
-                if cls.pk not in classes_with_attendance and cls.student_count > 0:
-                    action_items.append({
-                        'type': 'attendance',
-                        'icon': 'fa-solid fa-clipboard-check',
-                        'color': 'error',
-                        'message': f'Take attendance for {cls.name}',
-                        'url': f"/academics/attendance/take/{cls.pk}/",
-                    })
+        today_weekday = today.isoweekday()
+        is_school_day = school_settings.is_school_day(today_weekday)
+        is_holiday = SchoolHoliday.is_holiday(today) if is_school_day else True
+        if homeroom_ids and is_school_day and not is_holiday:
+            # Only show action items for daily-attendance classes that have timetable today
+            from academics.utils import should_use_lesson_attendance
+            # Only daily-attendance homeroom classes (not per-lesson)
+            daily_homeroom_ids = [
+                cls.pk for cls in homeroom_classes
+                if not should_use_lesson_attendance(cls)
+            ]
+
+            if daily_homeroom_ids:
+                classes_with_attendance = set(
+                    AttendanceSession.objects.filter(
+                        class_assigned_id__in=daily_homeroom_ids,
+                        date=today,
+                        session_type='Daily',
+                    ).values_list('class_assigned_id', flat=True)
+                )
+                for cls in homeroom_classes:
+                    if (cls.pk in daily_homeroom_ids
+                            and cls.pk not in classes_with_attendance
+                            and cls.student_count > 0):
+                        action_items.append({
+                            'type': 'attendance',
+                            'icon': 'fa-solid fa-clipboard-check',
+                            'color': 'error',
+                            'message': f'Take attendance for {cls.name}',
+                            'url': f"/academics/attendance/take/{cls.pk}/",
+                        })
 
         # 2. Score completion - subjects with < 100% scores entered
         term_assignments = Assignment.objects.filter(

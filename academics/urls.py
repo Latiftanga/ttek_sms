@@ -95,4 +95,9 @@ urlpatterns = [
     path('timetable/entry/<int:pk>/edit/', views.timetable_entry_edit, name='timetable_entry_edit'),
     path('timetable/entry/<int:pk>/delete/', views.timetable_entry_delete, name='timetable_entry_delete'),
     path('timetable/teacher-schedule/', views.teacher_schedule_preview, name='teacher_schedule_preview'),
+
+    # School Days & Holidays
+    path('timetable/school-days/', views.update_school_days, name='update_school_days'),
+    path('timetable/holiday/create/', views.holiday_create, name='holiday_create'),
+    path('timetable/holiday/<int:pk>/delete/', views.holiday_delete, name='holiday_delete'),
 ]

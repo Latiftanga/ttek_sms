@@ -357,7 +357,7 @@ def get_attendance_tab_context(class_obj):
         present_count=Count('records', filter=Q(records__status__in=['P', 'L'])),
         absent_count=Count('records', filter=Q(records__status='A')),
         total_count=Count('records')
-    ).order_by('-date')
+    ).order_by('-date')[:30]
 
     # Calculate overall attendance percentage - single aggregate query
     stats = AttendanceRecord.objects.filter(
@@ -1348,9 +1348,10 @@ def classes_bulk_export(request):
             Q(programme__name__icontains=search)
         )
 
-    # Apply level filter
-    if level_filter:
-        classes = classes.filter(level_type=level_filter)
+    # Apply level filter (combined level_type_level_number format, e.g., "shs_1")
+    if level_filter and '_' in level_filter:
+        level_type, level_number = level_filter.split('_', 1)
+        classes = classes.filter(level_type=level_type, level_number=level_number)
 
     # Build export data
     export_data = []

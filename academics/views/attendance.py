@@ -6,7 +6,8 @@ from io import BytesIO
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import connection, IntegrityError, models, transaction
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.db import connection, IntegrityError, transaction
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse, JsonResponse
@@ -123,11 +124,14 @@ def _save_attendance_records(request, session, students, redirect_url,
 
         if absent_students:
             from core.notifications import notify_guardian, notify_student
+            session_date = session.date
+            today = timezone.now().date()
+            date_label = 'today' if session_date == today else session_date.strftime('%b %d')
             for s in absent_students:
                 notify_guardian(
                     s,
                     title='Absence Recorded',
-                    message=f'{s.full_name} was marked absent today.',
+                    message=f'{s.full_name} was marked absent {date_label}.',
                     category='attendance',
                     notification_type='warning',
                     icon='fa-solid fa-user-xmark',
@@ -135,7 +139,7 @@ def _save_attendance_records(request, session, students, redirect_url,
                 notify_student(
                     s,
                     title='Absence Recorded',
-                    message='You were marked absent today.',
+                    message=f'You were marked absent {date_label}.',
                     category='attendance',
                     notification_type='warning',
                     icon='fa-solid fa-user-xmark',
@@ -174,7 +178,7 @@ def class_attendance_take(request, pk):
     user = request.user
     is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
 
-    # Check permission: must be admin, class teacher, or subject teacher for this class
+    # Check permission: daily attendance requires class teacher (form master) or admin
     teacher = None
     if not is_admin:
         if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
@@ -182,14 +186,8 @@ def class_attendance_take(request, pk):
             return redirect('core:index')
 
         teacher = user.teacher_profile
-        is_class_teacher = class_obj.class_teacher == teacher
-        is_subject_teacher = ClassSubject.objects.filter(
-            class_assigned=class_obj,
-            teacher=teacher
-        ).exists()
-
-        if not is_class_teacher and not is_subject_teacher:
-            messages.error(request, 'You are not assigned to this class.')
+        if class_obj.class_teacher != teacher:
+            messages.error(request, 'Only the class teacher or admin can take daily attendance.')
             return redirect('academics:attendance_reports')
     else:
         # Admin user - check if they have a teacher profile
@@ -210,6 +208,20 @@ def class_attendance_take(request, pk):
             target_date = timezone.now().date()
     else:
         target_date = timezone.now().date()
+
+    # Prevent attendance on non-working days and holidays
+    from core.models import SchoolHoliday, SchoolSettings
+    target_weekday = target_date.isoweekday()
+    school_settings = SchoolSettings.load()
+    if not school_settings.is_school_day(target_weekday):
+        day_name = target_date.strftime('%A')
+        messages.warning(request, f'{day_name} is not a school day.')
+        return redirect('academics:attendance_reports')
+
+    holiday_name = SchoolHoliday.get_holiday_name(target_date)
+    if holiday_name:
+        messages.warning(request, f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.')
+        return redirect('academics:attendance_reports')
 
     # Check if session exists (for daily attendance)
     try:
@@ -276,7 +288,7 @@ def class_attendance_edit(request, pk, session_pk):
         user.is_superuser or getattr(user, 'is_school_admin', False)
     )
 
-    # Permission check: admin, class teacher, or subject teacher
+    # Permission check: daily attendance edit requires class teacher or admin
     if not is_admin:
         if (not getattr(user, 'is_teacher', False)
                 or not hasattr(user, 'teacher_profile')):
@@ -286,14 +298,9 @@ def class_attendance_edit(request, pk, session_pk):
             return redirect('core:index')
 
         teacher = user.teacher_profile
-        is_class_teacher = class_obj.class_teacher == teacher
-        is_subject_teacher = ClassSubject.objects.filter(
-            class_assigned=class_obj, teacher=teacher
-        ).exists()
-
-        if not is_class_teacher and not is_subject_teacher:
+        if class_obj.class_teacher != teacher:
             messages.error(
-                request, 'You are not assigned to this class.'
+                request, 'Only the class teacher or admin can edit daily attendance.'
             )
             return redirect('academics:attendance_reports')
 
@@ -333,6 +340,7 @@ def class_attendance_edit(request, pk, session_pk):
     return render(request, 'academics/class_attendance_take.html', context)
 
 
+@login_required
 @teacher_or_admin_required
 def class_attendance_history(request, pk):
     """Show class attendance history in a modal."""
@@ -495,7 +503,29 @@ def take_lesson_attendance(request, timetable_entry_id):
     else:
         teacher = getattr(user, 'teacher_profile', None)
 
-    target_date = timezone.now().date()
+    # Allow past-date entry via query param (e.g. ?date=2026-03-10)
+    date_str = request.GET.get('date') or request.POST.get('date')
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = timezone.now().date()
+    else:
+        target_date = timezone.now().date()
+
+    # Prevent attendance on non-working days and holidays
+    from core.models import SchoolHoliday, SchoolSettings
+    target_weekday = target_date.isoweekday()
+    school_settings = SchoolSettings.load()
+    if not school_settings.is_school_day(target_weekday):
+        day_name = target_date.strftime('%A')
+        messages.warning(request, f'{day_name} is not a school day.')
+        return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
+
+    holiday_name = SchoolHoliday.get_holiday_name(target_date)
+    if holiday_name:
+        messages.warning(request, f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.')
+        return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
 
     # Get or create the lesson attendance session
     try:
@@ -652,15 +682,11 @@ def attendance_reports(request):
         date_to = today.isoformat()
 
     # Filter classes based on user role
-    if is_admin:
+    allowed_ids = _get_teacher_allowed_class_ids(user)
+    if allowed_ids is None:
         classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
-    elif getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
-        teacher = user.teacher_profile
-        # Teachers see classes they're class teacher for OR assigned to teach
-        homeroom_ids = Class.objects.filter(class_teacher=teacher).values_list('id', flat=True)
-        assigned_ids = ClassSubject.objects.filter(teacher=teacher).values_list('class_assigned_id', flat=True)
-        all_class_ids = set(homeroom_ids) | set(assigned_ids)
-        classes = Class.objects.filter(id__in=all_class_ids, is_active=True).order_by('level_number', 'name')
+    elif allowed_ids:
+        classes = Class.objects.filter(id__in=allowed_ids, is_active=True).order_by('level_number', 'name')
     else:
         classes = Class.objects.none()
 
@@ -748,13 +774,10 @@ def attendance_reports(request):
         })
 
     # Daily breakdown with pagination
-    from django.core.paginator import Paginator
-
     history_page = request.GET.get('history_page', 1)
     all_sessions = sessions.order_by('-date')
     paginator = Paginator(all_sessions, 15)  # 15 sessions per page
 
-    from django.core.paginator import EmptyPage, PageNotAnInteger
     try:
         paginated_sessions = paginator.page(history_page)
     except (EmptyPage, PageNotAnInteger):
@@ -985,7 +1008,6 @@ def attendance_export(request):
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from openpyxl.utils import get_column_letter
-    from django.http import HttpResponse as DjangoHttpResponse
     # Get filter parameters
     class_filter = request.GET.get('class', '')
     date_from = request.GET.get('date_from', '')
@@ -1021,6 +1043,13 @@ def attendance_export(request):
         records = records.filter(
             session__class_assigned_id=class_filter
         )
+
+    # Compute stats BEFORE slicing (aggregate doesn't work on sliced querysets)
+    export_stats = records.aggregate(
+        total=Count('id'),
+        present=Count('id', filter=Q(status__in=['P', 'L'])),
+        absent=Count('id', filter=Q(status='A'))
+    )
 
     records = records.order_by(
         'session__date',
@@ -1109,15 +1138,10 @@ def attendance_export(request):
     for i, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
-    # Summary - use aggregate to get all counts in one query
-    stats = records.aggregate(
-        total=Count('id'),
-        present=Count('id', filter=models.Q(status__in=['P', 'L'])),
-        absent=Count('id', filter=models.Q(status='A'))
-    )
-    total_records = stats['total'] or 0
-    present = stats['present'] or 0
-    absent = stats['absent'] or 0
+    # Use pre-computed stats (aggregate doesn't work on sliced querysets)
+    total_records = export_stats['total'] or 0
+    present = export_stats['present'] or 0
+    absent = export_stats['absent'] or 0
 
     summary_row = header_row + total_records + 2
     ws.cell(row=summary_row, column=1, value=f"Total Records: {total_records}")
@@ -1127,7 +1151,7 @@ def attendance_export(request):
     ws.cell(row=summary_row + 1, column=1, value=f"Present: {present} | Absent: {absent} | Rate: {rate}%")
 
     # Response
-    response = DjangoHttpResponse(
+    response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     filename = f"Attendance_Report_{date_from}_to_{date_to}.xlsx"
@@ -1175,10 +1199,16 @@ def student_attendance_detail(request, student_id):
         session__date__lte=date_to
     ).select_related('session').order_by('-session__date')
 
-    total = records.count()
-    present = records.filter(status__in=['P', 'L']).count()
-    absent = records.filter(status='A').count()
-    late = records.filter(status='L').count()
+    agg = records.aggregate(
+        total=Count('id'),
+        present=Count('id', filter=Q(status__in=['P', 'L'])),
+        absent=Count('id', filter=Q(status='A')),
+        late=Count('id', filter=Q(status='L')),
+    )
+    total = agg['total'] or 0
+    present = agg['present'] or 0
+    absent = agg['absent'] or 0
+    late = agg['late'] or 0
     rate = round((present / total) * 100, 1) if total > 0 else 0
 
     # Build attendance calendar data
@@ -1247,6 +1277,8 @@ def notify_absent_parents(request):
     students = list(Student.objects.filter(
         pk__in=student_ids,
         guardian_phone__isnull=False
+    ).exclude(
+        guardian_phone=''
     ).select_related('current_class'))
 
     if not students:
@@ -1615,15 +1647,32 @@ def absence_excuses(request):
         'student__current_class', 'submitted_by'
     )
 
+    # Restrict teachers to excuses for students in their classes
+    allowed_ids = _get_teacher_allowed_class_ids(request.user)
+    if allowed_ids is not None:
+        excuses = excuses.filter(student__current_class_id__in=allowed_ids)
+
     if status_filter in ('pending', 'approved', 'rejected'):
         excuses = excuses.filter(status=status_filter)
 
-    excuses = excuses.order_by('-created_at')[:50]
+    excuses = excuses.order_by('-created_at')
+
+    paginator = Paginator(excuses, 20)
+    page_number = request.GET.get('page', 1)
+    try:
+        page_obj = paginator.page(page_number)
+    except (EmptyPage, PageNotAnInteger):
+        page_obj = paginator.page(1)
+
+    pending_qs = AbsenceExcuse.objects.filter(status='pending')
+    if allowed_ids is not None:
+        pending_qs = pending_qs.filter(student__current_class_id__in=allowed_ids)
 
     context = {
-        'excuses': excuses,
+        'excuses': page_obj,
+        'page_obj': page_obj,
         'status_filter': status_filter,
-        'pending_count': AbsenceExcuse.objects.filter(status='pending').count(),
+        'pending_count': pending_qs.count(),
     }
 
     return htmx_render(
@@ -1642,6 +1691,12 @@ def review_absence_excuse(request, pk):
         return HttpResponse(status=405)
 
     excuse = get_object_or_404(AbsenceExcuse, pk=pk)
+
+    # Permission check: teachers can only review excuses for their classes
+    allowed_ids = _get_teacher_allowed_class_ids(request.user)
+    if allowed_ids is not None and excuse.student.current_class_id not in allowed_ids:
+        return HttpResponse('Not authorized to review this excuse', status=403)
+
     action = request.POST.get('action')
     review_note = request.POST.get('review_note', '').strip()[:200]
 
@@ -1658,10 +1713,10 @@ def review_absence_excuse(request, pk):
     excuse.save()
 
     # If approved, update attendance records to 'E' (excused) for those dates
-    if action == 'approve' and excuse.student.current_class:
+    # Don't restrict to current class — student may have transferred during excuse period
+    if action == 'approve':
         AttendanceRecord.objects.filter(
             student=excuse.student,
-            session__class_assigned=excuse.student.current_class,
             session__date__gte=excuse.date_from,
             session__date__lte=excuse.date_to,
             status='A',

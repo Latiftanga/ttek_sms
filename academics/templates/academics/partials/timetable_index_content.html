@@ -52,6 +52,91 @@
     </div>
     {% endif %}
 
+    <!-- School Days & Holidays -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Working Days -->
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-4">
+                <h3 class="font-bold flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-calendar-week text-primary"></i>
+                    School Working Days
+                </h3>
+                <form method="post"
+                      action="{% url 'academics:update_school_days' %}"
+                      hx-post="{% url 'academics:update_school_days' %}"
+                      hx-swap="none">
+                    {% csrf_token %}
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        {% for day in weekday_config %}
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="school_days" value="{{ day.number }}"
+                                   {% if day.active %}checked{% endif %}
+                                   class="peer hidden" />
+                            <span class="inline-flex items-center justify-center w-12 h-10 rounded-lg border-2 text-sm font-medium transition-all
+                                         border-base-300 text-base-content/50
+                                         peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary peer-checked:font-bold">
+                                {{ day.label }}
+                            </span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary gap-1">
+                        <i class="fa-solid fa-save text-xs"></i>
+                        Save
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Holidays -->
+        {% include "academics/partials/card_holidays.html" %}
+    </div>
+
+    <!-- Holiday Modal -->
+    <dialog id="modal_holiday" class="modal modal-middle">
+        <div class="modal-box max-w-sm">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">&#x2715;</button>
+            </form>
+            <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-umbrella-beach text-error"></i>
+                Add School Holiday
+            </h3>
+            <form method="post"
+                  action="{% url 'academics:holiday_create' %}"
+                  hx-post="{% url 'academics:holiday_create' %}"
+                  hx-target="#card-holidays"
+                  hx-swap="outerHTML"
+                  hx-on::after-request="if(event.detail.successful) document.getElementById('modal_holiday').close()">
+                {% csrf_token %}
+                <div class="space-y-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text text-sm font-medium">Holiday Name</span></label>
+                        <input type="text" name="name" class="input input-bordered input-sm w-full"
+                               placeholder="e.g., Republic Day" required maxlength="100" />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text text-sm font-medium">Date</span></label>
+                        <input type="date" name="date" class="input input-bordered input-sm w-full" required />
+                    </div>
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-3">
+                            <input type="checkbox" name="recurring_annually" class="checkbox checkbox-sm" />
+                            <div>
+                                <span class="label-text text-sm font-medium">Repeats every year</span>
+                                <p class="text-xs text-base-content/50">Same date applies annually</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_holiday').close()">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-primary">Add Holiday</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
     <!-- Classes Grid -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body">

@@ -7,7 +7,7 @@
 
         <!-- Avatar with gender indicator -->
         <div class="avatar placeholder shrink-0">
-            <div class="w-11 h-11 rounded-full {{ student.gender|yesno:'gender-male,gender-female' }} flex items-center justify-center relative">
+            <div class="w-11 h-11 rounded-full {% if student.gender == 'M' %}gender-male{% else %}gender-female{% endif %} flex items-center justify-center relative">
                 {% if student.photo %}
                 <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover rounded-full" loading="lazy" />
                 {% else %}
@@ -15,7 +15,7 @@
                 {% endif %}
                 <!-- Gender icon -->
                 <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-base-100 border border-base-200 flex items-center justify-center">
-                    <i class="fa-solid {{ student.gender|yesno:'fa-mars gender-male-icon,fa-venus gender-female-icon' }} text-[10px]"></i>
+                    <i class="fa-solid {% if student.gender == 'M' %}fa-mars gender-male-icon{% else %}fa-venus gender-female-icon{% endif %} text-[10px]"></i>
                 </span>
             </div>
         </div>

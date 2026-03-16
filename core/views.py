@@ -1259,12 +1259,42 @@ def teacher_dashboard(request):
     # Get all periods for reference
     periods = Period.objects.filter(is_active=True).order_by('start_time')
 
+    # ========== Homeroom Attendance Stats ==========
+    homeroom_attendance = {}
+    homeroom_ids = [c.pk for c in homeroom_classes]
+    if current_term and homeroom_ids:
+        from academics.models import AttendanceSession, AttendanceRecord
+        for cls in homeroom_classes:
+            sessions = AttendanceSession.objects.filter(
+                class_assigned=cls,
+                date__gte=current_term.start_date,
+                date__lte=today.date(),
+                session_type='Daily',
+            )
+            total_days = sessions.values('date').distinct().count()
+            if total_days == 0 or cls.student_count == 0:
+                continue
+
+            present = AttendanceRecord.objects.filter(
+                session__in=sessions,
+                status__in=['P', 'L'],
+            ).values('student', 'session__date').distinct().count()
+
+            total_possible = total_days * cls.student_count
+            rate = round((present / total_possible) * 100, 1) if total_possible > 0 else 0
+            homeroom_attendance[cls.pk] = {
+                'rate': rate,
+                'total_days': total_days,
+                'color': 'success' if rate >= 90 else ('warning' if rate >= 75 else 'error'),
+            }
+
     context = {
         'teacher': teacher,
         'current_term': current_term,
         'homeroom_classes': homeroom_classes,
         'classes_taught': classes_taught,
         'assignments_by_class': assignments_by_class,
+        'homeroom_attendance': homeroom_attendance,
         'todays_schedule': todays_schedule,
         'today': today,
         'weekday': weekday,
@@ -2734,13 +2764,16 @@ def my_attendance(request):
     )
     class_stats_dict = {item['session__class_assigned_id']: item for item in class_stats}
 
-    # Pre-compute which classes have today's attendance in one query
-    today_sessions = set(
-        AttendanceSession.objects.filter(
-            class_assigned_id__in=all_class_ids,
-            date=today
-        ).values_list('class_assigned_id', flat=True)
-    )
+    # Pre-compute which classes have today's attendance (with time taken)
+    today_sessions_qs = AttendanceSession.objects.filter(
+        class_assigned_id__in=all_class_ids,
+        date=today
+    ).values_list('class_assigned_id', 'created_at')
+    today_sessions = set()
+    today_session_times = {}
+    for class_id, created_at in today_sessions_qs:
+        today_sessions.add(class_id)
+        today_session_times[class_id] = created_at
 
     # Get today's timetable entries for the teacher (for per-lesson attendance)
     today_weekday = today.isoweekday()
@@ -2779,14 +2812,19 @@ def my_attendance(request):
     for cls in homeroom_classes:
         if cls.attendance_type == Class.AttendanceType.PER_LESSON:
             # Get stats for this class
-            cls_stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0})
+            cls_stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0, 'sessions': 0})
             cls_total = cls_stats['total']
             cls_present = cls_stats['present']
+            cls_absent = cls_stats.get('absent', 0)
+            cls_sessions = cls_stats.get('sessions', 0)
             cls_rate = round((cls_present / cls_total) * 100, 1) if cls_total > 0 else 0
             form_class = {
                 'class': cls,
                 'student_count': class_student_counts.get(cls.id, 0),
                 'rate': cls_rate,
+                'sessions': cls_sessions,
+                'present': cls_present,
+                'absent': cls_absent,
             }
             break  # Only one form class per teacher
 
@@ -2812,6 +2850,7 @@ def my_attendance(request):
             'rate': cls_rate,
             'is_homeroom': cls.id in homeroom_ids,
             'has_today': cls.id in today_sessions,
+            'taken_at': today_session_times.get(cls.id),
             'student_count': cls.active_student_count,
             'is_per_lesson': is_per_lesson,
         })

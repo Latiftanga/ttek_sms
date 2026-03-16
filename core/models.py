@@ -481,6 +481,13 @@ class SchoolSettings(models.Model):
         help_text="Display name for 'From' address"
     )
 
+    # School working days (comma-separated weekday numbers: 1=Mon, 2=Tue, ..., 7=Sun)
+    school_days = models.CharField(
+        max_length=20,
+        default='1,2,3,4,5',
+        help_text="Working days as comma-separated weekday numbers (1=Monday, 5=Friday, 6=Saturday)"
+    )
+
     # Setup wizard tracking
     setup_completed = models.BooleanField(
         default=False,
@@ -549,6 +556,20 @@ class SchoolSettings(models.Model):
     def period_label_plural(self):
         """Return 'Terms' or 'Semesters' based on setting."""
         return 'Semesters' if self.academic_period_type == 'semester' else 'Terms'
+
+    @property
+    def school_days_set(self):
+        """Return working days as a set of integers (1=Mon, 7=Sun)."""
+        if not self.school_days:
+            return {1, 2, 3, 4, 5}
+        try:
+            return {int(d.strip()) for d in self.school_days.split(',') if d.strip()}
+        except ValueError:
+            return {1, 2, 3, 4, 5}
+
+    def is_school_day(self, weekday_number):
+        """Check if a weekday number (1=Mon, 7=Sun) is a working day."""
+        return weekday_number in self.school_days_set
 
     def save(self, *args, **kwargs):
         self.pk = 1
@@ -818,3 +839,57 @@ class Notification(models.Model):
             count = cls.objects.filter(user=user, is_read=False).count()
             cache.set(cache_key, count, 60)  # Cache for 60 seconds
         return count
+
+
+class SchoolHoliday(models.Model):
+    """
+    School holidays/closures when attendance should not be taken.
+    Examples: Republic Day, Farmers' Day, Independence Day, staff in-service days.
+    """
+    name = models.CharField(max_length=100, help_text="e.g., Republic Day, Farmers' Day")
+    date = models.DateField(db_index=True)
+    recurring_annually = models.BooleanField(
+        default=False,
+        help_text="If true, this holiday applies every year on the same month/day."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date']
+        verbose_name = "School Holiday"
+        verbose_name_plural = "School Holidays"
+        constraints = [
+            models.UniqueConstraint(fields=['date'], name='unique_holiday_date'),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.date.strftime('%b %d, %Y')})"
+
+    @classmethod
+    def is_holiday(cls, check_date):
+        """Check if a given date is a school holiday."""
+        # Check exact date match
+        if cls.objects.filter(date=check_date).exists():
+            return True
+        # Check recurring holidays (same month and day, any year)
+        if cls.objects.filter(
+            recurring_annually=True,
+            date__month=check_date.month,
+            date__day=check_date.day,
+        ).exists():
+            return True
+        return False
+
+    @classmethod
+    def get_holiday_name(cls, check_date):
+        """Get the holiday name for a date, or None."""
+        holiday = cls.objects.filter(date=check_date).first()
+        if holiday:
+            return holiday.name
+        # Check recurring
+        holiday = cls.objects.filter(
+            recurring_annually=True,
+            date__month=check_date.month,
+            date__day=check_date.day,
+        ).first()
+        return holiday.name if holiday else None
