@@ -462,18 +462,20 @@ def category_edit(request, pk):
         })
 
     new_percentage = _safe_int(request.POST.get('percentage', 0))
+    new_is_active = request.POST.get('is_active') == 'on'
 
-    # Check total won't exceed 100% (excluding this category's current percentage)
-    current_total = AssessmentCategory.objects.filter(
-        is_active=True
-    ).exclude(pk=category.pk).aggregate(total=models.Sum('percentage'))['total'] or 0
+    # Check total won't exceed 100% (only when category will be active)
+    if new_is_active:
+        current_total = AssessmentCategory.objects.filter(
+            is_active=True
+        ).exclude(pk=category.pk).aggregate(total=models.Sum('percentage'))['total'] or 0
 
-    if current_total + new_percentage > 100:
-        return render(request, 'gradebook/includes/modal_category.html', {
-            'category': category,
-            'category_types': AssessmentCategory.CATEGORY_TYPES,
-            'error': f'Total percentage would exceed 100%. Other categories: {current_total}%',
-        })
+        if current_total + new_percentage > 100:
+            return render(request, 'gradebook/includes/modal_category.html', {
+                'category': category,
+                'category_types': AssessmentCategory.CATEGORY_TYPES,
+                'error': f'Total percentage would exceed 100%. Other categories: {current_total}%',
+            })
 
     category.name = request.POST.get('name', '').strip()
     category.short_name = request.POST.get('short_name', '').strip().upper()
@@ -483,7 +485,7 @@ def category_edit(request, pk):
     category.expected_assessments = expected_assessments
     category.min_assessments = min_assessments
     category.max_assessments = max_assessments
-    category.is_active = request.POST.get('is_active') == 'on'
+    category.is_active = new_is_active
     category.save()
 
     response = HttpResponse(status=204)

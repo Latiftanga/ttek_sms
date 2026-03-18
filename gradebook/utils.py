@@ -20,6 +20,15 @@ from students.models import Student
 logger = logging.getLogger(__name__)
 
 
+# ============ Assessment Status Constants ============
+
+ASSESSMENT_OK = 'ok'
+ASSESSMENT_BELOW_MIN = 'below_min'
+ASSESSMENT_ABOVE_MAX = 'above_max'
+ASSESSMENT_BELOW_EXPECTED = 'below_expected'
+ASSESSMENT_ABOVE_EXPECTED = 'above_expected'
+
+
 # ============ Score Validation ============
 
 class ScoreValidationError(Exception):
@@ -301,7 +310,7 @@ def get_all_categories_assessment_status(subject, term):
     - expected: recommended count
     - min: minimum required
     - max: maximum allowed
-    - status: 'ok', 'below_min', 'above_max', 'below_expected', 'above_expected'
+    - status: ASSESSMENT_OK, ASSESSMENT_BELOW_MIN, ASSESSMENT_ABOVE_MAX, etc.
     - message: human-readable status message
     - weight_per_assignment: the weight each assignment carries
     """
@@ -325,23 +334,23 @@ def get_all_categories_assessment_status(subject, term):
             'expected': category.expected_assessments,
             'min': category.min_assessments,
             'max': category.max_assessments,
-            'status': 'ok',
+            'status': ASSESSMENT_OK,
             'message': '',
             'category': category,
         }
 
         if category.min_assessments > 0 and count < category.min_assessments:
-            status['status'] = 'below_min'
+            status['status'] = ASSESSMENT_BELOW_MIN
             status['message'] = f'Requires at least {category.min_assessments} assessment(s), has {count}'
         elif category.max_assessments > 0 and count > category.max_assessments:
-            status['status'] = 'above_max'
+            status['status'] = ASSESSMENT_ABOVE_MAX
             status['message'] = f'Maximum {category.max_assessments} assessment(s) allowed, has {count}'
         elif category.expected_assessments > 0:
             if count < category.expected_assessments:
-                status['status'] = 'below_expected'
+                status['status'] = ASSESSMENT_BELOW_EXPECTED
                 status['message'] = f'Expected {category.expected_assessments}, has {count}'
             elif count > category.expected_assessments:
-                status['status'] = 'above_expected'
+                status['status'] = ASSESSMENT_ABOVE_EXPECTED
                 status['message'] = f'Expected {category.expected_assessments}, has {count}'
 
         # Weight per assignment
@@ -373,10 +382,10 @@ def check_subject_assessment_completeness(subject, term):
     warnings = []
 
     for status in statuses:
-        if status['status'] == 'below_min':
+        if status['status'] == ASSESSMENT_BELOW_MIN:
             is_complete = False
             issues.append(f"{status['category'].name}: {status['message']}")
-        elif status['status'] in ('below_expected', 'above_expected', 'above_max'):
+        elif status['status'] in (ASSESSMENT_BELOW_EXPECTED, ASSESSMENT_ABOVE_EXPECTED, ASSESSMENT_ABOVE_MAX):
             has_warnings = True
             warnings.append(f"{status['category'].name}: {status['message']}")
 

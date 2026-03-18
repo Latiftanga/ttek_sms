@@ -347,6 +347,24 @@ def score_save(request):
             hint="Please refresh the page and try again"
         )
 
+    # Verify student is enrolled in this subject for their class
+    class_subject = ClassSubject.objects.filter(
+        class_assigned=student.current_class,
+        subject=assignment.subject
+    ).first()
+    if not class_subject or not StudentSubjectEnrollment.objects.filter(
+        student=student,
+        class_subject=class_subject,
+        is_active=True
+    ).exists():
+        return _build_error_response(
+            message="Student is not enrolled in this subject",
+            student_id=student_id,
+            assignment_id=assignment_id,
+            error_code='not_enrolled',
+            hint="Ensure the student is enrolled in this subject for the current term"
+        )
+
     # Early check for authorization (before transaction)
     if not can_edit_scores(request.user, student.current_class, assignment.subject):
         return _build_error_response(
@@ -490,7 +508,9 @@ def score_feedback_save(request):
 
     student_id = request.POST.get('student_id', '')
     assignment_id = request.POST.get('assignment_id', '')
-    feedback = request.POST.get('feedback', '').strip()[:200]
+    feedback = request.POST.get('feedback', '').strip()
+    if len(feedback) > 200:
+        return HttpResponse('Feedback must be 200 characters or less', status=400)
 
     if not all([student_id, assignment_id]):
         return HttpResponse(status=400)
@@ -502,9 +522,21 @@ def score_feedback_save(request):
     except Score.DoesNotExist:
         return HttpResponse(status=404)
 
-    # Check authorization
+    # Check enrollment and authorization
     assignment = score.assignment
     student = score.student
+
+    class_subject = ClassSubject.objects.filter(
+        class_assigned=student.current_class,
+        subject=assignment.subject
+    ).first()
+    if not class_subject or not StudentSubjectEnrollment.objects.filter(
+        student=student,
+        class_subject=class_subject,
+        is_active=True
+    ).exists():
+        return HttpResponse('Student is not enrolled in this subject', status=403)
+
     if not can_edit_scores(request.user, student.current_class, assignment.subject):
         return HttpResponse(status=403)
 

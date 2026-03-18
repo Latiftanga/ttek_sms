@@ -121,11 +121,26 @@ def bulk_remark_save(request):
 
     student_id = request.POST.get('student_id')
     field = request.POST.get('field')
-    value = request.POST.get('value', '').strip()[:2000]
+    value = request.POST.get('value', '').strip()
 
     current_term = Term.get_current()
     if not current_term:
         return HttpResponse('No current term', status=400)
+
+    # Field-specific max lengths matching model definitions
+    allowed_fields = {
+        'class_teacher_remark': 2000,   # TextField, apply reasonable limit
+        'conduct_rating': 100,          # CharField(max_length=100)
+        'attitude_rating': 100,         # CharField(max_length=100)
+        'interest_rating': 100,         # CharField(max_length=100)
+    }
+
+    if field not in allowed_fields:
+        return HttpResponse('Invalid field', status=400)
+
+    max_length = allowed_fields[field]
+    if len(value) > max_length:
+        return HttpResponse(f'Value must be {max_length} characters or less', status=400)
 
     student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
 
@@ -137,33 +152,23 @@ def bulk_remark_save(request):
         if not student.current_class or student.current_class.class_teacher != user.teacher_profile:
             return HttpResponse(status=403)
 
-    # Update the field atomically
-    allowed_fields = [
-        'class_teacher_remark', 'conduct_rating', 'attitude_rating',
-        'interest_rating',
-    ]
+    with transaction.atomic():
+        term_report, created = TermReport.objects.get_or_create(
+            student=student,
+            term=current_term,
+            defaults={'out_of': 0}
+        )
+        setattr(term_report, field, value)
+        term_report.save(update_fields=[field])
 
-    if field in allowed_fields:
-        with transaction.atomic():
-            term_report, created = TermReport.objects.get_or_create(
-                student=student,
-                term=current_term,
-                defaults={'out_of': 0}
-            )
-            setattr(term_report, field, value)
-            term_report.save(update_fields=[field])
-
-        # Return success indicator
-        response = HttpResponse(status=200)
-        response['HX-Trigger'] = json.dumps({
-            'remarkSaved': {
-                'student_id': str(student_id),
-                'field': field
-            }
-        })
-        return response
-
-    return HttpResponse('Invalid field', status=400)
+    response = HttpResponse(status=200)
+    response['HX-Trigger'] = json.dumps({
+        'remarkSaved': {
+            'student_id': str(student_id),
+            'field': field
+        }
+    })
+    return response
 
 
 @login_required

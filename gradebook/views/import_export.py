@@ -24,7 +24,7 @@ from ..models import (
 )
 from ..signals import signals_disabled
 from .. import config
-from academics.models import Class, Subject
+from academics.models import Class, ClassSubject, StudentSubjectEnrollment, Subject
 from students.models import Student
 from core.models import Term
 
@@ -44,9 +44,16 @@ def score_import_template(request, class_id, subject_id):
     if not can_edit_scores(request.user, class_obj, subject):
         return HttpResponse("Not authorized", status=403)
 
-    # Get students and assignments
+    # Get only students enrolled in this subject
+    class_subject = ClassSubject.objects.filter(
+        class_assigned=class_obj, subject=subject
+    ).first()
+    enrolled_ids = list(StudentSubjectEnrollment.objects.filter(
+        class_subject=class_subject, is_active=True
+    ).values_list('student_id', flat=True)) if class_subject else []
+
     students = Student.objects.filter(
-        current_class=class_obj
+        id__in=enrolled_ids, current_class=class_obj
     ).order_by('last_name', 'first_name')
 
     assignments = Assignment.objects.filter(
@@ -193,9 +200,18 @@ def score_import_upload(request, class_id, subject_id):
             term=current_term
         ).select_related('assessment_category').order_by('assessment_category__order', 'name'))
 
-        # Get students lookup
+        # Get only students enrolled in this subject
+        class_subject = ClassSubject.objects.filter(
+            class_assigned=class_obj, subject=subject
+        ).first()
+        enrolled_ids = set(StudentSubjectEnrollment.objects.filter(
+            class_subject=class_subject, is_active=True
+        ).values_list('student_id', flat=True)) if class_subject else set()
+
         students_by_id = {
-            s.admission_number: s for s in Student.objects.filter(current_class=class_obj)
+            s.admission_number: s for s in Student.objects.filter(
+                id__in=enrolled_ids, current_class=class_obj
+            )
         }
 
         # Parse data
@@ -341,9 +357,17 @@ def score_import_confirm(request, class_id, subject_id):
             'error': 'Import data mismatch. Please upload the file again.'
         })
 
-    # Ownership validation: Verify all students and assignments belong to this class/subject
+    # Ownership validation: Verify all students are enrolled in this subject
+    class_subject = ClassSubject.objects.filter(
+        class_assigned=class_obj, subject=subject
+    ).first()
+    enrolled_ids = set(StudentSubjectEnrollment.objects.filter(
+        class_subject=class_subject, is_active=True
+    ).values_list('student_id', flat=True)) if class_subject else set()
+
     valid_student_ids = set(
         Student.objects.filter(
+            id__in=enrolled_ids,
             current_class=class_obj,
             status='active'
         ).values_list('pk', flat=True)

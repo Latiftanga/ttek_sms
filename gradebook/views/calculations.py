@@ -27,7 +27,449 @@ from core.models import Term
 logger = logging.getLogger(__name__)
 
 
-# ============ Grade Calculation ============
+# ============ Grade Calculation Helpers ============
+
+def _prefetch_grade_data(class_obj, current_term):
+    """
+    Phase 1: Bulk prefetch all data needed for grade calculation.
+
+    Returns a dict with students, subjects, enrollments, assignments,
+    scores, and categories — all fetched in minimal queries.
+    """
+    students = list(Student.objects.filter(
+        current_class=class_obj, status='active'
+    ).order_by('last_name', 'first_name'))
+
+    if not students:
+        return None
+
+    student_ids = [s.id for s in students]
+
+    class_subjects = ClassSubject.objects.filter(
+        class_assigned=class_obj
+    ).select_related('subject')
+    subjects = [cs.subject for cs in class_subjects]
+
+    if not subjects:
+        return None
+
+    subject_ids = [s.id for s in subjects]
+
+    # Build student -> enrolled subjects map (respects SHS electives)
+    student_subject_map = {}
+    enrollments = StudentSubjectEnrollment.objects.filter(
+        student_id__in=student_ids,
+        class_subject__class_assigned=class_obj,
+        is_active=True
+    ).select_related('class_subject__subject')
+
+    for enrollment in enrollments:
+        sid = enrollment.student_id
+        subj_id = enrollment.class_subject.subject_id
+        if sid not in student_subject_map:
+            student_subject_map[sid] = set()
+        student_subject_map[sid].add(subj_id)
+
+    logger.info(
+        f'Subject enrollments for {class_obj.name}: '
+        f'{len(student_subject_map)} students with enrolled subjects'
+    )
+
+    categories = list(AssessmentCategory.objects.filter(is_active=True))
+
+    assignments = list(Assignment.objects.filter(
+        subject_id__in=subject_ids,
+        term=current_term
+    ).select_related('assessment_category'))
+
+    assignments_by_subject_category = defaultdict(list)
+    for assign in assignments:
+        key = (assign.subject_id, assign.assessment_category_id)
+        assignments_by_subject_category[key].append(assign)
+
+    assignment_ids = [a.id for a in assignments]
+    scores = Score.objects.filter(
+        student_id__in=student_ids,
+        assignment_id__in=assignment_ids
+    ).select_related('assignment')
+
+    scores_lookup = {
+        (s.student_id, s.assignment_id): s for s in scores
+    }
+
+    return {
+        'students': students,
+        'student_ids': student_ids,
+        'subjects': subjects,
+        'subject_ids': subject_ids,
+        'student_subject_map': student_subject_map,
+        'categories': categories,
+        'assignments': assignments,
+        'assignments_by_subject_category': dict(assignments_by_subject_category),
+        'scores_lookup': scores_lookup,
+    }
+
+
+def _calculate_subject_grades(data, current_term, grading_system, grade_scales):
+    """
+    Phase 2: Calculate SubjectTermGrade for each student-subject pair.
+
+    Creates missing grade objects and computes category scores, totals,
+    and grade labels using prefetched data (no per-student queries).
+    """
+    students = data['students']
+    subjects = data['subjects']
+    student_subject_map = data['student_subject_map']
+
+    existing_grades = {
+        (g.student_id, g.subject_id): g
+        for g in SubjectTermGrade.objects.filter(
+            student_id__in=data['student_ids'],
+            subject_id__in=data['subject_ids'],
+            term=current_term
+        )
+    }
+
+    grades_to_create = []
+    grades_to_update = []
+
+    for student in students:
+        enrolled_subject_ids = student_subject_map.get(student.id, set())
+
+        for subject in subjects:
+            if subject.id not in enrolled_subject_ids:
+                continue
+
+            key = (student.id, subject.id)
+            if key in existing_grades:
+                grade = existing_grades[key]
+            else:
+                grade = SubjectTermGrade(
+                    student=student, subject=subject, term=current_term
+                )
+                grades_to_create.append(grade)
+                existing_grades[key] = grade
+
+    if grades_to_create:
+        SubjectTermGrade.objects.bulk_create(grades_to_create)
+        for grade in grades_to_create:
+            existing_grades[(grade.student_id, grade.subject_id)] = grade
+
+    for student in students:
+        enrolled_subject_ids = student_subject_map.get(student.id, set())
+
+        for subject in subjects:
+            if subject.id not in enrolled_subject_ids:
+                continue
+
+            grade = existing_grades.get((student.id, subject.id))
+            if not grade:
+                continue
+
+            calc_result = calculate_category_scores(
+                student_id=student.id,
+                subject_id=subject.id,
+                categories=data['categories'],
+                assignments_by_subject_category=data['assignments_by_subject_category'],
+                scores_lookup=data['scores_lookup'],
+            )
+
+            grade.category_scores = calc_result['category_scores_json']
+            grade.class_score = calc_result['class_score']
+            grade.exam_score = calc_result['exam_score']
+            grade.total_score = calc_result['total_score']
+
+            grade.is_passing = False
+            if grading_system and grade.total_score is not None:
+                grade_info = determine_grade_from_scales(grade.total_score, grade_scales)
+                grade.grade = grade_info['grade']
+                grade.grade_remark = grade_info['grade_remark']
+                grade.is_passing = grade_info['is_passing']
+
+            grades_to_update.append(grade)
+
+    SubjectTermGrade.objects.bulk_update(
+        grades_to_update,
+        ['class_score', 'exam_score', 'total_score', 'category_scores', 'grade', 'grade_remark', 'is_passing'],
+        batch_size=config.BULK_UPDATE_BATCH_SIZE
+    )
+
+
+def _calculate_subject_positions(data, current_term):
+    """
+    Phase 3: Calculate per-subject positions using dense ranking.
+
+    Returns (all_grades, students_with_subjects) for use in later phases.
+    """
+    student_subject_map = data['student_subject_map']
+    students = data['students']
+
+    students_with_subjects = [
+        s for s in students if student_subject_map.get(s.id)
+    ]
+    student_ids_with_subjects = [s.id for s in students_with_subjects]
+
+    all_grades = list(SubjectTermGrade.objects.filter(
+        student_id__in=student_ids_with_subjects,
+        subject_id__in=data['subject_ids'],
+        term=current_term,
+        total_score__isnull=False
+    ).select_related('subject'))
+
+    grades_by_subject = defaultdict(list)
+    for grade in all_grades:
+        grades_by_subject[grade.subject_id].append(grade)
+
+    position_updates = []
+    for subject_id, subject_grades in grades_by_subject.items():
+        subject_grades.sort(key=lambda g: g.total_score or Decimal('0'), reverse=True)
+
+        position = 0
+        last_score = None
+        for i, grade in enumerate(subject_grades, 1):
+            if grade.total_score != last_score:
+                position = i
+            grade.position = position
+            position_updates.append(grade)
+            last_score = grade.total_score
+
+    SubjectTermGrade.objects.bulk_update(
+        position_updates,
+        ['position'],
+        batch_size=config.BULK_UPDATE_BATCH_SIZE
+    )
+
+    return all_grades, students_with_subjects
+
+
+def _calculate_term_reports(
+    data, all_grades, students_with_subjects, current_term,
+    class_obj, grading_system, grade_scales, is_final_term
+):
+    """
+    Phase 4: Calculate TermReport aggregates, attendance, and promotion.
+
+    Returns reports_to_update for position calculation in Phase 5.
+    """
+    subjects = data['subjects']
+    student_ids_with_subjects = [s.id for s in students_with_subjects]
+
+    existing_reports = {
+        r.student_id: r
+        for r in TermReport.objects.filter(
+            student_id__in=student_ids_with_subjects,
+            term=current_term
+        )
+    }
+
+    reports_to_create = []
+    for student in students_with_subjects:
+        if student.id not in existing_reports:
+            report = TermReport(student=student, term=current_term)
+            reports_to_create.append(report)
+            existing_reports[student.id] = report
+
+    if reports_to_create:
+        TermReport.objects.bulk_create(reports_to_create)
+
+    grades_by_student = defaultdict(list)
+    for grade in all_grades:
+        grades_by_student[grade.student_id].append(grade)
+
+    subjects_dict = {s.id: s for s in subjects}
+
+    # Bulk prefetch attendance data
+    attendance_sessions = AttendanceSession.objects.filter(
+        class_assigned=class_obj,
+        date__gte=current_term.start_date,
+        date__lte=current_term.end_date
+    )
+    session_ids = list(attendance_sessions.values_list('id', flat=True))
+    total_school_days = attendance_sessions.values('date').distinct().count()
+
+    attendance_by_student = {}
+    if session_ids:
+        from django.db.models import Count, Q as _Q
+        attendance_stats = AttendanceRecord.objects.filter(
+            session_id__in=session_ids,
+            student_id__in=student_ids_with_subjects
+        ).values('student_id').annotate(
+            days_present=Count(
+                'session__date',
+                filter=_Q(status__in=['P', 'L']),
+                distinct=True
+            ),
+            times_late=Count('id', filter=_Q(status='L')),
+        )
+        for row in attendance_stats:
+            row['days_absent'] = total_school_days - row['days_present']
+            attendance_by_student[row['student_id']] = row
+
+    reports_to_update = []
+
+    for student in students_with_subjects:
+        report = existing_reports[student.id]
+        student_grades = grades_by_student.get(student.id, [])
+
+        if student_grades:
+            total = sum(g.total_score for g in student_grades if g.total_score is not None)
+            count = len([g for g in student_grades if g.total_score is not None])
+
+            report.total_marks = total
+            report.average = round(total / count, 2) if count > 0 else Decimal('0.0')
+            report.subjects_taken = count
+
+            passed = [g for g in student_grades if g.is_passing]
+            report.subjects_passed = len(passed)
+            report.subjects_failed = count - len(passed)
+
+            credits = 0
+            if grading_system and grade_scales:
+                for g in student_grades:
+                    if g.total_score is not None:
+                        scale = grading_system.get_grade_for_score(g.total_score, grade_scales)
+                        if scale and scale.is_credit:
+                            credits += 1
+            report.credits_count = credits
+
+            core_grades = [
+                g for g in student_grades
+                if subjects_dict.get(g.subject_id) and subjects_dict[g.subject_id].is_core
+            ]
+            report.core_subjects_total = len(core_grades)
+            report.core_subjects_passed = len([g for g in core_grades if g.is_passing])
+
+            if grading_system:
+                grade_points = []
+                for g in student_grades:
+                    if g.total_score is not None:
+                        scale = grading_system.get_grade_for_score(g.total_score, grade_scales)
+                        if scale and scale.aggregate_points:
+                            grade_points.append(scale.aggregate_points)
+
+                if grade_points:
+                    grade_points.sort()
+                    best_n = grade_points[:grading_system.aggregate_subjects_count]
+                    report.aggregate = sum(best_n)
+
+        else:
+            core_grades = []
+
+        att = attendance_by_student.get(student.id)
+        if att and total_school_days > 0:
+            report.total_school_days = total_school_days
+            report.days_present = att['days_present']
+            report.days_absent = att['days_absent']
+            report.times_late = att['times_late']
+            report.attendance_percentage = round(
+                (Decimal(str(att['days_present'])) / Decimal(str(total_school_days))) * 100, 2
+            )
+            report.attendance_rating = TermReport.derive_attendance_rating(
+                report.attendance_percentage
+            )
+
+        if is_final_term and grading_system:
+            is_eligible, reasons = grading_system.check_promotion_eligibility(
+                report, core_grades=core_grades
+            )
+            report.promoted = is_eligible
+            report.promotion_remarks = '; '.join(reasons) if reasons else 'Meets all requirements'
+
+        reports_to_update.append(report)
+
+    TermReport.objects.bulk_update(
+        reports_to_update,
+        ['total_marks', 'average', 'subjects_taken', 'subjects_passed',
+         'subjects_failed', 'credits_count', 'core_subjects_total',
+         'core_subjects_passed', 'aggregate', 'promoted',
+         'promotion_remarks', 'days_present', 'days_absent',
+         'total_school_days', 'times_late', 'attendance_percentage',
+         'attendance_rating'],
+        batch_size=config.BULK_UPDATE_BATCH_SIZE
+    )
+
+    return reports_to_update
+
+
+def _calculate_overall_positions(reports_to_update, class_obj):
+    """
+    Phase 5: Calculate overall class positions by average (dense ranking).
+    """
+    ranked_reports = [
+        r for r in reports_to_update
+        if r.subjects_taken and r.subjects_taken > 0
+    ]
+    unranked_reports = [
+        r for r in reports_to_update
+        if r not in ranked_reports
+    ]
+
+    ranked_count = len(ranked_reports)
+    for report in reports_to_update:
+        report.out_of = ranked_count
+
+    ranked_reports.sort(
+        key=lambda r: -(r.average if r.average is not None else Decimal('0'))
+    )
+
+    position = 0
+    last_value = None
+    for i, report in enumerate(ranked_reports, 1):
+        current_value = round(report.average, 2) if report.average is not None else None
+        if current_value != last_value:
+            position = i
+        report.position = position
+        last_value = current_value
+
+    if ranked_reports:
+        logger.info(
+            f'Position assignments for {class_obj.name}: ' +
+            ', '.join(
+                f'{r.student_id}:avg={r.average}/pos={r.position}'
+                for r in ranked_reports
+            )
+        )
+
+    for report in unranked_reports:
+        report.position = None
+
+    TermReport.objects.bulk_update(
+        reports_to_update,
+        ['position', 'out_of'],
+        batch_size=config.BULK_UPDATE_BATCH_SIZE
+    )
+
+    return ranked_count, unranked_reports
+
+
+def _detect_missing_scores(data, students_with_subjects):
+    """Detect students with enrolled subjects but no scores at all."""
+    student_subject_map = data['student_subject_map']
+    scores_lookup = data['scores_lookup']
+    assignments = data['assignments']
+    subjects_dict = {s.id: s for s in data['subjects']}
+
+    missing_scores = []
+    for student in students_with_subjects:
+        enrolled_subj_ids = student_subject_map.get(student.id, set())
+        for subj_id in enrolled_subj_ids:
+            has_score = any(
+                (student.id, a.id) in scores_lookup
+                for a in assignments
+                if a.subject_id == subj_id
+            )
+            if not has_score:
+                subj = subjects_dict.get(subj_id)
+                if subj:
+                    missing_scores.append({
+                        'student': student.full_name,
+                        'subject': subj.short_name or subj.name,
+                    })
+
+    return missing_scores
+
+
+# ============ Grade Calculation Views ============
 
 @login_required
 @admin_required
@@ -106,450 +548,33 @@ def calculate_class_grades(request, class_id):
     is_final_term = current_term.term_number == 3 if hasattr(current_term, 'term_number') else False
 
     try:
-        # Disable auto-calculation signals during bulk operation
         with signals_disabled(), transaction.atomic():
-            # ========== PHASE 1: Bulk prefetch all data ==========
+            # Phase 1: Bulk prefetch
+            data = _prefetch_grade_data(class_obj, current_term)
+            if data is None:
+                return HttpResponse('No students or subjects in this class', status=400)
 
-            # Get active students only (inactive/withdrawn should not affect ranking)
-            students = list(Student.objects.filter(
-                current_class=class_obj, status='active'
-            ).order_by('last_name', 'first_name'))
-
-            if not students:
-                return HttpResponse('No students in this class', status=400)
-
-            student_ids = [s.id for s in students]
-
-            # Get subjects for this class
-            class_subjects = ClassSubject.objects.filter(
-                class_assigned=class_obj
-            ).select_related('subject')
-            subjects = [cs.subject for cs in class_subjects]
-
-            if not subjects:
-                return HttpResponse('No subjects assigned to this class', status=400)
-
-            subject_ids = [s.id for s in subjects]
-
-            # Build student -> enrolled subjects map
-            # This respects elective selections for SHS students
-            student_subject_map = {}  # {student_id: set of subject_ids}
-
-            # Check if this class uses subject enrollments (typically SHS)
-            enrollments = StudentSubjectEnrollment.objects.filter(
-                student_id__in=student_ids,
-                class_subject__class_assigned=class_obj,
-                is_active=True
-            ).select_related('class_subject__subject')
-
-            # Only grade students for subjects they are enrolled in
-            for enrollment in enrollments:
-                sid = enrollment.student_id
-                subj_id = enrollment.class_subject.subject_id
-                if sid not in student_subject_map:
-                    student_subject_map[sid] = set()
-                student_subject_map[sid].add(subj_id)
-
-            logger.info(
-                f'Subject enrollments for {class_obj.name}: '
-                f'{len(student_subject_map)} students with enrolled subjects'
-            )
-
-            # Prefetch all categories (small table, usually 2-3 rows)
-            categories = list(AssessmentCategory.objects.filter(is_active=True))
-
-            # Prefetch all assignments for these subjects in this term
-            assignments = list(Assignment.objects.filter(
-                subject_id__in=subject_ids,
-                term=current_term
-            ).select_related('assessment_category'))
-
-            # Build assignment lookup: {(subject_id, category_id): [assignments]}
-            assignments_by_subject_category = defaultdict(list)
-            for assign in assignments:
-                key = (assign.subject_id, assign.assessment_category_id)
-                assignments_by_subject_category[key].append(assign)
-
-            # Prefetch all scores for these students and assignments
-            assignment_ids = [a.id for a in assignments]
-            scores = Score.objects.filter(
-                student_id__in=student_ids,
-                assignment_id__in=assignment_ids
-            ).select_related('assignment')
-
-            # Build score lookup: {(student_id, assignment_id): score}
-            scores_lookup = {
-                (s.student_id, s.assignment_id): s for s in scores
-            }
-
-            # Prefetch grade scales for the grading system
             grade_scales = []
             if grading_system:
                 grade_scales = list(grading_system.scales.all().order_by('-min_percentage'))
 
-            # ========== PHASE 2: Calculate grades in memory ==========
+            # Phase 2: Calculate subject grades
+            _calculate_subject_grades(data, current_term, grading_system, grade_scales)
 
-            # Get or create SubjectTermGrade objects in bulk
-            existing_grades = {
-                (g.student_id, g.subject_id): g
-                for g in SubjectTermGrade.objects.filter(
-                    student_id__in=student_ids,
-                    subject_id__in=subject_ids,
-                    term=current_term
-                )
-            }
+            # Phase 3: Subject positions
+            all_grades, students_with_subjects = _calculate_subject_positions(data, current_term)
 
-            grades_to_create = []
-            grades_to_update = []
-
-            for student in students:
-                # Get subjects this student is enrolled in
-                enrolled_subject_ids = student_subject_map.get(student.id, set())
-
-                for subject in subjects:
-                    # Skip if student is not enrolled in this subject
-                    if subject.id not in enrolled_subject_ids:
-                        continue
-
-                    key = (student.id, subject.id)
-
-                    if key in existing_grades:
-                        grade = existing_grades[key]
-                    else:
-                        grade = SubjectTermGrade(
-                            student=student,
-                            subject=subject,
-                            term=current_term
-                        )
-                        grades_to_create.append(grade)
-                        existing_grades[key] = grade
-
-            # Bulk create new grades
-            if grades_to_create:
-                SubjectTermGrade.objects.bulk_create(grades_to_create)
-                # Refresh to get IDs
-                for grade in grades_to_create:
-                    existing_grades[(grade.student_id, grade.subject_id)] = grade
-
-            # Calculate scores for each grade using shared utility + prefetched data
-            assignments_dict = dict(assignments_by_subject_category)
-            for student in students:
-                enrolled_subject_ids = student_subject_map.get(student.id, set())
-
-                for subject in subjects:
-                    if subject.id not in enrolled_subject_ids:
-                        continue
-
-                    grade = existing_grades.get((student.id, subject.id))
-                    if not grade:
-                        continue
-
-                    # Use shared utility (no DB queries — uses prefetched lookups)
-                    calc_result = calculate_category_scores(
-                        student_id=student.id,
-                        subject_id=subject.id,
-                        categories=categories,
-                        assignments_by_subject_category=assignments_dict,
-                        scores_lookup=scores_lookup,
-                    )
-
-                    grade.category_scores = calc_result['category_scores_json']
-                    grade.class_score = calc_result['class_score']
-                    grade.exam_score = calc_result['exam_score']
-                    grade.total_score = calc_result['total_score']
-
-                    # Determine grade from scale (no DB query - uses prefetched scales)
-                    grade.is_passing = False
-                    if grading_system and grade.total_score is not None:
-                        grade_info = determine_grade_from_scales(grade.total_score, grade_scales)
-                        grade.grade = grade_info['grade']
-                        grade.grade_remark = grade_info['grade_remark']
-                        grade.is_passing = grade_info['is_passing']
-
-                    grades_to_update.append(grade)
-
-            # Bulk update all grades
-            SubjectTermGrade.objects.bulk_update(
-                grades_to_update,
-                ['class_score', 'exam_score', 'total_score', 'category_scores', 'grade', 'grade_remark', 'is_passing'],
-                batch_size=config.BULK_UPDATE_BATCH_SIZE
+            # Phase 4: Term reports (attendance, aggregates, promotion)
+            reports_to_update = _calculate_term_reports(
+                data, all_grades, students_with_subjects, current_term,
+                class_obj, grading_system, grade_scales, is_final_term
             )
 
-            # ========== PHASE 3: Calculate positions per subject ==========
+            # Phase 5: Overall positions
+            ranked_count, unranked_reports = _calculate_overall_positions(reports_to_update, class_obj)
 
-            # Only include enrolled students in position calculations
-            students_with_subjects = [
-                s for s in students if student_subject_map.get(s.id)
-            ]
-            student_ids_with_subjects = [s.id for s in students_with_subjects]
-
-            # Refresh grades for position calculation
-            all_grades = list(SubjectTermGrade.objects.filter(
-                student_id__in=student_ids_with_subjects,
-                subject_id__in=subject_ids,
-                term=current_term,
-                total_score__isnull=False
-            ).select_related('subject'))
-
-            # Group by subject and calculate positions
-            grades_by_subject = defaultdict(list)
-            for grade in all_grades:
-                grades_by_subject[grade.subject_id].append(grade)
-
-            position_updates = []
-            for subject_id, subject_grades in grades_by_subject.items():
-                # Sort by total_score descending
-                subject_grades.sort(key=lambda g: g.total_score or Decimal('0'), reverse=True)
-
-                position = 0
-                last_score = None
-                for i, grade in enumerate(subject_grades, 1):
-                    if grade.total_score != last_score:
-                        position = i
-                    grade.position = position
-                    position_updates.append(grade)
-                    last_score = grade.total_score
-
-            # Bulk update positions
-            SubjectTermGrade.objects.bulk_update(
-                position_updates,
-                ['position'],
-                batch_size=config.BULK_UPDATE_BATCH_SIZE
-            )
-
-            # ========== PHASE 4: Calculate term reports ==========
-
-            # Only create/update reports for students with active enrollments.
-            # For basic schools (no enrollments), this equals all students.
-            # We don't delete old reports for unenrolled students — they're
-            # preserved for transcript/historical access.
-            existing_reports = {
-                r.student_id: r
-                for r in TermReport.objects.filter(
-                    student_id__in=student_ids_with_subjects,
-                    term=current_term
-                )
-            }
-
-            reports_to_create = []
-            for student in students_with_subjects:
-                if student.id not in existing_reports:
-                    report = TermReport(student=student, term=current_term)
-                    reports_to_create.append(report)
-                    existing_reports[student.id] = report
-
-            if reports_to_create:
-                TermReport.objects.bulk_create(reports_to_create)
-
-            # Build grade lookup for aggregates
-            grades_by_student = defaultdict(list)
-            for grade in all_grades:
-                grades_by_student[grade.student_id].append(grade)
-
-            # Get subjects for core check
-            subjects_dict = {s.id: s for s in subjects}
-
-            # ---- Bulk prefetch attendance data (avoids N+1 per student) ----
-            attendance_sessions = AttendanceSession.objects.filter(
-                class_assigned=class_obj,
-                date__gte=current_term.start_date,
-                date__lte=current_term.end_date
-            )
-            session_ids = list(attendance_sessions.values_list('id', flat=True))
-            # Use distinct dates for total_school_days so per-lesson classes
-            # (multiple sessions per day) don't inflate the count on report cards
-            total_school_days = attendance_sessions.values('date').distinct().count()
-
-            # Bulk fetch attendance stats per student in one query
-            # Count distinct dates (not raw records) so per-lesson classes
-            # report days_present/days_absent correctly on report cards
-            attendance_by_student = {}  # {student_id: {days_present, days_absent, times_late}}
-            if session_ids:
-                from django.db.models import Count, Q as _Q
-                attendance_stats = AttendanceRecord.objects.filter(
-                    session_id__in=session_ids,
-                    student_id__in=student_ids_with_subjects
-                ).values('student_id').annotate(
-                    # Distinct dates where student was present or late in at least one session
-                    days_present=Count(
-                        'session__date',
-                        filter=_Q(status__in=['P', 'L']),
-                        distinct=True
-                    ),
-                    times_late=Count('id', filter=_Q(status='L')),
-                )
-                for row in attendance_stats:
-                    # days_absent = school days minus days they showed up
-                    row['days_absent'] = total_school_days - row['days_present']
-                    attendance_by_student[row['student_id']] = row
-
-            # Calculate aggregates for each report
-            reports_to_update = []
-
-            for student in students_with_subjects:
-                report = existing_reports[student.id]
-                student_grades = grades_by_student.get(student.id, [])
-
-                if student_grades:
-                    total = sum(g.total_score for g in student_grades if g.total_score is not None)
-                    count = len([g for g in student_grades if g.total_score is not None])
-
-                    report.total_marks = total
-                    report.average = round(total / count, 2) if count > 0 else Decimal('0.0')
-                    report.subjects_taken = count
-
-                    # Count passed/failed using the is_passing flag set by grade scale
-                    passed = [g for g in student_grades if g.is_passing]
-                    report.subjects_passed = len(passed)
-                    report.subjects_failed = count - len(passed)
-
-                    # Count credits using threshold-based grade scale lookup
-                    credits = 0
-                    if grading_system and grade_scales:
-                        for g in student_grades:
-                            if g.total_score is not None:
-                                scale = grading_system.get_grade_for_score(g.total_score, grade_scales)
-                                if scale and scale.is_credit:
-                                    credits += 1
-                    report.credits_count = credits
-
-                    # Core subjects
-                    core_grades = [
-                        g for g in student_grades
-                        if subjects_dict.get(g.subject_id) and subjects_dict[g.subject_id].is_core
-                    ]
-                    report.core_subjects_total = len(core_grades)
-                    report.core_subjects_passed = len([
-                        g for g in core_grades if g.is_passing
-                    ])
-
-                    # Calculate aggregate if grading system provided
-                    if grading_system:
-                        grade_points = []
-                        for g in student_grades:
-                            if g.total_score is not None:
-                                scale = grading_system.get_grade_for_score(g.total_score, grade_scales)
-                                if scale and scale.aggregate_points:
-                                    grade_points.append(scale.aggregate_points)
-
-                        if grade_points:
-                            grade_points.sort()
-                            best_n = grade_points[:grading_system.aggregate_subjects_count]
-                            report.aggregate = sum(best_n)
-
-                else:
-                    core_grades = []
-
-                # Apply bulk-prefetched attendance data (no per-student queries)
-                att = attendance_by_student.get(student.id)
-                if att and total_school_days > 0:
-                    report.total_school_days = total_school_days
-                    report.days_present = att['days_present']
-                    report.days_absent = att['days_absent']
-                    report.times_late = att['times_late']
-                    report.attendance_percentage = round(
-                        (Decimal(str(att['days_present'])) / Decimal(str(total_school_days))) * 100, 2
-                    )
-                    report.attendance_rating = TermReport.derive_attendance_rating(
-                        report.attendance_percentage
-                    )
-
-                # Check promotion eligibility for final term
-                if is_final_term and grading_system:
-                    is_eligible, reasons = grading_system.check_promotion_eligibility(
-                        report, core_grades=core_grades
-                    )
-                    report.promoted = is_eligible
-                    report.promotion_remarks = '; '.join(reasons) if reasons else 'Meets all requirements'
-
-                reports_to_update.append(report)
-
-            # Bulk update reports
-            TermReport.objects.bulk_update(
-                reports_to_update,
-                ['total_marks', 'average', 'subjects_taken', 'subjects_passed',
-                 'subjects_failed', 'credits_count', 'core_subjects_total',
-                 'core_subjects_passed', 'aggregate', 'promoted',
-                 'promotion_remarks', 'days_present', 'days_absent',
-                 'total_school_days', 'times_late', 'attendance_percentage',
-                 'attendance_rating'],
-                batch_size=config.BULK_UPDATE_BATCH_SIZE
-            )
-
-            # ========== PHASE 5: Calculate overall positions ==========
-
-            # Only students with grades are ranked.
-            # Unenrolled students won't have grades in the calculation
-            # so they naturally get position=None.
-            ranked_reports = [
-                r for r in reports_to_update
-                if r.subjects_taken and r.subjects_taken > 0
-            ]
-            unranked_reports = [
-                r for r in reports_to_update
-                if r not in ranked_reports
-            ]
-
-            ranked_count = len(ranked_reports)
-            for report in reports_to_update:
-                report.out_of = ranked_count
-
-            # Always rank by average (higher is better) for all class levels.
-            # Aggregate is still calculated for SHS report cards but not used for positioning.
-            ranked_reports.sort(
-                key=lambda r: -(r.average if r.average is not None else Decimal('0'))
-            )
-
-            position = 0
-            last_value = None
-            for i, report in enumerate(ranked_reports, 1):
-                # Round to 2dp for safe comparison (avoids Decimal precision artifacts)
-                current_value = round(report.average, 2) if report.average is not None else None
-
-                if current_value != last_value:
-                    position = i
-                report.position = position
-                last_value = current_value
-
-            # Log position assignments for debugging
-            if ranked_reports:
-                logger.info(
-                    f'Position assignments for {class_obj.name}: ' +
-                    ', '.join(
-                        f'{r.student_id}:avg={r.average}/pos={r.position}'
-                        for r in ranked_reports
-                    )
-                )
-
-            # Unranked students get no position
-            for report in unranked_reports:
-                report.position = None
-
-            # Bulk update positions and out_of
-            TermReport.objects.bulk_update(
-                reports_to_update,
-                ['position', 'out_of'],
-                batch_size=config.BULK_UPDATE_BATCH_SIZE
-            )
-
-            # Detect missing scores — students with subjects but no scores at all
-            missing_scores = []
-            for student in students_with_subjects:
-                enrolled_subj_ids = student_subject_map.get(student.id, set())
-                student_subjects = enrolled_subj_ids if enrolled_subj_ids else set(subject_ids)
-                for subj_id in student_subjects:
-                    has_score = any(
-                        (student.id, a.id) in scores_lookup
-                        for a in assignments
-                        if a.subject_id == subj_id
-                    )
-                    if not has_score:
-                        subj = subjects_dict.get(subj_id)
-                        if subj:
-                            missing_scores.append({
-                                'student': student.full_name,
-                                'subject': subj.short_name or subj.name,
-                            })
+            # Detect missing scores
+            missing_scores = _detect_missing_scores(data, students_with_subjects)
 
             logger.info(
                 f'Calculated grades for {class_obj.name}: '
