@@ -223,19 +223,13 @@ def class_attendance_take(request, pk):
         messages.warning(request, f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.')
         return redirect('academics:attendance_reports')
 
-    # Check if session exists (for daily attendance)
-    try:
-        session, _created = AttendanceSession.objects.get_or_create(
+    # Get or create session atomically (for daily attendance)
+    with transaction.atomic():
+        session, _created = AttendanceSession.objects.select_for_update().get_or_create(
             class_assigned=class_obj,
             date=target_date,
             session_type=AttendanceSession.SessionType.DAILY,
             defaults={'created_by': teacher}
-        )
-    except IntegrityError:
-        session = AttendanceSession.objects.get(
-            class_assigned=class_obj,
-            date=target_date,
-            session_type=AttendanceSession.SessionType.DAILY,
         )
 
     if request.method == 'POST':
@@ -528,9 +522,9 @@ def take_lesson_attendance(request, timetable_entry_id):
         messages.warning(request, f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.')
         return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
 
-    # Get or create the lesson attendance session
-    try:
-        session, created = AttendanceSession.objects.get_or_create(
+    # Get or create the lesson attendance session atomically
+    with transaction.atomic():
+        session, created = AttendanceSession.objects.select_for_update().get_or_create(
             class_assigned=class_obj,
             date=target_date,
             timetable_entry=entry,
@@ -541,14 +535,6 @@ def take_lesson_attendance(request, timetable_entry_id):
                 'class_subject': class_subject,
             }
         )
-    except IntegrityError:
-        session = AttendanceSession.objects.get(
-            class_assigned=class_obj,
-            date=target_date,
-            timetable_entry=entry,
-            session_type=AttendanceSession.SessionType.LESSON,
-        )
-        created = False
 
     # Get students for this lesson (considers elective enrollment)
     students = get_students_for_lesson(class_obj, class_subject)
@@ -618,7 +604,7 @@ def class_weekly_attendance_report(request, pk):
     # Get date range from query params or default to current week
     today = timezone.localdate()
     try:
-        week_offset = int(request.GET.get('week', 0))
+        week_offset = max(-52, min(0, int(request.GET.get('week', 0))))
     except (ValueError, TypeError):
         week_offset = 0
 
@@ -669,7 +655,10 @@ def attendance_reports(request):
     is_admin = is_school_admin(user)
 
     # Get filter parameters
-    class_filter = request.GET.get('class', '')
+    try:
+        class_filter = int(request.GET['class']) if 'class' in request.GET else None
+    except (ValueError, TypeError):
+        class_filter = None
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
     view_mode = request.GET.get('view', 'summary')  # summary, daily, students
@@ -1016,7 +1005,10 @@ def attendance_export(request):
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from openpyxl.utils import get_column_letter
     # Get filter parameters
-    class_filter = request.GET.get('class', '')
+    try:
+        class_filter = int(request.GET['class']) if 'class' in request.GET else None
+    except (ValueError, TypeError):
+        class_filter = None
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
 
@@ -1115,14 +1107,13 @@ def attendance_export(request):
         cell.border = border
 
     # Data rows
-    status_map = {'P': 'Present', 'A': 'Absent', 'L': 'Late', 'E': 'Excused'}
     for idx, record in enumerate(records, 1):
         row_data = [
             record.session.date.strftime('%Y-%m-%d'),
             record.session.class_assigned.name,
             record.student.full_name,
             record.student.admission_number,
-            status_map.get(record.status, record.status),
+            record.get_status_display(),
             record.remarks or '',
         ]
         ws.append(row_data)
@@ -1269,7 +1260,12 @@ def notify_absent_parents(request):
     if request.method != 'POST':
         return redirect('academics:attendance_reports')
 
-    student_ids = request.POST.getlist('student_ids')
+    raw_ids = request.POST.getlist('student_ids')
+    try:
+        student_ids = [int(sid) for sid in raw_ids]
+    except (ValueError, TypeError):
+        messages.error(request, "Invalid student selection.")
+        return redirect('academics:attendance_reports')
     message_template = request.POST.get('message', '')
 
     if not student_ids:
@@ -1716,7 +1712,9 @@ def review_absence_excuse(request, pk):
         return HttpResponse('Not authorized to review this excuse', status=403)
 
     action = request.POST.get('action')
-    review_note = request.POST.get('review_note', '').strip()[:200]
+    review_note = request.POST.get('review_note', '').strip()
+    if len(review_note) > 200:
+        return HttpResponse('Review note must be 200 characters or less', status=400)
 
     if action == 'approve':
         excuse.status = 'approved'
