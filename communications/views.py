@@ -13,7 +13,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
-from django.utils.html import escape
+from django.utils.html import escape, escapejs
 from django.db import connection
 from django.db.models import Count, Q, Exists, OuterRef
 from core.utils import (
@@ -1149,7 +1149,7 @@ def announcement_search(request):
             items.append(f'''
                 <button type="button"
                         class="flex items-center gap-2 p-2 hover:bg-base-200 rounded w-full text-left"
-                        @click="addRecipient('{t.pk}', '{escape(t.full_name)}')">
+                        @click="addRecipient('{t.pk}', '{escapejs(t.full_name)}')">
                     <i class="fa-solid fa-user-tie text-accent text-xs"></i>
                     <span class="text-sm">{escape(t.full_name)}</span>
                     <span class="text-xs text-base-content/50 ml-auto">{escape(t.phone_number or 'No phone')}</span>
@@ -1170,7 +1170,7 @@ def announcement_search(request):
             items.append(f'''
                 <button type="button"
                         class="flex items-center gap-2 p-2 hover:bg-base-200 rounded w-full text-left"
-                        @click="addRecipient('{s.pk}', '{escape(s.full_name)}')">
+                        @click="addRecipient('{s.pk}', '{escapejs(s.full_name)}')">
                     <i class="fa-solid fa-user-graduate text-primary text-xs"></i>
                     <span class="text-sm">{escape(s.full_name)}</span>
                     <span class="text-xs text-base-content/50 ml-auto">{detail}</span>
@@ -1293,6 +1293,15 @@ def announcement_create(request):
 
     if not title or not message_text:
         form_context['error'] = 'Title and message are required.'
+        return htmx_render(
+            request,
+            'communications/announcement_create.html',
+            'communications/partials/announcement_create.html',
+            form_context
+        )
+
+    if len(title) > 255:
+        form_context['error'] = 'Title must be 255 characters or less.'
         return htmx_render(
             request,
             'communications/announcement_create.html',

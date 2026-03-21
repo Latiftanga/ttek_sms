@@ -5,14 +5,9 @@ from celery.exceptions import MaxRetriesExceededError
 from django.core.mail import send_mail
 from django_tenants.utils import schema_context
 
+from .utils import _mask_phone
+
 logger = logging.getLogger(__name__)
-
-
-def _mask_phone(phone):
-    """Mask phone number for logging, e.g. +233****5678."""
-    if not phone or len(phone) < 6:
-        return '***'
-    return phone[:4] + '****' + phone[-4:]
 
 
 # API endpoints
@@ -23,13 +18,21 @@ AT_SANDBOX_URL = "https://api.sandbox.africastalking.com/version1/messaging"
 
 
 def format_phone_ghana(phone):
-    """Format phone number to Ghana international format (233XXXXXXXXX)."""
-    phone = phone.strip()
-    if phone.startswith('+'):
-        phone = phone[1:]
-    elif phone.startswith('0'):
-        phone = '233' + phone[1:]
-    return phone
+    """
+    Format phone number to Ghana international format without '+' prefix (233XXXXXXXXX).
+
+    Delegates to normalize_phone_number for robust parsing, then strips the '+'.
+    Used by SMS provider APIs (Arkesel, Hubtel) that expect numbers without '+'.
+    """
+    from .utils import normalize_phone_number
+    normalized = normalize_phone_number(phone)
+    if not normalized:
+        # Fallback: strip common prefixes manually
+        phone = phone.strip()
+        if phone.startswith('+'):
+            return phone[1:]
+        return phone
+    return normalized.lstrip('+')
 
 
 def send_via_arkesel(recipient, message, sender_id=None, api_key=None):

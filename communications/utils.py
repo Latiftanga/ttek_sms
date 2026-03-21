@@ -225,7 +225,7 @@ def validate_phone_number(phone):
     # Normalize first
     phone = normalize_phone_number(phone)
 
-    if not E164_PATTERN.match(phone):
+    if not phone or not E164_PATTERN.match(phone):
         raise ValidationError(
             f"Invalid phone number format: {phone}. "
             "Must be in E.164 format (e.g., +233541234567)"
