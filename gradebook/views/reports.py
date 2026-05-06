@@ -1,5 +1,4 @@
 from collections import Counter
-from decimal import Decimal
 import logging
 import json
 
@@ -22,10 +21,10 @@ from .base import (
 from core.utils import admin_required
 from ..models import (
     GradingSystem, AssessmentCategory,
-    Score, SubjectTermGrade, TermReport,
+    SubjectTermGrade, TermReport,
     ReportDistributionLog,
 )
-from ..utils import get_school_context
+from ..utils import get_school_context, compute_report_category_scores, attach_category_scores
 from academics.models import Class
 from students.models import Student, Enrollment
 from core.models import SchoolSettings, Term
@@ -436,53 +435,37 @@ def report_card_print(request, student_id):
     categories = report_data['categories']
     school = report_data['school']
 
-    # Calculate category-wise scores for each subject
-    category_scores = {}
-    scores_qs = Score.objects.filter(
-        student=student,
-        assignment__term=current_term
-    ).select_related('assignment__subject', 'assignment__assessment_category')
+    # Calculate and attach category-wise scores for each subject
+    category_scores_map = compute_report_category_scores(student, current_term, categories)
+    attach_category_scores(subject_grades, categories, category_scores_map)
 
-    for score in scores_qs:
-        subject_id = score.assignment.subject_id
-        category_id = score.assignment.assessment_category_id
-
-        if subject_id not in category_scores:
-            category_scores[subject_id] = {}
-        if category_id not in category_scores[subject_id]:
-            category_scores[subject_id][category_id] = {'earned': Decimal('0'), 'possible': Decimal('0')}
-
-        category_scores[subject_id][category_id]['earned'] += score.points
-        category_scores[subject_id][category_id]['possible'] += score.assignment.points_possible
-
-    # Attach category scores to each subject grade
-    for sg in subject_grades:
-        sg.category_scores = {}
-        subject_cat_scores = category_scores.get(sg.subject_id, {})
-        for cat in categories:
-            cat_data = subject_cat_scores.get(cat.pk, {'earned': 0, 'possible': 0})
-            if cat_data['possible'] > 0:
-                percentage = (cat_data['earned'] / cat_data['possible']) * 100
-                weighted = (percentage * Decimal(str(cat.percentage))) / 100
-                sg.category_scores[cat.pk] = float(round(weighted, 2))
-            else:
-                sg.category_scores[cat.pk] = None
-
-    # Create verification record and generate QR code
+    # Reuse or create verification record and generate QR code
     verification = None
     qr_code_base64 = None
     try:
         from core.models import DocumentVerification
         from core.utils import generate_verification_qr
+        from datetime import timedelta
 
-        verification = DocumentVerification.create_for_document(
+        # Reuse an existing verification for the same student+term if created
+        # within the last 24 hours to avoid cluttering the DB on page refreshes.
+        recent_cutoff = timezone.now() - timedelta(hours=24)
+        verification = DocumentVerification.objects.filter(
             document_type=DocumentVerification.DocumentType.REPORT_CARD,
-            student=student,
-            title=f"Report Card - {current_term.name}" if current_term else "Report Card",
-            user=request.user,
-            term=current_term,
-            academic_year=current_term.academic_year.name if current_term and current_term.academic_year else '',
-        )
+            student_id=str(student.pk),
+            term_id=str(current_term.pk) if current_term else '',
+            generated_at__gte=recent_cutoff,
+        ).first()
+
+        if not verification:
+            verification = DocumentVerification.create_for_document(
+                document_type=DocumentVerification.DocumentType.REPORT_CARD,
+                student=student,
+                title=f"Report Card - {current_term.name}" if current_term else "Report Card",
+                user=request.user,
+                term=current_term,
+                academic_year=current_term.academic_year.name if current_term and current_term.academic_year else '',
+            )
         qr_code_base64 = generate_verification_qr(verification.verification_code, request=request)
     except (ValidationError, IntegrityError) as e:
         logger.warning(f"Could not create verification record: {e}")

@@ -297,6 +297,80 @@ def build_scores_lookup(
     }
 
 
+# ============ Report Card Category Scores ============
+
+
+def compute_report_category_scores(student, term, categories):
+    """
+    Compute weighted category scores per subject for report card display.
+
+    Queries raw Score data and returns a dict keyed by subject_id, where
+    each value is a dict keyed by category PK with the weighted score (float)
+    or None if no data.
+
+    Used by both the print view and the PDF generation task.
+
+    Args:
+        student: Student instance
+        term: Term instance
+        categories: List of AssessmentCategory instances
+
+    Returns:
+        dict[int, dict[int, float | None]]: {subject_id: {category_pk: weighted_score}}
+    """
+    from .models import Score
+
+    raw_scores = {}
+    scores_qs = Score.objects.filter(
+        student=student,
+        assignment__term=term
+    ).select_related('assignment__subject', 'assignment__assessment_category')
+
+    for score in scores_qs:
+        subject_id = score.assignment.subject_id
+        category_id = score.assignment.assessment_category_id
+
+        if subject_id not in raw_scores:
+            raw_scores[subject_id] = {}
+        if category_id not in raw_scores[subject_id]:
+            raw_scores[subject_id][category_id] = {'earned': Decimal('0'), 'possible': Decimal('0')}
+
+        if score.points is not None:
+            raw_scores[subject_id][category_id]['earned'] += score.points
+        raw_scores[subject_id][category_id]['possible'] += score.assignment.points_possible
+
+    # Build per-subject, per-category weighted scores
+    result = {}
+    for subject_id, cat_data in raw_scores.items():
+        result[subject_id] = {}
+        for cat in categories:
+            entry = cat_data.get(cat.pk, {'earned': Decimal('0'), 'possible': Decimal('0')})
+            if entry['possible'] > 0:
+                percentage = (entry['earned'] / entry['possible']) * 100
+                weighted = (percentage * Decimal(str(cat.percentage))) / 100
+                result[subject_id][cat.pk] = float(round(weighted, 2))
+            else:
+                result[subject_id][cat.pk] = None
+
+    return result
+
+
+def attach_category_scores(subject_grades, categories, category_scores_map):
+    """
+    Attach category scores to SubjectTermGrade objects for template rendering.
+
+    Args:
+        subject_grades: List of SubjectTermGrade instances
+        categories: List of AssessmentCategory instances
+        category_scores_map: Output of compute_report_category_scores()
+    """
+    for sg in subject_grades:
+        sg.category_scores = {}
+        subject_cat_scores = category_scores_map.get(sg.subject_id, {})
+        for cat in categories:
+            sg.category_scores[cat.pk] = subject_cat_scores.get(cat.pk)
+
+
 # ============ Assessment Status ============
 
 

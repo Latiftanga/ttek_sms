@@ -3,7 +3,6 @@ Celery tasks for gradebook app.
 Handles async report distribution via email and SMS.
 """
 import logging
-from decimal import Decimal
 from io import BytesIO
 
 from celery import shared_task
@@ -63,42 +62,10 @@ def generate_report_pdf(term_report, tenant_schema, shared_context=None):
                 is_active=True
             ).order_by('order'))
 
-        # Recompute category-wise scores for each subject from raw Score data.
-        # We can't rely solely on the stored SubjectTermGrade.category_scores
-        # because the template filter needs the scores attached as a Python
-        # attribute (not the JSONField which may differ in key format).
-        from .models import Score
-        category_scores = {}
-        scores_qs = Score.objects.filter(
-            student=student,
-            assignment__term=current_term
-        ).select_related('assignment__subject', 'assignment__assessment_category')
-
-        for score in scores_qs:
-            subject_id = score.assignment.subject_id
-            category_id = score.assignment.assessment_category_id
-
-            if subject_id not in category_scores:
-                category_scores[subject_id] = {}
-            if category_id not in category_scores[subject_id]:
-                category_scores[subject_id][category_id] = {'earned': Decimal('0'), 'possible': Decimal('0')}
-
-            if score.points is not None:
-                category_scores[subject_id][category_id]['earned'] += score.points
-            category_scores[subject_id][category_id]['possible'] += score.assignment.points_possible
-
-        # Attach category scores to each subject grade
-        for sg in subject_grades:
-            sg.category_scores = {}
-            subject_cat_scores = category_scores.get(sg.subject_id, {})
-            for cat in categories:
-                cat_data = subject_cat_scores.get(cat.pk, {'earned': Decimal('0'), 'possible': Decimal('0')})
-                if cat_data['possible'] > 0:
-                    percentage = (cat_data['earned'] / cat_data['possible']) * 100
-                    weighted = (percentage * Decimal(str(cat.percentage))) / 100
-                    sg.category_scores[cat.pk] = float(round(weighted, 2))
-                else:
-                    sg.category_scores[cat.pk] = None
+        # Compute and attach category-wise scores for report card display
+        from .utils import compute_report_category_scores, attach_category_scores
+        category_scores_map = compute_report_category_scores(student, current_term, categories)
+        attach_category_scores(subject_grades, categories, category_scores_map)
 
         # Get school info (use shared if available)
         if shared_context and 'school' in shared_context:

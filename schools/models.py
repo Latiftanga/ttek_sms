@@ -1,8 +1,11 @@
 import math
 import os
 from io import BytesIO
+import re
+
 from django.db import models
 from django.core.files.base import ContentFile
+from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
 from django_tenants.models import TenantMixin, DomainMixin
 from PIL import Image, UnidentifiedImageError
@@ -16,6 +19,11 @@ LOGO_MAX_SIZE = (256, 256)
 FAVICON_MAX_SIZE = (64, 64)
 
 ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']
+
+hex_color_validator = RegexValidator(
+    regex=r'^#[0-9A-Fa-f]{6}$',
+    message='Enter a valid hex color (e.g. #FF5733).',
+)
 
 
 def validate_image_or_svg(file):
@@ -141,9 +149,9 @@ class School(TenantMixin):
     )
 
     # Theme Colors (HEX format)
-    primary_color = models.CharField(max_length=7, default="#4F46E5", help_text="Main brand color (hex)")
-    secondary_color = models.CharField(max_length=7, default="#7C3AED", help_text="Secondary brand color (hex)")
-    accent_color = models.CharField(max_length=7, default="#F59E0B", help_text="Accent/highlight color (hex)")
+    primary_color = models.CharField(max_length=7, default="#4F46E5", validators=[hex_color_validator], help_text="Main brand color (hex)")
+    secondary_color = models.CharField(max_length=7, default="#7C3AED", validators=[hex_color_validator], help_text="Secondary brand color (hex)")
+    accent_color = models.CharField(max_length=7, default="#F59E0B", validators=[hex_color_validator], help_text="Accent/highlight color (hex)")
 
     # OKLCH values (auto-generated for CSS, not editable)
     primary_color_oklch = models.CharField(max_length=50, blank=True, editable=False)
@@ -276,7 +284,13 @@ class School(TenantMixin):
             else:
                 self._resize_image(self.favicon, FAVICON_MAX_SIZE)
 
-        # Convert HEX colors to OKLCH for DaisyUI theming
+        # Validate and convert HEX colors to OKLCH for DaisyUI theming
+        _hex_re = re.compile(r'^#[0-9A-Fa-f]{6}$')
+        for field in ('primary_color', 'secondary_color', 'accent_color'):
+            value = getattr(self, field)
+            if value and not _hex_re.match(value):
+                raise ValidationError({field: 'Enter a valid hex color (e.g. #FF5733).'})
+
         if self.primary_color:
             self.primary_color_oklch = hex_to_oklch_values(self.primary_color)
         if self.secondary_color:
