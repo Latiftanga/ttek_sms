@@ -629,7 +629,7 @@
                 </td>
                 <td class="summary-cell">
                     <div class="summary-value">{{ term_report.out_of|default:"-" }}</div>
-                    <div class="summary-label">Out Of</div>
+                    <div class="summary-label">Enrolled</div>
                 </td>
                 {% endif %}
                 <td class="summary-cell">
@@ -642,11 +642,11 @@
                 </td>
                 <td class="summary-cell">
                     <div class="summary-value" style="color: #059669;">{{ term_report.subjects_passed|default:"0" }}</div>
-                    <div class="summary-label">Passed</div>
+                    <div class="summary-label">Subject(s) Passed</div>
                 </td>
                 <td class="summary-cell">
                     <div class="summary-value" style="color: #dc2626;">{{ term_report.subjects_failed|default:"0" }}</div>
-                    <div class="summary-label">Failed</div>
+                    <div class="summary-label">Subject(s) Failed</div>
                 </td>
             </tr>
         </table>
@@ -769,19 +769,19 @@
         <div class="section-title">Conduct &amp; Behavior</div>
         <table class="ratings-table">
             <tr>
-                <td class="rating-cell-label">Conduct</td>
+                <td class="rating-cell-label">Conduct:</td>
                 <td class="rating-cell-value">{{ term_report.conduct_rating|default:"-" }}</td>
             </tr>
             <tr>
-                <td class="rating-cell-label">Attitude</td>
+                <td class="rating-cell-label">Attitude:</td>
                 <td class="rating-cell-value">{{ term_report.attitude_rating|default:"-" }}</td>
             </tr>
             <tr>
-                <td class="rating-cell-label">Interest</td>
+                <td class="rating-cell-label">Interest:</td>
                 <td class="rating-cell-value">{{ term_report.interest_rating|default:"-" }}</td>
             </tr>
             <tr>
-                <td class="rating-cell-label">Attendance</td>
+                <td class="rating-cell-label">Attendance:</td>
                 <td class="rating-cell-value">{{ term_report.get_attendance_rating_display|default:"-" }}</td>
             </tr>
         </table>
@@ -880,12 +880,20 @@
         <!-- FOOTER -->
         <table class="footer-table">
             <tr>
-                {% if rc_config.rc_show_grading_key and grading_system and grading_system.scales.all %}
                 <td class="grading-key">
+                    {% if categories %}
+                    <span class="grading-key-title">Assessment Key:</span>
+                    {% for cat in categories %}
+                    <strong>{{ cat.short_name }}</strong>: {{ cat.name }} ({{ cat.percentage }}%){% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                    <br>
+                    {% endif %}
+                    {% if rc_config.rc_show_grading_key and grading_system and grading_system.scales.all %}
                     <span class="grading-key-title">Grading Scale:</span>
                     {% for scale in grading_system.scales.all|dictsort:"min_percentage" reversed %}
                     {{ scale.grade_label }}: {{ scale.min_percentage|floatformat:0 }}-{{ scale.max_percentage|floatformat:0 }}%{% if not forloop.last %},{% endif %}
                     {% endfor %}
+                    {% endif %}
                     {% if school.email or school.digital_address %}
                     <div class="footer-info">
                         {% if school.email %}{{ school.email }}{% endif %}
@@ -894,17 +902,6 @@
                     </div>
                     {% endif %}
                 </td>
-                {% else %}
-                <td>
-                    {% if school.email or school.digital_address %}
-                    <div class="footer-info">
-                        {% if school.email %}{{ school.email }}{% endif %}
-                        {% if school.email and school.digital_address %} &bull; {% endif %}
-                        {% if school.digital_address %}{{ school.digital_address }}{% endif %}
-                    </div>
-                    {% endif %}
-                </td>
-                {% endif %}
 
                 {% if rc_config.rc_show_qr_code and qr_code_base64 %}
                 <td class="qr-cell">

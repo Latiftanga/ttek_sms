@@ -72,7 +72,7 @@
     <div class="card bg-primary/10 border border-primary/20">
         <div class="card-body p-3 text-center">
             <div class="text-xs text-base-content/60">Position</div>
-            <div class="text-2xl font-bold text-primary">{{ term_report.position }}<span class="text-sm text-base-content/50">/{{ term_report.out_of }}</span></div>
+            <div class="text-2xl font-bold text-primary">{{ term_report.position }}<span class="text-sm text-base-content/50"> of {{ term_report.out_of }} enrolled</span></div>
         </div>
     </div>
     <div class="card bg-secondary/10 border border-secondary/20">
@@ -83,13 +83,13 @@
     </div>
     <div class="card bg-success/10 border border-success/20">
         <div class="card-body p-3 text-center">
-            <div class="text-xs text-base-content/60">Passed</div>
+            <div class="text-xs text-base-content/60">Subject(s) Passed</div>
             <div class="text-2xl font-bold text-success">{{ term_report.subjects_passed }}</div>
         </div>
     </div>
     <div class="card bg-error/10 border border-error/20">
         <div class="card-body p-3 text-center">
-            <div class="text-xs text-base-content/60">Failed</div>
+            <div class="text-xs text-base-content/60">Subject(s) Failed</div>
             <div class="text-2xl font-bold text-error">{{ term_report.subjects_failed }}</div>
         </div>
     </div>
