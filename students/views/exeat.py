@@ -4,7 +4,7 @@ import logging
 from functools import wraps
 
 from django.core.paginator import Paginator
-from django.db import connection
+from django.db import connection, transaction
 from django.db.models import Q, Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
@@ -122,7 +122,7 @@ def send_exeat_approval_sms(exeat, user=None):
         school_name = getattr(connection.tenant, 'name', 'School') if hasattr(connection, 'tenant') else 'School'
 
         # Format message based on exeat type - keep concise for SMS
-        if exeat.exeat_type == 'internal':
+        if exeat.exeat_type == Exeat.ExeatType.INTERNAL:
             message = (
                 f"{school_name}: Dear {guardian.full_name}, {student.full_name} has been "
                 f"granted internal exeat. Dest: {exeat.destination[:30]}. "
@@ -466,10 +466,10 @@ def exeat_index(request):
 
     # Use aggregate for single query instead of 4 separate COUNT queries
     stats = stats_qs.aggregate(
-        awaiting=Count('id', filter=Q(status__in=['pending', 'recommended'])),
-        approved=Count('id', filter=Q(status='approved')),
-        active=Count('id', filter=Q(status='active')),
-        overdue=Count('id', filter=Q(status='overdue')),
+        awaiting=Count('id', filter=Q(status__in=[Exeat.Status.PENDING, Exeat.Status.RECOMMENDED])),
+        approved=Count('id', filter=Q(status=Exeat.Status.APPROVED)),
+        active=Count('id', filter=Q(status=Exeat.Status.ACTIVE)),
+        overdue=Count('id', filter=Q(status=Exeat.Status.OVERDUE)),
     )
 
     # Get houses for filter dropdown (admin/senior only)
@@ -561,14 +561,15 @@ def exeat_create(request):
                 exeat.contact_phone = guardian.phone_number or ''
 
             # Determine approval flow based on role and exeat type
-            if exeat.exeat_type == 'internal':
+            approver = teacher or (hm_assignment.teacher if hm_assignment else None)
+            if exeat.exeat_type == Exeat.ExeatType.INTERNAL:
                 # Internal exeats: auto-approve by creator
-                exeat.approved_by = teacher or (hm_assignment.teacher if hm_assignment else None)
+                exeat.approved_by = approver
                 exeat.approved_at = timezone.now()
                 exeat.status = Exeat.Status.APPROVED
             elif is_admin_or_senior:
                 # External by admin/senior: auto-approve
-                exeat.approved_by = teacher or (hm_assignment.teacher if hm_assignment else None)
+                exeat.approved_by = approver
                 exeat.approved_at = timezone.now()
                 exeat.status = Exeat.Status.APPROVED
             else:
@@ -577,10 +578,25 @@ def exeat_create(request):
                 exeat.recommended_at = timezone.now()
                 exeat.status = Exeat.Status.RECOMMENDED
 
-            exeat.save()
+            if exeat.status == Exeat.Status.APPROVED and not exeat.approved_by:
+                logger.warning("Exeat %s auto-approved with no teacher on record (user: %s)", exeat.pk, user.pk)
+
+            # Atomic save with overlap re-check to prevent race condition
+            with transaction.atomic():
+                active_statuses = [Exeat.Status.PENDING, Exeat.Status.RECOMMENDED, Exeat.Status.APPROVED, Exeat.Status.ACTIVE]
+                overlapping = Exeat.objects.select_for_update().filter(
+                    student=student,
+                    status__in=active_statuses,
+                    departure_date__lte=exeat.expected_return_date or exeat.departure_date,
+                    expected_return_date__gte=exeat.departure_date,
+                ).exists()
+                if overlapping:
+                    messages.error(request, "This student already has an overlapping active exeat.")
+                    return redirect('students:exeat_list')
+                exeat.save()
 
             # Send approval SMS for auto-approved exeats
-            if exeat.status == 'approved':
+            if exeat.status == Exeat.Status.APPROVED:
                 sms_result = send_exeat_approval_sms(exeat, user)
                 if sms_result.is_success:
                     messages.info(request, f"SMS sent to guardian ({sms_result.guardian_phone}).")
@@ -591,7 +607,7 @@ def exeat_create(request):
                 else:
                     messages.error(request, f"SMS failed: {sms_result.user_message}")
 
-            if exeat.status == 'approved':
+            if exeat.status == Exeat.Status.APPROVED:
                 messages.success(request, f'Exeat approved for {student.full_name}.')
             else:
                 messages.success(request, f'External exeat for {student.full_name} submitted for senior housemaster approval.')
@@ -725,20 +741,20 @@ def exeat_detail(request, pk):
 
     # Determine what actions the user can take
     can_approve_internal = (
-        exeat.exeat_type == 'internal' and
-        exeat.status == 'pending' and
+        exeat.exeat_type == Exeat.ExeatType.INTERNAL and
+        exeat.status == Exeat.Status.PENDING and
         (is_school_admin(user) or (assignment and exeat.student.house == assignment.house))
     )
 
     can_recommend = (
-        exeat.exeat_type == 'external' and
-        exeat.status == 'pending' and
+        exeat.exeat_type == Exeat.ExeatType.EXTERNAL and
+        exeat.status == Exeat.Status.PENDING and
         (is_school_admin(user) or (assignment and exeat.student.house == assignment.house))
     )
 
     can_approve_external = (
-        exeat.exeat_type == 'external' and
-        exeat.status == 'recommended' and
+        exeat.exeat_type == Exeat.ExeatType.EXTERNAL and
+        exeat.status == Exeat.Status.RECOMMENDED and
         (is_school_admin(user) or (assignment and assignment.is_senior))
     )
 
@@ -746,19 +762,19 @@ def exeat_detail(request, pk):
     is_house_housemaster = assignment and exeat.student.house == assignment.house
 
     can_mark_departed = (
-        exeat.status == 'approved' and
+        exeat.status == Exeat.Status.APPROVED and
         (is_admin_or_senior or is_house_housemaster)
     )
     can_mark_returned = (
-        exeat.status in ['active', 'overdue'] and
+        exeat.status in [Exeat.Status.ACTIVE, Exeat.Status.OVERDUE] and
         (is_admin_or_senior or is_house_housemaster)
     )
     can_reject = (
-        exeat.status in ['pending', 'recommended', 'overdue'] and
+        exeat.status in [Exeat.Status.PENDING, Exeat.Status.RECOMMENDED, Exeat.Status.OVERDUE] and
         (is_admin_or_senior or is_house_housemaster)
     )
     can_cancel = (
-        exeat.status in ['pending', 'recommended', 'approved'] and
+        exeat.status in [Exeat.Status.PENDING, Exeat.Status.RECOMMENDED, Exeat.Status.APPROVED] and
         (is_admin_or_senior or is_house_housemaster)
     )
 
@@ -798,7 +814,7 @@ def exeat_approve(request, pk):
         return HttpResponse(status=405)
 
     # Internal exeat - direct approval by housemaster
-    if exeat.exeat_type == 'internal' and exeat.status == 'pending':
+    if exeat.exeat_type == Exeat.ExeatType.INTERNAL and exeat.status == Exeat.Status.PENDING:
         if not (is_school_admin(user) or (assignment and exeat.student.house == assignment.house)):
             messages.error(request, "You can't approve this exeat.")
             return redirect('students:exeat_detail', pk=pk)
@@ -840,7 +856,7 @@ def exeat_approve(request, pk):
             messages.error(request, f"SMS failed: {sms_result.user_message}")
 
     # External exeat - recommend by housemaster
-    elif exeat.exeat_type == 'external' and exeat.status == 'pending':
+    elif exeat.exeat_type == Exeat.ExeatType.EXTERNAL and exeat.status == Exeat.Status.PENDING:
         if not (is_school_admin(user) or (assignment and exeat.student.house == assignment.house)):
             messages.error(request, "You can't recommend this exeat.")
             return redirect('students:exeat_detail', pk=pk)
@@ -852,7 +868,7 @@ def exeat_approve(request, pk):
         messages.success(request, 'External exeat recommended for senior housemaster approval.')
 
     # External exeat - final approval by senior housemaster
-    elif exeat.exeat_type == 'external' and exeat.status == 'recommended':
+    elif exeat.exeat_type == Exeat.ExeatType.EXTERNAL and exeat.status == Exeat.Status.RECOMMENDED:
         if not (is_school_admin(user) or (assignment and assignment.is_senior)):
             messages.error(request, "Only the senior housemaster can approve external exeats.")
             return redirect('students:exeat_detail', pk=pk)
@@ -915,7 +931,7 @@ def exeat_reject(request, pk):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    if exeat.status not in ['pending', 'recommended', 'overdue']:
+    if exeat.status not in [Exeat.Status.PENDING, Exeat.Status.RECOMMENDED, Exeat.Status.OVERDUE]:
         messages.error(request, "This exeat cannot be rejected.")
         return redirect('students:exeat_detail', pk=pk)
 
@@ -1148,14 +1164,14 @@ def exeat_verify(request):
         student_ids = [s.pk for s in students]
         active_exeats = Exeat.objects.filter(
             student_id__in=student_ids,
-            status__in=['active', 'approved', 'overdue']
+            status__in=[Exeat.Status.ACTIVE, Exeat.Status.APPROVED, Exeat.Status.OVERDUE]
         ).select_related('approved_by')
 
         exeat_map = {}
         for exeat in active_exeats:
             # Keep the most relevant exeat per student (active > approved > overdue)
             existing = exeat_map.get(exeat.student_id)
-            if not existing or exeat.status == 'active':
+            if not existing or exeat.status == Exeat.Status.ACTIVE:
                 exeat_map[exeat.student_id] = exeat
 
         results = [

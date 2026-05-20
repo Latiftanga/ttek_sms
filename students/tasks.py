@@ -32,7 +32,7 @@ def check_overdue_exeats(self):
 
                 # Find active/approved exeats past their expected return (DB-level filter)
                 overdue_exeats = list(Exeat.objects.filter(
-                    status__in=['active', 'approved'],
+                    status__in=[Exeat.Status.ACTIVE, Exeat.Status.APPROVED],
                 ).filter(
                     Q(expected_return_date__lt=today) |
                     Q(expected_return_date=today, expected_return_time__lt=current_time)
@@ -44,7 +44,7 @@ def check_overdue_exeats(self):
                 # Bulk update status to overdue
                 overdue_ids = [e.pk for e in overdue_exeats]
                 Exeat.objects.filter(pk__in=overdue_ids).update(
-                    status='overdue',
+                    status=Exeat.Status.OVERDUE,
                 )
 
                 logger.info(

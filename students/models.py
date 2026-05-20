@@ -857,8 +857,8 @@ class Exeat(models.Model):
         if self.status not in [self.Status.ACTIVE, self.Status.APPROVED]:
             return False
         from datetime import datetime
-        expected = datetime.combine(self.expected_return_date, self.expected_return_time)
-        return timezone.now() > timezone.make_aware(expected) if timezone.is_naive(expected) else timezone.now() > expected
+        expected = timezone.make_aware(datetime.combine(self.expected_return_date, self.expected_return_time))
+        return timezone.now() > expected
 
     def mark_departed(self):
         """Mark student as departed. Uses atomic update to prevent race conditions."""
@@ -887,9 +887,17 @@ class Exeat(models.Model):
         return False
 
     def mark_overdue(self):
-        """Mark exeat as overdue."""
-        self.status = self.Status.OVERDUE
-        self.save(update_fields=['status', 'updated_at'])
+        """Mark exeat as overdue. Uses atomic update to prevent race conditions."""
+        updated = Exeat.objects.filter(
+            pk=self.pk, status__in=[self.Status.ACTIVE, self.Status.APPROVED]
+        ).update(
+            status=self.Status.OVERDUE,
+            updated_at=timezone.now(),
+        )
+        if updated:
+            self.refresh_from_db()
+            return True
+        return False
 
     def recommend(self, teacher):
         """Housemaster recommends external exeat for senior approval."""

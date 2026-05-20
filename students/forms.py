@@ -271,7 +271,7 @@ class ExeatForm(forms.ModelForm):
 
         # Prevent duplicate active exeats for the same student
         if student and departure_date and not self.instance.pk:
-            active_statuses = ['pending', 'recommended', 'approved', 'active']
+            active_statuses = [Exeat.Status.PENDING, Exeat.Status.RECOMMENDED, Exeat.Status.APPROVED, Exeat.Status.ACTIVE]
             overlapping = Exeat.objects.filter(
                 student=student,
                 status__in=active_statuses,
