@@ -367,6 +367,15 @@ def _calculate_term_reports(
             report.attendance_rating = TermReport.derive_attendance_rating(
                 report.attendance_percentage
             )
+        else:
+            # No attendance recorded — auto-generation has nothing to derive
+            # from, so leave the rating blank rather than keep a stale value.
+            report.attendance_rating = ''
+            report.attendance_percentage = None
+            report.days_present = None
+            report.days_absent = None
+            report.times_late = None
+            report.total_school_days = None
 
         if is_final_term and grading_system:
             is_eligible, reasons = grading_system.check_promotion_eligibility(
