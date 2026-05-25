@@ -8,6 +8,7 @@ Focuses on:
 - Subject sync utility
 """
 from datetime import date
+from decimal import Decimal
 
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -19,7 +20,10 @@ from academics.models import (
 )
 from students.models import Student, Guardian, Enrollment
 from teachers.models import Teacher
-from core.models import AcademicYear
+from core.models import AcademicYear, Term
+from gradebook.models import (
+    Assignment, AssessmentCategory, Score, SubjectTermGrade, TermReport
+)
 
 User = get_user_model()
 
@@ -631,3 +635,119 @@ class EnrollmentIntegrationTests(AcademicsTestCase):
         self.assertIn('CES', enrolled_codes)
         self.assertIn('FRS', enrolled_codes)
         self.assertIn('SPS', enrolled_codes)
+
+
+# =============================================================================
+# VIEW TESTS: class_subject_delete cascade cleanup
+# =============================================================================
+
+class ClassSubjectDeleteCascadeTests(AcademicsTestCase):
+    """Removing a subject from a class should cascade-delete the current term's
+    scores and grades for it and re-rank class positions, while leaving past
+    terms intact."""
+
+    def setUp(self):
+        super().setUp()
+        self.term = Term.objects.create(
+            academic_year=self.current_year,
+            name='First Term', term_number=1,
+            start_date=date(2024, 9, 1), end_date=date(2024, 12, 20),
+            is_current=True,
+        )
+        self.klass = self.create_class('shs', 3, programme=self.programme)
+        self.math = self.create_subject('Mathematics', 'MTH')
+        self.english = self.create_subject('English', 'ENG')
+        self.cs_math = self.create_class_subject(self.klass, self.math)
+        self.cs_english = self.create_class_subject(self.klass, self.english)
+
+        self.cat = AssessmentCategory.objects.create(
+            name='Exam', short_name='EXAM', category_type='EXAM', percentage=100
+        )
+
+        self.s1 = self.create_student('Ama', 'STU-001', class_obj=self.klass)
+        self.s2 = self.create_student('Kofi', 'STU-002', class_obj=self.klass)
+
+        for student in (self.s1, self.s2):
+            for cs in (self.cs_math, self.cs_english):
+                StudentSubjectEnrollment.objects.create(
+                    student=student, class_subject=cs, is_active=True
+                )
+
+        # Grades: both students average 70 initially (tie), so removing Math
+        # produces an observable re-rank.
+        #   s1: Math 80, English 60  -> after removal English 60
+        #   s2: Math 50, English 90  -> after removal English 90 (becomes 1st)
+        self._grade(self.s1, self.math, 80)
+        self._grade(self.s1, self.english, 60)
+        self._grade(self.s2, self.math, 50)
+        self._grade(self.s2, self.english, 90)
+
+        TermReport.objects.create(student=self.s1, term=self.term, out_of=2)
+        TermReport.objects.create(student=self.s2, term=self.term, out_of=2)
+
+    def _grade(self, student, subject, score, term=None):
+        return SubjectTermGrade.objects.create(
+            student=student, subject=subject, term=term or self.term,
+            total_score=Decimal(str(score)), is_passing=score >= 50,
+        )
+
+    def _score(self, student, subject, term=None):
+        assignment, _ = Assignment.objects.get_or_create(
+            assessment_category=self.cat, subject=subject, term=term or self.term,
+            name='Final', defaults={'points_possible': 100, 'date': date(2024, 12, 1)},
+        )
+        return Score.objects.create(student=student, assignment=assignment, points=70)
+
+    def _delete_math(self):
+        return self.client.post(reverse(
+            'academics:class_subject_delete',
+            kwargs={'class_pk': self.klass.pk, 'pk': self.cs_math.pk},
+        ))
+
+    def test_removes_allocation_and_current_term_grades(self):
+        self._delete_math()
+        self.assertFalse(
+            ClassSubject.objects.filter(pk=self.cs_math.pk).exists()
+        )
+        # Math grades gone for both students; English grades remain.
+        self.assertEqual(
+            SubjectTermGrade.objects.filter(subject=self.math, term=self.term).count(), 0
+        )
+        self.assertEqual(
+            SubjectTermGrade.objects.filter(subject=self.english, term=self.term).count(), 2
+        )
+
+    def test_deletes_current_term_scores(self):
+        self._score(self.s1, self.math)
+        self._score(self.s2, self.math)
+        self._score(self.s1, self.english)
+        self._delete_math()
+        self.assertEqual(
+            Score.objects.filter(assignment__subject=self.math, assignment__term=self.term).count(), 0
+        )
+        self.assertEqual(
+            Score.objects.filter(assignment__subject=self.english, assignment__term=self.term).count(), 1
+        )
+
+    def test_reranks_positions(self):
+        self._delete_math()
+        r1 = TermReport.objects.get(student=self.s1, term=self.term)
+        r2 = TermReport.objects.get(student=self.s2, term=self.term)
+        # s2 (English 90) now ranks above s1 (English 60)
+        self.assertEqual(r2.position, 1)
+        self.assertEqual(r1.position, 2)
+        self.assertEqual(r1.out_of, 2)
+        self.assertEqual(r2.out_of, 2)
+        self.assertEqual(r1.average, Decimal('60.00'))
+        self.assertEqual(r2.average, Decimal('90.00'))
+
+    def test_past_term_grades_preserved(self):
+        past_year = self.next_year
+        past_term = Term.objects.create(
+            academic_year=past_year, name='Past Term', term_number=3,
+            start_date=date(2025, 9, 1), end_date=date(2025, 12, 20),
+            is_current=False,
+        )
+        past_grade = self._grade(self.s1, self.math, 75, term=past_term)
+        self._delete_math()
+        self.assertTrue(SubjectTermGrade.objects.filter(pk=past_grade.pk).exists())
