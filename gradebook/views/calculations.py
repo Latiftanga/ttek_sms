@@ -216,6 +216,15 @@ def _calculate_subject_positions(data, current_term):
         total_score__isnull=False
     ).select_related('subject'))
 
+    # Drop grades for student↔subject pairs the student is no longer enrolled
+    # in. Without this, a SubjectTermGrade left over from before a student was
+    # unregistered from a subject would still be ranked and counted toward
+    # positions/averages, corrupting positions and out_of for the whole class.
+    all_grades = [
+        g for g in all_grades
+        if g.subject_id in student_subject_map.get(g.student_id, set())
+    ]
+
     grades_by_subject = defaultdict(list)
     for grade in all_grades:
         grades_by_subject[grade.subject_id].append(grade)

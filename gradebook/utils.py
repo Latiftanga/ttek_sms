@@ -13,7 +13,7 @@ from django.db import connection
 from django.conf import settings as django_settings
 from django.db.models import Count, F, Max
 
-from .models import Assignment, Score, AssessmentCategory
+from .models import Assignment, Score, AssessmentCategory, SubjectTermGrade, TermReport
 from academics.models import ClassSubject, StudentSubjectEnrollment
 from students.models import Student
 
@@ -1066,3 +1066,63 @@ def invalidate_categories_cache():
     from django.core.cache import cache
     from django.db import connection
     cache.delete(f'assessment_categories_active_{connection.schema_name}')
+
+
+def recalc_and_rerank_term_reports(student_ids, term):
+    """Recompute aggregates and re-rank class positions for a term.
+
+    Use after grade rows have been added or removed outside the full
+    calculate-grades pipeline (e.g. removing a subject from a class, or a
+    one-off cleanup). For each student's TermReport in the term:
+      - if they still have graded subjects, aggregates are recomputed;
+      - otherwise the report's aggregates are zeroed so report cards don't
+        show a phantom average/position.
+    Reports are then dense-ranked by average (descending); reports with no
+    graded subjects are left unranked (position=None). ``out_of`` is set to
+    the number of ranked reports.
+
+    Returns the number of reports updated.
+    """
+    reports = list(TermReport.objects.filter(
+        student_id__in=student_ids, term=term
+    ).select_related('student'))
+    if not reports:
+        return 0
+
+    for tr in reports:
+        has_grades = SubjectTermGrade.objects.filter(
+            student_id=tr.student_id, term=term, total_score__isnull=False
+        ).exists()
+        if has_grades:
+            tr.calculate_aggregates()
+        else:
+            tr.total_marks = 0
+            tr.average = Decimal('0.0')
+            tr.subjects_taken = 0
+            tr.subjects_passed = 0
+            tr.subjects_failed = 0
+            tr.credits_count = 0
+            tr.core_subjects_total = 0
+            tr.core_subjects_passed = 0
+            tr.aggregate = None
+
+    ranked = [r for r in reports if r.subjects_taken and r.subjects_taken > 0]
+    ranked.sort(key=lambda r: -(r.average if r.average is not None else Decimal('0')))
+    out_of = len(ranked)
+    position = 0
+    last_value = None
+    for i, r in enumerate(ranked, 1):
+        value = round(r.average, 2) if r.average is not None else None
+        if value != last_value:
+            position = i
+        r.position = position
+        last_value = value
+
+    ranked_set = {id(r) for r in ranked}
+    for r in reports:
+        r.out_of = out_of
+        if id(r) not in ranked_set:
+            r.position = None
+        r.save()
+
+    return len(reports)

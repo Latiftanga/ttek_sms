@@ -7,12 +7,18 @@ from django.db import models
 from django_tenants.test.cases import TenantTestCase
 from django_tenants.test.client import TenantClient
 
+from io import StringIO
+
+from django.core.management import call_command
+
 from .models import (
     GradingSystem, GradeScale, AssessmentCategory,
-    Assignment, Score, SubjectTermGrade
+    Assignment, Score, SubjectTermGrade, TermReport
 )
 from .forms import GradeScaleForm, AssessmentCategoryForm, ScoreForm
-from academics.models import Subject, Class, Programme
+from academics.models import (
+    Subject, Class, Programme, ClassSubject, StudentSubjectEnrollment
+)
 from core.models import AcademicYear, Term
 from students.models import Student, Guardian, Enrollment
 
@@ -818,3 +824,143 @@ class SubjectTermGradeCalculationTest(GradebookTenantTestCase):
         self.assertAlmostEqual(subject_grade.class_score, expected_class_score, places=2)
         self.assertAlmostEqual(subject_grade.exam_score, expected_exam_score, places=2)
         self.assertAlmostEqual(subject_grade.total_score, expected_total_score, places=2)
+
+
+# ============ cleanup_unenrolled_grades command ============
+
+
+class CleanupUnenrolledGradesCommandTests(GradebookTenantTestCase):
+    """The command should delete SubjectTermGrade rows for students no longer
+    enrolled in a subject, then re-rank class positions — without touching
+    grades the student is still enrolled in or classes that don't track
+    enrollments."""
+
+    def setUp(self):
+        super().setUp()
+        self.academic_year = AcademicYear.objects.create(
+            name='2024/2025', start_date=date(2024, 9, 1),
+            end_date=date(2025, 7, 31), is_current=True,
+        )
+        self.term = Term.objects.create(
+            academic_year=self.academic_year, name='First Term', term_number=1,
+            start_date=date(2024, 9, 1), end_date=date(2024, 12, 20), is_current=True,
+        )
+        self.programme = Programme.objects.create(name='General Arts', code='ART')
+        self.klass = Class.objects.create(
+            level_type='shs', level_number=3, section='A', name='SHS 3A',
+            programme=self.programme, is_active=True,
+        )
+        self.math = Subject.objects.create(name='Mathematics', short_name='MTH')
+        self.english = Subject.objects.create(name='English', short_name='ENG')
+        self.cs_math = ClassSubject.objects.create(class_assigned=self.klass, subject=self.math)
+        self.cs_english = ClassSubject.objects.create(class_assigned=self.klass, subject=self.english)
+
+        self.s1 = Student.objects.create(
+            first_name='Ama', last_name='Test', admission_number='STU-001',
+            date_of_birth=date(2008, 1, 1), admission_date=date(2024, 9, 1),
+            current_class=self.klass, status=Student.Status.ACTIVE,
+        )
+        self.s2 = Student.objects.create(
+            first_name='Kofi', last_name='Test', admission_number='STU-002',
+            date_of_birth=date(2008, 1, 1), admission_date=date(2024, 9, 1),
+            current_class=self.klass, status=Student.Status.ACTIVE,
+        )
+
+        # s1 was unenrolled from Math (inactive); s2 enrolled in both.
+        StudentSubjectEnrollment.objects.create(
+            student=self.s1, class_subject=self.cs_math, is_active=False
+        )
+        StudentSubjectEnrollment.objects.create(
+            student=self.s1, class_subject=self.cs_english, is_active=True
+        )
+        StudentSubjectEnrollment.objects.create(
+            student=self.s2, class_subject=self.cs_math, is_active=True
+        )
+        StudentSubjectEnrollment.objects.create(
+            student=self.s2, class_subject=self.cs_english, is_active=True
+        )
+
+        # Orphaned Math grade for s1 left behind from before the fix.
+        self._grade(self.s1, self.math, 80)
+        self._grade(self.s1, self.english, 60)
+        self._grade(self.s2, self.math, 50)
+        self._grade(self.s2, self.english, 90)
+
+        TermReport.objects.create(student=self.s1, term=self.term, out_of=2)
+        TermReport.objects.create(student=self.s2, term=self.term, out_of=2)
+
+    def _grade(self, student, subject, score, term=None):
+        return SubjectTermGrade.objects.create(
+            student=student, subject=subject, term=term or self.term,
+            total_score=Decimal(str(score)), is_passing=score >= 50,
+        )
+
+    def test_dry_run_changes_nothing(self):
+        out = StringIO()
+        call_command('cleanup_unenrolled_grades', stdout=out)
+        # Orphaned grade still present after a dry run.
+        self.assertTrue(
+            SubjectTermGrade.objects.filter(
+                student=self.s1, subject=self.math, term=self.term
+            ).exists()
+        )
+        self.assertIn('Dry run', out.getvalue())
+        self.assertIn('Mathematics', out.getvalue())
+
+    def test_apply_deletes_orphan_only(self):
+        call_command('cleanup_unenrolled_grades', apply=True, stdout=StringIO())
+        # s1's Math grade (unenrolled) removed...
+        self.assertFalse(
+            SubjectTermGrade.objects.filter(
+                student=self.s1, subject=self.math, term=self.term
+            ).exists()
+        )
+        # ...but everything the students are still enrolled in remains.
+        self.assertTrue(SubjectTermGrade.objects.filter(student=self.s1, subject=self.english).exists())
+        self.assertTrue(SubjectTermGrade.objects.filter(student=self.s2, subject=self.math).exists())
+        self.assertTrue(SubjectTermGrade.objects.filter(student=self.s2, subject=self.english).exists())
+
+    def test_apply_reranks_positions(self):
+        call_command('cleanup_unenrolled_grades', apply=True, stdout=StringIO())
+        r1 = TermReport.objects.get(student=self.s1, term=self.term)
+        r2 = TermReport.objects.get(student=self.s2, term=self.term)
+        # s1 now: English 60 -> avg 60; s2: Math 50 + English 90 -> avg 70
+        self.assertEqual(r1.average, Decimal('60.00'))
+        self.assertEqual(r2.average, Decimal('70.00'))
+        self.assertEqual(r2.position, 1)
+        self.assertEqual(r1.position, 2)
+
+    def test_skips_class_without_allocations_or_enrollments(self):
+        # A class with no subjects allocated and no enrollment tracking is
+        # likely misconfigured — leave its grades alone.
+        other = Class.objects.create(
+            level_type='basic', level_number=4, section='A', name='B4A', is_active=True,
+        )
+        s3 = Student.objects.create(
+            first_name='Yaa', last_name='Test', admission_number='STU-003',
+            date_of_birth=date(2012, 1, 1), admission_date=date(2024, 9, 1),
+            current_class=other, status=Student.Status.ACTIVE,
+        )
+        grade = self._grade(s3, self.math, 70)
+        call_command('cleanup_unenrolled_grades', apply=True, stdout=StringIO())
+        self.assertTrue(SubjectTermGrade.objects.filter(pk=grade.pk).exists())
+
+    def test_detects_unallocated_subject_without_enrollment(self):
+        # A class with subjects allocated but NO enrollment tracking: a grade
+        # for a subject that isn't allocated (removed from the class) is still
+        # detected and removed, while an allocated subject's grade is kept.
+        other = Class.objects.create(
+            level_type='basic', level_number=4, section='A', name='B4A', is_active=True,
+        )
+        ClassSubject.objects.create(class_assigned=other, subject=self.english)
+        s3 = Student.objects.create(
+            first_name='Yaa', last_name='Test', admission_number='STU-003',
+            date_of_birth=date(2012, 1, 1), admission_date=date(2024, 9, 1),
+            current_class=other, status=Student.Status.ACTIVE,
+        )
+        TermReport.objects.create(student=s3, term=self.term, out_of=1)
+        kept = self._grade(s3, self.english, 70)   # still allocated
+        orphan = self._grade(s3, self.math, 80)    # math not allocated to B4A
+        call_command('cleanup_unenrolled_grades', apply=True, stdout=StringIO())
+        self.assertTrue(SubjectTermGrade.objects.filter(pk=kept.pk).exists())
+        self.assertFalse(SubjectTermGrade.objects.filter(pk=orphan.pk).exists())

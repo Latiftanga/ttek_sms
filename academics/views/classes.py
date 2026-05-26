@@ -647,49 +647,55 @@ def class_subject_create(request, pk):
 
 @admin_required
 def class_subject_delete(request, class_pk, pk):
-    """Delete a subject allocation from a class. Blocks if scores exist."""
+    """Remove a subject allocation from a class.
+
+    Cascade-deletes the CURRENT TERM's scores and computed grades for this
+    subject so it stops appearing on report cards, then recalculates the
+    affected reports (aggregates + class positions). Past terms are left
+    intact so historical report cards keep their data.
+    """
+    from core.models import Term
+    from gradebook.models import Score, SubjectTermGrade
+    from gradebook.utils import recalc_and_rerank_term_reports
+
     allocation = get_object_or_404(ClassSubject, pk=pk, class_assigned_id=class_pk)
+    subject = allocation.subject
+    current_term = Term.get_current()
 
-    from gradebook.models import Score, SubjectTermGrade, TermReport
-
-    # Check if any scores exist for this subject in this class (any term)
+    # All students currently in this class (any status) whose current-term
+    # report cards could show this subject.
     student_ids = list(Student.objects.filter(
-        current_class_id=class_pk, status='active'
+        current_class_id=class_pk
     ).values_list('id', flat=True))
 
-    score_count = Score.objects.filter(
-        student_id__in=student_ids,
-        assignment__subject=allocation.subject,
-    ).count()
+    deleted_scores = 0
+    deleted_grades = 0
 
-    if score_count > 0:
-        messages.error(
-            request,
-            f'Cannot remove {allocation.subject.name} — {score_count} score(s) '
-            f'already entered. Remove scores first before deleting the subject allocation.'
-        )
-        if request.htmx:
-            response = HttpResponse(status=204)
-            response['HX-Refresh'] = 'true'
-            return response
-        return redirect('academics:class_subjects', pk=class_pk)
+    with transaction.atomic():
+        if current_term and student_ids:
+            deleted_scores = Score.objects.filter(
+                student_id__in=student_ids,
+                assignment__subject=subject,
+                assignment__term=current_term,
+            ).delete()[0]
+            deleted_grades = SubjectTermGrade.objects.filter(
+                student_id__in=student_ids,
+                subject=subject,
+                term=current_term,
+            ).delete()[0]
 
-    # Clean up orphaned SubjectTermGrade records for this subject+class
-    deleted_grades = SubjectTermGrade.objects.filter(
-        student_id__in=student_ids,
-        subject=allocation.subject,
-    ).delete()[0]
+            # Recalculate aggregates and re-rank class positions for the term.
+            recalc_and_rerank_term_reports(student_ids, current_term)
 
-    # Recalculate TermReport aggregates for affected students
+        allocation.delete()
+
+    parts = []
+    if deleted_scores:
+        parts.append(f'{deleted_scores} score(s)')
     if deleted_grades:
-        for term_report in TermReport.objects.filter(student_id__in=student_ids):
-            term_report.calculate_aggregates()
-            term_report.save()
-
-    allocation.delete()
-
-    grade_msg = f' ({deleted_grades} grade record(s) cleaned up)' if deleted_grades else ''
-    messages.success(request, f'{allocation.subject.name} removed from class.{grade_msg}')
+        parts.append(f'{deleted_grades} grade record(s)')
+    cleanup_msg = f' ({", ".join(parts)} cleaned up)' if parts else ''
+    messages.success(request, f'{subject.name} removed from class.{cleanup_msg}')
 
     if request.htmx:
         # Trigger page refresh
@@ -868,6 +874,7 @@ def class_student_electives(request, class_pk, student_pk):
         selected_ids = request.POST.getlist('subjects')
 
         # Update enrollments for all subjects
+        dropped_subject_ids = []
         for class_subject in all_subjects:
             should_be_enrolled = str(class_subject.id) in selected_ids
 
@@ -881,10 +888,27 @@ def class_student_electives(request, class_pk, student_pk):
                     enrollment.is_active = True
                     enrollment.save()
             else:
-                StudentSubjectEnrollment.objects.filter(
+                updated = StudentSubjectEnrollment.objects.filter(
                     student=student,
-                    class_subject=class_subject
+                    class_subject=class_subject,
+                    is_active=True
                 ).update(is_active=False)
+                if updated:
+                    dropped_subject_ids.append(class_subject.subject_id)
+
+        # Remove the computed term grade for any dropped subject so the student
+        # stops appearing for it on report cards and in position/average calc.
+        # Scores are kept, so re-enrolling + recalculating restores the grade.
+        if dropped_subject_ids:
+            from core.models import Term
+            from gradebook.models import SubjectTermGrade
+            current_term = Term.get_current()
+            if current_term:
+                SubjectTermGrade.objects.filter(
+                    student=student,
+                    subject_id__in=dropped_subject_ids,
+                    term=current_term,
+                ).delete()
 
         # Return success message with OOB swap for tab content
         tab_context = get_register_tab_context(class_obj)
@@ -936,12 +960,24 @@ def class_subject_students(request, class_pk, pk):
                     if updated:
                         unenrolled_students.append(student)
 
-            # Delete scores for unenrolled students in this subject
+            # Delete scores and the computed term grade for unenrolled students
+            # in this subject, so they no longer appear for it on report cards
+            # or get counted in position/average calculations.
             if unenrolled_students:
+                from core.models import Term
+                from gradebook.models import SubjectTermGrade
+
                 Score.objects.filter(
                     student__in=unenrolled_students,
                     assignment__subject=subject,
                 ).delete()
+                current_term = Term.get_current()
+                if current_term:
+                    SubjectTermGrade.objects.filter(
+                        student__in=unenrolled_students,
+                        subject=subject,
+                        term=current_term,
+                    ).delete()
 
         return render(request, 'academics/includes/modal_subject_students_success.html', {
             'class_subject': class_subject, 'class': class_obj,

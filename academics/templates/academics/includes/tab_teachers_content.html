@@ -54,7 +54,7 @@
                             hx-post="{% url 'academics:class_subject_delete' class.pk alloc.pk %}"
                             hx-target="#tab-subjects"
                             hx-swap="innerHTML"
-                            hx-confirm="Remove {{ alloc.subject.name }} from this class?"
+                            hx-confirm="Remove {{ alloc.subject.name }} from this class? This deletes the current term's scores and grades for it. Past terms are kept."
                             title="Remove">
                         <i class="fa-solid fa-trash"></i>
                     </button>
