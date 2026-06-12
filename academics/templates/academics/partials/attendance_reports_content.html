@@ -81,10 +81,10 @@
         </div>
     </div>
     <div class="flex gap-2 shrink-0">
-        <button onclick="document.getElementById('consecutive_absences_modal').showModal()" class="btn btn-sm btn-ghost">
+        <button onclick="document.getElementById('consecutive_absences_modal').showModal()" class="btn btn-sm btn-ghost min-h-[44px]">
             View
         </button>
-        <button onclick="document.getElementById('notify_parents_modal').showModal()" class="btn btn-sm btn-warning">
+        <button onclick="document.getElementById('notify_parents_modal').showModal()" class="btn btn-sm btn-warning min-h-[44px]">
             <i class="fa-solid fa-bell"></i>
             <span class="hidden sm:inline">Notify</span>
         </button>
@@ -160,7 +160,7 @@
                        hx-get="{% if item.class.attendance_type == 'per_lesson' %}{% url 'academics:lesson_attendance_list' item.class.pk %}{% else %}{% url 'academics:class_attendance_take' item.class.pk %}{% endif %}"
                        hx-target="#main-content"
                        hx-push-url="true"
-                       class="flex items-center gap-4 p-4 hover:bg-base-200/50 transition-colors group class-item"
+                       class="flex items-center gap-4 p-4 hover:bg-base-200/50 active:bg-base-200/50 transition-colors group class-item"
                        data-status="{% if item.has_today %}done{% else %}pending{% endif %}">
                         <!-- Class Avatar with Status -->
                         <div class="relative shrink-0">
@@ -941,9 +941,7 @@
             </div>
 
             <div class="modal-action">
-                <form method="dialog" class="inline">
-                    <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
-                </form>
+                <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancel</button>
                 <button type="submit" class="btn btn-warning"
                         hx-post="{% url 'academics:notify_absent_parents' %}"
                         hx-target="#main-content"
