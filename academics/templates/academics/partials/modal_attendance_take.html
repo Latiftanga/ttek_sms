@@ -116,46 +116,46 @@
 
     <div class="h-[50vh] overflow-y-auto pr-1 space-y-2">
         {% for item in student_list %}
-        <div class="flex items-center justify-between p-3 border border-base-200 rounded-lg hover:bg-base-200/30 gap-3 student-row transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% elif item.status == 'E' %}bg-info/10{% endif %}">
-            <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="avatar placeholder shrink-0">
-                    <div class="w-12 h-12 rounded-full bg-base-300 flex items-center justify-center">
-                        <span class="text-base font-bold">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
+        <div class="flex items-center justify-between p-3 border border-base-200 rounded-lg hover:bg-base-200/30 gap-2 sm:gap-3 student-row transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% elif item.status == 'E' %}bg-info/10{% endif %}">
+            <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                <div class="avatar placeholder shrink-0 hidden xs:flex sm:flex">
+                    <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-base-300 flex items-center justify-center">
+                        <span class="text-sm sm:text-base font-bold">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
                     </div>
                 </div>
                 <div class="min-w-0">
-                    <div class="font-semibold text-base truncate">{{ item.obj.full_name }}</div>
+                    <div class="font-semibold text-sm sm:text-base truncate">{{ item.obj.full_name }}</div>
                     <div class="text-xs text-base-content/50 font-mono">{{ item.obj.admission_number }}</div>
                 </div>
             </div>
 
-            <!-- Extra Large Touch Targets with Labels -->
-            <div class="flex items-center gap-1.5 shrink-0">
+            <!-- Touch Targets with Labels -->
+            <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="P" class="peer hidden" required {% if item.status == 'P' %}checked{% endif %} />
-                    <span class="flex flex-col items-center justify-center w-14 h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-success peer-checked:text-success-content peer-checked:border-success peer-checked:shadow-md transition-all active:scale-95">
-                        <i class="fa-solid fa-check text-xl"></i>
+                    <span class="flex flex-col items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-success peer-checked:text-success-content peer-checked:border-success peer-checked:shadow-md transition-all active:scale-95">
+                        <i class="fa-solid fa-check text-base sm:text-xl"></i>
                         <span class="text-[10px] font-bold mt-0.5">P</span>
                     </span>
                 </label>
                 <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="L" class="peer hidden" {% if item.status == 'L' %}checked{% endif %} />
-                    <span class="flex flex-col items-center justify-center w-14 h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-warning peer-checked:text-warning-content peer-checked:border-warning peer-checked:shadow-md transition-all active:scale-95">
-                        <i class="fa-solid fa-clock text-xl"></i>
+                    <span class="flex flex-col items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-warning peer-checked:text-warning-content peer-checked:border-warning peer-checked:shadow-md transition-all active:scale-95">
+                        <i class="fa-solid fa-clock text-base sm:text-xl"></i>
                         <span class="text-[10px] font-bold mt-0.5">L</span>
                     </span>
                 </label>
                 <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="A" class="peer hidden" {% if item.status == 'A' %}checked{% endif %} />
-                    <span class="flex flex-col items-center justify-center w-14 h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-error peer-checked:text-error-content peer-checked:border-error peer-checked:shadow-md transition-all active:scale-95">
-                        <i class="fa-solid fa-xmark text-xl"></i>
+                    <span class="flex flex-col items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-error peer-checked:text-error-content peer-checked:border-error peer-checked:shadow-md transition-all active:scale-95">
+                        <i class="fa-solid fa-xmark text-base sm:text-xl"></i>
                         <span class="text-[10px] font-bold mt-0.5">A</span>
                     </span>
                 </label>
                 <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="E" class="peer hidden" {% if item.status == 'E' %}checked{% endif %} />
-                    <span class="flex flex-col items-center justify-center w-14 h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-info peer-checked:text-info-content peer-checked:border-info peer-checked:shadow-md transition-all active:scale-95">
-                        <i class="fa-solid fa-file-medical text-xl"></i>
+                    <span class="flex flex-col items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-info peer-checked:text-info-content peer-checked:border-info peer-checked:shadow-md transition-all active:scale-95">
+                        <i class="fa-solid fa-file-medical text-base sm:text-xl"></i>
                         <span class="text-[10px] font-bold mt-0.5">E</span>
                     </span>
                 </label>
