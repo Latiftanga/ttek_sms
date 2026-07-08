@@ -11,23 +11,23 @@
 </style>
 
 <!-- Sticky top action bar -->
-<div class="sticky top-0 z-20 bg-base-100/95 backdrop-blur-sm border-b border-base-200 -mx-6 px-4 pt-3 pb-2 mb-0">
+<div class="sticky top-0 z-20 bg-base-100/95 backdrop-blur-sm border-b border-base-200 -mx-6 px-4 pt-3 pb-2 mb-0 flex flex-col gap-2">
 
     <!-- Header row -->
-    <div class="flex items-center gap-2 mb-2">
+    <div class="flex items-center gap-2">
         <a href="{% url 'academics:attendance_reports' %}"
            hx-get="{% url 'academics:attendance_reports' %}"
            hx-target="#main-content"
            hx-push-url="true"
-           class="btn btn-ghost btn-sm btn-square shrink-0"
+           class="btn btn-ghost btn-sm btn-circle shrink-0"
            title="Back">
             <i class="fa-solid fa-arrow-left"></i>
         </a>
         <div class="flex-1 min-w-0">
-            <h3 class="text-base font-bold leading-tight">{% if is_edit %}Edit Attendance{% else %}Mark Attendance{% endif %}</h3>
-            <div class="text-xs text-base-content/60 flex items-center gap-1 flex-wrap">
-                <span class="font-medium">{{ class.name }}</span>
-                <span>·</span>
+            <div class="font-bold text-sm leading-tight truncate">
+                {{ class.name }}{% if is_lesson and subject %} &bull; {{ subject.name }}{% endif %}
+            </div>
+            <div class="text-xs text-base-content/50">
                 {% if not is_lesson and not is_edit %}
                 <input type="date" value="{{ date|date:'Y-m-d' }}"
                        class="input input-xs input-bordered"
@@ -36,49 +36,48 @@
                        hx-push-url="true"
                        name="date">
                 {% else %}
-                <span>{{ date|date:"D, M d" }}</span>
+                {{ date|date:"l, j M Y" }}{% if is_edit %} &bull; Editing{% endif %}
                 {% endif %}
-                {% if is_lesson and subject %}<span>· {{ subject.name }}</span>{% endif %}
             </div>
         </div>
-        <!-- Live counts -->
-        <div class="flex flex-col items-end gap-0.5 shrink-0 text-xs font-bold">
-            <span class="text-success"><span id="present-count">0</span> P</span>
-            <span class="text-warning"><span id="late-count">0</span> L</span>
-            <span class="text-error"><span id="absent-count">0</span> A</span>
-            <span class="text-info"><span id="excused-count">0</span> E</span>
+        <!-- Live counter inline -->
+        <div class="flex items-center gap-1 text-xs font-bold bg-base-200 rounded-full px-2.5 h-8 shrink-0">
+            <span class="text-success" id="present-count">0</span>
+            <span class="text-base-content/25">·</span>
+            <span class="text-warning" id="late-count">0</span>
+            <span class="text-base-content/25">·</span>
+            <span class="text-error" id="absent-count">0</span>
+            <span class="text-base-content/25">·</span>
+            <span class="text-info" id="excused-count">0</span>
         </div>
     </div>
 
-    <!-- Primary action -->
-    <button type="button" onclick="markAll('P')"
-            class="btn btn-success w-full gap-2 font-bold shadow-sm mb-1.5 touch-action-manipulation">
-        <i class="fa-solid fa-check-double"></i>
-        Mark All Present
-    </button>
-
-    <!-- Secondary bulk actions -->
-    <div class="flex gap-1.5 mb-1.5">
+    <!-- Bulk actions row -->
+    <div class="flex items-center gap-2">
+        <button type="button" onclick="markAll('P')"
+                class="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-full bg-success text-success-content font-bold text-sm touch-action-manipulation active:scale-95 transition-all">
+            <i class="fa-solid fa-check-double text-xs"></i> All P
+        </button>
         <button type="button" onclick="markAll('L')"
-                class="btn btn-sm btn-warning btn-outline flex-1 gap-1 touch-action-manipulation">
-            <i class="fa-solid fa-clock"></i> Late
+                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-warning hover:text-warning-content touch-action-manipulation active:scale-95 transition-all">
+            All L
         </button>
         <button type="button" onclick="markAll('A')"
-                class="btn btn-sm btn-error btn-outline flex-1 gap-1 touch-action-manipulation">
-            <i class="fa-solid fa-xmark"></i> Absent
+                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-error hover:text-error-content touch-action-manipulation active:scale-95 transition-all">
+            All A
         </button>
         <button type="button" onclick="markAll('E')"
-                class="btn btn-sm btn-info btn-outline flex-1 gap-1 touch-action-manipulation">
-            <i class="fa-solid fa-file-medical"></i> Excused
+                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-info hover:text-info-content touch-action-manipulation active:scale-95 transition-all">
+            All E
         </button>
     </div>
 
-    <!-- Search — always visible on mobile -->
+    <!-- Search -->
     <div class="relative">
-        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-sm pointer-events-none"></i>
+        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-xs pointer-events-none"></i>
         <input type="search" inputmode="search" autocomplete="off"
                id="student-search" placeholder="Search student..."
-               class="input input-sm input-bordered w-full pl-9"
+               class="input input-sm input-bordered w-full pl-8"
                oninput="filterStudents(this.value)" />
     </div>
 </div>
@@ -129,39 +128,23 @@
                 </div>
             </div>
 
-            <!-- Status buttons — full width, evenly spread on mobile; fixed width on sm+ -->
-            <div class="flex items-center justify-between gap-1 sm:justify-end sm:gap-1.5 ml-9">
-                <label class="touch-action-manipulation flex-1 sm:flex-none">
+            <!-- Status buttons — compact circles -->
+            <div class="flex items-center gap-2 ml-9">
+                <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="P" class="peer hidden" required {% if item.status == 'P' %}checked{% endif %} />
-                    <span class="flex flex-col items-center justify-center w-full sm:w-14 h-11 sm:h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-success peer-checked:text-success-content peer-checked:border-success peer-checked:shadow-md transition-all active:scale-95 select-none">
-                        <i class="fa-solid fa-check text-sm sm:text-xl"></i>
-                        <span class="text-[9px] font-bold mt-0.5 sm:hidden">Present</span>
-                        <span class="text-[10px] font-bold mt-0.5 hidden sm:block">P</span>
-                    </span>
+                    <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-success peer-checked:text-success-content peer-checked:ring-2 peer-checked:ring-success peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Present">P</span>
                 </label>
-                <label class="touch-action-manipulation flex-1 sm:flex-none">
+                <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="L" class="peer hidden" {% if item.status == 'L' %}checked{% endif %} />
-                    <span class="flex flex-col items-center justify-center w-full sm:w-14 h-11 sm:h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-warning peer-checked:text-warning-content peer-checked:border-warning peer-checked:shadow-md transition-all active:scale-95 select-none">
-                        <i class="fa-solid fa-clock text-sm sm:text-xl"></i>
-                        <span class="text-[9px] font-bold mt-0.5 sm:hidden">Late</span>
-                        <span class="text-[10px] font-bold mt-0.5 hidden sm:block">L</span>
-                    </span>
+                    <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-warning peer-checked:text-warning-content peer-checked:ring-2 peer-checked:ring-warning peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Late">L</span>
                 </label>
-                <label class="touch-action-manipulation flex-1 sm:flex-none">
+                <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="A" class="peer hidden" {% if item.status == 'A' %}checked{% endif %} />
-                    <span class="flex flex-col items-center justify-center w-full sm:w-14 h-11 sm:h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-error peer-checked:text-error-content peer-checked:border-error peer-checked:shadow-md transition-all active:scale-95 select-none">
-                        <i class="fa-solid fa-xmark text-sm sm:text-xl"></i>
-                        <span class="text-[9px] font-bold mt-0.5 sm:hidden">Absent</span>
-                        <span class="text-[10px] font-bold mt-0.5 hidden sm:block">A</span>
-                    </span>
+                    <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-error peer-checked:text-error-content peer-checked:ring-2 peer-checked:ring-error peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Absent">A</span>
                 </label>
-                <label class="touch-action-manipulation flex-1 sm:flex-none">
+                <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="E" class="peer hidden" {% if item.status == 'E' %}checked{% endif %} />
-                    <span class="flex flex-col items-center justify-center w-full sm:w-14 h-11 sm:h-14 rounded-xl cursor-pointer border-2 border-base-300 bg-base-200 text-base-content/60 peer-checked:bg-info peer-checked:text-info-content peer-checked:border-info peer-checked:shadow-md transition-all active:scale-95 select-none">
-                        <i class="fa-solid fa-file-medical text-sm sm:text-xl"></i>
-                        <span class="text-[9px] font-bold mt-0.5 sm:hidden">Excused</span>
-                        <span class="text-[10px] font-bold mt-0.5 hidden sm:block">E</span>
-                    </span>
+                    <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-info peer-checked:text-info-content peer-checked:ring-2 peer-checked:ring-info peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Excused">E</span>
                 </label>
             </div>
         </div>
@@ -176,7 +159,7 @@
             Cancel
         </button>
         <button type="submit"
-                class="btn btn-primary flex-1 min-h-[48px] gap-2 text-base font-bold shadow-md touch-action-manipulation">
+                class="btn btn-primary flex-1 gap-2 touch-action-manipulation">
             <span class="btn-loading-text"><i class="fa-solid fa-cloud-arrow-up"></i> Save Attendance</span>
             <span class="btn-loading-spinner"><span class="loading loading-spinner loading-sm"></span> Saving…</span>
         </button>

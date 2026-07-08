@@ -1,11 +1,11 @@
 {% load core_tags %}
 
-<div class="flex justify-between items-center mb-4 sticky top-0 bg-base-100 z-10 pb-2 border-b border-base-200">
-    <div>
-        <h3 class="text-xl font-bold">Select Lesson</h3>
-        <p class="text-xs text-base-content/60">{{ class.name }} - {{ date|date:"l, F jS Y" }}</p>
+<div class="flex items-center gap-2 mb-4 sticky top-0 bg-base-100 z-10 pb-2 border-b border-base-200">
+    <div class="flex-1 min-w-0">
+        <h3 class="font-bold text-base leading-tight">{{ class.name }}</h3>
+        <p class="text-xs text-base-content/50">{{ date|date:"l, j M Y" }}</p>
     </div>
-    <div class="badge badge-primary">Per-Lesson Attendance</div>
+    <span class="badge badge-primary badge-sm shrink-0">Per-Lesson</span>
 </div>
 
 {% if not has_lessons %}
@@ -35,75 +35,47 @@
 {% else %}
 <div class="space-y-3">
     {% for lesson in lessons %}
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-base-200 rounded-xl hover:bg-base-200/50 gap-3 transition-all
-        {% if lesson.is_current %}bg-primary/5 border-primary/30{% elif lesson.is_past %}opacity-60{% endif %}">
+    <div class="flex items-center gap-3 p-3 border border-base-200 rounded-xl transition-all
+        {% if lesson.is_current %}bg-primary/5 border-primary/30{% elif lesson.is_past %}opacity-50{% endif %}">
 
-        <!-- Time and Period -->
-        <div class="flex items-center gap-4">
-            <div class="text-center min-w-[80px]">
-                <div class="text-sm font-medium {% if lesson.is_current %}text-primary{% else %}text-base-content/50{% endif %}">
-                    {{ lesson.period.start_time|time:"g:i A" }}
-                </div>
-                <div class="text-xs text-base-content/40">
-                    {{ lesson.period.end_time|time:"g:i A" }}
-                </div>
+        <!-- Time badge -->
+        <div class="shrink-0 text-center w-14">
+            <div class="text-sm font-bold {% if lesson.is_current %}text-primary{% else %}text-base-content/60{% endif %}">
+                {{ lesson.period.start_time|time:"g:i" }}
             </div>
+            <div class="text-[10px] text-base-content/40">{{ lesson.period.start_time|time:"A" }}</div>
+        </div>
 
-            <div class="flex-1">
-                <div class="flex items-center gap-2 flex-wrap">
-                    <span class="font-bold {% if lesson.is_current %}text-primary{% endif %}">
-                        {{ lesson.subject.name }}
-                    </span>
-                    {% if lesson.is_current %}
-                    <span class="badge badge-primary badge-xs animate-pulse">NOW</span>
-                    {% endif %}
-                    {% if lesson.attendance_taken %}
-                    <span class="badge badge-success badge-xs gap-1">
-                        <i class="fa-solid fa-check text-[10px]"></i> Done
-                    </span>
-                    {% endif %}
-                </div>
-                <div class="text-sm text-base-content/60 flex items-center gap-2 flex-wrap">
-                    <span>{{ lesson.period.name }}</span>
-                    {% if lesson.teacher %}
-                    <span class="text-xs">{{ lesson.teacher.full_name }}</span>
-                    {% endif %}
-                    {% if lesson.classroom %}
-                    <span class="badge badge-ghost badge-xs">{{ lesson.classroom.name }}</span>
-                    {% endif %}
-                </div>
+        <!-- Subject + meta -->
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-semibold text-sm {% if lesson.is_current %}text-primary{% endif %}">{{ lesson.subject.name }}</span>
+                {% if lesson.is_current %}<span class="badge badge-primary badge-xs animate-pulse">NOW</span>{% endif %}
+                {% if lesson.attendance_taken %}<span class="badge badge-success badge-xs">Done</span>{% endif %}
+            </div>
+            <div class="text-xs text-base-content/50 flex items-center gap-2 mt-0.5">
+                <span>{{ lesson.period.name }}</span>
+                {% if lesson.classroom %}<span>· {{ lesson.classroom.name }}</span>{% endif %}
             </div>
         </div>
 
-        <!-- Action Button -->
-        <div class="flex items-center gap-2">
-            {% if lesson.can_mark %}
-                {% if lesson.attendance_taken %}
-                <a href="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
-                   hx-get="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
-                   hx-target="#modal-content"
-                   hx-swap="innerHTML"
-                   onclick="document.getElementById('global-modal').showModal()"
-                   class="btn btn-sm btn-outline btn-success gap-1">
-                    <i class="fa-solid fa-pen-to-square"></i>
-                    <span class="hidden sm:inline">Edit</span>
-                </a>
-                {% else %}
-                <a href="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
-                   hx-get="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
-                   hx-target="#modal-content"
-                   hx-swap="innerHTML"
-                   onclick="document.getElementById('global-modal').showModal()"
-                   class="btn btn-sm {% if lesson.is_current %}btn-primary{% else %}btn-outline btn-primary{% endif %} gap-1">
-                    <i class="fa-solid fa-clipboard-check"></i>
-                    <span class="hidden sm:inline">Take Attendance</span>
-                    <span class="sm:hidden">Mark</span>
-                </a>
-                {% endif %}
+        <!-- Action -->
+        {% if lesson.can_mark %}
+        <a href="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
+           hx-get="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
+           hx-target="#modal-content"
+           hx-swap="innerHTML"
+           onclick="document.getElementById('global-modal').showModal()"
+           class="btn btn-sm shrink-0 {% if lesson.attendance_taken %}btn-outline btn-success{% elif lesson.is_current %}btn-primary{% else %}btn-outline btn-primary{% endif %}">
+            {% if lesson.attendance_taken %}
+            <i class="fa-solid fa-pen-to-square"></i>
             {% else %}
-                <span class="text-xs text-base-content/40">Not your lesson</span>
+            <i class="fa-solid fa-clipboard-check"></i>
             {% endif %}
-        </div>
+        </a>
+        {% else %}
+        <span class="text-xs text-base-content/30 shrink-0">—</span>
+        {% endif %}
     </div>
     {% endfor %}
 </div>
