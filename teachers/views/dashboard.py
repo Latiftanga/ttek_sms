@@ -208,20 +208,20 @@ def dashboard(request):
 
         # 3. Unsigned remarks for homeroom classes
         if homeroom_ids:
-            unsigned_count = TermReport.objects.filter(
-                student__current_class_id__in=homeroom_ids,
-                term=current_term,
-                class_teacher_remark='',
-            ).count()
-            if unsigned_count > 0:
-                first_homeroom = homeroom_classes[0]
-                action_items.append({
-                    'type': 'remarks',
-                    'icon': 'fa-solid fa-comment-dots',
-                    'color': 'warning',
-                    'message': f'{unsigned_count} student(s) missing class teacher remarks',
-                    'url': f"/gradebook/remarks/bulk/{first_homeroom.pk}/",
-                })
+            for cls in homeroom_classes:
+                cls_unsigned = TermReport.objects.filter(
+                    student__current_class=cls,
+                    term=current_term,
+                    class_teacher_remark='',
+                ).count()
+                if cls_unsigned > 0:
+                    action_items.append({
+                        'type': 'remarks',
+                        'icon': 'fa-solid fa-comment-dots',
+                        'color': 'warning',
+                        'message': f'{cls.name}: {cls_unsigned} student(s) missing remarks',
+                        'url': f"/gradebook/remarks/bulk/{cls.pk}/",
+                    })
 
     # ========== Homeroom Attendance Stats ==========
     homeroom_attendance = {}

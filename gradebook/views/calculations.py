@@ -373,13 +373,7 @@ def _calculate_term_reports(
             report.attendance_percentage = round(
                 (Decimal(str(att['days_present'])) / Decimal(str(total_school_days))) * 100, 2
             )
-            report.attendance_rating = TermReport.derive_attendance_rating(
-                report.attendance_percentage
-            )
         else:
-            # No attendance recorded — auto-generation has nothing to derive
-            # from, so leave the rating blank rather than keep a stale value.
-            report.attendance_rating = ''
             report.attendance_percentage = None
             report.days_present = None
             report.days_absent = None
@@ -401,8 +395,7 @@ def _calculate_term_reports(
          'subjects_failed', 'credits_count', 'core_subjects_total',
          'core_subjects_passed', 'aggregate', 'promoted',
          'promotion_remarks', 'days_present', 'days_absent',
-         'total_school_days', 'times_late', 'attendance_percentage',
-         'attendance_rating'],
+         'total_school_days', 'times_late', 'attendance_percentage'],
         batch_size=config.BULK_UPDATE_BATCH_SIZE
     )
 

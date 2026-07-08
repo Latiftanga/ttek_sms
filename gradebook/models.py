@@ -1011,14 +1011,6 @@ class TermReport(models.Model):
         ('D', 'Fair'),
         ('E', 'Poor'),
     ]
-    RATING_CHOICES = [
-        ('EXCELLENT', 'Excellent'),
-        ('VERY_GOOD', 'Very Good'),
-        ('GOOD', 'Good'),
-        ('FAIR', 'Fair'),
-        ('POOR', 'Poor'),
-    ]
-
     conduct_rating = models.CharField(
         max_length=100,
         blank=True,
@@ -1033,12 +1025,6 @@ class TermReport(models.Model):
         max_length=100,
         blank=True,
         help_text='Interest in school activities (free text)'
-    )
-    attendance_rating = models.CharField(
-        max_length=10,
-        choices=RATING_CHOICES,
-        blank=True,
-        help_text='Attendance rating'
     )
 
     # Approval tracking
@@ -1167,12 +1153,10 @@ class TermReport(models.Model):
     def derive_attendance_rating(attendance_percentage):
         """Derive attendance rating from attendance percentage.
 
-        Returns one of the RATING_CHOICES values based on thresholds:
+        Returns one of EXCELLENT/VERY_GOOD/GOOD/FAIR/POOR based on percentage.
         >= 95% → EXCELLENT, >= 85% → VERY_GOOD, >= 75% → GOOD,
         >= 60% → FAIR, < 60% → POOR
         """
-        if attendance_percentage is None:
-            return 'FAIR'
         pct = float(attendance_percentage)
         if pct >= 95:
             return 'EXCELLENT'
@@ -1184,11 +1168,29 @@ class TermReport(models.Model):
             return 'FAIR'
         return 'POOR'
 
+    @property
+    def attendance_rating(self):
+        """Computed from attendance_percentage — never stored."""
+        if self.attendance_percentage is None:
+            return ''
+        return self.derive_attendance_rating(self.attendance_percentage)
+
+    def get_attendance_rating_display(self):
+        """Human-readable label for attendance_rating (replaces Django choices display)."""
+        rating_labels = {
+            'EXCELLENT': 'Excellent',
+            'VERY_GOOD': 'Very Good',
+            'GOOD': 'Good',
+            'FAIR': 'Fair',
+            'POOR': 'Poor',
+        }
+        return rating_labels.get(self.attendance_rating, '')
+
     def calculate_attendance(self):
         """
         Calculate attendance from AttendanceRecord for the term.
-        Computes days_present, days_absent, times_late, attendance_percentage,
-        and auto-sets attendance_rating.
+        Computes days_present, days_absent, times_late, and attendance_percentage.
+        attendance_rating is derived automatically from attendance_percentage.
         """
         from academics.models import AttendanceSession, AttendanceRecord
 
@@ -1230,9 +1232,6 @@ class TermReport(models.Model):
             self.attendance_percentage = round(
                 (Decimal(str(self.days_present)) / Decimal(str(self.total_school_days))) * 100,
                 2
-            )
-            self.attendance_rating = self.derive_attendance_rating(
-                self.attendance_percentage
             )
 
     def check_promotion(self, grading_system, core_grades=None):
