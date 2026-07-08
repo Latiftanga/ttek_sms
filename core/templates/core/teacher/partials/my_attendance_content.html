@@ -244,7 +244,7 @@
 
             <div class="divide-y divide-base-200">
                 {% for item in class_summary %}
-                    {% if not item.is_per_lesson %}
+                    {% if not item.is_per_lesson and item.is_homeroom %}
                     <a href="{% url 'core:take_attendance' item.class.pk %}"
                        hx-get="{% url 'core:take_attendance' item.class.pk %}"
                        hx-target="#main-content"

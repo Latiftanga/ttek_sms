@@ -16,29 +16,26 @@
 </style>
 
 <!-- Page Header -->
-<div class="flex items-center gap-2 sm:gap-3 mb-4">
+<div class="flex items-center gap-2 mb-3">
     <a href="{% url 'core:my_attendance' %}"
        hx-get="{% url 'core:my_attendance' %}"
        hx-target="#main-content"
        hx-push-url="true"
-       class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-success to-primary flex items-center justify-center shrink-0"
-       title="Back to Attendance">
-        <i class="fa-solid fa-arrow-left text-white text-sm sm:text-base"></i>
+       class="btn btn-ghost btn-sm btn-circle shrink-0"
+       title="Back">
+        <i class="fa-solid fa-arrow-left"></i>
     </a>
     <div class="flex-1 min-w-0">
-        <h1 class="text-base sm:text-xl font-bold flex items-center gap-2">
-            Take Attendance
+        <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-base font-bold leading-tight">{{ class.name }}</h1>
             {% if is_homeroom %}
-            <span class="badge badge-primary badge-xs sm:badge-sm">Homeroom</span>
+            <span class="badge badge-primary badge-sm">Homeroom</span>
             {% endif %}
-        </h1>
-        <p class="text-[10px] sm:text-xs text-base-content/60">
-            {{ class.name }} &bull; {{ date|date:"D, M j" }}
-        </p>
+        </div>
+        <p class="text-xs text-base-content/50">{{ date|date:"l, j M Y" }}</p>
     </div>
-    <div class="badge badge-sm sm:badge-lg gap-1 sm:gap-2">
-        <i class="fa-solid fa-users"></i>
-        {{ student_list|length }}
+    <div class="text-xs text-base-content/40 font-medium shrink-0">
+        {{ student_list|length }} students
     </div>
 </div>
 
@@ -51,43 +48,44 @@
               id="attendance-form">
             {% csrf_token %}
 
-            <!-- Quick Actions Bar - Sticky on mobile -->
-            <div class="sticky top-0 z-10 flex flex-col gap-2 p-3 md:p-4 border-b border-base-200 bg-base-100/95 backdrop-blur-sm">
-                <!-- Primary Action: Mark All Present -->
-                <button type="button" onclick="setAllStatus('P')" class="btn btn-success btn-lg w-full gap-2 text-lg font-bold shadow-md touch-action-manipulation">
-                    <i class="fa-solid fa-check-double"></i>
-                    Mark All Present
-                </button>
+            <!-- Quick Actions Bar — sticky -->
+            <div class="sticky top-0 z-10 flex flex-col gap-2 px-3 py-2.5 border-b border-base-200 bg-base-100/95 backdrop-blur-sm">
 
-                <!-- Secondary Actions Row -->
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2">
-                        <button type="button" onclick="setAllStatus('A')" class="btn btn-outline btn-error btn-sm gap-1 touch-action-manipulation">
-                            <i class="fa-solid fa-xmark"></i>
-                            All Absent
-                        </button>
-                        <button type="button" onclick="setAllStatus('L')" class="btn btn-outline btn-warning btn-sm gap-1 touch-action-manipulation">
-                            <i class="fa-solid fa-clock"></i>
-                            All Late
-                        </button>
-                    </div>
-                    <!-- Live Counter -->
-                    <div class="flex items-center gap-2 text-sm font-medium bg-base-200 rounded-lg px-3 py-1.5">
+                <!-- Row 1: Bulk actions + live counter -->
+                <div class="flex items-center gap-2">
+                    <!-- All Present — primary pill -->
+                    <button type="button" onclick="setAllStatus('P')"
+                            class="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-full bg-success text-success-content font-bold text-sm touch-action-manipulation active:scale-95 transition-all">
+                        <i class="fa-solid fa-check-double text-xs"></i>
+                        All P
+                    </button>
+                    <!-- All Late -->
+                    <button type="button" onclick="setAllStatus('L')"
+                            class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-warning hover:text-warning-content touch-action-manipulation active:scale-95 transition-all">
+                        All L
+                    </button>
+                    <!-- All Absent -->
+                    <button type="button" onclick="setAllStatus('A')"
+                            class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-error hover:text-error-content touch-action-manipulation active:scale-95 transition-all">
+                        All A
+                    </button>
+                    <!-- Live counter -->
+                    <div class="flex items-center gap-1 text-xs font-bold bg-base-200 rounded-full px-3 h-9 shrink-0">
                         <span class="text-success" id="present-count">{{ student_list|length }}</span>
-                        <span class="text-base-content/30">|</span>
+                        <span class="text-base-content/25">·</span>
                         <span class="text-warning" id="late-count">0</span>
-                        <span class="text-base-content/30">|</span>
+                        <span class="text-base-content/25">·</span>
                         <span class="text-error" id="absent-count">0</span>
                     </div>
                 </div>
 
-                <!-- Search — always visible -->
+                <!-- Row 2: Search -->
                 <div class="relative">
-                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-sm pointer-events-none"></i>
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-xs pointer-events-none"></i>
                     <input type="text"
                            id="student-search"
                            placeholder="Search student…"
-                           class="input input-sm input-bordered w-full pl-9 touch-action-manipulation"
+                           class="input input-sm input-bordered w-full pl-8 touch-action-manipulation"
                            oninput="filterStudents(this.value)">
                 </div>
             </div>
@@ -120,36 +118,33 @@
                         </div>
                     </div>
 
-                    <!-- Button row: spread evenly across full width -->
-                    <div class="flex items-center justify-between gap-1 ml-9">
+                    <!-- Status buttons: compact circles with letter -->
+                    <div class="flex items-center gap-2 ml-9">
                         <input type="radio" name="status_{{ item.obj.pk }}" value="P"
                                id="m_p_{{ item.obj.pk }}" {% if item.status == 'P' %}checked{% endif %}
                                class="hidden">
                         <label for="m_p_{{ item.obj.pk }}"
-                               class="flex-1 flex flex-col items-center justify-center h-11 rounded-xl {% if item.status == 'P' %}bg-success text-success-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform select-none"
-                               data-status="P">
-                            <i class="fa-solid fa-check text-sm"></i>
-                            <span class="text-[9px] font-bold mt-0.5">Present</span>
+                               class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm {% if item.status == 'P' %}bg-success text-success-content ring-2 ring-success ring-offset-1{% else %}bg-base-200 text-base-content/40{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-90 transition-all select-none"
+                               data-status="P" title="Present">
+                            P
                         </label>
 
                         <input type="radio" name="status_{{ item.obj.pk }}" value="L"
                                id="m_l_{{ item.obj.pk }}" {% if item.status == 'L' %}checked{% endif %}
                                class="hidden">
                         <label for="m_l_{{ item.obj.pk }}"
-                               class="flex-1 flex flex-col items-center justify-center h-11 rounded-xl {% if item.status == 'L' %}bg-warning text-warning-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform select-none"
-                               data-status="L">
-                            <i class="fa-solid fa-clock text-sm"></i>
-                            <span class="text-[9px] font-bold mt-0.5">Late</span>
+                               class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm {% if item.status == 'L' %}bg-warning text-warning-content ring-2 ring-warning ring-offset-1{% else %}bg-base-200 text-base-content/40{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-90 transition-all select-none"
+                               data-status="L" title="Late">
+                            L
                         </label>
 
                         <input type="radio" name="status_{{ item.obj.pk }}" value="A"
                                id="m_a_{{ item.obj.pk }}" {% if item.status == 'A' %}checked{% endif %}
                                class="hidden">
                         <label for="m_a_{{ item.obj.pk }}"
-                               class="flex-1 flex flex-col items-center justify-center h-11 rounded-xl {% if item.status == 'A' %}bg-error text-error-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform select-none"
-                               data-status="A">
-                            <i class="fa-solid fa-xmark text-sm"></i>
-                            <span class="text-[9px] font-bold mt-0.5">Absent</span>
+                               class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm {% if item.status == 'A' %}bg-error text-error-content ring-2 ring-error ring-offset-1{% else %}bg-base-200 text-base-content/40{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-90 transition-all select-none"
+                               data-status="A" title="Absent">
+                            A
                         </label>
                     </div>
                 </div>
@@ -246,7 +241,7 @@
                     <i class="fa-solid fa-arrow-left"></i>
                     <span class="hidden sm:inline">Cancel</span>
                 </a>
-                <button type="submit" class="btn btn-primary flex-1 sm:flex-none sm:min-w-[160px] min-h-[48px] gap-2 text-lg font-bold shadow-md touch-action-manipulation">
+                <button type="submit" class="btn btn-primary flex-1 sm:flex-none sm:min-w-[140px] gap-2 touch-action-manipulation">
                     <span class="loading loading-spinner loading-md htmx-indicator"></span>
                     <i class="fa-solid fa-cloud-arrow-up htmx-hide-on-request"></i>
                     <span class="htmx-hide-on-request">Save Attendance</span>
@@ -325,27 +320,27 @@ function updateRowStyle(row, status) {
         const labelStatus = label.dataset.status;
 
         if (isMobile) {
-            // Mobile: new rounded box style with shadow
+            // Mobile: compact circle style
             label.classList.remove(
-                'bg-success', 'text-success-content', 'shadow-md',
-                'bg-warning', 'text-warning-content',
-                'bg-error', 'text-error-content',
-                'bg-base-200', 'text-base-content/60', 'border-2', 'border-base-300'
+                'bg-success', 'text-success-content', 'ring-2', 'ring-success', 'ring-offset-1',
+                'bg-warning', 'text-warning-content', 'ring-warning',
+                'bg-error', 'text-error-content', 'ring-error',
+                'bg-base-200', 'text-base-content/40'
             );
 
             if (labelStatus === status) {
                 if (status === 'P') {
-                    label.classList.add('bg-success', 'text-success-content', 'shadow-md');
+                    label.classList.add('bg-success', 'text-success-content', 'ring-2', 'ring-success', 'ring-offset-1');
                     row.classList.add('bg-success/10');
                 } else if (status === 'L') {
-                    label.classList.add('bg-warning', 'text-warning-content', 'shadow-md');
+                    label.classList.add('bg-warning', 'text-warning-content', 'ring-2', 'ring-warning', 'ring-offset-1');
                     row.classList.add('bg-warning/10');
                 } else if (status === 'A') {
-                    label.classList.add('bg-error', 'text-error-content', 'shadow-md');
+                    label.classList.add('bg-error', 'text-error-content', 'ring-2', 'ring-error', 'ring-offset-1');
                     row.classList.add('bg-error/10');
                 }
             } else {
-                label.classList.add('bg-base-200', 'text-base-content/60', 'border-2', 'border-base-300');
+                label.classList.add('bg-base-200', 'text-base-content/40');
             }
         } else {
             // Desktop: original button style

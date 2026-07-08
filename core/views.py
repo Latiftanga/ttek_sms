@@ -2902,8 +2902,8 @@ def my_attendance(request):
         })
 
     # Calculate today's completion stats
-    # For daily classes, count completed sessions
-    daily_classes = [c for c in class_summary if not c['is_per_lesson']]
+    # For daily classes, only homeroom teachers take the daily register
+    daily_classes = [c for c in class_summary if not c['is_per_lesson'] and c['is_homeroom']]
     daily_done = len([c for c in daily_classes if c['has_today']])
     daily_pending = len(daily_classes) - daily_done
 
@@ -2965,20 +2965,26 @@ def take_attendance(request, class_id):
     teacher = user.teacher_profile if hasattr(user, 'teacher_profile') else None
     class_obj = get_object_or_404(Class, pk=class_id)
 
-    # Check permission: must be class teacher or admin
+    # Check permission based on attendance type
     is_class_teacher = teacher and class_obj.class_teacher == teacher
-    if not is_admin and not is_class_teacher:
-        is_subject_teacher = teacher and ClassSubject.objects.filter(
-            class_assigned=class_obj,
-            teacher=teacher
-        ).exists()
-        if not is_subject_teacher:
-            messages.error(request, 'You are not assigned to this class.')
-            return redirect('core:my_attendance')
 
-    # Per-lesson classes should go through the lesson selection flow
     if should_use_lesson_attendance(class_obj):
+        # Per-lesson: any subject teacher assigned to this class may proceed
+        # (they'll be redirected to the lesson selection flow below)
+        if not is_admin and not is_class_teacher:
+            is_subject_teacher = teacher and ClassSubject.objects.filter(
+                class_assigned=class_obj,
+                teacher=teacher
+            ).exists()
+            if not is_subject_teacher:
+                messages.error(request, 'You are not assigned to this class.')
+                return redirect('core:my_attendance')
         return redirect('academics:lesson_attendance_list', pk=class_id)
+    else:
+        # Per-day: only the class teacher (or admin) marks the daily register
+        if not is_admin and not is_class_teacher:
+            messages.error(request, 'Only the assigned class teacher can mark daily attendance.')
+            return redirect('core:my_attendance')
 
     # Parse target date (supports past-date entry)
     date_str = request.GET.get('date') or request.POST.get('date')
