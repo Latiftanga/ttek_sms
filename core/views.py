@@ -2733,6 +2733,22 @@ def my_attendance(request):
     if not date_to:
         date_to = today.isoformat()
 
+    # Selected date for the "Today" tab — supports backdating within the current term
+    from datetime import datetime as dt_parse
+    date_param = request.GET.get('date', '')
+    selected_date = today
+    if date_param:
+        try:
+            selected_date = dt_parse.strptime(date_param, '%Y-%m-%d').date()
+            if selected_date > today:
+                selected_date = today
+        except ValueError:
+            selected_date = today
+
+    current_term = Term.objects.filter(is_current=True).first()
+    if current_term and selected_date < current_term.start_date:
+        selected_date = current_term.start_date
+
     # Base queryset for records (filtered by date/class later)
     records_qs = AttendanceRecord.objects.filter(
         session__class_assigned_id__in=all_class_ids
@@ -2777,10 +2793,10 @@ def my_attendance(request):
     )
     class_stats_dict = {item['session__class_assigned_id']: item for item in class_stats}
 
-    # Pre-compute which classes have today's attendance (with time taken)
+    # Pre-compute which classes have attendance for the selected date
     today_sessions_qs = AttendanceSession.objects.filter(
         class_assigned_id__in=all_class_ids,
-        date=today
+        date=selected_date
     ).values_list('class_assigned_id', 'created_at')
     today_sessions = set()
     today_session_times = {}
@@ -2788,18 +2804,18 @@ def my_attendance(request):
         today_sessions.add(class_id)
         today_session_times[class_id] = created_at
 
-    # Get today's timetable entries for the teacher (for per-lesson attendance)
-    today_weekday = today.isoweekday()
+    # Get timetable entries for the teacher on the selected date's weekday
+    selected_weekday = selected_date.isoweekday()
     teacher_timetable_entries = TimetableEntry.objects.filter(
         class_subject__teacher=teacher,
-        weekday=today_weekday,
+        weekday=selected_weekday,
     ).select_related('class_subject__class_assigned', 'class_subject__subject', 'period').order_by('period__start_time')
 
-    # Get which lessons have attendance taken today (session_type='Lesson')
+    # Get which lessons have attendance taken for the selected date
     lessons_with_attendance = set(
         AttendanceSession.objects.filter(
             timetable_entry__in=teacher_timetable_entries,
-            date=today,
+            date=selected_date,
             session_type='Lesson'
         ).values_list('timetable_entry_id', flat=True)
     )
@@ -2922,6 +2938,9 @@ def my_attendance(request):
         'date_from': date_from,
         'date_to': date_to,
         'today': today,
+        'selected_date': selected_date,
+        'current_term': current_term,
+        'is_today': selected_date == today,
         'classes_done_today': classes_done_today,
         'classes_pending_today': classes_pending_today,
         'lessons_done_today': lessons_done,
@@ -2965,12 +2984,15 @@ def take_attendance(request, class_id):
     teacher = user.teacher_profile if hasattr(user, 'teacher_profile') else None
     class_obj = get_object_or_404(Class, pk=class_id)
 
+    # Parse date early so it can be threaded through all redirects
+    date_str = request.GET.get('date') or request.POST.get('date')
+    today = timezone.localdate()
+
     # Check permission based on attendance type
     is_class_teacher = teacher and class_obj.class_teacher == teacher
 
     if should_use_lesson_attendance(class_obj):
         # Per-lesson: any subject teacher assigned to this class may proceed
-        # (they'll be redirected to the lesson selection flow below)
         if not is_admin and not is_class_teacher:
             is_subject_teacher = teacher and ClassSubject.objects.filter(
                 class_assigned=class_obj,
@@ -2979,16 +3001,17 @@ def take_attendance(request, class_id):
             if not is_subject_teacher:
                 messages.error(request, 'You are not assigned to this class.')
                 return redirect('core:my_attendance')
-        return redirect('academics:lesson_attendance_list', pk=class_id)
+        lesson_url = reverse('academics:lesson_attendance_list', args=[class_id])
+        if date_str:
+            lesson_url += f'?date={date_str}'
+        return redirect(lesson_url)
     else:
         # Per-day: only the class teacher (or admin) marks the daily register
         if not is_admin and not is_class_teacher:
             messages.error(request, 'Only the assigned class teacher can mark daily attendance.')
             return redirect('core:my_attendance')
 
-    # Parse target date (supports past-date entry)
-    date_str = request.GET.get('date') or request.POST.get('date')
-    today = timezone.localdate()
+    # Validate and parse the target date
     if date_str:
         try:
             target_date = dt.strptime(date_str, '%Y-%m-%d').date()
@@ -2997,8 +3020,20 @@ def take_attendance(request, class_id):
                 return redirect('core:my_attendance')
         except ValueError:
             target_date = today
+            date_str = None
     else:
         target_date = today
+
+    # Build the back URL preserving date for remaining redirects
+    back_url = reverse('core:my_attendance')
+    if date_str:
+        back_url += f'?date={date_str}'
+
+    # Restrict backdating to within the current term
+    current_term = Term.objects.filter(is_current=True).first()
+    if current_term and target_date < current_term.start_date:
+        messages.warning(request, f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).')
+        return redirect(back_url)
 
     # Check if this is a school day
     school_settings = SchoolSettings.load()
@@ -3006,13 +3041,13 @@ def take_attendance(request, class_id):
     if not school_settings.is_school_day(target_weekday):
         day_name = target_date.strftime('%A')
         messages.warning(request, f'{day_name} is not a school day.')
-        return redirect('core:my_attendance')
+        return redirect(back_url)
 
     # Check for holidays
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:
         messages.warning(request, f'{target_date.strftime("%B %d, %Y")} is a holiday ({holiday_name}). Attendance cannot be taken.')
-        return redirect('core:my_attendance')
+        return redirect(back_url)
 
     # Get or create session with IntegrityError handling for race conditions
     try:

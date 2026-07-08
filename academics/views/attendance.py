@@ -395,13 +395,30 @@ def lesson_attendance_list(request, pk):
     if not should_use_lesson_attendance(class_obj):
         return redirect('academics:class_attendance_take', pk=pk)
 
+    from core.models import Term
     today = timezone.localdate()
-    today_weekday = timezone.now().isoweekday()
 
-    # Get all timetable entries for this class today
+    # Support backdating within the current term
+    date_str = request.GET.get('date', '')
+    selected_date = today
+    if date_str:
+        try:
+            selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            if selected_date > today:
+                selected_date = today
+        except ValueError:
+            selected_date = today
+
+    current_term = Term.objects.filter(is_current=True).first()
+    if current_term and selected_date < current_term.start_date:
+        selected_date = current_term.start_date
+
+    selected_weekday = selected_date.isoweekday()
+
+    # Get all timetable entries for this class on the selected weekday
     entries = TimetableEntry.objects.filter(
         class_subject__class_assigned=class_obj,
-        weekday=today_weekday
+        weekday=selected_weekday
     ).select_related(
         'class_subject__subject',
         'class_subject__teacher',
@@ -409,22 +426,24 @@ def lesson_attendance_list(request, pk):
         'classroom'
     ).order_by('period__order')
 
-    # Get existing attendance sessions for today
+    # Get existing attendance sessions for the selected date
     existing_sessions = {
         s.timetable_entry_id: s
         for s in AttendanceSession.objects.filter(
             class_assigned=class_obj,
-            date=today,
+            date=selected_date,
             session_type=AttendanceSession.SessionType.LESSON
         )
     }
 
     current_time = timezone.localtime().time()
+    is_past_day = selected_date < today
     lessons = []
 
     for entry in entries:
-        is_past = entry.period.end_time < current_time
-        is_current = entry.period.start_time <= current_time <= entry.period.end_time
+        # For past dates all lessons are already past; only check time for today
+        is_past = is_past_day or entry.period.end_time < current_time
+        is_current = (not is_past_day) and entry.period.start_time <= current_time <= entry.period.end_time
         session = existing_sessions.get(entry.id)
         attendance_taken = session is not None
 
@@ -449,12 +468,20 @@ def lesson_attendance_list(request, pk):
         class_subject__class_assigned=class_obj
     ).exists()
 
+    # Determine HTMX swap target so the date picker reloads into the right container
+    htmx_target = request.headers.get('HX-Target', 'main-content')
+    reload_target = f'#{htmx_target}' if htmx_target in ('modal-content', 'main-content') else '#main-content'
+
     context = {
         'class': class_obj,
         'lessons': lessons,
-        'date': today,
+        'date': selected_date,
+        'today': today,
+        'is_today': selected_date == today,
+        'current_term': current_term,
         'has_lessons': len(lessons) > 0,
         'no_timetable': not has_any_timetable,
+        'reload_target': reload_target,
     }
 
     return render(request, 'academics/partials/lesson_select.html', context)
@@ -494,7 +521,11 @@ def take_lesson_attendance(request, timetable_entry_id):
         # Must be the assigned teacher for this subject
         if class_subject.teacher != teacher:
             messages.error(request, 'You are not assigned to teach this lesson.')
-            return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
+            lesson_url = reverse('academics:lesson_attendance_list', args=[class_obj.pk])
+            date_param = request.GET.get('date') or request.POST.get('date')
+            if date_param:
+                lesson_url += f'?date={date_param}'
+            return redirect(lesson_url)
     else:
         teacher = getattr(user, 'teacher_profile', None)
 
@@ -505,22 +536,33 @@ def take_lesson_attendance(request, timetable_entry_id):
             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
             target_date = timezone.localdate()
+            date_str = None
     else:
         target_date = timezone.localdate()
 
+    # Build back URL preserving date for all validation redirects
+    lesson_list_url = reverse('academics:lesson_attendance_list', args=[class_obj.pk])
+    if date_str:
+        lesson_list_url += f'?date={date_str}'
+
     # Prevent attendance on non-working days and holidays
-    from core.models import SchoolHoliday, SchoolSettings
+    from core.models import SchoolHoliday, SchoolSettings, Term
     target_weekday = target_date.isoweekday()
     school_settings = SchoolSettings.load()
     if not school_settings.is_school_day(target_weekday):
         day_name = target_date.strftime('%A')
         messages.warning(request, f'{day_name} is not a school day.')
-        return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
+        return redirect(lesson_list_url)
+
+    current_term = Term.objects.filter(is_current=True).first()
+    if current_term and target_date < current_term.start_date:
+        messages.warning(request, f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).')
+        return redirect(lesson_list_url)
 
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:
         messages.warning(request, f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.')
-        return redirect('academics:lesson_attendance_list', pk=class_obj.pk)
+        return redirect(lesson_list_url)
 
     # Get or create the lesson attendance session atomically
     with transaction.atomic():

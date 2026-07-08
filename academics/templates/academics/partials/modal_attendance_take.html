@@ -115,6 +115,7 @@
                     {% elif item.status == 'A' %}bg-error/10
                     {% elif item.status == 'L' %}bg-warning/10
                     {% elif item.status == 'E' %}bg-info/10{% endif %}"
+             data-student-id="{{ item.obj.pk }}"
              data-name="{{ item.obj.full_name|lower }}">
 
             <!-- Name row -->
@@ -154,8 +155,8 @@
     <!-- Sticky save bar -->
     <div class="sticky bottom-0 -mx-6 px-4 py-3 bg-base-100/95 backdrop-blur-sm border-t border-base-200 flex gap-3">
         <button type="button"
-                class="btn min-h-[48px] touch-action-manipulation"
-                onclick="var d=this.closest('dialog'); if(d) d.close(); else history.back();">
+                class="btn touch-action-manipulation"
+                onclick="var d=this.closest('dialog'); if(d) d.close(); else window.location.href='{% if is_lesson %}{% url 'academics:lesson_attendance_list' class.pk %}{% else %}{% url 'academics:attendance_reports' %}{% endif %}';">
             Cancel
         </button>
         <button type="submit"
@@ -240,6 +241,22 @@ function markAll(status) {
     });
     document.body.addEventListener('htmx:afterRequest', e => {
         if (e.detail.successful) formDirty = false;
+    });
+})();
+
+// Double-submit prevention
+(function() {
+    const form = document.getElementById('attendance-form');
+    if (!form) return;
+    let isSubmitting = false;
+    form.addEventListener('submit', function(e) {
+        if (isSubmitting) { e.preventDefault(); return false; }
+        isSubmitting = true;
+        form.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = true; });
+        setTimeout(() => {
+            isSubmitting = false;
+            form.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = false; });
+        }, 10000);
     });
 })();
 </script>

@@ -94,7 +94,7 @@
             {% if student_list %}
 
             <!-- Mobile Card View -->
-            <div class="md:hidden divide-y divide-base-200">
+            <div class="md:hidden divide-y divide-base-200" data-view="mobile">
                 {% for item in student_list %}
                 <div class="student-row px-3 py-2.5 transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% endif %}"
                      data-student-id="{{ item.obj.pk }}"
@@ -152,7 +152,7 @@
             </div>
 
             <!-- Desktop Table View -->
-            <div class="hidden md:block overflow-x-auto">
+            <div class="hidden md:block overflow-x-auto" data-view="desktop">
                 <table class="table table-zebra">
                     <thead>
                         <tr class="bg-base-200">
@@ -312,8 +312,8 @@ function setAllStatus(status) {
 function updateRowStyle(row, status) {
     row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10');
 
-    // Check if this is the mobile view (new rounded button style)
-    const isMobile = row.closest('.md\\:hidden') !== null;
+    // Check if this is the mobile view
+    const isMobile = row.closest('[data-view="mobile"]') !== null;
 
     // Update label styles within this row
     row.querySelectorAll('.status-label').forEach(label => {
@@ -398,7 +398,7 @@ document.querySelectorAll('.status-label').forEach(label => {
         document.querySelectorAll(`.student-row[data-student-id="${studentId}"]`).forEach(r => {
             updateRowStyle(r, status);
             // Also check the corresponding radio in the other view
-            const radio = r.querySelector(`input[value="${status}"]`);
+            const radio = r.querySelector(`input[name="status_${studentId}"][value="${status}"]`);
             if (radio) radio.checked = true;
         });
 

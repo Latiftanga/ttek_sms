@@ -1,12 +1,29 @@
 {% load core_tags %}
 
-<div class="flex items-center gap-2 mb-4 sticky top-0 bg-base-100 z-10 pb-2 border-b border-base-200">
+<div class="flex items-center gap-2 mb-3 sticky top-0 bg-base-100 z-10 pb-2 border-b border-base-200">
     <div class="flex-1 min-w-0">
         <h3 class="font-bold text-base leading-tight">{{ class.name }}</h3>
         <p class="text-xs text-base-content/50">{{ date|date:"l, j M Y" }}</p>
     </div>
+    <input type="date"
+           value="{{ date|date:'Y-m-d' }}"
+           max="{{ today|date:'Y-m-d' }}"
+           {% if current_term %}min="{{ current_term.start_date|date:'Y-m-d' }}"{% endif %}
+           hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
+           hx-target="{{ reload_target|default:'#main-content' }}"
+           hx-trigger="change"
+           name="date"
+           class="input input-xs input-bordered w-28 shrink-0"
+           title="Select date">
     <span class="badge badge-primary badge-sm shrink-0">Per-Lesson</span>
 </div>
+
+{% if not is_today %}
+<div class="alert alert-warning py-2 mb-3 text-xs flex items-center gap-2">
+    <i class="fa-solid fa-clock-rotate-left shrink-0"></i>
+    Marking missed attendance for {{ date|date:"l, j M" }}
+</div>
+{% endif %}
 
 {% if not has_lessons %}
 <div class="text-center py-12">
@@ -61,16 +78,18 @@
 
         <!-- Action -->
         {% if lesson.can_mark %}
-        <a href="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
-           hx-get="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}"
+        <a href="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}?date={{ date|date:'Y-m-d' }}"
+           hx-get="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}?date={{ date|date:'Y-m-d' }}"
            hx-target="#modal-content"
            hx-swap="innerHTML"
            onclick="document.getElementById('global-modal').showModal()"
            class="btn btn-sm shrink-0 {% if lesson.attendance_taken %}btn-outline btn-success{% elif lesson.is_current %}btn-primary{% else %}btn-outline btn-primary{% endif %}">
             {% if lesson.attendance_taken %}
             <i class="fa-solid fa-pen-to-square"></i>
+            <span class="sr-only">Edit attendance</span>
             {% else %}
             <i class="fa-solid fa-clipboard-check"></i>
+            <span class="sr-only">Take attendance</span>
             {% endif %}
         </a>
         {% else %}
