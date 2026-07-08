@@ -60,6 +60,11 @@ class FeeStructureForm(forms.ModelForm):
         self.fields['class_assigned'].required = False
         self.fields['term'].required = False
 
+        # Lock academic_year once invoices have been generated from this structure
+        if self.instance and self.instance.pk:
+            if Invoice.objects.filter(fee_structure=self.instance).exists():
+                self.fields['academic_year'].disabled = True
+
         # Hide boarding/day fields for schools without SHS levels
         from django.db import connection
         tenant = connection.tenant

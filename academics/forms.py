@@ -47,7 +47,9 @@ class ClassForm(forms.ModelForm):
 
         try:
             from teachers.models import Teacher
-            self.fields['class_teacher'].queryset = Teacher.objects.filter(status='active').order_by('first_name')
+            self.fields['class_teacher'].queryset = Teacher.objects.filter(status='active').only(
+                'id', 'first_name', 'middle_name', 'last_name', 'title'
+            ).order_by('first_name')
             self.fields['class_teacher'].label = "Form Tutor / Class Teacher"
         except ImportError:
             pass

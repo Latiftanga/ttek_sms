@@ -867,18 +867,36 @@ class SchoolHoliday(models.Model):
 
     @classmethod
     def is_holiday(cls, check_date):
-        """Check if a given date is a school holiday."""
-        # Check exact date match
-        if cls.objects.filter(date=check_date).exists():
-            return True
-        # Check recurring holidays (same month and day, any year)
-        if cls.objects.filter(
-            recurring_annually=True,
-            date__month=check_date.month,
-            date__day=check_date.day,
-        ).exists():
-            return True
-        return False
+        """Check if a given date is a school holiday (single DB query)."""
+        from django.db.models import Q
+        return cls.objects.filter(
+            Q(date=check_date) |
+            Q(recurring_annually=True,
+              date__month=check_date.month,
+              date__day=check_date.day)
+        ).exists()
+
+    @classmethod
+    def get_holiday_dates(cls, dates):
+        """
+        Return the subset of `dates` that are school holidays.
+        Fetches all holidays in one query then matches in Python.
+        Use this instead of calling is_holiday() in a loop.
+        """
+        if not dates:
+            return set()
+        all_holidays = list(cls.objects.only('date', 'recurring_annually'))
+        result = set()
+        for d in dates:
+            for h in all_holidays:
+                if h.date == d or (
+                    h.recurring_annually
+                    and h.date.month == d.month
+                    and h.date.day == d.day
+                ):
+                    result.add(d)
+                    break
+        return result
 
     @classmethod
     def get_holiday_name(cls, check_date):

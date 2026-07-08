@@ -133,6 +133,10 @@ class StudentForm(forms.ModelForm):
         self.fields['current_class'].queryset = Class.objects.filter(is_active=True)
         self.fields['current_class'].required = False
 
+        # admission_number is immutable once assigned — lock it on edit
+        if self.instance and self.instance.pk:
+            self.fields['admission_number'].disabled = True
+
         # Get school config from tenant
         from django.db import connection
         tenant = connection.tenant

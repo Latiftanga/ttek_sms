@@ -72,6 +72,9 @@ def can_edit_scores(user, class_obj, subject):
     Returns True if:
     - User is superuser or school admin
     - User is the teacher assigned to this subject for this class
+
+    Result is cached on the user object for the lifetime of the request to
+    avoid repeated DB hits when called multiple times per HTMX score-save.
     """
     if user.is_superuser or getattr(user, 'is_school_admin', False):
         return True
@@ -79,13 +82,19 @@ def can_edit_scores(user, class_obj, subject):
     if not hasattr(user, 'teacher_profile') or not user.teacher_profile:
         return False
 
-    teacher = user.teacher_profile
-
-    return ClassSubject.objects.filter(
-        class_assigned=class_obj,
-        subject=subject,
-        teacher=teacher
-    ).exists()
+    cache_key = (
+        class_obj.pk if class_obj else None,
+        subject.pk if subject else None,
+    )
+    if not hasattr(user, '_can_edit_scores_cache'):
+        user._can_edit_scores_cache = {}
+    if cache_key not in user._can_edit_scores_cache:
+        user._can_edit_scores_cache[cache_key] = ClassSubject.objects.filter(
+            class_assigned=class_obj,
+            subject=subject,
+            teacher=user.teacher_profile
+        ).exists()
+    return user._can_edit_scores_cache[cache_key]
 
 
 def get_teacher_subjects(user, class_obj):

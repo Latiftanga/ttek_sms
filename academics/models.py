@@ -485,32 +485,44 @@ class StudentSubjectEnrollment(models.Model):
         Subjects with auto_enroll=False (e.g., French vs Spanish electives)
         must be manually assigned to specific students.
 
-        Called when a student is enrolled in a new class.
+        Uses bulk_create + bulk_update to stay at 3 DB queries regardless
+        of how many subjects the class has.
         """
-        class_subjects = ClassSubject.objects.filter(
+        class_subjects = list(ClassSubject.objects.filter(
             class_assigned=class_obj,
             auto_enroll=True
-        )
+        ))
+        if not class_subjects:
+            return []
 
-        enrollments = []
-        for class_subject in class_subjects:
-            enrollment, created = cls.objects.get_or_create(
-                student=student,
-                class_subject=class_subject,
-                defaults={
-                    'enrolled_by': enrolled_by,
-                    'is_active': True
-                }
-            )
-            if created:
-                enrollments.append(enrollment)
-            elif not enrollment.is_active:
-                # Reactivate if previously deactivated
-                enrollment.is_active = True
-                enrollment.save()
-                enrollments.append(enrollment)
+        cs_ids = [cs.pk for cs in class_subjects]
 
-        return enrollments
+        # Fetch all existing enrollment rows in one query
+        existing = {
+            e.class_subject_id: e
+            for e in cls.objects.filter(student=student, class_subject_id__in=cs_ids)
+        }
+
+        to_create = []
+        to_reactivate = []
+        for cs in class_subjects:
+            existing_enrollment = existing.get(cs.pk)
+            if existing_enrollment is None:
+                to_create.append(cls(
+                    student=student,
+                    class_subject=cs,
+                    enrolled_by=enrolled_by,
+                    is_active=True,
+                ))
+            elif not existing_enrollment.is_active:
+                existing_enrollment.is_active = True
+                to_reactivate.append(existing_enrollment)
+
+        created = cls.objects.bulk_create(to_create, ignore_conflicts=True)
+        if to_reactivate:
+            cls.objects.bulk_update(to_reactivate, ['is_active'])
+
+        return created + to_reactivate
 
     @classmethod
     def enroll_student_in_core_subjects(cls, student, class_obj, enrolled_by=None):
