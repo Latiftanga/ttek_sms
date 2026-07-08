@@ -12,10 +12,7 @@
     transition: all 0.15s ease;
 }
 
-/* Chevron rotation for help toggle */
-#help-chevron {
-    transition: transform 0.2s ease;
-}
+
 </style>
 
 <!-- Page Header -->
@@ -84,109 +81,76 @@
                     </div>
                 </div>
 
-                <!-- Search Input (for large classes) -->
-                {% if student_list|length > 15 %}
-                <div class="flex items-center gap-2">
-                    <div class="relative flex-1">
-                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-sm"></i>
-                        <input type="text"
-                               id="student-search"
-                               placeholder="Search student..."
-                               class="input input-bordered w-full pl-9 touch-action-manipulation"
-                               onkeyup="filterStudents(this.value)">
-                    </div>
-                    <span id="search-count" class="text-xs text-base-content/60 hidden"></span>
-                </div>
-                {% endif %}
-
-                <!-- Mobile Help Toggle -->
-                <div class="md:hidden">
-                    <button type="button" onclick="toggleHelp()" class="btn btn-ghost btn-xs gap-1 w-full text-base-content/60">
-                        <i class="fa-solid fa-circle-question"></i>
-                        <span id="help-toggle-text">Show Help</span>
-                        <i class="fa-solid fa-chevron-down text-xs" id="help-chevron"></i>
-                    </button>
-                    <div id="mobile-help" class="hidden mt-2 p-3 bg-base-200 rounded-lg text-sm">
-                        <div class="grid grid-cols-3 gap-2 text-center">
-                            <div class="flex flex-col items-center gap-1">
-                                <span class="btn btn-success btn-circle btn-sm"><i class="fa-solid fa-check"></i></span>
-                                <span class="text-xs font-medium">Present</span>
-                            </div>
-                            <div class="flex flex-col items-center gap-1">
-                                <span class="btn btn-warning btn-circle btn-sm"><i class="fa-solid fa-clock"></i></span>
-                                <span class="text-xs font-medium">Late</span>
-                            </div>
-                            <div class="flex flex-col items-center gap-1">
-                                <span class="btn btn-error btn-circle btn-sm"><i class="fa-solid fa-xmark"></i></span>
-                                <span class="text-xs font-medium">Absent</span>
-                            </div>
-                        </div>
-                        <p class="text-xs text-base-content/60 mt-2 text-center">
-                            <i class="fa-solid fa-lightbulb text-warning"></i>
-                            Tip: Tap "Mark All Present" then mark only absentees
-                        </p>
-                    </div>
+                <!-- Search — always visible -->
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 text-sm pointer-events-none"></i>
+                    <input type="text"
+                           id="student-search"
+                           placeholder="Search student…"
+                           class="input input-sm input-bordered w-full pl-9 touch-action-manipulation"
+                           oninput="filterStudents(this.value)">
                 </div>
             </div>
 
             <!-- Student List -->
             {% if student_list %}
 
-            <!-- Mobile Card View - Touch Optimized for Novice Users -->
+            <!-- Mobile Card View -->
             <div class="md:hidden divide-y divide-base-200">
                 {% for item in student_list %}
-                <div class="student-row p-3 transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% endif %}"
-                     data-student-id="{{ item.obj.pk }}">
-                    <div class="flex items-center gap-3">
-                        <!-- Student Photo -->
-                        <div class="avatar placeholder shrink-0">
-                            <div class="w-14 h-14 rounded-full bg-base-300 text-base-content flex items-center justify-center">
-                                {% if item.obj.photo %}
-                                <img src="{{ item.obj.photo.url }}" alt="{{ item.obj.full_name }}" class="object-cover" loading="lazy" decoding="async" />
-                                {% else %}
-                                <span class="text-lg font-bold">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
+                <div class="student-row px-3 py-2.5 transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% endif %}"
+                     data-student-id="{{ item.obj.pk }}"
+                     data-name="{{ item.obj.full_name|lower }}">
 
-                        <!-- Student Info -->
-                        <div class="flex-1 min-w-0">
-                            <p class="font-semibold text-base truncate">{{ item.obj.full_name }}</p>
+                    <!-- Name row -->
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-7 h-7 rounded-full bg-base-200 text-xs font-bold flex items-center justify-center shrink-0 text-base-content/50">
+                            {{ forloop.counter }}
+                        </span>
+                        <div class="w-8 h-8 rounded-full bg-base-300 text-base-content flex items-center justify-center shrink-0">
+                            {% if item.obj.photo %}
+                            <img src="{{ item.obj.photo.url }}" alt="{{ item.obj.full_name }}" class="w-full h-full rounded-full object-cover" loading="lazy" decoding="async" />
+                            {% else %}
+                            <span class="text-xs font-bold">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="font-semibold text-sm leading-snug">{{ item.obj.full_name }}</p>
                             <p class="text-xs text-base-content/50 font-mono">{{ item.obj.admission_number }}</p>
                         </div>
+                    </div>
 
-                        <!-- Status Buttons - Extra Large Touch Targets with Labels -->
-                        <div class="flex items-center gap-1.5">
-                            <input type="radio" name="status_{{ item.obj.pk }}" value="P"
-                                   id="m_p_{{ item.obj.pk }}" {% if item.status == 'P' %}checked{% endif %}
-                                   class="hidden">
-                            <label for="m_p_{{ item.obj.pk }}"
-                                   class="flex flex-col items-center justify-center w-14 h-14 rounded-xl {% if item.status == 'P' %}bg-success text-success-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform"
-                                   data-status="P">
-                                <i class="fa-solid fa-check text-xl"></i>
-                                <span class="text-[10px] font-bold mt-0.5">P</span>
-                            </label>
+                    <!-- Button row: spread evenly across full width -->
+                    <div class="flex items-center justify-between gap-1 ml-9">
+                        <input type="radio" name="status_{{ item.obj.pk }}" value="P"
+                               id="m_p_{{ item.obj.pk }}" {% if item.status == 'P' %}checked{% endif %}
+                               class="hidden">
+                        <label for="m_p_{{ item.obj.pk }}"
+                               class="flex-1 flex flex-col items-center justify-center h-11 rounded-xl {% if item.status == 'P' %}bg-success text-success-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform select-none"
+                               data-status="P">
+                            <i class="fa-solid fa-check text-sm"></i>
+                            <span class="text-[9px] font-bold mt-0.5">Present</span>
+                        </label>
 
-                            <input type="radio" name="status_{{ item.obj.pk }}" value="L"
-                                   id="m_l_{{ item.obj.pk }}" {% if item.status == 'L' %}checked{% endif %}
-                                   class="hidden">
-                            <label for="m_l_{{ item.obj.pk }}"
-                                   class="flex flex-col items-center justify-center w-14 h-14 rounded-xl {% if item.status == 'L' %}bg-warning text-warning-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform"
-                                   data-status="L">
-                                <i class="fa-solid fa-clock text-xl"></i>
-                                <span class="text-[10px] font-bold mt-0.5">L</span>
-                            </label>
+                        <input type="radio" name="status_{{ item.obj.pk }}" value="L"
+                               id="m_l_{{ item.obj.pk }}" {% if item.status == 'L' %}checked{% endif %}
+                               class="hidden">
+                        <label for="m_l_{{ item.obj.pk }}"
+                               class="flex-1 flex flex-col items-center justify-center h-11 rounded-xl {% if item.status == 'L' %}bg-warning text-warning-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform select-none"
+                               data-status="L">
+                            <i class="fa-solid fa-clock text-sm"></i>
+                            <span class="text-[9px] font-bold mt-0.5">Late</span>
+                        </label>
 
-                            <input type="radio" name="status_{{ item.obj.pk }}" value="A"
-                                   id="m_a_{{ item.obj.pk }}" {% if item.status == 'A' %}checked{% endif %}
-                                   class="hidden">
-                            <label for="m_a_{{ item.obj.pk }}"
-                                   class="flex flex-col items-center justify-center w-14 h-14 rounded-xl {% if item.status == 'A' %}bg-error text-error-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform"
-                                   data-status="A">
-                                <i class="fa-solid fa-xmark text-xl"></i>
-                                <span class="text-[10px] font-bold mt-0.5">A</span>
-                            </label>
-                        </div>
+                        <input type="radio" name="status_{{ item.obj.pk }}" value="A"
+                               id="m_a_{{ item.obj.pk }}" {% if item.status == 'A' %}checked{% endif %}
+                               class="hidden">
+                        <label for="m_a_{{ item.obj.pk }}"
+                               class="flex-1 flex flex-col items-center justify-center h-11 rounded-xl {% if item.status == 'A' %}bg-error text-error-content shadow-md{% else %}bg-base-200 text-base-content/60 border-2 border-base-300{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-95 transition-transform select-none"
+                               data-status="A">
+                            <i class="fa-solid fa-xmark text-sm"></i>
+                            <span class="text-[9px] font-bold mt-0.5">Absent</span>
+                        </label>
                     </div>
                 </div>
                 {% endfor %}
@@ -206,7 +170,8 @@
                     <tbody>
                         {% for item in student_list %}
                         <tr class="student-row hover {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% endif %}"
-                            data-student-id="{{ item.obj.pk }}">
+                            data-student-id="{{ item.obj.pk }}"
+                            data-name="{{ item.obj.full_name|lower }}">
                             <td class="text-base-content/50">{{ forloop.counter }}</td>
                             <td>
                                 <div class="flex items-center gap-3">
@@ -322,22 +287,6 @@
 </div>
 
 <script>
-// Help toggle for mobile
-function toggleHelp() {
-    const helpDiv = document.getElementById('mobile-help');
-    const toggleText = document.getElementById('help-toggle-text');
-    const chevron = document.getElementById('help-chevron');
-
-    if (helpDiv.classList.contains('hidden')) {
-        helpDiv.classList.remove('hidden');
-        toggleText.textContent = 'Hide Help';
-        chevron.classList.add('rotate-180');
-    } else {
-        helpDiv.classList.add('hidden');
-        toggleText.textContent = 'Show Help';
-        chevron.classList.remove('rotate-180');
-    }
-}
 
 function setAllStatus(status) {
     // Get unique student IDs (avoid double-counting mobile + desktop)
@@ -465,34 +414,22 @@ document.querySelectorAll('.status-label').forEach(label => {
 // Initial summary update
 updateSummary();
 
-// Student search/filter function
+// Student search/filter — uses data-name attribute set on each row
 function filterStudents(query) {
-    query = query.toLowerCase().trim();
-    let visibleCount = 0;
-    const totalCount = document.querySelectorAll('.student-row').length / 2; // Divide by 2 for mobile+desktop
+    const q = query.toLowerCase().trim();
+    const seenIds = new Set();
+    let visible = 0;
 
     document.querySelectorAll('.student-row').forEach(row => {
-        const studentName = row.querySelector('.font-medium')?.textContent?.toLowerCase() || '';
-        const admissionNo = row.querySelector('.font-mono')?.textContent?.toLowerCase() || '';
-
-        if (studentName.includes(query) || admissionNo.includes(query) || query === '') {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
+        const name = row.dataset.name || row.querySelector('.font-medium, .font-semibold')?.textContent?.toLowerCase() || '';
+        const adm  = row.querySelector('.font-mono')?.textContent?.toLowerCase() || '';
+        const show = !q || name.includes(q) || adm.includes(q);
+        row.style.display = show ? '' : 'none';
+        if (show) {
+            const id = row.dataset.studentId;
+            if (id && !seenIds.has(id)) { seenIds.add(id); visible++; }
         }
     });
-
-    // Update search count indicator
-    const searchCount = document.getElementById('search-count');
-    if (searchCount) {
-        if (query) {
-            searchCount.textContent = `${visibleCount / 2} of ${totalCount}`;
-            searchCount.classList.remove('hidden');
-        } else {
-            searchCount.classList.add('hidden');
-        }
-    }
 }
 
 // Double-submit prevention
