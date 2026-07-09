@@ -59,6 +59,7 @@ services:
       --workers 2
       --threads 2
       --worker-class gthread
+      --worker-tmp-dir /dev/shm
       --timeout 120
       --keep-alive 5
       --max-requests 1000
