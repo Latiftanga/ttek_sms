@@ -6,9 +6,20 @@
          setView(mode) {
              this.viewMode = mode;
              localStorage.setItem('classesViewMode', mode);
+         },
+         exportClasses() {
+             // Read the live filter values (the header isn't re-rendered by the
+             // search/filter htmx swaps, so it can't rely on server-rendered context).
+             const params = new URLSearchParams();
+             const search = document.getElementById('class-search');
+             const level = document.querySelector('[name=level]');
+             if (search && search.value.trim()) params.set('search', search.value.trim());
+             if (level && level.value) params.set('level', level.value);
+             const qs = params.toString();
+             window.location.href = '{% url "academics:classes_bulk_export" %}' + (qs ? '?' + qs : '');
          }
      }"
-     hx-get="{% url 'academics:classes' %}{% if search or level_filter %}?{% if search %}search={{ search }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}"
+     hx-get="{% url 'academics:classes' %}{% if search or level_filter %}?{% if search %}search={{ search|urlencode }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}"
      hx-trigger="classChanged from:body"
      hx-target="this"
      hx-swap="outerHTML transition:true">
@@ -28,6 +39,19 @@
             <h1 class="text-lg sm:text-xl font-bold">Classes</h1>
             <p class="text-xs text-base-content/60">Manage your school classes</p>
         </div>
+        <!-- Desktop primary actions (visible on md+, folded into the overflow menu on mobile) -->
+        <a href="{% url 'academics:classes_bulk_export' %}{% if search or level_filter %}?{% if search %}search={{ search|urlencode }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}"
+           @click.prevent="exportClasses()"
+           class="hidden md:inline-flex btn btn-ghost btn-sm gap-1">
+            <i class="fa-solid fa-file-excel text-success"></i> Export
+        </a>
+        <button hx-get="{% url 'academics:class_create' %}"
+                hx-target="#modal-class-content"
+                hx-swap="innerHTML"
+                hx-on::after-request="document.getElementById('modal_class').showModal()"
+                class="hidden md:inline-flex btn btn-primary btn-sm gap-1">
+            <i class="fa-solid fa-plus"></i> Add Class
+        </button>
         <!-- View Toggle (hidden on mobile) -->
         <div class="hidden md:block">
             <label class="btn btn-ghost btn-sm btn-square swap swap-rotate" title="Toggle view">
@@ -40,7 +64,8 @@
                 <i class="swap-on fa-solid fa-list"></i>
             </label>
         </div>
-        <div class="dropdown dropdown-end">
+        <!-- Overflow menu (mobile only — actions are visible buttons on md+) -->
+        <div class="dropdown dropdown-end md:hidden">
             <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
             </label>
@@ -55,7 +80,8 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'academics:classes_bulk_export' %}{% if search or level_filter %}?{% if search %}search={{ search }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}">
+                    <a href="{% url 'academics:classes_bulk_export' %}{% if search or level_filter %}?{% if search %}search={{ search|urlencode }}{% endif %}{% if level_filter %}{% if search %}&{% endif %}level={{ level_filter }}{% endif %}{% endif %}"
+                       @click.prevent="exportClasses()">
                         <i class="fa-solid fa-file-excel text-success"></i> Export to Excel
                     </a>
                 </li>
@@ -436,8 +462,8 @@
                 <!-- Pagination controls -->
                 <div class="join order-1 sm:order-2">
                     {% if page_obj.has_previous %}
-                    <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'academics:classes' %}?page=1{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page=1{% if search %}&search={{ search|urlencode }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'academics:classes' %}?page=1{% if search %}&search={{ search|urlencode }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#class-results"
                        hx-select="#class-results"
                        hx-swap="outerHTML"
@@ -445,8 +471,8 @@
                        class="join-item btn btn-sm">
                         <i class="fa-solid fa-angles-left"></i>
                     </a>
-                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'academics:classes' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'academics:classes' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#class-results"
                        hx-select="#class-results"
                        hx-swap="outerHTML"
@@ -462,8 +488,8 @@
                     <button class="join-item btn btn-sm btn-active">{{ page_obj.number }} / {{ paginator.num_pages }}</button>
 
                     {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'academics:classes' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'academics:classes' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#class-results"
                        hx-select="#class-results"
                        hx-swap="outerHTML"
@@ -471,8 +497,8 @@
                        class="join-item btn btn-sm">
                         <i class="fa-solid fa-chevron-right"></i>
                     </a>
-                    <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'academics:classes' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'academics:classes' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if level_filter %}&level={{ level_filter }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#class-results"
                        hx-select="#class-results"
                        hx-swap="outerHTML"

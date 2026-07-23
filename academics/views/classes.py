@@ -1273,7 +1273,8 @@ def class_export(request, pk):
     # Create workbook
     wb = Workbook()
     ws = wb.active
-    ws.title = f"{class_obj.name} Register"
+    # Excel sheet titles must be <= 31 chars and can't contain \ / ? * [ ] :
+    ws.title = re.sub(r'[\\/?*\[\]:]', '', f"{class_obj.name} Register")[:31] or 'Register'
 
     # Styles
     header_font = Font(bold=True, size=14)
