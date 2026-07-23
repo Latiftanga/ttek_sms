@@ -1,6 +1,7 @@
 """House management views."""
 import json
 import logging
+import re
 from io import BytesIO
 
 from django.db.models import Count, Q, Prefetch
@@ -563,13 +564,16 @@ def house_students_excel(request, pk):
 
     df = pd.DataFrame(data)
 
+    # Excel sheet names must be <= 31 chars and can't contain \ / ? * [ ]
+    sheet_name = re.sub(r'[\\/?*\[\]]', '', f'{house.name} Students')[:31] or 'Students'
+
     # Create Excel file
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name=f'{house.name} Students', index=False)
+        df.to_excel(writer, sheet_name=sheet_name, index=False)
 
         # Auto-adjust column widths
-        worksheet = writer.sheets[f'{house.name} Students']
+        worksheet = writer.sheets[sheet_name]
         for idx, col in enumerate(df.columns):
             max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
             from openpyxl.utils import get_column_letter

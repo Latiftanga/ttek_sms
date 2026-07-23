@@ -7,11 +7,11 @@
              localStorage.setItem('guardiansViewMode', mode);
          }
      }"
-     hx-get="{% url 'students:guardian_index' %}{% if search %}?search={{ search }}{% endif %}"
+     hx-get="{% url 'students:guardian_index' %}{% if search %}?search={{ search|urlencode }}{% endif %}"
      hx-trigger="guardianChanged from:body"
      hx-target="this"
      hx-swap="outerHTML transition:true"
-     hx-on::after-settle="var m=document.getElementById('modal_guardian'); if(m&&m.open) m.close()"
+     hx-on::after-settle="var m=document.getElementById('modal_guardian'); if(m&&m.open) m.close()">
     <!-- Page Header -->
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-3">
@@ -256,8 +256,8 @@
                 <!-- Pagination controls -->
                 <div class="join order-1 sm:order-2">
                     {% if page_obj.has_previous %}
-                    <a href="?page=1{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'students:guardian_index' %}?page=1{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page=1{% if search %}&search={{ search|urlencode }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:guardian_index' %}?page=1{% if search %}&search={{ search|urlencode }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#guardian-results"
                        hx-select="#guardian-results"
                        hx-swap="outerHTML"
@@ -265,8 +265,8 @@
                        class="join-item btn btn-sm">
                         <i class="fa-solid fa-angles-left"></i>
                     </a>
-                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'students:guardian_index' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:guardian_index' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#guardian-results"
                        hx-select="#guardian-results"
                        hx-swap="outerHTML"
@@ -282,8 +282,8 @@
                     <button class="join-item btn btn-sm btn-active">{{ page_obj.number }}/{{ paginator.num_pages }}</button>
 
                     {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'students:guardian_index' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:guardian_index' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#guardian-results"
                        hx-select="#guardian-results"
                        hx-swap="outerHTML"
@@ -291,8 +291,8 @@
                        class="join-item btn btn-sm">
                         <i class="fa-solid fa-chevron-right"></i>
                     </a>
-                    <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'students:guardian_index' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search|urlencode }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:guardian_index' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search|urlencode }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#guardian-results"
                        hx-select="#guardian-results"
                        hx-swap="outerHTML"

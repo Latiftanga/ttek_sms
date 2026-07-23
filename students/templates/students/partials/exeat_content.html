@@ -233,8 +233,8 @@
                 <!-- Pagination controls -->
                 <div class="join order-1 sm:order-2">
                     {% if page_obj.has_previous %}
-                    <a href="?page=1{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'students:exeat_index' %}?page=1{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page=1{% if search %}&search={{ search|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:exeat_index' %}?page=1{% if search %}&search={{ search|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#exeat-results"
                        hx-select="#exeat-results"
                        hx-swap="outerHTML"
@@ -242,8 +242,8 @@
                        class="join-item btn btn-sm">
                         <i class="fa-solid fa-angles-left"></i>
                     </a>
-                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'students:exeat_index' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:exeat_index' %}?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#exeat-results"
                        hx-select="#exeat-results"
                        hx-swap="outerHTML"
@@ -259,8 +259,8 @@
                     <button class="join-item btn btn-sm btn-active">{{ page_obj.number }}/{{ paginator.num_pages }}</button>
 
                     {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'students:exeat_index' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:exeat_index' %}?page={{ page_obj.next_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#exeat-results"
                        hx-select="#exeat-results"
                        hx-swap="outerHTML"
@@ -268,8 +268,8 @@
                        class="join-item btn btn-sm">
                         <i class="fa-solid fa-chevron-right"></i>
                     </a>
-                    <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
-                       hx-get="{% url 'students:exeat_index' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                    <a href="?page={{ paginator.num_pages }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
+                       hx-get="{% url 'students:exeat_index' %}?page={{ paginator.num_pages }}{% if search %}&search={{ search|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if house_filter %}&house={{ house_filter }}{% endif %}&per_page={{ per_page }}"
                        hx-target="#exeat-results"
                        hx-select="#exeat-results"
                        hx-swap="outerHTML"
