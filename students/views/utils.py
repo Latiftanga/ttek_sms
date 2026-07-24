@@ -40,7 +40,17 @@ def normalize_phone_number(phone):
 
 
 def create_enrollment_for_student(student):
-    """Create an enrollment record for a student in the current academic year."""
+    """
+    Create an enrollment record for a student in the current academic year,
+    or correct an existing active one if current_class was reassigned since
+    (e.g. a direct edit rather than a formal promotion) - get_or_create's
+    defaults only apply on creation, so without this an existing enrollment
+    would silently keep pointing at the student's old class, diverging from
+    Student.current_class and from anything that queries by class_assigned
+    (e.g. the promotion roster). Enrollments already closed out for the year
+    (promoted/graduated/repeated) are left untouched - those are historical
+    record, not the live one.
+    """
     current_year = AcademicYear.get_current()
     if not current_year:
         return None, False
@@ -57,6 +67,12 @@ def create_enrollment_for_student(student):
             'status': Enrollment.Status.ACTIVE,
         }
     )
+    if (not created and enrollment.status == Enrollment.Status.ACTIVE
+            and enrollment.class_assigned_id != class_to_use.pk):
+        enrollment.class_assigned = class_to_use
+        enrollment.class_name = class_to_use.name
+        enrollment.save(update_fields=['class_assigned', 'class_name', 'updated_at'])
+
     return enrollment, created
 
 
