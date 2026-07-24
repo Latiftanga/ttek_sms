@@ -1,3 +1,4 @@
+import json
 import logging
 
 from django.shortcuts import redirect, get_object_or_404, render
@@ -259,12 +260,52 @@ def student_edit(request, pk):
 
 @admin_required
 def student_delete(request, pk):
-    """Delete a student."""
+    """
+    Delete a student. Blocks if there's meaningful academic or financial
+    history - Score, TermReport, Invoice, and AttendanceRecord all CASCADE
+    from Student, so without this check, deleting a real student (as
+    opposed to a mistaken/duplicate entry) would silently destroy their
+    entire grade, report card, billing, and attendance history. Invoice is
+    also referenced by Payment with on_delete=PROTECT, so a student with a
+    paid invoice would otherwise crash student.delete() with an unhandled
+    ProtectedError instead of failing cleanly.
+    """
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    from gradebook.models import Score, TermReport
+    from finance.models import Invoice
+    from academics.models import AttendanceRecord
+
     student = get_object_or_404(Student, pk=pk)
     student_name = student.full_name
+
+    block_reason = None
+    if Score.objects.filter(student=student).exists():
+        block_reason = 'it has scores recorded in the gradebook'
+    elif TermReport.objects.filter(student=student).exists():
+        block_reason = 'it has term reports (report cards) generated'
+    elif Invoice.objects.filter(student=student).exists():
+        block_reason = 'it has billing/invoice history'
+    elif AttendanceRecord.objects.filter(student=student).exists():
+        block_reason = 'it has attendance records on file'
+
+    if block_reason:
+        message = (
+            f'Cannot delete "{student_name}" — {block_reason}. Deleting would '
+            f'permanently erase that history. Set their status to Withdrawn, '
+            f'Transferred, or Graduated instead (Edit Student) to remove them '
+            f'from active rosters while keeping the record.'
+        )
+        if request.htmx:
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = json.dumps({
+                'showToast': {'message': message, 'type': 'error'}
+            })
+            return response
+        messages.error(request, message)
+        return redirect('students:student_detail', pk=pk)
+
     student.delete()
 
     messages.success(request, f'Student "{student_name}" has been deleted.')
