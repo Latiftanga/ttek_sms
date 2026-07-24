@@ -54,32 +54,25 @@
                     class="hidden md:inline-flex btn btn-outline btn-primary btn-sm gap-1">
                 <i class="fa-solid fa-user-plus"></i> Enroll Students
             </button>
-            {% if class.attendance_type == 'per_lesson' %}
-            <button hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
+            <button hx-get="{% url 'academics:class_edit' class.pk %}"
                     hx-target="#modal-edit-content"
                     hx-swap="innerHTML"
                     hx-on::after-request="document.getElementById('modal_edit').showModal()"
-                    class="hidden md:inline-flex btn btn-secondary btn-sm gap-1">
-                <i class="fa-solid fa-clipboard-check"></i> Lesson Attendance
+                    class="hidden md:inline-flex btn btn-ghost btn-sm btn-square"
+                    title="Class Settings">
+                <i class="fa-solid fa-gear"></i>
             </button>
-            {% else %}
-            <button hx-get="{% url 'academics:class_attendance_take' class.pk %}"
-                    hx-target="#modal-edit-content"
-                    hx-swap="innerHTML"
-                    hx-on::after-request="document.getElementById('modal_edit').showModal()"
-                    class="hidden md:inline-flex btn btn-secondary btn-sm gap-1">
-                <i class="fa-solid fa-clipboard-check"></i> Take Attendance
-            </button>
-            {% endif %}
 
-            <!-- Actions Dropdown -->
-            <div class="dropdown dropdown-end">
+            <!-- Overflow menu (mobile only - Timetable/Export now live in their tabs,
+                 and desktop has its own Enroll Students / Class Settings buttons above).
+                 Take/Lesson Attendance isn't duplicated here either - it lives in the
+                 Attendance tab, reachable on all screen sizes via the tab bar. -->
+            <div class="dropdown dropdown-end md:hidden">
                 <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
                     <i class="fa-solid fa-ellipsis-vertical"></i>
                 </label>
                 <ul tabindex="0" class="dropdown-content z-50 menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-52">
-                    <li class="menu-title text-xs md:hidden">Quick Actions</li>
-                    <li class="md:hidden">
+                    <li>
                         <button hx-get="{% url 'academics:class_student_enroll' class.pk %}"
                                 hx-target="#modal-edit-content"
                                 hx-swap="innerHTML"
@@ -87,35 +80,6 @@
                             <i class="fa-solid fa-user-plus w-4 text-primary"></i> Enroll Students
                         </button>
                     </li>
-                    {% if class.attendance_type == 'per_lesson' %}
-                    <li class="md:hidden">
-                        <button hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
-                                hx-target="#modal-edit-content"
-                                hx-swap="innerHTML"
-                                hx-on::after-request="document.getElementById('modal_edit').showModal()">
-                            <i class="fa-solid fa-clipboard-check w-4 text-secondary"></i> Lesson Attendance
-                        </button>
-                    </li>
-                    {% else %}
-                    <li class="md:hidden">
-                        <button hx-get="{% url 'academics:class_attendance_take' class.pk %}"
-                                hx-target="#modal-edit-content"
-                                hx-swap="innerHTML"
-                                hx-on::after-request="document.getElementById('modal_edit').showModal()">
-                            <i class="fa-solid fa-clipboard-check w-4 text-secondary"></i> Take Attendance
-                        </button>
-                    </li>
-                    {% endif %}
-                    <li class="menu-title text-xs mt-2">View</li>
-                    <li>
-                        <a href="{% url 'academics:class_timetable' class.pk %}"
-                           hx-get="{% url 'academics:class_timetable' class.pk %}"
-                           hx-target="#main-content"
-                           hx-push-url="true">
-                            <i class="fa-solid fa-table-cells w-4"></i> Timetable
-                        </a>
-                    </li>
-                    <li class="menu-title text-xs mt-2">Manage</li>
                     <li>
                         <button hx-get="{% url 'academics:class_edit' class.pk %}"
                                 hx-target="#modal-edit-content"
@@ -123,17 +87,6 @@
                                 hx-on::after-request="document.getElementById('modal_edit').showModal()">
                             <i class="fa-solid fa-gear w-4"></i> Class Settings
                         </button>
-                    </li>
-                    <li class="menu-title text-xs mt-2">Export</li>
-                    <li>
-                        <a href="{% url 'academics:class_export' class.pk %}">
-                            <i class="fa-solid fa-file-excel w-4 text-success"></i> Export Excel
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'academics:class_detail_pdf' class.pk %}" download>
-                            <i class="fa-solid fa-file-pdf w-4 text-error"></i> Download PDF
-                        </a>
                     </li>
                 </ul>
             </div>
@@ -266,6 +219,24 @@
                         <i class="fa-solid fa-layer-group"></i>
                         <span>Bulk Assign</span>
                     </button>
+                    <div class="dropdown dropdown-end">
+                        <label tabindex="0" class="btn btn-sm btn-outline gap-1">
+                            <i class="fa-solid fa-file-export"></i>
+                            <span>Export</span>
+                        </label>
+                        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                            <li>
+                                <a href="{% url 'academics:class_export' class.pk %}">
+                                    <i class="fa-solid fa-file-excel text-success"></i> Export Excel
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{% url 'academics:class_detail_pdf' class.pk %}" download>
+                                    <i class="fa-solid fa-file-pdf text-error"></i> Download PDF
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
 
@@ -314,6 +285,24 @@
                     <i class="fa-solid fa-layer-group"></i>
                     Bulk Assign Subjects
                 </button>
+                <div class="dropdown dropdown-end w-full">
+                    <label tabindex="0" class="btn btn-sm btn-outline gap-1 w-full">
+                        <i class="fa-solid fa-file-export"></i>
+                        <span>Export</span>
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-44 z-50">
+                        <li>
+                            <a href="{% url 'academics:class_export' class.pk %}">
+                                <i class="fa-solid fa-file-excel text-success"></i> Export Excel
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'academics:class_detail_pdf' class.pk %}" download>
+                                <i class="fa-solid fa-file-pdf text-error"></i> Download PDF
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -347,6 +336,13 @@
             <div class="p-2 sm:p-3 border-b border-base-200 flex items-center justify-between print:!hidden">
                 <p class="text-xs text-base-content/60">Recent attendance sessions</p>
                 <div class="flex items-center gap-2">
+                    <a href="{% url 'academics:class_timetable' class.pk %}"
+                       hx-get="{% url 'academics:class_timetable' class.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-xs gap-1">
+                        <i class="fa-solid fa-table-cells"></i> Timetable
+                    </a>
                     {% if class.attendance_type == 'per_lesson' %}
                     <a href="{% url 'academics:class_weekly_attendance_report' class.pk %}"
                        hx-get="{% url 'academics:class_weekly_attendance_report' class.pk %}"
