@@ -13,6 +13,7 @@ from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.utils import timezone
 
 from students.models import Student
@@ -267,7 +268,6 @@ def class_attendance_take(request, pk):
         )
 
     if request.method == 'POST':
-        from django.urls import reverse
         students = list(Student.objects.filter(
             current_class=class_obj, status='active'
         ))
@@ -334,7 +334,6 @@ def class_attendance_edit(request, pk, session_pk):
             return redirect('academics:attendance_reports')
 
     if request.method == 'POST':
-        from django.urls import reverse
         students = list(Student.objects.filter(
             current_class=class_obj, status='active'
         ))
@@ -524,9 +523,14 @@ def lesson_attendance_list(request, pk):
         class_subject__class_assigned=class_obj
     ).exists()
 
-    # Determine HTMX swap target so the date picker reloads into the right container
+    # Determine HTMX swap target so the date picker and lesson actions reload
+    # into whichever real container this partial was rendered into - it's
+    # reused from the Class Detail page's modal/tab, the Attendance Reports
+    # page, and the teacher portal's full-page view, each with a different
+    # container id.
     htmx_target = request.headers.get('HX-Target', 'main-content')
-    reload_target = f'#{htmx_target}' if htmx_target in ('modal-content', 'main-content') else '#main-content'
+    KNOWN_TARGETS = ('modal-content', 'main-content', 'modal-edit-content', 'tab-attendance')
+    reload_target = f'#{htmx_target}' if htmx_target in KNOWN_TARGETS else '#main-content'
 
     context = {
         'class': class_obj,
@@ -653,7 +657,6 @@ def take_lesson_attendance(request, timetable_entry_id):
     students = get_students_for_lesson(class_obj, class_subject)
 
     if request.method == 'POST':
-        from django.urls import reverse
         students = list(students)
         url = reverse('academics:lesson_attendance_list', args=[class_obj.pk])
         return _save_attendance_records(

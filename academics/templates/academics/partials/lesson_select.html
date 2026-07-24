@@ -80,9 +80,9 @@
         {% if lesson.can_mark %}
         <a href="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}?date={{ date|date:'Y-m-d' }}"
            hx-get="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}?date={{ date|date:'Y-m-d' }}"
-           hx-target="#modal-content"
+           hx-target="{{ reload_target }}"
            hx-swap="innerHTML"
-           onclick="document.getElementById('global-modal').showModal()"
+           {% if reload_target == '#modal-content' %}hx-on::after-request="document.getElementById('global-modal').showModal()"{% endif %}
            class="btn btn-sm shrink-0 {% if lesson.attendance_taken %}btn-outline btn-success{% elif lesson.is_current %}btn-primary{% else %}btn-outline btn-primary{% endif %}">
             {% if lesson.attendance_taken %}
             <i class="fa-solid fa-pen-to-square"></i>
@@ -113,5 +113,9 @@
 {% endif %}
 
 <div class="modal-action border-t border-base-200 pt-4 mt-4">
-    <button type="button" class="btn" onclick="var d=this.closest('dialog'); if(d) d.close(); else history.back();">Close</button>
+    <button type="button" class="btn"
+            onclick="var d=this.closest('dialog'); var t=this.closest('#tab-attendance');
+                     if(d) d.close();
+                     else if(t) window.location.href='{% url 'academics:class_detail' class.pk %}?tab=attendance';
+                     else history.back();">Close</button>
 </div>
