@@ -226,31 +226,58 @@ def class_edit(request, pk):
 
 @admin_required
 def class_delete(request, pk):
-    """Delete a class. Blocks if students are assigned."""
+    """
+    Delete a class. Blocks if students are currently assigned, or if the
+    class has any historical footprint - past enrollments, attendance
+    records, or fee structures. Class.students is the only PROTECTed
+    relation Django itself would refuse (raising an unhandled 500), but
+    AttendanceSession and FeeStructure both CASCADE from Class, so without
+    this check a class with a full term of attendance history or its own
+    fee structure would be silently destroyed along with the class record.
+    """
     if request.method != 'POST':
         return HttpResponse(status=405)
+
+    from students.models import Enrollment
+    from finance.models import FeeStructure
 
     cls = get_object_or_404(Class, pk=pk)
     class_name = cls.name
 
-    # Block deletion if students are assigned to this class
     student_count = Student.objects.filter(current_class=cls).count()
     if student_count > 0:
+        block_message = (
+            f'Cannot delete "{class_name}" — {student_count} student(s) '
+            f'are currently assigned. Reassign or remove students first.'
+        )
+    elif Enrollment.objects.filter(class_assigned=cls).exists():
+        block_message = (
+            f'Cannot delete "{class_name}" — it has past student enrollment '
+            f'history from a previous academic year. Deactivate it instead '
+            f'(Class Settings) to keep it out of new enrollments.'
+        )
+    elif AttendanceSession.objects.filter(class_assigned=cls).exists():
+        block_message = (
+            f'Cannot delete "{class_name}" — it has attendance records on file. '
+            f'Deleting it would permanently erase that history. Deactivate it '
+            f'instead (Class Settings) if it\'s no longer in use.'
+        )
+    elif FeeStructure.objects.filter(class_assigned=cls).exists():
+        block_message = (
+            f'Cannot delete "{class_name}" — it has fee structures configured. '
+            f'Remove those first, or deactivate the class instead (Class Settings).'
+        )
+    else:
+        block_message = None
+
+    if block_message:
         if request.htmx:
             response = HttpResponse(status=204)
             response['HX-Trigger'] = json.dumps({
-                'showToast': {
-                    'message': f'Cannot delete "{class_name}" — {student_count} student(s) '
-                               f'are assigned. Reassign or remove students first.',
-                    'type': 'error',
-                }
+                'showToast': {'message': block_message, 'type': 'error'}
             })
             return response
-        messages.error(
-            request,
-            f'Cannot delete "{class_name}" — {student_count} student(s) '
-            f'are currently assigned to this class. Reassign or remove students first.'
-        )
+        messages.error(request, block_message)
         return redirect('academics:classes')
 
     cls.delete()
