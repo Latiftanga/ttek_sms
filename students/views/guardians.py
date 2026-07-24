@@ -162,37 +162,50 @@ def guardian_delete(request, pk):
         pk=pk
     )
 
-    # Helper to render guardian list for HTMX responses (paginated like index)
-    def render_guardian_list():
+    # Helper to render guardian list for HTMX responses (paginated like index).
+    # Also carries the outcome as a toast - this flow's templates don't render
+    # Django's messages framework output, so a plain messages.error()/success()
+    # call is otherwise invisible for the normal (HTMX) way this view is reached.
+    def render_guardian_list(toast_message=None, toast_type='success'):
         guardians = Guardian.objects.annotate(
             ward_count=Count('wards', filter=Q(wards__status='active'))
         ).order_by('full_name')
         paginator = Paginator(guardians, 25)
         page_obj = paginator.get_page(1)
-        return htmx_render(
+        response = htmx_render(
             request,
             'students/guardian_index.html',
             'students/partials/guardian_list.html',
             {'guardians': page_obj, 'page_obj': page_obj, 'paginator': paginator, 'per_page': 25}
         )
+        if toast_message and request.htmx:
+            response['HX-Trigger'] = json.dumps({
+                'showToast': {'message': toast_message, 'type': toast_type}
+            })
+        return response
 
     # Check if guardian is attached to any students
     if guardian.wards.exists():
-        messages.error(request, "Cannot delete guardian with associated students. Remove them from students first.")
+        message = "Cannot delete guardian with associated students. Remove them from students first."
+        messages.error(request, message)
         if request.htmx:
-            return render_guardian_list()
+            return render_guardian_list(message, 'error')
         return redirect('students:guardian_index')
 
     try:
         name = guardian.full_name
         guardian.delete()
-        messages.success(request, f'Guardian "{name}" deleted.')
+        message = f'Guardian "{name}" deleted.'
+        toast_type = 'success'
+        messages.success(request, message)
     except Exception as e:
         logger.error(f"Failed to delete guardian {pk}: {e}")
-        messages.error(request, "An error occurred while deleting the guardian.")
+        message = "An error occurred while deleting the guardian."
+        toast_type = 'error'
+        messages.error(request, message)
 
     if request.htmx:
-        return render_guardian_list()
+        return render_guardian_list(message, toast_type)
     return redirect('students:guardian_index')
 
 
