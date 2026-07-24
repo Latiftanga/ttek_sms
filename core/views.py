@@ -2969,7 +2969,7 @@ def take_attendance(request, class_id):
     from django.db import IntegrityError
     from academics.models import Class, ClassSubject, AttendanceSession
     from academics.utils import should_use_lesson_attendance
-    from academics.views.attendance import _save_attendance_records
+    from academics.views.attendance import _save_attendance_records, _blocked_redirect
     from students.models import Student
     from .models import SchoolSettings, SchoolHoliday
 
@@ -3016,8 +3016,7 @@ def take_attendance(request, class_id):
         try:
             target_date = dt.strptime(date_str, '%Y-%m-%d').date()
             if target_date > today:
-                messages.warning(request, 'Cannot take attendance for a future date.')
-                return redirect('core:my_attendance')
+                return _blocked_redirect(request, 'Cannot take attendance for a future date.', 'core:my_attendance')
         except ValueError:
             target_date = today
             date_str = None
@@ -3029,25 +3028,37 @@ def take_attendance(request, class_id):
     if date_str:
         back_url += f'?date={date_str}'
 
-    # Restrict backdating to within the current term
+    # Restrict marking to within the current term's range
     current_term = Term.objects.filter(is_current=True).first()
-    if current_term and target_date < current_term.start_date:
-        messages.warning(request, f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).')
-        return redirect(back_url)
+    if current_term:
+        if target_date < current_term.start_date:
+            return _blocked_redirect(
+                request,
+                f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).',
+                back_url
+            )
+        if target_date > current_term.end_date:
+            return _blocked_redirect(
+                request,
+                f'Cannot mark attendance after the current term ended ({current_term.end_date.strftime("%B %d, %Y")}).',
+                back_url
+            )
 
     # Check if this is a school day
     school_settings = SchoolSettings.load()
     target_weekday = target_date.isoweekday()
     if not school_settings.is_school_day(target_weekday):
         day_name = target_date.strftime('%A')
-        messages.warning(request, f'{day_name} is not a school day.')
-        return redirect(back_url)
+        return _blocked_redirect(request, f'{day_name} is not a school day.', back_url)
 
     # Check for holidays
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:
-        messages.warning(request, f'{target_date.strftime("%B %d, %Y")} is a holiday ({holiday_name}). Attendance cannot be taken.')
-        return redirect(back_url)
+        return _blocked_redirect(
+            request,
+            f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.',
+            back_url
+        )
 
     # Get or create session with IntegrityError handling for race conditions
     try:
