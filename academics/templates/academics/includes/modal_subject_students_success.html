@@ -18,7 +18,13 @@
 </div>
 
 <div class="modal-action border-t border-base-200 pt-4 mt-4">
-    <button type="button" class="btn btn-primary" onclick="document.getElementById('modal_form').close()">
+    <button type="button" class="btn btn-primary" onclick="this.closest('dialog').close()">
         Done
     </button>
+</div>
+
+<!-- Out-of-band swap to update the subjects tab (enrolled_count and the
+     required-electives list both shift when enrollments change here) -->
+<div id="tab-subjects" hx-swap-oob="innerHTML">
+{% include "academics/includes/tab_subjects_content.html" %}
 </div>

@@ -125,7 +125,7 @@
                     :class="activeTab === 'students' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
                     @click="setTab('students')">
                 <i class="fa-solid fa-users mr-1"></i>
-                <span>Students<span class="hidden sm:inline"> &middot; {{ total_students }}/{{ class.capacity|default:"∞" }}</span></span>
+                <span>Students<span id="students-count-badge" class="hidden sm:inline"> &middot; {{ total_students }}/{{ class.capacity|default:"∞" }}</span></span>
             </button>
             <button class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
                     :class="activeTab === 'subjects' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"

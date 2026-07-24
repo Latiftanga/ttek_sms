@@ -21,7 +21,7 @@
 <form method="post"
       action="{% url 'academics:class_subject_students' class.pk class_subject.pk %}"
       hx-post="{% url 'academics:class_subject_students' class.pk class_subject.pk %}"
-      hx-target="#modal-container"
+      hx-target="{{ reload_target }}"
       hx-swap="innerHTML">
     {% csrf_token %}
 
@@ -54,7 +54,7 @@
     </div>
 
     <div class="modal-action border-t border-base-200 pt-3 mt-3">
-        <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_form').close()">Cancel</button>
+        <button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">Cancel</button>
         <button type="submit" class="btn btn-sm btn-primary">
             <i class="fa-solid fa-check"></i> Save
         </button>

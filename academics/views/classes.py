@@ -9,6 +9,7 @@ from io import BytesIO
 import pandas as pd
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, FileResponse
@@ -806,9 +807,24 @@ def class_student_remove(request, class_pk, student_pk):
     student.save(update_fields=['current_class', 'updated_at'])
 
     if request.htmx:
-        # Return updated register tab content
+        # Return updated register tab content, plus OOB swaps for the header's
+        # student count badge and the Subjects tab (enrolled_count per subject
+        # and the required-electives list both shift when a student leaves).
         context = get_register_tab_context(class_obj)
-        return render(request, 'academics/includes/tab_register_content.html', context)
+        register_html = render_to_string(
+            'academics/includes/tab_register_content.html', context, request=request
+        )
+        badge_html = render_to_string(
+            'academics/includes/oob_students_badge.html', context, request=request
+        )
+        subjects_context = get_student_subjects_tab_context(class_obj)
+        subjects_html = render_to_string(
+            'academics/includes/tab_subjects_content.html', subjects_context, request=request
+        )
+        return HttpResponse(
+            register_html + badge_html
+            + f'<div id="tab-subjects" hx-swap-oob="innerHTML">{subjects_html}</div>'
+        )
 
     return redirect('academics:class_detail', pk=class_pk)
 
@@ -926,6 +942,13 @@ def class_subject_students(request, class_pk, pk):
     if request.method == 'GET' and not request.htmx:
         return redirect('academics:class_subjects', pk=class_pk)
 
+    # This modal is shared between the standalone Class Subjects page
+    # (#modal-container inside dialog#modal_form) and the Class Detail page's
+    # Subjects tab (#modal-edit-content inside dialog#modal_edit) - reload
+    # into whichever one actually opened it.
+    htmx_target = request.headers.get('HX-Target', 'modal-container')
+    reload_target = f'#{htmx_target}' if htmx_target in ('modal-container', 'modal-edit-content') else '#modal-container'
+
     if request.method == 'POST':
         selected_ids = set(request.POST.getlist('students'))
         unenrolled_students = []
@@ -969,9 +992,9 @@ def class_subject_students(request, class_pk, pk):
                         term=current_term,
                     ).delete()
 
-        return render(request, 'academics/includes/modal_subject_students_success.html', {
-            'class_subject': class_subject, 'class': class_obj,
-        })
+        success_context = {'class_subject': class_subject, 'class': class_obj}
+        success_context.update(get_student_subjects_tab_context(class_obj))
+        return render(request, 'academics/includes/modal_subject_students_success.html', success_context)
 
     # GET: render modal with checkboxes
     enrolled_student_ids = set(
@@ -992,6 +1015,7 @@ def class_subject_students(request, class_pk, pk):
         'class': class_obj, 'class_subject': class_subject,
         'students': students, 'enrolled_student_ids': enrolled_student_ids,
         'students_with_scores': students_with_scores,
+        'reload_target': reload_target,
     })
 
 

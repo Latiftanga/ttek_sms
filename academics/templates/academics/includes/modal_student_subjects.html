@@ -36,7 +36,7 @@
                    class="checkbox checkbox-primary checkbox-xs"
                    {% if cs.pk in enrolled_ids %}checked{% endif %}>
             <span class="flex-1 text-sm">{{ cs.subject.name }}</span>
-            {% if cs.auto_enroll %}
+            {% if cs.subject.is_core %}
             <span class="badge badge-primary badge-xs">Core</span>
             {% else %}
             <span class="badge badge-secondary badge-xs">Elective</span>
