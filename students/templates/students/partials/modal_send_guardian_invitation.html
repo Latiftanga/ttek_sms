@@ -52,6 +52,19 @@
     </div>
     {% endif %}
 
+    {% if share_link %}
+    <div class="alert alert-warning py-2 text-sm">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <div class="flex-1 min-w-0">
+            <p class="font-medium">Invitation created, but the email failed to send.</p>
+            <p class="text-xs opacity-80 mb-1">Share this link with {{ guardian.full_name }} directly:</p>
+            <input type="text" readonly value="{{ share_link }}"
+                   onclick="this.select()"
+                   class="input input-xs input-bordered w-full font-mono text-xs">
+        </div>
+    </div>
+    {% endif %}
+
     <div class="bg-base-200/50 rounded-lg p-3 text-sm space-y-2">
         <p class="font-medium flex items-center gap-2">
             <i class="fa-solid fa-info-circle text-info"></i>

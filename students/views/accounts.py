@@ -1,3 +1,4 @@
+import json
 import logging
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -64,6 +65,64 @@ def send_invitation_email(invitation, request):
         return False
 
 
+def _guardian_detail_context(guardian):
+    """Build the context guardian_detail_content.html needs - shared by the
+    detail view itself and by every action below that redraws it."""
+    wards = guardian.guardian_students.select_related(
+        'student__current_class'
+    ).order_by('-is_primary', 'student__last_name')
+
+    pending_invitation = guardian.invitations.filter(
+        status=GuardianInvitation.Status.PENDING
+    ).first()
+
+    return {
+        'guardian': guardian,
+        'wards': wards,
+        'pending_invitation': pending_invitation,
+        'breadcrumbs': [
+            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+            {'label': 'Guardians', 'url': '/students/guardians/'},
+            {'label': guardian.full_name},
+        ],
+        'back_url': '/students/guardians/',
+    }
+
+
+def _render_guardian_detail(request, guardian, toast_message=None, toast_type='success', close_modal=False):
+    """
+    Re-render the guardian detail partial with a toast, for account-action
+    views below. These used to respond with HX-Refresh (a full page reload
+    of guardian_detail.html, which extends core/base.html - a template that
+    never renders Django's messages framework output), so the
+    messages.success()/warning() call for the outcome was invisible. This
+    reloads the same content via HTMX instead and attaches the toast via
+    HX-Trigger, the mechanism that actually works in this app's flows.
+
+    HX-Retarget/HX-Reswap redirect the swap to #main-content regardless of
+    which element's hx-target actually issued the request - some of these
+    actions come from a plain form on the page (no explicit hx-target, so
+    htmx would otherwise try to swap this whole page into that one small
+    form), others from the send-invitation modal (close_modal=True closes
+    it via the same global closeModal event this app already uses).
+    """
+    guardian.refresh_from_db()
+    response = render(
+        request, 'students/partials/guardian_detail_content.html',
+        _guardian_detail_context(guardian)
+    )
+    response['HX-Retarget'] = '#main-content'
+    response['HX-Reswap'] = 'innerHTML'
+    triggers = {}
+    if toast_message:
+        triggers['showToast'] = {'message': toast_message, 'type': toast_type}
+    if close_modal:
+        triggers['closeModal'] = True
+    if triggers:
+        response['HX-Trigger'] = json.dumps(triggers)
+    return response
+
+
 @admin_required
 def guardian_detail(request, pk):
     """Guardian detail page showing wards and account status."""
@@ -75,28 +134,7 @@ def guardian_detail(request, pk):
         pk=pk
     )
 
-    # Get wards with relationship info
-    wards = guardian.guardian_students.select_related(
-        'student__current_class'
-    ).order_by('-is_primary', 'student__last_name')
-
-    # Get pending invitation if any
-    pending_invitation = guardian.invitations.filter(
-        status=GuardianInvitation.Status.PENDING
-    ).first()
-
-    context = {
-        'guardian': guardian,
-        'wards': wards,
-        'pending_invitation': pending_invitation,
-        # Navigation
-        'breadcrumbs': [
-            {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
-            {'label': 'Guardians', 'url': '/students/guardians/'},
-            {'label': guardian.full_name},
-        ],
-        'back_url': '/students/guardians/',
-    }
+    context = _guardian_detail_context(guardian)
 
     if request.htmx:
         return render(request, 'students/partials/guardian_detail_content.html', context)
@@ -110,10 +148,11 @@ def send_invitation(request, pk):
 
     # If guardian already has an account, redirect
     if guardian.user:
-        messages.warning(request, f"{guardian.full_name} already has an account.")
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
+        return _render_guardian_detail(
+            request, guardian,
+            f"{guardian.full_name} already has an account.", 'warning',
+            close_modal=True
+        )
 
     if request.method == 'GET':
         # Check for existing pending invitation
@@ -163,21 +202,20 @@ def send_invitation(request, pk):
         email_sent = send_invitation_email(invitation, request)
 
         if email_sent:
-            messages.success(
-                request,
-                f"Invitation sent to {guardian.full_name} at {email}."
-            )
-        else:
-            # Show the link if email failed
-            accept_url = request.build_absolute_uri(f'/students/guardians/invite/{invitation.token}/')
-            messages.warning(
-                request,
-                f"Invitation created but email failed. Share this link: {accept_url}"
+            return _render_guardian_detail(
+                request, guardian,
+                f"Invitation sent to {guardian.full_name} at {email}.", 'success',
+                close_modal=True
             )
 
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
+        # Email failed - keep the modal open so the admin can copy the
+        # link directly, rather than closing it and losing the URL in a
+        # transient toast.
+        accept_url = request.build_absolute_uri(f'/students/guardians/invite/{invitation.token}/')
+        return render(request, 'students/partials/modal_send_guardian_invitation.html', {
+            'guardian': guardian,
+            'share_link': accept_url,
+        })
 
     return HttpResponse(status=405)
 
@@ -191,18 +229,16 @@ def resend_invitation(request, pk):
     guardian = get_object_or_404(Guardian, pk=pk)
 
     if guardian.user:
-        messages.warning(request, f"{guardian.full_name} already has an account.")
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
+        return _render_guardian_detail(
+            request, guardian, f"{guardian.full_name} already has an account.", 'warning'
+        )
 
     # Get or create new invitation
     email = guardian.email
     if not email:
-        messages.error(request, f"No email address for {guardian.full_name}.")
-        response = HttpResponse(status=204)
-        response['HX-Refresh'] = 'true'
-        return response
+        return _render_guardian_detail(
+            request, guardian, f"No email address for {guardian.full_name}.", 'error'
+        )
 
     # Create new invitation (cancels existing pending ones)
     invitation = GuardianInvitation.create_for_guardian(
@@ -215,17 +251,15 @@ def resend_invitation(request, pk):
     email_sent = send_invitation_email(invitation, request)
 
     if email_sent:
-        messages.success(request, f"Invitation resent to {guardian.full_name}.")
-    else:
-        accept_url = request.build_absolute_uri(f'/students/guardians/invite/{invitation.token}/')
-        messages.warning(
-            request,
-            f"Invitation created but email failed. Share this link: {accept_url}"
+        return _render_guardian_detail(
+            request, guardian, f"Invitation resent to {guardian.full_name}.", 'success'
         )
 
-    response = HttpResponse(status=204)
-    response['HX-Refresh'] = 'true'
-    return response
+    accept_url = request.build_absolute_uri(f'/students/guardians/invite/{invitation.token}/')
+    return _render_guardian_detail(
+        request, guardian,
+        f"Invitation created but email failed. Share this link: {accept_url}", 'warning'
+    )
 
 
 @admin_required
@@ -243,13 +277,12 @@ def cancel_invitation(request, pk):
     ).update(status=GuardianInvitation.Status.CANCELLED)
 
     if cancelled:
-        messages.success(request, f"Invitation for {guardian.full_name} cancelled.")
-    else:
-        messages.info(request, "No pending invitation to cancel.")
-
-    response = HttpResponse(status=204)
-    response['HX-Refresh'] = 'true'
-    return response
+        return _render_guardian_detail(
+            request, guardian, f"Invitation for {guardian.full_name} cancelled.", 'success'
+        )
+    return _render_guardian_detail(
+        request, guardian, "No pending invitation to cancel.", 'info'
+    )
 
 
 def accept_invitation(request, token):
@@ -369,11 +402,10 @@ def deactivate_account(request, pk):
         user = guardian.user
         user.is_active = False
         user.save(update_fields=['is_active'])
-        messages.success(request, f"Account for {guardian.full_name} has been deactivated.")
-
-    response = HttpResponse(status=204)
-    response['HX-Refresh'] = 'true'
-    return response
+        return _render_guardian_detail(
+            request, guardian, f"Account for {guardian.full_name} has been deactivated.", 'success'
+        )
+    return _render_guardian_detail(request, guardian)
 
 
 @admin_required
@@ -388,8 +420,7 @@ def activate_account(request, pk):
         user = guardian.user
         user.is_active = True
         user.save(update_fields=['is_active'])
-        messages.success(request, f"Account for {guardian.full_name} has been reactivated.")
-
-    response = HttpResponse(status=204)
-    response['HX-Refresh'] = 'true'
-    return response
+        return _render_guardian_detail(
+            request, guardian, f"Account for {guardian.full_name} has been reactivated.", 'success'
+        )
+    return _render_guardian_detail(request, guardian)
