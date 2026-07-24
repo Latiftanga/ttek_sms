@@ -45,23 +45,52 @@
             </div>
         </div>
 
-        <!-- Quick Actions - visible on mobile, hover on desktop -->
-        <div class="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <span class="btn btn-ghost btn-xs btn-square"
-                  hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
-                  hx-target="#modal-edit-content"
-                  hx-on::after-request="document.getElementById('modal_edit').showModal()"
-                  title="Manage Subjects">
-                <i class="fa-solid fa-book-bookmark text-base-content/50"></i>
-            </span>
-            <span class="btn btn-ghost btn-xs btn-square"
-                  hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
-                  hx-target="#tab-register"
-                  hx-swap="innerHTML"
-                  hx-confirm="Remove {{ student.first_name }} from this class?"
-                  title="Remove from class">
-                <i class="fa-solid fa-user-minus text-error/50"></i>
-            </span>
+        <!-- Quick Actions - overflow menu on mobile (no room for two labeled
+             buttons beside the name/admission column), labeled buttons
+             revealed on row hover on desktop where there's room -->
+        <div class="shrink-0">
+            <div class="dropdown dropdown-end md:hidden">
+                <label tabindex="0" class="btn btn-ghost btn-xs btn-square">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </label>
+                <ul tabindex="0" class="dropdown-content z-50 menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-52">
+                    <li>
+                        <button type="button"
+                                hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
+                                hx-target="#modal-edit-content"
+                                hx-on::after-request="document.getElementById('modal_edit').showModal()">
+                            <i class="fa-solid fa-book-bookmark w-4 text-base-content/50"></i> Manage Subjects
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" class="text-error"
+                                hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
+                                hx-target="#tab-register"
+                                hx-swap="innerHTML"
+                                hx-confirm="Remove {{ student.first_name }} from this class?">
+                            <i class="fa-solid fa-user-minus w-4"></i> Remove from Class
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="hidden md:flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                <button type="button" class="btn btn-ghost btn-xs gap-1"
+                        hx-get="{% url 'academics:class_student_electives' class.pk student.pk %}"
+                        hx-target="#modal-edit-content"
+                        hx-on::after-request="document.getElementById('modal_edit').showModal()">
+                    <i class="fa-solid fa-book-bookmark text-base-content/50"></i>
+                    <span>Manage Subjects</span>
+                </button>
+                <button type="button" class="btn btn-ghost btn-xs gap-1 text-error/70"
+                        hx-post="{% url 'academics:class_student_remove' class.pk student.pk %}"
+                        hx-target="#tab-register"
+                        hx-swap="innerHTML"
+                        hx-confirm="Remove {{ student.first_name }} from this class?">
+                    <i class="fa-solid fa-user-minus"></i>
+                    <span>Remove from Class</span>
+                </button>
+            </div>
         </div>
 
     </div>
