@@ -12,9 +12,6 @@ from .teachers import (
 
 # Teacher dashboard/portal views
 from .dashboard import (
-    profile,
-    dashboard,
-    schedule,
     teacher_schedule,
 )
 
