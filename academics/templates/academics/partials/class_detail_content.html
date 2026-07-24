@@ -336,13 +336,6 @@
             <div class="p-2 sm:p-3 border-b border-base-200 flex items-center justify-between print:!hidden">
                 <p class="text-xs text-base-content/60">Recent attendance sessions</p>
                 <div class="flex items-center gap-2">
-                    <a href="{% url 'academics:class_timetable' class.pk %}"
-                       hx-get="{% url 'academics:class_timetable' class.pk %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
-                       class="btn btn-ghost btn-xs gap-1">
-                        <i class="fa-solid fa-table-cells"></i> Timetable
-                    </a>
                     {% if class.attendance_type == 'per_lesson' %}
                     <a href="{% url 'academics:class_weekly_attendance_report' class.pk %}"
                        hx-get="{% url 'academics:class_weekly_attendance_report' class.pk %}"
