@@ -104,7 +104,7 @@
             <div class="group flex items-center gap-3 p-3 hover:bg-base-50 transition-colors">
                 <!-- Subject Icon -->
                 <div class="avatar placeholder flex-shrink-0">
-                    <div class="w-10 h-10 rounded-lg {% if alloc.subject.is_core %}bg-primary/20 text-primary{% else %}bg-secondary/20 text-secondary{% endif %} flex items-center justify-center">
+                    <div class="w-10 h-10 rounded-lg {% if not school.has_programmes or alloc.subject.is_core %}bg-primary/20 text-primary{% else %}bg-secondary/20 text-secondary{% endif %} flex items-center justify-center">
                         <i class="fa-solid fa-book"></i>
                     </div>
                 </div>
