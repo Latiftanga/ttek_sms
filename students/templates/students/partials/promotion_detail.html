@@ -20,7 +20,7 @@
 <!-- Students Card -->
 <div class="card bg-base-100 shadow-sm border border-base-200">
     <div class="card-body p-0">
-        <form x-data="promotionForm()"
+        <form x-data="promotionForm()">
             {% csrf_token %}
             <input type="hidden" name="class_id" value="{{ class.pk }}" />
             <input type="hidden" name="next_year" value="{{ next_year.pk }}" />

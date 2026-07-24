@@ -212,20 +212,21 @@ def promotion_process(request):
 
     is_final = _is_final_level(class_obj)
 
-    # Guard: check if this class was already processed for this year
-    already_processed = Enrollment.objects.filter(
+    # Guard: only block if nothing is left to process. Checking for ANY
+    # already-actioned enrollment (rather than whether any ACTIVE ones
+    # remain) would permanently strand students marked "skip" in an earlier
+    # run - skip is meant to defer a student to a later pass, but the class
+    # itself would never be submittable again to catch them.
+    has_remaining = Enrollment.objects.filter(
         class_assigned=class_obj,
         academic_year=current_year,
-        status__in=[
-            Enrollment.Status.PROMOTED,
-            Enrollment.Status.GRADUATED,
-            Enrollment.Status.REPEATED,
-        ],
+        status=Enrollment.Status.ACTIVE,
+        student__status=Student.Status.ACTIVE,
     ).exists()
-    if already_processed:
+    if not has_remaining:
         return _htmx_toast_or_redirect(
             request,
-            f'{class_obj.name} has already been processed for {current_year}.',
+            f'{class_obj.name} has already been fully processed for {current_year}.',
             'warning'
         )
 
@@ -271,119 +272,131 @@ def promotion_process(request):
                 skipped_count += 1
                 continue
 
-            if action == 'repeat':
-                repeat_target_id = action_data.get('repeat_target_id')
-                if not repeat_target_id:
-                    errors.append(f'{student.full_name}: No repeat target class selected')
-                    continue
+            try:
+                # Each student gets their own savepoint. Without this, an
+                # unexpected failure for one student (e.g. a duplicate
+                # Enrollment from a data edge case) poisons the whole
+                # transaction on Postgres - every student processed after
+                # them in the loop would then also fail, with a misleading
+                # "transaction aborted" error instead of their own real
+                # outcome, and the class's entire batch would 500 instead
+                # of reporting a clear per-student error.
+                with transaction.atomic():
+                    if action == 'repeat':
+                        repeat_target_id = action_data.get('repeat_target_id')
+                        if not repeat_target_id:
+                            errors.append(f'{student.full_name}: No repeat target class selected')
+                            continue
 
-                try:
-                    repeat_class = Class.objects.get(
-                        pk=repeat_target_id,
-                        level_type=class_obj.level_type,
-                        level_number=class_obj.level_number,
-                        is_active=True,
-                    )
-                except Class.DoesNotExist:
-                    errors.append(f'{student.full_name}: Invalid repeat target class')
-                    continue
+                        try:
+                            repeat_class = Class.objects.get(
+                                pk=repeat_target_id,
+                                level_type=class_obj.level_type,
+                                level_number=class_obj.level_number,
+                                is_active=True,
+                            )
+                        except Class.DoesNotExist:
+                            errors.append(f'{student.full_name}: Invalid repeat target class')
+                            continue
 
-                # Mark old enrollment as repeated
-                enrollment.status = Enrollment.Status.REPEATED
-                enrollment.save(update_fields=['status', 'updated_at'])
+                        # Mark old enrollment as repeated
+                        enrollment.status = Enrollment.Status.REPEATED
+                        enrollment.save(update_fields=['status', 'updated_at'])
 
-                # Move student to the repeat target class
-                student.current_class = repeat_class
-                student.save(update_fields=['current_class', 'updated_at'])
+                        # Move student to the repeat target class
+                        student.current_class = repeat_class
+                        student.save(update_fields=['current_class', 'updated_at'])
 
-                # Create new enrollment in repeat target class
-                Enrollment.objects.create(
-                    student=student,
-                    academic_year=next_year,
-                    class_assigned=repeat_class,
-                    class_name=repeat_class.name,
-                    status=Enrollment.Status.ACTIVE,
-                    promoted_from=enrollment,
-                    remarks='Repeated',
-                )
+                        # Create new enrollment in repeat target class
+                        Enrollment.objects.create(
+                            student=student,
+                            academic_year=next_year,
+                            class_assigned=repeat_class,
+                            class_name=repeat_class.name,
+                            status=Enrollment.Status.ACTIVE,
+                            promoted_from=enrollment,
+                            remarks='Repeated',
+                        )
 
-                # Deactivate old subject enrollments, enroll in new class subjects
-                StudentSubjectEnrollment.objects.filter(
-                    student=student,
-                    class_subject__class_assigned=class_obj,
-                ).update(is_active=False)
-                StudentSubjectEnrollment.enroll_student_in_class_subjects(
-                    student, repeat_class
-                )
+                        # Deactivate old subject enrollments, enroll in new class subjects
+                        StudentSubjectEnrollment.objects.filter(
+                            student=student,
+                            class_subject__class_assigned=class_obj,
+                        ).update(is_active=False)
+                        StudentSubjectEnrollment.enroll_student_in_class_subjects(
+                            student, repeat_class
+                        )
 
-                repeated_count += 1
-                continue
+                        repeated_count += 1
+                        continue
 
-            if action == 'graduate':
-                if not is_final:
-                    errors.append(f'{student.full_name}: Cannot graduate from non-final class')
-                    continue
+                    if action == 'graduate':
+                        if not is_final:
+                            errors.append(f'{student.full_name}: Cannot graduate from non-final class')
+                            continue
 
-                enrollment.status = Enrollment.Status.GRADUATED
-                enrollment.save(update_fields=['status', 'updated_at'])
+                        enrollment.status = Enrollment.Status.GRADUATED
+                        enrollment.save(update_fields=['status', 'updated_at'])
 
-                student.status = Student.Status.GRADUATED
-                student.current_class = None
-                student.save(update_fields=['status', 'current_class', 'updated_at'])
+                        student.status = Student.Status.GRADUATED
+                        student.current_class = None
+                        student.save(update_fields=['status', 'current_class', 'updated_at'])
 
-                StudentSubjectEnrollment.objects.filter(
-                    student=student,
-                    class_subject__class_assigned=class_obj,
-                ).update(is_active=False)
+                        StudentSubjectEnrollment.objects.filter(
+                            student=student,
+                            class_subject__class_assigned=class_obj,
+                        ).update(is_active=False)
 
-                graduated_count += 1
-                continue
+                        graduated_count += 1
+                        continue
 
-            # Default action: promote
-            if is_final:
-                # Final year students default to graduate
-                enrollment.status = Enrollment.Status.GRADUATED
-                enrollment.save(update_fields=['status', 'updated_at'])
+                    # Default action: promote
+                    if is_final:
+                        # Final year students default to graduate
+                        enrollment.status = Enrollment.Status.GRADUATED
+                        enrollment.save(update_fields=['status', 'updated_at'])
 
-                student.status = Student.Status.GRADUATED
-                student.current_class = None
-                student.save(update_fields=['status', 'current_class', 'updated_at'])
+                        student.status = Student.Status.GRADUATED
+                        student.current_class = None
+                        student.save(update_fields=['status', 'current_class', 'updated_at'])
 
-                StudentSubjectEnrollment.objects.filter(
-                    student=student,
-                    class_subject__class_assigned=class_obj,
-                ).update(is_active=False)
+                        StudentSubjectEnrollment.objects.filter(
+                            student=student,
+                            class_subject__class_assigned=class_obj,
+                        ).update(is_active=False)
 
-                graduated_count += 1
-            else:
-                # Mark current enrollment as promoted
-                enrollment.status = Enrollment.Status.PROMOTED
-                enrollment.save(update_fields=['status', 'updated_at'])
+                        graduated_count += 1
+                    else:
+                        # Mark current enrollment as promoted
+                        enrollment.status = Enrollment.Status.PROMOTED
+                        enrollment.save(update_fields=['status', 'updated_at'])
 
-                # Create new enrollment in the TARGET class
-                Enrollment.objects.create(
-                    student=student,
-                    academic_year=next_year,
-                    class_assigned=target_class,
-                    class_name=target_class.name,
-                    status=Enrollment.Status.ACTIVE,
-                    promoted_from=enrollment,
-                )
+                        # Create new enrollment in the TARGET class
+                        Enrollment.objects.create(
+                            student=student,
+                            academic_year=next_year,
+                            class_assigned=target_class,
+                            class_name=target_class.name,
+                            status=Enrollment.Status.ACTIVE,
+                            promoted_from=enrollment,
+                        )
 
-                # Move student to target class
-                student.current_class = target_class
-                student.save(update_fields=['current_class', 'updated_at'])
+                        # Move student to target class
+                        student.current_class = target_class
+                        student.save(update_fields=['current_class', 'updated_at'])
 
-                # Deactivate old subject enrollments, enroll in target class subjects
-                StudentSubjectEnrollment.objects.filter(
-                    student=student,
-                    class_subject__class_assigned=class_obj,
-                ).update(is_active=False)
-                StudentSubjectEnrollment.enroll_student_in_class_subjects(
-                    student, target_class
-                )
+                        # Deactivate old subject enrollments, enroll in target class subjects
+                        StudentSubjectEnrollment.objects.filter(
+                            student=student,
+                            class_subject__class_assigned=class_obj,
+                        ).update(is_active=False)
+                        StudentSubjectEnrollment.enroll_student_in_class_subjects(
+                            student, target_class
+                        )
 
-                promoted_count += 1
+                        promoted_count += 1
+            except Exception as e:
+                errors.append(f'{student.full_name}: {e}')
 
     # Build summary parts
     parts = []
