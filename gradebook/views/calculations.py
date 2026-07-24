@@ -20,7 +20,7 @@ from ..utils import calculate_category_scores, determine_grade_from_scales
 from .. import config
 from django.db import connection
 
-from academics.models import Class, ClassSubject, StudentSubjectEnrollment, AttendanceSession, AttendanceRecord
+from academics.models import Class, ClassSubject, StudentSubjectEnrollment, AttendanceRecord
 from students.models import Student
 from core.models import Term
 
@@ -287,20 +287,26 @@ def _calculate_term_reports(
 
     subjects_dict = {s.id: s for s in subjects}
 
-    # Bulk prefetch attendance data
-    attendance_sessions = AttendanceSession.objects.filter(
-        class_assigned=class_obj,
-        date__gte=current_term.start_date,
-        date__lte=current_term.end_date
+    # Bulk prefetch attendance data - denominator is the real school calendar
+    # (valid school days = configured working weekdays minus holidays), not
+    # however many AttendanceSession rows happen to exist. Never count days
+    # beyond today for a term still in progress.
+    from django.utils import timezone as _timezone
+    from core.utils import get_valid_school_days
+
+    period_end = min(current_term.end_date, _timezone.localdate())
+    valid_days = (
+        get_valid_school_days(current_term.start_date, period_end)
+        if period_end >= current_term.start_date else []
     )
-    session_ids = list(attendance_sessions.values_list('id', flat=True))
-    total_school_days = attendance_sessions.values('date').distinct().count()
+    total_school_days = len(valid_days)
 
     attendance_by_student = {}
-    if session_ids:
+    if valid_days:
         from django.db.models import Count, Q as _Q
         attendance_stats = AttendanceRecord.objects.filter(
-            session_id__in=session_ids,
+            session__class_assigned=class_obj,
+            session__date__in=valid_days,
             student_id__in=student_ids_with_subjects
         ).values('student_id').annotate(
             days_present=Count(
@@ -308,10 +314,19 @@ def _calculate_term_reports(
                 filter=_Q(status__in=['P', 'L']),
                 distinct=True
             ),
+            days_absent=Count(
+                'session__date',
+                filter=_Q(status='A'),
+                distinct=True
+            ),
+            days_excused=Count(
+                'session__date',
+                filter=_Q(status='E'),
+                distinct=True
+            ),
             times_late=Count('id', filter=_Q(status='L')),
         )
         for row in attendance_stats:
-            row['days_absent'] = total_school_days - row['days_present']
             attendance_by_student[row['student_id']] = row
 
     reports_to_update = []
@@ -369,6 +384,7 @@ def _calculate_term_reports(
             report.total_school_days = total_school_days
             report.days_present = att['days_present']
             report.days_absent = att['days_absent']
+            report.days_excused = att['days_excused']
             report.times_late = att['times_late']
             report.attendance_percentage = round(
                 (Decimal(str(att['days_present'])) / Decimal(str(total_school_days))) * 100, 2
@@ -377,6 +393,7 @@ def _calculate_term_reports(
             report.attendance_percentage = None
             report.days_present = None
             report.days_absent = None
+            report.days_excused = None
             report.times_late = None
             report.total_school_days = None
 

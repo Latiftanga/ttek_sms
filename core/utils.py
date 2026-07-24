@@ -470,3 +470,37 @@ def generate_verification_qr(verification_code, request=None, domain=None):
             verification_url = verify_path
 
     return generate_qr_code_base64(verification_url, box_size=6, border=1)
+
+
+# =============================================================================
+# School Calendar Helpers
+# =============================================================================
+
+def get_valid_school_days(start_date, end_date):
+    """
+    Return the sorted list of valid school days (date objects) in
+    [start_date, end_date] inclusive - days that fall on a configured school
+    weekday (SchoolSettings.school_days) and aren't a SchoolHoliday.
+    """
+    from datetime import timedelta
+    from core.models import SchoolSettings, SchoolHoliday
+
+    if start_date > end_date:
+        return []
+
+    school_days_set = SchoolSettings.load().school_days_set
+    candidates = [
+        start_date + timedelta(days=i)
+        for i in range((end_date - start_date).days + 1)
+    ]
+    candidates = [d for d in candidates if d.isoweekday() in school_days_set]
+    if not candidates:
+        return []
+
+    holidays = SchoolHoliday.get_holiday_dates(candidates)
+    return [d for d in candidates if d not in holidays]
+
+
+def count_valid_school_days(start_date, end_date):
+    """Count of valid school days in [start_date, end_date] inclusive."""
+    return len(get_valid_school_days(start_date, end_date))

@@ -1,4 +1,5 @@
 """Attendance management views including taking attendance, reports, and exports."""
+import json
 import logging
 from collections import defaultdict
 from datetime import timedelta, datetime
@@ -62,6 +63,22 @@ def _validate_status(raw_status):
     if raw_status in VALID_STATUSES:
         return raw_status
     return AttendanceRecord.Status.PRESENT
+
+
+def _blocked_redirect(request, message, redirect_url, toast_type='warning'):
+    """
+    Redirect after blocking an action, showing `message` via a toast for
+    HTMX requests (the actual working notification mechanism in this app -
+    the destination pages here don't render Django's messages framework
+    output, so a plain messages.warning() + redirect is invisible for the
+    HTMX flow that's how this view is actually reached in the UI).
+    """
+    if request.htmx:
+        response = HttpResponse(status=204)
+        response['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': toast_type}})
+        return response
+    messages.warning(request, message)
+    return redirect(redirect_url)
 
 
 def _save_attendance_records(request, session, students, redirect_url,
@@ -210,18 +227,35 @@ def class_attendance_take(request, pk):
         target_date = timezone.localdate()
 
     # Prevent attendance on non-working days and holidays
-    from core.models import SchoolHoliday, SchoolSettings
+    from core.models import SchoolHoliday, SchoolSettings, Term
     target_weekday = target_date.isoweekday()
     school_settings = SchoolSettings.load()
     if not school_settings.is_school_day(target_weekday):
         day_name = target_date.strftime('%A')
-        messages.warning(request, f'{day_name} is not a school day.')
-        return redirect('academics:attendance_reports')
+        return _blocked_redirect(request, f'{day_name} is not a school day.', 'academics:attendance_reports')
+
+    current_term = Term.get_current()
+    if current_term:
+        if target_date < current_term.start_date:
+            return _blocked_redirect(
+                request,
+                f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).',
+                'academics:attendance_reports'
+            )
+        if target_date > current_term.end_date:
+            return _blocked_redirect(
+                request,
+                f'Cannot mark attendance after the current term ended ({current_term.end_date.strftime("%B %d, %Y")}).',
+                'academics:attendance_reports'
+            )
 
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:
-        messages.warning(request, f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.')
-        return redirect('academics:attendance_reports')
+        return _blocked_redirect(
+            request,
+            f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.',
+            'academics:attendance_reports'
+        )
 
     # Get or create session atomically (for daily attendance)
     with transaction.atomic():
@@ -406,14 +440,34 @@ def lesson_attendance_list(request, pk):
     if date_str:
         try:
             selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            if selected_date > today:
-                selected_date = today
         except ValueError:
             selected_date = today
 
-    current_term = Term.objects.filter(is_current=True).first()
-    if current_term and selected_date < current_term.start_date:
-        selected_date = current_term.start_date
+    # Clamp notice: this view keeps rendering the (clamped) lesson list rather
+    # than blocking outright, so the notice rides along as a toast on the
+    # normal response instead of a hard redirect.
+    clamp_notice = None
+
+    if selected_date > today:
+        clamp_notice = "Can't view a future date - showing today instead."
+        selected_date = today
+
+    # Clamp to the current term's range (with a clear message instead of a
+    # silent substitution) - attendance can't be marked outside the term.
+    current_term = Term.get_current()
+    if current_term:
+        if selected_date < current_term.start_date:
+            clamp_notice = (
+                f'Showing the first day of the current term - attendance can\'t be marked before '
+                f'{current_term.start_date.strftime("%B %d, %Y")}.'
+            )
+            selected_date = current_term.start_date
+        elif selected_date > current_term.end_date:
+            clamp_notice = (
+                f'Showing the last day of the current term - attendance can\'t be marked after '
+                f'{current_term.end_date.strftime("%B %d, %Y")}.'
+            )
+            selected_date = current_term.end_date
 
     selected_weekday = selected_date.isoweekday()
 
@@ -486,7 +540,10 @@ def lesson_attendance_list(request, pk):
         'reload_target': reload_target,
     }
 
-    return render(request, 'academics/partials/lesson_select.html', context)
+    response = render(request, 'academics/partials/lesson_select.html', context)
+    if clamp_notice and request.htmx:
+        response['HX-Trigger'] = json.dumps({'showToast': {'message': clamp_notice, 'type': 'info'}})
+    return response
 
 
 @login_required
@@ -553,18 +610,30 @@ def take_lesson_attendance(request, timetable_entry_id):
     school_settings = SchoolSettings.load()
     if not school_settings.is_school_day(target_weekday):
         day_name = target_date.strftime('%A')
-        messages.warning(request, f'{day_name} is not a school day.')
-        return redirect(lesson_list_url)
+        return _blocked_redirect(request, f'{day_name} is not a school day.', lesson_list_url)
 
-    current_term = Term.objects.filter(is_current=True).first()
-    if current_term and target_date < current_term.start_date:
-        messages.warning(request, f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).')
-        return redirect(lesson_list_url)
+    current_term = Term.get_current()
+    if current_term:
+        if target_date < current_term.start_date:
+            return _blocked_redirect(
+                request,
+                f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).',
+                lesson_list_url
+            )
+        if target_date > current_term.end_date:
+            return _blocked_redirect(
+                request,
+                f'Cannot mark attendance after the current term ended ({current_term.end_date.strftime("%B %d, %Y")}).',
+                lesson_list_url
+            )
 
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:
-        messages.warning(request, f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.')
-        return redirect(lesson_list_url)
+        return _blocked_redirect(
+            request,
+            f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.',
+            lesson_list_url
+        )
 
     # Get or create the lesson attendance session atomically
     with transaction.atomic():
@@ -714,6 +783,19 @@ def attendance_reports(request):
     if not date_to:
         date_to = today.isoformat()
 
+    # Valid school days in the selected range (working weekdays minus
+    # holidays/closures) - the real denominator for a rate, instead of
+    # however many AttendanceRecord rows happen to exist.
+    from core.utils import get_valid_school_days
+    try:
+        date_from_obj = datetime.fromisoformat(date_from).date()
+        date_to_obj = datetime.fromisoformat(date_to).date()
+    except (ValueError, TypeError):
+        date_from_obj = today - timedelta(days=30)
+        date_to_obj = today
+    valid_days = get_valid_school_days(date_from_obj, date_to_obj)
+    valid_days_count = len(valid_days)
+
     # Filter classes based on user role
     allowed_ids = _get_teacher_allowed_class_ids(user)
     if allowed_ids is None:
@@ -761,9 +843,27 @@ def attendance_reports(request):
     late_count = record_agg['late_count'] or 0
     countable = record_agg['countable'] or 0
 
+    # Rate against the real school calendar: distinct (student, day) pairs
+    # marked present/late on a valid school day, over valid school days x
+    # active students in scope - not raw record counts (which would
+    # over-count per-lesson classes with multiple records per student/day).
+    if class_filter:
+        scope_student_count = Student.objects.filter(
+            current_class_id=class_filter, status='active'
+        ).count()
+    else:
+        scope_student_count = Student.objects.filter(
+            current_class__in=classes, status='active'
+        ).count()
+
     attendance_rate = 0
-    if countable > 0:
-        attendance_rate = round((present_count / countable) * 100, 1)
+    if valid_days_count > 0:
+        present_days = records.filter(
+            status__in=['P', 'L'], session__date__in=valid_days
+        ).values('student_id', 'session__date').distinct().count()
+        total_possible = valid_days_count * scope_student_count
+        if total_possible > 0:
+            attendance_rate = round((present_days / total_possible) * 100, 1)
 
     # Summary by class - use aggregated queries instead of N+1
     # Get attendance stats per class in a single query
@@ -776,6 +876,14 @@ def attendance_reports(request):
     class_stats_dict = {
         s['session__class_assigned_id']: s for s in class_stats
     }
+
+    # Distinct (student, day) pairs marked present/late per class, restricted
+    # to valid school days - the numerator for a calendar-aware rate below.
+    class_present_day_counts = defaultdict(int)
+    for row in records.filter(
+        status__in=['P', 'L'], session__date__in=valid_days
+    ).values('session__class_assigned_id', 'student_id', 'session__date').distinct():
+        class_present_day_counts[row['session__class_assigned_id']] += 1
 
     # Get today's sessions in a single query
     today_sessions = set(
@@ -795,10 +903,13 @@ def attendance_reports(request):
     class_summary = []
     for cls in classes:
         stats = class_stats_dict.get(cls.id, {'total': 0, 'present': 0, 'absent': 0, 'countable': 0})
-        cls_countable = stats['countable']
         cls_present = stats['present']
         cls_absent = stats['absent']
-        cls_rate = round((cls_present / cls_countable) * 100, 1) if cls_countable > 0 else 0
+        cls_total_possible = valid_days_count * student_counts.get(cls.id, 0)
+        cls_rate = (
+            round((class_present_day_counts.get(cls.id, 0) / cls_total_possible) * 100, 1)
+            if cls_total_possible > 0 else 0
+        )
 
         class_summary.append({
             'class': cls,
@@ -846,40 +957,38 @@ def attendance_reports(request):
             'rate': round((s_present / s_countable) * 100, 1) if s_countable > 0 else 0,
         })
 
-    # Low attendance students — use DB aggregation instead of loading all records
-    student_agg = records.values('student_id').annotate(
-        total=Count('id'),
-        present=Count('id', filter=Q(status__in=['P', 'L'])),
-        countable=Count('id', filter=Q(status__in=['P', 'L', 'A'])),
-    )
-    # Filter for < 80% attendance rate in Python (DB can't easily filter on computed field)
-    low_student_ids = []
-    student_agg_dict = {}
-    for sa in student_agg:
-        sa_countable = sa['countable'] or 0
-        rate = round((sa['present'] / sa_countable) * 100, 1) if sa_countable > 0 else 0
-        student_agg_dict[sa['student_id']] = {**sa, 'rate': rate}
-        if sa_countable > 0 and rate < 80:
-            low_student_ids.append(sa['student_id'])
+    # Low attendance students - rate against valid school days in the range,
+    # not just however many records exist for a student. Enumerate the full
+    # active roster in scope (not just students who already have records) -
+    # a student with zero attendance recorded in a stretch of valid school
+    # days is the most important "low attendance" case, and the old
+    # records-only query silently excluded them entirely.
+    if class_filter:
+        scope_students = Student.objects.filter(current_class_id=class_filter, status='active')
+    else:
+        scope_students = Student.objects.filter(current_class__in=classes, status='active')
 
-    # Fetch student objects only for low-attendance students
-    low_students_map = {
-        s.id: s for s in Student.objects.filter(id__in=low_student_ids)
-    } if low_student_ids else {}
+    present_by_student = {
+        row['student_id']: row['present']
+        for row in records.filter(session__date__in=valid_days).values('student_id').annotate(
+            present=Count('session__date', filter=Q(status__in=['P', 'L']), distinct=True),
+        )
+    }
 
     low_attendance_students = []
-    for sid in low_student_ids:
-        sa = student_agg_dict[sid]
-        student = low_students_map.get(sid)
-        if student:
-            low_attendance_students.append({
-                'student': student,
-                'total': sa['total'],
-                'present': sa['present'],
-                'absent': sa['countable'] - sa['present'],
-                'rate': sa['rate'],
-            })
-    low_attendance_students.sort(key=lambda x: x['rate'])
+    if valid_days_count > 0:
+        for student in scope_students:
+            present_days = present_by_student.get(student.id, 0)
+            rate = round((present_days / valid_days_count) * 100, 1)
+            if rate < 80:
+                low_attendance_students.append({
+                    'student': student,
+                    'total': valid_days_count,
+                    'present': present_days,
+                    'absent': valid_days_count - present_days,
+                    'rate': rate,
+                })
+        low_attendance_students.sort(key=lambda x: x['rate'])
 
     # Trends data for chart — DB aggregation
     daily_trend = records.annotate(
@@ -982,10 +1091,16 @@ def attendance_reports(request):
             if class_filter:
                 prev_records = prev_records.filter(session__class_assigned_id=class_filter)
 
-            prev_countable = prev_records.filter(status__in=['P', 'L', 'A']).count()
-            if prev_countable > 0:
-                prev_present = prev_records.filter(status__in=['P', 'L']).count()
-                prev_period_rate = round((prev_present / prev_countable) * 100, 1)
+            # Same calendar-aware rate as the current period, so the
+            # comparison is apples-to-apples.
+            prev_valid_days = get_valid_school_days(prev_start, prev_end)
+            prev_valid_days_count = len(prev_valid_days)
+            if prev_valid_days_count > 0 and scope_student_count > 0:
+                prev_present_days = prev_records.filter(
+                    status__in=['P', 'L'], session__date__in=prev_valid_days
+                ).values('student_id', 'session__date').distinct().count()
+                prev_total_possible = prev_valid_days_count * scope_student_count
+                prev_period_rate = round((prev_present_days / prev_total_possible) * 100, 1)
                 rate_change = round(attendance_rate - prev_period_rate, 1)
         except (ValueError, TypeError):
             pass

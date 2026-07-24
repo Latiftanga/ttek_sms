@@ -1056,6 +1056,11 @@ class TermReport(models.Model):
         blank=True,
         help_text='Number of days absent in the term'
     )
+    days_excused = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text='Number of valid school days the student was excused'
+    )
     total_school_days = models.PositiveSmallIntegerField(
         null=True,
         blank=True,
@@ -1188,11 +1193,20 @@ class TermReport(models.Model):
 
     def calculate_attendance(self):
         """
-        Calculate attendance from AttendanceRecord for the term.
-        Computes days_present, days_absent, times_late, and attendance_percentage.
-        attendance_rating is derived automatically from attendance_percentage.
+        Calculate attendance for the term against the real school calendar
+        (valid school days = configured working weekdays minus holidays/
+        closures), not just however many AttendanceSession rows happen to
+        exist. Computes days_present, days_absent, days_excused, times_late,
+        and attendance_percentage. attendance_rating is derived automatically
+        from attendance_percentage.
+
+        The denominator (total_school_days) is a fixed calendar fact and is
+        never reduced for excused days - an excused day just doesn't count
+        as present, same as a valid day nobody ever recorded attendance for.
         """
-        from academics.models import AttendanceSession, AttendanceRecord
+        from django.utils import timezone
+        from academics.models import AttendanceRecord
+        from core.utils import get_valid_school_days
 
         # Get student's current class
         if not hasattr(self.student, 'current_class') or not self.student.current_class:
@@ -1200,39 +1214,42 @@ class TermReport(models.Model):
 
         current_class = self.student.current_class
 
-        # Get attendance sessions for this class within the term dates
-        sessions = AttendanceSession.objects.filter(
-            class_assigned=current_class,
-            date__gte=self.term.start_date,
-            date__lte=self.term.end_date
-        )
-
-        if not sessions.exists():
+        # Don't count days beyond today for a term that's still in progress.
+        period_end = min(self.term.end_date, timezone.localdate())
+        if period_end < self.term.start_date:
             return
 
-        # Use distinct dates so per-lesson classes (multiple sessions per day)
-        # don't inflate total_school_days on report cards
-        self.total_school_days = sessions.values('date').distinct().count()
+        valid_days = get_valid_school_days(self.term.start_date, period_end)
+        self.total_school_days = len(valid_days)
+        if self.total_school_days == 0:
+            return
 
-        # Get student's attendance records
+        # Get student's attendance records, restricted to valid school days
+        # only - a session that exists on a date later marked a holiday must
+        # not count towards any of these tallies.
         records = AttendanceRecord.objects.filter(
-            session__in=sessions,
-            student=self.student
+            session__class_assigned=current_class,
+            session__date__in=valid_days,
+            student=self.student,
         )
 
-        # Count distinct dates (not raw records) for days_present
-        present_statuses = ['P', 'L']  # Present and Late count as present
+        # Count distinct dates (not raw records) so per-lesson classes
+        # (multiple sessions/records per day) don't inflate the tallies.
         self.days_present = records.filter(
-            status__in=present_statuses
+            status__in=['P', 'L']
         ).values('session__date').distinct().count()
-        self.days_absent = max(0, self.total_school_days - self.days_present)
+        self.days_absent = records.filter(
+            status='A'
+        ).values('session__date').distinct().count()
+        self.days_excused = records.filter(
+            status='E'
+        ).values('session__date').distinct().count()
         self.times_late = records.filter(status='L').count()
 
-        if self.total_school_days > 0:
-            self.attendance_percentage = round(
-                (Decimal(str(self.days_present)) / Decimal(str(self.total_school_days))) * 100,
-                2
-            )
+        self.attendance_percentage = round(
+            (Decimal(str(self.days_present)) / Decimal(str(self.total_school_days))) * 100,
+            2
+        )
 
     def check_promotion(self, grading_system, core_grades=None):
         """

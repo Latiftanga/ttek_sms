@@ -382,7 +382,7 @@
         /* ===== ATTENDANCE ===== */
         .attendance-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 6px;
             margin-bottom: 8px;
         }
@@ -837,6 +837,10 @@
             <div class="attendance-item">
                 <div class="attendance-label">Absent</div>
                 <div class="attendance-value">{{ term_report.days_absent|default:"-" }}</div>
+            </div>
+            <div class="attendance-item">
+                <div class="attendance-label">Excused</div>
+                <div class="attendance-value">{{ term_report.days_excused|default:"-" }}</div>
             </div>
             <div class="attendance-item">
                 <div class="attendance-label">Total Days</div>

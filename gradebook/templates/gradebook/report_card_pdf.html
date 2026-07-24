@@ -387,7 +387,7 @@
         }
 
         .attendance-cell {
-            width: 20%;
+            width: 16.66%;
             text-align: center;
             padding: 4px;
             background: white;
@@ -800,6 +800,10 @@
                 <td class="attendance-cell">
                     <div class="attendance-label">Absent</div>
                     <div class="attendance-value">{{ term_report.days_absent|default:"-" }}</div>
+                </td>
+                <td class="attendance-cell">
+                    <div class="attendance-label">Excused</div>
+                    <div class="attendance-value">{{ term_report.days_excused|default:"-" }}</div>
                 </td>
                 <td class="attendance-cell">
                     <div class="attendance-label">Total Days</div>
