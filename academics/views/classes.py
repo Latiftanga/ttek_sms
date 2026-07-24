@@ -1740,18 +1740,25 @@ def bulk_subject_import_confirm(request):
         with transaction.atomic():
             for row in rows:
                 try:
-                    class_subject = ClassSubject.objects.create(
-                        class_assigned_id=row['class_pk'],
-                        subject_id=row['subject_pk'],
-                        teacher_id=row.get('teacher_pk'),
-                        periods_per_week=row.get('periods_per_week', 0),
-                        auto_enroll=row.get('auto_enroll', True)
-                    )
+                    # Each row gets its own savepoint. Without this, a real
+                    # failure (e.g. a duplicate created by someone else since
+                    # the preview step) poisons the whole outer transaction on
+                    # Postgres, and every row after it fails too with a
+                    # misleading "current transaction is aborted" error
+                    # instead of its own actual (non-)issue.
+                    with transaction.atomic():
+                        class_subject = ClassSubject.objects.create(
+                            class_assigned_id=row['class_pk'],
+                            subject_id=row['subject_pk'],
+                            teacher_id=row.get('teacher_pk'),
+                            periods_per_week=row.get('periods_per_week', 0),
+                            auto_enroll=row.get('auto_enroll', True)
+                        )
 
-                    # Auto-enroll students if auto_enroll is True
-                    if class_subject.auto_enroll:
-                        class_obj = Class.objects.get(pk=row['class_pk'])
-                        _enroll_class_students_in_subject(class_obj, class_subject)
+                        # Auto-enroll students if auto_enroll is True
+                        if class_subject.auto_enroll:
+                            class_obj = Class.objects.get(pk=row['class_pk'])
+                            _enroll_class_students_in_subject(class_obj, class_subject)
 
                     created_count += 1
 
