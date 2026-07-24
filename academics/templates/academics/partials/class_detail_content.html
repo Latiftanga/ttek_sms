@@ -2,6 +2,13 @@
 
 <div class="space-y-4 print:max-w-none"
      x-data="{
+        activeTab: new URLSearchParams(window.location.search).get('tab') || 'students',
+        setTab(tab) {
+            this.activeTab = tab;
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tab);
+            window.history.replaceState({}, '', url);
+        },
         showFilters: false,
         gender: '{{ gender_filter|default:'' }}',
         sort: '{{ sort_by|default:'name' }}'
@@ -28,11 +35,42 @@
                 <span class="badge badge-xs sm:badge-sm {{ class.is_active|yesno:'badge-success,badge-ghost' }}">
                     {{ class.is_active|yesno:'Active,Inactive' }}
                 </span>
+                {% if class.attendance_type == 'per_lesson' %}
+                <span class="badge badge-xs sm:badge-sm badge-secondary">Per-Lesson</span>
+                {% else %}
+                <span class="badge badge-xs sm:badge-sm badge-ghost">Daily</span>
+                {% endif %}
             </h1>
             <p class="text-[10px] sm:text-xs text-base-content/60 truncate">
                 {{ class.level_display }}{% if school.has_programmes and class.programme %} &bull; {{ class.programme.name }}{% endif %}{% if class.class_teacher %} &bull; {{ class.class_teacher.get_title_display }} {{ class.class_teacher.last_name }}{% endif %}
             </p>
         </div>
+
+            <!-- Desktop primary actions (visible on md+, folded into the overflow menu on mobile) -->
+            <button hx-get="{% url 'academics:class_student_enroll' class.pk %}"
+                    hx-target="#modal-edit-content"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="document.getElementById('modal_edit').showModal()"
+                    class="hidden md:inline-flex btn btn-outline btn-primary btn-sm gap-1">
+                <i class="fa-solid fa-user-plus"></i> Enroll Students
+            </button>
+            {% if class.attendance_type == 'per_lesson' %}
+            <button hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
+                    hx-target="#modal-edit-content"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="document.getElementById('modal_edit').showModal()"
+                    class="hidden md:inline-flex btn btn-secondary btn-sm gap-1">
+                <i class="fa-solid fa-clipboard-check"></i> Lesson Attendance
+            </button>
+            {% else %}
+            <button hx-get="{% url 'academics:class_attendance_take' class.pk %}"
+                    hx-target="#modal-edit-content"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="document.getElementById('modal_edit').showModal()"
+                    class="hidden md:inline-flex btn btn-secondary btn-sm gap-1">
+                <i class="fa-solid fa-clipboard-check"></i> Take Attendance
+            </button>
+            {% endif %}
 
             <!-- Actions Dropdown -->
             <div class="dropdown dropdown-end">
@@ -40,8 +78,8 @@
                     <i class="fa-solid fa-ellipsis-vertical"></i>
                 </label>
                 <ul tabindex="0" class="dropdown-content z-50 menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-52">
-                    <li class="menu-title text-xs">Quick Actions</li>
-                    <li>
+                    <li class="menu-title text-xs md:hidden">Quick Actions</li>
+                    <li class="md:hidden">
                         <button hx-get="{% url 'academics:class_student_enroll' class.pk %}"
                                 hx-target="#modal-edit-content"
                                 hx-swap="innerHTML"
@@ -50,7 +88,7 @@
                         </button>
                     </li>
                     {% if class.attendance_type == 'per_lesson' %}
-                    <li>
+                    <li class="md:hidden">
                         <button hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
                                 hx-target="#modal-edit-content"
                                 hx-swap="innerHTML"
@@ -59,7 +97,7 @@
                         </button>
                     </li>
                     {% else %}
-                    <li>
+                    <li class="md:hidden">
                         <button hx-get="{% url 'academics:class_attendance_take' class.pk %}"
                                 hx-target="#modal-edit-content"
                                 hx-swap="innerHTML"
@@ -69,32 +107,6 @@
                     </li>
                     {% endif %}
                     <li class="menu-title text-xs mt-2">View</li>
-                    <li>
-                        <a href="{% url 'academics:class_subjects' class.pk %}"
-                           hx-get="{% url 'academics:class_subjects' class.pk %}"
-                           hx-target="#main-content"
-                           hx-push-url="true">
-                            <i class="fa-solid fa-book w-4"></i> Subjects ({{ subject_allocations.count }})
-                        </a>
-                    </li>
-                    <li>
-                        <button hx-get="{% url 'academics:class_attendance_history' class.pk %}"
-                                hx-target="#modal-edit-content"
-                                hx-swap="innerHTML"
-                                hx-on::after-request="document.getElementById('modal_edit').showModal()">
-                            <i class="fa-solid fa-calendar-days w-4"></i> Attendance History
-                        </button>
-                    </li>
-                    {% if class.attendance_type == 'per_lesson' %}
-                    <li>
-                        <a href="{% url 'academics:class_weekly_attendance_report' class.pk %}"
-                           hx-get="{% url 'academics:class_weekly_attendance_report' class.pk %}"
-                           hx-target="#main-content"
-                           hx-push-url="true">
-                            <i class="fa-solid fa-chart-bar w-4"></i> Weekly Report
-                        </a>
-                    </li>
-                    {% endif %}
                     <li>
                         <a href="{% url 'academics:class_timetable' class.pk %}"
                            hx-get="{% url 'academics:class_timetable' class.pk %}"
@@ -127,81 +139,6 @@
             </div>
         </div>
 
-        <!-- Compact Stats Bar -->
-        <div class="flex items-center text-xs sm:text-sm bg-base-200/50 rounded-lg px-2 sm:px-3 py-2 w-full">
-            <!-- Enrollment -->
-            <div class="flex-1 flex items-center justify-center gap-1.5 px-1">
-                <i class="fa-solid fa-users text-primary"></i>
-                <span class="font-bold">{{ total_students }}</span>
-                <span class="text-base-content/50 hidden sm:inline">({{ gender_stats.male }}m/{{ gender_stats.female }}f)</span>
-            </div>
-
-            <div class="w-px h-4 bg-base-300"></div>
-
-            <!-- Attendance (clickable) -->
-            <button class="flex-1 flex items-center justify-center gap-1.5 px-1 hover:text-success transition-colors cursor-pointer"
-                    hx-get="{% url 'academics:class_attendance_history' class.pk %}"
-                    hx-target="#modal-edit-content"
-                    hx-swap="innerHTML"
-                    hx-on::after-request="document.getElementById('modal_edit').showModal()"
-                    title="View attendance history">
-                <i class="fa-solid fa-clipboard-user text-success"></i>
-                <span class="font-bold">{{ attendance_percentage|default:0 }}%</span>
-            </button>
-
-            <div class="w-px h-4 bg-base-300"></div>
-
-            <!-- Subjects (clickable) -->
-            <a href="{% url 'academics:class_subjects' class.pk %}"
-               hx-get="{% url 'academics:class_subjects' class.pk %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="flex-1 flex items-center justify-center gap-1.5 px-1 hover:text-secondary transition-colors cursor-pointer"
-               title="Manage subjects">
-                <i class="fa-solid fa-book text-secondary"></i>
-                <span class="font-bold">{{ subject_allocations.count }}</span>
-                <span class="hidden sm:inline text-base-content/60">subjects</span>
-            </a>
-
-            <div class="w-px h-4 bg-base-300"></div>
-
-            <!-- Attendance Type -->
-            <div class="flex-1 flex items-center justify-center gap-1.5 px-1" title="Attendance Type">
-                {% if class.attendance_type == 'per_lesson' %}
-                <i class="fa-solid fa-clock text-secondary"></i>
-                <span class="badge badge-xs badge-secondary">Per-Lesson</span>
-                {% else %}
-                <i class="fa-solid fa-calendar-day text-info"></i>
-                <span class="badge badge-xs badge-ghost">Daily</span>
-                {% endif %}
-            </div>
-
-            {% if class.class_teacher %}
-            <div class="w-px h-4 bg-base-300 hidden sm:block"></div>
-
-            <!-- Teacher (hidden on mobile) -->
-            <div class="hidden sm:flex flex-1 items-center justify-center gap-2 px-1">
-                <div class="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center overflow-hidden">
-                    {% if class.class_teacher.photo %}
-                    <img src="{{ class.class_teacher.photo.url }}" alt="" class="w-full h-full object-cover" loading="lazy" />
-                    {% else %}
-                    {{ class.class_teacher.first_name|slice:":1" }}
-                    {% endif %}
-                </div>
-                <span class="text-base-content/70 text-xs">{{ class.class_teacher.last_name }}</span>
-            </div>
-            {% endif %}
-
-            <!-- Capacity indicator - desktop only -->
-            <div class="hidden lg:flex flex-1 items-center justify-center gap-2 px-1">
-                <div class="w-16 h-1.5 bg-base-300 rounded-full overflow-hidden">
-                    <div class="h-full bg-primary rounded-full" style="width: {% if class.capacity %}{% widthratio total_students class.capacity 100 %}{% else %}0{% endif %}%;"></div>
-                </div>
-                <span class="text-xs text-base-content/50">{{ total_students }}/{{ class.capacity|default:"∞" }}</span>
-            </div>
-        </div>
-    </div>
-
     <!-- Print Header -->
     <div class="hidden print:!block print:mb-6 print:border-b print:border-black print:pb-3">
         <div class="text-center">
@@ -228,8 +165,32 @@
     </div>
     {% endif %}
 
-    <!-- Main Content Card: Students List -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-base-300">
+    <!-- Tabs -->
+    <div class="border-b border-base-200 print:!hidden">
+        <div class="flex overflow-x-auto scrollbar-none -mb-px">
+            <button class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
+                    :class="activeTab === 'students' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                    @click="setTab('students')">
+                <i class="fa-solid fa-users mr-1"></i>
+                <span>Students<span class="hidden sm:inline"> &middot; {{ total_students }}/{{ class.capacity|default:"∞" }}</span></span>
+            </button>
+            <button class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
+                    :class="activeTab === 'subjects' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                    @click="setTab('subjects')">
+                <i class="fa-solid fa-book mr-1"></i>
+                <span>Subjects<span class="hidden sm:inline"> &middot; {{ subject_allocations.count }}</span></span>
+            </button>
+            <button class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer"
+                    :class="activeTab === 'attendance' ? 'border-primary text-primary' : 'border-transparent text-base-content/60 hover:text-base-content'"
+                    @click="setTab('attendance')">
+                <i class="fa-solid fa-clipboard-user mr-1"></i>
+                <span>Attendance<span class="hidden sm:inline"> &middot; {{ attendance_percentage|default:0 }}%</span></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Tab: Students -->
+    <div x-show="activeTab === 'students'" x-cloak class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-base-300">
 
         <!-- Search Bar -->
         <div class="p-2 sm:p-3 border-b border-base-200 print:!hidden">
@@ -361,6 +322,61 @@
             {% include "academics/includes/tab_register_content.html" %}
         </div>
 
+    </div>
+
+    <!-- Tab: Subjects -->
+    <div x-show="activeTab === 'subjects'" x-cloak class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-base-300">
+        <div class="p-2 sm:p-3 border-b border-base-200 flex items-center justify-between print:!hidden">
+            <p class="text-xs text-base-content/60">Subject enrollment status for this class</p>
+            <a href="{% url 'academics:class_subjects' class.pk %}"
+               hx-get="{% url 'academics:class_subjects' class.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="btn btn-ghost btn-xs gap-1">
+                <i class="fa-solid fa-gear"></i> Manage Subject Allocation
+            </a>
+        </div>
+        <div id="tab-subjects">
+            {% include "academics/includes/tab_subjects_content.html" %}
+        </div>
+    </div>
+
+    <!-- Tab: Attendance -->
+    <div x-show="activeTab === 'attendance'" x-cloak class="card bg-base-100 shadow-sm border border-base-200 print:shadow-none print:border-base-300">
+        <div id="tab-attendance">
+            <div class="p-2 sm:p-3 border-b border-base-200 flex items-center justify-between print:!hidden">
+                <p class="text-xs text-base-content/60">Recent attendance sessions</p>
+                <div class="flex items-center gap-2">
+                    {% if class.attendance_type == 'per_lesson' %}
+                    <a href="{% url 'academics:class_weekly_attendance_report' class.pk %}"
+                       hx-get="{% url 'academics:class_weekly_attendance_report' class.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-ghost btn-xs gap-1">
+                        <i class="fa-solid fa-chart-bar"></i> Weekly Report
+                    </a>
+                    <!-- Per-lesson marking is shared with the teacher portal's lesson picker,
+                         which opens its own app-wide modal internally - kept as a modal here too
+                         rather than a half-inline experience. -->
+                    <button hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
+                            hx-target="#modal-edit-content"
+                            hx-swap="innerHTML"
+                            hx-on::after-request="document.getElementById('modal_edit').showModal()"
+                            class="btn btn-secondary btn-xs gap-1">
+                        <i class="fa-solid fa-clipboard-check"></i> Lesson Attendance
+                    </button>
+                    {% else %}
+                    <button hx-get="{% url 'academics:class_attendance_take' class.pk %}?embed=tab"
+                            hx-target="#tab-attendance"
+                            hx-swap="innerHTML"
+                            class="btn btn-secondary btn-xs gap-1">
+                        <i class="fa-solid fa-clipboard-check"></i> Take Attendance
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% include "academics/includes/tab_attendance_content.html" %}
+        </div>
     </div>
 
     <!-- Print Footer -->

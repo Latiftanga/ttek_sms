@@ -237,7 +237,7 @@ def class_attendance_take(request, pk):
         students = list(Student.objects.filter(
             current_class=class_obj, status='active'
         ))
-        url = reverse('academics:class_detail', args=[pk])
+        url = reverse('academics:class_detail', args=[pk]) + '?tab=attendance'
         return _save_attendance_records(
             request, session, students, url,
             success_msg='Attendance saved'
@@ -261,6 +261,7 @@ def class_attendance_take(request, pk):
         'student_list': student_list,
         'date': target_date,
         'is_lesson': False,
+        'in_tab': request.GET.get('embed') == 'tab',
     }
 
     # Use partial for HTMX, full page for direct access/refresh
@@ -303,7 +304,7 @@ def class_attendance_edit(request, pk, session_pk):
         students = list(Student.objects.filter(
             current_class=class_obj, status='active'
         ))
-        url = reverse('academics:class_detail', args=[pk])
+        url = reverse('academics:class_detail', args=[pk]) + '?tab=attendance'
         return _save_attendance_records(
             request, session, students, url,
             success_msg='Attendance updated'
@@ -325,7 +326,8 @@ def class_attendance_edit(request, pk, session_pk):
         'session': session,
         'student_list': student_list,
         'date': session.date,
-        'is_edit': True
+        'is_edit': True,
+        'in_tab': request.GET.get('embed') == 'tab',
     }
 
     # Use partial for HTMX, full page for direct access/refresh

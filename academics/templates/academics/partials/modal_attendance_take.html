@@ -16,9 +16,11 @@
     <!-- Header row -->
     <div class="flex items-center gap-2">
         <a href="{% url 'academics:attendance_reports' %}"
-           hx-get="{% url 'academics:attendance_reports' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
+           onclick="event.preventDefault();
+                    var d=this.closest('dialog'); var t=this.closest('#tab-attendance');
+                    if(d) d.close();
+                    else if(t) window.location.href='{% url 'academics:class_detail' class.pk %}?tab=attendance';
+                    else window.location.href='{% url 'academics:attendance_reports' %}';"
            class="btn btn-ghost btn-sm btn-circle shrink-0"
            title="Back">
             <i class="fa-solid fa-arrow-left"></i>
@@ -31,9 +33,9 @@
                 {% if not is_lesson and not is_edit %}
                 <input type="date" value="{{ date|date:'Y-m-d' }}"
                        class="input input-xs input-bordered"
-                       hx-get="{% url 'academics:class_attendance_take' class.pk %}"
-                       hx-target="#main-content"
-                       hx-push-url="true"
+                       hx-get="{% url 'academics:class_attendance_take' class.pk %}{% if in_tab %}?embed=tab{% endif %}"
+                       hx-target="{% if in_tab %}#tab-attendance{% else %}#main-content{% endif %}"
+                       {% if not in_tab %}hx-push-url="true"{% endif %}
                        name="date">
                 {% else %}
                 {{ date|date:"l, j M Y" }}{% if is_edit %} &bull; Editing{% endif %}
@@ -156,7 +158,10 @@
     <div class="sticky bottom-0 -mx-6 px-4 py-3 bg-base-100/95 backdrop-blur-sm border-t border-base-200 flex gap-3">
         <button type="button"
                 class="btn touch-action-manipulation"
-                onclick="var d=this.closest('dialog'); if(d) d.close(); else window.location.href='{% if is_lesson %}{% url 'academics:lesson_attendance_list' class.pk %}{% else %}{% url 'academics:attendance_reports' %}{% endif %}';">
+                onclick="var d=this.closest('dialog'); var t=this.closest('#tab-attendance');
+                         if(d) d.close();
+                         else if(t) window.location.href='{% url 'academics:class_detail' class.pk %}?tab=attendance';
+                         else window.location.href='{% if is_lesson %}{% url 'academics:lesson_attendance_list' class.pk %}{% else %}{% url 'academics:attendance_reports' %}{% endif %}';">
             Cancel
         </button>
         <button type="submit"
@@ -168,60 +173,66 @@
 </form>
 
 <script>
-const totalStudents = {{ student_list|length }};
-
-function updateProgress() {
-    const form = document.getElementById('attendance-form');
-    let present = 0, late = 0, absent = 0, excused = 0;
-    form.querySelectorAll('input[type="radio"]:checked').forEach(r => {
-        if (r.value === 'P') present++;
-        else if (r.value === 'L') late++;
-        else if (r.value === 'A') absent++;
-        else if (r.value === 'E') excused++;
-    });
-    document.getElementById('present-count').textContent = present;
-    document.getElementById('late-count').textContent = late;
-    document.getElementById('absent-count').textContent = absent;
-    document.getElementById('excused-count').textContent = excused;
-    const pct = n => totalStudents > 0 ? (n / totalStudents * 100) + '%' : '0%';
-    document.getElementById('progress-present').style.width = pct(present);
-    document.getElementById('progress-late').style.width = pct(late);
-    document.getElementById('progress-absent').style.width = pct(absent);
-    document.getElementById('progress-excused').style.width = pct(excused);
-}
-
-function updateRowBackground(radio) {
-    const row = radio.closest('.student-row');
-    if (!row) return;
-    row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10', 'bg-info/10');
-    if (radio.value === 'P') row.classList.add('bg-success/10');
-    else if (radio.value === 'L') row.classList.add('bg-warning/10');
-    else if (radio.value === 'A') row.classList.add('bg-error/10');
-    else if (radio.value === 'E') row.classList.add('bg-info/10');
-}
-
-function filterStudents(query) {
-    const q = query.toLowerCase().trim();
-    document.querySelectorAll('.student-row').forEach(row => {
-        const name = row.dataset.name || '';
-        row.style.display = (!q || name.includes(q)) ? '' : 'none';
-    });
-}
-
-function markAll(status) {
-    document.getElementById('attendance-form')
-        .querySelectorAll(`input[type="radio"][value="${status}"]`)
-        .forEach(r => {
-            r.checked = true;
-            updateRowBackground(r);
-        });
-    updateProgress();
-    if (navigator.vibrate) navigator.vibrate(50);
-}
-
+// Wrapped in an IIFE: this partial can be re-fetched into the same persistent
+// container (e.g. changing the date, or the Attendance tab's edit-pencil), and
+// top-level const/function declarations would collide with the previous
+// injection's on a second load, throwing a SyntaxError.
 (function () {
+    const totalStudents = {{ student_list|length }};
+
+    function updateProgress() {
+        const form = document.getElementById('attendance-form');
+        let present = 0, late = 0, absent = 0, excused = 0;
+        form.querySelectorAll('input[type="radio"]:checked').forEach(r => {
+            if (r.value === 'P') present++;
+            else if (r.value === 'L') late++;
+            else if (r.value === 'A') absent++;
+            else if (r.value === 'E') excused++;
+        });
+        document.getElementById('present-count').textContent = present;
+        document.getElementById('late-count').textContent = late;
+        document.getElementById('absent-count').textContent = absent;
+        document.getElementById('excused-count').textContent = excused;
+        const pct = n => totalStudents > 0 ? (n / totalStudents * 100) + '%' : '0%';
+        document.getElementById('progress-present').style.width = pct(present);
+        document.getElementById('progress-late').style.width = pct(late);
+        document.getElementById('progress-absent').style.width = pct(absent);
+        document.getElementById('progress-excused').style.width = pct(excused);
+    }
+
+    function updateRowBackground(radio) {
+        const row = radio.closest('.student-row');
+        if (!row) return;
+        row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10', 'bg-info/10');
+        if (radio.value === 'P') row.classList.add('bg-success/10');
+        else if (radio.value === 'L') row.classList.add('bg-warning/10');
+        else if (radio.value === 'A') row.classList.add('bg-error/10');
+        else if (radio.value === 'E') row.classList.add('bg-info/10');
+    }
+
+    // Called from inline onclick/oninput attributes, so must stay global.
+    window.filterStudents = function (query) {
+        const q = query.toLowerCase().trim();
+        document.querySelectorAll('.student-row').forEach(row => {
+            const name = row.dataset.name || '';
+            row.style.display = (!q || name.includes(q)) ? '' : 'none';
+        });
+    };
+
+    window.markAll = function (status) {
+        document.getElementById('attendance-form')
+            .querySelectorAll(`input[type="radio"][value="${status}"]`)
+            .forEach(r => {
+                r.checked = true;
+                updateRowBackground(r);
+            });
+        updateProgress();
+        if (navigator.vibrate) navigator.vibrate(50);
+    };
+
     const form = document.getElementById('attendance-form');
     if (!form) return;
+
     form.querySelectorAll('input[type="radio"]').forEach(r => {
         r.addEventListener('change', function () {
             updateRowBackground(this);
@@ -242,14 +253,10 @@ function markAll(status) {
     document.body.addEventListener('htmx:afterRequest', e => {
         if (e.detail.successful) formDirty = false;
     });
-})();
 
-// Double-submit prevention
-(function() {
-    const form = document.getElementById('attendance-form');
-    if (!form) return;
+    // Double-submit prevention
     let isSubmitting = false;
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', function (e) {
         if (isSubmitting) { e.preventDefault(); return false; }
         isSubmitting = true;
         form.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = true; });

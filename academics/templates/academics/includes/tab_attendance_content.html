@@ -1,0 +1,59 @@
+{% load core_tags %}
+
+{% if attendance_sessions %}
+<div class="divide-y divide-base-200">
+    {% for session in attendance_sessions %}
+    <div class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors">
+        <div class="avatar placeholder flex-shrink-0">
+            <div class="w-10 h-10 rounded-lg bg-base-300 flex flex-col items-center justify-center">
+                <span class="text-[10px] font-bold uppercase text-base-content/50">{{ session.date|date:"M" }}</span>
+                <span class="text-sm font-bold leading-none">{{ session.date|date:"j" }}</span>
+            </div>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm">{{ session.date|date:"l" }}</div>
+            <div class="flex items-center gap-3 text-xs text-base-content/60">
+                <span class="text-success"><i class="fa-solid fa-check mr-1"></i>{{ session.present_count }}</span>
+                <span class="text-error"><i class="fa-solid fa-xmark mr-1"></i>{{ session.absent_count }}</span>
+                {% if session.countable_count %}
+                {% widthratio session.present_count session.countable_count 100 as rate %}
+                <span class="badge badge-xs {% if rate|add:'0' >= 80 %}badge-success{% else %}badge-warning{% endif %}">{{ rate }}%</span>
+                {% endif %}
+            </div>
+        </div>
+        <button class="btn btn-ghost btn-xs btn-square"
+                hx-get="{% url 'academics:class_attendance_edit' class.pk session.pk %}?embed=tab"
+                hx-target="#tab-attendance"
+                hx-swap="innerHTML"
+                title="Edit">
+            <i class="fa-solid fa-pen"></i>
+        </button>
+    </div>
+    {% endfor %}
+</div>
+<div class="p-3 text-center border-t border-base-200">
+    <a href="{% url 'academics:attendance_reports' %}?class={{ class.pk }}"
+       hx-get="{% url 'academics:attendance_reports' %}?class={{ class.pk }}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-sm btn-ghost">
+        <i class="fa-solid fa-chart-line mr-1"></i> View Full Reports
+    </a>
+</div>
+{% else %}
+<div class="py-12">
+    <div class="text-center">
+        <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-clipboard-check text-2xl text-base-content/30"></i>
+        </div>
+        <h3 class="font-bold text-lg mb-1">No Attendance Records</h3>
+        <p class="text-sm text-base-content/60 mb-4">Start by taking attendance for today.</p>
+        <button class="btn btn-primary btn-sm"
+                hx-get="{% url 'academics:class_attendance_take' class.pk %}?embed=tab"
+                hx-target="#tab-attendance"
+                hx-swap="innerHTML">
+            <i class="fa-solid fa-clipboard-check"></i> Take Attendance
+        </button>
+    </div>
+</div>
+{% endif %}

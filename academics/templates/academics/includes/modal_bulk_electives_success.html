@@ -18,6 +18,11 @@
 {% include "academics/includes/tab_register_content.html" %}
 </div>
 
+<!-- Out-of-band swap to update the subjects tab -->
+<div id="tab-subjects" hx-swap-oob="innerHTML">
+{% include "academics/includes/tab_subjects_content.html" %}
+</div>
+
 <!-- Out-of-band swap to update the elective warning/success banner -->
 <div id="elective-warning-banner" hx-swap-oob="innerHTML">
 {% if class.programme and elective_subjects %}

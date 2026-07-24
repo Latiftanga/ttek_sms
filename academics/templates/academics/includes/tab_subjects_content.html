@@ -1,0 +1,105 @@
+{% load core_tags %}
+
+{% if subject_rows %}
+<div class="divide-y divide-base-200">
+    {% for row in subject_rows %}
+    <div class="flex items-center gap-3 p-3 hover:bg-base-200/50 transition-colors">
+        <div class="avatar placeholder flex-shrink-0">
+            <div class="w-10 h-10 rounded-lg {% if row.subject.is_core %}bg-primary/20 text-primary{% else %}bg-secondary/20 text-secondary{% endif %} flex items-center justify-center">
+                <i class="fa-solid fa-book"></i>
+            </div>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-sm">{{ row.subject.name }}</span>
+                <span class="badge badge-xs {% if row.subject.is_core %}badge-primary{% else %}badge-ghost{% endif %}">
+                    {{ row.subject.is_core|yesno:"Core,Elective" }}
+                </span>
+                {% if row.periods_per_week %}
+                <span class="badge badge-xs badge-info badge-outline">
+                    <i class="fa-solid fa-clock mr-1"></i>{{ row.periods_per_week }}/wk
+                </span>
+                {% endif %}
+            </div>
+            <div class="text-xs text-base-content/60 mt-0.5">
+                {% if row.teacher %}
+                <span class="inline-flex items-center gap-1">
+                    <i class="fa-solid fa-chalkboard-user"></i> {{ row.teacher.full_name }}
+                </span>
+                {% else %}
+                <span class="text-warning inline-flex items-center gap-1">
+                    <i class="fa-solid fa-circle-exclamation"></i> No teacher assigned
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="text-right shrink-0">
+            <div class="font-bold text-sm {% if row.subject.is_core and row.enrolled_count < total_students %}text-warning{% endif %}">
+                {{ row.enrolled_count }}/{{ total_students }}
+            </div>
+            <div class="text-[10px] text-base-content/50 uppercase tracking-wide">enrolled</div>
+        </div>
+        <button class="btn btn-ghost btn-xs btn-square"
+                hx-get="{% url 'academics:class_subject_students' class.pk row.pk %}"
+                hx-target="#modal-edit-content"
+                hx-swap="innerHTML"
+                hx-on::after-request="document.getElementById('modal_edit').showModal()"
+                title="Manage Students">
+            <i class="fa-solid fa-users"></i>
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+{% if required_electives is not None %}
+<div class="p-3 border-t border-base-200">
+    {% if students_needing_electives %}
+    <div class="alert alert-warning py-2 items-start">
+        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+        <div class="flex-1">
+            <span class="font-medium">{{ students_needing_electives|length }} student{{ students_needing_electives|length|pluralize }}</span>
+            missing required electives ({{ required_electives }} needed)
+            <div class="flex flex-wrap gap-1 mt-2">
+                {% for s in students_needing_electives|slice:":8" %}
+                <span class="badge badge-sm">{{ s.full_name }}</span>
+                {% endfor %}
+                {% if students_needing_electives|length > 8 %}
+                <span class="badge badge-sm badge-ghost">+{{ students_needing_electives|length|add:"-8" }} more</span>
+                {% endif %}
+            </div>
+        </div>
+        <button class="btn btn-xs btn-warning shrink-0"
+                hx-get="{% url 'academics:class_bulk_electives' class.pk %}"
+                hx-target="#modal-edit-content"
+                hx-swap="innerHTML"
+                hx-on::after-request="document.getElementById('modal_edit').showModal()">
+            <i class="fa-solid fa-users-gear"></i> Assign Now
+        </button>
+    </div>
+    {% else %}
+    <div class="alert alert-success py-2">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>All students have their required {{ required_electives }} elective{{ required_electives|pluralize }} assigned.</span>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="py-12">
+    <div class="text-center">
+        <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-book text-2xl text-base-content/30"></i>
+        </div>
+        <h3 class="font-bold text-lg mb-1">No Subjects Yet</h3>
+        <p class="text-sm text-base-content/60 mb-4">Assign subjects to start building the curriculum.</p>
+        <a href="{% url 'academics:class_subjects' class.pk %}"
+           hx-get="{% url 'academics:class_subjects' class.pk %}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-plus"></i> Add Subjects
+        </a>
+    </div>
+</div>
+{% endif %}

@@ -349,6 +349,50 @@ def get_teachers_tab_context(class_obj):
     }
 
 
+def get_student_subjects_tab_context(class_obj):
+    """Context for the Subjects tab: per-subject enrollment status for the class,
+    plus which students (if any) are missing required electives. Subject-centric
+    rather than student-centric, so it doesn't just duplicate the Students tab."""
+    total_students = Student.objects.filter(current_class=class_obj, status='active').count()
+
+    subject_rows = ClassSubject.objects.filter(
+        class_assigned=class_obj
+    ).select_related('subject', 'teacher').annotate(
+        enrolled_count=Count(
+            'student_enrollments', filter=Q(student_enrollments__is_active=True)
+        )
+    ).order_by('subject__name')
+
+    # Students missing required electives (SHS/programme classes only)
+    required_electives = None
+    students_needing_electives = []
+    if class_obj.programme:
+        required_electives = class_obj.programme.required_electives
+        students = Student.objects.filter(
+            current_class=class_obj, status='active'
+        ).annotate(
+            elective_count=Count(
+                'subject_enrollments',
+                filter=Q(
+                    subject_enrollments__class_subject__class_assigned=class_obj,
+                    subject_enrollments__class_subject__subject__is_core=False,
+                    subject_enrollments__is_active=True,
+                )
+            )
+        )
+        students_needing_electives = [
+            s for s in students if s.elective_count < required_electives
+        ]
+
+    return {
+        'class': class_obj,
+        'total_students': total_students,
+        'subject_rows': subject_rows,
+        'required_electives': required_electives,
+        'students_needing_electives': students_needing_electives,
+    }
+
+
 def get_attendance_tab_context(class_obj):
     """Context for the Attendance tab with real data."""
     sessions = AttendanceSession.objects.filter(
@@ -356,7 +400,8 @@ def get_attendance_tab_context(class_obj):
     ).annotate(
         present_count=Count('records', filter=Q(records__status__in=['P', 'L'])),
         absent_count=Count('records', filter=Q(records__status='A')),
-        total_count=Count('records')
+        total_count=Count('records'),
+        countable_count=Count('records', filter=Q(records__status__in=['P', 'L', 'A'])),
     ).order_by('-date')[:30]
 
     # Calculate overall attendance percentage - single aggregate query
@@ -416,62 +461,6 @@ def get_class_detail_base_context(class_obj):
     }
 
 
-def get_promotion_history_context(class_obj):
-    """Context for showing recent enrollment/promotion activity for this class."""
-    from students.models import Enrollment
-    from core.models import AcademicYear
-
-    current_year = AcademicYear.get_current()
-
-    # Get recent enrollments for this class (incoming students)
-    incoming_enrollments = Enrollment.objects.filter(
-        class_assigned=class_obj
-    ).select_related('student', 'academic_year', 'promoted_from').order_by(
-        '-created_at'
-    )[:5]
-
-    # Get promotions/graduations out of this class
-    outgoing_enrollments = Enrollment.objects.filter(
-        promoted_from__class_assigned=class_obj
-    ).select_related('student', 'academic_year', 'class_assigned').order_by(
-        '-created_at'
-    )[:5]
-
-    # Summary stats
-    if current_year:
-        active_in_current_year = Enrollment.objects.filter(
-            class_assigned=class_obj,
-            academic_year=current_year,
-            status=Enrollment.Status.ACTIVE
-        ).count()
-
-        promoted_count = Enrollment.objects.filter(
-            promoted_from__class_assigned=class_obj,
-            promoted_from__academic_year=current_year
-        ).count()
-
-        graduated_count = Enrollment.objects.filter(
-            class_assigned=class_obj,
-            academic_year=current_year,
-            status=Enrollment.Status.GRADUATED
-        ).count()
-    else:
-        active_in_current_year = 0
-        promoted_count = 0
-        graduated_count = 0
-
-    return {
-        'incoming_enrollments': incoming_enrollments,
-        'outgoing_enrollments': outgoing_enrollments,
-        'promotion_stats': {
-            'active': active_in_current_year,
-            'promoted': promoted_count,
-            'graduated': graduated_count,
-        },
-        'current_year': current_year,
-    }
-
-
 # ============ CLASS DETAIL VIEW ============
 
 @login_required
@@ -491,7 +480,7 @@ def class_detail(request, pk):
     context.update(get_register_tab_context(class_obj, request=request, page=page, search=search, gender=gender, sort=sort))
     context.update(get_teachers_tab_context(class_obj))
     context.update(get_attendance_tab_context(class_obj))
-    context.update(get_promotion_history_context(class_obj))
+    context.update(get_student_subjects_tab_context(class_obj))
 
     return htmx_render(
         request,
@@ -912,6 +901,7 @@ def class_student_electives(request, class_pk, student_pk):
 
         # Return success message with OOB swap for tab content
         tab_context = get_register_tab_context(class_obj)
+        tab_context.update(get_student_subjects_tab_context(class_obj))
         tab_context['student'] = student
         tab_context['success'] = True
         return render(request, 'academics/includes/modal_student_subjects_success.html', tab_context)
@@ -1086,6 +1076,7 @@ def class_bulk_subject_assign(request, pk):
 
         enrolled_count = len(to_create)
 
+        context.update(get_student_subjects_tab_context(class_obj))
         context['success'] = True
         context['enrolled_count'] = enrolled_count
         context['student_count'] = len(student_list)
@@ -1218,6 +1209,7 @@ def class_bulk_electives(request, pk):
 
         # Return success message in modal + OOB swap for tab content
         tab_context = get_register_tab_context(class_obj)
+        tab_context.update(get_student_subjects_tab_context(class_obj))
         tab_context['enrolled_count'] = enrolled_count
         tab_context['bulk_success'] = True
         # Don't auto-close modal - let user see success message and click Close
