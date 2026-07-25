@@ -581,7 +581,12 @@ def exeat_create(request):
             if exeat.status == Exeat.Status.APPROVED and not exeat.approved_by:
                 logger.warning("Exeat %s auto-approved with no teacher on record (user: %s)", exeat.pk, user.pk)
 
-            # Atomic save with overlap re-check to prevent race condition
+            # Atomic save with overlap re-check to prevent race condition -
+            # ExeatForm.clean() already checks this, but without a lock, so
+            # two near-simultaneous submissions for the same student could
+            # both pass validation before either commits. This re-check
+            # under select_for_update() catches that narrow window.
+            overlap_caught = False
             with transaction.atomic():
                 active_statuses = [Exeat.Status.PENDING, Exeat.Status.RECOMMENDED, Exeat.Status.APPROVED, Exeat.Status.ACTIVE]
                 overlapping = Exeat.objects.select_for_update().filter(
@@ -591,9 +596,30 @@ def exeat_create(request):
                     expected_return_date__gte=exeat.departure_date,
                 ).exists()
                 if overlapping:
-                    messages.error(request, "This student already has an overlapping active exeat.")
-                    return redirect('students:exeat_list')
-                exeat.save()
+                    overlap_caught = True
+                else:
+                    exeat.save()
+
+            if overlap_caught:
+                # Re-render the form with a visible error instead of
+                # redirecting - the previous redirect target
+                # ('students:exeat_list') isn't even a real URL name, so
+                # this path 500'd instead of showing anything.
+                form.add_error(None, "This student already has an overlapping active exeat.")
+                context = {
+                    'form': form,
+                    'students': students,
+                    'selected_student': student,
+                    'is_senior': is_admin_or_senior,
+                    'breadcrumbs': [
+                        {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
+                        {'label': 'Exeats', 'url': reverse('students:exeat_index')},
+                        {'label': 'New Request'},
+                    ],
+                }
+                if request.htmx:
+                    return render(request, 'students/partials/exeat_form.html', context)
+                return render(request, 'students/exeat_form.html', context)
 
             # Send approval SMS for auto-approved exeats
             if exeat.status == Exeat.Status.APPROVED:
