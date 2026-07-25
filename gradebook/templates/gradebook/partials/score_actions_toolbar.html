@@ -1,0 +1,64 @@
+{% comment %}
+Desktop-only (lg: and up) visible toolbar version of the same actions
+available in the mobile "More options" (⋮) dropdown menu on the score entry
+pages. Included from both score_form.html (view_mode='table') and
+score_form_student.html (view_mode='student') so the two menus can't drift
+apart - the underlying URLs/conditions live only here.
+{% endcomment %}
+<div class="hidden lg:flex items-center gap-1">
+    {% if view_mode == 'table' %}
+    {% if students %}
+    <button type="button" class="btn btn-square btn-ghost btn-sm" title="Student View"
+            hx-get="{% url 'gradebook:score_entry_student' class_obj.pk subject.pk students.0.pk %}"
+            hx-target="#score-form-container"
+            hx-swap="outerHTML transition:true"
+            hx-push-url="true">
+        <i class="fa-solid fa-id-card text-secondary"></i>
+    </button>
+    {% endif %}
+    {% else %}
+    <button type="button" class="btn btn-square btn-ghost btn-sm" title="Table View"
+            hx-get="{% url 'gradebook:score_entry_form' class_obj.pk subject.pk %}"
+            hx-target="#score-form-container"
+            hx-swap="outerHTML transition:true"
+            hx-push-url="true">
+        <i class="fa-solid fa-table-cells text-secondary"></i>
+    </button>
+    {% endif %}
+
+    <button type="button" class="btn btn-square btn-ghost btn-sm" title="Manage Assignments"
+            hx-get="{% url 'gradebook:assignments' subject.pk %}"
+            hx-target="#assignments-container"
+            hx-swap="outerHTML"
+            onclick="document.getElementById('modal_assignments').showModal()">
+        <i class="fa-solid fa-list-check text-primary"></i>
+    </button>
+
+    <button type="button" class="btn btn-square btn-ghost btn-sm" title="View Changes"
+            hx-get="{% url 'gradebook:score_changes' class_obj.pk subject.pk %}"
+            hx-target="#changes-container"
+            onclick="document.getElementById('modal_changes').showModal()">
+        <i class="fa-solid fa-clock-rotate-left text-info"></i>
+    </button>
+
+    {% if is_class_teacher %}
+    <a href="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+       hx-get="{% url 'gradebook:bulk_remarks' class_obj.pk %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="btn btn-square btn-ghost btn-sm" title="Enter Remarks">
+        <i class="fa-solid fa-comment-dots text-warning"></i>
+    </a>
+    {% endif %}
+
+    {% if view_mode == 'table' and editing_allowed %}
+    <a href="{% url 'gradebook:import_template' class_obj.pk subject.pk %}"
+       class="btn btn-square btn-ghost btn-sm" title="Download Template">
+        <i class="fa-solid fa-file-arrow-down text-success"></i>
+    </a>
+    <button type="button" class="btn btn-square btn-ghost btn-sm" title="Import Scores"
+            onclick="document.getElementById('modal_import').showModal()">
+        <i class="fa-solid fa-upload text-primary"></i>
+    </button>
+    {% endif %}
+</div>

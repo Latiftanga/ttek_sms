@@ -65,8 +65,9 @@
                 </button>
                 {% endif %}
 
-                <!-- Overflow menu -->
-                <div class="dropdown dropdown-end">
+                {% include 'gradebook/partials/score_actions_toolbar.html' with view_mode='student' %}
+                <!-- Overflow menu (mobile/tablet only - see toolbar above for lg: and up) -->
+                <div class="dropdown dropdown-end lg:hidden">
                     <button type="button" tabindex="0" class="btn btn-circle btn-ghost btn-sm min-h-[40px] min-w-[40px] touch-manipulation" title="More options">
                         <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                     </button>
