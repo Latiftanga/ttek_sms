@@ -196,7 +196,8 @@ def score_entry_form(request, class_id, subject_id):
     """Score entry form for a specific class/subject.
 
     OPTIMIZED: Uses select_related and builds lookup dict for O(1) score access.
-    Supports both table view (desktop) and card view (mobile).
+    The table itself is responsive (sticky columns, compact sizing on small
+    screens) rather than swapping to a separate card layout on mobile.
     """
     # Get base context from shared helper (DRY)
     context = _get_score_entry_base_context(request, class_id, subject_id)
@@ -215,12 +216,7 @@ def score_entry_form(request, class_id, subject_id):
         ).only('student_id', 'assignment_id', 'points'):
             scores_dict[score.student_id][score.assignment_id] = score.points
 
-    # Check view mode preference (table or card)
-    view_mode = request.GET.get('view', 'auto')  # auto, table, or card
-
-    # Add view-specific context
     context['scores_dict'] = dict(scores_dict)  # Convert to regular dict for template
-    context['view_mode'] = view_mode
 
     return htmx_render(
         request,
