@@ -739,33 +739,12 @@ def exeat_student_guardian(request, pk):
     return response
 
 
-@housemaster_required
-def exeat_detail(request, pk):
-    """View exeat details."""
-    exeat = get_object_or_404(
-        Exeat.objects.select_related(
-            'student', 'student__house', 'student__current_class',
-            'housemaster', 'recommended_by', 'approved_by', 'requested_by',
-            'approval_sms', 'return_sms'  # Include SMS records for notification display
-        ),
-        pk=pk
-    )
-
+def _exeat_detail_context(request, exeat):
+    """Build the context exeat_detail.html needs - shared by the detail view
+    itself and by every action below that redraws it after processing."""
     user = request.user
     assignment = get_housemaster_assignment(user)
 
-    # Permission check
-    can_view = (
-        is_school_admin(user) or
-        (assignment and assignment.is_senior) or
-        (assignment and exeat.student.house == assignment.house)
-    )
-
-    if not can_view:
-        messages.error(request, "You don't have permission to view this exeat.")
-        return redirect('students:exeat_index')
-
-    # Determine what actions the user can take
     can_approve_internal = (
         exeat.exeat_type == Exeat.ExeatType.INTERNAL and
         exeat.status == Exeat.Status.PENDING and
@@ -804,7 +783,7 @@ def exeat_detail(request, pk):
         (is_admin_or_senior or is_house_housemaster)
     )
 
-    context = {
+    return {
         'exeat': exeat,
         'can_approve_internal': can_approve_internal,
         'can_recommend': can_recommend,
@@ -813,13 +792,101 @@ def exeat_detail(request, pk):
         'can_mark_returned': can_mark_returned,
         'can_reject': can_reject,
         'can_cancel': can_cancel,
-        'is_senior': (assignment and assignment.is_senior) or is_school_admin(user),
+        'is_senior': is_admin_or_senior,
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
             {'label': 'Exeats', 'url': reverse('students:exeat_index')},
             {'label': exeat.student.full_name},
         ],
     }
+
+
+def _render_exeat_detail(request, exeat, toast_message=None, toast_type='success'):
+    """
+    Re-render the exeat detail partial with a toast, for the action views
+    below. These used to respond with HX-Redirect (a full client-side
+    navigation to exeat_detail.html, which never renders Django's messages
+    framework output - the same gap found and fixed elsewhere this
+    session), so every messages.success()/warning()/error() call describing
+    the outcome (including SMS notification status) was invisible.
+
+    HX-Retarget/HX-Reswap redirect the swap to #main-content regardless of
+    which form issued the request (none of these set an explicit
+    hx-target, so htmx would otherwise try to swap this whole page into
+    that one small form).
+    """
+    exeat.refresh_from_db()
+    exeat = Exeat.objects.select_related(
+        'student', 'student__house', 'student__current_class',
+        'housemaster', 'recommended_by', 'approved_by', 'requested_by',
+        'approval_sms', 'return_sms'
+    ).get(pk=exeat.pk)
+    response = render(
+        request, 'students/partials/exeat_detail.html',
+        _exeat_detail_context(request, exeat)
+    )
+    response['HX-Retarget'] = '#main-content'
+    response['HX-Reswap'] = 'innerHTML'
+    if toast_message:
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {'message': toast_message, 'type': toast_type}
+        })
+    return response
+
+
+_TOAST_SEVERITY = {'success': 0, 'info': 1, 'warning': 2, 'error': 3}
+
+
+def _combine_toasts(parts):
+    """
+    Combine a list of (message, type) pairs collected during one request
+    into a single toast - the toast UI is a single slot, not a stack, so
+    firing more than one showToast per response just overwrites itself and
+    only the last one would ever be seen. Uses the highest-severity type
+    across all parts so a real problem (e.g. an SMS failure) isn't masked
+    by an earlier success message's type.
+    """
+    parts = [p for p in parts if p and p[0]]
+    if not parts:
+        return None, 'success'
+    message = ' '.join(p[0] for p in parts)
+    toast_type = max((p[1] for p in parts), key=lambda t: _TOAST_SEVERITY.get(t, 0))
+    return message, toast_type
+
+
+@housemaster_required
+def exeat_detail(request, pk):
+    """View exeat details."""
+    exeat = get_object_or_404(
+        Exeat.objects.select_related(
+            'student', 'student__house', 'student__current_class',
+            'housemaster', 'recommended_by', 'approved_by', 'requested_by',
+            'approval_sms', 'return_sms'  # Include SMS records for notification display
+        ),
+        pk=pk
+    )
+
+    user = request.user
+    assignment = get_housemaster_assignment(user)
+
+    # Permission check
+    can_view = (
+        is_school_admin(user) or
+        (assignment and assignment.is_senior) or
+        (assignment and exeat.student.house == assignment.house)
+    )
+
+    if not can_view:
+        message = "You don't have permission to view this exeat."
+        if request.htmx:
+            response = HttpResponse(status=204)
+            response['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': 'error'}})
+            response['HX-Redirect'] = reverse('students:exeat_index')
+            return response
+        messages.error(request, message)
+        return redirect('students:exeat_index')
+
+    context = _exeat_detail_context(request, exeat)
 
     if request.htmx:
         return render(request, 'students/partials/exeat_detail.html', context)
@@ -839,17 +906,19 @@ def exeat_approve(request, pk):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
+    toast_parts = []
+
     # Internal exeat - direct approval by housemaster
     if exeat.exeat_type == Exeat.ExeatType.INTERNAL and exeat.status == Exeat.Status.PENDING:
         if not (is_school_admin(user) or (assignment and exeat.student.house == assignment.house)):
-            messages.error(request, "You can't approve this exeat.")
-            return redirect('students:exeat_detail', pk=pk)
+            return _render_exeat_detail(request, exeat, "You can't approve this exeat.", 'error')
 
         if not exeat.approve(teacher):
-            messages.error(request, "This exeat has already been processed by another user.")
-            return redirect('students:exeat_detail', pk=pk)
+            return _render_exeat_detail(
+                request, exeat, "This exeat has already been processed by another user.", 'error'
+            )
 
-        messages.success(request, f'Internal exeat approved for {exeat.student.full_name}.')
+        toast_parts.append((f'Internal exeat approved for {exeat.student.full_name}.', 'success'))
 
         # Bell notifications for guardian and student
         from core.notifications import notify_guardian, notify_student
@@ -873,37 +942,39 @@ def exeat_approve(request, pk):
         # Send SMS notification to guardian with feedback
         sms_result = send_exeat_approval_sms(exeat, user)
         if sms_result.is_success:
-            messages.info(request, f"SMS sent to guardian ({sms_result.guardian_phone}).")
+            toast_parts.append((f"SMS sent to guardian ({sms_result.guardian_phone}).", 'info'))
         elif sms_result.status == SMSResult.SMS_DISABLED:
-            messages.warning(request, "SMS notifications are disabled. Guardian not notified.")
+            toast_parts.append(("SMS notifications are disabled. Guardian not notified.", 'warning'))
         elif sms_result.status in [SMSResult.NO_GUARDIAN, SMSResult.NO_PHONE]:
-            messages.warning(request, sms_result.user_message)
+            toast_parts.append((sms_result.user_message, 'warning'))
         else:
-            messages.error(request, f"SMS failed: {sms_result.user_message}")
+            toast_parts.append((f"SMS failed: {sms_result.user_message}", 'error'))
 
     # External exeat - recommend by housemaster
     elif exeat.exeat_type == Exeat.ExeatType.EXTERNAL and exeat.status == Exeat.Status.PENDING:
         if not (is_school_admin(user) or (assignment and exeat.student.house == assignment.house)):
-            messages.error(request, "You can't recommend this exeat.")
-            return redirect('students:exeat_detail', pk=pk)
+            return _render_exeat_detail(request, exeat, "You can't recommend this exeat.", 'error')
 
         if not exeat.recommend(teacher):
-            messages.error(request, "This exeat has already been processed by another user.")
-            return redirect('students:exeat_detail', pk=pk)
+            return _render_exeat_detail(
+                request, exeat, "This exeat has already been processed by another user.", 'error'
+            )
 
-        messages.success(request, 'External exeat recommended for senior housemaster approval.')
+        toast_parts.append(('External exeat recommended for senior housemaster approval.', 'success'))
 
     # External exeat - final approval by senior housemaster
     elif exeat.exeat_type == Exeat.ExeatType.EXTERNAL and exeat.status == Exeat.Status.RECOMMENDED:
         if not (is_school_admin(user) or (assignment and assignment.is_senior)):
-            messages.error(request, "Only the senior housemaster can approve external exeats.")
-            return redirect('students:exeat_detail', pk=pk)
+            return _render_exeat_detail(
+                request, exeat, "Only the senior housemaster can approve external exeats.", 'error'
+            )
 
         if not exeat.approve(teacher):
-            messages.error(request, "This exeat has already been processed by another user.")
-            return redirect('students:exeat_detail', pk=pk)
+            return _render_exeat_detail(
+                request, exeat, "This exeat has already been processed by another user.", 'error'
+            )
 
-        messages.success(request, f'External exeat approved for {exeat.student.full_name}.')
+        toast_parts.append((f'External exeat approved for {exeat.student.full_name}.', 'success'))
 
         # Bell notifications for guardian and student
         from core.notifications import notify_guardian, notify_student
@@ -927,22 +998,21 @@ def exeat_approve(request, pk):
         # Send SMS notification to guardian with feedback
         sms_result = send_exeat_approval_sms(exeat, user)
         if sms_result.is_success:
-            messages.info(request, f"SMS sent to guardian ({sms_result.guardian_phone}).")
+            toast_parts.append((f"SMS sent to guardian ({sms_result.guardian_phone}).", 'info'))
         elif sms_result.status == SMSResult.SMS_DISABLED:
-            messages.warning(request, "SMS notifications are disabled. Guardian not notified.")
+            toast_parts.append(("SMS notifications are disabled. Guardian not notified.", 'warning'))
         elif sms_result.status in [SMSResult.NO_GUARDIAN, SMSResult.NO_PHONE]:
-            messages.warning(request, sms_result.user_message)
+            toast_parts.append((sms_result.user_message, 'warning'))
         else:
-            messages.error(request, f"SMS failed: {sms_result.user_message}")
+            toast_parts.append((f"SMS failed: {sms_result.user_message}", 'error'))
 
     else:
-        messages.error(request, "This exeat cannot be approved in its current state.")
+        return _render_exeat_detail(
+            request, exeat, "This exeat cannot be approved in its current state.", 'error'
+        )
 
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
-        return response
-    return redirect('students:exeat_detail', pk=pk)
+    message, toast_type = _combine_toasts(toast_parts)
+    return _render_exeat_detail(request, exeat, message, toast_type)
 
 
 @housemaster_required
@@ -958,8 +1028,7 @@ def exeat_reject(request, pk):
         return HttpResponse(status=405)
 
     if exeat.status not in [Exeat.Status.PENDING, Exeat.Status.RECOMMENDED, Exeat.Status.OVERDUE]:
-        messages.error(request, "This exeat cannot be rejected.")
-        return redirect('students:exeat_detail', pk=pk)
+        return _render_exeat_detail(request, exeat, "This exeat cannot be rejected.", 'error')
 
     # Check permission
     can_reject = (
@@ -969,16 +1038,16 @@ def exeat_reject(request, pk):
     )
 
     if not can_reject:
-        messages.error(request, "You can't reject this exeat.")
-        return redirect('students:exeat_detail', pk=pk)
+        return _render_exeat_detail(request, exeat, "You can't reject this exeat.", 'error')
 
     reason = request.POST.get('reason', '')
     teacher = get_teacher_profile(user)
     if not exeat.reject(teacher=teacher, reason=reason):
-        messages.error(request, "This exeat has already been processed by another user.")
-        return redirect('students:exeat_detail', pk=pk)
+        return _render_exeat_detail(
+            request, exeat, "This exeat has already been processed by another user.", 'error'
+        )
 
-    messages.success(request, f'Exeat rejected for {exeat.student.full_name}.')
+    toast_parts = [(f'Exeat rejected for {exeat.student.full_name}.', 'success')]
 
     # Bell notifications for guardian and student
     from core.notifications import notify_guardian, notify_student
@@ -1002,15 +1071,12 @@ def exeat_reject(request, pk):
     # Send rejection SMS to guardian
     sms_result = send_exeat_rejection_sms(exeat, request.user)
     if sms_result.is_success:
-        messages.info(request, f"Rejection SMS sent to guardian ({sms_result.guardian_phone}).")
+        toast_parts.append((f"Rejection SMS sent to guardian ({sms_result.guardian_phone}).", 'info'))
     elif sms_result.status in [SMSResult.NO_GUARDIAN, SMSResult.NO_PHONE]:
-        messages.warning(request, sms_result.user_message)
+        toast_parts.append((sms_result.user_message, 'warning'))
 
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
-        return response
-    return redirect('students:exeat_detail', pk=pk)
+    message, toast_type = _combine_toasts(toast_parts)
+    return _render_exeat_detail(request, exeat, message, toast_type)
 
 
 @housemaster_required
@@ -1031,20 +1097,17 @@ def exeat_depart(request, pk):
         (assignment and exeat.student.house == assignment.house)
     )
     if not can_depart:
-        messages.error(request, "You don't have permission to mark this exeat as departed.")
-        return redirect('students:exeat_detail', pk=pk)
+        return _render_exeat_detail(
+            request, exeat, "You don't have permission to mark this exeat as departed.", 'error'
+        )
 
     if not exeat.mark_departed():
-        messages.error(request, "This exeat cannot be marked as departed (already processed or not approved).")
-        return redirect('students:exeat_detail', pk=pk)
+        return _render_exeat_detail(
+            request, exeat,
+            "This exeat cannot be marked as departed (already processed or not approved).", 'error'
+        )
 
-    messages.success(request, f'{exeat.student.full_name} has departed.')
-
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
-        return response
-    return redirect('students:exeat_detail', pk=pk)
+    return _render_exeat_detail(request, exeat, f'{exeat.student.full_name} has departed.', 'success')
 
 
 @housemaster_required
@@ -1065,14 +1128,16 @@ def exeat_return(request, pk):
         (assignment and exeat.student.house == assignment.house)
     )
     if not can_return:
-        messages.error(request, "You don't have permission to mark this exeat as returned.")
-        return redirect('students:exeat_detail', pk=pk)
+        return _render_exeat_detail(
+            request, exeat, "You don't have permission to mark this exeat as returned.", 'error'
+        )
 
     if not exeat.mark_returned():
-        messages.error(request, "This exeat cannot be marked as returned (already processed).")
-        return redirect('students:exeat_detail', pk=pk)
+        return _render_exeat_detail(
+            request, exeat, "This exeat cannot be marked as returned (already processed).", 'error'
+        )
 
-    messages.success(request, f'{exeat.student.full_name} has returned.')
+    toast_parts = [(f'{exeat.student.full_name} has returned.', 'success')]
 
     # Bell notification for guardian
     from core.notifications import notify_guardian
@@ -1088,19 +1153,16 @@ def exeat_return(request, pk):
     # Send SMS notification to guardian with feedback
     sms_result = send_exeat_return_sms(exeat, request.user)
     if sms_result.is_success:
-        messages.info(request, f"Return notification SMS sent to guardian ({sms_result.guardian_phone}).")
+        toast_parts.append((f"Return notification SMS sent to guardian ({sms_result.guardian_phone}).", 'info'))
     elif sms_result.status == SMSResult.SMS_DISABLED:
-        messages.warning(request, "SMS notifications are disabled. Guardian not notified of return.")
+        toast_parts.append(("SMS notifications are disabled. Guardian not notified of return.", 'warning'))
     elif sms_result.status in [SMSResult.NO_GUARDIAN, SMSResult.NO_PHONE]:
-        messages.warning(request, sms_result.user_message)
+        toast_parts.append((sms_result.user_message, 'warning'))
     else:
-        messages.error(request, f"Return SMS failed: {sms_result.user_message}")
+        toast_parts.append((f"Return SMS failed: {sms_result.user_message}", 'error'))
 
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
-        return response
-    return redirect('students:exeat_detail', pk=pk)
+    message, toast_type = _combine_toasts(toast_parts)
+    return _render_exeat_detail(request, exeat, message, toast_type)
 
 
 @housemaster_required
@@ -1121,20 +1183,17 @@ def exeat_cancel(request, pk):
         (assignment and exeat.student.house == assignment.house)
     )
     if not can_cancel:
-        messages.error(request, "You don't have permission to cancel this exeat.")
-        return redirect('students:exeat_detail', pk=pk)
+        return _render_exeat_detail(
+            request, exeat, "You don't have permission to cancel this exeat.", 'error'
+        )
 
     if not exeat.cancel():
-        messages.error(request, "This exeat cannot be cancelled (already active, completed, or rejected).")
-        return redirect('students:exeat_detail', pk=pk)
+        return _render_exeat_detail(
+            request, exeat,
+            "This exeat cannot be cancelled (already active, completed, or rejected).", 'error'
+        )
 
-    messages.success(request, f'Exeat cancelled for {exeat.student.full_name}.')
-
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Redirect'] = reverse('students:exeat_detail', args=[pk])
-        return response
-    return redirect('students:exeat_detail', pk=pk)
+    return _render_exeat_detail(request, exeat, f'Exeat cancelled for {exeat.student.full_name}.', 'success')
 
 
 # ============ Exeat Landing (route by role) ============
