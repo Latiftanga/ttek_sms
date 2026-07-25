@@ -853,7 +853,16 @@ def check_export_status(request, task_id):
 def download_class_reports(request, filename):
     """Serve a generated ZIP file for download."""
     from pathlib import Path
+    from django.db import connection
     from django.http import FileResponse
+
+    # These ZIPs live on a shared, tenant-agnostic filesystem path
+    # (MEDIA_ROOT/exports/<schema>/...), not the per-tenant storage backend -
+    # nothing else here confirms the file belongs to the CURRENT tenant, so
+    # without this check a user on one school's subdomain could download
+    # another school's report cards just by knowing/guessing their filename.
+    if not filename.startswith(f'{connection.schema_name}/'):
+        return HttpResponse('Invalid path', status=400)
 
     media_root = Path(settings.MEDIA_ROOT).resolve()
     exports_root = media_root / 'exports'
