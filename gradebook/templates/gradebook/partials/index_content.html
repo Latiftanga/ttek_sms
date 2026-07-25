@@ -371,8 +371,11 @@
 
         <script>
         (function() {
-            // Count complete classes
-            const items = document.querySelectorAll('[data-status]');
+            // Count complete classes. Scoped to .progress-item only (the mobile
+            // list) - both the mobile and desktop lists render the same classes
+            // simultaneously (CSS-hidden, not DOM-removed, per breakpoint), so
+            // an unscoped '[data-status]' query double-counts every class.
+            const items = document.querySelectorAll('.progress-item[data-status]');
             let complete = 0;
             items.forEach(item => {
                 if (item.dataset.status === 'complete') complete++;
@@ -381,11 +384,17 @@
             if (summaryEl) summaryEl.textContent = complete;
         })();
 
+        // Single source of truth for the mobile list's collapsed/expanded
+        // state, shared between filterProgressList and toggleProgressList so
+        // switching filters and back to "All" doesn't desync the 6-item cap
+        // from the "Show All"/"Show Less" button's label.
+        let progressListExpanded = false;
+
         function filterProgressList(filter) {
             const mobileItems = document.querySelectorAll('#progress-list-mobile .progress-item');
             const desktopItems = document.querySelectorAll('#progress-list-desktop .progress-item-row');
             const buttons = document.querySelectorAll('.progress-filter');
-            let visibleCount = 0;
+            let matchCount = 0;
 
             buttons.forEach(btn => {
                 btn.classList.remove('btn-primary');
@@ -396,47 +405,48 @@
                 }
             });
 
-            [...mobileItems, ...desktopItems].forEach(item => {
-                const status = item.dataset.status;
-                const shouldShow = filter === 'all' || status === filter;
-
-                if (item.classList.contains('progress-item')) {
-                    // Mobile item
-                    item.classList.toggle('hidden', !shouldShow);
-                } else {
-                    // Desktop row
-                    item.style.display = shouldShow ? '' : 'none';
-                }
-
-                if (shouldShow) visibleCount++;
+            mobileItems.forEach((item, index) => {
+                const matches = filter === 'all' || item.dataset.status === filter;
+                if (matches) matchCount++;
+                // Beyond the initial 6-item cap, stay hidden while on the
+                // "All" filter unless the user has explicitly expanded the
+                // list - a narrowing filter (pending/complete) always shows
+                // every match, since there's no cap to apply there.
+                const cappedByCollapse = filter === 'all' && !progressListExpanded && index > 5;
+                item.classList.toggle('hidden', !matches || cappedByCollapse);
             });
 
-            // Update visible count (divide by 2 since we count both mobile and desktop)
-            document.getElementById('visible-count').textContent = Math.ceil(visibleCount / 2);
+            desktopItems.forEach(item => {
+                const matches = filter === 'all' || item.dataset.status === filter;
+                item.style.display = matches ? '' : 'none';
+            });
 
-            // Hide show more button when filtering
+            document.getElementById('visible-count').textContent = matchCount;
+
+            // Show the "Show All" button only when it still has a job to do:
+            // on the "All" filter, collapsed, with more than 6 classes.
             const showMoreBtn = document.getElementById('show-more-mobile');
             if (showMoreBtn) {
-                showMoreBtn.style.display = filter === 'all' ? '' : 'none';
+                showMoreBtn.style.display = (filter === 'all' && !progressListExpanded) ? '' : 'none';
             }
         }
 
         function toggleProgressList(btn) {
             const container = document.getElementById('progress-list-mobile');
             const items = container.querySelectorAll('.progress-item');
-            const isExpanded = btn.dataset.expanded === 'true';
+            progressListExpanded = !progressListExpanded;
 
             items.forEach((item, index) => {
                 if (index > 5) {
-                    item.classList.toggle('hidden', isExpanded);
+                    item.classList.toggle('hidden', !progressListExpanded);
                 }
             });
 
-            btn.dataset.expanded = (!isExpanded).toString();
-            if (isExpanded) {
-                btn.innerHTML = 'Show All {{ classes_needing_scores|length }} Classes <i class="fa-solid fa-chevron-down ml-1"></i>';
-            } else {
+            btn.dataset.expanded = progressListExpanded.toString();
+            if (progressListExpanded) {
                 btn.innerHTML = 'Show Less <i class="fa-solid fa-chevron-up ml-1"></i>';
+            } else {
+                btn.innerHTML = 'Show All {{ classes_needing_scores|length }} Classes <i class="fa-solid fa-chevron-down ml-1"></i>';
             }
         }
         </script>
