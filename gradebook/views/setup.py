@@ -1,7 +1,6 @@
 from decimal import Decimal, InvalidOperation
 from django.db import connection, models
 from django.db.models import Count
-from django.core.cache import cache
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -23,21 +22,6 @@ def _get_school_levels():
     elif education_system == 'shs':
         return [lvl for lvl in GradingSystem.SCHOOL_LEVELS if lvl[0] == 'SHS']
     return GradingSystem.SCHOOL_LEVELS
-
-
-def _invalidate_grading_caches(system=None):
-    """
-    Clear the score-entry-time grading-system/grade-scale caches (see
-    gradebook/signals.py:get_grading_system_cached / get_grade_scales_cached).
-    Without this, a create/edit/delete here can take up to 5 minutes to
-    affect live grade calculation on Score save.
-    """
-    schema = connection.schema_name
-    for level, _label in GradingSystem.SCHOOL_LEVELS:
-        cache.delete(f'grading_system_{schema}_{level}')
-    cache.delete(f'grading_system_{schema}_fallback')
-    if system is not None:
-        cache.delete(f'grade_scales_{system.pk}')
 
 
 def _safe_int(value, default=0):
@@ -207,12 +191,11 @@ def grading_system_create(request):
             'levels': _get_school_levels(),
         })
 
-    system = GradingSystem.objects.create(
+    GradingSystem.objects.create(
         name=name,
         level=level,
         description=description,
     )
-    _invalidate_grading_caches(system)
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
@@ -239,7 +222,6 @@ def grading_system_edit(request, pk):
     system.description = request.POST.get('description', '').strip()
     system.is_active = request.POST.get('is_active') == 'on'
     system.save()
-    _invalidate_grading_caches(system)
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
@@ -264,7 +246,6 @@ def grading_system_delete(request, pk):
             'gradebook:settings',
         )
 
-    _invalidate_grading_caches(system)
     system.delete()
 
     response = HttpResponse(status=204)
@@ -306,8 +287,6 @@ def grade_scale_create(request, system_id):
             'error': str(e),
         })
 
-    _invalidate_grading_caches(system)
-
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
     return response
@@ -345,8 +324,6 @@ def grade_scale_edit(request, pk):
             'error': str(e),
         })
 
-    _invalidate_grading_caches(scale.grading_system)
-
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
     return response
@@ -360,9 +337,7 @@ def grade_scale_delete(request, pk):
         return HttpResponse(status=405)
 
     scale = get_object_or_404(GradeScale, pk=pk)
-    system = scale.grading_system
     scale.delete()
-    _invalidate_grading_caches(system)
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'refreshSettings'

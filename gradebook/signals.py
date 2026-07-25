@@ -15,7 +15,7 @@ from django.dispatch import receiver
 
 from .models import (
     Score, SubjectTermGrade, TermReport,
-    AssessmentCategory, Assignment, GradingSystem
+    AssessmentCategory, Assignment, GradingSystem, GradeScale
 )
 from .utils import (
     calculate_category_scores,
@@ -318,3 +318,27 @@ def invalidate_categories_cache(sender, instance, **kwargs):
     from .utils import invalidate_categories_cache as clear_cache
     clear_cache()
     logger.debug(f"Categories cache invalidated due to {sender.__name__} change")
+
+
+@receiver(post_save, sender=GradingSystem)
+@receiver(post_delete, sender=GradingSystem)
+def invalidate_grading_system_cache(sender, instance, **kwargs):
+    """
+    Invalidate the get_grading_system_cached() cache when a GradingSystem is
+    modified. Without this, score entry keeps using a stale (or now-deleted)
+    grading system for up to GRADING_SYSTEM_CACHE_TIMEOUT seconds.
+    """
+    from django.db import connection
+    schema = connection.schema_name
+    for level, _label in GradingSystem.SCHOOL_LEVELS:
+        cache.delete(f'grading_system_{schema}_{level}')
+    cache.delete(f'grading_system_{schema}_fallback')
+    logger.debug(f"Grading system cache invalidated due to {sender.__name__} change")
+
+
+@receiver(post_save, sender=GradeScale)
+@receiver(post_delete, sender=GradeScale)
+def invalidate_grade_scales_cache(sender, instance, **kwargs):
+    """Invalidate get_grade_scales_cached() when a GradeScale is modified."""
+    cache.delete(f'grade_scales_{instance.grading_system_id}')
+    logger.debug(f"Grade scales cache invalidated due to {sender.__name__} change")
