@@ -270,7 +270,7 @@ def grade_scale_create(request, system_id):
         return HttpResponse(status=405)
 
     try:
-        GradeScale.objects.create(
+        scale = GradeScale(
             grading_system=system,
             grade_label=request.POST.get('grade_label', '').strip(),
             min_percentage=Decimal(request.POST.get('min_percentage', '0')),
@@ -281,10 +281,13 @@ def grade_scale_create(request, system_id):
             is_credit=bool(request.POST.get('is_credit')),
             order=int(request.POST.get('order') or 0),
         )
+        scale.full_clean()
+        scale.save()
     except (ValueError, InvalidOperation, ValidationError) as e:
+        error = '; '.join(e.messages) if isinstance(e, ValidationError) else str(e)
         return render(request, 'gradebook/includes/modal_grade_scale.html', {
             'system': system,
-            'error': str(e),
+            'error': error,
         })
 
     response = HttpResponse(status=204)
@@ -316,12 +319,14 @@ def grade_scale_edit(request, pk):
         scale.is_pass = bool(request.POST.get('is_pass'))
         scale.is_credit = bool(request.POST.get('is_credit'))
         scale.order = int(request.POST.get('order') or 0)
+        scale.full_clean()
         scale.save()
     except (ValueError, InvalidOperation, ValidationError) as e:
+        error = '; '.join(e.messages) if isinstance(e, ValidationError) else str(e)
         return render(request, 'gradebook/includes/modal_grade_scale.html', {
             'system': scale.grading_system,
             'scale': scale,
-            'error': str(e),
+            'error': error,
         })
 
     response = HttpResponse(status=204)
@@ -391,16 +396,22 @@ def category_create(request):
             'category_types': AssessmentCategory.CATEGORY_TYPES,
         })
 
-    AssessmentCategory.objects.create(
-        name=name,
-        short_name=short_name,
-        category_type=request.POST.get('category_type', 'OTHER'),
-        percentage=percentage,
-        order=_safe_int(request.POST.get('order', 0)),
-        expected_assessments=expected_assessments,
-        min_assessments=min_assessments,
-        max_assessments=max_assessments,
-    )
+    try:
+        AssessmentCategory.objects.create(
+            name=name,
+            short_name=short_name,
+            category_type=request.POST.get('category_type', 'OTHER'),
+            percentage=percentage,
+            order=_safe_int(request.POST.get('order', 0)),
+            expected_assessments=expected_assessments,
+            min_assessments=min_assessments,
+            max_assessments=max_assessments,
+        )
+    except ValidationError as e:
+        return render(request, 'gradebook/includes/modal_category.html', {
+            'error': '; '.join(e.messages),
+            'category_types': AssessmentCategory.CATEGORY_TYPES,
+        })
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
@@ -460,7 +471,15 @@ def category_edit(request, pk):
     category.min_assessments = min_assessments
     category.max_assessments = max_assessments
     category.is_active = new_is_active
-    category.save()
+
+    try:
+        category.save()
+    except ValidationError as e:
+        return render(request, 'gradebook/includes/modal_category.html', {
+            'category': category,
+            'category_types': AssessmentCategory.CATEGORY_TYPES,
+            'error': '; '.join(e.messages),
+        })
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
