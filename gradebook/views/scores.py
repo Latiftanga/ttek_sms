@@ -190,63 +190,14 @@ def score_entry(request):
     )
 
 
-@login_required
-@teacher_or_admin_required
-def score_entry_form(request, class_id, subject_id):
-    """Score entry form for a specific class/subject.
-
-    OPTIMIZED: Uses select_related and builds lookup dict for O(1) score access.
-    The table itself is responsive (sticky columns, compact sizing on small
-    screens) rather than swapping to a separate card layout on mobile.
+def _render_student_score_view(request, context, student):
     """
-    # Get base context from shared helper (DRY)
-    context = _get_score_entry_base_context(request, class_id, subject_id)
+    Shared rendering for the per-student card layout ("Student View").
+    Called both for an explicit student pick (score_entry_student) and as
+    the auto mobile default (score_entry_form, first enrolled student).
+    """
     students = context['students']
     assignments = context['assignments']
-
-    # Get existing scores in single query - build nested dict for O(1) template lookup
-    # Structure: {student_id: {assignment_id: points}}
-    scores_dict = defaultdict(dict)
-    if students and assignments:
-        student_ids = [s.id for s in students]
-        assignment_ids = [a.id for a in assignments]
-        for score in Score.objects.filter(
-            student_id__in=student_ids,
-            assignment_id__in=assignment_ids
-        ).only('student_id', 'assignment_id', 'points'):
-            scores_dict[score.student_id][score.assignment_id] = score.points
-
-    context['scores_dict'] = dict(scores_dict)  # Convert to regular dict for template
-
-    return htmx_render(
-        request,
-        'gradebook/score_form.html',
-        'gradebook/partials/score_form.html',
-        context
-    )
-
-
-@login_required
-@teacher_or_admin_required
-def score_entry_student(request, class_id, subject_id, student_id):
-    """Mobile-optimized score entry for a single student.
-
-    Shows all assignments for one student in a vertical card layout,
-    optimized for touch input on mobile devices.
-    """
-    # Get base context from shared helper (DRY)
-    context = _get_score_entry_base_context(request, class_id, subject_id)
-    students = context['students']
-    assignments = context['assignments']
-    class_obj = context['class_obj']
-
-    # Get the specific student and verify they're in the filtered list (respects enrollment)
-    student = get_object_or_404(Student, pk=student_id, current_class=class_obj)
-
-    # Verify student is in the enrollment-filtered list (prevents access to unenrolled students)
-    student_ids = {s.id for s in students}
-    if student.id not in student_ids:
-        raise Http404("Student is not enrolled in this subject.")
 
     # Find current student index for prev/next navigation
     current_index = next((i for i, s in enumerate(students) if s.id == student.id), 0)
@@ -290,6 +241,72 @@ def score_entry_student(request, class_id, subject_id, student_id):
         'gradebook/partials/score_form_student.html',
         context
     )
+
+
+@login_required
+@teacher_or_admin_required
+def score_entry_form(request, class_id, subject_id):
+    """Score entry form for a specific class/subject.
+
+    OPTIMIZED: Uses select_related and builds lookup dict for O(1) score access.
+    The table is responsive (sticky columns, compact sizing on small screens),
+    but on narrow screens the client requests the per-student card view
+    instead (?view=mobile) - this renders that view for the first enrolled
+    student with no extra round-trip, since the student list is already
+    loaded below either way.
+    """
+    # Get base context from shared helper (DRY)
+    context = _get_score_entry_base_context(request, class_id, subject_id)
+    students = context['students']
+    assignments = context['assignments']
+
+    if request.GET.get('view') == 'mobile' and students:
+        return _render_student_score_view(request, context, students[0])
+
+    # Get existing scores in single query - build nested dict for O(1) template lookup
+    # Structure: {student_id: {assignment_id: points}}
+    scores_dict = defaultdict(dict)
+    if students and assignments:
+        student_ids = [s.id for s in students]
+        assignment_ids = [a.id for a in assignments]
+        for score in Score.objects.filter(
+            student_id__in=student_ids,
+            assignment_id__in=assignment_ids
+        ).only('student_id', 'assignment_id', 'points'):
+            scores_dict[score.student_id][score.assignment_id] = score.points
+
+    context['scores_dict'] = dict(scores_dict)  # Convert to regular dict for template
+
+    return htmx_render(
+        request,
+        'gradebook/score_form.html',
+        'gradebook/partials/score_form.html',
+        context
+    )
+
+
+@login_required
+@teacher_or_admin_required
+def score_entry_student(request, class_id, subject_id, student_id):
+    """Mobile-optimized score entry for a single student.
+
+    Shows all assignments for one student in a vertical card layout,
+    optimized for touch input on mobile devices.
+    """
+    # Get base context from shared helper (DRY)
+    context = _get_score_entry_base_context(request, class_id, subject_id)
+    students = context['students']
+    class_obj = context['class_obj']
+
+    # Get the specific student and verify they're in the filtered list (respects enrollment)
+    student = get_object_or_404(Student, pk=student_id, current_class=class_obj)
+
+    # Verify student is in the enrollment-filtered list (prevents access to unenrolled students)
+    student_ids = {s.id for s in students}
+    if student.id not in student_ids:
+        raise Http404("Student is not enrolled in this subject.")
+
+    return _render_student_score_view(request, context, student)
 
 
 @login_required

@@ -93,12 +93,12 @@
         </div>
 
         {% if students %}
-        <!-- Mobile scroll hint -->
-        <div class="md:hidden flex items-center justify-end gap-2 text-xs text-base-content/50 mb-2">
+        <!-- Mobile scroll hint - JS shows this only if the table actually overflows (see script below) -->
+        <div id="table-scroll-hint" class="md:hidden flex items-center justify-end gap-2 text-xs text-base-content/50 mb-2" style="display:none;">
             <i class="fa-solid fa-arrows-left-right"></i>
             <span>Scroll for more</span>
         </div>
-        <div class="overflow-x-auto -mx-2 sm:-mx-3 md:-mx-4 px-2 sm:px-3 md:px-4 lg:mx-0 lg:px-0 scroll-shadow-container">
+        <div id="score-table-scroll" class="overflow-x-auto -mx-2 sm:-mx-3 md:-mx-4 px-2 sm:px-3 md:px-4 lg:mx-0 lg:px-0 scroll-shadow-container">
             <table class="table table-xs sm:table-sm table-pin-rows">
                 <thead>
                     <tr class="bg-base-200">
@@ -134,7 +134,7 @@
                         {% for assign in assignments %}
                         <td class="text-center p-0.5 sm:p-1">
                             <input type="number"
-                                   class="input input-bordered w-14 h-9 sm:w-16 sm:h-10 md:h-8 text-center text-sm sm:text-base md:text-sm font-medium score-input {% if not editing_allowed %}input-disabled{% endif %}"
+                                   class="input input-bordered w-14 h-10 sm:w-16 md:h-8 text-center text-sm sm:text-base md:text-sm font-medium score-input {% if not editing_allowed %}input-disabled{% endif %}"
                                    name="points"
                                    data-student="{{ student.pk }}"
                                    data-assignment="{{ assign.pk }}"
@@ -387,9 +387,22 @@
     document.addEventListener('click', handleClick);
     document.addEventListener('scroll', handleScroll, { capture: true });
 
+    // Only show the "Scroll for more" hint when the table actually overflows
+    // (e.g. 1-2 narrow assignment columns fit fine and shouldn't show it).
+    function updateScrollHint() {
+        var hint = document.getElementById('table-scroll-hint');
+        var container = document.getElementById('score-table-scroll');
+        if (!hint || !container) return;
+        var overflowing = container.scrollWidth > container.clientWidth + 1;
+        hint.style.display = overflowing ? '' : 'none';
+    }
+    updateScrollHint();
+    window.addEventListener('resize', updateScrollHint);
+
     window._scoreFormCleanup = function() {
         document.removeEventListener('click', handleClick);
         document.removeEventListener('scroll', handleScroll, { capture: true });
+        window.removeEventListener('resize', updateScrollHint);
     };
 })();
 </script>
