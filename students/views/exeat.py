@@ -622,27 +622,44 @@ def exeat_create(request):
                 return render(request, 'students/exeat_form.html', context)
 
             # Send approval SMS for auto-approved exeats
+            toast_parts = []
             if exeat.status == Exeat.Status.APPROVED:
                 sms_result = send_exeat_approval_sms(exeat, user)
                 if sms_result.is_success:
-                    messages.info(request, f"SMS sent to guardian ({sms_result.guardian_phone}).")
+                    toast_parts.append((f"SMS sent to guardian ({sms_result.guardian_phone}).", 'info'))
                 elif sms_result.status == SMSResult.SMS_DISABLED:
-                    messages.warning(request, "SMS notifications are disabled. Guardian not notified.")
+                    toast_parts.append(("SMS notifications are disabled. Guardian not notified.", 'warning'))
                 elif sms_result.status in [SMSResult.NO_GUARDIAN, SMSResult.NO_PHONE]:
-                    messages.warning(request, sms_result.user_message)
+                    toast_parts.append((sms_result.user_message, 'warning'))
                 else:
-                    messages.error(request, f"SMS failed: {sms_result.user_message}")
+                    toast_parts.append((f"SMS failed: {sms_result.user_message}", 'error'))
 
             if exeat.status == Exeat.Status.APPROVED:
-                messages.success(request, f'Exeat approved for {student.full_name}.')
+                toast_parts.append((f'Exeat approved for {student.full_name}.', 'success'))
             else:
-                messages.success(request, f'External exeat for {student.full_name} submitted for senior housemaster approval.')
+                toast_parts.append((
+                    f'External exeat for {student.full_name} submitted for senior housemaster approval.',
+                    'success'
+                ))
+            toast_message, toast_type = _combine_toasts(toast_parts)
 
             if request.htmx:
+                # Not the normal path (the create form is a plain POST, not
+                # hx-post), but kept for correctness: HX-Redirect is a full
+                # client-side navigation, so there's no response body to
+                # attach a startup toast script to either way.
                 response = HttpResponse(status=204)
                 response['HX-Redirect'] = reverse('students:exeat_detail', args=[exeat.pk])
                 return response
-            return redirect('students:exeat_detail', pk=exeat.pk)
+
+            # Render the detail page directly (rather than redirect) so the
+            # outcome - including SMS delivery status, which matters here -
+            # can be shown via a startup toast. exeat_detail.html/base.html
+            # never render Django's messages framework output, so a plain
+            # messages.success()/warning() + redirect was invisible.
+            detail_context = _exeat_detail_context(request, exeat)
+            detail_context['startup_toast'] = {'message': toast_message, 'type': toast_type}
+            return render(request, 'students/exeat_detail.html', detail_context)
         else:
             # Preserve selected student for re-rendering the form
             student_id = request.POST.get('student')

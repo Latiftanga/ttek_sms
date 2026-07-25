@@ -5,3 +5,16 @@
 {% block content %}
 {% include "students/partials/exeat_detail.html" %}
 {% endblock %}
+
+{% if startup_toast %}
+{% block extra_js %}
+<script>
+    document.body.dispatchEvent(new CustomEvent('showToast', {
+        detail: {
+            message: "{{ startup_toast.message|escapejs }}",
+            type: "{{ startup_toast.type|escapejs }}"
+        }
+    }));
+</script>
+{% endblock %}
+{% endif %}
