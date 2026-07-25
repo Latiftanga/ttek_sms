@@ -3,14 +3,13 @@ import logging
 import random
 
 from django.utils import timezone
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import HttpResponse
-from django.contrib import messages
 from django.core.paginator import Paginator
 
-from .base import admin_required, htmx_render, is_school_admin
+from .base import admin_required, htmx_render, is_school_admin, toast_redirect
 from ..models import RemarkTemplate, TermReport
 from academics.models import Class
 from students.models import Student
@@ -35,11 +34,9 @@ def bulk_remarks_entry(request, class_id):
     # Permission check - must be class teacher or admin
     if not is_school_admin(user):
         if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
-            messages.error(request, 'You do not have permission to access this page.')
-            return redirect('gradebook:reports')
+            return toast_redirect(request, 'You do not have permission to access this page.', 'gradebook:reports')
         if class_obj.class_teacher != user.teacher_profile:
-            messages.error(request, 'You can only enter remarks for your homeroom class.')
-            return redirect('gradebook:reports')
+            return toast_redirect(request, 'You can only enter remarks for your homeroom class.', 'gradebook:reports')
 
     # Get all students for counting
     all_students = list(Student.objects.filter(
@@ -48,8 +45,9 @@ def bulk_remarks_entry(request, class_id):
     ).order_by('last_name', 'first_name'))
 
     if not all_students:
-        messages.info(request, 'No active students found in this class.')
-        return redirect('gradebook:reports')
+        return toast_redirect(
+            request, 'No active students found in this class.', 'gradebook:reports', toast_type='info'
+        )
 
     # Prefetch all term reports for counting completed
     all_student_ids = [s.id for s in all_students]

@@ -2,7 +2,7 @@ from collections import Counter
 import logging
 import json
 
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -10,13 +10,12 @@ from django.http import HttpResponse, JsonResponse
 from django.db.models import OuterRef, Subquery
 from django.db import IntegrityError
 from django.conf import settings
-from django.contrib import messages
 from django.core.cache import cache
 
 from django.utils import timezone
 
 from .base import (
-    htmx_render, is_school_admin, teacher_or_admin_required
+    htmx_render, is_school_admin, teacher_or_admin_required, toast_redirect
 )
 from core.utils import admin_required
 from ..models import (
@@ -143,11 +142,14 @@ def report_cards(request):
             if getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile'):
                 teacher = user.teacher_profile
                 if class_obj.class_teacher != teacher:
-                    messages.error(request, 'You can only view reports for classes you are the form master of.')
-                    return redirect('gradebook:reports')
+                    return toast_redirect(
+                        request, 'You can only view reports for classes you are the form master of.',
+                        'gradebook:reports'
+                    )
             else:
-                messages.error(request, 'You do not have permission to view reports.')
-                return redirect('core:index')
+                return toast_redirect(
+                    request, 'You do not have permission to view reports.', 'core:index'
+                )
 
         if status_filter == 'active':
             # Active students: filter by current_class
@@ -270,11 +272,14 @@ def student_report(request, student_id):
             teacher = user.teacher_profile
             # Teacher must be the form master of the student's class
             if not student.current_class or student.current_class.class_teacher != teacher:
-                messages.error(request, 'You can only view reports for students in your homeroom class.')
-                return redirect('gradebook:reports')
+                return toast_redirect(
+                    request, 'You can only view reports for students in your homeroom class.',
+                    'gradebook:reports'
+                )
         else:
-            messages.error(request, 'You do not have permission to view this report.')
-            return redirect('core:index')
+            return toast_redirect(
+                request, 'You do not have permission to view this report.', 'core:index'
+            )
 
     report_data = _get_student_report_data(student, current_term)
 
@@ -424,11 +429,14 @@ def report_card_print(request, student_id):
             teacher = user.teacher_profile
             # Teacher must be the form master of the student's class
             if not student.current_class or student.current_class.class_teacher != teacher:
-                messages.error(request, 'You can only print reports for students in your homeroom class.')
-                return redirect('gradebook:reports')
+                return toast_redirect(
+                    request, 'You can only print reports for students in your homeroom class.',
+                    'gradebook:reports'
+                )
         else:
-            messages.error(request, 'You do not have permission to print this report.')
-            return redirect('core:index')
+            return toast_redirect(
+                request, 'You do not have permission to print this report.', 'core:index'
+            )
 
     report_data = _get_student_report_data(student, current_term)
     subject_grades = report_data['subject_grades']
@@ -511,11 +519,13 @@ def report_distribution(request, class_id):
     # Permission check - must be class teacher or admin
     if not is_school_admin(user):
         if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
-            messages.error(request, 'You do not have permission to access this page.')
-            return redirect('gradebook:reports')
+            return toast_redirect(
+                request, 'You do not have permission to access this page.', 'gradebook:reports'
+            )
         if class_obj.class_teacher != user.teacher_profile:
-            messages.error(request, 'You can only distribute reports for your homeroom class.')
-            return redirect('gradebook:reports')
+            return toast_redirect(
+                request, 'You can only distribute reports for your homeroom class.', 'gradebook:reports'
+            )
 
     # Get students with term reports
     students = list(Student.objects.filter(
@@ -524,8 +534,9 @@ def report_distribution(request, class_id):
     ).order_by('last_name', 'first_name'))
 
     if not students:
-        messages.info(request, 'No active students found in this class.')
-        return redirect('gradebook:reports')
+        return toast_redirect(
+            request, 'No active students found in this class.', 'gradebook:reports', toast_type='info'
+        )
 
     # Prefetch primary guardians to avoid N+1 on guardian_phone/guardian_email
     from students.models import StudentGuardian
@@ -731,8 +742,7 @@ def download_report_pdf(request, student_id):
     else:
         current_term = Term.get_current()
     if not current_term:
-        messages.error(request, 'No current term set.')
-        return redirect('gradebook:reports')
+        return toast_redirect(request, 'No current term set.', 'gradebook:reports')
 
     student = get_object_or_404(Student.objects.select_related('current_class'), pk=student_id)
     user = request.user
@@ -740,17 +750,14 @@ def download_report_pdf(request, student_id):
     # Permission check
     if not is_school_admin(user):
         if not (getattr(user, 'is_teacher', False) and hasattr(user, 'teacher_profile')):
-            messages.error(request, 'Permission denied.')
-            return redirect('gradebook:reports')
+            return toast_redirect(request, 'Permission denied.', 'gradebook:reports')
         if not student.current_class or student.current_class.class_teacher != user.teacher_profile:
-            messages.error(request, 'Permission denied.')
-            return redirect('gradebook:reports')
+            return toast_redirect(request, 'Permission denied.', 'gradebook:reports')
 
     try:
         term_report = TermReport.objects.get(student=student, term=current_term)
     except TermReport.DoesNotExist:
-        messages.error(request, 'No report found for this student.')
-        return redirect('gradebook:reports')
+        return toast_redirect(request, 'No report found for this student.', 'gradebook:reports')
 
     # Generate PDF
     from ..tasks import generate_report_pdf
@@ -765,8 +772,9 @@ def download_report_pdf(request, student_id):
 
     except (ValueError, ValidationError, IOError) as e:
         logger.error(f"Failed to generate PDF: {str(e)}")
-        messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
-        return redirect('gradebook:reports')
+        return toast_redirect(
+            request, 'Failed to generate PDF. Please try again or contact support.', 'gradebook:reports'
+        )
 
 
 # ============ Bulk PDF Export ============

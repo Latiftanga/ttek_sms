@@ -1,14 +1,13 @@
 import logging
 
 from django.utils import timezone
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.db import IntegrityError
-from django.contrib import messages
 
-from .base import htmx_render
+from .base import htmx_render, toast_redirect
 from ..utils import (
     check_transcript_permission,
     get_transcript_data,
@@ -24,8 +23,8 @@ def _check_and_redirect(request, user, student):
     """Check transcript permission and return redirect if denied, else None."""
     has_permission, error_msg = check_transcript_permission(user, student)
     if not has_permission:
-        messages.error(request, error_msg or 'Permission denied.')
-        return redirect('gradebook:reports' if 'homeroom' in (error_msg or '') else 'core:index')
+        target = 'gradebook:reports' if 'homeroom' in (error_msg or '') else 'core:index'
+        return toast_redirect(request, error_msg or 'Permission denied.', target)
     return None
 
 
@@ -155,8 +154,7 @@ def download_transcript_pdf(request, student_id):
     term_reports, _, grades_by_term = get_transcript_data(student)
 
     if not term_reports.exists():
-        messages.error(request, 'No academic records found for this student.')
-        return redirect('gradebook:reports')
+        return toast_redirect(request, 'No academic records found for this student.', 'gradebook:reports')
 
     history_data = build_academic_history(term_reports, grades_by_term)
     school_ctx = get_school_context(include_logo_base64=True)
@@ -194,9 +192,13 @@ def download_transcript_pdf(request, student_id):
 
     except ImportError:
         logger.error("WeasyPrint not installed")
-        messages.error(request, 'PDF generation is not available. WeasyPrint is not installed.')
-        return redirect('gradebook:transcript', student_id=student_id)
+        return toast_redirect(
+            request, 'PDF generation is not available. WeasyPrint is not installed.',
+            'gradebook:transcript', student_id=student_id
+        )
     except (ValueError, ValidationError, IOError, OSError, TypeError) as e:
         logger.error(f"Failed to generate transcript PDF: {e}", exc_info=True)
-        messages.error(request, 'Failed to generate PDF. Please try again or contact support.')
-        return redirect('gradebook:transcript', student_id=student_id)
+        return toast_redirect(
+            request, 'Failed to generate PDF. Please try again or contact support.',
+            'gradebook:transcript', student_id=student_id
+        )

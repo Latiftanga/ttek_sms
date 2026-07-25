@@ -1,9 +1,12 @@
 
+import json
 import logging
 
+from django.contrib import messages
 from django.core.cache import cache
 from django.db import connection
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import redirect
 
 from academics.models import Subject, ClassSubject
 from core.utils import (  # noqa: F401
@@ -12,6 +15,27 @@ from core.utils import (  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
+
+
+def toast_redirect(request, message, redirect_view, *redirect_args, toast_type='error', **redirect_kwargs):
+    """
+    Redirect after blocking an action (permission denied, no data, etc.),
+    showing `message` via a toast for HTMX requests.
+
+    Several gradebook redirect targets (reports.html, bulk_remarks, etc.)
+    don't render Django's messages framework output, so a plain
+    messages.error() + redirect() is invisible for the HTMX flows that are
+    how these views are actually reached. Mirrors the same fix already
+    applied in academics/students this session.
+    """
+    if request.htmx:
+        response = HttpResponse(status=204)
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {'message': message, 'type': toast_type}
+        })
+        return response
+    messages.error(request, message) if toast_type == 'error' else messages.info(request, message)
+    return redirect(redirect_view, *redirect_args, **redirect_kwargs)
 
 
 def ratelimit(key='user', rate='100/h', block=True):
