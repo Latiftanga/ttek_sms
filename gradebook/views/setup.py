@@ -1,12 +1,13 @@
 from decimal import Decimal, InvalidOperation
 from django.db import connection, models
 from django.db.models import Count
+from django.core.cache import cache
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 
-from .base import admin_required, htmx_render
+from .base import admin_required, htmx_render, toast_redirect
 from ..models import (
     GradingSystem, GradeScale, AssessmentCategory
 )
@@ -22,6 +23,21 @@ def _get_school_levels():
     elif education_system == 'shs':
         return [lvl for lvl in GradingSystem.SCHOOL_LEVELS if lvl[0] == 'SHS']
     return GradingSystem.SCHOOL_LEVELS
+
+
+def _invalidate_grading_caches(system=None):
+    """
+    Clear the score-entry-time grading-system/grade-scale caches (see
+    gradebook/signals.py:get_grading_system_cached / get_grade_scales_cached).
+    Without this, a create/edit/delete here can take up to 5 minutes to
+    affect live grade calculation on Score save.
+    """
+    schema = connection.schema_name
+    for level, _label in GradingSystem.SCHOOL_LEVELS:
+        cache.delete(f'grading_system_{schema}_{level}')
+    cache.delete(f'grading_system_{schema}_fallback')
+    if system is not None:
+        cache.delete(f'grade_scales_{system.pk}')
 
 
 def _safe_int(value, default=0):
@@ -201,11 +217,12 @@ def grading_system_create(request):
             'levels': _get_school_levels(),
         })
 
-    GradingSystem.objects.create(
+    system = GradingSystem.objects.create(
         name=name,
         level=level,
         description=description,
     )
+    _invalidate_grading_caches(system)
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
@@ -232,6 +249,7 @@ def grading_system_edit(request, pk):
     system.description = request.POST.get('description', '').strip()
     system.is_active = request.POST.get('is_active') == 'on'
     system.save()
+    _invalidate_grading_caches(system)
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
@@ -246,6 +264,17 @@ def grading_system_delete(request, pk):
         return HttpResponse(status=405)
 
     system = get_object_or_404(GradingSystem, pk=pk)
+
+    if system.is_active:
+        return toast_redirect(
+            request,
+            f'"{system.name}" is active and may be used for live grade calculation. '
+            'Deactivate it (edit and uncheck Active) before deleting, or activate a '
+            'replacement grading system for its level first.',
+            'gradebook:settings',
+        )
+
+    _invalidate_grading_caches(system)
     system.delete()
 
     response = HttpResponse(status=204)
@@ -300,6 +329,8 @@ def grade_scale_create(request, system_id):
             'error': str(e),
         })
 
+    _invalidate_grading_caches(system)
+
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
     return response
@@ -337,6 +368,8 @@ def grade_scale_edit(request, pk):
             'error': str(e),
         })
 
+    _invalidate_grading_caches(scale.grading_system)
+
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'closeModal, refreshSettings'
     return response
@@ -350,7 +383,9 @@ def grade_scale_delete(request, pk):
         return HttpResponse(status=405)
 
     scale = get_object_or_404(GradeScale, pk=pk)
+    system = scale.grading_system
     scale.delete()
+    _invalidate_grading_caches(system)
 
     response = HttpResponse(status=204)
     response['HX-Trigger'] = 'refreshSettings'
@@ -501,6 +536,18 @@ def category_delete(request, pk):
         return HttpResponse(status=405)
 
     category = get_object_or_404(AssessmentCategory, pk=pk)
+
+    assignment_count = category.assignments.count()
+    if assignment_count:
+        return toast_redirect(
+            request,
+            f'Cannot delete "{category.name}" — it has {assignment_count} assignment'
+            f'{"s" if assignment_count != 1 else ""} with recorded scores. '
+            'Deactivate it instead (edit and uncheck Active) to hide it from new '
+            'assessments without losing existing student scores.',
+            'gradebook:settings',
+        )
+
     category.delete()
 
     response = HttpResponse(status=204)
