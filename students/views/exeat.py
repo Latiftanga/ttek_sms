@@ -1333,14 +1333,18 @@ def housemaster_assign(request):
         form = HouseMasterForm(request.POST)
         if form.is_valid():
             assignment = form.save()
-            messages.success(
-                request,
-                f'{assignment.teacher.full_name} assigned as housemaster for {assignment.house.name}.'
-            )
+            message = f'{assignment.teacher.full_name} assigned as housemaster for {assignment.house.name}.'
+            messages.success(request, message)
 
             if request.htmx:
+                # housemasterChanged (a plain string trigger) refreshed the
+                # list but never showed this message - housemaster_content.html
+                # doesn't render Django's messages framework output.
                 response = HttpResponse(status=204)
-                response['HX-Trigger'] = 'housemasterChanged'
+                response['HX-Trigger'] = json.dumps({
+                    'housemasterChanged': True,
+                    'showToast': {'message': message, 'type': 'success'},
+                })
                 return response
             return redirect('students:housemaster_index')
     else:
@@ -1366,11 +1370,15 @@ def housemaster_remove(request, pk):
     if request.method == 'POST':
         name = f"{assignment.teacher.full_name} from {assignment.house.name}"
         assignment.delete()
-        messages.success(request, f'Removed {name}.')
+        message = f'Removed {name}.'
+        messages.success(request, message)
 
         if request.htmx:
             response = HttpResponse(status=204)
-            response['HX-Trigger'] = 'housemasterChanged'
+            response['HX-Trigger'] = json.dumps({
+                'housemasterChanged': True,
+                'showToast': {'message': message, 'type': 'success'},
+            })
             return response
         return redirect('students:housemaster_index')
 
