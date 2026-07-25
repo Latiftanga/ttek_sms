@@ -187,16 +187,6 @@ def distribution_config_update(request):
 
 @login_required
 @admin_required
-def grading_systems(request):
-    """List all grading systems (Admin only)."""
-    systems = GradingSystem.objects.prefetch_related('scales')
-    return render(request, 'gradebook/partials/grading_systems_list.html', {
-        'grading_systems': systems,
-    })
-
-
-@login_required
-@admin_required
 def grading_system_create(request):
     """Create a new grading system (Admin only)."""
     if request.method == 'GET':
@@ -283,19 +273,6 @@ def grading_system_delete(request, pk):
 
 
 # ============ Grade Scale CRUD ============
-
-@login_required
-@admin_required
-def grade_scales(request, system_id):
-    """List grades for a grading system (Admin only)."""
-    system = get_object_or_404(GradingSystem, pk=system_id)
-    scales = system.scales.all()
-
-    return render(request, 'gradebook/partials/grade_scales_list.html', {
-        'system': system,
-        'scales': scales,
-    })
-
 
 @login_required
 @admin_required
@@ -393,19 +370,6 @@ def grade_scale_delete(request, pk):
 
 
 # ============ Assessment Category CRUD ============
-
-@login_required
-@admin_required
-def categories(request):
-    """List all assessment categories (Admin only)."""
-    cats = AssessmentCategory.objects.all()
-    total = sum(c.percentage for c in cats if c.is_active)
-
-    return render(request, 'gradebook/partials/categories_list.html', {
-        'categories': cats,
-        'total_percentage': total,
-    })
-
 
 @login_required
 @admin_required

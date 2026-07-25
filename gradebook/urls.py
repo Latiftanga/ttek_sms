@@ -12,19 +12,16 @@ urlpatterns = [
     path('settings/distribution/', views.distribution_config_update, name='distribution_config_update'),
 
     # Grading System CRUD
-    path('grading-systems/', views.grading_systems, name='grading_systems'),
     path('grading-systems/create/', views.grading_system_create, name='grading_system_create'),
     path('grading-systems/<uuid:pk>/edit/', views.grading_system_edit, name='grading_system_edit'),
     path('grading-systems/<uuid:pk>/delete/', views.grading_system_delete, name='grading_system_delete'),
 
     # Grade Scale CRUD
-    path('grading-systems/<uuid:system_id>/scales/', views.grade_scales, name='grade_scales'),
     path('grading-systems/<uuid:system_id>/scales/create/', views.grade_scale_create, name='grade_scale_create'),
     path('grade-scales/<uuid:pk>/edit/', views.grade_scale_edit, name='grade_scale_edit'),
     path('grade-scales/<uuid:pk>/delete/', views.grade_scale_delete, name='grade_scale_delete'),
 
     # Assessment Category CRUD
-    path('categories/', views.categories, name='categories'),
     path('categories/create/', views.category_create, name='category_create'),
     path('categories/<uuid:pk>/edit/', views.category_edit, name='category_edit'),
     path('categories/<uuid:pk>/delete/', views.category_delete, name='category_delete'),
