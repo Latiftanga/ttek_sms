@@ -30,6 +30,9 @@ BASE_COLUMNS = [
 # Additional columns for SHS schools
 SHS_COLUMNS = ['house_name', 'residence_type']
 
+# Cap on rows returned by bulk_export in a single download, to bound memory use.
+MAX_EXPORT_ROWS = 10_000
+
 
 def get_expected_columns(school=None):
     """Return expected columns based on school type."""
@@ -153,6 +156,15 @@ def bulk_import(request):
                 errors.append('Gender must be M or F')
             if not guardian_name:
                 errors.append('Guardian name is required')
+            # Validate guardian relationship - falls back to 'guardian' when the
+            # column is blank, but an unrecognized value is rejected rather than
+            # silently stored, since it wouldn't match any Guardian.Relationship
+            # choice and get_relationship_display() would just echo it back raw.
+            if not guardian_relationship:
+                guardian_relationship = Guardian.Relationship.GUARDIAN
+            elif guardian_relationship not in Guardian.Relationship.values:
+                valid_values = ', '.join(sorted(Guardian.Relationship.values))
+                errors.append(f'Guardian relationship "{guardian_relationship}" is not valid (use: {valid_values})')
             # Validate guardian phone
             phone_valid, normalized_phone, phone_error = normalize_phone_number(guardian_phone)
             if not phone_valid:
@@ -295,7 +307,42 @@ def bulk_import_confirm(request):
 
     created_count = 0
     accounts_created = 0
-    errors = []
+    errors = []        # unexpected failures that abort the whole batch (rare: DB/connection issues)
+    skipped_rows = []  # individual rows excluded for a row-specific reason - the rest of the
+                       # batch still goes through, instead of one bad row failing everyone
+
+    # Re-validate admission numbers and emails against the current DB state. The
+    # cached preview data can be up to 30 minutes old (cache TTL), so another
+    # import or manual entry may have taken one of these in the meantime. Without
+    # this, bulk_create/create_user below would hit a UNIQUE constraint and raise
+    # inside the single outer transaction, rolling back the *entire* batch over
+    # one stale row. Filtering here instead lets everything else through.
+    admission_numbers = [row['admission_number'] for row in rows if row.get('admission_number')]
+    taken_admission_numbers = set(
+        Student.objects.filter(admission_number__in=admission_numbers).values_list('admission_number', flat=True)
+    ) if admission_numbers else set()
+
+    requested_emails = [row['student_email'] for row in rows if row.get('student_email')]
+    taken_emails = set(
+        User.objects.filter(email__in=requested_emails).values_list('email', flat=True)
+    ) if requested_emails else set()
+
+    fresh_rows = []
+    for row in rows:
+        row_num = row.get('row_num', '?')
+        if row['admission_number'] in taken_admission_numbers:
+            skipped_rows.append(
+                f'Row {row_num}: admission number "{row["admission_number"]}" was taken by '
+                'another entry after this file was uploaded'
+            )
+        elif row.get('student_email') and row['student_email'] in taken_emails:
+            skipped_rows.append(
+                f'Row {row_num}: email "{row["student_email"]}" was taken by another entry '
+                'after this file was uploaded'
+            )
+        else:
+            fresh_rows.append(row)
+    rows = fresh_rows
 
     # Create guardians for rows that don't have one yet (deferred from preview)
     guardian_phone_map = {}  # phone -> guardian pk (for dedup)
@@ -333,10 +380,19 @@ def bulk_import_confirm(request):
     current_year = AcademicYear.get_current()
 
     students_to_create = []
-    student_guardian_data = []  # Store (row_index, guardian_pk, relationship) for later
-    student_account_data = []  # Store (row_index, email) for account creation
+    student_guardian_data = []  # Store (student_index, guardian_pk, relationship) for later
+    student_account_data = []  # Store (student_index, email, first_name, last_name)
 
-    for idx, row in enumerate(rows):
+    for row in rows:
+        # A class the preview step validated may have since been deleted -
+        # skip and report rather than silently creating the student with no
+        # class assigned.
+        if row.get('class_pk') and row['class_pk'] not in classes_dict:
+            skipped_rows.append(
+                f'Row {row.get("row_num", "?")}: class "{row.get("class_name", "")}" no longer exists'
+            )
+            continue
+
         try:
             current_class = classes_dict.get(row['class_pk']) if row.get('class_pk') else None
             house = houses_dict.get(row.get('house_pk')) if row.get('house_pk') else None
@@ -354,21 +410,29 @@ def bulk_import_confirm(request):
                 residence_type=row.get('residence_type', ''),
                 status='active',
             ))
+            # Index into students_to_create for this row - tracked separately
+            # from the row's position in `rows` since rows skipped above (or
+            # by a prep error below) mean the two no longer line up 1:1.
+            student_idx = len(students_to_create) - 1
 
             # Store guardian info for linking after student creation
             if row.get('guardian_pk'):
                 # Get relationship from row or default to 'guardian'
                 relationship = row.get('guardian_relationship', Guardian.Relationship.GUARDIAN)
-                student_guardian_data.append((idx, row['guardian_pk'], relationship))
+                student_guardian_data.append((student_idx, row['guardian_pk'], relationship))
 
             # Store email for account creation
             if row.get('student_email'):
-                student_account_data.append((idx, row['student_email'], row['first_name'], row['last_name']))
+                student_account_data.append(
+                    (student_idx, row['student_email'], row['first_name'], row['last_name'])
+                )
 
         except Exception as e:
-            errors.append(f"Row {row.get('row_num', '?')}: Error preparing data - {str(e)}")
+            skipped_rows.append(f"Row {row.get('row_num', '?')}: Error preparing data - {str(e)}")
 
-    if not errors:
+    pending_credentials = []  # (student, user, temp_password) - emailed after commit, below
+
+    if students_to_create:
         try:
             # Wrap all database operations in a transaction
             with transaction.atomic():
@@ -407,7 +471,11 @@ def bulk_import_confirm(request):
                     if enrollments_to_create:
                         Enrollment.objects.bulk_create(enrollments_to_create)
 
-                # Create user accounts for students with emails
+                # Create user accounts for students with emails. Credentials are
+                # emailed after this transaction commits (see below) instead of
+                # being discarded - previously the temp password was generated
+                # and set on the account but never surfaced anywhere, silently
+                # locking the student out since nobody knew the password.
                 if student_account_data:
                     for idx, email, first_name, last_name in student_account_data:
                         if idx < len(created_students):
@@ -424,6 +492,7 @@ def bulk_import_confirm(request):
                             student.user = user
                             student.save(update_fields=['user'])
                             accounts_created += 1
+                            pending_credentials.append((student, user, temp_password))
 
                 # Auto-enroll students in class subjects
                 students_by_class = {}
@@ -457,6 +526,18 @@ def bulk_import_confirm(request):
                 created_count = len(created_students)
         except Exception as e:
             errors.append(f"Error during bulk creation: {str(e)}")
+            pending_credentials = []  # nothing committed - don't email credentials for a rolled-back batch
+
+    # Email login credentials now that the transaction has committed, mirroring
+    # the single-student create-account flow (students.py: send_student_credentials).
+    # Anything that fails to send is surfaced with its temp password so an admin
+    # can share it manually instead of the account being silently unusable.
+    undelivered_credentials = []
+    if pending_credentials:
+        from .students import send_student_credentials
+        for student, user, temp_password in pending_credentials:
+            if not send_student_credentials(user, temp_password, student):
+                undelivered_credentials.append((student, user.email, temp_password))
 
     # Clear session
     cache_key = request.session.pop('bulk_import_cache_key', '')
@@ -470,6 +551,20 @@ def bulk_import_confirm(request):
         if accounts_created:
             msg += f" {accounts_created} user account(s) created."
         messages.success(request, msg)
+
+    if skipped_rows:
+        messages.warning(
+            request,
+            f"{len(skipped_rows)} row(s) were skipped: {'; '.join(skipped_rows[:10])}"
+        )
+
+    if undelivered_credentials:
+        lines = [f"{s.full_name} ({email}): {pwd}" for s, email, pwd in undelivered_credentials]
+        messages.warning(
+            request,
+            "Could not email login credentials for the following account(s) - "
+            "share these temporary passwords manually: " + '; '.join(lines)
+        )
 
     if request.htmx:
         response = HttpResponse(status=200)
@@ -587,7 +682,7 @@ def bulk_export(request):
 
     # Build queryset with optimized prefetching
     students = Student.objects.select_related(
-        'current_class', 'house'
+        'current_class', 'house', 'user'
     ).prefetch_related(
         Prefetch(
             'student_guardians',
@@ -611,7 +706,7 @@ def bulk_export(request):
     if status_filter:
         students = students.filter(status=status_filter)
 
-    MAX_EXPORT_ROWS = 10_000
+    total_matching = students.count()
     students = students.order_by('last_name', 'first_name')[:MAX_EXPORT_ROWS]
 
     # Detect school type for conditional columns
@@ -644,14 +739,18 @@ def bulk_export(request):
             'Guardian Phone': primary_guardian.phone_number if primary_guardian else '',
             'Guardian Email': primary_guardian.email or '' if primary_guardian else '',
             'Guardian Relationship': guardian_relationship,
+            # Phone/Address are general Student fields, not SHS-specific
+            # (previously only exported for SHS schools, dropping this data
+            # for Basic-only schools even though every student can have one).
+            'Phone': student.phone or '',
+            'Address': student.address or '',
+            'Student Email': student.user.email if student.user_id else '',
         }
 
         # SHS-specific columns
         if shs_school:
             row['House'] = student.house.name if student.house else ''
             row['Residence Type'] = student.get_residence_type_display() if student.residence_type else ''
-            row['Phone'] = student.phone or ''
-            row['Address'] = student.address or ''
 
         export_data.append(row)
 
@@ -671,6 +770,21 @@ def bulk_export(request):
             ) + 2
             from openpyxl.utils import get_column_letter
             worksheet.column_dimensions[get_column_letter(idx + 1)].width = min(max_length, 50)
+
+        # Flag truncation directly in the workbook - this is a file download,
+        # not a page render, so there's no request/response cycle left to show
+        # a Django message on; a notice sheet is the only way to tell whoever
+        # opens the file that it isn't the complete result set.
+        if total_matching > MAX_EXPORT_ROWS:
+            notice_df = pd.DataFrame({
+                'Notice': [
+                    f'This export was limited to the first {MAX_EXPORT_ROWS:,} of '
+                    f'{total_matching:,} matching students.',
+                    'Narrow your search/class/status filters and export again to '
+                    'reach the remaining students.',
+                ]
+            })
+            notice_df.to_excel(writer, index=False, sheet_name='Notice')
 
     output.seek(0)
 

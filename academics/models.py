@@ -477,7 +477,7 @@ class StudentSubjectEnrollment(models.Model):
             cls.enroll_student_in_class_subjects(student, new_class)
 
     @classmethod
-    def enroll_student_in_class_subjects(cls, student, class_obj, enrolled_by=None):
+    def enroll_student_in_class_subjects(cls, student, class_obj, enrolled_by=None, class_subjects=None):
         """
         Auto-enroll a student in subjects marked for auto-enrollment.
 
@@ -487,11 +487,17 @@ class StudentSubjectEnrollment(models.Model):
 
         Uses bulk_create + bulk_update to stay at 3 DB queries regardless
         of how many subjects the class has.
+
+        Pass a pre-fetched `class_subjects` list when enrolling many students
+        into the same class in a loop (e.g. bulk promotion) - the class's
+        auto-enroll subject list doesn't change between students, so callers
+        can fetch it once instead of paying this query on every call.
         """
-        class_subjects = list(ClassSubject.objects.filter(
-            class_assigned=class_obj,
-            auto_enroll=True
-        ))
+        if class_subjects is None:
+            class_subjects = list(ClassSubject.objects.filter(
+                class_assigned=class_obj,
+                auto_enroll=True
+            ))
         if not class_subjects:
             return []
 

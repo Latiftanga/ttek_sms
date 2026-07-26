@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.db.models import Count, Q
 from django.contrib import messages
 
-from academics.models import Class, StudentSubjectEnrollment
+from academics.models import Class, ClassSubject, StudentSubjectEnrollment
 from core.models import AcademicYear
 from students.models import Student, Enrollment
 from .utils import admin_required, htmx_render
@@ -230,12 +230,24 @@ def promotion_process(request):
             'warning'
         )
 
-    # Resolve target class for non-final promotions
+    # Resolve target class for non-final promotions. Validated against the
+    # source class's level (same way repeat_class is validated below) - the
+    # dropdown only ever offers same-level_type/level_number+1 active classes,
+    # but without this check a tampered or buggy request could promote
+    # students into an unrelated or inactive class.
     target_class = None
     if not is_final:
         if not target_class_id:
             return _htmx_toast_or_redirect(request, 'No target class selected.')
-        target_class = get_object_or_404(Class, pk=target_class_id)
+        try:
+            target_class = Class.objects.get(
+                pk=target_class_id,
+                level_type=class_obj.level_type,
+                level_number=class_obj.level_number + 1,
+                is_active=True,
+            )
+        except Class.DoesNotExist:
+            return _htmx_toast_or_redirect(request, 'Invalid target class selected.')
 
     # Parse student actions
     student_actions = {}
@@ -260,6 +272,18 @@ def promotion_process(request):
     graduated_count = 0
     skipped_count = 0
     errors = []
+
+    # Auto-enroll subjects are looked up once per destination class rather
+    # than once per student - the class's auto_enroll subject list is the
+    # same for every student promoted/repeated into it.
+    class_subjects_cache = {}
+
+    def _class_subjects(target):
+        if target.pk not in class_subjects_cache:
+            class_subjects_cache[target.pk] = list(
+                ClassSubject.objects.filter(class_assigned=target, auto_enroll=True)
+            )
+        return class_subjects_cache[target.pk]
 
     with transaction.atomic():
         for enrollment in enrollments:
@@ -324,7 +348,7 @@ def promotion_process(request):
                             class_subject__class_assigned=class_obj,
                         ).update(is_active=False)
                         StudentSubjectEnrollment.enroll_student_in_class_subjects(
-                            student, repeat_class
+                            student, repeat_class, class_subjects=_class_subjects(repeat_class)
                         )
 
                         repeated_count += 1
@@ -391,7 +415,7 @@ def promotion_process(request):
                             class_subject__class_assigned=class_obj,
                         ).update(is_active=False)
                         StudentSubjectEnrollment.enroll_student_in_class_subjects(
-                            student, target_class
+                            student, target_class, class_subjects=_class_subjects(target_class)
                         )
 
                         promoted_count += 1

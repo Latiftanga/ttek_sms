@@ -1,10 +1,12 @@
 import io
 import json
 from datetime import date, datetime
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django_tenants.test.cases import TenantTestCase
 from django_tenants.test.client import TenantClient
@@ -428,6 +430,33 @@ class BulkImportViewTests(BulkImportTestCase):
         self.assertEqual(valid_rows[0]['gender'], 'M')
         self.assertEqual(valid_rows[1]['gender'], 'F')
 
+    def test_bulk_import_invalid_guardian_relationship(self):
+        """Test an unrecognized guardian_relationship value is rejected."""
+        data = self.get_valid_student_data()
+        data['guardian_relationship'] = ['stepfather', 'mother']
+        file = self.create_csv_file(data)
+        response = self.client.post(
+            reverse('students:bulk_import'),
+            {'file': file}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['valid_count'], 1)
+        self.assertEqual(response.context['error_count'], 1)
+        error_messages = response.context['all_errors'][0]['errors']
+        self.assertTrue(any('relationship' in e.lower() for e in error_messages))
+
+    def test_bulk_import_blank_guardian_relationship_defaults(self):
+        """Test a blank guardian_relationship column defaults to 'guardian'."""
+        data = self.get_valid_student_data()
+        file = self.create_csv_file(data)
+        response = self.client.post(
+            reverse('students:bulk_import'),
+            {'file': file}
+        )
+        self.assertEqual(response.context['error_count'], 0)
+        valid_rows = response.context['valid_rows']
+        self.assertEqual(valid_rows[0]['guardian_relationship'], 'guardian')
+
 
 class BulkImportConfirmViewTests(BulkImportTestCase):
     """Tests for the bulk_import_confirm view."""
@@ -537,6 +566,115 @@ class BulkImportConfirmViewTests(BulkImportTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['HX-Refresh'], 'true')
+
+    def test_bulk_import_confirm_race_condition_admission_number(self):
+        """
+        Test a row whose admission number was taken by someone else after the
+        file was uploaded (but before confirm) is skipped with a warning,
+        rather than a single collision aborting the entire batch.
+        """
+        data = self.get_valid_student_data()
+        file = self.create_csv_file(data)
+        self.client.post(reverse('students:bulk_import'), {'file': file})
+
+        # Simulate another entry taking John's admission number in the window
+        # between preview and confirm.
+        Student.objects.create(
+            first_name='Race', last_name='Condition',
+            date_of_birth=date(2010, 1, 1), gender='M',
+            admission_number='STU-2024-001',
+            admission_date=date(2024, 1, 1),
+            status=Student.Status.ACTIVE,
+        )
+
+        response = self.client.post(reverse('students:bulk_import_confirm'))
+        self.assertEqual(response.status_code, 302)
+
+        # Jane (no collision) is still created...
+        self.assertEqual(Student.objects.filter(admission_number='STU-2024-002').count(), 1)
+        # ...while John (the collision) is not - and only one 'Race' row exists.
+        self.assertEqual(Student.objects.filter(first_name='John').count(), 0)
+        self.assertEqual(Student.objects.filter(admission_number='STU-2024-001').count(), 1)
+
+        warnings = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any('skipped' in m.lower() for m in warnings))
+
+    def test_bulk_import_confirm_race_condition_student_email(self):
+        """Test a row whose student_email was taken since upload is skipped."""
+        data = self.get_valid_student_data()
+        data['student_email'] = ['john.doe@school.com', '']
+        file = self.create_csv_file(data)
+        self.client.post(reverse('students:bulk_import'), {'file': file})
+
+        User.objects.create_user(email='john.doe@school.com', password='x')
+
+        response = self.client.post(reverse('students:bulk_import_confirm'))
+        self.assertEqual(response.status_code, 302)
+
+        self.assertEqual(Student.objects.filter(first_name='John').count(), 0)
+        self.assertEqual(Student.objects.filter(first_name='Jane').count(), 1)
+
+    def test_bulk_import_confirm_deleted_class_skipped(self):
+        """
+        Test rows whose class was deleted between preview and confirm are
+        skipped with a warning instead of silently creating classless students.
+        """
+        data = self.get_valid_student_data()
+        file = self.create_csv_file(data)
+        self.client.post(reverse('students:bulk_import'), {'file': file})
+
+        self.test_class.delete()
+
+        response = self.client.post(reverse('students:bulk_import_confirm'))
+        self.assertEqual(response.status_code, 302)
+
+        # Both rows referenced the now-deleted class, so neither is created.
+        self.assertEqual(Student.objects.count(), 0)
+        warnings = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any('no longer exists' in m for m in warnings))
+
+    def test_bulk_import_confirm_emails_credentials(self):
+        """Test bulk-created accounts have their login credentials emailed."""
+        data = self.get_valid_student_data()
+        data['student_email'] = ['john.doe@school.com', '']
+        file = self.create_csv_file(data)
+        self.client.post(reverse('students:bulk_import'), {'file': file})
+
+        with patch(
+            'students.views.students.send_student_credentials', return_value=True
+        ) as mock_send:
+            response = self.client.post(reverse('students:bulk_import_confirm'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(mock_send.call_count, 1)
+
+        john = Student.objects.get(first_name='John')
+        self.assertIsNotNone(john.user)
+        self.assertEqual(john.user.email, 'john.doe@school.com')
+        self.assertTrue(john.user.must_change_password)
+
+        warnings = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertFalse(any('share these temporary passwords manually' in m for m in warnings))
+
+    def test_bulk_import_confirm_surfaces_undelivered_credentials(self):
+        """
+        Test that when the credentials email fails to send, the temp password
+        is surfaced in a message instead of being silently discarded (which
+        would otherwise leave the account permanently unusable).
+        """
+        data = self.get_valid_student_data()
+        data['student_email'] = ['john.doe@school.com', '']
+        file = self.create_csv_file(data)
+        self.client.post(reverse('students:bulk_import'), {'file': file})
+
+        with patch('students.views.students.send_student_credentials', return_value=False):
+            response = self.client.post(reverse('students:bulk_import_confirm'))
+
+        self.assertEqual(response.status_code, 302)
+        warnings = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(
+            any('share these temporary passwords manually' in m and 'John' in m for m in warnings)
+        )
 
 
 class BulkImportTemplateViewTests(BulkImportTestCase):
@@ -654,6 +792,140 @@ class BulkImportIntegrationTests(BulkImportTestCase):
         # Students created but no enrollments
         self.assertEqual(Student.objects.count(), 2)
         self.assertEqual(Enrollment.objects.count(), 0)
+
+
+class BulkExportViewTests(BulkImportTestCase):
+    """Tests for the bulk_export view."""
+
+    @classmethod
+    def setup_tenant(cls, tenant):
+        """Force a Basic-only school - the default fixture is 'both', which
+        would also legitimately show SHS columns and mask the Phone/Address
+        gating bug these tests target."""
+        super().setup_tenant(tenant)
+        tenant.education_system = 'basic'
+
+    def setUp(self):
+        super().setUp()
+        self.student = Student.objects.create(
+            first_name='John',
+            last_name='Doe',
+            date_of_birth=date(2010, 5, 15),
+            gender='M',
+            admission_number='STU-2024-001',
+            admission_date=date(2024, 9, 1),
+            current_class=self.test_class,
+            status=Student.Status.ACTIVE,
+            phone='0241234567',
+            address='123 Main St',
+        )
+        self.guardian = Guardian.objects.create(
+            full_name='James Doe', phone_number='233241234567'
+        )
+        self.student.add_guardian(self.guardian, Guardian.Relationship.FATHER, is_primary=True)
+
+    def _read_export(self, response):
+        content = b''.join(response.streaming_content)
+        # dtype=str avoids pandas re-inferring numeric-looking text columns
+        # (e.g. phone numbers) as ints and stripping leading zeros on read -
+        # the exported cells are genuinely stored as text either way.
+        return pd.read_excel(io.BytesIO(content), sheet_name=None, dtype=str)
+
+    def test_bulk_export_returns_excel(self):
+        response = self.client.get(reverse('students:bulk_export'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    def test_bulk_export_requires_admin(self):
+        User.objects.create_user(email='user@school.com', password='testpass123')
+        self.client.login(email='user@school.com', password='testpass123')
+        response = self.client.get(reverse('students:bulk_export'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_bulk_export_requires_authentication(self):
+        self.client.logout()
+        response = self.client.get(reverse('students:bulk_export'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_bulk_export_includes_student_data(self):
+        response = self.client.get(reverse('students:bulk_export'))
+        sheets = self._read_export(response)
+        row = sheets['Students'].iloc[0]
+        self.assertEqual(row['Admission Number'], 'STU-2024-001')
+        self.assertEqual(row['First Name'], 'John')
+        self.assertEqual(row['Guardian Name'], 'James Doe')
+        self.assertEqual(row['Guardian Relationship'], 'Father')
+
+    def test_bulk_export_includes_phone_and_address_for_basic_school(self):
+        """Phone/Address are general student fields, not SHS-only, and should
+        export regardless of school type (previously gated behind an SHS check)."""
+        response = self.client.get(reverse('students:bulk_export'))
+        df = self._read_export(response)['Students']
+        self.assertIn('Phone', df.columns)
+        self.assertIn('Address', df.columns)
+        self.assertEqual(df.iloc[0]['Phone'], '0241234567')
+        self.assertEqual(df.iloc[0]['Address'], '123 Main St')
+
+    def test_bulk_export_excludes_shs_columns_for_basic_school(self):
+        response = self.client.get(reverse('students:bulk_export'))
+        df = self._read_export(response)['Students']
+        self.assertNotIn('House', df.columns)
+        self.assertNotIn('Residence Type', df.columns)
+
+    def test_bulk_export_filters_by_status(self):
+        Student.objects.create(
+            first_name='Grad', last_name='Uate',
+            date_of_birth=date(2005, 1, 1), gender='F',
+            admission_number='STU-2024-999',
+            admission_date=date(2020, 9, 1),
+            status=Student.Status.GRADUATED,
+        )
+        response = self.client.get(reverse('students:bulk_export'), {'status': 'active'})
+        df = self._read_export(response)['Students']
+        self.assertEqual(len(df), 1)
+        self.assertEqual(df.iloc[0]['Admission Number'], 'STU-2024-001')
+
+    def test_bulk_export_no_notice_sheet_when_under_limit(self):
+        response = self.client.get(reverse('students:bulk_export'))
+        sheets = self._read_export(response)
+        self.assertNotIn('Notice', sheets)
+
+    @patch('students.views.bulk_import.MAX_EXPORT_ROWS', 1)
+    def test_bulk_export_notice_sheet_when_truncated(self):
+        """Test a Notice sheet is added when results exceed the row cap - the
+        only way to flag truncation on a file download, since there's no page
+        left to show a Django message on by the time the file is served."""
+        Student.objects.create(
+            first_name='Second', last_name='Student',
+            date_of_birth=date(2011, 1, 1), gender='F',
+            admission_number='STU-2024-002',
+            admission_date=date(2024, 9, 1),
+            status=Student.Status.ACTIVE,
+        )
+        response = self.client.get(reverse('students:bulk_export'))
+        sheets = self._read_export(response)
+        self.assertIn('Notice', sheets)
+        self.assertEqual(len(sheets['Students']), 1)
+
+    def test_bulk_export_student_email_column_reflects_account(self):
+        user = User.objects.create_user(
+            email='john.doe@school.com', password='x', is_student=True
+        )
+        self.student.user = user
+        self.student.save(update_fields=['user'])
+
+        response = self.client.get(reverse('students:bulk_export'))
+        df = self._read_export(response)['Students']
+        self.assertEqual(df.iloc[0]['Student Email'], 'john.doe@school.com')
+
+    def test_bulk_export_student_email_blank_without_account(self):
+        response = self.client.get(reverse('students:bulk_export'))
+        df = self._read_export(response)['Students']
+        value = df.iloc[0]['Student Email']
+        self.assertTrue(pd.isna(value) or value == '')
 
 
 # =============================================================================
@@ -954,6 +1226,47 @@ class PromotionProcessViewTests(PromotionTestCase):
         # Class should be unchanged
         self.class_b1.refresh_from_db()
         self.assertEqual(self.class_b1.level_number, 1)
+
+    def test_promote_fails_with_wrong_level_target_class(self):
+        """
+        Test a target_class_id outside the source class's natural next level
+        is rejected - e.g. a tampered request naming a same-level or
+        unrelated class instead of one of the offered next-level options.
+        """
+        student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+
+        response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b1.pk),  # same level as source, not level+1
+            f'action_{student.pk}': 'promote',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, Enrollment.Status.ACTIVE)
+        student.refresh_from_db()
+        self.assertEqual(student.current_class, self.class_b1)
+        self.assertFalse(Enrollment.objects.filter(academic_year=self.next_year).exists())
+
+    def test_promote_fails_with_inactive_target_class(self):
+        """Test an inactive target_class_id is rejected."""
+        student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+        self.class_b2.is_active = False
+        self.class_b2.save()
+
+        response = self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'promote',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, Enrollment.Status.ACTIVE)
+        student.refresh_from_db()
+        self.assertEqual(student.current_class, self.class_b1)
 
     def test_promote_subject_enrollments_transferred(self):
         """Test that subject enrollments are deactivated in source and created in target."""
