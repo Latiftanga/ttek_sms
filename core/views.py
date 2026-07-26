@@ -2747,7 +2747,14 @@ def my_attendance(request):
 
     current_term = Term.objects.filter(is_current=True).first()
     if current_term and selected_date < current_term.start_date:
-        selected_date = current_term.start_date
+        past_term_ok = (
+            SchoolSettings.load().allow_past_term_attendance
+            and Term.objects.filter(
+                start_date__lte=selected_date, end_date__gte=selected_date
+            ).exists()
+        )
+        if not past_term_ok:
+            selected_date = current_term.start_date
 
     # Base queryset for records (filtered by date/class later)
     records_qs = AttendanceRecord.objects.filter(
@@ -2969,7 +2976,7 @@ def take_attendance(request, class_id):
     from django.db import IntegrityError
     from academics.models import Class, ClassSubject, AttendanceSession
     from academics.utils import should_use_lesson_attendance
-    from academics.views.attendance import _save_attendance_records, _blocked_redirect
+    from academics.views.attendance import _save_attendance_records, _blocked_redirect, _term_date_error
     from students.models import Student
     from .models import SchoolSettings, SchoolHoliday
 
@@ -3028,21 +3035,13 @@ def take_attendance(request, class_id):
     if date_str:
         back_url += f'?date={date_str}'
 
-    # Restrict marking to within the current term's range
+    # Restrict marking to within the current term's range (relaxed for dates
+    # before it when SchoolSettings.allow_past_term_attendance is on and the
+    # date falls within a previously defined term)
     current_term = Term.objects.filter(is_current=True).first()
-    if current_term:
-        if target_date < current_term.start_date:
-            return _blocked_redirect(
-                request,
-                f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).',
-                back_url
-            )
-        if target_date > current_term.end_date:
-            return _blocked_redirect(
-                request,
-                f'Cannot mark attendance after the current term ended ({current_term.end_date.strftime("%B %d, %Y")}).',
-                back_url
-            )
+    term_error = _term_date_error(target_date, current_term)
+    if term_error:
+        return _blocked_redirect(request, term_error, back_url)
 
     # Check if this is a school day
     school_settings = SchoolSettings.load()

@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.test import TestCase
+from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -244,12 +245,15 @@ class SchoolSettingsModelTests(TenantTestCase):
         self.assertEqual(settings.period_label_plural, 'Semesters')
 
     def test_default_values(self):
+        cache.clear()
+        SchoolSettings.objects.all().delete()
         settings = SchoolSettings.load()
         self.assertEqual(settings.sms_backend, 'console')
         self.assertEqual(settings.email_backend, 'console')
         self.assertFalse(settings.sms_enabled)
         self.assertFalse(settings.email_enabled)
         self.assertFalse(settings.setup_completed)
+        self.assertFalse(settings.allow_past_term_attendance)
 
 
 class DocumentVerificationModelTests(TenantTestCase):
@@ -298,3 +302,52 @@ class DocumentVerificationModelTests(TenantTestCase):
         )
         self.assertIn(doc.verification_code, str(doc))
         self.assertIn('Report Card', str(doc))
+
+
+class AcademicSettingsUpdateViewTests(TenantTestCase):
+    """Tests for the settings_update_academic view (Academic Calendar card)."""
+
+    @classmethod
+    def setup_tenant(cls, tenant):
+        tenant.name = 'Test School'
+        tenant.short_name = 'TEST'
+
+    def setUp(self):
+        super().setUp()
+        from django_tenants.test.client import TenantClient
+        cache.clear()  # SchoolSettings.load() caches per-tenant for 24h
+        self.addCleanup(cache.clear)
+        self.client = TenantClient(self.tenant)
+        self.admin_user = User.objects.create_user(
+            email='admin@school.com', password='testpass123', is_school_admin=True
+        )
+        self.client.login(email='admin@school.com', password='testpass123')
+
+    def test_get_not_allowed(self):
+        response = self.client.get(reverse('core:settings_update_academic'))
+        self.assertEqual(response.status_code, 405)
+
+    def test_enables_past_term_attendance(self):
+        response = self.client.post(
+            reverse('core:settings_update_academic'),
+            {'academic_period_type': 'term', 'allow_past_term_attendance': 'true'},
+            HTTP_HX_REQUEST='true',
+        )
+        self.assertEqual(response.status_code, 200)
+        settings = SchoolSettings.load()
+        self.assertTrue(settings.allow_past_term_attendance)
+
+    def test_disables_past_term_attendance_when_unchecked(self):
+        settings = SchoolSettings.load()
+        settings.allow_past_term_attendance = True
+        settings.save()
+
+        # Unchecked checkboxes aren't sent in the POST body at all.
+        response = self.client.post(
+            reverse('core:settings_update_academic'),
+            {'academic_period_type': 'term'},
+            HTTP_HX_REQUEST='true',
+        )
+        self.assertEqual(response.status_code, 200)
+        settings.refresh_from_db()
+        self.assertFalse(settings.allow_past_term_attendance)

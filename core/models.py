@@ -488,6 +488,16 @@ class SchoolSettings(models.Model):
         help_text="Working days as comma-separated weekday numbers (1=Monday, 5=Friday, 6=Saturday)"
     )
 
+    # Attendance backdating
+    allow_past_term_attendance = models.BooleanField(
+        default=False,
+        help_text=(
+            "Allow teachers and admins to mark or edit attendance for dates "
+            "before the current term started (e.g. a past semester), as long "
+            "as the date falls within a previously defined term."
+        )
+    )
+
     # Setup wizard tracking
     setup_completed = models.BooleanField(
         default=False,

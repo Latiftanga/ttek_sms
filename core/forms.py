@@ -124,9 +124,10 @@ class AcademicSettingsForm(forms.ModelForm):
     """Form for academic period settings."""
     class Meta:
         model = SchoolSettings
-        fields = ['academic_period_type']
+        fields = ['academic_period_type', 'allow_past_term_attendance']
         labels = {
             'academic_period_type': 'Academic Period Type',
+            'allow_past_term_attendance': 'Allow past-term attendance marking',
         }
 
 

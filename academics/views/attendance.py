@@ -66,6 +66,35 @@ def _validate_status(raw_status):
     return AttendanceRecord.Status.PRESENT
 
 
+def _term_date_error(target_date, current_term):
+    """
+    Returns an error message if `target_date` isn't allowed for attendance
+    marking/editing, or None if it's fine. Dates within the current term are
+    always allowed. A date before the current term only passes when
+    SchoolSettings has opted in to past-term marking AND the date actually
+    falls within some previously defined term - otherwise a school could end
+    up with attendance sessions dangling on dates with no real academic
+    period behind them.
+    """
+    if not current_term:
+        return None
+    if target_date > current_term.end_date:
+        return (
+            f'Cannot mark attendance after the current term ended '
+            f'({current_term.end_date.strftime("%B %d, %Y")}).'
+        )
+    if target_date < current_term.start_date:
+        from core.models import SchoolSettings, Term
+        if not SchoolSettings.load().allow_past_term_attendance:
+            return (
+                f'Cannot mark attendance before the current term started '
+                f'({current_term.start_date.strftime("%B %d, %Y")}).'
+            )
+        if not Term.objects.filter(start_date__lte=target_date, end_date__gte=target_date).exists():
+            return f'{target_date.strftime("%b %d, %Y")} does not fall within any defined term.'
+    return None
+
+
 def _blocked_redirect(request, message, redirect_url, toast_type='warning'):
     """
     Redirect after blocking an action, showing `message` via a toast for
@@ -236,19 +265,9 @@ def class_attendance_take(request, pk):
         return _blocked_redirect(request, f'{day_name} is not a school day.', 'academics:attendance_reports')
 
     current_term = Term.get_current()
-    if current_term:
-        if target_date < current_term.start_date:
-            return _blocked_redirect(
-                request,
-                f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).',
-                'academics:attendance_reports'
-            )
-        if target_date > current_term.end_date:
-            return _blocked_redirect(
-                request,
-                f'Cannot mark attendance after the current term ended ({current_term.end_date.strftime("%B %d, %Y")}).',
-                'academics:attendance_reports'
-            )
+    term_error = _term_date_error(target_date, current_term)
+    if term_error:
+        return _blocked_redirect(request, term_error, 'academics:attendance_reports')
 
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:
@@ -332,6 +351,16 @@ def class_attendance_edit(request, pk, session_pk):
                 request, 'Only the class teacher or admin can edit daily attendance.'
             )
             return redirect('academics:attendance_reports')
+
+    # A session's date doesn't change once created, but the current term
+    # (and the past-term-attendance setting) can move on since then - so an
+    # existing session from a past term is only editable under the same rule
+    # that governs creating one, keeping the two paths consistent.
+    from core.models import Term
+    current_term = Term.get_current()
+    term_error = _term_date_error(session.date, current_term)
+    if term_error:
+        return _blocked_redirect(request, term_error, 'academics:attendance_reports')
 
     if request.method == 'POST':
         students = list(Student.objects.filter(
@@ -452,15 +481,25 @@ def lesson_attendance_list(request, pk):
         selected_date = today
 
     # Clamp to the current term's range (with a clear message instead of a
-    # silent substitution) - attendance can't be marked outside the term.
+    # silent substitution) - attendance can't be marked outside the term,
+    # unless the school has opted into past-term marking and this date
+    # actually falls within a previously defined term.
     current_term = Term.get_current()
     if current_term:
         if selected_date < current_term.start_date:
-            clamp_notice = (
-                f'Showing the first day of the current term - attendance can\'t be marked before '
-                f'{current_term.start_date.strftime("%B %d, %Y")}.'
+            from core.models import SchoolSettings
+            past_term_ok = (
+                SchoolSettings.load().allow_past_term_attendance
+                and Term.objects.filter(
+                    start_date__lte=selected_date, end_date__gte=selected_date
+                ).exists()
             )
-            selected_date = current_term.start_date
+            if not past_term_ok:
+                clamp_notice = (
+                    f'Showing the first day of the current term - attendance can\'t be marked before '
+                    f'{current_term.start_date.strftime("%B %d, %Y")}.'
+                )
+                selected_date = current_term.start_date
         elif selected_date > current_term.end_date:
             clamp_notice = (
                 f'Showing the last day of the current term - attendance can\'t be marked after '
@@ -617,19 +656,9 @@ def take_lesson_attendance(request, timetable_entry_id):
         return _blocked_redirect(request, f'{day_name} is not a school day.', lesson_list_url)
 
     current_term = Term.get_current()
-    if current_term:
-        if target_date < current_term.start_date:
-            return _blocked_redirect(
-                request,
-                f'Cannot mark attendance before the current term started ({current_term.start_date.strftime("%B %d, %Y")}).',
-                lesson_list_url
-            )
-        if target_date > current_term.end_date:
-            return _blocked_redirect(
-                request,
-                f'Cannot mark attendance after the current term ended ({current_term.end_date.strftime("%B %d, %Y")}).',
-                lesson_list_url
-            )
+    term_error = _term_date_error(target_date, current_term)
+    if term_error:
+        return _blocked_redirect(request, term_error, lesson_list_url)
 
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:

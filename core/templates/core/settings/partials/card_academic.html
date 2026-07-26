@@ -32,7 +32,12 @@
         </div>
 
         <!-- Quick Settings -->
-        <div class="grid grid-cols-1 xs:grid-cols-2 gap-2 mb-4">
+        <form hx-post="{% url 'core:settings_update_academic' %}"
+              hx-target="#card-academic"
+              hx-swap="outerHTML"
+              hx-trigger="change"
+              class="grid grid-cols-1 xs:grid-cols-2 gap-2 mb-4">
+            {% csrf_token %}
             <div class="bg-base-200/40 rounded-lg p-2.5 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-school text-primary/60 text-xs"></i>
@@ -45,18 +50,23 @@
                     <i class="fa-solid fa-clock text-primary/60 text-xs"></i>
                     <span class="text-xs text-base-content/70">Period</span>
                 </div>
-                <form hx-post="{% url 'core:settings_update_academic' %}"
-                      hx-target="#card-academic"
-                      hx-swap="outerHTML"
-                      hx-trigger="change">
-                    {% csrf_token %}
-                    <select name="academic_period_type" class="select select-xs select-bordered bg-base-100 min-h-0 h-6">
-                        <option value="term" {% if period_type == "term" %}selected{% endif %}>Terms</option>
-                        <option value="semester" {% if period_type == "semester" %}selected{% endif %}>Semesters</option>
-                    </select>
-                </form>
+                <select name="academic_period_type" class="select select-xs select-bordered bg-base-100 min-h-0 h-6">
+                    <option value="term" {% if period_type == "term" %}selected{% endif %}>Terms</option>
+                    <option value="semester" {% if period_type == "semester" %}selected{% endif %}>Semesters</option>
+                </select>
             </div>
-        </div>
+            <div class="bg-base-200/40 rounded-lg p-2.5 flex items-center justify-between xs:col-span-2">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-primary/60 text-xs"></i>
+                    <span class="text-xs text-base-content/70">
+                        Allow past-{{ period_label|default:"term"|lower }} attendance marking
+                    </span>
+                </div>
+                <input type="checkbox" name="allow_past_term_attendance" value="true"
+                       class="toggle toggle-primary toggle-xs"
+                       {% if school_settings.allow_past_term_attendance %}checked{% endif %}>
+            </div>
+        </form>
 
         {% if success %}
         {% include "core/partials/alert.html" with type="success" message=success %}

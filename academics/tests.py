@@ -7,7 +7,7 @@ Focuses on:
 - Class promotion with subject transfer
 - Subject sync utility
 """
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.urls import reverse
@@ -16,11 +16,12 @@ from django_tenants.test.cases import TenantTestCase
 from django_tenants.test.client import TenantClient
 
 from academics.models import (
-    Class, Subject, ClassSubject, StudentSubjectEnrollment, Programme
+    Class, Subject, ClassSubject, StudentSubjectEnrollment, Programme,
+    AttendanceSession, AttendanceRecord, Period, TimetableEntry,
 )
 from students.models import Student, Guardian, Enrollment
 from teachers.models import Teacher
-from core.models import AcademicYear, Term
+from core.models import AcademicYear, Term, SchoolSettings
 from gradebook.models import (
     Assignment, AssessmentCategory, Score, SubjectTermGrade, TermReport
 )
@@ -751,3 +752,185 @@ class ClassSubjectDeleteCascadeTests(AcademicsTestCase):
         past_grade = self._grade(self.s1, self.math, 75, term=past_term)
         self._delete_math()
         self.assertTrue(SubjectTermGrade.objects.filter(pk=past_grade.pk).exists())
+
+
+# =============================================================================
+# ATTENDANCE: PAST-TERM MARKING RESTRICTION / SETTING
+# =============================================================================
+
+class AttendanceTermRestrictionTests(AcademicsTestCase):
+    """
+    Tests for the current-term boundary check on marking/editing attendance,
+    and the allow_past_term_attendance school setting that relaxes it for
+    dates before the current term (as long as they fall within some
+    previously defined term).
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()  # SchoolSettings.load() caches per-tenant for 24h
+        self.addCleanup(cache.clear)
+
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+
+        self.current_term = Term.objects.create(
+            academic_year=self.current_year, name='Term 2', term_number=2,
+            start_date=date(2024, 9, 1), end_date=date(2024, 12, 20),
+            is_current=True,
+        )
+
+        # A genuine past term in an earlier academic year.
+        self.past_year = AcademicYear.objects.create(
+            name='2023/2024',
+            start_date=date(2023, 9, 1),
+            end_date=date(2024, 7, 31),
+            is_current=False,
+        )
+        self.past_term = Term.objects.create(
+            academic_year=self.past_year, name='Term 2', term_number=2,
+            start_date=date(2024, 1, 8), end_date=date(2024, 4, 5),
+            is_current=False,
+        )
+
+        self.past_date = date(2024, 2, 15)  # Thursday, within self.past_term
+        self.no_term_date = date(2023, 8, 1)  # Tuesday, before any defined term
+
+        self.student = self.create_student('Ama', 'STU-001', class_obj=self.klass)
+
+    def _enable_setting(self):
+        settings = SchoolSettings.load()
+        settings.allow_past_term_attendance = True
+        settings.save(update_fields=['allow_past_term_attendance'])
+
+    def test_take_attendance_blocks_past_term_by_default(self):
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.past_date.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            AttendanceSession.objects.filter(class_assigned=self.klass, date=self.past_date).exists()
+        )
+
+    def test_take_attendance_allows_past_term_when_enabled(self):
+        self._enable_setting()
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.past_date.isoformat(), f'status_{self.student.pk}': 'A'},
+        )
+        self.assertEqual(response.status_code, 302)
+        session = AttendanceSession.objects.get(class_assigned=self.klass, date=self.past_date)
+        record = AttendanceRecord.objects.get(session=session, student=self.student)
+        self.assertEqual(record.status, 'A')
+
+    def test_take_attendance_blocks_date_outside_any_term_even_when_enabled(self):
+        """Enabling the setting only relaxes the check for a date that falls
+        within a real past term - not an arbitrary pre-term date."""
+        self._enable_setting()
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.no_term_date.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            AttendanceSession.objects.filter(class_assigned=self.klass, date=self.no_term_date).exists()
+        )
+
+    def test_edit_blocks_past_term_session_by_default(self):
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.past_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        response = self.client.post(
+            reverse('academics:class_attendance_edit', args=[self.klass.pk, session.pk]),
+            {f'status_{self.student.pk}': 'A'},
+        )
+        self.assertEqual(response.status_code, 302)
+        record = AttendanceRecord.objects.get(session=session, student=self.student)
+        self.assertEqual(record.status, 'P')  # unchanged - edit was blocked
+
+    def test_edit_allows_past_term_session_when_enabled(self):
+        self._enable_setting()
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.past_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        response = self.client.post(
+            reverse('academics:class_attendance_edit', args=[self.klass.pk, session.pk]),
+            {f'status_{self.student.pk}': 'A'},
+        )
+        self.assertEqual(response.status_code, 302)
+        record = AttendanceRecord.objects.get(session=session, student=self.student)
+        self.assertEqual(record.status, 'A')  # edit went through
+
+    def test_lesson_attendance_blocks_past_term_by_default(self):
+        lesson_klass = self.create_class('basic', 2)
+        lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON
+        lesson_klass.save(update_fields=['attendance_type'])
+
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(lesson_klass, subject)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period,
+            weekday=TimetableEntry.Weekday.THURSDAY,  # matches self.past_date
+        )
+        student = self.create_student('Kofi', 'STU-002', class_obj=lesson_klass)
+
+        response = self.client.post(
+            reverse('academics:take_lesson_attendance', args=[entry.pk]),
+            {'date': self.past_date.isoformat(), f'status_{student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            AttendanceSession.objects.filter(class_assigned=lesson_klass, date=self.past_date).exists()
+        )
+
+    def test_lesson_attendance_allows_past_term_when_enabled(self):
+        self._enable_setting()
+        lesson_klass = self.create_class('basic', 2)
+        lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON
+        lesson_klass.save(update_fields=['attendance_type'])
+
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(lesson_klass, subject)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period,
+            weekday=TimetableEntry.Weekday.THURSDAY,
+        )
+        student = self.create_student('Kofi', 'STU-002', class_obj=lesson_klass)
+
+        response = self.client.post(
+            reverse('academics:take_lesson_attendance', args=[entry.pk]),
+            {'date': self.past_date.isoformat(), f'status_{student.pk}': 'A'},
+        )
+        self.assertEqual(response.status_code, 302)
+        session = AttendanceSession.objects.get(class_assigned=lesson_klass, date=self.past_date)
+        record = AttendanceRecord.objects.get(session=session, student=student)
+        self.assertEqual(record.status, 'A')
+
+    def test_future_date_still_blocked_when_setting_enabled(self):
+        """The setting only relaxes the past-term boundary, never the
+        after-current-term-end one."""
+        self._enable_setting()
+        future_date = self.current_term.end_date + timedelta(days=5)
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': future_date.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            AttendanceSession.objects.filter(class_assigned=self.klass, date=future_date).exists()
+        )
