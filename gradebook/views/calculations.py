@@ -296,7 +296,7 @@ def _calculate_term_reports(
 
     period_end = min(current_term.end_date, _timezone.localdate())
     valid_days = (
-        get_valid_school_days(current_term.start_date, period_end)
+        get_valid_school_days(current_term.start_date, period_end, term=current_term)
         if period_end >= current_term.start_date else []
     )
     total_school_days = len(valid_days)

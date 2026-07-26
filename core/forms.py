@@ -1,5 +1,5 @@
 from django import forms
-from .models import SchoolSettings, AcademicYear, Term
+from .models import SchoolSettings, AcademicYear, Term, WEEKDAY_CHOICES
 from schools.models import Region
 
 
@@ -247,9 +247,19 @@ class AcademicYearForm(forms.ModelForm):
 
 class TermForm(forms.ModelForm):
     """Form for creating/editing terms/semesters."""
+
+    # Not a model field - a plain UI toggle deciding whether the selected
+    # `school_days` below get saved as this term's override, or discarded so
+    # the term falls back to the school-wide SchoolSettings.school_days.
+    use_custom_school_days = forms.BooleanField(required=False)
+    # Overrides the model field's default (plain CharField) widget - the
+    # model stores this as a CSV string, but the form works with a list of
+    # selected weekday values; clean() below converts between the two.
+    school_days = forms.MultipleChoiceField(choices=WEEKDAY_CHOICES, required=False)
+
     class Meta:
         model = Term
-        fields = ['academic_year', 'name', 'term_number', 'start_date', 'end_date', 'is_current']
+        fields = ['academic_year', 'name', 'term_number', 'start_date', 'end_date', 'is_current', 'school_days']
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'e.g., First Term'}),
             'start_date': forms.DateInput(attrs={'type': 'date'}),
@@ -269,6 +279,21 @@ class TermForm(forms.ModelForm):
         self.fields['start_date'].label = 'Start Date'
         self.fields['end_date'].label = 'End Date'
         self.fields['is_current'].label = 'Set as Current'
+        self.fields['school_days'].label = 'Working Days'
+        self.fields['use_custom_school_days'].label = f'Use custom working days for this {period_label.lower()}'
+
+        # school_days is a raw CSV string on the model; the form field
+        # expects a list of selected values, and use_custom_school_days
+        # isn't a model field at all - populate both explicitly from the
+        # instance rather than relying on ModelForm's automatic initial
+        # value population (which would just hand the widget the raw CSV
+        # string, not a list). Always set a list (never None) so the
+        # template can check membership without a None-guard.
+        if self.instance.pk and self.instance.school_days:
+            self.fields['school_days'].initial = [str(d) for d in sorted(self.instance.school_days_set)]
+            self.fields['use_custom_school_days'].initial = True
+        else:
+            self.fields['school_days'].initial = []
 
     def clean(self):
         cleaned_data = super().clean()
@@ -285,5 +310,15 @@ class TermForm(forms.ModelForm):
                 raise forms.ValidationError(
                     f"Dates must be within the academic year ({academic_year.start_date} - {academic_year.end_date})."
                 )
+
+        # Only persist school_days as an override when the toggle is on -
+        # otherwise this term falls back to the school-wide default.
+        selected_days = cleaned_data.get('school_days') or []
+        if cleaned_data.get('use_custom_school_days'):
+            if not selected_days:
+                self.add_error('school_days', 'Select at least one working day.')
+            cleaned_data['school_days'] = ','.join(selected_days)
+        else:
+            cleaned_data['school_days'] = ''
 
         return cleaned_data

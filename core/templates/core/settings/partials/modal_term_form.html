@@ -19,6 +19,38 @@
                 <input type="checkbox" name="is_current" class="checkbox checkbox-sm checkbox-primary" {% if form.is_current.value %}checked{% endif %}>
                 <span class="label-text text-sm">Set as Current {{ period_label|default:"Term" }}</span>
             </label>
+
+            <div class="pt-1">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="use_custom_school_days"
+                           class="checkbox checkbox-sm checkbox-primary"
+                           {% if form.use_custom_school_days.value %}checked{% endif %}
+                           onchange="document.getElementById('term-school-days-picker').classList.toggle('hidden', !this.checked)">
+                    <span class="label-text text-sm">{{ form.use_custom_school_days.label }}</span>
+                </label>
+                <div id="term-school-days-picker" class="{% if not form.use_custom_school_days.value %}hidden{% endif %} mt-2 pl-1">
+                    <p class="text-xs text-base-content/50 mb-2">
+                        Pick the days {{ period_label|default:"this term"|lower }} meets. Leave the toggle off to use the school default.
+                    </p>
+                    {% if form.school_days.errors %}
+                    <p class="text-xs text-error mb-2">{{ form.school_days.errors|join:", " }}</p>
+                    {% endif %}
+                    <div class="flex flex-wrap gap-2">
+                        {% for value, label in form.fields.school_days.choices %}
+                        <label class="cursor-pointer">
+                            <input type="checkbox" name="school_days" value="{{ value }}"
+                                   {% if value|stringformat:"s" in form.school_days.value %}checked{% endif %}
+                                   class="peer hidden" />
+                            <span class="inline-flex items-center justify-center w-11 h-9 rounded-lg border-2 text-xs font-medium transition-all
+                                         border-base-300 text-base-content/50
+                                         peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary peer-checked:font-bold">
+                                {{ label }}
+                            </span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
         {% if form.errors %}
         <div class="alert alert-error mt-4">

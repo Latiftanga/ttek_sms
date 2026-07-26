@@ -246,6 +246,15 @@ class AcademicYear(models.Model):
         return academic_year
 
 
+# Shared weekday choices (1=Monday .. 7=Sunday) for both the school-wide
+# default (SchoolSettings.school_days) and a term-specific override
+# (Term.school_days).
+WEEKDAY_CHOICES = [
+    (1, 'Mon'), (2, 'Tue'), (3, 'Wed'), (4, 'Thu'),
+    (5, 'Fri'), (6, 'Sat'), (7, 'Sun'),
+]
+
+
 class Term(models.Model):
     """
     Represents a term/semester within an academic year.
@@ -278,6 +287,18 @@ class Term(models.Model):
         default=False,
         db_index=True,
         help_text="Only one term can be current at a time"
+    )
+
+    # Working days for this term specifically (comma-separated weekday
+    # numbers, same format as SchoolSettings.school_days). Blank means
+    # "inherit the school-wide default" - only set this to override the
+    # default for a term with a different pattern (e.g. no Friday classes,
+    # or an extra Saturday session).
+    school_days = models.CharField(
+        max_length=20,
+        blank=True,
+        default='',
+        help_text="Override the school's default working days for this term only. Leave blank to use the school default."
     )
 
     # Grade locking
@@ -331,6 +352,36 @@ class Term(models.Model):
                 raise ValidationError({
                     'end_date': 'Term end date cannot be after academic year end.'
                 })
+
+        if self.school_days:
+            try:
+                days = {int(d.strip()) for d in self.school_days.split(',') if d.strip()}
+            except ValueError:
+                raise ValidationError({
+                    'school_days': 'School days must be comma-separated weekday numbers (1-7).'
+                })
+            if not days or any(d < 1 or d > 7 for d in days):
+                raise ValidationError({
+                    'school_days': 'School days must be weekday numbers between 1 (Monday) and 7 (Sunday).'
+                })
+
+    @property
+    def school_days_set(self):
+        """
+        Return this term's working days as a set of integers (1=Mon, 7=Sun),
+        falling back to the school-wide SchoolSettings.school_days default
+        when this term has no override of its own.
+        """
+        if self.school_days:
+            try:
+                return {int(d.strip()) for d in self.school_days.split(',') if d.strip()}
+            except ValueError:
+                pass
+        return SchoolSettings.load().school_days_set
+
+    def is_school_day(self, weekday_number):
+        """Check if a weekday number (1=Mon, 7=Sun) is a working day for this term."""
+        return weekday_number in self.school_days_set
 
     def save(self, *args, **kwargs):
         self.full_clean()  # Run validation before saving

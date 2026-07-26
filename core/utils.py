@@ -476,24 +476,64 @@ def generate_verification_qr(verification_code, request=None, domain=None):
 # School Calendar Helpers
 # =============================================================================
 
-def get_valid_school_days(start_date, end_date):
+def is_valid_school_day(date, term=None):
+    """
+    Whether `date` is a working day, honoring a per-term school_days
+    override for whichever Term covers that date, falling back to the
+    school-wide SchoolSettings.school_days default otherwise.
+
+    Pass `term` if you already have a likely candidate in hand (e.g. the
+    current term) - it's used only if it actually covers `date`, so callers
+    don't need to confirm in advance it's the *right* term for that specific
+    date (e.g. an explicitly-chosen past-term date isn't `current_term` at
+    all, but this still resolves it correctly by looking it up fresh).
+    Otherwise the covering term is looked up with one query.
+    """
+    from core.models import SchoolSettings, Term
+
+    if not (term and term.start_date <= date <= term.end_date):
+        term = Term.objects.filter(start_date__lte=date, end_date__gte=date).first()
+    if term:
+        return term.is_school_day(date.isoweekday())
+    return SchoolSettings.load().is_school_day(date.isoweekday())
+
+
+def get_valid_school_days(start_date, end_date, term=None):
     """
     Return the sorted list of valid school days (date objects) in
-    [start_date, end_date] inclusive - days that fall on a configured school
-    weekday (SchoolSettings.school_days) and aren't a SchoolHoliday.
+    [start_date, end_date] inclusive - days that pass is_valid_school_day()
+    and aren't a SchoolHoliday.
+
+    Pass `term` when the whole range is known to fall within a single term
+    (e.g. a term report's own date range) to skip the term-lookup query
+    entirely. Otherwise (e.g. a freeform date range that may span several
+    terms with different working-day patterns) all overlapping terms are
+    fetched once and each day resolved against its own covering term.
     """
     from datetime import timedelta
-    from core.models import SchoolSettings, SchoolHoliday
+    from core.models import SchoolHoliday, Term
 
     if start_date > end_date:
         return []
 
-    school_days_set = SchoolSettings.load().school_days_set
+    if term and term.start_date <= start_date and end_date <= term.end_date:
+        terms = [term]
+    else:
+        terms = list(Term.objects.filter(
+            start_date__lte=end_date, end_date__gte=start_date
+        ).only('start_date', 'end_date', 'school_days'))
+
+    def _covering_term(d):
+        for t in terms:
+            if t.start_date <= d <= t.end_date:
+                return t
+        return None
+
     candidates = [
         start_date + timedelta(days=i)
         for i in range((end_date - start_date).days + 1)
     ]
-    candidates = [d for d in candidates if d.isoweekday() in school_days_set]
+    candidates = [d for d in candidates if is_valid_school_day(d, term=_covering_term(d))]
     if not candidates:
         return []
 
@@ -501,6 +541,6 @@ def get_valid_school_days(start_date, end_date):
     return [d for d in candidates if d not in holidays]
 
 
-def count_valid_school_days(start_date, end_date):
+def count_valid_school_days(start_date, end_date, term=None):
     """Count of valid school days in [start_date, end_date] inclusive."""
-    return len(get_valid_school_days(start_date, end_date))
+    return len(get_valid_school_days(start_date, end_date, term=term))

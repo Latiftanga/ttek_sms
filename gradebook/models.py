@@ -1219,7 +1219,7 @@ class TermReport(models.Model):
         if period_end < self.term.start_date:
             return
 
-        valid_days = get_valid_school_days(self.term.start_date, period_end)
+        valid_days = get_valid_school_days(self.term.start_date, period_end, term=self.term)
         self.total_school_days = len(valid_days)
         if self.total_school_days == 0:
             return

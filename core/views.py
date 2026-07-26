@@ -2976,9 +2976,13 @@ def take_attendance(request, class_id):
     from django.db import IntegrityError
     from academics.models import Class, ClassSubject, AttendanceSession
     from academics.utils import should_use_lesson_attendance
-    from academics.views.attendance import _save_attendance_records, _blocked_redirect, _term_date_error
+    from academics.views.attendance import (
+        _save_attendance_records, _blocked_redirect, _term_date_error,
+        _nearest_valid_attendance_date,
+    )
     from students.models import Student
-    from .models import SchoolSettings, SchoolHoliday
+    from .models import SchoolHoliday
+    from .utils import is_valid_school_day
 
     user = request.user
     is_admin = user.is_superuser or getattr(user, 'is_school_admin', False)
@@ -2993,6 +2997,7 @@ def take_attendance(request, class_id):
 
     # Parse date early so it can be threaded through all redirects
     date_str = request.GET.get('date') or request.POST.get('date')
+    explicit_date = bool(date_str)
     today = timezone.localdate()
 
     # Check permission based on attendance type
@@ -3027,6 +3032,7 @@ def take_attendance(request, class_id):
         except ValueError:
             target_date = today
             date_str = None
+            explicit_date = False
     else:
         target_date = today
 
@@ -3035,18 +3041,33 @@ def take_attendance(request, class_id):
     if date_str:
         back_url += f'?date={date_str}'
 
+    current_term = Term.objects.filter(is_current=True).first()
+
+    # Clicking straight into a class (no date explicitly chosen) always
+    # defaults to today - if today isn't a valid attendance day, land on the
+    # most recent one instead of refusing entry outright, mirroring
+    # academics.views.attendance.class_attendance_take. An explicit date
+    # (from a POST save, or a re-request with ?date=) is still validated
+    # strictly below.
+    adjusted_notice = None
+    if not explicit_date and request.method == 'GET':
+        adjusted = _nearest_valid_attendance_date(target_date, current_term)
+        if adjusted and adjusted != target_date:
+            adjusted_notice = (
+                f"{target_date.strftime('%A')} isn't a school day - showing "
+                f"{adjusted.strftime('%A, %b %d')} instead."
+            )
+            target_date = adjusted
+
     # Restrict marking to within the current term's range (relaxed for dates
     # before it when SchoolSettings.allow_past_term_attendance is on and the
     # date falls within a previously defined term)
-    current_term = Term.objects.filter(is_current=True).first()
     term_error = _term_date_error(target_date, current_term)
     if term_error:
         return _blocked_redirect(request, term_error, back_url)
 
     # Check if this is a school day
-    school_settings = SchoolSettings.load()
-    target_weekday = target_date.isoweekday()
-    if not school_settings.is_school_day(target_weekday):
+    if not is_valid_school_day(target_date, term=current_term):
         day_name = target_date.strftime('%A')
         return _blocked_redirect(request, f'{day_name} is not a school day.', back_url)
 
@@ -3101,7 +3122,15 @@ def take_attendance(request, class_id):
         'is_homeroom': class_obj.class_teacher == teacher,
     }
 
-    return htmx_render(request, 'core/teacher/take_attendance.html', 'core/teacher/partials/take_attendance_content.html', context)
+    if adjusted_notice and not request.htmx:
+        messages.info(request, adjusted_notice)
+    response = htmx_render(
+        request, 'core/teacher/take_attendance.html', 'core/teacher/partials/take_attendance_content.html', context
+    )
+    if adjusted_notice and request.htmx:
+        import json
+        response['HX-Trigger'] = json.dumps({'showToast': {'message': adjusted_notice, 'type': 'info'}})
+    return response
 
 
 @login_required

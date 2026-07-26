@@ -95,6 +95,33 @@ def _term_date_error(target_date, current_term):
     return None
 
 
+def _nearest_valid_attendance_date(target_date, current_term, max_lookback=14):
+    """
+    Walk backward from `target_date` (inclusive) to find the most recent
+    date that's a school day (honoring a term-specific school_days override
+    when `current_term` has one) and not a holiday. Used only when the
+    caller didn't explicitly choose a date (e.g. clicking straight into a
+    class defaults to today) - a weekend/holiday landing on "today"
+    shouldn't be a dead end, since the in-page date picker is the only way
+    to reach a different date and it's unreachable if the page never
+    renders. Returns None if nothing valid turns up within `max_lookback`
+    days or before the current term's start.
+    """
+    from core.models import SchoolHoliday
+    from core.utils import is_valid_school_day
+
+    earliest = current_term.start_date if current_term else target_date - timedelta(days=max_lookback)
+    candidate = target_date
+    tries = 0
+    while candidate >= earliest and tries <= max_lookback:
+        if (is_valid_school_day(candidate, term=current_term)
+                and not SchoolHoliday.get_holiday_name(candidate)):
+            return candidate
+        candidate -= timedelta(days=1)
+        tries += 1
+    return None
+
+
 def _blocked_redirect(request, message, redirect_url, toast_type='warning'):
     """
     Redirect after blocking an action, showing `message` via a toast for
@@ -247,24 +274,43 @@ def class_attendance_take(request, pk):
 
     # Allow past-date entry via query param (e.g. ?date=2026-03-10)
     date_str = request.GET.get('date') or request.POST.get('date')
+    explicit_date = bool(date_str)
     if date_str:
         try:
             from datetime import datetime as dt
             target_date = dt.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
             target_date = timezone.localdate()
+            explicit_date = False
     else:
         target_date = timezone.localdate()
 
+    from core.models import SchoolHoliday, Term
+    from core.utils import is_valid_school_day
+    current_term = Term.get_current()
+
+    # Clicking straight into a class (no date explicitly chosen) always
+    # defaults to today - if today isn't a valid attendance day, land on the
+    # most recent one instead of refusing entry outright. The in-page date
+    # picker is the only way to reach a different date, so hard-blocking
+    # here would make the page permanently unreachable on weekends/holidays.
+    # An explicit choice (e.g. from that same picker, or a POST save) is
+    # still validated strictly below.
+    adjusted_notice = None
+    if not explicit_date and request.method == 'GET':
+        adjusted = _nearest_valid_attendance_date(target_date, current_term)
+        if adjusted and adjusted != target_date:
+            adjusted_notice = (
+                f"{target_date.strftime('%A')} isn't a school day - showing "
+                f"{adjusted.strftime('%A, %b %d')} instead."
+            )
+            target_date = adjusted
+
     # Prevent attendance on non-working days and holidays
-    from core.models import SchoolHoliday, SchoolSettings, Term
-    target_weekday = target_date.isoweekday()
-    school_settings = SchoolSettings.load()
-    if not school_settings.is_school_day(target_weekday):
+    if not is_valid_school_day(target_date, term=current_term):
         day_name = target_date.strftime('%A')
         return _blocked_redirect(request, f'{day_name} is not a school day.', 'academics:attendance_reports')
 
-    current_term = Term.get_current()
     term_error = _term_date_error(target_date, current_term)
     if term_error:
         return _blocked_redirect(request, term_error, 'academics:attendance_reports')
@@ -319,7 +365,12 @@ def class_attendance_take(request, pk):
 
     # Use partial for HTMX, full page for direct access/refresh
     if request.htmx:
-        return render(request, 'academics/partials/modal_attendance_take.html', context)
+        response = render(request, 'academics/partials/modal_attendance_take.html', context)
+        if adjusted_notice:
+            response['HX-Trigger'] = json.dumps({'showToast': {'message': adjusted_notice, 'type': 'info'}})
+        return response
+    if adjusted_notice:
+        messages.info(request, adjusted_notice)
     return render(request, 'academics/class_attendance_take.html', context)
 
 
@@ -648,14 +699,13 @@ def take_lesson_attendance(request, timetable_entry_id):
         lesson_list_url += f'?date={date_str}'
 
     # Prevent attendance on non-working days and holidays
-    from core.models import SchoolHoliday, SchoolSettings, Term
-    target_weekday = target_date.isoweekday()
-    school_settings = SchoolSettings.load()
-    if not school_settings.is_school_day(target_weekday):
+    from core.models import SchoolHoliday, Term
+    from core.utils import is_valid_school_day
+    current_term = Term.get_current()
+    if not is_valid_school_day(target_date, term=current_term):
         day_name = target_date.strftime('%A')
         return _blocked_redirect(request, f'{day_name} is not a school day.', lesson_list_url)
 
-    current_term = Term.get_current()
     term_error = _term_date_error(target_date, current_term)
     if term_error:
         return _blocked_redirect(request, term_error, lesson_list_url)

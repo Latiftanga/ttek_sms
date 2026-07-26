@@ -856,6 +856,21 @@
                 }
             });
 
+            // Also clear on afterRequest, which fires for every completed
+            // exchange including 204 responses (e.g. the "blocked" toasts
+            // this app returns for disallowed actions) - htmx skips the DOM
+            // swap entirely for 204, so afterSwap above never fires for
+            // those, and without this the nav-loader overlay would stay
+            // stuck on screen forever, hiding the toast underneath it.
+            document.body.addEventListener('htmx:afterRequest', function(e) {
+                var target = e.detail.target;
+                if (target && target.id === 'main-content') {
+                    window._navClickPending = false;
+                    var loader = document.getElementById('nav-loader');
+                    if (loader) loader.classList.remove('active');
+                }
+            });
+
             // Hide on errors so it doesn't get stuck
             document.body.addEventListener('htmx:sendError', function(e) {
                 window._navClickPending = false;

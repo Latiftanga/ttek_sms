@@ -934,3 +934,122 @@ class AttendanceTermRestrictionTests(AcademicsTestCase):
         self.assertFalse(
             AttendanceSession.objects.filter(class_assigned=self.klass, date=future_date).exists()
         )
+
+
+# =============================================================================
+# ATTENDANCE: PER-TERM SCHOOL DAYS OVERRIDE
+# =============================================================================
+
+class AttendanceTermSchoolDaysTests(AcademicsTestCase):
+    """
+    Tests that a term-specific school_days override (Term.school_days) is
+    honored by the attendance-marking entry points, taking precedence over
+    the school-wide SchoolSettings.school_days default whenever the date
+    falls within that term.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()  # SchoolSettings.load() caches per-tenant for 24h
+        self.addCleanup(cache.clear)
+
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+
+        # Global default stays Mon-Fri; the term below overrides it.
+        self.current_term = Term.objects.create(
+            academic_year=self.current_year, name='Term 2', term_number=2,
+            start_date=date(2024, 9, 1), end_date=date(2024, 12, 20),
+            is_current=True,
+        )
+
+        self.friday = date(2024, 9, 6)  # a normal Mon-Fri working day globally
+        self.saturday = date(2024, 9, 7)  # a weekend day globally
+
+        self.student = self.create_student('Ama', 'STU-001', class_obj=self.klass)
+
+    def _set_term_school_days(self, csv_value):
+        self.current_term.school_days = csv_value
+        self.current_term.save(update_fields=['school_days'])
+
+    def test_blocks_a_day_excluded_by_term_override(self):
+        """Friday is a normal working day globally, but this term meets
+        Mon-Thu only - Friday inside this term should be blocked."""
+        self._set_term_school_days('1,2,3,4')  # no Friday
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.friday.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            AttendanceSession.objects.filter(class_assigned=self.klass, date=self.friday).exists()
+        )
+
+    def test_allows_a_day_included_by_term_override(self):
+        """Saturday isn't a working day globally, but this term adds a
+        Saturday session - Saturday inside this term should be allowed."""
+        self._set_term_school_days('1,2,3,4,5,6')  # adds Saturday
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.saturday.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            AttendanceSession.objects.filter(class_assigned=self.klass, date=self.saturday).exists()
+        )
+
+    def test_blank_term_school_days_falls_back_to_global(self):
+        """No override set - Saturday inside this term is still blocked,
+        matching the school-wide default."""
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.saturday.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            AttendanceSession.objects.filter(class_assigned=self.klass, date=self.saturday).exists()
+        )
+
+    def test_take_attendance_dashboard_entry_point_honors_override(self):
+        """The teacher-dashboard equivalent (core:take_attendance) applies
+        the same term-specific override."""
+        self._set_term_school_days('1,2,3,4,5,6')  # adds Saturday
+        response = self.client.post(
+            reverse('core:take_attendance', args=[self.klass.pk]),
+            {'date': self.saturday.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            AttendanceSession.objects.filter(class_assigned=self.klass, date=self.saturday).exists()
+        )
+
+    def test_lesson_attendance_honors_term_override(self):
+        """Per-lesson attendance (take_lesson_attendance) also honors a
+        term-specific school_days override."""
+        self._set_term_school_days('1,2,3,4')  # no Friday
+
+        lesson_klass = self.create_class('basic', 2)
+        lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON
+        lesson_klass.save(update_fields=['attendance_type'])
+
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(lesson_klass, subject)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period,
+            weekday=TimetableEntry.Weekday.FRIDAY,
+        )
+        student = self.create_student('Kofi', 'STU-002', class_obj=lesson_klass)
+
+        response = self.client.post(
+            reverse('academics:take_lesson_attendance', args=[entry.pk]),
+            {'date': self.friday.isoformat(), f'status_{student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            AttendanceSession.objects.filter(class_assigned=lesson_klass, date=self.friday).exists()
+        )
