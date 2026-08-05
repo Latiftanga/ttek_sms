@@ -14,7 +14,7 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div class="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <button class="btn btn-ghost btn-xs btn-square min-h-[36px] min-w-[36px]"
                 hx-get="{% url 'gradebook:assignment_edit' assign.pk %}"
                 hx-target="#assignment-row-{{ assign.pk }}"
