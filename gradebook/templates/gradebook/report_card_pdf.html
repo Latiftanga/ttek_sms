@@ -780,10 +780,6 @@
                 <td class="rating-cell-label">Interest:</td>
                 <td class="rating-cell-value">{{ term_report.interest_rating|default:"-" }}</td>
             </tr>
-            <tr>
-                <td class="rating-cell-label">Attendance:</td>
-                <td class="rating-cell-value">{{ term_report.get_attendance_rating_display|default:"-" }}</td>
-            </tr>
         </table>
         {% endif %}
 
@@ -810,8 +806,8 @@
                     <div class="attendance-value">{{ term_report.total_school_days|default:"-" }}</div>
                 </td>
                 <td class="attendance-cell">
-                    <div class="attendance-label">Rate</div>
-                    <div class="attendance-value">{% if term_report.attendance_percentage %}{{ term_report.attendance_percentage|floatformat:0 }}%{% else %}-{% endif %}</div>
+                    <div class="attendance-label">Attendance</div>
+                    <div class="attendance-value">{{ term_report.days_present|default:"0" }}/{{ term_report.total_school_days|default:"0" }}</div>
                 </td>
                 <td class="attendance-cell">
                     <div class="attendance-label">Late</div>

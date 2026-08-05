@@ -282,6 +282,7 @@ def student_report(request, student_id):
             )
 
     report_data = _get_student_report_data(student, current_term)
+    rc_config = SchoolSettings.load()
 
     # Term-over-term trend data
     term_trends = list(
@@ -303,6 +304,7 @@ def student_report(request, student_id):
         **report_data,
         'term_trend_json': term_trend_json,
         'term_trends': term_trends,
+        'rc_config': rc_config,
     }
 
     return htmx_render(

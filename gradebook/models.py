@@ -1154,51 +1154,13 @@ class TermReport(models.Model):
             aggregate, _ = grading_system.calculate_aggregate(grades_list)
             self.aggregate = aggregate
 
-    @staticmethod
-    def derive_attendance_rating(attendance_percentage):
-        """Derive attendance rating from attendance percentage.
-
-        Returns one of EXCELLENT/VERY_GOOD/GOOD/FAIR/POOR based on percentage.
-        >= 95% → EXCELLENT, >= 85% → VERY_GOOD, >= 75% → GOOD,
-        >= 60% → FAIR, < 60% → POOR
-        """
-        pct = float(attendance_percentage)
-        if pct >= 95:
-            return 'EXCELLENT'
-        elif pct >= 85:
-            return 'VERY_GOOD'
-        elif pct >= 75:
-            return 'GOOD'
-        elif pct >= 60:
-            return 'FAIR'
-        return 'POOR'
-
-    @property
-    def attendance_rating(self):
-        """Computed from attendance_percentage — never stored."""
-        if self.attendance_percentage is None:
-            return ''
-        return self.derive_attendance_rating(self.attendance_percentage)
-
-    def get_attendance_rating_display(self):
-        """Human-readable label for attendance_rating (replaces Django choices display)."""
-        rating_labels = {
-            'EXCELLENT': 'Excellent',
-            'VERY_GOOD': 'Very Good',
-            'GOOD': 'Good',
-            'FAIR': 'Fair',
-            'POOR': 'Poor',
-        }
-        return rating_labels.get(self.attendance_rating, '')
-
     def calculate_attendance(self):
         """
         Calculate attendance for the term against the real school calendar
         (valid school days = configured working weekdays minus holidays/
         closures), not just however many AttendanceSession rows happen to
         exist. Computes days_present, days_absent, days_excused, times_late,
-        and attendance_percentage. attendance_rating is derived automatically
-        from attendance_percentage.
+        and attendance_percentage.
 
         The denominator (total_school_days) is a fixed calendar fact and is
         never reduced for excused days - an excused day just doesn't count

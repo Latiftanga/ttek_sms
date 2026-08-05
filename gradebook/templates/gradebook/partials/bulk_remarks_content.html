@@ -275,11 +275,8 @@
                                 <span class="label-text text-xs">Attendance</span>
                             </label>
                             <div class="px-2 py-1.5 bg-base-200/50 rounded-lg text-xs sm:text-sm">
-                                {% if student.term_report and student.term_report.attendance_rating %}
-                                    {{ student.term_report.get_attendance_rating_display }}
-                                    {% if student.term_report.attendance_percentage %}
-                                        <span class="text-base-content/50">({{ student.term_report.attendance_percentage|floatformat:0 }}%)</span>
-                                    {% endif %}
+                                {% if student.term_report and student.term_report.total_school_days %}
+                                    {{ student.term_report.days_present|default:"0" }}/{{ student.term_report.total_school_days }}
                                 {% else %}
                                     <span class="text-base-content/40">Auto-computed</span>
                                 {% endif %}

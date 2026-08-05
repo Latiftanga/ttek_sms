@@ -411,7 +411,7 @@ def _calculate_term_reports(
         ['total_marks', 'average', 'subjects_taken', 'subjects_passed',
          'subjects_failed', 'credits_count', 'core_subjects_total',
          'core_subjects_passed', 'aggregate', 'promoted',
-         'promotion_remarks', 'days_present', 'days_absent',
+         'promotion_remarks', 'days_present', 'days_absent', 'days_excused',
          'total_school_days', 'times_late', 'attendance_percentage'],
         batch_size=config.BULK_UPDATE_BATCH_SIZE
     )
