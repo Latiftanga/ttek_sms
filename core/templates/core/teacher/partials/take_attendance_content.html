@@ -32,7 +32,14 @@
             <span class="badge badge-primary badge-sm">Homeroom</span>
             {% endif %}
         </div>
-        <p class="text-xs text-base-content/50">{{ date|date:"l, j M Y" }}</p>
+        <input type="date" value="{{ date|date:'Y-m-d' }}"
+               class="input input-xs input-bordered mt-0.5"
+               hx-get="{% url 'core:take_attendance' class.pk %}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               {% if current_term %}min="{{ current_term.start_date|date:'Y-m-d' }}"{% endif %}
+               max="{{ today|date:'Y-m-d' }}"
+               name="date">
     </div>
     <div class="text-xs text-base-content/40 font-medium shrink-0">
         {{ student_list|length }} students

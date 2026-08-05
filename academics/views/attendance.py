@@ -97,21 +97,27 @@ def _term_date_error(target_date, current_term):
 
 def _nearest_valid_attendance_date(target_date, current_term, max_lookback=14):
     """
-    Walk backward from `target_date` (inclusive) to find the most recent
-    date that's a school day (honoring a term-specific school_days override
-    when `current_term` has one) and not a holiday. Used only when the
-    caller didn't explicitly choose a date (e.g. clicking straight into a
-    class defaults to today) - a weekend/holiday landing on "today"
-    shouldn't be a dead end, since the in-page date picker is the only way
-    to reach a different date and it's unreachable if the page never
-    renders. Returns None if nothing valid turns up within `max_lookback`
-    days or before the current term's start.
+    Walk backward from `target_date` (inclusive, clamped to the current
+    term's end date if `target_date` has run past it) to find the most
+    recent date that's a school day (honoring a term-specific school_days
+    override when `current_term` has one) and not a holiday. Used only when
+    the caller didn't explicitly choose a date (e.g. clicking straight into
+    a class defaults to today) - neither a weekend/holiday landing on
+    "today" nor a term that has already ended should be a dead end, since
+    a teacher who fell behind on marking still needs a way in to catch up
+    on unmarked past days within the term; the in-page date picker is the
+    only other way to reach a different date, and it's unreachable if the
+    page never renders. Returns None if nothing valid turns up within
+    `max_lookback` days or before the current term's start.
     """
     from core.models import SchoolHoliday
     from core.utils import is_valid_school_day
 
     earliest = current_term.start_date if current_term else target_date - timedelta(days=max_lookback)
-    candidate = target_date
+    if current_term and target_date > current_term.end_date:
+        candidate = current_term.end_date
+    else:
+        candidate = target_date
     tries = 0
     while candidate >= earliest and tries <= max_lookback:
         if (is_valid_school_day(candidate, term=current_term)
@@ -119,6 +125,33 @@ def _nearest_valid_attendance_date(target_date, current_term, max_lookback=14):
             return candidate
         candidate -= timedelta(days=1)
         tries += 1
+    return None
+
+
+def _nearest_valid_lesson_date(target_date, entry_weekday, current_term, max_weeks_back=8):
+    """
+    Same catch-up idea as _nearest_valid_attendance_date, but for a specific
+    timetable entry: a lesson only runs on one fixed weekday, so walking
+    back day by day could land on a date the entry doesn't even meet on.
+    Walks backward in 7-day steps (clamped to the term's end date first, so
+    a lapsed term still lands within it) to find the most recent occurrence
+    of `entry_weekday` that isn't a holiday. Returns None if nothing valid
+    turns up within `max_weeks_back` weeks or before the term's start.
+    """
+    from core.models import SchoolHoliday
+
+    if not current_term:
+        return None
+    candidate = min(target_date, current_term.end_date)
+    # Align to the entry's weekday first - normally already a match, since
+    # callers only reach this from a same-weekday-filtered lesson list.
+    candidate -= timedelta(days=(candidate.isoweekday() - entry_weekday) % 7)
+    weeks = 0
+    while candidate >= current_term.start_date and weeks <= max_weeks_back:
+        if not SchoolHoliday.get_holiday_name(candidate):
+            return candidate
+        candidate -= timedelta(days=7)
+        weeks += 1
     return None
 
 
@@ -252,25 +285,32 @@ def class_attendance_take(request, pk):
     user = request.user
     is_admin = is_school_admin(user)
 
-    # Check permission: daily attendance requires class teacher (form master) or admin
-    teacher = None
-    if not is_admin:
-        if not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile'):
-            messages.error(request, 'You do not have permission to take attendance.')
-            return redirect('core:index')
+    if not is_admin and (not getattr(user, 'is_teacher', False) or not hasattr(user, 'teacher_profile')):
+        messages.error(request, 'You do not have permission to take attendance.')
+        return redirect('core:index')
 
-        teacher = user.teacher_profile
-        if class_obj.class_teacher != teacher:
-            messages.error(request, 'Only the class teacher or admin can take daily attendance.')
-            return redirect('academics:attendance_reports')
-    else:
-        # Admin user - check if they have a teacher profile
-        teacher = getattr(user, 'teacher_profile', None)
+    teacher = user.teacher_profile if hasattr(user, 'teacher_profile') else None
+    is_class_teacher = teacher and class_obj.class_teacher == teacher
 
-    # Check if class uses per-lesson attendance
+    # Check if class uses per-lesson attendance before enforcing the daily
+    # (class-teacher-only) permission rule below - per-lesson classes are
+    # markable by any subject teacher assigned to them, not just the class
+    # teacher/form master, matching lesson_attendance_list and the teacher
+    # portal's take_attendance.
     if should_use_lesson_attendance(class_obj):
-        # For per-lesson classes, redirect to lesson selection
+        if not is_admin and not is_class_teacher:
+            is_subject_teacher = ClassSubject.objects.filter(
+                class_assigned=class_obj, teacher=teacher
+            ).exists()
+            if not is_subject_teacher:
+                messages.error(request, 'You are not assigned to this class.')
+                return redirect('academics:attendance_reports')
         return redirect('academics:lesson_attendance_list', pk=pk)
+
+    # Daily attendance requires the class teacher (form master) or admin
+    if not is_admin and not is_class_teacher:
+        messages.error(request, 'Only the class teacher or admin can take daily attendance.')
+        return redirect('academics:attendance_reports')
 
     # Allow past-date entry via query param (e.g. ?date=2026-03-10)
     date_str = request.GET.get('date') or request.POST.get('date')
@@ -279,6 +319,10 @@ def class_attendance_take(request, pk):
         try:
             from datetime import datetime as dt
             target_date = dt.strptime(date_str, '%Y-%m-%d').date()
+            if target_date > timezone.localdate():
+                return _blocked_redirect(
+                    request, 'Cannot take attendance for a future date.', 'academics:attendance_reports'
+                )
         except ValueError:
             target_date = timezone.localdate()
             explicit_date = False
@@ -300,10 +344,16 @@ def class_attendance_take(request, pk):
     if not explicit_date and request.method == 'GET':
         adjusted = _nearest_valid_attendance_date(target_date, current_term)
         if adjusted and adjusted != target_date:
-            adjusted_notice = (
-                f"{target_date.strftime('%A')} isn't a school day - showing "
-                f"{adjusted.strftime('%A, %b %d')} instead."
-            )
+            if current_term and target_date > current_term.end_date:
+                adjusted_notice = (
+                    f"The current term ended {current_term.end_date.strftime('%b %d')} - showing "
+                    f"{adjusted.strftime('%A, %b %d')} instead. You can still mark earlier days you missed."
+                )
+            else:
+                adjusted_notice = (
+                    f"{target_date.strftime('%A')} isn't a school day - showing "
+                    f"{adjusted.strftime('%A, %b %d')} instead."
+                )
             target_date = adjusted
 
     # Prevent attendance on non-working days and holidays
@@ -684,12 +734,14 @@ def take_lesson_attendance(request, timetable_entry_id):
 
     # Allow past-date entry via query param (e.g. ?date=2026-03-10)
     date_str = request.GET.get('date') or request.POST.get('date')
+    explicit_date = bool(date_str)
     if date_str:
         try:
             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
             target_date = timezone.localdate()
             date_str = None
+            explicit_date = False
     else:
         target_date = timezone.localdate()
 
@@ -698,10 +750,31 @@ def take_lesson_attendance(request, timetable_entry_id):
     if date_str:
         lesson_list_url += f'?date={date_str}'
 
-    # Prevent attendance on non-working days and holidays
     from core.models import SchoolHoliday, Term
     from core.utils import is_valid_school_day
     current_term = Term.get_current()
+
+    # Same catch-up landing as the daily flow: clicking straight into
+    # "today's" lesson shouldn't dead-end just because the term has since
+    # ended - land on the most recent week this entry actually ran instead.
+    # An explicit date choice is still validated strictly below.
+    adjusted_notice = None
+    if not explicit_date and request.method == 'GET':
+        adjusted = _nearest_valid_lesson_date(target_date, entry.weekday, current_term)
+        if adjusted and adjusted != target_date:
+            if current_term and target_date > current_term.end_date:
+                adjusted_notice = (
+                    f"The current term ended {current_term.end_date.strftime('%b %d')} - showing "
+                    f"{adjusted.strftime('%A, %b %d')} instead. You can still mark earlier days you missed."
+                )
+            else:
+                adjusted_notice = (
+                    f"{target_date.strftime('%A')} isn't a school day - showing "
+                    f"{adjusted.strftime('%A, %b %d')} instead."
+                )
+            target_date = adjusted
+
+    # Prevent attendance on non-working days and holidays
     if not is_valid_school_day(target_date, term=current_term):
         day_name = target_date.strftime('%A')
         return _blocked_redirect(request, f'{day_name} is not a school day.', lesson_list_url)
@@ -755,22 +828,36 @@ def take_lesson_attendance(request, timetable_entry_id):
 
     is_edit = not created and session.records.exists()
 
+    # Determine HTMX swap target so the date picker reloads into whichever
+    # real container this partial was rendered into, same as lesson_attendance_list.
+    htmx_target = request.headers.get('HX-Target', 'main-content')
+    KNOWN_TARGETS = ('modal-content', 'main-content', 'modal-edit-content', 'tab-attendance')
+    reload_target = f'#{htmx_target}' if htmx_target in KNOWN_TARGETS else '#main-content'
+
     context = {
         'class': class_obj,
         'session': session,
         'student_list': student_list,
         'date': target_date,
+        'today': timezone.localdate(),
+        'current_term': current_term,
         'is_lesson': True,
         'is_edit': is_edit,
         'entry': entry,
         'subject': class_subject.subject,
         'period': entry.period,
         'timetable_entry_id': timetable_entry_id,
+        'reload_target': reload_target,
     }
 
     # Use partial for HTMX, full page for direct access/refresh
     if request.htmx:
-        return render(request, 'academics/partials/modal_attendance_take.html', context)
+        response = render(request, 'academics/partials/modal_attendance_take.html', context)
+        if adjusted_notice:
+            response['HX-Trigger'] = json.dumps({'showToast': {'message': adjusted_notice, 'type': 'info'}})
+        return response
+    if adjusted_notice:
+        messages.info(request, adjusted_notice)
     return render(request, 'academics/class_attendance_take.html', context)
 
 

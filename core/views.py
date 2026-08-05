@@ -3053,10 +3053,16 @@ def take_attendance(request, class_id):
     if not explicit_date and request.method == 'GET':
         adjusted = _nearest_valid_attendance_date(target_date, current_term)
         if adjusted and adjusted != target_date:
-            adjusted_notice = (
-                f"{target_date.strftime('%A')} isn't a school day - showing "
-                f"{adjusted.strftime('%A, %b %d')} instead."
-            )
+            if current_term and target_date > current_term.end_date:
+                adjusted_notice = (
+                    f"The current term ended {current_term.end_date.strftime('%b %d')} - showing "
+                    f"{adjusted.strftime('%A, %b %d')} instead. You can still mark earlier days you missed."
+                )
+            else:
+                adjusted_notice = (
+                    f"{target_date.strftime('%A')} isn't a school day - showing "
+                    f"{adjusted.strftime('%A, %b %d')} instead."
+                )
             target_date = adjusted
 
     # Restrict marking to within the current term's range (relaxed for dates
@@ -3120,6 +3126,8 @@ def take_attendance(request, class_id):
         'student_list': student_list,
         'date': target_date,
         'is_homeroom': class_obj.class_teacher == teacher,
+        'current_term': current_term,
+        'today': today,
     }
 
     if adjusted_notice and not request.htmx:

@@ -37,6 +37,19 @@
                        hx-target="{% if in_tab %}#tab-attendance{% else %}#main-content{% endif %}"
                        {% if not in_tab %}hx-push-url="true"{% endif %}
                        name="date">
+                {% elif is_lesson %}
+                <!-- Changing the date routes back to the lesson list rather than
+                     reloading this same timetable entry - which lessons exist on
+                     a given day depends on the day, so the list is what recomputes
+                     that; staying pinned to this entry could land on a date its
+                     schedule doesn't even run on. -->
+                <input type="date" value="{{ date|date:'Y-m-d' }}"
+                       class="input input-xs input-bordered"
+                       max="{{ today|date:'Y-m-d' }}"
+                       {% if current_term %}min="{{ current_term.start_date|date:'Y-m-d' }}"{% endif %}
+                       hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
+                       hx-target="{{ reload_target|default:'#main-content' }}"
+                       name="date">
                 {% else %}
                 {{ date|date:"l, j M Y" }}{% if is_edit %} &bull; Editing{% endif %}
                 {% endif %}

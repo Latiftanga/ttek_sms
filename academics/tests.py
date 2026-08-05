@@ -10,7 +10,9 @@ Focuses on:
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.urls import reverse
+from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django_tenants.test.cases import TenantTestCase
 from django_tenants.test.client import TenantClient
@@ -1052,4 +1054,131 @@ class AttendanceTermSchoolDaysTests(AcademicsTestCase):
         self.assertEqual(response.status_code, 302)
         self.assertFalse(
             AttendanceSession.objects.filter(class_assigned=lesson_klass, date=self.friday).exists()
+        )
+
+
+# =============================================================================
+# ATTENDANCE: CATCHING UP ON A LAPSED TERM
+# =============================================================================
+
+class AttendanceTermEndedCatchUpTests(AcademicsTestCase):
+    """
+    If the current term's end date has already passed (a teacher fell
+    behind and the term rolled over before they finished marking), landing
+    on a class with no explicit date should offer the most recent valid day
+    *within* the term instead of a dead block - the teacher can still catch
+    up on unmarked past days, bounded by the term's own start/end dates.
+    """
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()  # Term.get_current() caches per-tenant for 1h
+        self.addCleanup(cache.clear)
+
+        today = timezone.localdate()
+        self.lapsed_year = AcademicYear.objects.create(
+            name='Lapsed Year',
+            start_date=today - timedelta(days=60),
+            end_date=today + timedelta(days=60),
+            is_current=False,
+        )
+        self.lapsed_term = Term.objects.create(
+            academic_year=self.lapsed_year, name='Lapsed Term', term_number=1,
+            start_date=today - timedelta(days=20),
+            end_date=today - timedelta(days=5),
+            is_current=True,
+        )
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+        self.student = self.create_student('Ama', 'STU-100', class_obj=self.klass)
+
+    def test_class_attendance_take_lands_within_lapsed_term_instead_of_blocking(self):
+        response = self.client.get(
+            reverse('academics:class_attendance_take', args=[self.klass.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        session = AttendanceSession.objects.filter(class_assigned=self.klass).first()
+        self.assertIsNotNone(session, 'Expected a session to be opened within the lapsed term')
+        self.assertGreaterEqual(session.date, self.lapsed_term.start_date)
+        self.assertLessEqual(session.date, self.lapsed_term.end_date)
+
+    def test_take_attendance_dashboard_entry_point_lands_within_lapsed_term(self):
+        response = self.client.get(
+            reverse('core:take_attendance', args=[self.klass.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        session = AttendanceSession.objects.filter(class_assigned=self.klass).first()
+        self.assertIsNotNone(session, 'Expected a session to be opened within the lapsed term')
+        self.assertGreaterEqual(session.date, self.lapsed_term.start_date)
+        self.assertLessEqual(session.date, self.lapsed_term.end_date)
+
+    def test_explicit_date_beyond_lapsed_term_end_is_still_blocked(self):
+        """The auto-landing relaxation only applies when no date was
+        explicitly chosen - an explicit pick outside the term is still
+        rejected, same as before."""
+        beyond_end = self.lapsed_term.end_date + timedelta(days=1)
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': beyond_end.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            AttendanceSession.objects.filter(class_assigned=self.klass, date=beyond_end).exists()
+        )
+
+    def test_take_lesson_attendance_lands_on_matching_weekday_within_lapsed_term(self):
+        """Per-lesson attendance is tied to a fixed weekday slot, so the
+        catch-up landing must preserve entry.weekday rather than walking
+        back day by day like the daily flow does."""
+        lesson_klass = self.create_class('basic', 2)
+        lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON
+        lesson_klass.save(update_fields=['attendance_type'])
+
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(lesson_klass, subject)
+        entry_weekday = self.lapsed_term.end_date.isoweekday()
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period, weekday=entry_weekday,
+        )
+        self.create_student('Kofi', 'STU-101', class_obj=lesson_klass)
+
+        response = self.client.get(
+            reverse('academics:take_lesson_attendance', args=[entry.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        session = AttendanceSession.objects.filter(
+            class_assigned=lesson_klass, timetable_entry=entry
+        ).first()
+        self.assertIsNotNone(session, 'Expected a session to be opened within the lapsed term')
+        self.assertGreaterEqual(session.date, self.lapsed_term.start_date)
+        self.assertLessEqual(session.date, self.lapsed_term.end_date)
+        self.assertEqual(session.date.isoweekday(), entry_weekday)
+
+    def test_lesson_attendance_explicit_date_beyond_lapsed_term_end_is_still_blocked(self):
+        lesson_klass = self.create_class('basic', 2)
+        lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON
+        lesson_klass.save(update_fields=['attendance_type'])
+
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(lesson_klass, subject)
+        beyond_end = self.lapsed_term.end_date + timedelta(days=1)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period, weekday=beyond_end.isoweekday(),
+        )
+        student = self.create_student('Kofi', 'STU-102', class_obj=lesson_klass)
+
+        response = self.client.post(
+            reverse('academics:take_lesson_attendance', args=[entry.pk]),
+            {'date': beyond_end.isoformat(), f'status_{student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            AttendanceSession.objects.filter(class_assigned=lesson_klass, date=beyond_end).exists()
         )
