@@ -2755,6 +2755,21 @@ def my_attendance(request):
         )
         if not past_term_ok:
             selected_date = current_term.start_date
+    elif current_term and selected_date > current_term.end_date:
+        # "Today" can be past the current term's end date if the term has
+        # already lapsed (teacher hasn't caught up on marking since it
+        # ended) - without this, selected_date stays on the real today and
+        # gets baked as an explicit ?date= into the "Take Attendance" link
+        # below, which take_attendance then correctly (but silently, via a
+        # toast) rejects for being past term end - looking like a dead
+        # button. Reuses the same walk-back-to-a-real-school-day helper
+        # class_attendance_take/take_attendance already use for the exact
+        # same "landed past term end" case - term.end_date alone isn't
+        # enough since it could itself be a weekend/holiday.
+        from academics.views.attendance import _nearest_valid_attendance_date
+        adjusted = _nearest_valid_attendance_date(selected_date, current_term)
+        if adjusted:
+            selected_date = adjusted
 
     # Base queryset for records (filtered by date/class later)
     records_qs = AttendanceRecord.objects.filter(
@@ -2938,8 +2953,41 @@ def my_attendance(request):
     classes_done_today = daily_done
     classes_pending_today = daily_pending
 
+    # Unified "today" list for the Today tab - lessons (per-lesson
+    # attendance, one row per period) and daily homeroom classes (one row
+    # per class) are both "tap to mark attendance for today" actions,
+    # differing only in whether they're tied to a specific period, so
+    # they're merged into one list instead of two separately-headed
+    # sections. Each half is already sorted (today_lessons by period
+    # start_time, daily_classes by class name via the `classes` queryset),
+    # so this is a concatenation, not a re-sort. form_class is deliberately
+    # NOT included here - it's a report/stats shortcut for a form master,
+    # not an attendance-taking action, so it keeps its own distinct spot.
+    today_items = (
+        [{'kind': 'lesson', 'lesson': lesson} for lesson in today_lessons]
+        + [{'kind': 'daily', 'item': item} for item in daily_classes]
+    )
+
+    # Valid dates for the Today tab's date picker - same walk-the-term
+    # approach used by the per-class attendance pickers
+    # (_pickable_attendance_dates in academics.views.attendance), but
+    # without a per-date "marked" flag: this picker spans every class a
+    # teacher has, not one, so there's no single boolean to check per date
+    # without a much more expensive aggregate query across all of them.
+    pickable_dates = []
+    if current_term:
+        from core.utils import get_valid_school_days
+        end = min(today, current_term.end_date)
+        valid_days = get_valid_school_days(current_term.start_date, end, term=current_term)
+        pickable_dates = [
+            {'value': d.isoformat(), 'label': d.strftime('%a, %d %b'), 'selected': d == selected_date}
+            for d in reversed(valid_days)
+        ]
+
     context = {
         'teacher': teacher,
+        'today_items': today_items,
+        'pickable_dates': pickable_dates,
         'classes': classes,
         'class_filter': class_filter,
         'date_from': date_from,
@@ -2978,7 +3026,7 @@ def take_attendance(request, class_id):
     from academics.utils import should_use_lesson_attendance
     from academics.views.attendance import (
         _save_attendance_records, _blocked_redirect, _term_date_error,
-        _nearest_valid_attendance_date,
+        _nearest_valid_attendance_date, _pickable_attendance_dates,
     )
     from students.models import Student
     from .models import SchoolHoliday
@@ -3128,6 +3176,11 @@ def take_attendance(request, class_id):
         'is_homeroom': class_obj.class_teacher == teacher,
         'current_term': current_term,
         'today': today,
+        'attendance_taken': bool(records),
+        'pickable_dates': _pickable_attendance_dates(
+            class_obj, current_term, today,
+            AttendanceSession.SessionType.DAILY, target_date
+        ),
     }
 
     if adjusted_notice and not request.htmx:

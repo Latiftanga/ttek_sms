@@ -155,6 +155,53 @@ def _nearest_valid_lesson_date(target_date, entry_weekday, current_term, max_wee
     return None
 
 
+def _pickable_attendance_dates(class_obj, current_term, today, session_type, selected_date=None):
+    """
+    Valid days a teacher can pick from the attendance date dropdown, most
+    recent first, each flagged with whether that day already has real
+    (non-empty) attendance saved for `class_obj`. Bounded to the current
+    term's start through today (or the term's own end date if it has
+    already lapsed) - the same range _term_date_error actually allows
+    marking within, so nothing reachable via the old min/max-bounded date
+    input becomes unreachable here.
+
+    `session_type` should be AttendanceSession.SessionType.DAILY for the
+    daily flow, or .LESSON for the per-lesson flow - for LESSON, "marked"
+    means at least one lesson session that day has records, aggregated
+    across the whole class (not scoped to a single timetable entry), since
+    that's what both lesson-flow dropdowns (the hub list and a single
+    lesson's own date picker, which routes back to that same hub) actually
+    let a teacher jump to.
+    """
+    from core.utils import get_valid_school_days
+
+    if not current_term:
+        return []
+    end = min(today, current_term.end_date)
+    valid_days = get_valid_school_days(current_term.start_date, end, term=current_term)
+    if not valid_days:
+        return []
+
+    marked_dates = set(
+        AttendanceSession.objects.filter(
+            class_assigned=class_obj,
+            session_type=session_type,
+            date__in=valid_days,
+            records__isnull=False,
+        ).values_list('date', flat=True).distinct()
+    )
+
+    return [
+        {
+            'value': d.isoformat(),
+            'label': d.strftime('%a, %d %b'),
+            'marked': d in marked_dates,
+            'selected': d == selected_date,
+        }
+        for d in reversed(valid_days)
+    ]
+
+
 def _blocked_redirect(request, message, redirect_url, toast_type='warning'):
     """
     Redirect after blocking an action, showing `message` via a toast for
@@ -165,7 +212,14 @@ def _blocked_redirect(request, message, redirect_url, toast_type='warning'):
     """
     if request.htmx:
         response = HttpResponse(status=204)
-        response['HX-Trigger'] = json.dumps({'showToast': {'message': message, 'type': toast_type}})
+        # revertDateInput: a 204 swaps nothing, so the date <input> that
+        # triggered this request is left showing the just-picked (invalid)
+        # date while the content behind it still reflects the old one -
+        # this snaps the picker back once the toast below has explained why.
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {'message': message, 'type': toast_type},
+            'revertDateInput': True,
+        })
         return response
     messages.warning(request, message)
     return redirect(redirect_url)
@@ -209,14 +263,46 @@ def _save_attendance_records(request, session, students, redirect_url,
                 marked_by=request.user,
             ))
 
-    try:
+    def _write(create_list, update_list):
         with transaction.atomic():
-            if records_to_create:
-                AttendanceRecord.objects.bulk_create(records_to_create)
-            if records_to_update:
+            if create_list:
+                AttendanceRecord.objects.bulk_create(create_list)
+            if update_list:
                 AttendanceRecord.objects.bulk_update(
-                    records_to_update, ['status', 'marked_by']
+                    update_list, ['status', 'marked_by']
                 )
+
+    try:
+        try:
+            _write(records_to_create, records_to_update)
+        except IntegrityError:
+            # A concurrent request for this same session/student won the
+            # race and inserted one of these records first (e.g. a
+            # double-tap on Save under a slow mobile connection, or two
+            # tabs open on the same session) - the unique_together
+            # constraint tripped and rolled back the whole batch above.
+            # Re-resolve create-vs-update against the now-current DB state
+            # and retry once, so this still lands on whatever THIS
+            # submission asked for instead of surfacing a scary "failed to
+            # save" for a save that actually mostly succeeded.
+            existing_now = {
+                r.student_id: r
+                for r in AttendanceRecord.objects.filter(
+                    session=session, student_id__in=student_ids
+                )
+            }
+            retry_create = []
+            retry_update = list(records_to_update)
+            for rec in records_to_create:
+                existing = existing_now.get(rec.student_id)
+                if existing is None:
+                    retry_create.append(rec)
+                elif existing.status != rec.status:
+                    existing.status = rec.status
+                    existing.marked_by = rec.marked_by
+                    retry_update.append(existing)
+            _write(retry_create, retry_update)
+            records_to_create, records_to_update = retry_create, retry_update
 
         total = len(records_to_create) + len(records_to_update)
 
@@ -411,6 +497,13 @@ def class_attendance_take(request, pk):
         'date': target_date,
         'is_lesson': False,
         'in_tab': request.GET.get('embed') == 'tab',
+        'attendance_taken': bool(records),
+        'today': timezone.localdate(),
+        'current_term': current_term,
+        'pickable_dates': _pickable_attendance_dates(
+            class_obj, current_term, timezone.localdate(),
+            AttendanceSession.SessionType.DAILY, target_date
+        ),
     }
 
     # Use partial for HTMX, full page for direct access/refresh
@@ -491,6 +584,7 @@ def class_attendance_edit(request, pk, session_pk):
         'date': session.date,
         'is_edit': True,
         'in_tab': request.GET.get('embed') == 'tab',
+        'attendance_taken': bool(records),
     }
 
     # Use partial for HTMX, full page for direct access/refresh
@@ -505,7 +599,12 @@ def class_attendance_history(request, pk):
     """Show class attendance history in a modal."""
     class_obj = get_object_or_404(Class, pk=pk)
 
-    # Use annotations to get counts in a single query instead of N+1
+    # Use annotations to get counts in a single query instead of N+1. Excludes
+    # sessions with zero records - opening the "take attendance" screen
+    # creates a session row before anyone taps Save, so an untouched session
+    # isn't real history, just noise that would otherwise eat a slot in this
+    # list with a blank 0/0 row (same issue fixed in attendance_reports and
+    # lesson_attendance_list for "Done" status).
     attendance_sessions = AttendanceSession.objects.filter(
         class_assigned=class_obj
     ).annotate(
@@ -513,7 +612,7 @@ def class_attendance_history(request, pk):
         absent_count=Count('records', filter=Q(records__status='A')),
         total_count=Count('records'),
         countable_count=Count('records', filter=Q(records__status__in=['P', 'L', 'A']))
-    ).order_by('-date')[:20]
+    ).filter(total_count__gt=0).order_by('-date')[:20]
 
     context = {
         'class': class_obj,
@@ -621,14 +720,19 @@ def lesson_attendance_list(request, pk):
         'classroom'
     ).order_by('period__order')
 
-    # Get existing attendance sessions for the selected date
+    # Get existing attendance sessions for the selected date. Annotate with
+    # a record count - opening the "take attendance" screen for a lesson
+    # already creates a session row (so the save endpoint has something to
+    # attach records to), so a session existing is not proof anyone actually
+    # marked attendance. Without this, merely viewing a lesson (e.g. a
+    # mis-tap on a phone) would flip it to "Done" for every other viewer.
     existing_sessions = {
         s.timetable_entry_id: s
         for s in AttendanceSession.objects.filter(
             class_assigned=class_obj,
             date=selected_date,
             session_type=AttendanceSession.SessionType.LESSON
-        )
+        ).annotate(record_count=Count('records'))
     }
 
     current_time = timezone.localtime().time()
@@ -640,7 +744,7 @@ def lesson_attendance_list(request, pk):
         is_past = is_past_day or entry.period.end_time < current_time
         is_current = (not is_past_day) and entry.period.start_time <= current_time <= entry.period.end_time
         session = existing_sessions.get(entry.id)
-        attendance_taken = session is not None
+        attendance_taken = session is not None and session.record_count > 0
 
         # Check if this teacher can mark this lesson
         can_mark = is_admin or (teacher and entry.class_subject.teacher == teacher)
@@ -682,6 +786,10 @@ def lesson_attendance_list(request, pk):
         'has_lessons': len(lessons) > 0,
         'no_timetable': not has_any_timetable,
         'reload_target': reload_target,
+        'pickable_dates': _pickable_attendance_dates(
+            class_obj, current_term, today,
+            AttendanceSession.SessionType.LESSON, selected_date
+        ),
     }
 
     response = render(request, 'academics/partials/lesson_select.html', context)
@@ -843,11 +951,16 @@ def take_lesson_attendance(request, timetable_entry_id):
         'current_term': current_term,
         'is_lesson': True,
         'is_edit': is_edit,
+        'attendance_taken': bool(records),
         'entry': entry,
         'subject': class_subject.subject,
         'period': entry.period,
         'timetable_entry_id': timetable_entry_id,
         'reload_target': reload_target,
+        'pickable_dates': _pickable_attendance_dates(
+            class_obj, current_term, timezone.localdate(),
+            AttendanceSession.SessionType.LESSON, target_date
+        ),
     }
 
     # Use partial for HTMX, full page for direct access/refresh
@@ -1054,9 +1167,19 @@ def attendance_reports(request):
     ).values('session__class_assigned_id', 'student_id', 'session__date').distinct():
         class_present_day_counts[row['session__class_assigned_id']] += 1
 
-    # Get today's sessions in a single query
+    # Get classes with real attendance recorded today, in a single query.
+    # Queried fresh (not from the date-range-filtered `sessions` queryset
+    # above) since the "Today" tab reflects live status regardless of
+    # whatever date_from/date_to the History/Analytics tabs are filtered to
+    # - and requires an actual record, not just a session row, since opening
+    # the "take attendance" screen already creates an empty session before
+    # anyone taps Save.
     today_sessions = set(
-        sessions.filter(date=today).values_list('class_assigned_id', flat=True)
+        AttendanceSession.objects.filter(
+            class_assigned__in=classes,
+            date=today,
+            records__isnull=False,
+        ).values_list('class_assigned_id', flat=True).distinct()
     )
 
     # Get student counts per class in a single query

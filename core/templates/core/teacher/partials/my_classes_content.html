@@ -36,33 +36,20 @@
     </div>
 </div>
 
-<!-- Quick Actions - Prominent on mobile -->
-<div class="grid grid-cols-3 gap-2 mb-4">
-    <a href="{% url 'core:my_attendance' %}"
-       hx-get="{% url 'core:my_attendance' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="btn btn-outline btn-success h-auto py-3 flex-col gap-1">
-        <i class="fa-solid fa-clipboard-check text-lg"></i>
-        <span class="text-xs">Attendance</span>
-    </a>
-    <a href="{% url 'core:my_grading' %}"
-       hx-get="{% url 'core:my_grading' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="btn btn-outline btn-primary h-auto py-3 flex-col gap-1">
-        <i class="fa-solid fa-clipboard-list text-lg"></i>
-        <span class="text-xs">Grading</span>
-    </a>
-    <a href="{% url 'core:my_timetable' %}"
-       hx-get="{% url 'core:my_timetable' %}"
-       hx-target="#main-content"
-       hx-push-url="true"
-       class="btn btn-outline btn-info h-auto py-3 flex-col gap-1">
-        <i class="fa-solid fa-calendar-days text-lg"></i>
-        <span class="text-xs">Timetable</span>
-    </a>
-</div>
+<!-- Timetable - the one action here with no per-class equivalent below, so
+     it keeps a single clearly-labeled entry point. Attendance and Grading
+     used to be duplicated here too (as a second, differently-styled path
+     to the same actions every class card below already offers) - dropped
+     to leave one obvious way to do each thing instead of two to choose
+     between. -->
+<a href="{% url 'core:my_timetable' %}"
+   hx-get="{% url 'core:my_timetable' %}"
+   hx-target="#main-content"
+   hx-push-url="true"
+   class="btn btn-outline btn-info w-full gap-2 mb-4">
+    <i class="fa-solid fa-calendar-days"></i>
+    <span>My Timetable</span>
+</a>
 
 {% if not classes_data %}
 <!-- No Classes -->
@@ -101,14 +88,14 @@
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
                             <h3 class="font-bold truncate">{{ item.class.name }}</h3>
-                            <span class="badge badge-secondary badge-xs">Form Teacher</span>
+                            <!-- "Homeroom" everywhere, not "Form Teacher" here vs
+                                 "Homeroom Classes" in the section header above -
+                                 two names for the same thing was an unnecessary
+                                 bit of jargon to reconcile. -->
+                            <span class="badge badge-secondary badge-xs">Homeroom</span>
                         </div>
                         <p class="text-xs text-base-content/60 mt-0.5">
                             <i class="fa-solid fa-users mr-1"></i>{{ item.student_count }} students
-                            {% if item.subjects %}
-                            <span class="mx-1">·</span>
-                            <i class="fa-solid fa-book mr-1"></i>{{ item.subjects|length }} subjects
-                            {% endif %}
                         </p>
                     </div>
                 </div>
@@ -159,7 +146,15 @@
 </div>
 {% endif %}
 
-<!-- Subject Classes -->
+<!-- Subject Classes - a compact row list rather than one card per class,
+     matching the divide-y pattern already used for similar class lists
+     elsewhere (attendance_reports_content.html, my_grading_content.html).
+     Grading is the one action every subject class has, so the whole row
+     IS that action (no button needed, same convention my_grading_content
+     already uses for its own class list) - avoids the awkward lone
+     full-width "Grade" button a per-item action row produced when Attend
+     wasn't shown. Subject badges sit inline in the meta line instead of a
+     separate row underneath. -->
 {% if subject_classes %}
 <div>
     <h2 class="text-sm font-bold text-primary mb-2 flex items-center gap-2">
@@ -167,65 +162,72 @@
         Subject Classes
         <span class="badge badge-primary badge-xs">{{ subject_classes|length }}</span>
     </h2>
-    <div class="space-y-2">
-        {% for item in subject_classes %}
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-3">
-                <div class="flex items-center gap-3">
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-0 divide-y divide-base-200">
+            {% for item in subject_classes %}
+            <div>
+                <a href="{% url 'core:my_grading' %}"
+                   hx-get="{% url 'core:my_grading' %}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="flex items-center gap-3 p-3 hover:bg-base-200/50 active:bg-base-200/50 transition-colors group">
                     <!-- Class Icon -->
-                    <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 text-primary flex items-center justify-center shrink-0">
                         <span class="font-bold text-sm">{{ item.class.name|slice:":2" }}</span>
                     </div>
 
                     <!-- Class Info -->
                     <div class="flex-1 min-w-0">
-                        <h3 class="font-bold text-sm truncate">{{ item.class.name }}</h3>
-                        <p class="text-xs text-base-content/60">
-                            <i class="fa-solid fa-users mr-1"></i>{{ item.student_count }} students
+                        <h3 class="font-bold text-sm truncate group-hover:text-primary transition-colors">{{ item.class.name }}</h3>
+                        <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/60 mt-0.5">
+                            <span class="flex items-center gap-1 shrink-0">
+                                <i class="fa-solid fa-users"></i>{{ item.student_count }} students
+                            </span>
+                            {% for subj in item.subjects %}
+                            <span class="badge badge-primary badge-xs">{{ subj.short_name|default:subj.name }}</span>
+                            {% endfor %}
                         </p>
                     </div>
 
-                    <!-- Quick Actions -->
-                    <div class="flex gap-1">
-                        <a href="{% url 'core:take_attendance' item.class.pk %}"
-                           hx-get="{% url 'core:take_attendance' item.class.pk %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-ghost btn-sm btn-square"
-                           title="Take Attendance">
-                            <i class="fa-solid fa-clipboard-check text-success"></i>
-                        </a>
-                        <a href="{% url 'core:my_grading' %}"
-                           hx-get="{% url 'core:my_grading' %}"
-                           hx-target="#main-content"
-                           hx-push-url="true"
-                           class="btn btn-ghost btn-sm btn-square"
-                           title="Enter Grades">
-                            <i class="fa-solid fa-clipboard-list text-primary"></i>
-                        </a>
-                    </div>
-                </div>
+                    <i class="fa-solid fa-chevron-right text-base-content/30 shrink-0"></i>
+                </a>
 
-                <!-- My Subjects -->
-                {% if item.subjects %}
-                <div class="mt-2 flex flex-wrap gap-1">
-                    {% for subj in item.subjects %}
-                    <span class="badge badge-primary badge-sm">{{ subj.short_name|default:subj.name }}</span>
-                    {% endfor %}
+                <!-- Attend only shows for per-lesson classes: a subject
+                     teacher (not the form master) can only actually mark
+                     attendance here when the class is per-lesson - daily
+                     attendance is form-master-only (see
+                     core.views.take_attendance /
+                     academics.views.attendance.class_attendance_take), so
+                     showing this for a daily class would just lead to a
+                     permission rejection every time it's tapped. Labeled
+                     rather than icon-only, since a hover-only tooltip
+                     never shows up on a touch screen. -->
+                {% if item.class.attendance_type == 'per_lesson' %}
+                <div class="px-3 pb-3">
+                    <a href="{% url 'core:take_attendance' item.class.pk %}"
+                       hx-get="{% url 'core:take_attendance' item.class.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="btn btn-sm btn-success btn-outline gap-1 w-full">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                        <span class="text-xs">Take Attendance</span>
+                    </a>
                 </div>
                 {% endif %}
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
 </div>
 {% endif %}
 
 {% endif %}
 
-<!-- Help - Collapsible -->
+<!-- Help - Collapsible, open by default: the teachers who most need this
+     explanation are the least likely to think to click a collapsed
+     section to find it. -->
 <div class="collapse collapse-arrow bg-base-200/50 mt-4 rounded-lg">
-    <input type="checkbox" />
+    <input type="checkbox" checked />
     <div class="collapse-title text-sm font-medium py-3">
         <i class="fa-solid fa-circle-question text-info mr-2"></i>
         Understanding your classes
@@ -233,7 +235,7 @@
     <div class="collapse-content text-sm">
         <ul class="space-y-2 text-base-content/70">
             <li class="flex items-start gap-2">
-                <span class="badge badge-secondary badge-xs mt-1">Form</span>
+                <span class="badge badge-secondary badge-xs mt-1">Homeroom</span>
                 <span>Homeroom classes - you are the form teacher and can manage students</span>
             </li>
             <li class="flex items-start gap-2">

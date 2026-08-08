@@ -26,18 +26,27 @@
             {% if is_today %}Today, {% endif %}{{ selected_date|date:"l, j M Y" }}
         </p>
     </div>
-    <!-- Date picker for backdating -->
-    <input type="date"
-           value="{{ selected_date|date:'Y-m-d' }}"
-           max="{{ today|date:'Y-m-d' }}"
-           {% if current_term %}min="{{ current_term.start_date|date:'Y-m-d' }}"{% endif %}
-           hx-get="{% url 'core:my_attendance' %}"
-           hx-target="#main-content"
-           hx-push-url="true"
-           hx-trigger="change"
-           name="date"
-           class="input input-xs input-bordered w-32 shrink-0"
-           title="Select date">
+    <!-- Date picker for backdating - a dropdown of valid school days,
+         matching every other attendance date picker in the app, rather
+         than a native calendar widget. -->
+    <div class="dropdown dropdown-end shrink-0">
+        <button type="button" tabindex="0" class="btn btn-xs btn-outline gap-1">
+            {{ selected_date|date:"D, d M" }}
+            <i class="fa-solid fa-chevron-down text-[0.6rem]"></i>
+        </button>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50 mt-1 max-h-72 overflow-y-auto flex-nowrap">
+            {% for d in pickable_dates %}
+            <li>
+                <a hx-get="{% url 'core:my_attendance' %}?date={{ d.value }}"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="{% if d.selected %}active{% endif %}">
+                    {{ d.label }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
 </div>
 
 {% if not is_today %}
@@ -109,20 +118,31 @@
         </div>
     </div>
 
-    <!-- Today's Lessons Card (Per-Lesson Attendance) -->
-    {% if today_lessons %}
-    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+    <!-- Today's classes and lessons - one unified list rather than up to
+         three separately-headed cards (lessons / form-class overview /
+         daily classes). Lessons and daily classes are both "tap to mark
+         attendance for today" actions and share one row style, only
+         differing in whether a period time badge applies. The form
+         master's per-lesson homeroom overview isn't an attendance-taking
+         action (it's a report/stats shortcut), so it's visually
+         distinguished with its own badge and appended last, with its
+         secondary actions (Weekly Report / View Lessons) directly under
+         just that one row - still one card, one header, one list. -->
+    {% if today_items or form_class %}
+    <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-0">
             <div class="flex items-center justify-between p-4 border-b border-base-200">
                 <h2 class="font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-clock text-secondary"></i>
-                    Today's Lessons
+                    <i class="fa-solid fa-chalkboard text-primary"></i>
+                    My Classes
                 </h2>
-                <span class="badge badge-secondary badge-sm">Per-Lesson</span>
+                <span class="badge badge-ghost">{{ selected_date|date:"D, M d" }}</span>
             </div>
 
             <div class="divide-y divide-base-200">
-                {% for lesson in today_lessons %}
+                {% for row in today_items %}
+                {% if row.kind == 'lesson' %}
+                {% with lesson=row.lesson %}
                 <a href="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}?date={{ selected_date|date:'Y-m-d' }}"
                    hx-get="{% url 'academics:take_lesson_attendance' lesson.entry.pk %}?date={{ selected_date|date:'Y-m-d' }}"
                    hx-target="#main-content"
@@ -141,11 +161,9 @@
 
                     <!-- Lesson Info -->
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-0.5">
-                            <h3 class="font-semibold truncate group-hover:text-primary transition-colors">
-                                {{ lesson.subject.name }}
-                            </h3>
-                        </div>
+                        <h3 class="font-semibold truncate group-hover:text-primary transition-colors">
+                            {{ lesson.subject.name }}
+                        </h3>
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-base-content/60">
                             <span class="flex items-center gap-1">
                                 <i class="fa-solid fa-chalkboard"></i>
@@ -161,178 +179,119 @@
                         </div>
                     </div>
 
-                    <!-- Arrow -->
-                    <div class="shrink-0">
-                        <i class="fa-solid fa-chevron-right text-base-content/30"></i>
-                    </div>
+                    <i class="fa-solid fa-chevron-right text-base-content/30 shrink-0"></i>
                 </a>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- My Form Class Card (for form masters of per-lesson classes) -->
-    {% if form_class %}
-    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
-        <div class="card-body p-0">
-            <div class="flex items-center justify-between p-4 border-b border-base-200">
-                <h2 class="font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-user-tie text-info"></i>
-                    My Form Class
-                </h2>
-                <span class="badge badge-info badge-sm">Form Master</span>
-            </div>
-
-            <a href="{% url 'academics:class_detail' form_class.class.pk %}"
-               hx-get="{% url 'academics:class_detail' form_class.class.pk %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="flex items-center gap-4 p-4 hover:bg-base-200/50 transition-colors group">
-                <!-- Class Avatar -->
-                <div class="relative shrink-0">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-info/20 to-info/10 flex items-center justify-center">
-                        <span class="text-base font-bold text-info">
-                            {{ form_class.class.name|slice:":2" }}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Class Info -->
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-0.5">
-                        <h3 class="font-semibold truncate group-hover:text-primary transition-colors">
-                            {{ form_class.class.name }}
-                        </h3>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-base-content/60">
-                        <span class="flex items-center gap-1">
-                            <i class="fa-solid fa-users"></i>
-                            {{ form_class.student_count }} students
-                        </span>
-                        <span class="flex items-center gap-1">
-                            <i class="fa-solid fa-clock"></i>
-                            Per-Lesson Attendance
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Radial Progress & Arrow -->
-                <div class="flex items-center gap-2 shrink-0">
-                    <div class="tooltip tooltip-left"
-                         data-tip="{{ form_class.present }}P / {{ form_class.absent }}A across {{ form_class.sessions }} sessions (last 30 days)">
-                        <div class="radial-progress text-xs {% if form_class.rate >= 80 %}text-success{% elif form_class.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
-                             style="--value:{{ form_class.rate }}; --size:2.5rem; --thickness:3px;"
-                             role="progressbar">
-                            {{ form_class.rate }}%
-                        </div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right text-base-content/30"></i>
-                </div>
-            </a>
-
-            <!-- Quick Actions for Form Master -->
-            <div class="flex items-center gap-2 p-3 border-t border-base-200 bg-base-200/30">
-                <a href="{% url 'academics:class_weekly_attendance_report' form_class.class.pk %}"
-                   class="btn btn-sm btn-ghost flex-1 gap-1">
-                    <i class="fa-solid fa-calendar-week"></i>
-                    Weekly Report
-                </a>
-                <a href="{% url 'academics:lesson_attendance_list' form_class.class.pk %}?date={{ selected_date|date:'Y-m-d' }}"
-                   hx-get="{% url 'academics:lesson_attendance_list' form_class.class.pk %}?date={{ selected_date|date:'Y-m-d' }}"
+                {% endwith %}
+                {% else %}
+                {% with item=row.item %}
+                <a href="{% url 'core:take_attendance' item.class.pk %}?date={{ selected_date|date:'Y-m-d' }}"
+                   hx-get="{% url 'core:take_attendance' item.class.pk %}?date={{ selected_date|date:'Y-m-d' }}"
                    hx-target="#main-content"
                    hx-push-url="true"
-                   class="btn btn-sm btn-ghost flex-1 gap-1">
-                    <i class="fa-solid fa-list-check"></i>
-                    View Lessons
+                   class="flex items-center gap-4 p-4 hover:bg-base-200/50 transition-colors group">
+                    <!-- Class Avatar -->
+                    <div class="relative shrink-0">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br {% if item.has_today %}from-success/20 to-success/10{% else %}from-primary/20 to-primary/10{% endif %} flex items-center justify-center">
+                            <span class="text-base font-bold {% if item.has_today %}text-success{% else %}text-primary{% endif %}">
+                                {{ item.class.name|slice:":2" }}
+                            </span>
+                        </div>
+                        <div class="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-base-100 {% if item.has_today %}bg-success{% else %}bg-warning{% endif %}"></div>
+                    </div>
+
+                    <!-- Class Info -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <h3 class="font-semibold truncate group-hover:text-primary transition-colors">
+                                {{ item.class.name }}
+                            </h3>
+                            <span class="badge badge-primary badge-xs shrink-0">Homeroom</span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-base-content/60">
+                            <span class="flex items-center gap-1">
+                                <i class="fa-solid fa-users"></i>
+                                {{ item.student_count }} students
+                            </span>
+                            {% if item.has_today %}
+                            <span class="text-success">
+                                <i class="fa-solid fa-circle-check mr-1"></i>Taken{% if item.taken_at %} at {{ item.taken_at|time:"g:i A" }}{% endif %}
+                            </span>
+                            {% else %}
+                            <span class="text-warning">
+                                <i class="fa-solid fa-clock mr-1"></i>Not taken
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <i class="fa-solid fa-chevron-right text-base-content/30 shrink-0"></i>
                 </a>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+                {% endwith %}
+                {% endif %}
+                {% endfor %}
 
-    <!-- Daily Classes Card (only show if there are daily attendance classes) -->
-    {% if classes_pending_today or classes_done_today %}
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body p-0">
-            <div class="flex items-center justify-between p-4 border-b border-base-200">
-                <h2 class="font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-chalkboard text-primary"></i>
-                    {% if today_lessons %}Daily Attendance Classes{% else %}My Classes{% endif %}
-                </h2>
-                <span class="badge badge-ghost">{{ selected_date|date:"D, M d" }}</span>
-            </div>
-
-            <div class="divide-y divide-base-200">
-                {% for item in class_summary %}
-                    {% if not item.is_per_lesson and item.is_homeroom %}
-                    <a href="{% url 'core:take_attendance' item.class.pk %}?date={{ selected_date|date:'Y-m-d' }}"
-                       hx-get="{% url 'core:take_attendance' item.class.pk %}?date={{ selected_date|date:'Y-m-d' }}"
+                {% if form_class %}
+                <div>
+                    <a href="{% url 'academics:class_detail' form_class.class.pk %}"
+                       hx-get="{% url 'academics:class_detail' form_class.class.pk %}"
                        hx-target="#main-content"
                        hx-push-url="true"
                        class="flex items-center gap-4 p-4 hover:bg-base-200/50 transition-colors group">
-                        <!-- Class Avatar -->
-                        <div class="relative shrink-0">
-                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br {% if item.has_today %}from-success/20 to-success/10{% else %}from-primary/20 to-primary/10{% endif %} flex items-center justify-center">
-                                <span class="text-base font-bold {% if item.has_today %}text-success{% else %}text-primary{% endif %}">
-                                    {{ item.class.name|slice:":2" }}
-                                </span>
-                            </div>
-                            <div class="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-base-100 {% if item.has_today %}bg-success{% else %}bg-warning{% endif %}"></div>
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-info/20 to-info/10 flex items-center justify-center shrink-0">
+                            <span class="text-base font-bold text-info">
+                                {{ form_class.class.name|slice:":2" }}
+                            </span>
                         </div>
 
-                        <!-- Class Info -->
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 mb-0.5">
                                 <h3 class="font-semibold truncate group-hover:text-primary transition-colors">
-                                    {{ item.class.name }}
+                                    {{ form_class.class.name }}
                                 </h3>
-                                {% if item.is_homeroom %}
-                                <span class="badge badge-primary badge-xs shrink-0">Homeroom</span>
-                                {% endif %}
+                                <span class="badge badge-info badge-xs shrink-0">Form Class Overview</span>
                             </div>
                             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-base-content/60">
                                 <span class="flex items-center gap-1">
                                     <i class="fa-solid fa-users"></i>
-                                    {{ item.student_count }} students
+                                    {{ form_class.student_count }} students
                                 </span>
                             </div>
-                            {% if item.has_today %}
-                            <div class="mt-1">
-                                <span class="badge badge-success badge-sm gap-1">
-                                    <i class="fa-solid fa-circle-check text-[10px]"></i>
-                                    Taken{% if item.taken_at %} at {{ item.taken_at|time:"g:i A" }}{% endif %}
-                                </span>
-                            </div>
-                            {% else %}
-                            <div class="mt-1">
-                                <span class="badge badge-warning badge-sm gap-1">
-                                    <i class="fa-solid fa-clock text-[10px]"></i>
-                                    Not taken
-                                </span>
-                            </div>
-                            {% endif %}
                         </div>
 
-                        <!-- Radial Progress & Arrow -->
                         <div class="flex items-center gap-2 shrink-0">
                             <div class="tooltip tooltip-left"
-                                 data-tip="{{ item.present }}P / {{ item.absent }}A across {{ item.sessions }} sessions (last 30 days)">
-                                <div class="radial-progress text-xs {% if item.rate >= 80 %}text-success{% elif item.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
-                                     style="--value:{{ item.rate }}; --size:2.5rem; --thickness:3px;"
+                                 data-tip="{{ form_class.present }}P / {{ form_class.absent }}A across {{ form_class.sessions }} sessions (last 30 days)">
+                                <div class="radial-progress text-xs {% if form_class.rate >= 80 %}text-success{% elif form_class.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
+                                     style="--value:{{ form_class.rate }}; --size:2.5rem; --thickness:3px;"
                                      role="progressbar">
-                                    {{ item.rate }}%
+                                    {{ form_class.rate }}%
                                 </div>
                             </div>
                             <i class="fa-solid fa-chevron-right text-base-content/30"></i>
                         </div>
                     </a>
-                    {% endif %}
-                {% endfor %}
+
+                    <div class="flex items-center gap-2 p-3 border-t border-base-200 bg-base-200/30">
+                        <a href="{% url 'academics:class_weekly_attendance_report' form_class.class.pk %}"
+                           class="btn btn-sm btn-ghost flex-1 gap-1">
+                            <i class="fa-solid fa-calendar-week"></i>
+                            Weekly Report
+                        </a>
+                        <a href="{% url 'academics:lesson_attendance_list' form_class.class.pk %}?date={{ selected_date|date:'Y-m-d' }}"
+                           hx-get="{% url 'academics:lesson_attendance_list' form_class.class.pk %}?date={{ selected_date|date:'Y-m-d' }}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="btn btn-sm btn-ghost flex-1 gap-1">
+                            <i class="fa-solid fa-list-check"></i>
+                            View Lessons
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
-    {% elif not today_lessons %}
+    {% else %}
     <!-- No classes at all -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body">
@@ -454,8 +413,9 @@
             </div>
 
             {% if class_summary %}
-            <!-- Mobile Card View -->
-            <div class="md:hidden divide-y divide-base-200">
+            <!-- One responsive row list instead of a separate mobile card
+                 view + desktop table rendering the same data twice. -->
+            <div class="divide-y divide-base-200">
                 {% for item in class_summary %}
                 <div class="flex items-center gap-3 p-3">
                     <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
@@ -482,55 +442,6 @@
                     </div>
                 </div>
                 {% endfor %}
-            </div>
-
-            <!-- Desktop Table -->
-            <div class="hidden md:block overflow-x-auto">
-                <table class="table table-sm">
-                    <thead>
-                        <tr class="text-xs uppercase text-base-content/60 bg-base-200/30">
-                            <th>Class</th>
-                            <th class="text-center">Sessions</th>
-                            <th class="text-center">Present</th>
-                            <th class="text-center">Absent</th>
-                            <th class="text-center">Rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in class_summary %}
-                        <tr class="hover">
-                            <td>
-                                <div class="flex items-center gap-2">
-                                    <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                                        {{ item.class.name|slice:":2" }}
-                                    </div>
-                                    <div>
-                                        <span class="font-medium">{{ item.class.name }}</span>
-                                        {% if item.is_homeroom %}
-                                        <span class="badge badge-primary badge-xs ml-1">HR</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="text-center">
-                                <span class="badge badge-ghost badge-sm">{{ item.sessions|default:0 }}</span>
-                            </td>
-                            <td class="text-center text-success font-medium">{{ item.present|default:0 }}</td>
-                            <td class="text-center text-error font-medium">{{ item.absent|default:0 }}</td>
-                            <td class="text-center">
-                                <div class="tooltip"
-                                     data-tip="{{ item.present }}P / {{ item.absent }}A across {{ item.sessions }} sessions">
-                                    <div class="radial-progress text-xs {% if item.rate >= 80 %}text-success{% elif item.rate >= 60 %}text-warning{% else %}text-error{% endif %}"
-                                         style="--value:{{ item.rate }}; --size:2rem; --thickness:3px;"
-                                         role="progressbar">
-                                        {{ item.rate }}%
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
             {% else %}
             <div class="text-center py-12">
@@ -609,8 +520,9 @@
             </div>
 
             {% if recent_data %}
-            <!-- Mobile View -->
-            <div class="md:hidden divide-y divide-base-200">
+            <!-- One responsive row list instead of a separate mobile card
+                 view + desktop table rendering the same data twice. -->
+            <div class="divide-y divide-base-200">
                 {% for item in recent_data %}
                 <div class="flex items-center gap-3 p-3">
                     <div class="w-12 h-12 rounded-lg bg-base-200 flex flex-col items-center justify-center shrink-0">
@@ -630,44 +542,6 @@
                     </div>
                 </div>
                 {% endfor %}
-            </div>
-
-            <!-- Desktop Table -->
-            <div class="hidden md:block overflow-x-auto">
-                <table class="table table-sm">
-                    <thead>
-                        <tr class="text-xs uppercase text-base-content/60 bg-base-200/30">
-                            <th>Date</th>
-                            <th>Class</th>
-                            <th class="text-center">Present</th>
-                            <th class="text-center">Absent</th>
-                            <th class="text-center">Rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in recent_data %}
-                        <tr class="hover">
-                            <td>
-                                <div class="flex items-center gap-2">
-                                    <div class="w-8 h-8 rounded bg-base-200 flex flex-col items-center justify-center text-xs">
-                                        <span class="font-bold leading-none">{{ item.session.date|date:"d" }}</span>
-                                        <span class="text-base-content/60 text-[10px]">{{ item.session.date|date:"M" }}</span>
-                                    </div>
-                                    <span class="text-sm">{{ item.session.date|date:"l" }}</span>
-                                </div>
-                            </td>
-                            <td class="font-medium">{{ item.session.class_assigned.name }}</td>
-                            <td class="text-center text-success font-medium">{{ item.present }}</td>
-                            <td class="text-center text-error font-medium">{{ item.absent }}</td>
-                            <td class="text-center">
-                                <span class="badge badge-sm {% if item.rate >= 80 %}badge-success{% elif item.rate >= 60 %}badge-warning{% else %}badge-error{% endif %}">
-                                    {{ item.rate }}%
-                                </span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
             {% else %}
             <div class="text-center py-12">

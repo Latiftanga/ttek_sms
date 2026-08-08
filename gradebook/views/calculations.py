@@ -20,7 +20,7 @@ from ..utils import calculate_category_scores, determine_grade_from_scales
 from .. import config
 from django.db import connection
 
-from academics.models import Class, ClassSubject, StudentSubjectEnrollment, AttendanceRecord
+from academics.models import Class, ClassSubject, StudentSubjectEnrollment
 from students.models import Student
 from core.models import Term
 
@@ -293,41 +293,22 @@ def _calculate_term_reports(
     # beyond today for a term still in progress.
     from django.utils import timezone as _timezone
     from core.utils import get_valid_school_days
+    from ..utils import compute_term_attendance_stats
 
     period_end = min(current_term.end_date, _timezone.localdate())
     valid_days = (
         get_valid_school_days(current_term.start_date, period_end, term=current_term)
         if period_end >= current_term.start_date else []
     )
-    total_school_days = len(valid_days)
 
-    attendance_by_student = {}
-    if valid_days:
-        from django.db.models import Count, Q as _Q
-        attendance_stats = AttendanceRecord.objects.filter(
-            session__class_assigned=class_obj,
-            session__date__in=valid_days,
-            student_id__in=student_ids_with_subjects
-        ).values('student_id').annotate(
-            days_present=Count(
-                'session__date',
-                filter=_Q(status__in=['P', 'L']),
-                distinct=True
-            ),
-            days_absent=Count(
-                'session__date',
-                filter=_Q(status='A'),
-                distinct=True
-            ),
-            days_excused=Count(
-                'session__date',
-                filter=_Q(status='E'),
-                distinct=True
-            ),
-            times_late=Count('id', filter=_Q(status='L')),
-        )
-        for row in attendance_stats:
-            attendance_by_student[row['student_id']] = row
+    # total_school_days is computed per-student inside the helper (anchored
+    # to each student's earliest attendance record in this class) rather
+    # than shared across the whole class, so a mid-term transfer student
+    # isn't measured against days before they were even in this class.
+    attendance_by_student = (
+        compute_term_attendance_stats(class_obj, valid_days, student_ids_with_subjects)
+        if valid_days else {}
+    )
 
     reports_to_update = []
 
@@ -380,14 +361,14 @@ def _calculate_term_reports(
             core_grades = []
 
         att = attendance_by_student.get(student.id)
-        if att and total_school_days > 0:
-            report.total_school_days = total_school_days
+        if att and att['total_school_days'] > 0:
+            report.total_school_days = att['total_school_days']
             report.days_present = att['days_present']
             report.days_absent = att['days_absent']
             report.days_excused = att['days_excused']
             report.times_late = att['times_late']
             report.attendance_percentage = round(
-                (Decimal(str(att['days_present'])) / Decimal(str(total_school_days))) * 100, 2
+                (Decimal(str(att['days_present'])) / Decimal(str(att['total_school_days']))) * 100, 2
             )
         else:
             report.attendance_percentage = None

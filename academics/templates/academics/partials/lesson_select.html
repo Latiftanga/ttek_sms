@@ -5,16 +5,24 @@
         <h3 class="font-bold text-base leading-tight">{{ class.name }}</h3>
         <p class="text-xs text-base-content/50">{{ date|date:"l, j M Y" }}</p>
     </div>
-    <input type="date"
-           value="{{ date|date:'Y-m-d' }}"
-           max="{{ today|date:'Y-m-d' }}"
-           {% if current_term %}min="{{ current_term.start_date|date:'Y-m-d' }}"{% endif %}
-           hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
-           hx-target="{{ reload_target|default:'#main-content' }}"
-           hx-trigger="change"
-           name="date"
-           class="input input-xs input-bordered w-28 shrink-0"
-           title="Select date">
+    <div class="dropdown shrink-0">
+        <button type="button" tabindex="0" class="btn btn-xs btn-outline gap-1" title="Select date">
+            {{ date|date:"D, d M" }}
+            <i class="fa-solid fa-chevron-down text-[0.6rem]"></i>
+        </button>
+        <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50 mt-1 max-h-72 overflow-y-auto flex-nowrap">
+            {% for d in pickable_dates %}
+            <li>
+                <a hx-get="{% url 'academics:lesson_attendance_list' class.pk %}?date={{ d.value }}"
+                   hx-target="{{ reload_target|default:'#main-content' }}"
+                   class="flex items-center justify-between {% if d.selected %}active{% endif %}">
+                    <span>{{ d.label }}</span>
+                    {% if d.marked %}<i class="fa-solid fa-check text-success text-xs"></i>{% endif %}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
     <span class="badge badge-primary badge-sm shrink-0">Per-Lesson</span>
 </div>
 

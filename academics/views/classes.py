@@ -423,6 +423,10 @@ def get_student_subjects_tab_context(class_obj):
 
 def get_attendance_tab_context(class_obj):
     """Context for the Attendance tab with real data."""
+    # Excludes sessions with zero records - opening the "take attendance"
+    # screen creates a session row before anyone taps Save, so an untouched
+    # session isn't real history, just noise that would otherwise eat a slot
+    # in this list with a blank 0/0 row.
     sessions = AttendanceSession.objects.filter(
         class_assigned=class_obj
     ).annotate(
@@ -430,7 +434,7 @@ def get_attendance_tab_context(class_obj):
         absent_count=Count('records', filter=Q(records__status='A')),
         total_count=Count('records'),
         countable_count=Count('records', filter=Q(records__status__in=['P', 'L', 'A'])),
-    ).order_by('-date')[:30]
+    ).filter(total_count__gt=0).order_by('-date')[:30]
 
     # Calculate overall attendance percentage - single aggregate query
     stats = AttendanceRecord.objects.filter(

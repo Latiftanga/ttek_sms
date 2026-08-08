@@ -6,13 +6,6 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
-
-/* Smooth transitions for status buttons */
-.status-label {
-    transition: all 0.15s ease;
-}
-
-
 </style>
 
 <!-- Page Header -->
@@ -32,19 +25,44 @@
             <span class="badge badge-primary badge-sm">Homeroom</span>
             {% endif %}
         </div>
-        <input type="date" value="{{ date|date:'Y-m-d' }}"
-               class="input input-xs input-bordered mt-0.5"
-               hx-get="{% url 'core:take_attendance' class.pk %}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               {% if current_term %}min="{{ current_term.start_date|date:'Y-m-d' }}"{% endif %}
-               max="{{ today|date:'Y-m-d' }}"
-               name="date">
+        <div class="flex items-center gap-1 mt-0.5">
+            <div class="dropdown">
+                <button type="button" tabindex="0" class="btn btn-xs btn-outline gap-1">
+                    {{ date|date:"D, d M" }}
+                    <i class="fa-solid fa-chevron-down text-[0.6rem]"></i>
+                </button>
+                <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50 mt-1 max-h-72 overflow-y-auto flex-nowrap">
+                    {% for d in pickable_dates %}
+                    <li>
+                        <a hx-get="{% url 'core:take_attendance' class.pk %}?date={{ d.value }}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="flex items-center justify-between {% if d.selected %}active{% endif %}">
+                            <span>{{ d.label }}</span>
+                            {% if d.marked %}<i class="fa-solid fa-check text-success text-xs"></i>{% endif %}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% if attendance_taken %}
+            <span class="badge badge-success badge-xs align-middle"><i class="fa-solid fa-check text-[0.55rem]"></i> Marked</span>
+            {% else %}
+            <span class="badge badge-ghost badge-xs align-middle">Not yet marked</span>
+            {% endif %}
+        </div>
     </div>
     <div class="text-xs text-base-content/40 font-medium shrink-0">
         {{ student_list|length }} students
     </div>
 </div>
+
+{% if not attendance_taken %}
+<div class="alert alert-info py-2 mb-3 text-xs flex items-center gap-2">
+    <i class="fa-solid fa-circle-info shrink-0"></i>
+    Nothing saved yet for this day — rows below are pre-filled to Present for fast marking. Review before saving.
+</div>
+{% endif %}
 
 <!-- Attendance Form -->
 <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -52,37 +70,53 @@
         <form method="post"
               hx-post="{% url 'core:take_attendance' class.pk %}"
               hx-target="#main-content"
+              hx-disabled-elt="find button[type=submit]"
               id="attendance-form">
             {% csrf_token %}
+            <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
 
             <!-- Quick Actions Bar — sticky -->
             <div class="sticky top-0 z-10 flex flex-col gap-2 px-3 py-2.5 border-b border-base-200 bg-base-100/95 backdrop-blur-sm">
 
                 <!-- Row 1: Bulk actions + live counter -->
                 <div class="flex items-center gap-2">
-                    <!-- All Present — primary pill -->
-                    <button type="button" onclick="setAllStatus('P')"
-                            class="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-full bg-success text-success-content font-bold text-sm touch-action-manipulation active:scale-95 transition-all">
+                    <!-- All Present — primary pill. flex-1 fills the row on
+                         mobile (deliberate, next to the fixed-width L/A/E);
+                         on md+ that same flex-1 let it stretch into a long
+                         thin bar that read as a colored banner rather than
+                         a button, so it's capped back to content width with
+                         comfortable padding instead, plus a shadow/hover
+                         state so it still visibly looks pressable at any
+                         size. -->
+                    <button type="button" onclick="markAll('P')"
+                            class="flex-1 md:flex-none md:px-6 flex items-center justify-center gap-1.5 h-9 rounded-full bg-success text-success-content font-bold text-sm shadow-sm hover:shadow-md hover:brightness-110 touch-action-manipulation active:scale-95 transition-all">
                         <i class="fa-solid fa-check-double text-xs"></i>
-                        All P
+                        All Present
                     </button>
                     <!-- All Late -->
-                    <button type="button" onclick="setAllStatus('L')"
-                            class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-warning hover:text-warning-content touch-action-manipulation active:scale-95 transition-all">
-                        All L
+                    <button type="button" onclick="markAll('L')"
+                            class="w-11 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-warning hover:text-warning-content touch-action-manipulation active:scale-95 transition-all">
+                        L
                     </button>
                     <!-- All Absent -->
-                    <button type="button" onclick="setAllStatus('A')"
-                            class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-error hover:text-error-content touch-action-manipulation active:scale-95 transition-all">
-                        All A
+                    <button type="button" onclick="markAll('A')"
+                            class="w-11 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-error hover:text-error-content touch-action-manipulation active:scale-95 transition-all">
+                        A
+                    </button>
+                    <!-- All Excused -->
+                    <button type="button" onclick="markAll('E')"
+                            class="w-11 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-info hover:text-info-content touch-action-manipulation active:scale-95 transition-all">
+                        E
                     </button>
                     <!-- Live counter -->
-                    <div class="flex items-center gap-1 text-xs font-bold bg-base-200 rounded-full px-3 h-9 shrink-0">
+                    <div class="flex items-center gap-1 text-xs font-bold bg-base-200 rounded-full px-2.5 h-9 shrink-0">
                         <span class="text-success" id="present-count">{{ student_list|length }}</span>
                         <span class="text-base-content/25">·</span>
                         <span class="text-warning" id="late-count">0</span>
                         <span class="text-base-content/25">·</span>
                         <span class="text-error" id="absent-count">0</span>
+                        <span class="text-base-content/25">·</span>
+                        <span class="text-info" id="excused-count">0</span>
                     </div>
                 </div>
 
@@ -95,15 +129,21 @@
                            class="input input-sm input-bordered w-full pl-8 touch-action-manipulation"
                            oninput="filterStudents(this.value)">
                 </div>
+                <!-- Shown only while a search is active, so the bulk status
+                     buttons above don't silently look like they apply to
+                     everyone when they're actually scoped to what's shown. -->
+                <div id="search-scope-hint" class="hidden text-xs text-base-content/50"></div>
             </div>
 
             <!-- Student List -->
             {% if student_list %}
-
-            <!-- Mobile Card View -->
-            <div class="md:hidden divide-y divide-base-200" data-view="mobile">
+            <div class="divide-y divide-base-200">
                 {% for item in student_list %}
-                <div class="student-row px-3 py-2.5 transition-colors {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% endif %}"
+                <div class="student-row px-3 py-2.5 transition-colors
+                            {% if item.status == 'P' %}bg-success/10
+                            {% elif item.status == 'A' %}bg-error/10
+                            {% elif item.status == 'L' %}bg-warning/10
+                            {% elif item.status == 'E' %}bg-info/10{% endif %}"
                      data-student-id="{{ item.obj.pk }}"
                      data-name="{{ item.obj.full_name|lower }}">
 
@@ -125,105 +165,27 @@
                         </div>
                     </div>
 
-                    <!-- Status buttons: compact circles with letter -->
+                    <!-- Status buttons — compact circles, single radio group per student -->
                     <div class="flex items-center gap-2 ml-9">
-                        <input type="radio" name="status_{{ item.obj.pk }}" value="P"
-                               id="m_p_{{ item.obj.pk }}" {% if item.status == 'P' %}checked{% endif %}
-                               class="hidden">
-                        <label for="m_p_{{ item.obj.pk }}"
-                               class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm {% if item.status == 'P' %}bg-success text-success-content ring-2 ring-success ring-offset-1{% else %}bg-base-200 text-base-content/40{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-90 transition-all select-none"
-                               data-status="P" title="Present">
-                            P
+                        <label class="touch-action-manipulation">
+                            <input type="radio" name="status_{{ item.obj.pk }}" value="P" class="peer hidden" required {% if item.status == 'P' %}checked{% endif %} />
+                            <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-success peer-checked:text-success-content peer-checked:ring-2 peer-checked:ring-success peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Present">P</span>
                         </label>
-
-                        <input type="radio" name="status_{{ item.obj.pk }}" value="L"
-                               id="m_l_{{ item.obj.pk }}" {% if item.status == 'L' %}checked{% endif %}
-                               class="hidden">
-                        <label for="m_l_{{ item.obj.pk }}"
-                               class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm {% if item.status == 'L' %}bg-warning text-warning-content ring-2 ring-warning ring-offset-1{% else %}bg-base-200 text-base-content/40{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-90 transition-all select-none"
-                               data-status="L" title="Late">
-                            L
+                        <label class="touch-action-manipulation">
+                            <input type="radio" name="status_{{ item.obj.pk }}" value="L" class="peer hidden" {% if item.status == 'L' %}checked{% endif %} />
+                            <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-warning peer-checked:text-warning-content peer-checked:ring-2 peer-checked:ring-warning peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Late">L</span>
                         </label>
-
-                        <input type="radio" name="status_{{ item.obj.pk }}" value="A"
-                               id="m_a_{{ item.obj.pk }}" {% if item.status == 'A' %}checked{% endif %}
-                               class="hidden">
-                        <label for="m_a_{{ item.obj.pk }}"
-                               class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm {% if item.status == 'A' %}bg-error text-error-content ring-2 ring-error ring-offset-1{% else %}bg-base-200 text-base-content/40{% endif %} status-label cursor-pointer touch-action-manipulation active:scale-90 transition-all select-none"
-                               data-status="A" title="Absent">
-                            A
+                        <label class="touch-action-manipulation">
+                            <input type="radio" name="status_{{ item.obj.pk }}" value="A" class="peer hidden" {% if item.status == 'A' %}checked{% endif %} />
+                            <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-error peer-checked:text-error-content peer-checked:ring-2 peer-checked:ring-error peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Absent">A</span>
+                        </label>
+                        <label class="touch-action-manipulation">
+                            <input type="radio" name="status_{{ item.obj.pk }}" value="E" class="peer hidden" {% if item.status == 'E' %}checked{% endif %} />
+                            <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-info peer-checked:text-info-content peer-checked:ring-2 peer-checked:ring-info peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Excused">E</span>
                         </label>
                     </div>
                 </div>
                 {% endfor %}
-            </div>
-
-            <!-- Desktop Table View -->
-            <div class="hidden md:block overflow-x-auto" data-view="desktop">
-                <table class="table table-zebra">
-                    <thead>
-                        <tr class="bg-base-200">
-                            <th class="w-12">#</th>
-                            <th>Student</th>
-                            <th class="w-40">Admission No.</th>
-                            <th class="w-48 text-center">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in student_list %}
-                        <tr class="student-row hover {% if item.status == 'P' %}bg-success/10{% elif item.status == 'A' %}bg-error/10{% elif item.status == 'L' %}bg-warning/10{% endif %}"
-                            data-student-id="{{ item.obj.pk }}"
-                            data-name="{{ item.obj.full_name|lower }}">
-                            <td class="text-base-content/50">{{ forloop.counter }}</td>
-                            <td>
-                                <div class="flex items-center gap-3">
-                                    <div class="avatar placeholder">
-                                        <div class="w-10 h-10 rounded-full bg-base-300 text-base-content flex items-center justify-center">
-                                            {% if item.obj.photo %}
-                                            <img src="{{ item.obj.photo.url }}" alt="{{ item.obj.full_name }}" loading="lazy" />
-                                            {% else %}
-                                            <span class="text-sm font-medium">{{ item.obj.first_name|slice:":1" }}{{ item.obj.last_name|slice:":1" }}</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    <div class="font-medium">{{ item.obj.full_name }}</div>
-                                </div>
-                            </td>
-                            <td class="font-mono text-sm text-base-content/70">{{ item.obj.admission_number }}</td>
-                            <td>
-                                <div class="flex justify-center gap-2">
-                                    <input type="radio" name="status_{{ item.obj.pk }}" value="P"
-                                           id="d_p_{{ item.obj.pk }}" {% if item.status == 'P' %}checked{% endif %}
-                                           class="hidden">
-                                    <label for="d_p_{{ item.obj.pk }}"
-                                           class="btn btn-sm btn-circle {% if item.status == 'P' %}btn-success{% else %}btn-ghost{% endif %} status-label"
-                                           data-status="P" title="Present">
-                                        <i class="fa-solid fa-check"></i>
-                                    </label>
-
-                                    <input type="radio" name="status_{{ item.obj.pk }}" value="L"
-                                           id="d_l_{{ item.obj.pk }}" {% if item.status == 'L' %}checked{% endif %}
-                                           class="hidden">
-                                    <label for="d_l_{{ item.obj.pk }}"
-                                           class="btn btn-sm btn-circle {% if item.status == 'L' %}btn-warning{% else %}btn-ghost{% endif %} status-label"
-                                           data-status="L" title="Late">
-                                        <i class="fa-solid fa-clock"></i>
-                                    </label>
-
-                                    <input type="radio" name="status_{{ item.obj.pk }}" value="A"
-                                           id="d_a_{{ item.obj.pk }}" {% if item.status == 'A' %}checked{% endif %}
-                                           class="hidden">
-                                    <label for="d_a_{{ item.obj.pk }}"
-                                           class="btn btn-sm btn-circle {% if item.status == 'A' %}btn-error{% else %}btn-ghost{% endif %} status-label"
-                                           data-status="A" title="Absent">
-                                        <i class="fa-solid fa-xmark"></i>
-                                    </label>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
 
             {% else %}
@@ -269,197 +231,129 @@
         </h3>
         <div class="flex flex-wrap items-center gap-4 text-sm">
             <div class="flex items-center gap-2">
-                <span class="btn btn-success btn-sm btn-circle"><i class="fa-solid fa-check"></i></span>
+                <span class="w-7 h-7 rounded-full bg-success text-success-content flex items-center justify-center font-bold text-xs">P</span>
                 <span><strong>Present</strong> - Student is in class</span>
             </div>
             <div class="flex items-center gap-2">
-                <span class="btn btn-warning btn-sm btn-circle"><i class="fa-solid fa-clock"></i></span>
+                <span class="w-7 h-7 rounded-full bg-warning text-warning-content flex items-center justify-center font-bold text-xs">L</span>
                 <span><strong>Late</strong> - Student arrived late</span>
             </div>
             <div class="flex items-center gap-2">
-                <span class="btn btn-error btn-sm btn-circle"><i class="fa-solid fa-xmark"></i></span>
+                <span class="w-7 h-7 rounded-full bg-error text-error-content flex items-center justify-center font-bold text-xs">A</span>
                 <span><strong>Absent</strong> - Student not in class</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-7 h-7 rounded-full bg-info text-info-content flex items-center justify-center font-bold text-xs">E</span>
+                <span><strong>Excused</strong> - Approved absence</span>
             </div>
         </div>
         <p class="text-xs text-base-content/60 mt-2">
             <i class="fa-solid fa-lightbulb text-warning mr-1"></i>
-            Tip: Use "All Present" button to quickly mark everyone present, then adjust individual students.
+            Tip: Use "All Present" to quickly mark everyone present, then adjust individual students.
         </p>
     </div>
 </div>
 
 <script>
+// Wrapped in an IIFE: this partial can be re-fetched into #main-content
+// (e.g. changing the date), and top-level const/function declarations
+// would collide with the previous injection's on a second load.
+(function () {
+    let formDirty = false;
 
-function setAllStatus(status) {
-    // Get unique student IDs (avoid double-counting mobile + desktop)
-    const studentIds = new Set();
-    document.querySelectorAll('.student-row').forEach(row => {
-        studentIds.add(row.dataset.studentId);
-    });
-
-    studentIds.forEach(studentId => {
-        // Check all radio inputs for this student (both mobile and desktop)
-        const radios = document.querySelectorAll(`input[name="status_${studentId}"][value="${status}"]`);
-        radios.forEach(radio => radio.checked = true);
-
-        // Update row styles for both views
-        document.querySelectorAll(`.student-row[data-student-id="${studentId}"]`).forEach(row => {
-            updateRowStyle(row, status);
+    function updateSummary() {
+        let present = 0, late = 0, absent = 0, excused = 0;
+        document.querySelectorAll('#attendance-form input[type="radio"]:checked').forEach(r => {
+            if (r.value === 'P') present++;
+            else if (r.value === 'L') late++;
+            else if (r.value === 'A') absent++;
+            else if (r.value === 'E') excused++;
         });
-    });
-
-    updateSummary();
-
-    // Haptic feedback if available
-    if (navigator.vibrate) {
-        navigator.vibrate(50);
+        document.getElementById('present-count').textContent = present;
+        document.getElementById('late-count').textContent = late;
+        document.getElementById('absent-count').textContent = absent;
+        document.getElementById('excused-count').textContent = excused;
     }
-}
 
-function updateRowStyle(row, status) {
-    row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10');
+    function updateRowBackground(radio) {
+        const row = radio.closest('.student-row');
+        if (!row) return;
+        row.classList.remove('bg-success/10', 'bg-warning/10', 'bg-error/10', 'bg-info/10');
+        if (radio.value === 'P') row.classList.add('bg-success/10');
+        else if (radio.value === 'L') row.classList.add('bg-warning/10');
+        else if (radio.value === 'A') row.classList.add('bg-error/10');
+        else if (radio.value === 'E') row.classList.add('bg-info/10');
+    }
 
-    // Check if this is the mobile view
-    const isMobile = row.closest('[data-view="mobile"]') !== null;
-
-    // Update label styles within this row
-    row.querySelectorAll('.status-label').forEach(label => {
-        const labelStatus = label.dataset.status;
-
-        if (isMobile) {
-            // Mobile: compact circle style
-            label.classList.remove(
-                'bg-success', 'text-success-content', 'ring-2', 'ring-success', 'ring-offset-1',
-                'bg-warning', 'text-warning-content', 'ring-warning',
-                'bg-error', 'text-error-content', 'ring-error',
-                'bg-base-200', 'text-base-content/40'
-            );
-
-            if (labelStatus === status) {
-                if (status === 'P') {
-                    label.classList.add('bg-success', 'text-success-content', 'ring-2', 'ring-success', 'ring-offset-1');
-                    row.classList.add('bg-success/10');
-                } else if (status === 'L') {
-                    label.classList.add('bg-warning', 'text-warning-content', 'ring-2', 'ring-warning', 'ring-offset-1');
-                    row.classList.add('bg-warning/10');
-                } else if (status === 'A') {
-                    label.classList.add('bg-error', 'text-error-content', 'ring-2', 'ring-error', 'ring-offset-1');
-                    row.classList.add('bg-error/10');
-                }
-            } else {
-                label.classList.add('bg-base-200', 'text-base-content/40');
-            }
-        } else {
-            // Desktop: original button style
-            label.classList.remove('btn-success', 'btn-warning', 'btn-error', 'btn-ghost');
-
-            if (labelStatus === status) {
-                if (status === 'P') {
-                    label.classList.add('btn-success');
-                    row.classList.add('bg-success/10');
-                } else if (status === 'L') {
-                    label.classList.add('btn-warning');
-                    row.classList.add('bg-warning/10');
-                } else if (status === 'A') {
-                    label.classList.add('btn-error');
-                    row.classList.add('bg-error/10');
-                }
-            } else {
-                label.classList.add('btn-ghost');
-            }
-        }
-    });
-}
-
-function updateSummary() {
-    let present = 0, absent = 0, late = 0;
-
-    // Count unique students (avoid double-counting)
-    const counted = new Set();
-    document.querySelectorAll('.student-row').forEach(row => {
-        const studentId = row.dataset.studentId;
-        if (counted.has(studentId)) return;
-        counted.add(studentId);
-
-        const checked = document.querySelector(`input[name="status_${studentId}"]:checked`);
-        if (checked) {
-            if (checked.value === 'P') present++;
-            else if (checked.value === 'A') absent++;
-            else if (checked.value === 'L') late++;
-        }
-    });
-
-    document.getElementById('present-count').textContent = present;
-    document.getElementById('absent-count').textContent = absent;
-    document.getElementById('late-count').textContent = late;
-}
-
-// Initialize event listeners
-document.querySelectorAll('.status-label').forEach(label => {
-    label.addEventListener('click', function() {
-        const row = this.closest('.student-row');
-        const studentId = row.dataset.studentId;
-        const status = this.dataset.status;
-
-        // Sync the other view (mobile <-> desktop)
-        document.querySelectorAll(`.student-row[data-student-id="${studentId}"]`).forEach(r => {
-            updateRowStyle(r, status);
-            // Also check the corresponding radio in the other view
-            const radio = r.querySelector(`input[name="status_${studentId}"][value="${status}"]`);
-            if (radio) radio.checked = true;
+    // Called from inline onclick/oninput attributes, so must stay global.
+    window.filterStudents = function (query) {
+        const q = query.toLowerCase().trim();
+        let visible = 0;
+        document.querySelectorAll('.student-row').forEach(row => {
+            const name = row.dataset.name || '';
+            const show = !q || name.includes(q);
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
         });
-
-        setTimeout(updateSummary, 10);
-    });
-});
-
-// Initial summary update
-updateSummary();
-
-// Student search/filter — uses data-name attribute set on each row
-function filterStudents(query) {
-    const q = query.toLowerCase().trim();
-    const seenIds = new Set();
-    let visible = 0;
-
-    document.querySelectorAll('.student-row').forEach(row => {
-        const name = row.dataset.name || row.querySelector('.font-medium, .font-semibold')?.textContent?.toLowerCase() || '';
-        const adm  = row.querySelector('.font-mono')?.textContent?.toLowerCase() || '';
-        const show = !q || name.includes(q) || adm.includes(q);
-        row.style.display = show ? '' : 'none';
-        if (show) {
-            const id = row.dataset.studentId;
-            if (id && !seenIds.has(id)) { seenIds.add(id); visible++; }
+        const hint = document.getElementById('search-scope-hint');
+        if (q) {
+            hint.textContent = `Bulk status buttons above apply only to the ${visible} student${visible === 1 ? '' : 's'} shown.`;
+            hint.classList.remove('hidden');
+        } else {
+            hint.classList.add('hidden');
         }
-    });
-}
+    };
 
-// Double-submit prevention
-(function() {
+    // Only touches rows currently visible under the search filter - a
+    // teacher who searched down to one student to fix a mistake shouldn't
+    // have "All Present" silently re-mark the whole class.
+    window.markAll = function (status) {
+        const rows = Array.from(document.querySelectorAll('.student-row'))
+            .filter(row => row.style.display !== 'none');
+        if (!rows.length) return;
+        rows.forEach(row => {
+            const radio = row.querySelector(`input[type="radio"][value="${status}"]`);
+            if (!radio) return;
+            radio.checked = true;
+            updateRowBackground(radio);
+        });
+        formDirty = true;
+        updateSummary();
+        if (navigator.vibrate) navigator.vibrate(50);
+    };
+
     const form = document.getElementById('attendance-form');
     if (!form) return;
 
-    let isSubmitting = false;
-
-    form.addEventListener('submit', function(e) {
-        if (isSubmitting) {
-            e.preventDefault();
-            return false;
-        }
-
-        isSubmitting = true;
-
-        // Disable all buttons in the form
-        form.querySelectorAll('button[type="submit"]').forEach(btn => {
-            btn.disabled = true;
+    form.querySelectorAll('input[type="radio"]').forEach(r => {
+        r.addEventListener('change', function () {
+            updateRowBackground(this);
+            updateSummary();
+            if (navigator.vibrate) navigator.vibrate(20);
         });
+    });
+    updateSummary();
 
-        // Re-enable after 10 seconds (in case of error)
+    form.addEventListener('change', () => { formDirty = true; });
+    window.addEventListener('beforeunload', e => { if (formDirty) e.preventDefault(); });
+    window.addEventListener('popstate', () => {
+        if (formDirty && !confirm('You have unsaved attendance. Leave anyway?')) {
+            history.pushState(null, '', location.href);
+        }
+    });
+    document.body.addEventListener('htmx:afterRequest', e => {
+        if (e.detail.successful) formDirty = false;
+    });
+
+    // Double-submit prevention
+    let isSubmitting = false;
+    form.addEventListener('submit', function (e) {
+        if (isSubmitting) { e.preventDefault(); return false; }
+        isSubmitting = true;
+        form.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = true; });
         setTimeout(() => {
             isSubmitting = false;
-            form.querySelectorAll('button[type="submit"]').forEach(btn => {
-                btn.disabled = false;
-            });
+            form.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = false; });
         }, 10000);
     });
 })();

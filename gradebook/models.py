@@ -1162,13 +1162,15 @@ class TermReport(models.Model):
         exist. Computes days_present, days_absent, days_excused, times_late,
         and attendance_percentage.
 
-        The denominator (total_school_days) is a fixed calendar fact and is
-        never reduced for excused days - an excused day just doesn't count
-        as present, same as a valid day nobody ever recorded attendance for.
+        Delegates the actual day-resolution to compute_term_attendance_stats
+        (gradebook.utils) - the same helper the bulk term-report generation
+        path uses - so a per-lesson class's mixed-status days and mid-term
+        transfers are handled identically here, and the two can't drift back
+        out of sync with each other.
         """
         from django.utils import timezone
-        from academics.models import AttendanceRecord
         from core.utils import get_valid_school_days
+        from .utils import compute_term_attendance_stats
 
         # Get student's current class
         if not hasattr(self.student, 'current_class') or not self.student.current_class:
@@ -1182,32 +1184,19 @@ class TermReport(models.Model):
             return
 
         valid_days = get_valid_school_days(self.term.start_date, period_end, term=self.term)
-        self.total_school_days = len(valid_days)
-        if self.total_school_days == 0:
+        if not valid_days:
             return
 
-        # Get student's attendance records, restricted to valid school days
-        # only - a session that exists on a date later marked a holiday must
-        # not count towards any of these tallies.
-        records = AttendanceRecord.objects.filter(
-            session__class_assigned=current_class,
-            session__date__in=valid_days,
-            student=self.student,
-        )
+        stats = compute_term_attendance_stats(current_class, valid_days, [self.student_id])
+        att = stats.get(self.student_id)
+        if not att or att['total_school_days'] == 0:
+            return
 
-        # Count distinct dates (not raw records) so per-lesson classes
-        # (multiple sessions/records per day) don't inflate the tallies.
-        self.days_present = records.filter(
-            status__in=['P', 'L']
-        ).values('session__date').distinct().count()
-        self.days_absent = records.filter(
-            status='A'
-        ).values('session__date').distinct().count()
-        self.days_excused = records.filter(
-            status='E'
-        ).values('session__date').distinct().count()
-        self.times_late = records.filter(status='L').count()
-
+        self.days_present = att['days_present']
+        self.days_absent = att['days_absent']
+        self.days_excused = att['days_excused']
+        self.times_late = att['times_late']
+        self.total_school_days = att['total_school_days']
         self.attendance_percentage = round(
             (Decimal(str(self.days_present)) / Decimal(str(self.total_school_days))) * 100,
             2

@@ -11,7 +11,13 @@
 </style>
 
 <!-- Sticky top action bar -->
-<div class="sticky top-0 z-20 bg-base-100/95 backdrop-blur-sm border-b border-base-200 -mx-6 px-4 pt-3 pb-2 mb-0 flex flex-col gap-2">
+<!-- The negative margin bleeds this edge-to-edge against the ambient p-6
+     padding of the modal-box / #main-content this partial normally loads
+     into. The Class Detail "Attendance" tab swaps this straight into
+     #tab-attendance instead, which has no padding of its own to cancel out
+     - applying the same offset there would push the bar past the card's
+     own border. -->
+<div class="sticky top-0 z-20 bg-base-100/95 backdrop-blur-sm border-b border-base-200 {% if not in_tab %}-mx-6{% endif %} px-4 pt-3 pb-2 mb-0 flex flex-col gap-2">
 
     <!-- Header row -->
     <div class="flex items-center gap-2">
@@ -31,27 +37,56 @@
             </div>
             <div class="text-xs text-base-content/50">
                 {% if not is_lesson and not is_edit %}
-                <input type="date" value="{{ date|date:'Y-m-d' }}"
-                       class="input input-xs input-bordered"
-                       hx-get="{% url 'academics:class_attendance_take' class.pk %}{% if in_tab %}?embed=tab{% endif %}"
-                       hx-target="{% if in_tab %}#tab-attendance{% else %}#main-content{% endif %}"
-                       {% if not in_tab %}hx-push-url="true"{% endif %}
-                       name="date">
+                <div class="dropdown">
+                    <button type="button" tabindex="0" class="btn btn-xs btn-outline gap-1">
+                        {{ date|date:"D, d M" }}
+                        <i class="fa-solid fa-chevron-down text-[0.6rem]"></i>
+                    </button>
+                    <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50 mt-1 max-h-72 overflow-y-auto flex-nowrap">
+                        {% for d in pickable_dates %}
+                        <li>
+                            <a hx-get="{% url 'academics:class_attendance_take' class.pk %}?date={{ d.value }}{% if in_tab %}&embed=tab{% endif %}"
+                               hx-target="{% if in_tab %}#tab-attendance{% else %}#main-content{% endif %}"
+                               {% if not in_tab %}hx-push-url="true"{% endif %}
+                               class="flex items-center justify-between {% if d.selected %}active{% endif %}">
+                                <span>{{ d.label }}</span>
+                                {% if d.marked %}<i class="fa-solid fa-check text-success text-xs"></i>{% endif %}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
                 {% elif is_lesson %}
                 <!-- Changing the date routes back to the lesson list rather than
                      reloading this same timetable entry - which lessons exist on
                      a given day depends on the day, so the list is what recomputes
                      that; staying pinned to this entry could land on a date its
                      schedule doesn't even run on. -->
-                <input type="date" value="{{ date|date:'Y-m-d' }}"
-                       class="input input-xs input-bordered"
-                       max="{{ today|date:'Y-m-d' }}"
-                       {% if current_term %}min="{{ current_term.start_date|date:'Y-m-d' }}"{% endif %}
-                       hx-get="{% url 'academics:lesson_attendance_list' class.pk %}"
-                       hx-target="{{ reload_target|default:'#main-content' }}"
-                       name="date">
+                <div class="dropdown">
+                    <button type="button" tabindex="0" class="btn btn-xs btn-outline gap-1">
+                        {{ date|date:"D, d M" }}
+                        <i class="fa-solid fa-chevron-down text-[0.6rem]"></i>
+                    </button>
+                    <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-200 w-48 z-50 mt-1 max-h-72 overflow-y-auto flex-nowrap">
+                        {% for d in pickable_dates %}
+                        <li>
+                            <a hx-get="{% url 'academics:lesson_attendance_list' class.pk %}?date={{ d.value }}"
+                               hx-target="{{ reload_target|default:'#main-content' }}"
+                               class="flex items-center justify-between {% if d.selected %}active{% endif %}">
+                                <span>{{ d.label }}</span>
+                                {% if d.marked %}<i class="fa-solid fa-check text-success text-xs"></i>{% endif %}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
                 {% else %}
                 {{ date|date:"l, j M Y" }}{% if is_edit %} &bull; Editing{% endif %}
+                {% endif %}
+                {% if attendance_taken %}
+                <span class="badge badge-success badge-xs align-middle ml-1"><i class="fa-solid fa-check text-[0.55rem]"></i> Marked</span>
+                {% else %}
+                <span class="badge badge-ghost badge-xs align-middle ml-1">Not yet marked</span>
                 {% endif %}
             </div>
         </div>
@@ -69,20 +104,26 @@
 
     <!-- Bulk actions row -->
     <div class="flex items-center gap-2">
+        <!-- flex-1 fills the row on mobile (deliberate, next to the
+             fixed-width L/A/E buttons); on md+ that same flex-1 let it
+             stretch into a long thin bar that read as a colored banner
+             rather than a button, so it's capped back to content width
+             with comfortable padding instead, plus a shadow/hover state
+             so it still visibly looks pressable at any size. -->
         <button type="button" onclick="markAll('P')"
-                class="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-full bg-success text-success-content font-bold text-sm touch-action-manipulation active:scale-95 transition-all">
-            <i class="fa-solid fa-check-double text-xs"></i> All P
+                class="flex-1 md:flex-none md:px-6 flex items-center justify-center gap-1.5 h-9 rounded-full bg-success text-success-content font-bold text-sm shadow-sm hover:shadow-md hover:brightness-110 touch-action-manipulation active:scale-95 transition-all">
+            <i class="fa-solid fa-check-double text-xs"></i> All Present
         </button>
         <button type="button" onclick="markAll('L')"
-                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-warning hover:text-warning-content touch-action-manipulation active:scale-95 transition-all">
+                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-warning hover:text-warning-content touch-action-manipulation active:scale-95 transition-all">
             All L
         </button>
         <button type="button" onclick="markAll('A')"
-                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-error hover:text-error-content touch-action-manipulation active:scale-95 transition-all">
+                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-error hover:text-error-content touch-action-manipulation active:scale-95 transition-all">
             All A
         </button>
         <button type="button" onclick="markAll('E')"
-                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm hover:bg-info hover:text-info-content touch-action-manipulation active:scale-95 transition-all">
+                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-info hover:text-info-content touch-action-manipulation active:scale-95 transition-all">
             All E
         </button>
     </div>
@@ -95,10 +136,21 @@
                class="input input-sm input-bordered w-full pl-8"
                oninput="filterStudents(this.value)" />
     </div>
+    <!-- Shown only while a search is active, so the bulk status buttons
+         above don't silently look global when they're actually scoped to
+         the filtered rows. -->
+    <div id="search-scope-hint" class="hidden text-xs text-base-content/50 -mt-1"></div>
 </div>
 
+{% if not attendance_taken %}
+<div class="alert alert-info py-2 {% if not in_tab %}-mx-6{% endif %} px-4 mb-2 text-xs flex items-center gap-2">
+    <i class="fa-solid fa-circle-info shrink-0"></i>
+    Nothing saved yet for this day — rows below are pre-filled to Present for fast marking. Review before saving.
+</div>
+{% endif %}
+
 <!-- Thin progress strip under sticky bar -->
-<div class="flex h-1.5 -mx-6 mb-3" id="progress-strip">
+<div class="flex h-1.5 {% if not in_tab %}-mx-6{% endif %} mb-3" id="progress-strip">
     <div class="bg-success transition-all duration-300" id="progress-present" style="width:0%"></div>
     <div class="bg-warning transition-all duration-300" id="progress-late" style="width:0%"></div>
     <div class="bg-error transition-all duration-300" id="progress-absent" style="width:0%"></div>
@@ -168,7 +220,7 @@
     </div>
 
     <!-- Sticky save bar -->
-    <div class="sticky bottom-0 -mx-6 px-4 py-3 bg-base-100/95 backdrop-blur-sm border-t border-base-200 flex gap-3">
+    <div class="sticky bottom-0 {% if not in_tab %}-mx-6{% endif %} px-4 py-3 bg-base-100/95 backdrop-blur-sm border-t border-base-200 flex gap-3">
         <button type="button"
                 class="btn touch-action-manipulation"
                 onclick="var d=this.closest('dialog'); var t=this.closest('#tab-attendance');
@@ -223,22 +275,41 @@
         else if (radio.value === 'E') row.classList.add('bg-info/10');
     }
 
+    let formDirty = false;
+
     // Called from inline onclick/oninput attributes, so must stay global.
     window.filterStudents = function (query) {
         const q = query.toLowerCase().trim();
+        let visible = 0;
         document.querySelectorAll('.student-row').forEach(row => {
             const name = row.dataset.name || '';
-            row.style.display = (!q || name.includes(q)) ? '' : 'none';
+            const show = !q || name.includes(q);
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
         });
+        const hint = document.getElementById('search-scope-hint');
+        if (q) {
+            hint.textContent = `Bulk status buttons above apply only to the ${visible} student${visible === 1 ? '' : 's'} shown.`;
+            hint.classList.remove('hidden');
+        } else {
+            hint.classList.add('hidden');
+        }
     };
 
+    // Only touches rows currently visible under the search filter - a
+    // teacher who searched down to one student to fix a mistake shouldn't
+    // have "All Present" silently re-mark the whole class.
     window.markAll = function (status) {
-        document.getElementById('attendance-form')
-            .querySelectorAll(`input[type="radio"][value="${status}"]`)
-            .forEach(r => {
-                r.checked = true;
-                updateRowBackground(r);
-            });
+        const rows = Array.from(document.querySelectorAll('.student-row'))
+            .filter(row => row.style.display !== 'none');
+        if (!rows.length) return;
+        rows.forEach(row => {
+            const radio = row.querySelector(`input[type="radio"][value="${status}"]`);
+            if (!radio) return;
+            radio.checked = true;
+            updateRowBackground(radio);
+        });
+        formDirty = true;
         updateProgress();
         if (navigator.vibrate) navigator.vibrate(50);
     };
@@ -255,7 +326,6 @@
     });
     updateProgress();
 
-    let formDirty = false;
     form.addEventListener('change', () => { formDirty = true; });
     window.addEventListener('beforeunload', e => { if (formDirty) e.preventDefault(); });
     window.addEventListener('popstate', () => {

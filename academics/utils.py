@@ -78,84 +78,6 @@ def get_current_lesson_for_teacher(teacher, class_obj=None):
     }
 
 
-def get_teacher_lessons_today(teacher, class_obj=None):
-    """
-    Get all of a teacher's lessons for today with attendance status.
-
-    Args:
-        teacher: Teacher instance
-        class_obj: Optional Class instance to filter by specific class
-
-    Returns:
-        List of dicts with lesson info and attendance status
-    """
-    from .models import TimetableEntry, AttendanceSession
-
-    now = timezone.localtime()
-    current_time = now.time()
-    today = now.date()
-    today_weekday = now.isoweekday()
-
-    # Get all timetable entries for today
-    entries_query = TimetableEntry.objects.filter(
-        class_subject__teacher=teacher,
-        weekday=today_weekday
-    ).select_related(
-        'class_subject__class_assigned',
-        'class_subject__subject',
-        'period',
-        'classroom'
-    ).order_by('period__order')
-
-    if class_obj:
-        entries_query = entries_query.filter(class_subject__class_assigned=class_obj)
-
-    entries = list(entries_query)
-
-    # Get existing attendance sessions for these entries today
-    entry_ids = [e.id for e in entries]
-    existing_sessions = {
-        s.timetable_entry_id: s
-        for s in AttendanceSession.objects.filter(
-            timetable_entry_id__in=entry_ids,
-            date=today,
-            session_type=AttendanceSession.SessionType.LESSON
-        )
-    }
-
-    lessons = []
-    for entry in entries:
-        class_obj_for_entry = entry.class_subject.class_assigned
-
-        # Determine status
-        is_past = entry.period.end_time < current_time
-        is_current = entry.period.start_time <= current_time <= entry.period.end_time
-        is_upcoming = entry.period.start_time > current_time
-
-        session = existing_sessions.get(entry.id)
-        attendance_taken = session is not None
-
-        # Only show for per-lesson classes
-        uses_lesson_attendance = should_use_lesson_attendance(class_obj_for_entry)
-
-        lessons.append({
-            'entry': entry,
-            'period': entry.period,
-            'class_obj': class_obj_for_entry,
-            'subject': entry.class_subject.subject,
-            'class_subject': entry.class_subject,
-            'classroom': entry.classroom,
-            'is_past': is_past,
-            'is_current': is_current,
-            'is_upcoming': is_upcoming,
-            'attendance_taken': attendance_taken,
-            'session': session,
-            'uses_lesson_attendance': uses_lesson_attendance,
-        })
-
-    return lessons
-
-
 def should_use_lesson_attendance(class_obj):
     """
     Check if a class is configured for per-lesson attendance.
@@ -235,15 +157,21 @@ def get_lesson_attendance_stats(class_obj, start_date=None, end_date=None):
         class_assigned=class_obj
     ).select_related('subject', 'teacher')
 
-    # Single query: session counts and attendance stats per class_subject
+    # Single query: session counts and attendance stats per class_subject.
+    # records__isnull=False excludes sessions nobody actually saved attendance
+    # for yet (opening the "take attendance" screen creates the session row
+    # before Save is tapped) - otherwise "sessions" would over-count relative
+    # to what was really marked. The join to records fans out one row per
+    # record, so count distinct session ids rather than raw joined rows.
     session_counts = dict(
         AttendanceSession.objects.filter(
             class_assigned=class_obj,
             session_type=AttendanceSession.SessionType.LESSON,
             date__gte=start_date,
             date__lte=end_date,
+            records__isnull=False,
         ).values('class_subject_id').annotate(
-            count=Count('id')
+            count=Count('id', distinct=True)
         ).values_list('class_subject_id', 'count')
     )
 

@@ -1126,3 +1126,90 @@ def recalc_and_rerank_term_reports(student_ids, term):
         r.save()
 
     return len(reports)
+
+
+# ============ Term Attendance ============
+
+# Best status wins per day: P > L > E > A - being present in any lesson that
+# day counts the whole day present. Same precedent as the weekly attendance
+# register PDF (academics/views/attendance.py, weekly_attendance_register_pdf).
+_ATTENDANCE_STATUS_PRIORITY = {'P': 0, 'L': 1, 'E': 2, 'A': 3}
+
+
+def compute_term_attendance_stats(class_obj, valid_days, student_ids):
+    """
+    Per-student day-level attendance tally over `valid_days` for `class_obj`.
+
+    Resolves multiple per-lesson records on the same day to a single status
+    per (student, day) using "best status wins" (see
+    _ATTENDANCE_STATUS_PRIORITY) - without this, a per-lesson class could
+    independently satisfy both a "present that day" and an "absent that day"
+    check (e.g. present in period 1, absent in period 3) and get the same
+    day double-counted into both tallies. Daily-attendance classes can't hit
+    this since exactly one record per student per day is possible there.
+
+    Also anchors each student's total_school_days to the earliest date they
+    have ANY record in this class, not the full valid_days range - a
+    heuristic for mid-term transfers, since there's no stored "date this
+    student joined this class" to anchor to instead. This slightly
+    overcounts if attendance had a gap right when the student joined, but
+    it's the best signal available in existing data.
+
+    Args:
+        class_obj: Class instance attendance sessions belong to
+        valid_days: sorted list of date objects (real school days in range)
+        student_ids: iterable of student IDs to compute stats for
+
+    Returns:
+        dict[int, dict]: {student_id: {'days_present', 'days_absent',
+        'days_excused', 'times_late', 'total_school_days'}}. Students with
+        zero records anywhere in valid_days are omitted entirely - callers
+        should treat "missing" as "no data" (matches existing report-card
+        template behavior of hiding the attendance section rather than
+        showing a misleading 0%).
+    """
+    from academics.models import AttendanceRecord
+
+    if not valid_days:
+        return {}
+
+    day_status = {}  # (student_id, date) -> best status
+    late_counts = defaultdict(int)
+    earliest_date = {}  # student_id -> earliest recorded date in range
+
+    rows = AttendanceRecord.objects.filter(
+        session__class_assigned=class_obj,
+        session__date__in=valid_days,
+        student_id__in=list(student_ids),
+    ).values_list('student_id', 'session__date', 'status')
+
+    for student_id, sess_date, status in rows:
+        if status == 'L':
+            late_counts[student_id] += 1
+        if student_id not in earliest_date or sess_date < earliest_date[student_id]:
+            earliest_date[student_id] = sess_date
+        key = (student_id, sess_date)
+        current = day_status.get(key)
+        if current is None or _ATTENDANCE_STATUS_PRIORITY[status] < _ATTENDANCE_STATUS_PRIORITY.get(current, 99):
+            day_status[key] = status
+
+    tallies = defaultdict(lambda: {'days_present': 0, 'days_absent': 0, 'days_excused': 0})
+    for (student_id, _date), status in day_status.items():
+        if status in ('P', 'L'):
+            tallies[student_id]['days_present'] += 1
+        elif status == 'A':
+            tallies[student_id]['days_absent'] += 1
+        elif status == 'E':
+            tallies[student_id]['days_excused'] += 1
+
+    result = {}
+    for student_id, t in tallies.items():
+        window = [d for d in valid_days if d >= earliest_date[student_id]]
+        result[student_id] = {
+            'days_present': t['days_present'],
+            'days_absent': t['days_absent'],
+            'days_excused': t['days_excused'],
+            'times_late': late_counts.get(student_id, 0),
+            'total_school_days': len(window),
+        }
+    return result

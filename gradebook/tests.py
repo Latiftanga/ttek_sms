@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -16,8 +16,10 @@ from .models import (
     Assignment, Score, SubjectTermGrade, TermReport
 )
 from .forms import GradeScaleForm, AssessmentCategoryForm, ScoreForm
+from .utils import compute_term_attendance_stats
 from academics.models import (
-    Subject, Class, Programme, ClassSubject, StudentSubjectEnrollment
+    Subject, Class, Programme, ClassSubject, StudentSubjectEnrollment,
+    AttendanceSession, AttendanceRecord, Period, TimetableEntry,
 )
 from core.models import AcademicYear, Term
 from students.models import Student, Guardian, Enrollment
@@ -964,3 +966,152 @@ class CleanupUnenrolledGradesCommandTests(GradebookTenantTestCase):
         call_command('cleanup_unenrolled_grades', apply=True, stdout=StringIO())
         self.assertTrue(SubjectTermGrade.objects.filter(pk=kept.pk).exists())
         self.assertFalse(SubjectTermGrade.objects.filter(pk=orphan.pk).exists())
+
+
+class TermAttendanceStatsTests(GradebookTenantTestCase):
+    """
+    Tests for compute_term_attendance_stats (gradebook.utils) - the shared
+    day-resolution helper used both by bulk term-report generation
+    (_calculate_term_reports) and TermReport.calculate_attendance().
+
+    Term dates are fixed in the past (Sept 2024) so valid-school-day counts
+    are deterministic regardless of when the test suite actually runs.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.academic_year = AcademicYear.objects.create(
+            name='2024/2025', start_date=date(2024, 9, 1),
+            end_date=date(2025, 7, 31), is_current=True,
+        )
+        # Two full Mon-Fri weeks -> 10 valid school days, no holidays.
+        self.term = Term.objects.create(
+            academic_year=self.academic_year, name='First Term', term_number=1,
+            start_date=date(2024, 9, 2), end_date=date(2024, 9, 13), is_current=True,
+        )
+        self.klass = Class.objects.create(
+            level_type='basic', level_number=1, section='A', name='B1A', is_active=True,
+        )
+        self.student = Student.objects.create(
+            first_name='Ama', last_name='Mensah', admission_number='ATT-001',
+            date_of_birth=date(2015, 1, 1), admission_date=date(2024, 9, 1),
+            current_class=self.klass, status=Student.Status.ACTIVE,
+        )
+
+    def _valid_days(self):
+        from core.utils import get_valid_school_days
+        return get_valid_school_days(
+            self.term.start_date, self.term.end_date, term=self.term
+        )
+
+    def test_daily_attendance_present_absent_excused(self):
+        valid_days = self._valid_days()
+        self.assertEqual(len(valid_days), 10)
+
+        for day, status in zip(valid_days[:3], ['P', 'A', 'E']):
+            session = AttendanceSession.objects.create(
+                class_assigned=self.klass, date=day,
+                session_type=AttendanceSession.SessionType.DAILY,
+            )
+            AttendanceRecord.objects.create(session=session, student=self.student, status=status)
+
+        stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
+        att = stats[self.student.id]
+        self.assertEqual(att['days_present'], 1)
+        self.assertEqual(att['days_absent'], 1)
+        self.assertEqual(att['days_excused'], 1)
+        self.assertEqual(att['total_school_days'], 10)
+
+    def test_per_lesson_mixed_status_same_day_counts_once_as_present(self):
+        """
+        A per-lesson class where the student is Present in one lesson and
+        Absent in another on the SAME day must resolve to exactly one
+        present day and zero absent days - not double-count the same day
+        into both tallies (the bug being fixed here).
+        """
+        valid_days = self._valid_days()
+        day = valid_days[0]
+
+        subject = Subject.objects.create(name='Mathematics', short_name='MTH', code='MTH')
+        class_subject = ClassSubject.objects.create(class_assigned=self.klass, subject=subject)
+        period1 = Period.objects.create(name='Period 1', start_time='08:00', end_time='08:40', order=1)
+        period2 = Period.objects.create(name='Period 2', start_time='08:40', end_time='09:20', order=2)
+        entry1 = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period1, weekday=day.isoweekday(),
+        )
+        entry2 = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period2, weekday=day.isoweekday(),
+        )
+
+        session1 = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=day, timetable_entry=entry1,
+            session_type=AttendanceSession.SessionType.LESSON,
+            period=period1, class_subject=class_subject,
+        )
+        session2 = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=day, timetable_entry=entry2,
+            session_type=AttendanceSession.SessionType.LESSON,
+            period=period2, class_subject=class_subject,
+        )
+        AttendanceRecord.objects.create(session=session1, student=self.student, status='P')
+        AttendanceRecord.objects.create(session=session2, student=self.student, status='A')
+
+        stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
+        att = stats[self.student.id]
+        self.assertEqual(att['days_present'], 1)
+        self.assertEqual(att['days_absent'], 0)
+
+    def test_mid_term_start_shrinks_total_school_days(self):
+        """
+        A student whose earliest attendance record in this class lands
+        partway through the range (e.g. a mid-term transfer) should have
+        total_school_days counted only from that date onward, not the full
+        range - otherwise the days before they even joined this class would
+        unfairly count against their percentage.
+        """
+        valid_days = self._valid_days()
+        start_index = 3  # 4th valid day
+        join_date = valid_days[start_index]
+
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=join_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
+        att = stats[self.student.id]
+        self.assertEqual(att['total_school_days'], len(valid_days) - start_index)
+        self.assertEqual(att['days_present'], 1)
+
+    def test_student_with_no_records_is_omitted(self):
+        valid_days = self._valid_days()
+        stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
+        self.assertNotIn(self.student.id, stats)
+
+    def test_model_method_matches_helper_for_same_student(self):
+        """
+        TermReport.calculate_attendance() delegates to the same helper - it
+        should produce identical numbers to calling the helper directly.
+        """
+        valid_days = self._valid_days()
+        for day, status in zip(valid_days[:4], ['P', 'P', 'A', 'L']):
+            session = AttendanceSession.objects.create(
+                class_assigned=self.klass, date=day,
+                session_type=AttendanceSession.SessionType.DAILY,
+            )
+            AttendanceRecord.objects.create(session=session, student=self.student, status=status)
+
+        expected = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])[self.student.id]
+
+        report = TermReport.objects.create(student=self.student, term=self.term, out_of=1)
+        report.calculate_attendance()
+
+        self.assertEqual(report.days_present, expected['days_present'])
+        self.assertEqual(report.days_absent, expected['days_absent'])
+        self.assertEqual(report.times_late, expected['times_late'])
+        self.assertEqual(report.total_school_days, expected['total_school_days'])
+        self.assertEqual(
+            report.attendance_percentage,
+            round(Decimal(str(expected['days_present'])) / Decimal(str(expected['total_school_days'])) * 100, 2)
+        )

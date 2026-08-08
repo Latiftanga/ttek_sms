@@ -23,7 +23,7 @@ from academics.models import (
 )
 from students.models import Student, Guardian, Enrollment
 from teachers.models import Teacher
-from core.models import AcademicYear, Term, SchoolSettings
+from core.models import AcademicYear, Term, SchoolSettings, SchoolHoliday
 from gradebook.models import (
     Assignment, AssessmentCategory, Score, SubjectTermGrade, TermReport
 )
@@ -1140,7 +1140,13 @@ class AttendanceTermEndedCatchUpTests(AcademicsTestCase):
         )
         subject = self.create_subject('Mathematics', 'MTH')
         class_subject = self.create_class_subject(lesson_klass, subject)
-        entry_weekday = self.lapsed_term.end_date.isoweekday()
+        # Monday, not whatever weekday `today` happens to be: the default
+        # SchoolSettings.school_days is Mon-Fri, so pinning this to the
+        # term's actual end-date weekday made the test flaky whenever that
+        # end date landed on a weekend (is_valid_school_day would then
+        # reject it downstream). The term's 15-day range guarantees at
+        # least one Monday, so this is deterministic regardless of today.
+        entry_weekday = 1
         entry = TimetableEntry.objects.create(
             class_subject=class_subject, period=period, weekday=entry_weekday,
         )
@@ -1182,3 +1188,581 @@ class AttendanceTermEndedCatchUpTests(AcademicsTestCase):
         self.assertFalse(
             AttendanceSession.objects.filter(class_assigned=lesson_klass, date=beyond_end).exists()
         )
+
+    def test_my_attendance_clamps_today_to_lapsed_term_end(self):
+        """
+        core:my_attendance's "Today" tab defaulted selected_date straight to
+        real today, clamping only if it was too *early* for the current
+        term - never if the term had already lapsed and today fell past its
+        end date. That unclamped date got baked as an explicit ?date= into
+        the "Take Attendance" link (my_attendance_content.html), which
+        take_attendance then correctly but silently (toast only) rejected
+        for being past term end - looking exactly like a dead Save button.
+        lesson_attendance_list already clamped both directions; this closes
+        the same gap here.
+        """
+        teacher_user = User.objects.create_user(
+            email='homeroom@school.com', password='testpass123', is_teacher=True,
+        )
+        self.teacher.user = teacher_user
+        self.teacher.save(update_fields=['user'])
+        self.client.login(email='homeroom@school.com', password='testpass123')
+
+        response = self.client.get(reverse('core:my_attendance'))
+        selected_date = response.context['selected_date']
+        # Must land within the lapsed term rather than staying on real
+        # "today" (which is after the term ended) - the exact day depends
+        # on which weekdays are valid school days, so assert the bounds
+        # rather than a specific date.
+        self.assertGreaterEqual(selected_date, self.lapsed_term.start_date)
+        self.assertLessEqual(selected_date, self.lapsed_term.end_date)
+
+        take_url = reverse('core:take_attendance', args=[self.klass.pk])
+        take_response = self.client.get(take_url, {'date': selected_date.isoformat()})
+        self.assertEqual(take_response.status_code, 200)
+
+    def test_core_take_attendance_post_saves_for_viewed_date_not_today(self):
+        """
+        The teacher-portal attendance form's date <input>/dropdown lives
+        outside <form id="attendance-form">, and neither it nor the form
+        itself carried the viewed date into the POST - so every save
+        silently defaulted to request.POST.get('date') being empty,
+        target_date falling back to real "today". That went unnoticed
+        while "today" usually happened to be a valid date; now that the
+        term has lapsed, saving for "today" is correctly rejected,
+        making every save silently fail regardless of which date was
+        actually being viewed. Posting an explicit past-but-in-term date
+        (not today) and asserting the record lands on THAT date, not
+        today's, is the exact case that would have caught this.
+        """
+        teacher_user = User.objects.create_user(
+            email='postdate@school.com', password='testpass123', is_teacher=True,
+        )
+        self.teacher.user = teacher_user
+        self.teacher.save(update_fields=['user'])
+        self.client.login(email='postdate@school.com', password='testpass123')
+
+        # A guaranteed-valid school day within the lapsed term (not
+        # necessarily term.end_date itself, which could land on a weekend).
+        my_attendance_response = self.client.get(reverse('core:my_attendance'))
+        target_date = my_attendance_response.context['selected_date']
+        self.assertNotEqual(target_date, timezone.localdate())
+
+        take_url = reverse('core:take_attendance', args=[self.klass.pk])
+        self.client.post(
+            take_url,
+            {'date': target_date.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+
+        record = AttendanceRecord.objects.get(student=self.student)
+        self.assertEqual(record.session.date, target_date)
+        self.assertNotEqual(record.session.date, timezone.localdate())
+
+
+class AttendanceDoneStatusReflectsRecordsTests(AcademicsTestCase):
+    """
+    Opening the "take attendance" screen (a GET request) proactively
+    creates an AttendanceSession row so the save endpoint has something to
+    attach records to - see class_attendance_take/take_lesson_attendance.
+    That alone must not make a class/lesson read as "Done" for admins or
+    other teachers; only an actually-saved record should. Sessions are
+    created directly here (bypassing the GET view) so these tests don't
+    depend on which weekday they happen to run on.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+        self.student = self.create_student('Ama', 'STU-200', class_obj=self.klass)
+        self.today = timezone.localdate()
+
+    def _class_summary(self):
+        report = self.client.get(reverse('academics:attendance_reports'))
+        return report.context['class_summary'], report.context
+
+    def test_empty_session_does_not_mark_class_done(self):
+        AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.today,
+            session_type=AttendanceSession.SessionType.DAILY,
+            created_by=self.teacher,
+        )
+        summary, ctx = self._class_summary()
+        item = next(i for i in summary if i['class'].pk == self.klass.pk)
+        self.assertFalse(item['has_today'])
+        self.assertEqual(ctx['classes_done_today'], 0)
+        self.assertEqual(ctx['classes_pending_today'], 1)
+
+    def test_session_with_a_record_marks_class_done(self):
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.today,
+            session_type=AttendanceSession.SessionType.DAILY,
+            created_by=self.teacher,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+        summary, ctx = self._class_summary()
+        item = next(i for i in summary if i['class'].pk == self.klass.pk)
+        self.assertTrue(item['has_today'])
+        self.assertEqual(ctx['classes_done_today'], 1)
+        self.assertEqual(ctx['classes_pending_today'], 0)
+
+    def test_empty_lesson_session_does_not_mark_lesson_taken(self):
+        lesson_klass = self.create_class('basic', 2)
+        lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON
+        lesson_klass.save(update_fields=['attendance_type'])
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(lesson_klass, subject)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period, weekday=self.today.isoweekday(),
+        )
+        student = self.create_student('Kofi', 'STU-201', class_obj=lesson_klass)
+
+        AttendanceSession.objects.create(
+            class_assigned=lesson_klass, date=self.today, timetable_entry=entry,
+            session_type=AttendanceSession.SessionType.LESSON,
+            created_by=self.teacher, period=period, class_subject=class_subject,
+        )
+
+        response = self.client.get(
+            reverse('academics:lesson_attendance_list', args=[lesson_klass.pk])
+        )
+        lessons = response.context['lessons']
+        self.assertEqual(len(lessons), 1)
+        self.assertFalse(lessons[0]['attendance_taken'])
+
+        # Now actually save a record for it - it should flip to taken.
+        AttendanceRecord.objects.create(
+            session=lessons[0]['session'], student=student, status='P'
+        )
+        response = self.client.get(
+            reverse('academics:lesson_attendance_list', args=[lesson_klass.pk])
+        )
+        self.assertTrue(response.context['lessons'][0]['attendance_taken'])
+
+
+class AttendanceContextExposesMarkedStatusTests(AcademicsTestCase):
+    """
+    The "take attendance" GET views must expose whether the selected day's
+    session already has real saved records (`attendance_taken`), separately
+    from `is_edit` (which only reflects which URL/view was used to get
+    here) - the date-picker screen uses this to show a "Marked" vs "Not yet
+    marked" badge so a blank, never-touched day can't be mistaken for one
+    already saved as all-Present (the default status for an unrecorded
+    student is 'P', so the two would otherwise render identically).
+
+    A real current Term is created and dates are pinned to a Monday (rather
+    than "today") so these tests don't depend on which weekday they happen
+    to run on - same reasoning as AttendanceTermEndedCatchUpTests.
+    """
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()  # Term.get_current() caches per-tenant for 1h
+        self.addCleanup(cache.clear)
+
+        today = timezone.localdate()
+        self.monday = today - timedelta(days=(today.isoweekday() - 1) % 7)
+        # A dedicated year/term anchored to "today" rather than reusing
+        # self.current_year (fixed at 2024-09-01..2025-07-31) - this term's
+        # bounds need to actually contain self.monday.
+        self.year = AcademicYear.objects.create(
+            name='Test Year',
+            start_date=self.monday - timedelta(days=60),
+            end_date=self.monday + timedelta(days=60),
+            is_current=False,
+        )
+        self.term = Term.objects.create(
+            academic_year=self.year, name='Test Term', term_number=1,
+            start_date=self.monday - timedelta(days=30),
+            end_date=self.monday + timedelta(days=30),
+            is_current=True,
+        )
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+        self.student = self.create_student('Ama', 'STU-500', class_obj=self.klass)
+
+    def test_class_attendance_take_reflects_marked_status(self):
+        url = reverse('academics:class_attendance_take', args=[self.klass.pk])
+        response = self.client.get(url, {'date': self.monday.isoformat()})
+        self.assertFalse(response.context['attendance_taken'])
+
+        session = AttendanceSession.objects.get(
+            class_assigned=self.klass, date=self.monday,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        response = self.client.get(url, {'date': self.monday.isoformat()})
+        self.assertTrue(response.context['attendance_taken'])
+
+    def test_class_attendance_edit_reflects_marked_status(self):
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.monday,
+            session_type=AttendanceSession.SessionType.DAILY,
+            created_by=self.teacher,
+        )
+        url = reverse('academics:class_attendance_edit', args=[self.klass.pk, session.pk])
+        response = self.client.get(url)
+        self.assertFalse(response.context['attendance_taken'])
+
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+        response = self.client.get(url)
+        self.assertTrue(response.context['attendance_taken'])
+
+    def test_take_lesson_attendance_reflects_marked_status(self):
+        lesson_klass = self.create_class('basic', 2)
+        lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON
+        lesson_klass.save(update_fields=['attendance_type'])
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(lesson_klass, subject)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period, weekday=1,
+        )
+        student = self.create_student('Kofi', 'STU-501', class_obj=lesson_klass)
+
+        url = reverse('academics:take_lesson_attendance', args=[entry.pk])
+        response = self.client.get(url, {'date': self.monday.isoformat()})
+        self.assertFalse(response.context['attendance_taken'])
+
+        session = AttendanceSession.objects.get(
+            class_assigned=lesson_klass, timetable_entry=entry, date=self.monday,
+        )
+        AttendanceRecord.objects.create(session=session, student=student, status='P')
+
+        response = self.client.get(url, {'date': self.monday.isoformat()})
+        self.assertTrue(response.context['attendance_taken'])
+
+    def test_core_take_attendance_reflects_marked_status(self):
+        url = reverse('core:take_attendance', args=[self.klass.pk])
+        response = self.client.get(url, {'date': self.monday.isoformat()})
+        self.assertFalse(response.context['attendance_taken'])
+
+        session = AttendanceSession.objects.get(
+            class_assigned=self.klass, date=self.monday,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        response = self.client.get(url, {'date': self.monday.isoformat()})
+        self.assertTrue(response.context['attendance_taken'])
+
+    def test_pickable_dates_excludes_weekends_holidays_and_out_of_range(self):
+        # A Saturday within the term and safely in the past (so this isolates
+        # the weekday rule rather than also being excluded merely for being
+        # a future date) - never a valid school day under the default
+        # Mon-Fri SchoolSettings, so it must never appear at all.
+        saturday = self.monday - timedelta(days=2)
+        # A Monday (otherwise valid) explicitly closed as a holiday.
+        holiday_monday = self.monday - timedelta(days=7)
+        SchoolHoliday.objects.create(name='Staff Day', date=holiday_monday)
+        # Before the term even starts.
+        before_term = self.term.start_date - timedelta(days=1)
+        # Within the term but after "today" - not yet reachable.
+        future_monday = self.monday + timedelta(days=7)
+
+        response = self.client.get(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.monday.isoformat()},
+        )
+        values = {d['value'] for d in response.context['pickable_dates']}
+        self.assertNotIn(saturday.isoformat(), values)
+        self.assertNotIn(holiday_monday.isoformat(), values)
+        self.assertNotIn(before_term.isoformat(), values)
+        self.assertNotIn(future_monday.isoformat(), values)
+        self.assertIn(self.monday.isoformat(), values)
+
+    def test_pickable_dates_flags_marked_days(self):
+        response = self.client.get(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.monday.isoformat()},
+        )
+        entry = next(
+            d for d in response.context['pickable_dates']
+            if d['value'] == self.monday.isoformat()
+        )
+        self.assertFalse(entry['marked'])
+
+        session = AttendanceSession.objects.get(
+            class_assigned=self.klass, date=self.monday,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        response = self.client.get(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.monday.isoformat()},
+        )
+        entry = next(
+            d for d in response.context['pickable_dates']
+            if d['value'] == self.monday.isoformat()
+        )
+        self.assertTrue(entry['marked'])
+
+    def test_lesson_flow_pickable_dates_flag_marked_days(self):
+        lesson_klass = self.create_class('basic', 3)
+        lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON
+        lesson_klass.save(update_fields=['attendance_type'])
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(lesson_klass, subject)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period, weekday=1,
+        )
+        student = self.create_student('Kofi', 'STU-502', class_obj=lesson_klass)
+
+        lesson_url = reverse('academics:take_lesson_attendance', args=[entry.pk])
+        list_url = reverse('academics:lesson_attendance_list', args=[lesson_klass.pk])
+
+        # Opening the lesson's own take-attendance screen is what creates
+        # the (still-empty) session in the first place.
+        self.client.get(lesson_url, {'date': self.monday.isoformat()})
+
+        response = self.client.get(list_url, {'date': self.monday.isoformat()})
+        entry_dates = {d['value']: d['marked'] for d in response.context['pickable_dates']}
+        self.assertFalse(entry_dates[self.monday.isoformat()])
+
+        session = AttendanceSession.objects.get(
+            class_assigned=lesson_klass, timetable_entry=entry, date=self.monday,
+        )
+        AttendanceRecord.objects.create(session=session, student=student, status='P')
+
+        # Both the hub list and the single lesson's own picker should agree.
+        response = self.client.get(list_url, {'date': self.monday.isoformat()})
+        entry_dates = {d['value']: d['marked'] for d in response.context['pickable_dates']}
+        self.assertTrue(entry_dates[self.monday.isoformat()])
+
+        response = self.client.get(lesson_url, {'date': self.monday.isoformat()})
+        entry_dates = {d['value']: d['marked'] for d in response.context['pickable_dates']}
+        self.assertTrue(entry_dates[self.monday.isoformat()])
+
+    def test_core_take_attendance_pickable_dates_flags_marked_days(self):
+        url = reverse('core:take_attendance', args=[self.klass.pk])
+        response = self.client.get(url, {'date': self.monday.isoformat()})
+        entry = next(
+            d for d in response.context['pickable_dates']
+            if d['value'] == self.monday.isoformat()
+        )
+        self.assertFalse(entry['marked'])
+
+        session = AttendanceSession.objects.get(
+            class_assigned=self.klass, date=self.monday,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        response = self.client.get(url, {'date': self.monday.isoformat()})
+        entry = next(
+            d for d in response.context['pickable_dates']
+            if d['value'] == self.monday.isoformat()
+        )
+        self.assertTrue(entry['marked'])
+
+
+class MyClassesAttendanceButtonVisibilityTests(AcademicsTestCase):
+    """
+    core:my_classes' Subject Classes cards (classes a teacher teaches a
+    subject in but isn't the form master of) should only show "Attend"
+    when the class actually lets a non-form-master mark attendance - true
+    for per-lesson classes (each subject teacher marks their own lesson)
+    but not daily ones (form master/admin only - see
+    core.views.take_attendance and
+    academics.views.attendance.class_attendance_take's "Daily attendance
+    requires the class teacher or admin" check). Showing it unconditionally
+    meant a subject teacher on a daily class saw a button that would always
+    be rejected if tapped.
+    """
+
+    def test_attend_button_shown_only_for_per_lesson_subject_classes(self):
+        daily_class = self.create_class('basic', 1)
+        per_lesson_class = self.create_class('basic', 2)
+        per_lesson_class.attendance_type = Class.AttendanceType.PER_LESSON
+        per_lesson_class.save(update_fields=['attendance_type'])
+
+        subject = self.create_subject('Mathematics', 'MTH')
+        self.create_class_subject(daily_class, subject, teacher=self.teacher)
+        self.create_class_subject(per_lesson_class, subject, teacher=self.teacher)
+
+        teacher_user = User.objects.create_user(
+            email='subjectteacher@school.com', password='testpass123', is_teacher=True,
+        )
+        self.teacher.user = teacher_user
+        self.teacher.save(update_fields=['user'])
+        self.client.login(email='subjectteacher@school.com', password='testpass123')
+
+        response = self.client.get(reverse('core:my_classes'))
+        content = response.content.decode()
+
+        daily_attend_url = reverse('core:take_attendance', args=[daily_class.pk])
+        per_lesson_attend_url = reverse('core:take_attendance', args=[per_lesson_class.pk])
+
+        self.assertNotIn(daily_attend_url, content)
+        self.assertIn(per_lesson_attend_url, content)
+
+
+class AttendanceSaveConcurrencyTests(AcademicsTestCase):
+    """
+    Two overlapping submits for the same session/student (e.g. a double-tap
+    on Save under a slow mobile connection) can both see "no existing
+    record" and both attempt to insert one, tripping the unique_together
+    constraint on the loser. _save_attendance_records should resolve that
+    as an upsert against the now-current DB state rather than surfacing a
+    "failed to save" for a save that actually mostly succeeded.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+        self.student = self.create_student('Ama', 'STU-300', class_obj=self.klass)
+        # A guaranteed weekday, not necessarily "today" - no Term is set up
+        # in this test class, so validity falls back to the default Mon-Fri
+        # SchoolSettings, and real "today" landing on a weekend would make
+        # class_attendance_take reject the POST below as not a school day.
+        today = timezone.localdate()
+        self.today = today - timedelta(days=(today.isoweekday() - 1) % 7)
+
+    def test_concurrent_insert_is_resolved_not_reported_as_failure(self):
+        from unittest.mock import patch
+        from django.db import IntegrityError
+
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.today,
+            session_type=AttendanceSession.SessionType.DAILY,
+            created_by=self.teacher,
+        )
+
+        real_bulk_create = AttendanceRecord.objects.bulk_create
+        state = {'calls': 0}
+
+        def flaky_bulk_create(objs, *args, **kwargs):
+            state['calls'] += 1
+            if state['calls'] == 1:
+                # Simulate a concurrent duplicate submission that already
+                # landed between this request's SELECT and INSERT.
+                AttendanceRecord.objects.create(
+                    session=session, student=self.student, status='A'
+                )
+                raise IntegrityError(
+                    'duplicate key value violates unique constraint'
+                )
+            return real_bulk_create(objs, *args, **kwargs)
+
+        with patch.object(AttendanceRecord.objects, 'bulk_create', side_effect=flaky_bulk_create):
+            response = self.client.post(
+                reverse('academics:class_attendance_take', args=[self.klass.pk]),
+                {'date': self.today.isoformat(), f'status_{self.student.pk}': 'P'},
+            )
+
+        # No 500 / "failed to save" - the request should still redirect
+        # (success path), and exactly one record should exist, carrying
+        # THIS submission's status rather than being left on whatever the
+        # "other" concurrent insert set.
+        self.assertIn(response.status_code, (302, 204))
+        records = AttendanceRecord.objects.filter(session=session, student=self.student)
+        self.assertEqual(records.count(), 1)
+        self.assertEqual(records.first().status, 'P')
+
+
+class AttendanceEmptySessionsExcludedFromListsTests(AcademicsTestCase):
+    """
+    Same root cause as AttendanceDoneStatusReflectsRecordsTests: opening the
+    "take attendance" screen creates an AttendanceSession row before anyone
+    taps Save. That empty session shouldn't just avoid flipping "Done"
+    status - it also shouldn't show up as a blank 0/0 entry in the history
+    modal, the Class Detail Attendance tab, or inflate the "sessions" count
+    on the per-lesson weekly report.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+        self.student = self.create_student('Ama', 'STU-400', class_obj=self.klass)
+        self.today = timezone.localdate()
+
+    def test_empty_session_excluded_from_history_modal(self):
+        AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.today,
+            session_type=AttendanceSession.SessionType.DAILY,
+            created_by=self.teacher,
+        )
+        response = self.client.get(
+            reverse('academics:class_attendance_history', args=[self.klass.pk])
+        )
+        self.assertEqual(list(response.context['attendance_sessions']), [])
+
+    def test_session_with_a_record_included_in_history_modal(self):
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.today,
+            session_type=AttendanceSession.SessionType.DAILY,
+            created_by=self.teacher,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+        response = self.client.get(
+            reverse('academics:class_attendance_history', args=[self.klass.pk])
+        )
+        sessions = list(response.context['attendance_sessions'])
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(sessions[0].pk, session.pk)
+
+    def test_empty_session_excluded_from_class_detail_attendance_tab(self):
+        AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.today,
+            session_type=AttendanceSession.SessionType.DAILY,
+            created_by=self.teacher,
+        )
+        response = self.client.get(reverse('academics:class_detail', args=[self.klass.pk]))
+        self.assertEqual(list(response.context['attendance_sessions']), [])
+
+    def test_empty_lesson_session_excluded_from_weekly_report_count(self):
+        from academics.utils import get_lesson_attendance_stats
+
+        lesson_klass = self.create_class('basic', 2)
+        lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON
+        lesson_klass.save(update_fields=['attendance_type'])
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(lesson_klass, subject)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period, weekday=self.today.isoweekday(),
+        )
+        student = self.create_student('Kofi', 'STU-401', class_obj=lesson_klass)
+        other_student = self.create_student('Ama', 'STU-402', class_obj=lesson_klass)
+
+        # An empty session (never saved) plus a real one with one record -
+        # "sessions" for this subject should count only the real one, and
+        # not be inflated by the join to records fanning out per row.
+        AttendanceSession.objects.create(
+            class_assigned=lesson_klass, date=self.today, timetable_entry=entry,
+            session_type=AttendanceSession.SessionType.LESSON,
+            created_by=self.teacher, period=period, class_subject=class_subject,
+        )
+        taken_session = AttendanceSession.objects.create(
+            class_assigned=lesson_klass, date=self.today - timedelta(days=1),
+            timetable_entry=entry, session_type=AttendanceSession.SessionType.LESSON,
+            created_by=self.teacher, period=period, class_subject=class_subject,
+        )
+        AttendanceRecord.objects.create(session=taken_session, student=student, status='P')
+        AttendanceRecord.objects.create(session=taken_session, student=other_student, status='A')
+
+        stats = get_lesson_attendance_stats(
+            lesson_klass, self.today - timedelta(days=7), self.today
+        )
+        row = next(s for s in stats if s['subject'] == subject)
+        self.assertEqual(row['sessions'], 1)
+        self.assertEqual(row['present'], 1)
+        self.assertEqual(row['absent'], 1)
