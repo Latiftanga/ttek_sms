@@ -2766,8 +2766,8 @@ def my_attendance(request):
         # class_attendance_take/take_attendance already use for the exact
         # same "landed past term end" case - term.end_date alone isn't
         # enough since it could itself be a weekend/holiday.
-        from academics.views.attendance import _nearest_valid_attendance_date
-        adjusted = _nearest_valid_attendance_date(selected_date, current_term)
+        from academics.utils import nearest_valid_attendance_date
+        adjusted = nearest_valid_attendance_date(selected_date, current_term)
         if adjusted:
             selected_date = adjusted
 
@@ -2976,7 +2976,7 @@ def my_attendance(request):
 
     # Valid dates for the Today tab's date picker - same walk-the-term
     # approach used by the per-class attendance pickers
-    # (_pickable_attendance_dates in academics.views.attendance), but
+    # (pickable_attendance_dates in academics.utils), but
     # without a per-date "marked" flag: this picker spans every class a
     # teacher has, not one, so there's no single boolean to check per date
     # without a much more expensive aggregate query across all of them.
@@ -3029,10 +3029,9 @@ def take_attendance(request, class_id):
     from datetime import datetime as dt
     from django.db import IntegrityError
     from academics.models import Class, ClassSubject, AttendanceSession
-    from academics.utils import should_use_lesson_attendance
-    from academics.views.attendance import (
-        _save_attendance_records, _blocked_redirect, _term_date_error,
-        _nearest_valid_attendance_date, _pickable_attendance_dates,
+    from academics.utils import (
+        should_use_lesson_attendance, save_attendance_records, blocked_redirect,
+        term_date_error, nearest_valid_attendance_date, pickable_attendance_dates,
     )
     from students.models import Student
     from .models import SchoolHoliday
@@ -3082,7 +3081,7 @@ def take_attendance(request, class_id):
         try:
             target_date = dt.strptime(date_str, '%Y-%m-%d').date()
             if target_date > today:
-                return _blocked_redirect(request, 'Cannot take attendance for a future date.', 'core:my_attendance')
+                return blocked_redirect(request, 'Cannot take attendance for a future date.', 'core:my_attendance')
         except ValueError:
             target_date = today
             date_str = None
@@ -3105,7 +3104,7 @@ def take_attendance(request, class_id):
     # strictly below.
     adjusted_notice = None
     if not explicit_date and request.method == 'GET':
-        adjusted = _nearest_valid_attendance_date(target_date, current_term)
+        adjusted = nearest_valid_attendance_date(target_date, current_term)
         if adjusted and adjusted != target_date:
             if current_term and target_date > current_term.end_date:
                 adjusted_notice = (
@@ -3122,19 +3121,19 @@ def take_attendance(request, class_id):
     # Restrict marking to within the current term's range (relaxed for dates
     # before it when SchoolSettings.allow_past_term_attendance is on and the
     # date falls within a previously defined term)
-    term_error = _term_date_error(target_date, current_term)
+    term_error = term_date_error(target_date, current_term)
     if term_error:
-        return _blocked_redirect(request, term_error, back_url)
+        return blocked_redirect(request, term_error, back_url)
 
     # Check if this is a school day
     if not is_valid_school_day(target_date, term=current_term):
         day_name = target_date.strftime('%A')
-        return _blocked_redirect(request, f'{day_name} is not a school day.', back_url)
+        return blocked_redirect(request, f'{day_name} is not a school day.', back_url)
 
     # Check for holidays
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:
-        return _blocked_redirect(
+        return blocked_redirect(
             request,
             f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.',
             back_url
@@ -3158,7 +3157,7 @@ def take_attendance(request, class_id):
     if request.method == 'POST':
         students = list(Student.objects.filter(current_class=class_obj, status='active'))
         redirect_url = reverse('core:my_attendance')
-        return _save_attendance_records(
+        return save_attendance_records(
             request, session, students, redirect_url,
             success_msg=f'Attendance saved for {class_obj.name}'
         )
@@ -3183,7 +3182,7 @@ def take_attendance(request, class_id):
         'current_term': current_term,
         'today': today,
         'attendance_taken': bool(records),
-        'pickable_dates': _pickable_attendance_dates(
+        'pickable_dates': pickable_attendance_dates(
             class_obj, current_term, today,
             AttendanceSession.SessionType.DAILY, target_date
         ),

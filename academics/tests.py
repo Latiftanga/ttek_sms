@@ -1614,7 +1614,7 @@ class AttendanceSaveConcurrencyTests(AcademicsTestCase):
     Two overlapping submits for the same session/student (e.g. a double-tap
     on Save under a slow mobile connection) can both see "no existing
     record" and both attempt to insert one, tripping the unique_together
-    constraint on the loser. _save_attendance_records should resolve that
+    constraint on the loser. save_attendance_records should resolve that
     as an upsert against the now-current DB state rather than surfacing a
     "failed to save" for a save that actually mostly succeeded.
     """

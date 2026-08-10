@@ -8,7 +8,7 @@ from io import BytesIO
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
-from django.db import connection, IntegrityError, transaction
+from django.db import connection, transaction
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse, JsonResponse
@@ -23,14 +23,14 @@ from ..models import (
     AbsenceExcuse,
 )
 from ..utils import (
-    should_use_lesson_attendance, get_students_for_lesson, get_lesson_attendance_stats
+    should_use_lesson_attendance, get_students_for_lesson, get_lesson_attendance_stats,
+    validate_status, term_date_error, nearest_valid_attendance_date,
+    nearest_valid_lesson_date, pickable_attendance_dates, blocked_redirect,
+    save_attendance_records,
 )
 from .base import admin_required, is_school_admin, teacher_or_admin_required, htmx_render
 
 logger = logging.getLogger(__name__)
-
-# Valid attendance status values for POST validation
-VALID_STATUSES = {s.value for s in AttendanceRecord.Status}
 
 
 def _get_teacher_allowed_class_ids(user):
@@ -57,306 +57,6 @@ def _get_teacher_allowed_class_ids(user):
         ).values_list('class_assigned_id', flat=True)
     )
     return homeroom_ids | assigned_ids
-
-
-def _validate_status(raw_status):
-    """Validate and return a safe attendance status value."""
-    if raw_status in VALID_STATUSES:
-        return raw_status
-    return AttendanceRecord.Status.PRESENT
-
-
-def _term_date_error(target_date, current_term):
-    """
-    Returns an error message if `target_date` isn't allowed for attendance
-    marking/editing, or None if it's fine. Dates within the current term are
-    always allowed. A date before the current term only passes when
-    SchoolSettings has opted in to past-term marking AND the date actually
-    falls within some previously defined term - otherwise a school could end
-    up with attendance sessions dangling on dates with no real academic
-    period behind them.
-    """
-    if not current_term:
-        return None
-    if target_date > current_term.end_date:
-        return (
-            f'Cannot mark attendance after the current term ended '
-            f'({current_term.end_date.strftime("%B %d, %Y")}).'
-        )
-    if target_date < current_term.start_date:
-        from core.models import SchoolSettings, Term
-        if not SchoolSettings.load().allow_past_term_attendance:
-            return (
-                f'Cannot mark attendance before the current term started '
-                f'({current_term.start_date.strftime("%B %d, %Y")}).'
-            )
-        if not Term.objects.filter(start_date__lte=target_date, end_date__gte=target_date).exists():
-            return f'{target_date.strftime("%b %d, %Y")} does not fall within any defined term.'
-    return None
-
-
-def _nearest_valid_attendance_date(target_date, current_term, max_lookback=14):
-    """
-    Walk backward from `target_date` (inclusive, clamped to the current
-    term's end date if `target_date` has run past it) to find the most
-    recent date that's a school day (honoring a term-specific school_days
-    override when `current_term` has one) and not a holiday. Used only when
-    the caller didn't explicitly choose a date (e.g. clicking straight into
-    a class defaults to today) - neither a weekend/holiday landing on
-    "today" nor a term that has already ended should be a dead end, since
-    a teacher who fell behind on marking still needs a way in to catch up
-    on unmarked past days within the term; the in-page date picker is the
-    only other way to reach a different date, and it's unreachable if the
-    page never renders. Returns None if nothing valid turns up within
-    `max_lookback` days or before the current term's start.
-    """
-    from core.models import SchoolHoliday
-    from core.utils import is_valid_school_day
-
-    earliest = current_term.start_date if current_term else target_date - timedelta(days=max_lookback)
-    if current_term and target_date > current_term.end_date:
-        candidate = current_term.end_date
-    else:
-        candidate = target_date
-    tries = 0
-    while candidate >= earliest and tries <= max_lookback:
-        if (is_valid_school_day(candidate, term=current_term)
-                and not SchoolHoliday.get_holiday_name(candidate)):
-            return candidate
-        candidate -= timedelta(days=1)
-        tries += 1
-    return None
-
-
-def _nearest_valid_lesson_date(target_date, entry_weekday, current_term, max_weeks_back=8):
-    """
-    Same catch-up idea as _nearest_valid_attendance_date, but for a specific
-    timetable entry: a lesson only runs on one fixed weekday, so walking
-    back day by day could land on a date the entry doesn't even meet on.
-    Walks backward in 7-day steps (clamped to the term's end date first, so
-    a lapsed term still lands within it) to find the most recent occurrence
-    of `entry_weekday` that isn't a holiday. Returns None if nothing valid
-    turns up within `max_weeks_back` weeks or before the term's start.
-    """
-    from core.models import SchoolHoliday
-
-    if not current_term:
-        return None
-    candidate = min(target_date, current_term.end_date)
-    # Align to the entry's weekday first - normally already a match, since
-    # callers only reach this from a same-weekday-filtered lesson list.
-    candidate -= timedelta(days=(candidate.isoweekday() - entry_weekday) % 7)
-    weeks = 0
-    while candidate >= current_term.start_date and weeks <= max_weeks_back:
-        if not SchoolHoliday.get_holiday_name(candidate):
-            return candidate
-        candidate -= timedelta(days=7)
-        weeks += 1
-    return None
-
-
-def _pickable_attendance_dates(class_obj, current_term, today, session_type, selected_date=None):
-    """
-    Valid days a teacher can pick from the attendance date dropdown, most
-    recent first, each flagged with whether that day already has real
-    (non-empty) attendance saved for `class_obj`. Bounded to the current
-    term's start through today (or the term's own end date if it has
-    already lapsed) - the same range _term_date_error actually allows
-    marking within, so nothing reachable via the old min/max-bounded date
-    input becomes unreachable here.
-
-    `session_type` should be AttendanceSession.SessionType.DAILY for the
-    daily flow, or .LESSON for the per-lesson flow - for LESSON, "marked"
-    means at least one lesson session that day has records, aggregated
-    across the whole class (not scoped to a single timetable entry), since
-    that's what both lesson-flow dropdowns (the hub list and a single
-    lesson's own date picker, which routes back to that same hub) actually
-    let a teacher jump to.
-    """
-    from core.utils import get_valid_school_days
-
-    if not current_term:
-        return []
-    end = min(today, current_term.end_date)
-    valid_days = get_valid_school_days(current_term.start_date, end, term=current_term)
-    if not valid_days:
-        return []
-
-    marked_dates = set(
-        AttendanceSession.objects.filter(
-            class_assigned=class_obj,
-            session_type=session_type,
-            date__in=valid_days,
-            records__isnull=False,
-        ).values_list('date', flat=True).distinct()
-    )
-
-    return [
-        {
-            'value': d.isoformat(),
-            'label': d.strftime('%a, %d %b'),
-            'marked': d in marked_dates,
-            'selected': d == selected_date,
-        }
-        for d in reversed(valid_days)
-    ]
-
-
-def _blocked_redirect(request, message, redirect_url, toast_type='warning'):
-    """
-    Redirect after blocking an action, showing `message` via a toast for
-    HTMX requests (the actual working notification mechanism in this app -
-    the destination pages here don't render Django's messages framework
-    output, so a plain messages.warning() + redirect is invisible for the
-    HTMX flow that's how this view is actually reached in the UI).
-    """
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Trigger'] = json.dumps({
-            'showToast': {'message': message, 'type': toast_type},
-        })
-        return response
-    messages.warning(request, message)
-    return redirect(redirect_url)
-
-
-def _save_attendance_records(request, session, students, redirect_url,
-                             success_msg='Attendance saved'):
-    """
-    Process POST data and bulk save attendance records for a session.
-    redirect_url should be a resolved URL path (from reverse()).
-    Returns an HttpResponse.
-    """
-    student_ids = [s.id for s in students]
-
-    existing_records = {
-        r.student_id: r
-        for r in AttendanceRecord.objects.filter(
-            session=session, student_id__in=student_ids
-        ).select_related('student')
-    }
-
-    records_to_create = []
-    records_to_update = []
-
-    for student in students:
-        status_key = f"status_{student.id}"
-        raw = request.POST.get(status_key, 'P')
-        new_status = _validate_status(raw)
-
-        if student.id in existing_records:
-            record = existing_records[student.id]
-            if record.status != new_status:
-                record.status = new_status
-                record.marked_by = request.user
-                records_to_update.append(record)
-        else:
-            records_to_create.append(AttendanceRecord(
-                session=session,
-                student=student,
-                status=new_status,
-                marked_by=request.user,
-            ))
-
-    def _write(create_list, update_list):
-        with transaction.atomic():
-            if create_list:
-                AttendanceRecord.objects.bulk_create(create_list)
-            if update_list:
-                AttendanceRecord.objects.bulk_update(
-                    update_list, ['status', 'marked_by']
-                )
-
-    try:
-        try:
-            _write(records_to_create, records_to_update)
-        except IntegrityError:
-            # A concurrent request for this same session/student won the
-            # race and inserted one of these records first (e.g. a
-            # double-tap on Save under a slow mobile connection, or two
-            # tabs open on the same session) - the unique_together
-            # constraint tripped and rolled back the whole batch above.
-            # Re-resolve create-vs-update against the now-current DB state
-            # and retry once, so this still lands on whatever THIS
-            # submission asked for instead of surfacing a scary "failed to
-            # save" for a save that actually mostly succeeded.
-            existing_now = {
-                r.student_id: r
-                for r in AttendanceRecord.objects.filter(
-                    session=session, student_id__in=student_ids
-                ).select_related('student')
-            }
-            retry_create = []
-            retry_update = list(records_to_update)
-            already_synced = 0
-            for rec in records_to_create:
-                existing = existing_now.get(rec.student_id)
-                if existing is None:
-                    retry_create.append(rec)
-                elif existing.status != rec.status:
-                    existing.status = rec.status
-                    existing.marked_by = rec.marked_by
-                    retry_update.append(existing)
-                else:
-                    # The concurrent request already wrote the same status
-                    # this submission wanted - nothing left to save, but it
-                    # still counts toward what this submission asked for.
-                    already_synced += 1
-            _write(retry_create, retry_update)
-            records_to_create, records_to_update = retry_create, retry_update
-            total = len(records_to_create) + len(records_to_update) + already_synced
-        else:
-            total = len(records_to_create) + len(records_to_update)
-
-        # Notify guardians and students of absences
-        absent_students = []
-        for rec in records_to_create:
-            if rec.status == 'A':
-                absent_students.append(rec.student)
-        for rec in records_to_update:
-            if rec.status == 'A':
-                absent_students.append(rec.student)
-
-        if absent_students:
-            from core.notifications import notify_guardian, notify_student
-            session_date = session.date
-            today = timezone.localdate()
-            date_label = 'today' if session_date == today else session_date.strftime('%b %d')
-            for s in absent_students:
-                notify_guardian(
-                    s,
-                    title='Absence Recorded',
-                    message=f'{s.full_name} was marked absent {date_label}.',
-                    category='attendance',
-                    notification_type='warning',
-                    icon='fa-solid fa-user-xmark',
-                )
-                notify_student(
-                    s,
-                    title='Absence Recorded',
-                    message=f'You were marked absent {date_label}.',
-                    category='attendance',
-                    notification_type='warning',
-                    icon='fa-solid fa-user-xmark',
-                )
-
-        messages.success(request, f'{success_msg} ({total} records).')
-    except Exception as e:
-        logger.error("Failed to save attendance: %s", e)
-        messages.error(request, 'Failed to save attendance.')
-        if request.htmx:
-            response = HttpResponse(status=500)
-            response['HX-Reswap'] = 'none'
-            return response
-        return redirect(redirect_url)
-
-    if request.htmx:
-        response = HttpResponse(status=204)
-        response['HX-Trigger'] = 'closeModal'
-        response['HX-Redirect'] = redirect_url
-        return response
-
-    return redirect(redirect_url)
 
 
 # ============ DAILY ATTENDANCE ============
@@ -408,7 +108,7 @@ def class_attendance_take(request, pk):
             from datetime import datetime as dt
             target_date = dt.strptime(date_str, '%Y-%m-%d').date()
             if target_date > timezone.localdate():
-                return _blocked_redirect(
+                return blocked_redirect(
                     request, 'Cannot take attendance for a future date.', 'academics:attendance_reports'
                 )
         except ValueError:
@@ -430,7 +130,7 @@ def class_attendance_take(request, pk):
     # still validated strictly below.
     adjusted_notice = None
     if not explicit_date and request.method == 'GET':
-        adjusted = _nearest_valid_attendance_date(target_date, current_term)
+        adjusted = nearest_valid_attendance_date(target_date, current_term)
         if adjusted and adjusted != target_date:
             if current_term and target_date > current_term.end_date:
                 adjusted_notice = (
@@ -447,15 +147,15 @@ def class_attendance_take(request, pk):
     # Prevent attendance on non-working days and holidays
     if not is_valid_school_day(target_date, term=current_term):
         day_name = target_date.strftime('%A')
-        return _blocked_redirect(request, f'{day_name} is not a school day.', 'academics:attendance_reports')
+        return blocked_redirect(request, f'{day_name} is not a school day.', 'academics:attendance_reports')
 
-    term_error = _term_date_error(target_date, current_term)
+    term_error = term_date_error(target_date, current_term)
     if term_error:
-        return _blocked_redirect(request, term_error, 'academics:attendance_reports')
+        return blocked_redirect(request, term_error, 'academics:attendance_reports')
 
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:
-        return _blocked_redirect(
+        return blocked_redirect(
             request,
             f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.',
             'academics:attendance_reports'
@@ -475,7 +175,7 @@ def class_attendance_take(request, pk):
             current_class=class_obj, status='active'
         ))
         url = reverse('academics:class_detail', args=[pk]) + '?tab=attendance'
-        return _save_attendance_records(
+        return save_attendance_records(
             request, session, students, url,
             success_msg='Attendance saved'
         )
@@ -502,7 +202,7 @@ def class_attendance_take(request, pk):
         'attendance_taken': bool(records),
         'today': timezone.localdate(),
         'current_term': current_term,
-        'pickable_dates': _pickable_attendance_dates(
+        'pickable_dates': pickable_attendance_dates(
             class_obj, current_term, timezone.localdate(),
             AttendanceSession.SessionType.DAILY, target_date
         ),
@@ -554,16 +254,16 @@ def class_attendance_edit(request, pk, session_pk):
     # that governs creating one, keeping the two paths consistent.
     from core.models import Term
     current_term = Term.get_current()
-    term_error = _term_date_error(session.date, current_term)
+    term_error = term_date_error(session.date, current_term)
     if term_error:
-        return _blocked_redirect(request, term_error, 'academics:attendance_reports')
+        return blocked_redirect(request, term_error, 'academics:attendance_reports')
 
     if request.method == 'POST':
         students = list(Student.objects.filter(
             current_class=class_obj, status='active'
         ))
         url = reverse('academics:class_detail', args=[pk]) + '?tab=attendance'
-        return _save_attendance_records(
+        return save_attendance_records(
             request, session, students, url,
             success_msg='Attendance updated'
         )
@@ -788,7 +488,7 @@ def lesson_attendance_list(request, pk):
         'has_lessons': len(lessons) > 0,
         'no_timetable': not has_any_timetable,
         'reload_target': reload_target,
-        'pickable_dates': _pickable_attendance_dates(
+        'pickable_dates': pickable_attendance_dates(
             class_obj, current_term, today,
             AttendanceSession.SessionType.LESSON, selected_date
         ),
@@ -870,7 +570,7 @@ def take_lesson_attendance(request, timetable_entry_id):
     # An explicit date choice is still validated strictly below.
     adjusted_notice = None
     if not explicit_date and request.method == 'GET':
-        adjusted = _nearest_valid_lesson_date(target_date, entry.weekday, current_term)
+        adjusted = nearest_valid_lesson_date(target_date, entry.weekday, current_term)
         if adjusted and adjusted != target_date:
             if current_term and target_date > current_term.end_date:
                 adjusted_notice = (
@@ -887,15 +587,15 @@ def take_lesson_attendance(request, timetable_entry_id):
     # Prevent attendance on non-working days and holidays
     if not is_valid_school_day(target_date, term=current_term):
         day_name = target_date.strftime('%A')
-        return _blocked_redirect(request, f'{day_name} is not a school day.', lesson_list_url)
+        return blocked_redirect(request, f'{day_name} is not a school day.', lesson_list_url)
 
-    term_error = _term_date_error(target_date, current_term)
+    term_error = term_date_error(target_date, current_term)
     if term_error:
-        return _blocked_redirect(request, term_error, lesson_list_url)
+        return blocked_redirect(request, term_error, lesson_list_url)
 
     holiday_name = SchoolHoliday.get_holiday_name(target_date)
     if holiday_name:
-        return _blocked_redirect(
+        return blocked_redirect(
             request,
             f'{target_date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be taken.',
             lesson_list_url
@@ -921,7 +621,7 @@ def take_lesson_attendance(request, timetable_entry_id):
     if request.method == 'POST':
         students = list(students)
         url = reverse('academics:lesson_attendance_list', args=[class_obj.pk])
-        return _save_attendance_records(
+        return save_attendance_records(
             request, session, students, url,
             success_msg='Lesson attendance saved'
         )
@@ -959,7 +659,7 @@ def take_lesson_attendance(request, timetable_entry_id):
         'period': entry.period,
         'timetable_entry_id': timetable_entry_id,
         'reload_target': reload_target,
-        'pickable_dates': _pickable_attendance_dates(
+        'pickable_dates': pickable_attendance_dates(
             class_obj, current_term, timezone.localdate(),
             AttendanceSession.SessionType.LESSON, target_date
         ),
