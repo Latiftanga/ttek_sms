@@ -24,8 +24,9 @@
         {% number_input "order" value=category.order|default:"0" label="Display Order" min=0 size="sm" %}
         <div class="grid grid-cols-2 gap-3">
             <div>{% number_input "min_assessments" value=category.min_assessments|default:"0" label="Min Assessments" min=0 size="sm" help_text="0 = no limit" %}</div>
-            <div>{% number_input "max_assessments" value=category.max_assessments|default:"0" label="Max Assessments" min=0 size="sm" help_text="0 = no limit" %}</div>
+            <div>{% number_input "max_assessments" value=category.max_assessments|default:"1" label="Max Assessments" min=0 size="sm" help_text="0 = no limit. Set to 1 for one assignment per subject per term in this category." %}</div>
         </div>
+        {% number_input "default_max_marks" value=category.default_max_marks label="Default Max Marks" min=0.01 step=0.01 size="sm" help_text="Pre-fills a new assignment's marks in this category. Leave blank to require teachers to enter it manually." %}
 
         {% if category %}
         {% checkbox_input "is_active" checked=category.is_active label="Active" size="sm" %}

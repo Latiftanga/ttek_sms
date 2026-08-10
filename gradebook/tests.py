@@ -1029,6 +1029,9 @@ class TermAttendanceStatsTests(GradebookTenantTestCase):
         present day and zero absent days - not double-count the same day
         into both tallies (the bug being fixed here).
         """
+        self.klass.attendance_type = Class.AttendanceType.PER_LESSON
+        self.klass.save(update_fields=['attendance_type'])
+
         valid_days = self._valid_days()
         day = valid_days[0]
 
@@ -1088,6 +1091,80 @@ class TermAttendanceStatsTests(GradebookTenantTestCase):
         valid_days = self._valid_days()
         stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
         self.assertNotIn(self.student.id, stats)
+
+    def test_wrong_type_session_merges_via_best_status_wins(self):
+        """
+        A class only ever runs one attendance mode at a time in the UI, but
+        attendance_type is a plain mutable field an admin can change after
+        sessions already exist (e.g. switching a class from daily to
+        per-lesson mid-term) - records aren't filtered by the class's
+        CURRENT attendance_type, since doing so would silently erase every
+        day recorded under the old mode from every report generated
+        afterward (see test_attendance_type_switch_preserves_earlier_history
+        below). Instead, a day with sessions of both types resolves through
+        the same "best status wins" priority used for same-day per-lesson
+        records, regardless of which session_type each one came from - P
+        (better) here wins over A even though it comes from a session of a
+        different type than the class's current mode, proving this is a
+        real merge and not just a filter that happens to agree.
+        """
+        valid_days = self._valid_days()
+        day = valid_days[0]
+
+        daily_session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=day,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=daily_session, student=self.student, status='A')
+
+        other_type_session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=day,
+            session_type=AttendanceSession.SessionType.LESSON,
+        )
+        AttendanceRecord.objects.create(session=other_type_session, student=self.student, status='P')
+
+        stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
+        att = stats[self.student.id]
+        self.assertEqual(att['days_present'], 1)
+        self.assertEqual(att['days_absent'], 0)
+
+    def test_attendance_type_switch_preserves_earlier_history(self):
+        """
+        The actual regression this guards against: a class recorded
+        attendance under one mode, then got switched to the other mode
+        mid-term (a real, supported admin action) - stats generated
+        afterward must not lose the earlier days.
+        """
+        valid_days = self._valid_days()
+        daily_day, lesson_day = valid_days[0], valid_days[1]
+
+        daily_session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=daily_day,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=daily_session, student=self.student, status='P')
+
+        # Admin switches the class to per-lesson attendance after that day.
+        self.klass.attendance_type = Class.AttendanceType.PER_LESSON
+        self.klass.save(update_fields=['attendance_type'])
+
+        subject = Subject.objects.create(name='Mathematics', short_name='MTH', code='MTH')
+        class_subject = ClassSubject.objects.create(class_assigned=self.klass, subject=subject)
+        period = Period.objects.create(name='Period 1', start_time='08:00', end_time='08:40', order=1)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period, weekday=lesson_day.isoweekday(),
+        )
+        lesson_session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=lesson_day, timetable_entry=entry,
+            session_type=AttendanceSession.SessionType.LESSON,
+            period=period, class_subject=class_subject,
+        )
+        AttendanceRecord.objects.create(session=lesson_session, student=self.student, status='P')
+
+        stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
+        att = stats[self.student.id]
+        # Both the pre-switch DAILY day and the post-switch LESSON day count.
+        self.assertEqual(att['days_present'], 2)
 
     def test_model_method_matches_helper_for_same_student(self):
         """
@@ -1232,6 +1309,91 @@ class AssignmentCreateLimitTests(GradebookTenantTestCase):
         option_html = content[content.index(f'value="{self.category.pk}"'):]
         option_html = option_html[:option_html.index('</option>')]
         self.assertIn('data-default-marks="50.00"', option_html)
+
+    def test_editing_assignment_into_full_category_is_blocked(self):
+        """
+        assignment_create enforces max_assessments, but assignment_edit
+        lets an admin move an existing assignment into a different category
+        by changing category_id - that reassignment must be checked too,
+        or the cap could be bypassed entirely by editing around it.
+        """
+        self._create(date='2024-09-10')  # fills self.category (max_assessments=1)
+
+        other_category = AssessmentCategory.objects.create(
+            name='Exam', short_name='EXM', percentage=20, max_assessments=1,
+        )
+        other_assignment = Assignment.objects.create(
+            assessment_category=other_category, subject=self.subject, term=self.term,
+            name='EXM (Sep 17)', points_possible=100, date=date(2024, 9, 17),
+        )
+
+        response = self.client.post(
+            reverse('gradebook:assignment_edit', args=[other_assignment.pk]),
+            {'name': other_assignment.name, 'category_id': self.category.pk},
+        )
+        self.assertEqual(response.status_code, 400)
+        other_assignment.refresh_from_db()
+        self.assertEqual(other_assignment.assessment_category, other_category)
+        self.assertEqual(Assignment.objects.filter(assessment_category=self.category).count(), 1)
+
+    def test_editing_assignment_into_category_with_room_succeeds(self):
+        other_category = AssessmentCategory.objects.create(
+            name='Exam', short_name='EXM', percentage=20, max_assessments=1,
+        )
+        assignment = Assignment.objects.create(
+            assessment_category=other_category, subject=self.subject, term=self.term,
+            name='EXM (Sep 17)', points_possible=100, date=date(2024, 9, 17),
+        )
+        empty_category = AssessmentCategory.objects.create(
+            name='Project', short_name='PRJ', percentage=10, max_assessments=1,
+        )
+
+        response = self.client.post(
+            reverse('gradebook:assignment_edit', args=[assignment.pk]),
+            {'name': assignment.name, 'category_id': empty_category.pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.assessment_category, empty_category)
+
+
+class CategoryMaxAssessmentsDefaultTests(GradebookTenantTestCase):
+    """
+    category_create/category_edit parse max_assessments via
+    `_safe_int(request.POST.get('max_assessments', 1))` - the `1` there is
+    dict.get's fallback for a MISSING key, not _safe_int's own default, so
+    it never actually applied when the form field was present but blank;
+    _safe_int would silently fall back to its own default of 0 ('no
+    maximum') instead, defeating the one-assignment-per-category default.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.admin_user = User.objects.create_user(
+            email='admin@school.com', password='testpass123', is_school_admin=True,
+        )
+        self.client.login(email='admin@school.com', password='testpass123')
+
+    def test_create_with_blank_max_assessments_defaults_to_one(self):
+        response = self.client.post(reverse('gradebook:category_create'), {
+            'name': 'Class Score', 'short_name': 'CA', 'percentage': '30',
+            'max_assessments': '',
+        })
+        self.assertEqual(response.status_code, 204)
+        category = AssessmentCategory.objects.get(short_name='CA')
+        self.assertEqual(category.max_assessments, 1)
+
+    def test_edit_with_blank_max_assessments_defaults_to_one(self):
+        category = AssessmentCategory.objects.create(
+            name='Class Score', short_name='CA', percentage=30, max_assessments=5,
+        )
+        response = self.client.post(reverse('gradebook:category_edit', args=[category.pk]), {
+            'name': 'Class Score', 'short_name': 'CA', 'percentage': '30',
+            'max_assessments': '', 'is_active': 'on',
+        })
+        self.assertEqual(response.status_code, 204)
+        category.refresh_from_db()
+        self.assertEqual(category.max_assessments, 1)
 
 
 class RemarkTemplateModalRendersTests(GradebookTenantTestCase):

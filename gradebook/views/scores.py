@@ -620,7 +620,7 @@ def score_changes_list(request, class_id, subject_id):
 
 # ============ Assignments ============
 
-def _get_assignments_context(subject, term):
+def _get_assignments_context(subject, term, error=None):
     """Helper to build consistent context for assignments list."""
     from django.db.models import Count
 
@@ -650,7 +650,31 @@ def _get_assignments_context(subject, term):
             'count': count,
         })
 
-    category_options = [(cat['obj'].pk, f"{cat['obj'].name} ({cat['count']})" if cat['count'] > 0 else cat['obj'].name) for cat in categories_with_counts]
+    # Categories already at their max_assessments limit are shown disabled
+    # (rather than just left out) so a teacher can see why a category isn't
+    # pickable instead of wondering where it went - this is the proactive
+    # side of preventing the "one assignment per category" mistake; the
+    # server-side check in assignment_create is what actually enforces it.
+    category_options = []
+    for cat in categories_with_counts:
+        obj = cat['obj']
+        count = cat['count']
+        at_limit = obj.max_assessments > 0 and count >= obj.max_assessments
+        if obj.max_assessments > 0:
+            label = f"{obj.name} ({count}/{obj.max_assessments})"
+            if at_limit:
+                label += ' - Full'
+        else:
+            label = f"{obj.name} ({count})" if count > 0 else obj.name
+        opt = {'value': obj.pk, 'label': label}
+        attrs = {}
+        if obj.default_max_marks is not None:
+            attrs['data-default-marks'] = str(obj.default_max_marks)
+        if at_limit:
+            attrs['disabled'] = 'disabled'
+        if attrs:
+            opt['attrs'] = attrs
+        category_options.append(opt)
 
     return {
         'subject': subject,
@@ -658,6 +682,7 @@ def _get_assignments_context(subject, term):
         'categories': categories_with_counts,
         'category_options': category_options,
         'current_term': term,
+        'error': error,
     }
 
 
@@ -683,60 +708,107 @@ def assignment_create(request):
     if not current_term:
         return HttpResponse('No current term set', status=400)
 
-    if current_term.grades_locked and not is_school_admin(request.user):
-        return HttpResponse('Grades are locked for this term', status=403)
-
     subject_id = request.POST.get('subject_id')
+    subject = get_object_or_404(Subject, pk=subject_id) if subject_id else None
+
+    def _error(message, status=200):
+        # Re-render the list with the error inline instead of a bare 400/403
+        # response - htmx only surfaces a toast for 5xx responses (see
+        # htmx:responseError in base.html), so a plain error status here
+        # would fail the submission with no visible feedback at all, the
+        # same silent-failure shape as the attendance save bug fixed
+        # earlier. subject may be None if subject_id itself was missing/
+        # invalid, in which case there's no list to re-render into - only
+        # that one case still needs a bare response.
+        if subject is None:
+            return HttpResponse(message, status=400)
+        context = _get_assignments_context(subject, current_term, error=message)
+        return render(request, 'gradebook/partials/assignments_list.html', context, status=status)
+
+    if subject is None:
+        return _error('Missing required fields')
+
+    if current_term.grades_locked and not is_school_admin(request.user):
+        return _error('Grades are locked for this term')
+
     category_id = request.POST.get('category_id')
     date_str = request.POST.get('date', '').strip()
     points_possible = request.POST.get('points_possible', '100')
 
-    if not all([subject_id, category_id, date_str]):
-        return HttpResponse('Missing required fields', status=400)
-
-    subject = get_object_or_404(Subject, pk=subject_id)
-    category = get_object_or_404(AssessmentCategory, pk=category_id)
+    if not all([category_id, date_str]):
+        return _error('Missing required fields')
 
     # Parse date
     from datetime import datetime
     try:
         assignment_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
-        return HttpResponse('Invalid date format', status=400)
+        return _error('Invalid date format')
 
-    # Auto-generate name: "CA (Jan 10)", "EXAM (Feb 15)"
-    # If collision (same category+date), append number: "CA (Jan 10) 2"
-    category_label = category.short_name if len(category.short_name) <= 6 else category.name
-    date_display = assignment_date.strftime('%b %d')
-    base_name = f"{category_label} ({date_display})"
-    name = base_name
-    counter = 2
-    while Assignment.objects.filter(
-        assessment_category=category,
-        subject=subject,
-        term=current_term,
-        name=name
-    ).exists():
-        name = f"{base_name} {counter}"
-        counter += 1
-        if counter > 100:
-            return HttpResponse('Too many assignments with the same name', status=400)
+    # select_for_update + wrapping the max_assessments check through the
+    # create in one transaction closes a race where two concurrent
+    # submissions (e.g. a double-tap, or two teachers on the same subject)
+    # both read the same existing_count before either commits, letting both
+    # past a category already at its limit.
+    with transaction.atomic():
+        category = get_object_or_404(
+            AssessmentCategory.objects.select_for_update(), pk=category_id
+        )
 
-    try:
-        points = Decimal(points_possible)
-        if points < 1 or points > 9999:
-            return HttpResponse('Points must be between 1 and 9999', status=400)
-    except Exception:
-        return HttpResponse('Invalid points value', status=400)
+        # Enforce max_assessments (single-vs-multiple-assignments-per-category) -
+        # the option for an at-limit category is already shown disabled in the
+        # dropdown, but that's a UI nicety, not the actual guard - re-check here
+        # since the request could be replayed/tampered with a disabled option's
+        # value regardless.
+        if category.max_assessments > 0:
+            existing_count = category.get_assessment_count(subject, current_term)
+            if existing_count >= category.max_assessments:
+                limit_word = 'assignment' if category.max_assessments == 1 else 'assignments'
+                return _error(
+                    f'"{category.name}" already has the maximum of {category.max_assessments} '
+                    f'{limit_word} allowed for {subject.name} this term.'
+                )
 
-    Assignment.objects.create(
-        assessment_category=category,
-        subject=subject,
-        term=current_term,
-        name=name,
-        points_possible=points,
-        date=assignment_date,
-    )
+        # Auto-generate name: "CA (Jan 10)", "EXAM (Feb 15)"
+        # If collision (same category+date), append number: "CA (Jan 10) 2"
+        category_label = category.short_name if len(category.short_name) <= 6 else category.name
+        date_display = assignment_date.strftime('%b %d')
+        base_name = f"{category_label} ({date_display})"
+        name = base_name
+        counter = 2
+        while Assignment.objects.filter(
+            assessment_category=category,
+            subject=subject,
+            term=current_term,
+            name=name
+        ).exists():
+            name = f"{base_name} {counter}"
+            counter += 1
+            if counter > 100:
+                return _error('Too many assignments with the same name')
+
+        # Falls back to the category's default marks when the field was left
+        # blank - the input still pre-fills client-side via JS, but a teacher
+        # could clear it, and this keeps the same default authoritative
+        # server-side rather than silently rejecting an empty submission.
+        if not points_possible.strip() and category.default_max_marks is not None:
+            points_possible = str(category.default_max_marks)
+
+        try:
+            points = Decimal(points_possible)
+            if points < 1 or points > 9999:
+                return _error('Points must be between 1 and 9999')
+        except Exception:
+            return _error('Invalid points value')
+
+        Assignment.objects.create(
+            assessment_category=category,
+            subject=subject,
+            term=current_term,
+            name=name,
+            points_possible=points,
+            date=assignment_date,
+        )
 
     # Return updated assignments list
     context = _get_assignments_context(subject, current_term)
@@ -795,9 +867,26 @@ def assignment_edit(request, pk):
                 return HttpResponse('Name is required', status=400)
 
             assignment.name = name
-            if category_id:
-                category = get_object_or_404(AssessmentCategory, pk=category_id)
-                assignment.assessment_category = category
+            if category_id and str(category_id) != str(assignment.assessment_category_id):
+                # Reassigning into a different category can push it over its
+                # own max_assessments cap - assignment_create enforces this
+                # on creation, but moving an existing assignment in via edit
+                # bypassed it entirely. select_for_update + atomic closes the
+                # same check-then-create race described there.
+                with transaction.atomic():
+                    category = get_object_or_404(
+                        AssessmentCategory.objects.select_for_update(), pk=category_id
+                    )
+                    if category.max_assessments > 0:
+                        existing_count = category.get_assessment_count(subject, current_term)
+                        if existing_count >= category.max_assessments:
+                            limit_word = 'assignment' if category.max_assessments == 1 else 'assignments'
+                            return HttpResponse(
+                                f'"{category.name}" already has the maximum of {category.max_assessments} '
+                                f'{limit_word} allowed for {subject.name} this term.',
+                                status=400
+                            )
+                    assignment.assessment_category = category
 
         assignment.save()
 

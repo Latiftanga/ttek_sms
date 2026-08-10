@@ -1155,6 +1155,15 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids):
     overcounts if attendance had a gap right when the student joined, but
     it's the best signal available in existing data.
 
+    Counts sessions of either session_type, not just class_obj's current
+    attendance_type - attendance_type is a plain mutable field an admin can
+    change mid-term (e.g. switching a class from daily to per-lesson), and
+    filtering to only the current mode would silently drop every
+    legitimately recorded day from before the switch. The same-day "best
+    status wins" resolution above already collapses same-day records
+    regardless of which session_type they came from, so this doesn't
+    introduce double-counting even for stray/leftover wrong-type data.
+
     Args:
         class_obj: Class instance attendance sessions belong to
         valid_days: sorted list of date objects (real school days in range)

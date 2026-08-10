@@ -13,6 +13,13 @@
         {% endif %}
     </div>
 
+    {% if error %}
+    <div class="alert alert-error py-2 mb-2 text-sm shrink-0">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
     <!-- Assignments List + Inline Add -->
     <div id="assignments-list" class="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
         {% if assignments %}
@@ -57,4 +64,29 @@
     <div class="modal-action pt-3 mt-3 border-t border-base-200 shrink-0">
         <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('dialog').close()">Close</button>
     </div>
+
+    <script>
+    // Wrapped in an IIFE: this partial gets re-fetched into itself on every
+    // add/error (hx-swap="outerHTML" on the form), and top-level declarations
+    // would collide with the previous injection's on a second load. Nested
+    // inside #assignments-container (the outerHTML swap target) so each
+    // swap replaces this script along with everything else instead of
+    // leaving the previous one behind as an orphaned sibling.
+    (function () {
+        const categorySelect = document.getElementById('id_category_id');
+        const pointsInput = document.getElementById('id_points_possible');
+        if (!categorySelect || !pointsInput) return;
+
+        // Pre-fills from the category's admin-set default when one exists -
+        // still just a starting value, the teacher can type over it for a
+        // one-off exception.
+        categorySelect.addEventListener('change', function () {
+            const selected = categorySelect.selectedOptions[0];
+            const defaultMarks = selected && selected.dataset.defaultMarks;
+            if (defaultMarks) {
+                pointsInput.value = defaultMarks;
+            }
+        });
+    })();
+    </script>
 </div>

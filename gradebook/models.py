@@ -362,8 +362,31 @@ class AssessmentCategory(models.Model):
         help_text='Minimum required assessments per term (0 = no minimum)'
     )
     max_assessments = models.PositiveSmallIntegerField(
-        default=0,
-        help_text='Maximum allowed assessments per term (0 = no maximum)'
+        default=1,
+        help_text=(
+            'Maximum allowed assessments per subject per term (0 = no maximum). '
+            'Defaults to 1 (one assignment per category) - raise it for a category '
+            'a school wants to allow multiple assignments in, e.g. several small quizzes '
+            'under "Class Score".'
+        )
+    )
+    default_max_marks = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        # Matches the points_possible range assignment_create/assignment_edit
+        # enforce (1-9999) - this value gets used as points_possible verbatim
+        # when a teacher leaves the marks field blank, so anything outside
+        # that range would make assignment creation fail every time for the
+        # category it's set on.
+        validators=[MinValueValidator(Decimal('1')), MaxValueValidator(Decimal('9999'))],
+        help_text=(
+            'Default maximum marks for new assignments in this category. Pre-fills '
+            'the marks field when a teacher creates an assignment, but can still be '
+            'overridden per assignment. Leave blank to require teachers to enter it '
+            'manually every time.'
+        )
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

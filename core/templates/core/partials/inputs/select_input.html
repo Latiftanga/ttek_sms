@@ -16,7 +16,7 @@ always visible even in narrow containers.
         <option value="" disabled {% if not value %}selected{% endif %}>{{ placeholder }}</option>
         {% endif %}
         {% for opt in options %}
-        <option value="{{ opt.value }}" {% if opt.value|stringformat:"s" == value %}selected{% endif %}>{{ opt.label }}</option>
+        <option value="{{ opt.value }}" {% if opt.value|stringformat:"s" == value %}selected{% endif %} {% for k, v in opt.attrs.items %}{{ k }}="{{ v }}" {% endfor %}>{{ opt.label }}</option>
         {% endfor %}
     </select>
     <span>{{ label }}{% if required %} *{% endif %}</span>
@@ -32,7 +32,7 @@ always visible even in narrow containers.
     <option value="" disabled {% if not value %}selected{% endif %}>{{ placeholder }}</option>
     {% endif %}
     {% for opt in options %}
-    <option value="{{ opt.value }}" {% if opt.value|stringformat:"s" == value %}selected{% endif %}>{{ opt.label }}</option>
+    <option value="{{ opt.value }}" {% if opt.value|stringformat:"s" == value %}selected{% endif %} {% for k, v in opt.attrs.items %}{{ k }}="{{ v }}" {% endfor %}>{{ opt.label }}</option>
     {% endfor %}
 </select>
 {% endif %}

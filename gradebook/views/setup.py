@@ -31,6 +31,20 @@ def _safe_int(value, default=0):
     except (ValueError, TypeError):
         return default
 
+
+def _safe_decimal_or_none(value):
+    """Blank/missing stays None (no default set); invalid input also
+    falls back to None rather than raising, matching _safe_int's
+    fail-soft behavior - the model's own validator catches anything
+    genuinely out of range on save."""
+    value = (value or '').strip()
+    if not value:
+        return None
+    try:
+        return Decimal(value)
+    except InvalidOperation:
+        return None
+
 @login_required
 @admin_required
 def gradebook_settings(request):
@@ -385,9 +399,10 @@ def category_create(request):
         })
 
     # Parse advisory fields
-    expected_assessments = _safe_int(request.POST.get('expected_assessments', 0))
-    min_assessments = _safe_int(request.POST.get('min_assessments', 0))
-    max_assessments = _safe_int(request.POST.get('max_assessments', 0))
+    expected_assessments = _safe_int(request.POST.get('expected_assessments'), default=0)
+    min_assessments = _safe_int(request.POST.get('min_assessments'), default=0)
+    max_assessments = _safe_int(request.POST.get('max_assessments'), default=1)
+    default_max_marks = _safe_decimal_or_none(request.POST.get('default_max_marks'))
 
     # Validate advisory fields
     if min_assessments > 0 and max_assessments > 0 and min_assessments > max_assessments:
@@ -406,6 +421,7 @@ def category_create(request):
             expected_assessments=expected_assessments,
             min_assessments=min_assessments,
             max_assessments=max_assessments,
+            default_max_marks=default_max_marks,
         )
     except ValidationError as e:
         return render(request, 'gradebook/includes/modal_category.html', {
@@ -434,9 +450,10 @@ def category_edit(request, pk):
         return HttpResponse(status=405)
 
     # Parse advisory fields
-    expected_assessments = _safe_int(request.POST.get('expected_assessments', 0))
-    min_assessments = _safe_int(request.POST.get('min_assessments', 0))
-    max_assessments = _safe_int(request.POST.get('max_assessments', 0))
+    expected_assessments = _safe_int(request.POST.get('expected_assessments'), default=0)
+    min_assessments = _safe_int(request.POST.get('min_assessments'), default=0)
+    max_assessments = _safe_int(request.POST.get('max_assessments'), default=1)
+    default_max_marks = _safe_decimal_or_none(request.POST.get('default_max_marks'))
 
     # Validate advisory fields
     if min_assessments > 0 and max_assessments > 0 and min_assessments > max_assessments:
@@ -470,6 +487,7 @@ def category_edit(request, pk):
     category.expected_assessments = expected_assessments
     category.min_assessments = min_assessments
     category.max_assessments = max_assessments
+    category.default_max_marks = default_max_marks
     category.is_active = new_is_active
 
     try:
