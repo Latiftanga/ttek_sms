@@ -11,6 +11,16 @@ Usage:
     python manage.py diagnose_attendance --schema=<tenant> --term-number 3
     python manage.py diagnose_attendance --schema=<tenant> --term-id <uuid>
     python manage.py diagnose_attendance --schema=<tenant> --term-number 3 --class-name "JHS 3A"
+
+    # Per-student check: compares the student's CURRENT class against their
+    # Enrollment history and where their attendance records for the target
+    # term actually landed (session.class_assigned) - catches the case where
+    # a student was promoted to a new class after the term ended, so
+    # recalculating that old term's report now filters by the wrong class
+    # and silently drops attendance recorded under the class they were
+    # actually in during that term.
+    python manage.py diagnose_attendance --schema=<tenant> --term-number 3 --student "Jane Doe"
+    python manage.py diagnose_attendance --schema=<tenant> --term-number 3 --admission-number STU-042
 """
 import datetime
 
@@ -29,6 +39,14 @@ class Command(BaseCommand):
         )
         parser.add_argument('--term-id', type=str, help='Term UUID - takes priority over --term-number')
         parser.add_argument('--class-name', type=str, help='Limit the per-class section to one class')
+        parser.add_argument(
+            '--student', type=str,
+            help='Full name (partial match) of a student to run the class-history check for'
+        )
+        parser.add_argument(
+            '--admission-number', type=str,
+            help='Exact admission number of a student to run the class-history check for'
+        )
 
     def handle(self, *args, **options):
         with schema_context(options['schema']):
@@ -154,4 +172,69 @@ class Command(BaseCommand):
                 if len(outside_valid) > 15:
                     w(f'       ... and {len(outside_valid) - 15} more')
 
+        if options.get('student') or options.get('admission_number'):
+            self._diagnose_student(options, term)
+
         w('\nDone.')
+
+    def _diagnose_student(self, options, term):
+        from academics.models import AttendanceRecord
+        from students.models import Enrollment, Student
+
+        w = self.stdout.write
+
+        w('\n' + '-' * 70)
+        w('Per-student class-history check')
+        w('-' * 70)
+
+        students = Student.objects.all()
+        if options.get('admission_number'):
+            students = students.filter(admission_number=options['admission_number'])
+        else:
+            # full_name is a Python property (first + middle + last), not a
+            # DB field, so match against the underlying name fields instead.
+            from django.db.models import Q
+            query = options['student']
+            students = students.filter(
+                Q(first_name__icontains=query)
+                | Q(last_name__icontains=query)
+                | Q(middle_name__icontains=query)
+            )
+
+        students = list(students.select_related('current_class')[:10])
+        if not students:
+            self.stderr.write('  No matching student found.')
+            return
+        if len(students) > 1:
+            w(f'  {len(students)} students matched - showing all:')
+
+        for s in students:
+            w(f'\n{s.full_name} ({s.admission_number})')
+            w(f'  current_class: {s.current_class.name if s.current_class else None}')
+
+            w('  Enrollment history:')
+            enrollments = Enrollment.objects.filter(student=s).select_related(
+                'academic_year', 'class_assigned'
+            ).order_by('academic_year__start_date')
+            if not enrollments:
+                w('    (no Enrollment rows)')
+            for e in enrollments:
+                w(f'    {e.academic_year.name} - {e.class_assigned.name} - {e.status}')
+
+            w(f'  Attendance records within Term ({term.start_date} -> {term.end_date}), '
+              f'grouped by the class each session actually belonged to:')
+            rows = AttendanceRecord.objects.filter(
+                student=s,
+                session__date__gte=term.start_date,
+                session__date__lte=term.end_date,
+            ).values_list('session__class_assigned__name', flat=True)
+            counts = {}
+            for cls_name in rows:
+                counts[cls_name] = counts.get(cls_name, 0) + 1
+            if not counts:
+                w('    (no attendance records in this term\'s date range at all)')
+            for cls_name, count in sorted(counts.items(), key=lambda kv: -kv[1]):
+                current_marker = ' <- current_class' if (
+                    s.current_class and cls_name == s.current_class.name
+                ) else ''
+                w(f'    {cls_name}: {count} record(s){current_marker}')
