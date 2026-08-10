@@ -173,11 +173,11 @@ class Command(BaseCommand):
                     w(f'       ... and {len(outside_valid) - 15} more')
 
         if options.get('student') or options.get('admission_number'):
-            self._diagnose_student(options, term)
+            self._diagnose_student(options, term, valid_days)
 
         w('\nDone.')
 
-    def _diagnose_student(self, options, term):
+    def _diagnose_student(self, options, term, valid_days):
         from academics.models import AttendanceRecord
         from students.models import Enrollment, Student
 
@@ -238,3 +238,27 @@ class Command(BaseCommand):
                     s.current_class and cls_name == s.current_class.name
                 ) else ''
                 w(f'    {cls_name}: {count} record(s){current_marker}')
+
+            w(f'  admission_date: {s.admission_date}')
+            earliest = AttendanceRecord.objects.filter(
+                student=s,
+                session__date__gte=term.start_date,
+                session__date__lte=term.end_date,
+            ).order_by('session__date').values_list('session__date', flat=True).first()
+            w(f'  earliest attendance record within this term: {earliest}')
+            if earliest and s.admission_date and s.admission_date < earliest:
+                gap_days = (earliest - max(s.admission_date, term.start_date)).days
+                w(
+                    f'  -> admission_date is {gap_days} calendar day(s) BEFORE their first '
+                    f'recorded attendance in this term. total_school_days is anchored to that '
+                    f'first RECORD, not to admission_date/term start - if this gap is because '
+                    f'attendance simply wasn\'t taken/recorded for this student early in the '
+                    f'term (rather than a genuine late transfer into the class), the anchor is '
+                    f'shrinking their total_school_days well below the term\'s real length.'
+                )
+
+            if s.current_class:
+                from gradebook.utils import compute_term_attendance_stats
+                stats = compute_term_attendance_stats(s.current_class, valid_days, [s.id])
+                att = stats.get(s.id)
+                w(f'  compute_term_attendance_stats() live result: {att}')
