@@ -46,7 +46,7 @@
                         {% for d in pickable_dates %}
                         <li>
                             <a hx-get="{% url 'academics:class_attendance_take' class.pk %}?date={{ d.value }}{% if in_tab %}&embed=tab{% endif %}"
-                               hx-target="{% if in_tab %}#tab-attendance{% else %}#main-content{% endif %}"
+                               hx-target="{{ reload_target|default:'#main-content' }}"
                                {% if not in_tab %}hx-push-url="true"{% endif %}
                                class="flex items-center justify-between {% if d.selected %}active{% endif %}">
                                 <span>{{ d.label }}</span>
@@ -168,8 +168,8 @@
       action="{% url 'academics:class_attendance_take' class.pk %}"
       hx-post="{% url 'academics:class_attendance_take' class.pk %}"
       {% endif %}
-      hx-target="body"
-      hx-swap="beforeend"
+      hx-target="{{ reload_target|default:'#main-content' }}"
+      hx-swap="innerHTML"
       hx-disabled-elt="find button[type=submit]">
     {% csrf_token %}
     <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">

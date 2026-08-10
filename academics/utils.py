@@ -385,6 +385,23 @@ def pickable_attendance_dates(class_obj, current_term, today, session_type, sele
     ]
 
 
+def resolve_reload_target(request):
+    """
+    Which real container (#main-content, #tab-attendance, or
+    #modal-edit-content) the attendance-taking partial is actually swapped
+    into right now, read from the incoming HTMX request's HX-Target header -
+    the same partial can be reached from the class reports list
+    (#main-content), a class's own Attendance tab (#tab-attendance), or the
+    Attendance History modal (#modal-edit-content), so hardcoding any one
+    of them as the reload/save target would break the other two. Falls
+    back to #main-content for a non-HTMX or first-load request (no
+    HX-Target header at all).
+    """
+    htmx_target = request.headers.get('HX-Target', 'main-content')
+    known_targets = ('main-content', 'tab-attendance', 'modal-edit-content', 'modal-content')
+    return f'#{htmx_target}' if htmx_target in known_targets else '#main-content'
+
+
 def blocked_redirect(request, message, redirect_url, toast_type='warning'):
     """
     Redirect after blocking an action, showing `message` via a toast for
@@ -404,11 +421,18 @@ def blocked_redirect(request, message, redirect_url, toast_type='warning'):
 
 
 def save_attendance_records(request, session, students, redirect_url,
-                             success_msg='Attendance saved'):
+                             success_msg='Attendance saved', on_success=None):
     """
     Process POST data and bulk save attendance records for a session.
-    redirect_url should be a resolved URL path (from reverse()).
-    Returns an HttpResponse.
+    redirect_url should be a resolved URL path (from reverse()) - used for
+    the non-HTMX fallback and the failure path regardless of on_success.
+
+    By default, a successful HTMX save closes the enclosing modal and
+    redirects to redirect_url (the class-detail/reports-list flows this
+    started out serving). Pass on_success(total) to override that for
+    HTMX requests instead - e.g. re-rendering the same attendance-taking
+    screen in place with a success toast, so the teacher isn't navigated
+    away from the date they were just working on.
     """
     from .models import AttendanceRecord
 
@@ -536,6 +560,8 @@ def save_attendance_records(request, session, students, redirect_url,
         return redirect(redirect_url)
 
     if request.htmx:
+        if on_success:
+            return on_success(total)
         response = HttpResponse(status=204)
         response['HX-Trigger'] = 'closeModal'
         response['HX-Redirect'] = redirect_url

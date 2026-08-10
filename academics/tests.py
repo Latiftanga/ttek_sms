@@ -1259,6 +1259,164 @@ class AttendanceTermEndedCatchUpTests(AcademicsTestCase):
         self.assertNotEqual(record.session.date, timezone.localdate())
 
 
+class CoreTakeAttendanceStaysOnPageTests(AcademicsTestCase):
+    """
+    A successful HTMX save on the teacher-portal "Take Attendance" screen
+    used to always close/redirect back to My Attendance (HX-Redirect),
+    navigating the teacher away from the date they were just marking. It
+    should instead re-render the same date in place, showing the saved
+    statuses, so the teacher isn't bounced off the page after every save.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+        self.student = self.create_student('Ama', 'STU-400', class_obj=self.klass)
+        # A guaranteed weekday, not necessarily "today" - no Term is set up
+        # in this test class, so validity falls back to the default Mon-Fri
+        # SchoolSettings.
+        today = timezone.localdate()
+        self.today = today - timedelta(days=(today.isoweekday() - 1) % 7)
+
+    def test_htmx_save_stays_on_the_same_page_instead_of_redirecting(self):
+        response = self.client.post(
+            reverse('core:take_attendance', args=[self.klass.pk]),
+            {'date': self.today.isoformat(), f'status_{self.student.pk}': 'P'},
+            HTTP_HX_REQUEST='true',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('HX-Redirect', response)
+        self.assertTemplateUsed(response, 'core/teacher/partials/take_attendance_content.html')
+        self.assertIn('showToast', response.get('HX-Trigger', ''))
+        self.assertIn('success', response.get('HX-Trigger', ''))
+
+        record = AttendanceRecord.objects.get(student=self.student)
+        self.assertEqual(record.status, 'P')
+        self.assertEqual(record.session.date, self.today)
+
+    def test_non_htmx_save_still_redirects(self):
+        response = self.client.post(
+            reverse('core:take_attendance', args=[self.klass.pk]),
+            {'date': self.today.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('core:my_attendance'))
+
+
+class AcademicsAttendanceStaysOnPageTests(AcademicsTestCase):
+    """
+    The admin/class-detail attendance-taking flows (class_attendance_take,
+    class_attendance_edit, take_lesson_attendance) used to always close and
+    HX-Redirect back to the class detail page / lesson list after a
+    successful HTMX save, same underlying issue as core:take_attendance.
+    This partial is reachable from three different containers - the class
+    reports list (#main-content), a class's own Attendance tab
+    (#tab-attendance), or the Attendance History modal
+    (#modal-edit-content) - so the save must reload into whichever one
+    actually triggered it (reflected by the request's HX-Target header),
+    not a hardcoded target.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+        self.student = self.create_student('Ama', 'STU-500', class_obj=self.klass)
+        today = timezone.localdate()
+        self.today = today - timedelta(days=(today.isoweekday() - 1) % 7)
+
+    def test_class_attendance_take_htmx_save_stays_on_page(self):
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.today.isoformat(), f'status_{self.student.pk}': 'P'},
+            HTTP_HX_REQUEST='true',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('HX-Redirect', response)
+        self.assertTemplateUsed(response, 'academics/partials/modal_attendance_take.html')
+        self.assertIn('showToast', response.get('HX-Trigger', ''))
+        self.assertEqual(
+            AttendanceRecord.objects.get(student=self.student, session__date=self.today).status, 'P'
+        )
+
+    def test_class_attendance_take_save_reloads_into_the_triggering_tab_target(self):
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.today.isoformat(), f'status_{self.student.pk}': 'P'},
+            HTTP_HX_REQUEST='true',
+            HTTP_HX_TARGET='tab-attendance',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['reload_target'], '#tab-attendance')
+        self.assertTrue(response.context['in_tab'])
+
+    def test_class_attendance_take_save_reloads_into_the_triggering_modal_target(self):
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.today.isoformat(), f'status_{self.student.pk}': 'P'},
+            HTTP_HX_REQUEST='true',
+            HTTP_HX_TARGET='modal-edit-content',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['reload_target'], '#modal-edit-content')
+
+    def test_class_attendance_take_non_htmx_save_still_redirects(self):
+        response = self.client.post(
+            reverse('academics:class_attendance_take', args=[self.klass.pk]),
+            {'date': self.today.isoformat(), f'status_{self.student.pk}': 'P'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('tab=attendance', response.url)
+
+    def test_class_attendance_edit_htmx_save_stays_on_page(self):
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.today,
+            session_type=AttendanceSession.SessionType.DAILY,
+            created_by=self.teacher,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='A')
+
+        response = self.client.post(
+            reverse('academics:class_attendance_edit', args=[self.klass.pk, session.pk]),
+            {f'status_{self.student.pk}': 'P'},
+            HTTP_HX_REQUEST='true',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('HX-Redirect', response)
+        self.assertTemplateUsed(response, 'academics/partials/modal_attendance_take.html')
+        self.assertEqual(AttendanceRecord.objects.get(student=self.student).status, 'P')
+
+    def test_take_lesson_attendance_htmx_save_stays_on_page(self):
+        self.klass.attendance_type = Class.AttendanceType.PER_LESSON
+        self.klass.save(update_fields=['attendance_type'])
+
+        period = Period.objects.create(
+            name='Period 1', start_time='08:00', end_time='08:40', order=1
+        )
+        subject = self.create_subject('Mathematics', 'MTH')
+        class_subject = self.create_class_subject(self.klass, subject)
+        entry = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period, weekday=self.today.isoweekday(),
+        )
+
+        response = self.client.post(
+            reverse('academics:take_lesson_attendance', args=[entry.pk]),
+            {'date': self.today.isoformat(), f'status_{self.student.pk}': 'P'},
+            HTTP_HX_REQUEST='true',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('HX-Redirect', response)
+        self.assertTemplateUsed(response, 'academics/partials/modal_attendance_take.html')
+        self.assertIn('showToast', response.get('HX-Trigger', ''))
+        self.assertEqual(
+            AttendanceRecord.objects.get(student=self.student, session__timetable_entry=entry).status,
+            'P',
+        )
+
+
 class AttendanceDoneStatusReflectsRecordsTests(AcademicsTestCase):
     """
     Opening the "take attendance" screen (a GET request) proactively

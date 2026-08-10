@@ -3026,6 +3026,7 @@ def my_attendance(request):
 @login_required
 def take_attendance(request, class_id):
     """Teacher takes attendance for a specific class."""
+    import json
     from datetime import datetime as dt
     from django.db import IntegrityError
     from academics.models import Class, ClassSubject, AttendanceSession
@@ -3154,39 +3155,59 @@ def take_attendance(request, class_id):
             session_type=AttendanceSession.SessionType.DAILY,
         )
 
+    def build_context():
+        students = Student.objects.filter(
+            current_class=class_obj, status='active'
+        ).order_by('first_name', 'last_name')
+        records = {r.student_id: r.status for r in session.records.only('student_id', 'status')}
+        student_list = [
+            {'obj': student, 'status': records.get(student.id, 'P')}
+            for student in students
+        ]
+        return {
+            'class': class_obj,
+            'session': session,
+            'student_list': student_list,
+            'date': target_date,
+            'is_homeroom': class_obj.class_teacher == teacher,
+            'current_term': current_term,
+            'today': today,
+            'attendance_taken': bool(records),
+            'pickable_dates': pickable_attendance_dates(
+                class_obj, current_term, today,
+                AttendanceSession.SessionType.DAILY, target_date
+            ),
+        }
+
     if request.method == 'POST':
         students = list(Student.objects.filter(current_class=class_obj, status='active'))
         redirect_url = reverse('core:my_attendance')
+
+        def stay_on_page(total):
+            # Re-render the same date's attendance screen in place instead
+            # of navigating the teacher away to My Attendance - the save
+            # already went through, so there's nothing left to confirm by
+            # leaving; staying lets them keep reviewing/adjusting the day
+            # they were just on.
+            response = render(
+                request, 'core/teacher/partials/take_attendance_content.html', build_context()
+            )
+            response['HX-Trigger'] = json.dumps({
+                'showToast': {
+                    'message': f'Attendance saved for {class_obj.name} ({total} records).',
+                    'type': 'success',
+                }
+            })
+            return response
+
         return save_attendance_records(
             request, session, students, redirect_url,
-            success_msg=f'Attendance saved for {class_obj.name}'
+            success_msg=f'Attendance saved for {class_obj.name}',
+            on_success=stay_on_page,
         )
 
     # GET: Prepare form data
-    students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name', 'last_name')
-    records = {r.student_id: r.status for r in session.records.only('student_id', 'status')}
-
-    student_list = []
-    for student in students:
-        student_list.append({
-            'obj': student,
-            'status': records.get(student.id, 'P')
-        })
-
-    context = {
-        'class': class_obj,
-        'session': session,
-        'student_list': student_list,
-        'date': target_date,
-        'is_homeroom': class_obj.class_teacher == teacher,
-        'current_term': current_term,
-        'today': today,
-        'attendance_taken': bool(records),
-        'pickable_dates': pickable_attendance_dates(
-            class_obj, current_term, today,
-            AttendanceSession.SessionType.DAILY, target_date
-        ),
-    }
+    context = build_context()
 
     if adjusted_notice and not request.htmx:
         messages.info(request, adjusted_notice)
@@ -3194,7 +3215,6 @@ def take_attendance(request, class_id):
         request, 'core/teacher/take_attendance.html', 'core/teacher/partials/take_attendance_content.html', context
     )
     if adjusted_notice and request.htmx:
-        import json
         response['HX-Trigger'] = json.dumps({'showToast': {'message': adjusted_notice, 'type': 'info'}})
     return response
 

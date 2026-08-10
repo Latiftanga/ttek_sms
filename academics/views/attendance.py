@@ -26,7 +26,7 @@ from ..utils import (
     should_use_lesson_attendance, get_students_for_lesson, get_lesson_attendance_stats,
     validate_status, term_date_error, nearest_valid_attendance_date,
     nearest_valid_lesson_date, pickable_attendance_dates, blocked_redirect,
-    save_attendance_records,
+    save_attendance_records, resolve_reload_target,
 )
 from .base import admin_required, is_school_admin, teacher_or_admin_required, htmx_render
 
@@ -170,43 +170,58 @@ def class_attendance_take(request, pk):
             defaults={'created_by': teacher}
         )
 
+    reload_target = resolve_reload_target(request)
+    in_tab = request.GET.get('embed') == 'tab' or reload_target == '#tab-attendance'
+
+    def build_context():
+        students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name')
+        records = {r.student_id: r.status for r in session.records.all()}
+        student_list = [
+            {'obj': student, 'status': records.get(student.id, 'P')}  # Default to Present if new
+            for student in students
+        ]
+        return {
+            'class': class_obj,
+            'session': session,
+            'student_list': student_list,
+            'date': target_date,
+            'is_lesson': False,
+            'in_tab': in_tab,
+            'reload_target': reload_target,
+            'attendance_taken': bool(records),
+            'today': timezone.localdate(),
+            'current_term': current_term,
+            'pickable_dates': pickable_attendance_dates(
+                class_obj, current_term, timezone.localdate(),
+                AttendanceSession.SessionType.DAILY, target_date
+            ),
+        }
+
     if request.method == 'POST':
         students = list(Student.objects.filter(
             current_class=class_obj, status='active'
         ))
         url = reverse('academics:class_detail', args=[pk]) + '?tab=attendance'
+
+        def stay_on_page(total):
+            # Re-render the same date's attendance sheet in place instead
+            # of navigating away to the class detail page - the save
+            # already went through, so there's nothing left to confirm by
+            # leaving.
+            response = render(request, 'academics/partials/modal_attendance_take.html', build_context())
+            response['HX-Trigger'] = json.dumps({
+                'showToast': {'message': f'Attendance saved ({total} records).', 'type': 'success'}
+            })
+            return response
+
         return save_attendance_records(
             request, session, students, url,
-            success_msg='Attendance saved'
+            success_msg='Attendance saved',
+            on_success=stay_on_page,
         )
 
     # GET Request: Prepare data for the form
-    students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name')
-    records = {r.student_id: r.status for r in session.records.all()}
-
-    # Combine student + their status
-    student_list = []
-    for student in students:
-        student_list.append({
-            'obj': student,
-            'status': records.get(student.id, 'P')  # Default to Present if new
-        })
-
-    context = {
-        'class': class_obj,
-        'session': session,
-        'student_list': student_list,
-        'date': target_date,
-        'is_lesson': False,
-        'in_tab': request.GET.get('embed') == 'tab',
-        'attendance_taken': bool(records),
-        'today': timezone.localdate(),
-        'current_term': current_term,
-        'pickable_dates': pickable_attendance_dates(
-            class_obj, current_term, timezone.localdate(),
-            AttendanceSession.SessionType.DAILY, target_date
-        ),
-    }
+    context = build_context()
 
     # Use partial for HTMX, full page for direct access/refresh
     if request.htmx:
@@ -258,36 +273,48 @@ def class_attendance_edit(request, pk, session_pk):
     if term_error:
         return blocked_redirect(request, term_error, 'academics:attendance_reports')
 
+    reload_target = resolve_reload_target(request)
+    in_tab = request.GET.get('embed') == 'tab' or reload_target == '#tab-attendance'
+
+    def build_context():
+        students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name')
+        records = {r.student_id: r.status for r in session.records.all()}
+        student_list = [
+            {'obj': student, 'status': records.get(student.id, 'P')}
+            for student in students
+        ]
+        return {
+            'class': class_obj,
+            'session': session,
+            'student_list': student_list,
+            'date': session.date,
+            'is_edit': True,
+            'in_tab': in_tab,
+            'reload_target': reload_target,
+            'attendance_taken': bool(records),
+        }
+
     if request.method == 'POST':
         students = list(Student.objects.filter(
             current_class=class_obj, status='active'
         ))
         url = reverse('academics:class_detail', args=[pk]) + '?tab=attendance'
+
+        def stay_on_page(total):
+            response = render(request, 'academics/partials/modal_attendance_take.html', build_context())
+            response['HX-Trigger'] = json.dumps({
+                'showToast': {'message': f'Attendance updated ({total} records).', 'type': 'success'}
+            })
+            return response
+
         return save_attendance_records(
             request, session, students, url,
-            success_msg='Attendance updated'
+            success_msg='Attendance updated',
+            on_success=stay_on_page,
         )
 
     # GET Request: Load existing records
-    students = Student.objects.filter(current_class=class_obj, status='active').order_by('first_name')
-    records = {r.student_id: r.status for r in session.records.all()}
-
-    student_list = []
-    for student in students:
-        student_list.append({
-            'obj': student,
-            'status': records.get(student.id, 'P')
-        })
-
-    context = {
-        'class': class_obj,
-        'session': session,
-        'student_list': student_list,
-        'date': session.date,
-        'is_edit': True,
-        'in_tab': request.GET.get('embed') == 'tab',
-        'attendance_taken': bool(records),
-    }
+    context = build_context()
 
     # Use partial for HTMX, full page for direct access/refresh
     if request.htmx:
@@ -618,52 +645,59 @@ def take_lesson_attendance(request, timetable_entry_id):
     # Get students for this lesson (considers elective enrollment)
     students = get_students_for_lesson(class_obj, class_subject)
 
+    # Determine HTMX swap target so the date picker (and, on save, the
+    # save itself) reloads into whichever real container this partial was
+    # rendered into - the reports list, a class's Attendance tab, or the
+    # Attendance History modal.
+    reload_target = resolve_reload_target(request)
+
+    def build_context():
+        records = {r.student_id: r.status for r in session.records.all()}
+        student_list = [
+            {'obj': student, 'status': records.get(student.id, 'P')}
+            for student in students
+        ]
+        is_edit = not created and session.records.exists()
+        return {
+            'class': class_obj,
+            'session': session,
+            'student_list': student_list,
+            'date': target_date,
+            'today': timezone.localdate(),
+            'current_term': current_term,
+            'is_lesson': True,
+            'is_edit': is_edit,
+            'attendance_taken': bool(records),
+            'entry': entry,
+            'subject': class_subject.subject,
+            'period': entry.period,
+            'timetable_entry_id': timetable_entry_id,
+            'reload_target': reload_target,
+            'pickable_dates': pickable_attendance_dates(
+                class_obj, current_term, timezone.localdate(),
+                AttendanceSession.SessionType.LESSON, target_date
+            ),
+        }
+
     if request.method == 'POST':
         students = list(students)
         url = reverse('academics:lesson_attendance_list', args=[class_obj.pk])
+
+        def stay_on_page(total):
+            response = render(request, 'academics/partials/modal_attendance_take.html', build_context())
+            response['HX-Trigger'] = json.dumps({
+                'showToast': {'message': f'Lesson attendance saved ({total} records).', 'type': 'success'}
+            })
+            return response
+
         return save_attendance_records(
             request, session, students, url,
-            success_msg='Lesson attendance saved'
+            success_msg='Lesson attendance saved',
+            on_success=stay_on_page,
         )
 
     # GET Request: Prepare data for the form
-    records = {r.student_id: r.status for r in session.records.all()}
-
-    student_list = []
-    for student in students:
-        student_list.append({
-            'obj': student,
-            'status': records.get(student.id, 'P')
-        })
-
-    is_edit = not created and session.records.exists()
-
-    # Determine HTMX swap target so the date picker reloads into whichever
-    # real container this partial was rendered into, same as lesson_attendance_list.
-    htmx_target = request.headers.get('HX-Target', 'main-content')
-    KNOWN_TARGETS = ('modal-content', 'main-content', 'modal-edit-content', 'tab-attendance')
-    reload_target = f'#{htmx_target}' if htmx_target in KNOWN_TARGETS else '#main-content'
-
-    context = {
-        'class': class_obj,
-        'session': session,
-        'student_list': student_list,
-        'date': target_date,
-        'today': timezone.localdate(),
-        'current_term': current_term,
-        'is_lesson': True,
-        'is_edit': is_edit,
-        'attendance_taken': bool(records),
-        'entry': entry,
-        'subject': class_subject.subject,
-        'period': entry.period,
-        'timetable_entry_id': timetable_entry_id,
-        'reload_target': reload_target,
-        'pickable_dates': pickable_attendance_dates(
-            class_obj, current_term, timezone.localdate(),
-            AttendanceSession.SessionType.LESSON, target_date
-        ),
-    }
+    context = build_context()
 
     # Use partial for HTMX, full page for direct access/refresh
     if request.htmx:
