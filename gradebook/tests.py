@@ -13,7 +13,7 @@ from django.core.management import call_command
 
 from .models import (
     GradingSystem, GradeScale, AssessmentCategory,
-    Assignment, Score, SubjectTermGrade, TermReport
+    Assignment, Score, SubjectTermGrade, TermReport, RemarkTemplate
 )
 from .forms import GradeScaleForm, AssessmentCategoryForm, ScoreForm
 from .utils import compute_term_attendance_stats
@@ -1115,3 +1115,172 @@ class TermAttendanceStatsTests(GradebookTenantTestCase):
             report.attendance_percentage,
             round(Decimal(str(expected['days_present'])) / Decimal(str(expected['total_school_days'])) * 100, 2)
         )
+
+
+class AssignmentCreateLimitTests(GradebookTenantTestCase):
+    """
+    Tests for the assignment_create view's enforcement of
+    AssessmentCategory.max_assessments ("single vs multiple assignments
+    per category") and default_max_marks pre-fill - previously
+    max_assessments was admin-editable but never actually checked when a
+    teacher created an assignment.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.admin_user = User.objects.create_user(
+            email='admin@school.com', password='testpass123', is_school_admin=True,
+        )
+        self.client.login(email='admin@school.com', password='testpass123')
+
+        self.subject = Subject.objects.create(name='Mathematics', short_name='MTH', code='MTH')
+        self.academic_year = AcademicYear.objects.create(
+            name='2024/2025', start_date=date(2024, 9, 1), end_date=date(2025, 7, 31), is_current=True,
+        )
+        self.term = Term.objects.create(
+            academic_year=self.academic_year, name='First Term', term_number=1,
+            start_date=date(2024, 9, 1), end_date=date(2024, 12, 20), is_current=True,
+        )
+        self.category = AssessmentCategory.objects.create(
+            name='Class Score', short_name='CA', percentage=30, max_assessments=1,
+        )
+
+    def _create(self, **overrides):
+        data = {
+            'subject_id': self.subject.pk,
+            'category_id': self.category.pk,
+            'date': '2024-09-10',
+            'points_possible': '100',
+        }
+        data.update(overrides)
+        return self.client.post(reverse('gradebook:assignment_create'), data)
+
+    def test_first_assignment_in_category_succeeds(self):
+        response = self._create()
+        self.assertEqual(Assignment.objects.filter(assessment_category=self.category).count(), 1)
+        self.assertNotIn(b'already has the maximum', response.content)
+
+    def test_second_assignment_blocked_at_max_assessments_one(self):
+        self._create(date='2024-09-10')
+        response = self._create(date='2024-09-17')
+        self.assertEqual(Assignment.objects.filter(assessment_category=self.category).count(), 1)
+        self.assertIn(b'already has the maximum of 1 assignment', response.content)
+        # The rejected request must still render something visible (200,
+        # not a bare status code with no body a teacher would never see -
+        # see the silent-failure pattern this fixes in assignment_create).
+        self.assertEqual(response.status_code, 200)
+
+    def test_max_assessments_zero_means_unlimited(self):
+        self.category.max_assessments = 0
+        self.category.save(update_fields=['max_assessments'])
+        self._create(date='2024-09-10')
+        self._create(date='2024-09-17')
+        self._create(date='2024-09-24')
+        self.assertEqual(Assignment.objects.filter(assessment_category=self.category).count(), 3)
+
+    def test_limit_is_scoped_per_subject(self):
+        """Hitting the limit for one subject must not block a different
+        subject in the same category/term."""
+        self._create(date='2024-09-10')
+        other_subject = Subject.objects.create(name='English', short_name='ENG', code='ENG')
+        response = self._create(subject_id=other_subject.pk, date='2024-09-10')
+        self.assertEqual(Assignment.objects.filter(subject=other_subject).count(), 1)
+        self.assertNotIn(b'already has the maximum', response.content)
+
+    def test_default_max_marks_used_when_points_left_blank(self):
+        self.category.default_max_marks = Decimal('50.00')
+        self.category.save(update_fields=['default_max_marks'])
+        self._create(points_possible='')
+        assignment = Assignment.objects.get(assessment_category=self.category)
+        self.assertEqual(assignment.points_possible, Decimal('50.00'))
+
+    def test_explicit_points_possible_overrides_category_default(self):
+        self.category.default_max_marks = Decimal('50.00')
+        self.category.save(update_fields=['default_max_marks'])
+        self._create(points_possible='75')
+        assignment = Assignment.objects.get(assessment_category=self.category)
+        self.assertEqual(assignment.points_possible, Decimal('75'))
+
+    def test_full_category_shown_disabled_in_dropdown(self):
+        self._create(date='2024-09-10')
+        response = self.client.get(reverse('gradebook:assignments', args=[self.subject.pk]))
+        options = response.context['category_options']
+        full_option = next(o for o in options if o['value'] == self.category.pk)
+        self.assertIn('Full', full_option['label'])
+        self.assertEqual(full_option['attrs'].get('disabled'), 'disabled')
+
+    def test_full_category_option_actually_renders_disabled(self):
+        """
+        The view context can say `attrs: {'disabled': 'disabled'}` while
+        the actual <option> tag still renders without it if the shared
+        select_input template's two branches (with/without a `label`) go
+        out of sync - checking response.context alone (as the test above
+        does) can't catch that; this checks the real HTML output.
+        """
+        self._create(date='2024-09-10')
+        response = self.client.get(reverse('gradebook:assignments', args=[self.subject.pk]))
+        content = response.content.decode()
+        option_html = content[content.index(f'value="{self.category.pk}"'):]
+        option_html = option_html[:option_html.index('</option>')]
+        self.assertIn('disabled="disabled"', option_html)
+
+    def test_default_max_marks_rendered_as_option_data_attribute(self):
+        self.category.default_max_marks = Decimal('50.00')
+        self.category.save(update_fields=['default_max_marks'])
+        response = self.client.get(reverse('gradebook:assignments', args=[self.subject.pk]))
+        content = response.content.decode()
+        option_html = content[content.index(f'value="{self.category.pk}"'):]
+        option_html = option_html[:option_html.index('</option>')]
+        self.assertIn('data-default-marks="50.00"', option_html)
+
+
+class RemarkTemplateModalRendersTests(GradebookTenantTestCase):
+    """
+    modal_remark_template.html reads `template.category|default:form_data.category`
+    (and the same pattern for content/order) - Django resolves a filter's
+    argument (the part after `default:`) without the silent-failure handling
+    it gives the primary variable, so if `form_data` is missing from the
+    context entirely, resolving `form_data.category` raises VariableDoesNotExist
+    and 500s instead of just falling through. Every render path below has to
+    supply `form_data` (with the actual keys, not just an empty dict - an
+    empty dict still fails the same way once `.category` is looked up on it).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.admin_user = User.objects.create_user(
+            email='admin@school.com',
+            password='testpass123',
+            is_school_admin=True
+        )
+        self.client.login(email='admin@school.com', password='testpass123')
+        self.template = RemarkTemplate.objects.create(
+            category='GOOD',
+            content='{student_name} performed well.',
+            order=1,
+        )
+
+    def test_create_get_renders(self):
+        response = self.client.get(reverse('gradebook:remark_template_create'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_create_post_with_empty_content_rerenders(self):
+        response = self.client.post(reverse('gradebook:remark_template_create'), {
+            'category': 'GENERAL', 'content': '', 'order': '0',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Remark content is required', response.content)
+
+    def test_edit_get_renders(self):
+        response = self.client.get(
+            reverse('gradebook:remark_template_edit', args=[self.template.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_edit_post_with_empty_content_rerenders(self):
+        response = self.client.post(
+            reverse('gradebook:remark_template_edit', args=[self.template.pk]),
+            {'category': 'AVERAGE', 'content': '', 'order': '2'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Remark content is required', response.content)

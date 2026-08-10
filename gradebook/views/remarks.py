@@ -350,6 +350,7 @@ def remark_template_create(request):
         return render(request, 'gradebook/includes/modal_remark_template.html', {
             'categories': RemarkTemplate.PERFORMANCE_CATEGORY,
             'mode': 'create',
+            'form_data': {'category': '', 'content': '', 'order': ''},
         })
 
     if request.method != 'POST':
@@ -396,6 +397,7 @@ def remark_template_edit(request, pk):
             'template': template,
             'categories': RemarkTemplate.PERFORMANCE_CATEGORY,
             'mode': 'edit',
+            'form_data': {'category': '', 'content': '', 'order': ''},
         })
 
     if request.method != 'POST':
@@ -415,6 +417,7 @@ def remark_template_edit(request, pk):
             'categories': RemarkTemplate.PERFORMANCE_CATEGORY,
             'mode': 'edit',
             'error': 'Remark content is required',
+            'form_data': {'category': category, 'content': content, 'order': order},
         })
 
     template.category = category
