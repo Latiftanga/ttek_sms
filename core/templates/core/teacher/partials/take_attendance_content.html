@@ -145,7 +145,8 @@
                             {% elif item.status == 'L' %}bg-warning/10
                             {% elif item.status == 'E' %}bg-info/10{% endif %}"
                      data-student-id="{{ item.obj.pk }}"
-                     data-name="{{ item.obj.full_name|lower }}">
+                     data-name="{{ item.obj.full_name|lower }}"
+                     data-adm="{{ item.obj.admission_number|lower }}">
 
                     <!-- Name row -->
                     <div class="flex items-center gap-2 mb-2">
@@ -291,7 +292,8 @@
         let visible = 0;
         document.querySelectorAll('.student-row').forEach(row => {
             const name = row.dataset.name || '';
-            const show = !q || name.includes(q);
+            const adm = row.dataset.adm || '';
+            const show = !q || name.includes(q) || adm.includes(q);
             row.style.display = show ? '' : 'none';
             if (show) visible++;
         });

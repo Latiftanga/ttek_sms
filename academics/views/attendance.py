@@ -212,13 +212,8 @@ def _blocked_redirect(request, message, redirect_url, toast_type='warning'):
     """
     if request.htmx:
         response = HttpResponse(status=204)
-        # revertDateInput: a 204 swaps nothing, so the date <input> that
-        # triggered this request is left showing the just-picked (invalid)
-        # date while the content behind it still reflects the old one -
-        # this snaps the picker back once the toast below has explained why.
         response['HX-Trigger'] = json.dumps({
             'showToast': {'message': message, 'type': toast_type},
-            'revertDateInput': True,
         })
         return response
     messages.warning(request, message)
@@ -238,7 +233,7 @@ def _save_attendance_records(request, session, students, redirect_url,
         r.student_id: r
         for r in AttendanceRecord.objects.filter(
             session=session, student_id__in=student_ids
-        )
+        ).select_related('student')
     }
 
     records_to_create = []
@@ -289,10 +284,11 @@ def _save_attendance_records(request, session, students, redirect_url,
                 r.student_id: r
                 for r in AttendanceRecord.objects.filter(
                     session=session, student_id__in=student_ids
-                )
+                ).select_related('student')
             }
             retry_create = []
             retry_update = list(records_to_update)
+            already_synced = 0
             for rec in records_to_create:
                 existing = existing_now.get(rec.student_id)
                 if existing is None:
@@ -301,10 +297,16 @@ def _save_attendance_records(request, session, students, redirect_url,
                     existing.status = rec.status
                     existing.marked_by = rec.marked_by
                     retry_update.append(existing)
+                else:
+                    # The concurrent request already wrote the same status
+                    # this submission wanted - nothing left to save, but it
+                    # still counts toward what this submission asked for.
+                    already_synced += 1
             _write(retry_create, retry_update)
             records_to_create, records_to_update = retry_create, retry_update
-
-        total = len(records_to_create) + len(records_to_update)
+            total = len(records_to_create) + len(records_to_update) + already_synced
+        else:
+            total = len(records_to_create) + len(records_to_update)
 
         # Notify guardians and students of absences
         absent_students = []

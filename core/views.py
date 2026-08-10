@@ -2816,10 +2816,13 @@ def my_attendance(request):
     class_stats_dict = {item['session__class_assigned_id']: item for item in class_stats}
 
     # Pre-compute which classes have attendance for the selected date
+    # (records__isnull=False excludes sessions created by just opening the
+    # take-attendance screen but never actually saved)
     today_sessions_qs = AttendanceSession.objects.filter(
         class_assigned_id__in=all_class_ids,
-        date=selected_date
-    ).values_list('class_assigned_id', 'created_at')
+        date=selected_date,
+        records__isnull=False,
+    ).values_list('class_assigned_id', 'created_at').distinct()
     today_sessions = set()
     today_session_times = {}
     for class_id, created_at in today_sessions_qs:
@@ -2834,12 +2837,15 @@ def my_attendance(request):
     ).select_related('class_subject__class_assigned', 'class_subject__subject', 'period').order_by('period__start_time')
 
     # Get which lessons have attendance taken for the selected date
+    # (records__isnull=False excludes sessions created by just opening the
+    # take-attendance screen but never actually saved)
     lessons_with_attendance = set(
         AttendanceSession.objects.filter(
             timetable_entry__in=teacher_timetable_entries,
             date=selected_date,
-            session_type='Lesson'
-        ).values_list('timetable_entry_id', flat=True)
+            session_type='Lesson',
+            records__isnull=False,
+        ).values_list('timetable_entry_id', flat=True).distinct()
     )
 
     # Build lessons list for per-lesson attendance classes

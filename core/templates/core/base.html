@@ -1141,20 +1141,6 @@
             });
 
             // ========================================
-            // Revert Date Input Handler (HX-Trigger: revertDateInput)
-            // Fired alongside a blocked-date toast so a date <input> that
-            // just got rejected (204, nothing swapped) doesn't keep showing
-            // the invalid pick once the toast fades.
-            // ========================================
-            document.body.addEventListener('revertDateInput', function() {
-                document.querySelectorAll('input[type="date"][data-prev-value]').forEach(function(input) {
-                    if (input.dataset.prevValue && input.value !== input.dataset.prevValue) {
-                        input.value = input.dataset.prevValue;
-                    }
-                });
-            });
-
-            // ========================================
             // Custom Confirm Dialog
             // ========================================
             document.body.addEventListener('htmx:confirm', function(e) {
