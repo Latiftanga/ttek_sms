@@ -1067,7 +1067,8 @@ class TermAttendanceStatsTests(GradebookTenantTestCase):
     def test_mid_term_start_shrinks_total_school_days(self):
         """
         A student whose earliest attendance record in this class lands
-        partway through the range (e.g. a mid-term transfer) should have
+        partway through the range AND whose admission_date backs up a real
+        mid-term transfer (admission after the window started) should have
         total_school_days counted only from that date onward, not the full
         range - otherwise the days before they even joined this class would
         unfairly count against their percentage.
@@ -1075,6 +1076,9 @@ class TermAttendanceStatsTests(GradebookTenantTestCase):
         valid_days = self._valid_days()
         start_index = 3  # 4th valid day
         join_date = valid_days[start_index]
+
+        self.student.admission_date = join_date
+        self.student.save(update_fields=['admission_date'])
 
         session = AttendanceSession.objects.create(
             class_assigned=self.klass, date=join_date,
@@ -1085,6 +1089,32 @@ class TermAttendanceStatsTests(GradebookTenantTestCase):
         stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
         att = stats[self.student.id]
         self.assertEqual(att['total_school_days'], len(valid_days) - start_index)
+        self.assertEqual(att['days_present'], 1)
+
+    def test_late_first_record_without_matching_admission_date_does_not_shrink_total_school_days(self):
+        """
+        The actual bug this guards against: a student enrolled since well
+        before the term (admission_date predates it) whose first attendance
+        RECORD in this class still lands partway through - e.g. attendance
+        tracking itself started late for the whole school, not because this
+        student joined late. Without a real transfer to justify it, the
+        earliest-record anchor must not apply - total_school_days should be
+        the full valid_days range, not shrunk to "days since first tracked".
+        """
+        valid_days = self._valid_days()
+        start_index = 3  # 4th valid day
+        first_tracked_date = valid_days[start_index]
+
+        # admission_date already defaults (in setUp) to well before the term.
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=first_tracked_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
+        att = stats[self.student.id]
+        self.assertEqual(att['total_school_days'], len(valid_days))
         self.assertEqual(att['days_present'], 1)
 
     def test_student_with_no_records_is_omitted(self):

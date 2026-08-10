@@ -1148,12 +1148,18 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids):
     day double-counted into both tallies. Daily-attendance classes can't hit
     this since exactly one record per student per day is possible there.
 
-    Also anchors each student's total_school_days to the earliest date they
-    have ANY record in this class, not the full valid_days range - a
-    heuristic for mid-term transfers, since there's no stored "date this
-    student joined this class" to anchor to instead. This slightly
-    overcounts if attendance had a gap right when the student joined, but
-    it's the best signal available in existing data.
+    For a student who genuinely transferred in mid-term, total_school_days
+    is anchored to their earliest attendance record in this class rather
+    than the full valid_days range - otherwise they'd be penalized for
+    "missing" days before they were even enrolled. That anchor is only
+    trusted when admission_date backs it up (falls after valid_days starts) -
+    a late first record with an admission_date from well before the term is
+    almost always just a gap in when attendance started being tracked for
+    that student (e.g. the whole school hadn't started using attendance
+    tracking yet, or it lapsed and resumed), not evidence they weren't
+    enrolled - and treating it as a transfer would wrongly shrink
+    total_school_days for every such student, often to the same date if the
+    gap was school-wide rather than per-student.
 
     Counts sessions of either session_type, not just class_obj's current
     attendance_type - attendance_type is a plain mutable field an admin can
@@ -1178,9 +1184,16 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids):
         showing a misleading 0%).
     """
     from academics.models import AttendanceRecord
+    from students.models import Student
 
     if not valid_days:
         return {}
+
+    student_ids = list(student_ids)
+    admission_dates = dict(
+        Student.objects.filter(id__in=student_ids).values_list('id', 'admission_date')
+    )
+    window_start = valid_days[0]
 
     day_status = {}  # (student_id, date) -> best status
     late_counts = defaultdict(int)
@@ -1189,7 +1202,7 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids):
     rows = AttendanceRecord.objects.filter(
         session__class_assigned=class_obj,
         session__date__in=valid_days,
-        student_id__in=list(student_ids),
+        student_id__in=student_ids,
     ).values_list('student_id', 'session__date', 'status')
 
     for student_id, sess_date, status in rows:
@@ -1213,7 +1226,12 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids):
 
     result = {}
     for student_id, t in tallies.items():
-        window = [d for d in valid_days if d >= earliest_date[student_id]]
+        admission_date = admission_dates.get(student_id)
+        is_real_transfer = admission_date and admission_date > window_start
+        window = (
+            [d for d in valid_days if d >= earliest_date[student_id]]
+            if is_real_transfer else valid_days
+        )
         result[student_id] = {
             'days_present': t['days_present'],
             'days_absent': t['days_absent'],
