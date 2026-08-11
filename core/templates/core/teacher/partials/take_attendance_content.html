@@ -52,8 +52,17 @@
             {% endif %}
         </div>
     </div>
-    <div class="text-xs text-base-content/40 font-medium shrink-0">
-        {{ student_list|length }} students
+    <!-- Live counter - lives here (not the bulk-actions row below) so
+         "All Present" isn't fighting it for width on narrow phones, where
+         its text used to wrap onto two lines. -->
+    <div class="flex items-center gap-1 text-xs font-bold bg-base-200 rounded-full px-2.5 h-7 shrink-0">
+        <span class="text-success" id="present-count">{{ student_list|length }}</span>
+        <span class="text-base-content/25">·</span>
+        <span class="text-warning" id="late-count">0</span>
+        <span class="text-base-content/25">·</span>
+        <span class="text-error" id="absent-count">0</span>
+        <span class="text-base-content/25">·</span>
+        <span class="text-info" id="excused-count">0</span>
     </div>
 </div>
 
@@ -78,7 +87,7 @@
             <!-- Quick Actions Bar — sticky -->
             <div class="sticky top-0 z-10 flex flex-col gap-2 px-3 py-2.5 border-b border-base-200 bg-base-100/95 backdrop-blur-sm">
 
-                <!-- Row 1: Bulk actions + live counter -->
+                <!-- Row 1: Bulk actions -->
                 <div class="flex items-center gap-2">
                     <!-- All Present — primary pill. flex-1 fills the row on
                          mobile (deliberate, next to the fixed-width L/A/E);
@@ -89,7 +98,7 @@
                          state so it still visibly looks pressable at any
                          size. -->
                     <button type="button" onclick="markAll('P')"
-                            class="flex-1 md:flex-none md:px-6 flex items-center justify-center gap-1.5 h-9 rounded-full bg-success text-success-content font-bold text-sm shadow-sm hover:shadow-md hover:brightness-110 touch-action-manipulation active:scale-95 transition-all">
+                            class="flex-1 md:flex-none md:px-6 flex items-center justify-center gap-1.5 h-9 rounded-full bg-success text-success-content font-bold text-sm shadow-sm hover:shadow-md hover:brightness-110 touch-action-manipulation active:scale-95 transition-all whitespace-nowrap">
                         <i class="fa-solid fa-check-double text-xs"></i>
                         All Present
                     </button>
@@ -108,16 +117,6 @@
                             class="w-11 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-info hover:text-info-content touch-action-manipulation active:scale-95 transition-all">
                         E
                     </button>
-                    <!-- Live counter -->
-                    <div class="flex items-center gap-1 text-xs font-bold bg-base-200 rounded-full px-2.5 h-9 shrink-0">
-                        <span class="text-success" id="present-count">{{ student_list|length }}</span>
-                        <span class="text-base-content/25">·</span>
-                        <span class="text-warning" id="late-count">0</span>
-                        <span class="text-base-content/25">·</span>
-                        <span class="text-error" id="absent-count">0</span>
-                        <span class="text-base-content/25">·</span>
-                        <span class="text-info" id="excused-count">0</span>
-                    </div>
                 </div>
 
                 <!-- Row 2: Search -->
