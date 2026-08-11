@@ -543,3 +543,59 @@ class TermFormSchoolDaysTests(TenantTestCase):
         form = TermForm(instance=term)
         self.assertTrue(form.fields['use_custom_school_days'].initial)
         self.assertEqual(set(form.fields['school_days'].initial), {'1', '3', '5'})
+
+
+class TermFormHeadTeacherMessageTests(TenantTestCase):
+    """
+    head_teacher_message is a single admin-authored note meant to appear
+    on every report card generated for that term (e.g. a reopening date),
+    distinct from TermReport.head_teacher_remark which is per-student.
+    """
+
+    def setUp(self):
+        self.ay = AcademicYear.objects.create(
+            name='2024/2025',
+            start_date=date(2024, 9, 1),
+            end_date=date(2025, 7, 31),
+            is_current=True,
+        )
+
+    def _base_data(self, **overrides):
+        data = {
+            'academic_year': self.ay.pk,
+            'name': 'First Term',
+            'term_number': 1,
+            'start_date': '2024-09-01',
+            'end_date': '2024-12-20',
+        }
+        data.update(overrides)
+        return data
+
+    def test_message_is_optional(self):
+        from core.forms import TermForm
+        form = TermForm(data=self._base_data())
+        self.assertTrue(form.is_valid(), form.errors)
+        term = form.save()
+        self.assertEqual(term.head_teacher_message, '')
+
+    def test_message_is_saved_when_provided(self):
+        from core.forms import TermForm
+        form = TermForm(data=self._base_data(
+            head_teacher_message='School reopens Monday, January 12th.',
+        ))
+        self.assertTrue(form.is_valid(), form.errors)
+        term = form.save()
+        self.assertEqual(term.head_teacher_message, 'School reopens Monday, January 12th.')
+
+    def test_editing_existing_message_prefills_form(self):
+        from core.forms import TermForm
+        term = Term.objects.create(
+            academic_year=self.ay, name='First Term', term_number=1,
+            start_date=date(2024, 9, 1), end_date=date(2024, 12, 20),
+            head_teacher_message='Congratulations on a great term!',
+        )
+        form = TermForm(instance=term)
+        self.assertEqual(
+            form.initial.get('head_teacher_message') or term.head_teacher_message,
+            'Congratulations on a great term!',
+        )

@@ -301,6 +301,12 @@ class Term(models.Model):
         help_text="Override the school's default working days for this term only. Leave blank to use the school default."
     )
 
+    head_teacher_message = models.TextField(
+        blank=True,
+        default='',
+        help_text="Optional note shown on every report card for this term (e.g. reopening date, a closing remark)."
+    )
+
     # Grade locking
     grades_locked = models.BooleanField(
         default=False,

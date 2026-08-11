@@ -499,6 +499,21 @@
             color: {{ school.primary_color|default:'#1a365d' }};
         }
 
+        /* ===== HEAD TEACHER'S MESSAGE ===== */
+        .head-teacher-message-box {
+            padding: 4px 6px;
+            background: {{ school.primary_color|default:'#1a365d' }}10;
+            border: 1px solid {{ school.primary_color|default:'#1a365d' }}40;
+            margin-top: 4px;
+            font-size: 8pt;
+            color: {{ school.primary_color|default:'#1a365d' }};
+        }
+
+        .head-teacher-message-box strong {
+            display: block;
+            margin-bottom: 2px;
+        }
+
         /* ===== FOOTER ===== */
         .footer-table {
             width: 100%;
@@ -874,6 +889,13 @@
         {% if next_term_date %}
         <div class="next-term-box">
             <strong>Next Term Begins:</strong> {{ next_term_date|date:"l, jS F Y" }}
+        </div>
+        {% endif %}
+
+        {% if current_term.head_teacher_message %}
+        <div class="head-teacher-message-box">
+            <strong>{{ school.headmaster_title|default:"Head Teacher" }}'s Message:</strong>
+            {{ current_term.head_teacher_message|linebreaksbr }}
         </div>
         {% endif %}
 

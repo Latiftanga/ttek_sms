@@ -560,6 +560,23 @@
             font-weight: 600;
         }
 
+        /* ===== HEAD TEACHER'S MESSAGE ===== */
+        .head-teacher-message-box {
+            padding: 6px 8px;
+            background: var(--primary-light);
+            border: 1px solid var(--primary);
+            border-radius: 4px;
+            margin-top: 6px;
+            font-size: 8pt;
+            color: var(--primary);
+        }
+
+        .head-teacher-message-box strong {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 2px;
+        }
+
         .computer-generated {
             text-align: center;
             font-size: 6pt;
@@ -906,6 +923,13 @@
         {% if next_term_date %}
         <div class="next-term-box">
             <strong>Next Term Begins:</strong> {{ next_term_date|date:"l, jS F Y" }}
+        </div>
+        {% endif %}
+
+        {% if current_term.head_teacher_message %}
+        <div class="head-teacher-message-box">
+            <strong>{{ school.headmaster_title|default:"Head Teacher" }}'s Message:</strong>
+            {{ current_term.head_teacher_message|linebreaksbr }}
         </div>
         {% endif %}
 

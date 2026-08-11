@@ -2,6 +2,7 @@ from decimal import Decimal
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.urls import reverse
 from django.db import models
 from django_tenants.test.cases import TenantTestCase
@@ -1476,3 +1477,56 @@ class RemarkTemplateModalRendersTests(GradebookTenantTestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Remark content is required', response.content)
+
+
+class HeadTeacherMessageOnReportCardTests(ReportCardsStatusFilterTestCase):
+    """
+    Term.head_teacher_message is a single admin-authored note meant to
+    appear on every report card generated for that term (e.g. a reopening
+    date) - unlike TermReport.head_teacher_remark, which is per-student.
+    Since current_term is already threaded into every report-card render
+    path, setting the field should be immediately visible everywhere
+    without any per-student wiring.
+    """
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()  # Term.get_current() caches per-tenant for 1h
+        self.addCleanup(cache.clear)
+        self.client.login(email='admin@school.com', password='testpass123')
+        TermReport.objects.create(student=self.active_student_1, term=self.term)
+
+    def test_message_shown_on_web_report_card_when_set(self):
+        self.term.head_teacher_message = 'School reopens Monday, January 12th.'
+        self.term.save(update_fields=['head_teacher_message'])
+
+        response = self.client.get(reverse('gradebook:student_report', args=[self.active_student_1.pk]))
+        self.assertContains(response, 'School reopens Monday, January 12th.')
+
+    def test_message_box_omitted_when_blank(self):
+        response = self.client.get(reverse('gradebook:student_report', args=[self.active_student_1.pk]))
+        self.assertNotContains(response, "Head Teacher's Message")
+
+    def test_message_shown_on_print_report_card(self):
+        self.term.head_teacher_message = 'Congratulations on a great term!'
+        self.term.save(update_fields=['head_teacher_message'])
+
+        response = self.client.get(reverse('gradebook:report_card_print', args=[self.active_student_1.pk]))
+        self.assertContains(response, 'Congratulations on a great term!')
+
+    def test_message_visible_for_a_student_with_no_term_report_yet(self):
+        """The message is a Term-level field, not tied to a computed
+        TermReport - it should still show even before grades are entered."""
+        self.term.head_teacher_message = 'Reminder: fees due by end of week.'
+        self.term.save(update_fields=['head_teacher_message'])
+
+        response = self.client.get(reverse('gradebook:student_report', args=[self.active_student_2.pk]))
+        self.assertContains(response, 'Reminder: fees due by end of week.')
+
+    def test_pdf_download_still_succeeds_with_message_set(self):
+        self.term.head_teacher_message = 'See you next term!'
+        self.term.save(update_fields=['head_teacher_message'])
+
+        response = self.client.get(reverse('gradebook:download_report_pdf', args=[self.active_student_1.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get('Content-Type'), 'application/pdf')
