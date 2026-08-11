@@ -361,6 +361,15 @@
                            class="input input-bordered input-sm w-full" placeholder="e.g. First Line|Second Line" maxlength="200">
                     <p class="text-[11px] text-base-content/40 mt-1 px-1">Use <kbd class="kbd kbd-xs">|</kbd> to split into two lines. Leave blank for default.</p>
                 </div>
+                <div class="form-control">
+                    <label class="label py-0.5">
+                        <span class="label-text text-xs font-semibold uppercase tracking-wider text-base-content/50">Head Teacher's Message</span>
+                    </label>
+                    <textarea name="head_teacher_message" rows="3"
+                              class="textarea textarea-bordered textarea-sm w-full"
+                              placeholder="e.g. School reopens Monday, January 12th.">{{ current_term.head_teacher_message }}</textarea>
+                    <p class="text-[11px] text-base-content/40 mt-1 px-1">Shown on every report card for the current term ({{ current_term.name|default:"no current term set" }}). Leave blank to hide.</p>
+                </div>
 
                 <!-- Student Info Group -->
                 <div class="rounded-lg border border-base-200 overflow-hidden">

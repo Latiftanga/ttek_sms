@@ -32,6 +32,15 @@
                 <span class="font-semibold text-sm truncate">{{ school_settings.rc_display_name }}</span>
             </div>
             {% endif %}
+            {% if current_term.head_teacher_message %}
+            <div class="flex items-start gap-2 p-2.5 rounded-lg bg-primary/5 border border-primary/10">
+                <i class="fa-solid fa-bullhorn text-primary text-xs mt-0.5"></i>
+                <div class="min-w-0">
+                    <span class="text-xs text-base-content/60">Head Teacher's Message:</span>
+                    <p class="font-semibold text-sm">{{ current_term.head_teacher_message|truncatewords:20 }}</p>
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Grouped Settings -->

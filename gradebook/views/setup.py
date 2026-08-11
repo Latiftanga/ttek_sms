@@ -10,7 +10,7 @@ from .base import admin_required, htmx_render, toast_redirect
 from ..models import (
     GradingSystem, GradeScale, AssessmentCategory
 )
-from core.models import SchoolSettings
+from core.models import SchoolSettings, Term
 
 
 def _get_school_levels():
@@ -64,6 +64,7 @@ def gradebook_settings(request):
         'categories': categories,
         'total_percentage': total_percentage,
         'school_settings': school_settings,
+        'current_term': Term.get_current(),
         # Navigation
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},
@@ -104,7 +105,19 @@ def report_card_config_update(request):
     school_settings.rc_show_qr_code = 'rc_show_qr_code' in request.POST
     school_settings.save()
 
-    context = {'school_settings': school_settings, 'rc_success': True}
+    # head_teacher_message lives on Term, not SchoolSettings - it's a
+    # per-term note (e.g. a reopening date), not a permanent display
+    # setting, so it can't be saved onto the singleton school_settings row.
+    current_term = Term.get_current()
+    if current_term is not None:
+        current_term.head_teacher_message = request.POST.get('head_teacher_message', '').strip()
+        current_term.save(update_fields=['head_teacher_message'])
+
+    context = {
+        'school_settings': school_settings,
+        'current_term': current_term,
+        'rc_success': True,
+    }
     return render(request, 'gradebook/partials/card_report.html', context)
 
 

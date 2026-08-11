@@ -259,17 +259,11 @@ class TermForm(forms.ModelForm):
 
     class Meta:
         model = Term
-        fields = [
-            'academic_year', 'name', 'term_number', 'start_date', 'end_date',
-            'is_current', 'school_days', 'head_teacher_message',
-        ]
+        fields = ['academic_year', 'name', 'term_number', 'start_date', 'end_date', 'is_current', 'school_days']
         widgets = {
             'name': forms.TextInput(attrs={'placeholder': 'e.g., First Term'}),
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
-            'head_teacher_message': forms.Textarea(attrs={
-                'rows': 3, 'placeholder': 'e.g., School reopens Monday, January 12th.'
-            }),
         }
 
     def __init__(self, *args, period_type='term', **kwargs):
@@ -286,7 +280,6 @@ class TermForm(forms.ModelForm):
         self.fields['end_date'].label = 'End Date'
         self.fields['is_current'].label = 'Set as Current'
         self.fields['school_days'].label = 'Working Days'
-        self.fields['head_teacher_message'].label = "Head Teacher's Message"
         self.fields['use_custom_school_days'].label = f'Use custom working days for this {period_label.lower()}'
 
         # school_days is a raw CSV string on the model; the form field

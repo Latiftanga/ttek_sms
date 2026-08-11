@@ -1530,3 +1530,58 @@ class HeadTeacherMessageOnReportCardTests(ReportCardsStatusFilterTestCase):
         response = self.client.get(reverse('gradebook:download_report_pdf', args=[self.active_student_1.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get('Content-Type'), 'application/pdf')
+
+
+class ReportCardConfigUpdateHeadTeacherMessageTests(ReportCardsStatusFilterTestCase):
+    """
+    head_teacher_message is edited from the Report Card Settings modal
+    (gradebook/settings) alongside the other rc_* display config, even
+    though - unlike those - it's saved onto the current Term rather than
+    the SchoolSettings singleton, since it's a per-term note rather than a
+    permanent display setting.
+    """
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()  # Term.get_current() caches per-tenant for 1h
+        self.addCleanup(cache.clear)
+        self.client.login(email='admin@school.com', password='testpass123')
+
+    def _post(self, **overrides):
+        data = {'rc_title': 'Terminal Report Card', 'rc_display_name': ''}
+        data.update(overrides)
+        return self.client.post(reverse('gradebook:report_card_config_update'), data)
+
+    def test_settings_page_shows_the_textarea_prefilled(self):
+        self.term.head_teacher_message = 'Congratulations on a great term!'
+        self.term.save(update_fields=['head_teacher_message'])
+
+        response = self.client.get(reverse('gradebook:settings'))
+        self.assertContains(response, 'name="head_teacher_message"')
+        self.assertContains(response, 'Congratulations on a great term!')
+
+    def test_posting_a_message_saves_it_to_the_current_term(self):
+        response = self._post(head_teacher_message='School reopens Monday, January 12th.')
+        self.assertEqual(response.status_code, 200)
+
+        self.term.refresh_from_db()
+        self.assertEqual(self.term.head_teacher_message, 'School reopens Monday, January 12th.')
+
+    def test_posting_blank_clears_an_existing_message(self):
+        self.term.head_teacher_message = 'Old message'
+        self.term.save(update_fields=['head_teacher_message'])
+
+        self._post(head_teacher_message='')
+
+        self.term.refresh_from_db()
+        self.assertEqual(self.term.head_teacher_message, '')
+
+    def test_does_not_touch_message_when_no_current_term(self):
+        """A tenant with no current term set shouldn't crash saving the
+        rest of the report card config."""
+        self.term.is_current = False
+        self.term.save(update_fields=['is_current'])
+        cache.clear()
+
+        response = self._post(head_teacher_message='Should be ignored, no current term')
+        self.assertEqual(response.status_code, 200)
