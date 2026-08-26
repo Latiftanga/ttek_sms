@@ -22,7 +22,7 @@ from academics.models import (
     Subject, Class, Programme, ClassSubject, StudentSubjectEnrollment,
     AttendanceSession, AttendanceRecord, Period, TimetableEntry,
 )
-from core.models import AcademicYear, Term
+from core.models import AcademicYear, Term, SchoolHoliday, HolidayCategory
 from students.models import Student, Guardian, Enrollment
 
 
@@ -1223,6 +1223,79 @@ class TermAttendanceStatsTests(GradebookTenantTestCase):
             report.attendance_percentage,
             round(Decimal(str(expected['days_present'])) / Decimal(str(expected['total_school_days'])) * 100, 2)
         )
+
+    def test_holiday_breakdown_counted_by_category(self):
+        """
+        holiday_breakdown tallies excluded days by category over the same
+        range used for total_school_days, so total_school_days + sum of
+        the breakdown reconstructs the full weekday-pattern range.
+        """
+        from core.utils import get_holiday_dates_with_category
+
+        # Already seeded by core migrations for every schema - get-or-create.
+        public_holiday, _ = HolidayCategory.objects.get_or_create(name='Public Holiday')
+        weather, _ = HolidayCategory.objects.get_or_create(name='Weather Closure')
+        SchoolHoliday.objects.create(
+            name='Founders Day', date=date(2024, 9, 4), category=public_holiday,
+        )
+        SchoolHoliday.objects.create(
+            name='Storm', date=date(2024, 9, 10), category=weather,
+        )
+
+        valid_days = self._valid_days()
+        self.assertEqual(len(valid_days), 8)  # 10 weekdays minus the 2 holidays
+
+        holiday_dates = get_holiday_dates_with_category(
+            self.term.start_date, self.term.end_date, term=self.term
+        )
+
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=valid_days[0],
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        stats = compute_term_attendance_stats(
+            self.klass, valid_days, [self.student.id], holiday_dates
+        )
+        att = stats[self.student.id]
+        self.assertEqual(att['holiday_breakdown'], {'Public Holiday': 1, 'Weather Closure': 1})
+        self.assertEqual(att['total_school_days'] + sum(att['holiday_breakdown'].values()), 10)
+
+    def test_holiday_breakdown_respects_mid_term_transfer_window(self):
+        """
+        A holiday that fell before a genuinely mid-term-transferred
+        student's window must not count against them - holiday_breakdown
+        is windowed the same way total_school_days already is.
+        """
+        from core.utils import get_holiday_dates_with_category
+
+        public_holiday, _ = HolidayCategory.objects.get_or_create(name='Public Holiday')
+        candidate_days = self._valid_days()  # before adding the holiday
+        early_holiday_date = candidate_days[0]
+        SchoolHoliday.objects.create(
+            name='Early Holiday', date=early_holiday_date, category=public_holiday,
+        )
+
+        valid_days = self._valid_days()  # now excludes early_holiday_date
+        join_date = valid_days[2]  # a later valid day, after the holiday
+        self.student.admission_date = join_date
+        self.student.save(update_fields=['admission_date'])
+
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=join_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        holiday_dates = get_holiday_dates_with_category(
+            self.term.start_date, self.term.end_date, term=self.term
+        )
+        stats = compute_term_attendance_stats(
+            self.klass, valid_days, [self.student.id], holiday_dates
+        )
+        att = stats[self.student.id]
+        self.assertEqual(att['holiday_breakdown'], {})
 
 
 class AssignmentCreateLimitTests(GradebookTenantTestCase):

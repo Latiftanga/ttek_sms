@@ -9,6 +9,7 @@ from django_tenants.test.cases import TenantTestCase
 
 from core.models import (
     AcademicYear, Term, SchoolSettings,
+    SchoolHoliday, HolidayCategory,
     DocumentVerification, generate_verification_code, hex_to_oklch_values,
 )
 
@@ -343,6 +344,60 @@ class GetValidSchoolDaysTests(TenantTestCase):
         self.assertFalse(is_valid_school_day(friday, term=unrelated_term))
         # A hint that DOES cover the date is used directly (no extra lookup).
         self.assertTrue(is_valid_school_day(monday, term=covering_term))
+
+
+class GetHolidayDatesWithCategoryTests(TenantTestCase):
+    """Tests for core.utils.get_holiday_dates_with_category - the
+    breakdown counterpart to get_valid_school_days used to show
+    "Public Holidays: 5, Weather Closure: 3" on report cards."""
+
+    def setUp(self):
+        cache.clear()
+        SchoolSettings.objects.all().delete()
+        settings = SchoolSettings.load()
+        settings.school_days = '1,2,3,4,5'  # Mon-Fri
+        settings.save()
+        # These two categories are already seeded by the core migrations
+        # (0027_add_holiday_category) for every schema, so get-or-create
+        # rather than assume the table starts empty.
+        self.public_holiday, _ = HolidayCategory.objects.get_or_create(name='Public Holiday')
+        self.weather_closure, _ = HolidayCategory.objects.get_or_create(name='Weather Closure')
+
+    def test_excludes_weekends_and_only_lists_actual_holidays(self):
+        from core.utils import get_holiday_dates_with_category
+        # Sept 2-8, 2024: Mon-Sun (no term -> falls back to global Mon-Fri).
+        # A Saturday holiday shouldn't appear - it was never a school day.
+        SchoolHoliday.objects.create(
+            name='Weekend Fair', date=date(2024, 9, 7), category=self.public_holiday,
+        )
+        SchoolHoliday.objects.create(
+            name='Founders Day', date=date(2024, 9, 4), category=self.public_holiday,
+        )
+        breakdown = get_holiday_dates_with_category(date(2024, 9, 2), date(2024, 9, 8))
+        self.assertEqual(breakdown, {date(2024, 9, 4): 'Public Holiday'})
+
+    def test_category_is_attached_per_date(self):
+        from core.utils import get_holiday_dates_with_category
+        SchoolHoliday.objects.create(
+            name='Republic Day', date=date(2024, 9, 3), category=self.public_holiday,
+        )
+        SchoolHoliday.objects.create(
+            name='Storm Closure', date=date(2024, 9, 5), category=self.weather_closure,
+        )
+        breakdown = get_holiday_dates_with_category(date(2024, 9, 2), date(2024, 9, 6))
+        self.assertEqual(breakdown, {
+            date(2024, 9, 3): 'Public Holiday',
+            date(2024, 9, 5): 'Weather Closure',
+        })
+
+    def test_recurring_annual_holiday_matched_by_month_day(self):
+        from core.utils import get_holiday_dates_with_category
+        SchoolHoliday.objects.create(
+            name='Independence Day', date=date(2020, 9, 2),
+            category=self.public_holiday, recurring_annually=True,
+        )
+        breakdown = get_holiday_dates_with_category(date(2024, 9, 2), date(2024, 9, 2))
+        self.assertEqual(breakdown, {date(2024, 9, 2): 'Public Holiday'})
 
 
 class SchoolSettingsModelTests(TenantTestCase):

@@ -100,4 +100,6 @@ urlpatterns = [
     path('timetable/school-days/', views.update_school_days, name='update_school_days'),
     path('timetable/holiday/create/', views.holiday_create, name='holiday_create'),
     path('timetable/holiday/<int:pk>/delete/', views.holiday_delete, name='holiday_delete'),
+    path('timetable/holiday-category/create/', views.holiday_category_create, name='holiday_category_create'),
+    path('timetable/holiday-category/<int:pk>/delete/', views.holiday_category_delete, name='holiday_category_delete'),
 ]

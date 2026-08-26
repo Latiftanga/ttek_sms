@@ -804,7 +804,7 @@ def attendance_reports(request):
     # Valid school days in the selected range (working weekdays minus
     # holidays/closures) - the real denominator for a rate, instead of
     # however many AttendanceRecord rows happen to exist.
-    from core.utils import get_valid_school_days
+    from core.utils import get_valid_school_days, get_holiday_dates_with_category
     try:
         date_from_obj = datetime.fromisoformat(date_from).date()
         date_to_obj = datetime.fromisoformat(date_to).date()
@@ -813,6 +813,14 @@ def attendance_reports(request):
         date_to_obj = today
     valid_days = get_valid_school_days(date_from_obj, date_to_obj)
     valid_days_count = len(valid_days)
+
+    # Breakdown of *why* days in this range were excluded (Public Holiday,
+    # Weather Closure, etc.) - school-wide, so no per-student windowing is
+    # needed here (unlike the report-card calculation).
+    holiday_breakdown = defaultdict(int)
+    for category in get_holiday_dates_with_category(date_from_obj, date_to_obj).values():
+        holiday_breakdown[category] += 1
+    holiday_breakdown = dict(holiday_breakdown)
 
     # Filter classes based on user role
     allowed_ids = _get_teacher_allowed_class_ids(user)
@@ -1162,6 +1170,7 @@ def attendance_reports(request):
             'rate': attendance_rate,
         },
         'class_summary': class_summary,
+        'holiday_breakdown': holiday_breakdown,
         'daily_data': daily_data,
         'low_attendance_students': low_attendance_students,
         'trend_data': trend_data,

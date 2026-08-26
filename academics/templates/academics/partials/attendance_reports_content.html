@@ -290,6 +290,22 @@
         </div>
     </div>
 
+    {% if holiday_breakdown %}
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+        <div class="card-body p-4">
+            <h2 class="font-bold flex items-center gap-2 mb-2 text-sm">
+                <i class="fa-solid fa-umbrella-beach text-error"></i>
+                Excluded Days in This Range
+            </h2>
+            <div class="flex flex-wrap gap-2">
+                {% for label, count in holiday_breakdown.items %}
+                <span class="badge badge-ghost">{{ label }}: {{ count }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Trend Chart - Full Width -->
     {% if trend_data %}
     <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">

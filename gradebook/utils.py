@@ -1136,7 +1136,7 @@ def recalc_and_rerank_term_reports(student_ids, term):
 _ATTENDANCE_STATUS_PRIORITY = {'P': 0, 'L': 1, 'E': 2, 'A': 3}
 
 
-def compute_term_attendance_stats(class_obj, valid_days, student_ids):
+def compute_term_attendance_stats(class_obj, valid_days, student_ids, holiday_dates=None):
     """
     Per-student day-level attendance tally over `valid_days` for `class_obj`.
 
@@ -1174,14 +1174,20 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids):
         class_obj: Class instance attendance sessions belong to
         valid_days: sorted list of date objects (real school days in range)
         student_ids: iterable of student IDs to compute stats for
+        holiday_dates: optional {date: category_name} for the same range
+            (from core.utils.get_holiday_dates_with_category) - tallied per
+            student into 'holiday_breakdown' using the same window as
+            total_school_days, so "total_school_days + sum(holiday_breakdown
+            .values())" stays a consistent count of would-be school days
+            even for a mid-term transfer.
 
     Returns:
         dict[int, dict]: {student_id: {'days_present', 'days_absent',
-        'days_excused', 'times_late', 'total_school_days'}}. Students with
-        zero records anywhere in valid_days are omitted entirely - callers
-        should treat "missing" as "no data" (matches existing report-card
-        template behavior of hiding the attendance section rather than
-        showing a misleading 0%).
+        'days_excused', 'times_late', 'total_school_days',
+        'holiday_breakdown'}}. Students with zero records anywhere in
+        valid_days are omitted entirely - callers should treat "missing" as
+        "no data" (matches existing report-card template behavior of hiding
+        the attendance section rather than showing a misleading 0%).
     """
     from academics.models import AttendanceRecord
     from students.models import Student
@@ -1189,6 +1195,7 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids):
     if not valid_days:
         return {}
 
+    holiday_dates = holiday_dates or {}
     student_ids = list(student_ids)
     admission_dates = dict(
         Student.objects.filter(id__in=student_ids).values_list('id', 'admission_date')
@@ -1232,11 +1239,17 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids):
             [d for d in valid_days if d >= earliest_date[student_id]]
             if is_real_transfer else valid_days
         )
+        lower_bound = earliest_date[student_id] if is_real_transfer else None
+        holiday_breakdown = defaultdict(int)
+        for d, category in holiday_dates.items():
+            if lower_bound is None or d >= lower_bound:
+                holiday_breakdown[category] += 1
         result[student_id] = {
             'days_present': t['days_present'],
             'days_absent': t['days_absent'],
             'days_excused': t['days_excused'],
             'times_late': late_counts.get(student_id, 0),
             'total_school_days': len(window),
+            'holiday_breakdown': dict(holiday_breakdown),
         }
     return result

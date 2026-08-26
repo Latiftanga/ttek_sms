@@ -107,7 +107,7 @@
                   hx-post="{% url 'academics:holiday_create' %}"
                   hx-target="#card-holidays"
                   hx-swap="outerHTML"
-                  hx-on::after-request="if(event.detail.successful) document.getElementById('modal_holiday').close()">
+                  hx-on::after-request="if(event.detail.successful) { document.getElementById('modal_holiday').close(); document.getElementById('holiday-end-date').value=''; document.getElementById('holiday-recurring-field').classList.remove('hidden'); }">
                 {% csrf_token %}
                 <div class="space-y-4">
                     <div class="form-control">
@@ -120,6 +120,30 @@
                         <input type="date" name="date" class="input input-bordered input-sm w-full" required />
                     </div>
                     <div class="form-control">
+                        <label class="label">
+                            <span class="label-text text-sm font-medium">End Date</span>
+                            <span class="label-text-alt text-base-content/50">optional</span>
+                        </label>
+                        <input type="date" name="end_date" id="holiday-end-date"
+                               class="input input-bordered input-sm w-full"
+                               oninput="document.getElementById('holiday-recurring-field').classList.toggle('hidden', this.value !== '')" />
+                        <p class="text-xs text-base-content/50 mt-1">For a multi-day break - adds every day in the range</p>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text text-sm font-medium">Category</span></label>
+                        <select id="holiday-category-select" name="category"
+                                class="select select-bordered select-sm w-full" required>
+                            <option value="" disabled {% if not holiday_categories %}selected{% endif %}>Select category</option>
+                            {% for category in holiday_categories %}
+                            <option value="{{ category.pk }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-ghost btn-xs mt-1 self-start"
+                                onclick="document.getElementById('modal_holiday_categories').showModal()">
+                            <i class="fa-solid fa-gear text-xs"></i> Manage categories
+                        </button>
+                    </div>
+                    <div class="form-control" id="holiday-recurring-field">
                         <label class="label cursor-pointer justify-start gap-3">
                             <input type="checkbox" name="recurring_annually" class="checkbox checkbox-sm" />
                             <div>
@@ -130,9 +154,35 @@
                     </div>
                 </div>
                 <div class="modal-action">
-                    <button type="button" class="btn btn-sm" onclick="document.getElementById('modal_holiday').close()">Cancel</button>
+                    <button type="button" class="btn btn-sm"
+                            onclick="document.getElementById('modal_holiday').close(); document.getElementById('holiday-end-date').value=''; document.getElementById('holiday-recurring-field').classList.remove('hidden');">Cancel</button>
                     <button type="submit" class="btn btn-sm btn-primary">Add Holiday</button>
                 </div>
+            </form>
+        </div>
+    </dialog>
+
+    <!-- Manage Holiday Categories Modal -->
+    <dialog id="modal_holiday_categories" class="modal modal-middle">
+        <div class="modal-box max-w-sm">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">&#x2715;</button>
+            </form>
+            <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-tags text-primary"></i>
+                Holiday Categories
+            </h3>
+            {% include "academics/partials/card_holiday_categories.html" with categories=holiday_categories %}
+            <form method="post"
+                  action="{% url 'academics:holiday_category_create' %}"
+                  hx-post="{% url 'academics:holiday_category_create' %}"
+                  hx-target="#holiday-categories-list"
+                  hx-swap="outerHTML"
+                  class="flex gap-2 mt-3">
+                {% csrf_token %}
+                <input type="text" name="name" class="input input-bordered input-sm flex-1"
+                       placeholder="e.g., Cultural Day" required maxlength="50" />
+                <button type="submit" class="btn btn-sm btn-primary">Add</button>
             </form>
         </div>
     </dialog>

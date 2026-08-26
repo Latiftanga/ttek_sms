@@ -1094,6 +1094,11 @@ class TermReport(models.Model):
         blank=True,
         help_text='Number of times student was late in the term'
     )
+    holiday_breakdown = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Snapshot of excluded-day counts by category for the term, e.g. {"Public Holiday": 5, "Weather Closure": 3}'
+    )
 
     # Promotion (for final term)
     promoted = models.BooleanField(
@@ -1192,7 +1197,7 @@ class TermReport(models.Model):
         out of sync with each other.
         """
         from django.utils import timezone
-        from core.utils import get_valid_school_days
+        from core.utils import get_valid_school_days, get_holiday_dates_with_category
         from .utils import compute_term_attendance_stats
 
         # Get student's current class
@@ -1210,7 +1215,8 @@ class TermReport(models.Model):
         if not valid_days:
             return
 
-        stats = compute_term_attendance_stats(current_class, valid_days, [self.student_id])
+        holiday_dates = get_holiday_dates_with_category(self.term.start_date, period_end, term=self.term)
+        stats = compute_term_attendance_stats(current_class, valid_days, [self.student_id], holiday_dates)
         att = stats.get(self.student_id)
         if not att or att['total_school_days'] == 0:
             return
@@ -1220,6 +1226,7 @@ class TermReport(models.Model):
         self.days_excused = att['days_excused']
         self.times_late = att['times_late']
         self.total_school_days = att['total_school_days']
+        self.holiday_breakdown = att['holiday_breakdown']
         self.attendance_percentage = round(
             (Decimal(str(self.days_present)) / Decimal(str(self.total_school_days))) * 100,
             2

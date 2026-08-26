@@ -544,3 +544,47 @@ def get_valid_school_days(start_date, end_date, term=None):
 def count_valid_school_days(start_date, end_date, term=None):
     """Count of valid school days in [start_date, end_date] inclusive."""
     return len(get_valid_school_days(start_date, end_date, term=term))
+
+
+def get_holiday_dates_with_category(start_date, end_date, term=None):
+    """
+    Return {date: category_name} for every date in [start_date, end_date]
+    that would otherwise be a school day (passes is_valid_school_day()) but
+    is excluded by a SchoolHoliday - e.g. for a report-card breakdown of
+    "Public Holidays: 5, Weather Closure: 3". Ordinary non-school days
+    (weekends, or days outside a term's school_days pattern) aren't
+    holidays and are never included here.
+
+    Mirrors the candidate-building in get_valid_school_days() above -
+    duplicated rather than shared since the two return different things
+    (valid days vs. excluded-with-reason) and both are simple enough that
+    factoring out a shared helper would cost more readability than it saves.
+    """
+    from datetime import timedelta
+    from core.models import SchoolHoliday, Term
+
+    if start_date > end_date:
+        return {}
+
+    if term and term.start_date <= start_date and end_date <= term.end_date:
+        terms = [term]
+    else:
+        terms = list(Term.objects.filter(
+            start_date__lte=end_date, end_date__gte=start_date
+        ).only('start_date', 'end_date', 'school_days'))
+
+    def _covering_term(d):
+        for t in terms:
+            if t.start_date <= d <= t.end_date:
+                return t
+        return None
+
+    candidates = [
+        start_date + timedelta(days=i)
+        for i in range((end_date - start_date).days + 1)
+    ]
+    candidates = [d for d in candidates if is_valid_school_day(d, term=_covering_term(d))]
+    if not candidates:
+        return {}
+
+    return SchoolHoliday.get_holiday_dates_with_category(candidates)

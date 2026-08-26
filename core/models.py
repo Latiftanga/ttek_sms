@@ -908,6 +908,25 @@ class Notification(models.Model):
         return count
 
 
+class HolidayCategory(models.Model):
+    """
+    School-defined reason a day is excluded from attendance - e.g. Public
+    Holiday, Weather Closure, Cultural Day. A lookup table rather than a
+    hardcoded choices list, so a school can add whatever categories fit
+    their own calendar without a code change.
+    """
+    name = models.CharField(max_length=50, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Holiday Category"
+        verbose_name_plural = "Holiday Categories"
+
+    def __str__(self):
+        return self.name
+
+
 class SchoolHoliday(models.Model):
     """
     School holidays/closures when attendance should not be taken.
@@ -915,6 +934,12 @@ class SchoolHoliday(models.Model):
     """
     name = models.CharField(max_length=100, help_text="e.g., Republic Day, Farmers' Day")
     date = models.DateField(db_index=True)
+    category = models.ForeignKey(
+        HolidayCategory,
+        on_delete=models.PROTECT,
+        related_name='holidays',
+        help_text="Why attendance isn't taken this day - shown as a breakdown on report cards.",
+    )
     recurring_annually = models.BooleanField(
         default=False,
         help_text="If true, this holiday applies every year on the same month/day."
@@ -962,6 +987,32 @@ class SchoolHoliday(models.Model):
                     and h.date.day == d.day
                 ):
                     result.add(d)
+                    break
+        return result
+
+    @classmethod
+    def get_holiday_dates_with_category(cls, dates):
+        """
+        Like get_holiday_dates(), but returns {date: category_name} instead
+        of a bare set, for callers that need to know *why* each date was
+        excluded (e.g. a term report's Public Holiday vs Weather Closure
+        breakdown).
+        """
+        if not dates:
+            return {}
+        all_holidays = list(
+            cls.objects.select_related('category')
+            .only('date', 'recurring_annually', 'category__name')
+        )
+        result = {}
+        for d in dates:
+            for h in all_holidays:
+                if h.date == d or (
+                    h.recurring_annually
+                    and h.date.month == d.month
+                    and h.date.day == d.day
+                ):
+                    result[d] = h.category.name
                     break
         return result
 

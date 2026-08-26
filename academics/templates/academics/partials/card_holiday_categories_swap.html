@@ -1,0 +1,7 @@
+{% include "academics/partials/card_holiday_categories.html" %}
+<select id="holiday-category-select" hx-swap-oob="innerHTML">
+    <option value="" disabled {% if not categories %}selected{% endif %}>Select category</option>
+    {% for category in categories %}
+    <option value="{{ category.pk }}">{{ category.name }}</option>
+    {% endfor %}
+</select>

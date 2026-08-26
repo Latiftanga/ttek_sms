@@ -13,12 +13,13 @@ from .base import admin_required
 @admin_required
 def timetable_index(request):
     """Timetable overview - select a class to view/edit."""
-    from core.models import SchoolSettings, SchoolHoliday
+    from core.models import SchoolSettings, SchoolHoliday, HolidayCategory
 
     classes = Class.objects.filter(is_active=True).order_by('level_number', 'name')
     periods_count = Period.objects.filter(is_active=True).count()
     school_settings = SchoolSettings.load()
-    holidays = SchoolHoliday.objects.all()
+    holidays = SchoolHoliday.objects.select_related('category').all()
+    holiday_categories = HolidayCategory.objects.all()
 
     # Build weekday choices with active state
     weekday_labels = {1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'}
@@ -33,6 +34,7 @@ def timetable_index(request):
         'periods_count': periods_count,
         'active_tab': 'timetable',
         'holidays': holidays,
+        'holiday_categories': holiday_categories,
         'weekday_config': weekday_config,
         'school_settings': school_settings,
     }
@@ -463,13 +465,22 @@ def holiday_create(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    from core.models import SchoolHoliday
+    from datetime import timedelta
+    from core.models import SchoolHoliday, HolidayCategory
     name = request.POST.get('name', '').strip()
     date_str = request.POST.get('date', '')
+    end_date_str = request.POST.get('end_date', '').strip()
     recurring = request.POST.get('recurring_annually') == 'on'
+    category_id = request.POST.get('category')
 
-    if not name or not date_str:
-        messages.error(request, 'Name and date are required.')
+    if not name or not date_str or not category_id:
+        messages.error(request, 'Name, date, and category are required.')
+        return redirect('academics:timetable')
+
+    try:
+        category = HolidayCategory.objects.get(pk=category_id)
+    except (HolidayCategory.DoesNotExist, ValueError):
+        messages.error(request, 'Invalid holiday category.')
         return redirect('academics:timetable')
 
     try:
@@ -479,15 +490,54 @@ def holiday_create(request):
         messages.error(request, 'Invalid date format.')
         return redirect('academics:timetable')
 
-    if SchoolHoliday.objects.filter(date=holiday_date).exists():
-        messages.warning(request, f'A holiday already exists on {holiday_date.strftime("%b %d, %Y")}.')
+    # A multi-day range (e.g. a mid-term break) that moves every year can't
+    # sensibly "repeat annually" on a fixed month/day, so a range always
+    # wins over the checkbox regardless of what was posted.
+    end_date = None
+    if end_date_str:
+        try:
+            end_date = dt.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, 'Invalid end date format.')
+            return redirect('academics:timetable')
+
+        if end_date < holiday_date:
+            messages.error(request, 'End date must be on or after the start date.')
+            return redirect('academics:timetable')
+
+        span_days = (end_date - holiday_date).days + 1
+        if span_days > 60:
+            messages.error(request, 'That range is too long (max 60 days) - check your dates.')
+            return redirect('academics:timetable')
+
+        recurring = False
+
+    range_dates = (
+        [holiday_date + timedelta(days=i) for i in range((end_date - holiday_date).days + 1)]
+        if end_date else [holiday_date]
+    )
+
+    existing = SchoolHoliday.objects.filter(date__in=range_dates).order_by('date')
+    if existing.exists():
+        conflicts = ', '.join(d.strftime('%b %d, %Y') for d in existing.values_list('date', flat=True))
+        messages.warning(request, f'A holiday already exists on: {conflicts}.')
         return redirect('academics:timetable')
 
-    SchoolHoliday.objects.create(name=name, date=holiday_date, recurring_annually=recurring)
-    messages.success(request, f'{name} added as a school holiday.')
+    SchoolHoliday.objects.bulk_create([
+        SchoolHoliday(name=name, date=d, recurring_annually=recurring, category=category)
+        for d in range_dates
+    ])
+    if len(range_dates) > 1:
+        messages.success(
+            request,
+            f'{name} added as a school holiday for {len(range_dates)} days '
+            f'({holiday_date.strftime("%b %d")} - {end_date.strftime("%b %d, %Y")}).'
+        )
+    else:
+        messages.success(request, f'{name} added as a school holiday.')
 
     if request.htmx:
-        holidays = SchoolHoliday.objects.all()
+        holidays = SchoolHoliday.objects.select_related('category').all()
         return render(request, 'academics/partials/card_holidays.html', {'holidays': holidays})
     return redirect('academics:timetable')
 
@@ -503,6 +553,53 @@ def holiday_delete(request, pk):
     messages.success(request, f'{name} removed.')
 
     if request.htmx:
-        holidays = SchoolHoliday.objects.all()
+        holidays = SchoolHoliday.objects.select_related('category').all()
         return render(request, 'academics/partials/card_holidays.html', {'holidays': holidays})
+    return redirect('academics:timetable')
+
+
+@login_required
+@admin_required
+def holiday_category_create(request):
+    """Add a new holiday category (e.g. Weather Closure, Cultural Day)."""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    from core.models import HolidayCategory
+    name = request.POST.get('name', '').strip()
+
+    if not name:
+        messages.error(request, 'Category name is required.')
+        return redirect('academics:timetable')
+
+    if HolidayCategory.objects.filter(name__iexact=name).exists():
+        messages.warning(request, f'"{name}" already exists.')
+        return redirect('academics:timetable')
+
+    HolidayCategory.objects.create(name=name)
+    messages.success(request, f'"{name}" added.')
+
+    if request.htmx:
+        categories = HolidayCategory.objects.all()
+        return render(request, 'academics/partials/card_holiday_categories_swap.html', {'categories': categories})
+    return redirect('academics:timetable')
+
+
+@login_required
+@admin_required
+def holiday_category_delete(request, pk):
+    """Remove a holiday category, if no holiday still uses it."""
+    from django.db.models import ProtectedError
+    from core.models import HolidayCategory
+    category = get_object_or_404(HolidayCategory, pk=pk)
+    name = category.name
+    try:
+        category.delete()
+        messages.success(request, f'"{name}" removed.')
+    except ProtectedError:
+        messages.error(request, f'"{name}" is still used by one or more holidays.')
+
+    if request.htmx:
+        categories = HolidayCategory.objects.all()
+        return render(request, 'academics/partials/card_holiday_categories_swap.html', {'categories': categories})
     return redirect('academics:timetable')

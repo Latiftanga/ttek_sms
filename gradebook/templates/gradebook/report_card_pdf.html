@@ -405,6 +405,12 @@
             font-weight: bold;
         }
 
+        .attendance-note {
+            font-size: 6.5pt;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
         /* ===== REMARKS ===== */
         .remarks-table {
             width: 100%;
@@ -830,6 +836,12 @@
                 </td>
             </tr>
         </table>
+        {% if term_report.holiday_breakdown %}
+        <div class="attendance-note">
+            Excluded from Total Days:
+            {% for label, count in term_report.holiday_breakdown.items %}{{ label }}: {{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </div>
+        {% endif %}
         {% endif %}
         {% endif %}
 

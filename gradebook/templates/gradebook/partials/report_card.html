@@ -130,6 +130,12 @@
                 </div>
             </div>
         </div>
+        {% if term_report.holiday_breakdown %}
+        <div class="text-xs text-base-content/50 mt-3">
+            Excluded from Total Days:
+            {% for label, count in term_report.holiday_breakdown.items %}{{ label }}: {{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endif %}

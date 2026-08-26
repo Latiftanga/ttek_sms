@@ -23,7 +23,7 @@ from academics.models import (
 )
 from students.models import Student, Guardian, Enrollment
 from teachers.models import Teacher
-from core.models import AcademicYear, Term, SchoolSettings, SchoolHoliday
+from core.models import AcademicYear, Term, SchoolSettings, SchoolHoliday, HolidayCategory
 from gradebook.models import (
     Assignment, AssessmentCategory, Score, SubjectTermGrade, TermReport
 )
@@ -1620,7 +1620,8 @@ class AttendanceContextExposesMarkedStatusTests(AcademicsTestCase):
         saturday = self.monday - timedelta(days=2)
         # A Monday (otherwise valid) explicitly closed as a holiday.
         holiday_monday = self.monday - timedelta(days=7)
-        SchoolHoliday.objects.create(name='Staff Day', date=holiday_monday)
+        holiday_category = HolidayCategory.objects.create(name='Staff Day Category')
+        SchoolHoliday.objects.create(name='Staff Day', date=holiday_monday, category=holiday_category)
         # Before the term even starts.
         before_term = self.term.start_date - timedelta(days=1)
         # Within the term but after "today" - not yet reachable.
@@ -1924,3 +1925,87 @@ class AttendanceEmptySessionsExcludedFromListsTests(AcademicsTestCase):
         self.assertEqual(row['sessions'], 1)
         self.assertEqual(row['present'], 1)
         self.assertEqual(row['absent'], 1)
+
+
+class HolidayCreateRangeTests(AcademicsTestCase):
+    """Tests for the optional end_date on holiday_create - adding a
+    multi-day mid-term break in one submission instead of one day at a
+    time."""
+
+    def setUp(self):
+        super().setUp()
+        self.category = HolidayCategory.objects.create(name='Mid-Term Break')
+
+    def test_range_creates_one_holiday_per_day(self):
+        resp = self.client.post(reverse('academics:holiday_create'), {
+            'name': 'Mid-Term Break',
+            'date': '2026-09-02',
+            'end_date': '2026-09-06',
+            'category': self.category.pk,
+        })
+        self.assertEqual(resp.status_code, 302)
+        holidays = SchoolHoliday.objects.filter(name='Mid-Term Break').order_by('date')
+        self.assertEqual(list(holidays.values_list('date', flat=True)), [
+            date(2026, 9, 2), date(2026, 9, 3), date(2026, 9, 4),
+            date(2026, 9, 5), date(2026, 9, 6),
+        ])
+        self.assertTrue(all(h.category_id == self.category.pk for h in holidays))
+
+    def test_range_forces_recurring_annually_false(self):
+        self.client.post(reverse('academics:holiday_create'), {
+            'name': 'Mid-Term Break',
+            'date': '2026-09-02',
+            'end_date': '2026-09-03',
+            'category': self.category.pk,
+            'recurring_annually': 'on',
+        })
+        holidays = SchoolHoliday.objects.filter(name='Mid-Term Break')
+        self.assertEqual(holidays.count(), 2)
+        self.assertTrue(all(not h.recurring_annually for h in holidays))
+
+    def test_end_date_before_start_date_is_rejected(self):
+        resp = self.client.post(reverse('academics:holiday_create'), {
+            'name': 'Mid-Term Break',
+            'date': '2026-09-06',
+            'end_date': '2026-09-02',
+            'category': self.category.pk,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(SchoolHoliday.objects.filter(name='Mid-Term Break').exists())
+
+    def test_range_over_60_days_is_rejected(self):
+        resp = self.client.post(reverse('academics:holiday_create'), {
+            'name': 'Mid-Term Break',
+            'date': '2026-09-02',
+            'end_date': '2026-11-10',  # 70 days
+            'category': self.category.pk,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(SchoolHoliday.objects.filter(name='Mid-Term Break').exists())
+
+    def test_range_overlapping_existing_holiday_creates_nothing(self):
+        SchoolHoliday.objects.create(
+            name='Existing', date=date(2026, 9, 4), category=self.category,
+        )
+        resp = self.client.post(reverse('academics:holiday_create'), {
+            'name': 'Mid-Term Break',
+            'date': '2026-09-02',
+            'end_date': '2026-09-06',
+            'category': self.category.pk,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(SchoolHoliday.objects.filter(name='Mid-Term Break').exists())
+        # The pre-existing holiday itself is untouched.
+        self.assertEqual(SchoolHoliday.objects.filter(name='Existing').count(), 1)
+
+    def test_single_day_submission_unaffected(self):
+        resp = self.client.post(reverse('academics:holiday_create'), {
+            'name': 'Founders Day',
+            'date': '2026-09-04',
+            'category': self.category.pk,
+            'recurring_annually': 'on',
+        })
+        self.assertEqual(resp.status_code, 302)
+        holiday = SchoolHoliday.objects.get(name='Founders Day')
+        self.assertEqual(holiday.date, date(2026, 9, 4))
+        self.assertTrue(holiday.recurring_annually)

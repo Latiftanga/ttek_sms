@@ -401,6 +401,12 @@
             text-transform: uppercase;
         }
 
+        .attendance-note {
+            font-size: 6.5pt;
+            color: var(--gray-500);
+            margin-top: 2px;
+        }
+
         .attendance-value {
             font-size: 10pt;
             font-weight: 600;
@@ -868,6 +874,12 @@
                 <div class="attendance-value">{{ term_report.times_late|default:"-" }}</div>
             </div>
         </div>
+        {% if term_report.holiday_breakdown %}
+        <div class="attendance-note">
+            Excluded from Total Days:
+            {% for label, count in term_report.holiday_breakdown.items %}{{ label }}: {{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </div>
+        {% endif %}
         {% endif %}
         {% endif %}
 

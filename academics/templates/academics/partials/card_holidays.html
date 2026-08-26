@@ -29,6 +29,7 @@
                         <div class="font-medium text-sm truncate">{{ holiday.name }}</div>
                         <div class="text-xs text-base-content/50">
                             {{ holiday.date|date:"l, M d, Y" }}
+                            <span class="badge badge-ghost badge-xs ml-1">{{ holiday.category.name }}</span>
                             {% if holiday.recurring_annually %}
                             <span class="badge badge-info badge-xs ml-1">Yearly</span>
                             {% endif %}

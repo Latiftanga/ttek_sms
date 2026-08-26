@@ -292,7 +292,7 @@ def _calculate_term_reports(
     # however many AttendanceSession rows happen to exist. Never count days
     # beyond today for a term still in progress.
     from django.utils import timezone as _timezone
-    from core.utils import get_valid_school_days
+    from core.utils import get_valid_school_days, get_holiday_dates_with_category
     from ..utils import compute_term_attendance_stats
 
     period_end = min(current_term.end_date, _timezone.localdate())
@@ -300,13 +300,17 @@ def _calculate_term_reports(
         get_valid_school_days(current_term.start_date, period_end, term=current_term)
         if period_end >= current_term.start_date else []
     )
+    holiday_dates = (
+        get_holiday_dates_with_category(current_term.start_date, period_end, term=current_term)
+        if period_end >= current_term.start_date else {}
+    )
 
     # total_school_days is computed per-student inside the helper (anchored
     # to each student's earliest attendance record in this class) rather
     # than shared across the whole class, so a mid-term transfer student
     # isn't measured against days before they were even in this class.
     attendance_by_student = (
-        compute_term_attendance_stats(class_obj, valid_days, student_ids_with_subjects)
+        compute_term_attendance_stats(class_obj, valid_days, student_ids_with_subjects, holiday_dates)
         if valid_days else {}
     )
 
@@ -367,6 +371,7 @@ def _calculate_term_reports(
             report.days_absent = att['days_absent']
             report.days_excused = att['days_excused']
             report.times_late = att['times_late']
+            report.holiday_breakdown = att['holiday_breakdown']
             report.attendance_percentage = round(
                 (Decimal(str(att['days_present'])) / Decimal(str(att['total_school_days']))) * 100, 2
             )
@@ -377,6 +382,7 @@ def _calculate_term_reports(
             report.days_excused = None
             report.times_late = None
             report.total_school_days = None
+            report.holiday_breakdown = None
 
         if is_final_term and grading_system:
             is_eligible, reasons = grading_system.check_promotion_eligibility(
@@ -393,7 +399,8 @@ def _calculate_term_reports(
          'subjects_failed', 'credits_count', 'core_subjects_total',
          'core_subjects_passed', 'aggregate', 'promoted',
          'promotion_remarks', 'days_present', 'days_absent', 'days_excused',
-         'total_school_days', 'times_late', 'attendance_percentage'],
+         'total_school_days', 'times_late', 'attendance_percentage',
+         'holiday_breakdown'],
         batch_size=config.BULK_UPDATE_BATCH_SIZE
     )
 
