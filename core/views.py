@@ -4862,12 +4862,17 @@ def ward_detail(request, pk):
             term=current_term
         ).select_related('subject').order_by('subject__name')
 
-    # Get attendance records for current term
+    # Get attendance records for current term. attendance_stats uses the
+    # same day-level, holiday-aware calculation as the report card
+    # (compute_term_attendance_stats) rather than a raw per-record count -
+    # a raw count double-counts per-lesson classes (multiple records per
+    # day), never excludes holiday dates, and treats "Late" as an
+    # additional bucket rather than the subset of "Present" it actually
+    # is. Any of those would show a parent a different attendance rate
+    # here than the one on the actual report card for the same term.
     attendance_records = []
     attendance_stats = {'present': 0, 'absent': 0, 'late': 0, 'excused': 0, 'total': 0}
     if current_term and student.current_class:
-        from django.db.models import Count, Q
-
         sessions = AttendanceSession.objects.filter(
             class_assigned=student.current_class,
             date__gte=current_term.start_date,
@@ -4888,19 +4893,30 @@ def ward_detail(request, pk):
                 'status_display': record.get_status_display() if record else 'Not Recorded'
             })
 
-        # Calculate attendance stats with a single aggregate query
-        attendance_stats = AttendanceRecord.objects.filter(
-            student=student,
-            session__class_assigned=student.current_class,
-            session__date__gte=current_term.start_date,
-            session__date__lte=current_term.end_date
-        ).aggregate(
-            present=Count('id', filter=Q(status='P')),
-            late=Count('id', filter=Q(status='L')),
-            absent=Count('id', filter=Q(status='A')),
-            excused=Count('id', filter=Q(status='E')),
-            total=Count('id'),
-        )
+        # Calculate attendance stats the same way TermReport.calculate_attendance()
+        # does - never counting days beyond today for a term still in progress.
+        from core.utils import get_valid_school_days, get_holiday_dates_with_category
+        from gradebook.utils import compute_term_attendance_stats
+
+        period_end = min(current_term.end_date, timezone.localdate())
+        if period_end >= current_term.start_date:
+            valid_days = get_valid_school_days(current_term.start_date, period_end, term=current_term)
+            if valid_days:
+                holiday_dates = get_holiday_dates_with_category(
+                    current_term.start_date, period_end, term=current_term
+                )
+                stats = compute_term_attendance_stats(
+                    student.current_class, valid_days, [student.id], holiday_dates
+                )
+                att = stats.get(student.id)
+                if att and att['total_school_days'] > 0:
+                    attendance_stats = {
+                        'present': att['days_present'],
+                        'absent': att['days_absent'],
+                        'excused': att['days_excused'],
+                        'late': att['times_late'],
+                        'total': att['total_school_days'],
+                    }
 
     context = {
         'student': student,

@@ -110,10 +110,6 @@
                         <span class="font-medium text-success">{{ attendance_stats.present }}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-base-content/70">Late</span>
-                        <span class="font-medium text-warning">{{ attendance_stats.late }}</span>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
                         <span class="text-base-content/70">Absent</span>
                         <span class="font-medium text-error">{{ attendance_stats.absent }}</span>
                     </div>
@@ -121,15 +117,17 @@
                         <span class="text-base-content/70">Excused</span>
                         <span class="font-medium text-info">{{ attendance_stats.excused }}</span>
                     </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-base-content/70">Times Late</span>
+                        <span class="font-medium text-warning">{{ attendance_stats.late }}</span>
+                    </div>
                     <div class="divider my-2"></div>
                     <div class="flex items-center justify-between text-sm">
                         <span class="font-medium">Attendance Rate</span>
-                        {% with rate=attendance_stats.present|add:attendance_stats.late %}
-                        {% widthratio rate attendance_stats.total 100 as pct %}
+                        {% widthratio attendance_stats.present attendance_stats.total 100 as pct %}
                         <span class="font-bold {% if pct >= 80 %}text-success{% elif pct >= 60 %}text-warning{% else %}text-error{% endif %}">
                             {{ pct }}%
                         </span>
-                        {% endwith %}
                     </div>
                 </div>
             </div>

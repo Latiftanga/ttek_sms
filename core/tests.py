@@ -598,3 +598,103 @@ class TermFormSchoolDaysTests(TenantTestCase):
         form = TermForm(instance=term)
         self.assertTrue(form.fields['use_custom_school_days'].initial)
         self.assertEqual(set(form.fields['school_days'].initial), {'1', '3', '5'})
+
+
+class WardDetailAttendanceStatsTests(TenantTestCase):
+    """
+    core.views.ward_detail's attendance_stats must use the same day-level,
+    holiday-aware calculation (compute_term_attendance_stats) as the
+    report card - not a raw per-AttendanceRecord count, which would never
+    exclude holiday dates and would double-count a per-lesson class's
+    multiple records for the same day.
+    """
+
+    def setUp(self):
+        from django_tenants.test.client import TenantClient
+        from academics.models import Class, AttendanceSession, AttendanceRecord
+        from students.models import Student, Guardian, StudentGuardian
+
+        cache.clear()
+        SchoolSettings.objects.all().delete()
+        settings = SchoolSettings.load()
+        settings.school_days = '1,2,3,4,5'  # Mon-Fri
+        settings.save()
+
+        self.client = TenantClient(self.tenant)
+
+        self.guardian_user = User.objects.create_user(
+            email='guardian@school.com', password='testpass123',
+        )
+        self.client.login(email='guardian@school.com', password='testpass123')
+
+        self.ay = AcademicYear.objects.create(
+            name='2024/2025', start_date=date(2024, 9, 1),
+            end_date=date(2025, 7, 31), is_current=True,
+        )
+        self.term = Term.objects.create(
+            academic_year=self.ay, name='First Term', term_number=1,
+            start_date=date(2024, 9, 2), end_date=date(2024, 9, 13),
+            is_current=True,
+        )
+        self.klass = Class.objects.create(
+            level_type='basic', level_number=1, section='A', name='B1A', is_active=True,
+        )
+        self.student = Student.objects.create(
+            first_name='Ama', last_name='Mensah', admission_number='WD-001',
+            date_of_birth=date(2015, 1, 1), admission_date=date(2024, 9, 1),
+            current_class=self.klass, status=Student.Status.ACTIVE,
+        )
+        guardian = Guardian.objects.create(
+            user=self.guardian_user, full_name='Test Guardian', phone_number='0201234567',
+        )
+        StudentGuardian.objects.create(student=self.student, guardian=guardian, is_primary=True)
+
+        self.AttendanceSession = AttendanceSession
+        self.AttendanceRecord = AttendanceRecord
+
+    def _valid_days(self):
+        from core.utils import get_valid_school_days
+        return get_valid_school_days(self.term.start_date, self.term.end_date, term=self.term)
+
+    def test_holiday_dated_record_excluded_from_stats(self):
+        """A day later marked a holiday must not count toward present/total,
+        even though an AttendanceRecord already exists for it - matching
+        how the report card's own total_school_days excludes it."""
+        valid_days = self._valid_days()
+        holiday_day, normal_day = valid_days[0], valid_days[1]
+
+        for day, status in [(holiday_day, 'P'), (normal_day, 'P')]:
+            session = self.AttendanceSession.objects.create(
+                class_assigned=self.klass, date=day,
+                session_type=self.AttendanceSession.SessionType.DAILY,
+            )
+            self.AttendanceRecord.objects.create(session=session, student=self.student, status=status)
+
+        category, _ = HolidayCategory.objects.get_or_create(name='Public Holiday')
+        SchoolHoliday.objects.create(name='Surprise Closure', date=holiday_day, category=category)
+
+        resp = self.client.get(reverse('core:ward_detail', args=[self.student.pk]))
+        self.assertEqual(resp.status_code, 200)
+        stats = resp.context['attendance_stats']
+        self.assertEqual(stats['present'], 1)  # only normal_day counts
+        self.assertEqual(stats['total'], len(valid_days) - 1)
+
+    def test_late_days_counted_within_present_not_as_extra_bucket(self):
+        """days_present already includes 'Late' days (best-status-wins) -
+        'late' is a supplementary count of how many present days were
+        late, not an additional bucket layered on top of present."""
+        valid_days = self._valid_days()
+        for day, status in zip(valid_days[:4], ['L', 'A', 'E', 'P']):
+            session = self.AttendanceSession.objects.create(
+                class_assigned=self.klass, date=day,
+                session_type=self.AttendanceSession.SessionType.DAILY,
+            )
+            self.AttendanceRecord.objects.create(session=session, student=self.student, status=status)
+
+        resp = self.client.get(reverse('core:ward_detail', args=[self.student.pk]))
+        stats = resp.context['attendance_stats']
+        self.assertEqual(stats['present'], 2)  # 'L' and 'P' both count as present
+        self.assertEqual(stats['absent'], 1)
+        self.assertEqual(stats['excused'], 1)
+        self.assertEqual(stats['late'], 1)
+        self.assertEqual(stats['total'], len(valid_days))
