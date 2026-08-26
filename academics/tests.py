@@ -2009,3 +2009,61 @@ class HolidayCreateRangeTests(AcademicsTestCase):
         holiday = SchoolHoliday.objects.get(name='Founders Day')
         self.assertEqual(holiday.date, date(2026, 9, 4))
         self.assertTrue(holiday.recurring_annually)
+
+
+class AttendanceEditHolidayBlockTests(AcademicsTestCase):
+    """
+    class_attendance_edit must block edits to a session whose date has
+    since been marked a holiday - the same guard class_attendance_take
+    and take_lesson_attendance already apply when creating one, so a day
+    marked out can't quietly keep being edited via the history modal.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()  # Term.get_current() caches per-tenant for 1h
+        self.addCleanup(cache.clear)
+
+        self.klass = self.create_class('basic', 1)
+        self.klass.class_teacher = self.teacher
+        self.klass.save(update_fields=['class_teacher'])
+
+        Term.objects.create(
+            academic_year=self.current_year, name='Term 1', term_number=1,
+            start_date=date(2024, 9, 1), end_date=date(2024, 12, 20),
+            is_current=True,
+        )
+        self.session_date = date(2024, 9, 4)  # Wednesday, within the term
+        self.student = self.create_student('Ama', 'STU-001', class_obj=self.klass)
+
+        self.session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.session_date,
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=self.session, student=self.student, status='P')
+
+    def test_edit_blocked_once_date_is_marked_a_holiday(self):
+        # "Public Holiday" is already seeded by core migrations for every
+        # schema - get-or-create rather than assume the table starts empty.
+        category, _ = HolidayCategory.objects.get_or_create(name='Public Holiday')
+        SchoolHoliday.objects.create(
+            name='Unplanned Closure', date=self.session_date, category=category,
+        )
+
+        response = self.client.post(
+            reverse('academics:class_attendance_edit', args=[self.klass.pk, self.session.pk]),
+            {f'status_{self.student.pk}': 'A'},
+        )
+        self.assertEqual(response.status_code, 302)
+        record = AttendanceRecord.objects.get(session=self.session, student=self.student)
+        self.assertEqual(record.status, 'P')  # unchanged - edit was blocked
+
+    def test_edit_still_allowed_when_date_is_not_a_holiday(self):
+        response = self.client.post(
+            reverse('academics:class_attendance_edit', args=[self.klass.pk, self.session.pk]),
+            {f'status_{self.student.pk}': 'A'},
+        )
+        self.assertEqual(response.status_code, 302)
+        record = AttendanceRecord.objects.get(session=self.session, student=self.student)
+        self.assertEqual(record.status, 'A')  # edit went through

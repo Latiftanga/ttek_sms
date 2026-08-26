@@ -267,11 +267,24 @@ def class_attendance_edit(request, pk, session_pk):
     # (and the past-term-attendance setting) can move on since then - so an
     # existing session from a past term is only editable under the same rule
     # that governs creating one, keeping the two paths consistent.
-    from core.models import Term
+    from core.models import Term, SchoolHoliday
     current_term = Term.get_current()
     term_error = term_date_error(session.date, current_term)
     if term_error:
         return blocked_redirect(request, term_error, 'academics:attendance_reports')
+
+    # The date itself can't have changed since the session was created, but
+    # it may have been marked a holiday since then (e.g. an unplanned
+    # closure declared after the fact) - block further edits the same way
+    # class_attendance_take/take_lesson_attendance already block creating
+    # one, so a day marked out can't quietly keep being edited via history.
+    holiday_name = SchoolHoliday.get_holiday_name(session.date)
+    if holiday_name:
+        return blocked_redirect(
+            request,
+            f'{session.date.strftime("%b %d")} is a holiday ({holiday_name}). Attendance cannot be edited.',
+            'academics:attendance_reports'
+        )
 
     reload_target = resolve_reload_target(request)
     in_tab = request.GET.get('embed') == 'tab' or reload_target == '#tab-attendance'
