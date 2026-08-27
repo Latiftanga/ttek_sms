@@ -614,7 +614,8 @@ class WardDetailAttendanceStatsTests(TenantTestCase):
         from academics.models import Class, AttendanceSession, AttendanceRecord
         from students.models import Student, Guardian, StudentGuardian
 
-        cache.clear()
+        cache.clear()  # Term.get_current() caches per-tenant for 1h
+        self.addCleanup(cache.clear)
         SchoolSettings.objects.all().delete()
         settings = SchoolSettings.load()
         settings.school_days = '1,2,3,4,5'  # Mon-Fri
