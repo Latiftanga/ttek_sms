@@ -42,7 +42,7 @@
     <!-- Head Teacher Remark -->
     <div class="form-control">
         <label class="label">
-            <span class="label-text font-medium">Head Teacher's Remark</span>
+            <span class="label-text font-medium">{{ school.headmaster_title|default:"Head Teacher" }}'s Personal Note</span>
             {% if not can_edit_head_remark %}
             <span class="label-text-alt text-warning">
                 <i class="fa-solid fa-lock text-xs"></i>
@@ -58,7 +58,7 @@
             <textarea name="remark"
                       class="textarea textarea-bordered flex-1 {% if not can_edit_head_remark %}textarea-disabled{% endif %}"
                       rows="3"
-                      placeholder="Enter head teacher's remark..."
+                      placeholder="Enter a personal note for this student..."
                       {% if not can_edit_head_remark %}disabled{% endif %}>{{ term_report.head_teacher_remark }}</textarea>
             {% if can_edit_head_remark %}
             <button type="submit" class="btn btn-primary btn-sm self-end">

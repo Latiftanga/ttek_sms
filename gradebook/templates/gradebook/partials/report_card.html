@@ -233,7 +233,7 @@
             </div>
             <div class="form-control">
                 <label class="label py-1">
-                    <span class="label-text text-xs text-base-content/60">Head Teacher's Remark</span>
+                    <span class="label-text text-xs text-base-content/60">{{ school.headmaster_title|default:"Head Teacher" }}'s Personal Note</span>
                 </label>
                 <div class="p-3 bg-base-200 rounded-lg min-h-16 text-sm">
                     {{ term_report.head_teacher_remark|default:'No remark yet' }}

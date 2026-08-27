@@ -363,6 +363,7 @@ def report_remarks_edit(request, student_id):
             'current_term': current_term,
             'can_edit_class_remark': can_edit_class_remark,
             'can_edit_head_remark': can_edit_head_remark,
+            'school': get_school_context().get('school'),
         })
 
     if request.method != 'POST':
