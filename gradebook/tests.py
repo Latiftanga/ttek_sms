@@ -17,7 +17,7 @@ from .models import (
     Assignment, Score, SubjectTermGrade, TermReport, RemarkTemplate
 )
 from .forms import GradeScaleForm, AssessmentCategoryForm, ScoreForm
-from .utils import compute_term_attendance_stats
+from .utils import compute_term_attendance_stats, calculate_category_scores, compute_report_category_scores
 from academics.models import (
     Subject, Class, Programme, ClassSubject, StudentSubjectEnrollment,
     AttendanceSession, AttendanceRecord, Period, TimetableEntry,
@@ -813,20 +813,123 @@ class SubjectTermGradeCalculationTest(GradebookTenantTestCase):
         subject_grade = SubjectTermGrade(student=self.student, subject=self.subject, term=self.term)
         subject_grade.calculate_scores()
 
-        # CA has two assignments, so each is worth 15% of the final grade (30% / 2)
-        # Assignment 1 contribution: (15/20) * 15 = 11.25
-        # Assignment 2 contribution: (8/10) * 15 = 12.0
-        expected_class_score = Decimal('11.25') + Decimal('12.0') # 23.25
+        # CA has two assignments worth different max points (20 and 10) - a
+        # category's points are pooled (earned/possible) before applying the
+        # category weight, not averaged per-assignment, so an assignment
+        # worth more points counts for more. Pooled: (15+8)/(20+10) = 23/30
+        # = 76.67%, of the 30% category weight = 23.0. (NOT a simple average
+        # of 75% and 80% weighted equally, which would give 23.25 - that was
+        # the bug: it let a low-max-point assignment count as much as a
+        # high-max-point one, and separately dropped an ungraded
+        # assignment's weight instead of excluding it from the pool.)
+        expected_class_score = Decimal('23.0')
 
         # Exam has one assignment, so it's worth 70% of the final grade
         # Exam contribution: (85/100) * 70 = 59.5
         expected_exam_score = Decimal('59.5')
 
-        expected_total_score = expected_class_score + expected_exam_score # 82.75
+        expected_total_score = expected_class_score + expected_exam_score  # 82.5
 
         self.assertAlmostEqual(subject_grade.class_score, expected_class_score, places=2)
         self.assertAlmostEqual(subject_grade.exam_score, expected_exam_score, places=2)
         self.assertAlmostEqual(subject_grade.total_score, expected_total_score, places=2)
+
+
+class CategoryScoreFormulasAgreeTests(GradebookTenantTestCase):
+    """
+    calculate_category_scores() (produces SubjectTermGrade.total_score -
+    the number that actually determines ranking, class average, and
+    promotion) and compute_report_category_scores() (used for report card
+    display) must always agree. They used to use different formulas and
+    disagreed whenever a category had an assignment nobody had scored yet -
+    a report card's category columns didn't sum to its own printed Total.
+    Locks the two together so they can't drift apart again.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.academic_year = AcademicYear.objects.create(
+            name='2024/2025', start_date=date(2024, 9, 1),
+            end_date=date(2025, 7, 31), is_current=True,
+        )
+        self.term = Term.objects.create(
+            academic_year=self.academic_year, name='First Term', term_number=1,
+            start_date=date(2024, 9, 1), end_date=date(2024, 12, 20), is_current=True,
+        )
+        self.student = Student.objects.create(
+            first_name='Test', last_name='Student', admission_number='CSA-001',
+            status='active', date_of_birth=date(2010, 1, 1), admission_date=date(2020, 9, 1),
+        )
+        self.subject = Subject.objects.create(name='Science', short_name='Sci')
+        self.category = AssessmentCategory.objects.create(
+            name='Class Score', short_name='CA', category_type='CLASS_SCORE', percentage=30,
+        )
+
+    def _scores(self, points_possible_list, scored):
+        """
+        Create one Assignment per entry in points_possible_list, score the
+        ones named in `scored` ({index: points}), and return the ranking
+        formula's category score alongside the display formula's, for the
+        exact same underlying data.
+        """
+        assignments = [
+            Assignment.objects.create(
+                assessment_category=self.category, subject=self.subject, term=self.term,
+                name=f'A{i}', points_possible=pts, date=date(2024, 9, 15),
+            )
+            for i, pts in enumerate(points_possible_list)
+        ]
+        for i, points in scored.items():
+            Score.objects.create(student=self.student, assignment=assignments[i], points=points)
+
+        categories = [self.category]
+        assignments_by_subject_category = {(self.subject.id, self.category.id): assignments}
+        scores_lookup = {
+            (s.student_id, s.assignment_id): s
+            for s in Score.objects.filter(student=self.student, assignment__in=assignments)
+        }
+
+        ranking_result = calculate_category_scores(
+            student_id=self.student.id, subject_id=self.subject.id,
+            categories=categories,
+            assignments_by_subject_category=assignments_by_subject_category,
+            scores_lookup=scores_lookup,
+        )
+        ranking_score = ranking_result['category_scores_json'][str(self.category.pk)]['score']
+
+        display_map = compute_report_category_scores(self.student, self.term, categories)
+        display_score = display_map.get(self.subject.id, {}).get(self.category.pk)
+
+        return ranking_score, display_score
+
+    def test_fully_graded_category_agrees(self):
+        """Assignments with different max points, all graded - points are
+        pooled (earned/possible) before applying the category weight, not
+        averaged per-assignment."""
+        ranking, display = self._scores([20, 10], {0: 15, 1: 8})
+        self.assertAlmostEqual(ranking, 23.0, places=2)
+        self.assertAlmostEqual(ranking, display, places=2)
+
+    def test_partially_graded_category_agrees(self):
+        """The exact scenario that exposed the original bug: 2 of 3
+        assignments graded, both at 100% - the ungraded 3rd assignment is
+        excluded from the pool entirely (not treated as a zero), so the
+        category is prorated up to the full 30% weight rather than
+        docked for work that simply hasn't been marked yet."""
+        ranking, display = self._scores([10, 10, 10], {0: 10, 1: 10})
+        self.assertAlmostEqual(ranking, 30.0, places=2)
+        self.assertAlmostEqual(ranking, display, places=2)
+
+    def test_nothing_graded_yet(self):
+        """Nothing scored - both report no contribution. calculate_category_scores
+        represents this as 0.0 (it always emits an entry per category with
+        assignments defined), compute_report_category_scores as None (it
+        only has data for categories with an actual Score row) - these
+        differ in form but are equivalent for summation purposes, since
+        neither contributes anything to a total."""
+        ranking, display = self._scores([10, 10], {})
+        self.assertEqual(ranking, 0.0)
+        self.assertIsNone(display)
 
 
 # ============ cleanup_unenrolled_grades command ============

@@ -151,7 +151,21 @@ def calculate_category_scores(
     """
     Calculate scores by category for a student in a subject.
 
-    This is the core calculation logic shared by models, signals, and views.
+    This is the core calculation logic shared by models, signals, and views -
+    it produces SubjectTermGrade.total_score, the number actually used for
+    ranking, class average, WASSCE aggregate, and promotion eligibility.
+
+    A category is prorated to whatever's been graded so far: an assignment
+    with no Score row yet is excluded from both the earned and possible
+    totals entirely, so a category a teacher hasn't finished marking isn't
+    penalized as if the ungraded portion were a zero. This MUST match
+    compute_report_category_scores() below, which computes the same
+    per-category numbers for report-card display - they used to use
+    different formulas (this one dropped an ungraded assignment's weight
+    entirely instead of excluding it from the denominator too), so a
+    report card's category columns didn't sum to its own printed Total.
+    Keep the two in sync if either changes - see
+    CategoryScoreFormulasAgreeTests in gradebook/tests.py.
 
     Args:
         student_id: The student's ID
@@ -180,17 +194,19 @@ def calculate_category_scores(
         if not cat_assignments:
             continue
 
-        # Calculate weight per assignment
-        assignment_count = len(cat_assignments)
-        weight_per_assignment = Decimal(str(category.percentage)) / Decimal(str(assignment_count))
-        category_total = Decimal('0.0')
-
+        earned = Decimal('0.0')
+        possible = Decimal('0.0')
         for assignment in cat_assignments:
             score = scores_lookup.get((student_id, assignment.id))
-
             if score and score.points is not None:
-                score_pct = Decimal(str(score.points)) / Decimal(str(assignment.points_possible))
-                category_total += score_pct * weight_per_assignment
+                earned += Decimal(str(score.points))
+                possible += Decimal(str(assignment.points_possible))
+
+        if possible > 0:
+            percentage = (earned / possible) * 100
+            category_total = (percentage * Decimal(str(category.percentage))) / 100
+        else:
+            category_total = Decimal('0.0')
 
         rounded_total = round(category_total, 2)
 
@@ -306,7 +322,16 @@ def compute_report_category_scores(student, term, categories):
 
     Queries raw Score data and returns a dict keyed by subject_id, where
     each value is a dict keyed by category PK with the weighted score (float)
-    or None if no data.
+    or None if no data. An assignment with no Score row yet is excluded from
+    both the earned and possible totals, so a category is prorated to
+    whatever's been graded so far rather than penalized for what hasn't.
+
+    This MUST produce the same per-category numbers as
+    calculate_category_scores() above, which computes
+    SubjectTermGrade.total_score (the number actually used for ranking,
+    average, and promotion) - otherwise a report card's category columns
+    won't sum to its own printed Total. See
+    CategoryScoreFormulasAgreeTests in gradebook/tests.py.
 
     Used by both the print view and the PDF generation task.
 

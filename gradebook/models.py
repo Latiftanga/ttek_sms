@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from html import escape as html_escape
 from django.conf import settings
 from django.db import models
@@ -832,89 +833,57 @@ class SubjectTermGrade(models.Model):
         - class_score: Sum of CLASS_SCORE type categories (legacy)
         - exam_score: Sum of EXAM type categories (legacy)
         - total_score: Sum of all categories
-        """
-        from .utils import get_active_categories
-        categories = get_active_categories()
-        category_totals = {}
-        category_scores_json = {}
-        total = Decimal('0.0')
-        class_score_total = Decimal('0.0')
-        exam_score_total = Decimal('0.0')
 
-        # Pre-fetch all assignments for this subject/term with their scores in ONE query
-        # This eliminates the N+1 query problem
+        Delegates to calculate_category_scores() (gradebook.utils) - the
+        same function the bulk "Calculate Grades" path uses - instead of
+        its own copy of the weighting formula. This method isn't called
+        anywhere in production (only single-student test/shell use), and a
+        second independent copy had already drifted out of sync with the
+        real one before this delegation (a fully-graded category weighted
+        every assignment equally regardless of its own points_possible,
+        instead of pooling earned/possible points first).
+        """
+        from .utils import get_active_categories, calculate_category_scores
+        categories = get_active_categories()
+
+        # Pre-fetch all assignments for this subject/term with their scores
+        # in ONE query, then build the same lookup shapes
+        # calculate_category_scores() expects from the bulk path.
         all_assignments = list(Assignment.objects.filter(
             subject=self.subject,
             term=self.term
         ).select_related('assessment_category'))
 
-        # Pre-fetch all scores for this student's assignments in ONE query
+        assignments_by_subject_category = defaultdict(list)
+        for assignment in all_assignments:
+            assignments_by_subject_category[(self.subject_id, assignment.assessment_category_id)].append(assignment)
+
         assignment_ids = [a.id for a in all_assignments]
-        scores_dict = {}
+        scores_lookup = {}
         if assignment_ids:
             for score in Score.objects.filter(
                 student=self.student,
                 assignment_id__in=assignment_ids
             ).only('assignment_id', 'points'):
-                scores_dict[score.assignment_id] = score.points
+                scores_lookup[(self.student_id, score.assignment_id)] = score
 
-        # Group assignments by category
-        assignments_by_category = {}
-        for assignment in all_assignments:
-            cat_id = assignment.assessment_category_id
-            if cat_id not in assignments_by_category:
-                assignments_by_category[cat_id] = []
-            assignments_by_category[cat_id].append(assignment)
+        result = calculate_category_scores(
+            student_id=self.student_id,
+            subject_id=self.subject_id,
+            categories=categories,
+            assignments_by_subject_category=dict(assignments_by_subject_category),
+            scores_lookup=scores_lookup,
+        )
 
-        for category in categories:
-            assignments = assignments_by_category.get(category.id, [])
+        self.category_scores = result['category_scores_json']
+        self.class_score = result['class_score']
+        self.exam_score = result['exam_score']
+        self.total_score = result['total_score']
 
-            if not assignments:
-                continue
-
-            # Calculate weight inline from pre-fetched data to avoid N+1 query
-            weight_per_assignment = Decimal(str(category.percentage)) / Decimal(str(len(assignments)))
-            category_total = Decimal('0.0')
-
-            for assignment in assignments:
-                # Use pre-fetched score from dictionary (O(1) lookup)
-                points = scores_dict.get(assignment.id)
-
-                if points is not None:
-                    score_pct = Decimal(str(points)) / Decimal(str(assignment.points_possible))
-                    category_total += score_pct * weight_per_assignment
-
-            rounded_total = round(category_total, 2)
-
-            # Store in JSON format for dynamic category support
-            category_scores_json[str(category.pk)] = {
-                'score': float(rounded_total),
-                'short_name': category.short_name,
-                'name': category.name,
-                'percentage': category.percentage,
-                'category_type': category.category_type,
-                'order': category.order,
-            }
-
-            # Store by short_name for backwards compatibility
-            category_totals[category.short_name] = rounded_total
-            total += category_total
-
-            # Aggregate by category type for legacy fields
-            if category.category_type == 'CLASS_SCORE':
-                class_score_total += category_total
-            elif category.category_type == 'EXAM':
-                exam_score_total += category_total
-
-        # Store dynamic category scores
-        self.category_scores = category_scores_json
-
-        # Store legacy fields (aggregated by category_type)
-        self.class_score = round(class_score_total, 2)
-        self.exam_score = round(exam_score_total, 2)
-        self.total_score = round(total, 2)
-
-        return category_totals
+        return {
+            entry['short_name']: Decimal(str(entry['score']))
+            for entry in result['category_scores_json'].values()
+        }
 
     def determine_grade(self, grading_system, grade_scales=None):
         """Look up grade from GradeScale based on total_score.
