@@ -17,7 +17,10 @@ from .models import (
     Assignment, Score, SubjectTermGrade, TermReport, RemarkTemplate
 )
 from .forms import GradeScaleForm, AssessmentCategoryForm, ScoreForm
-from .utils import compute_term_attendance_stats, calculate_category_scores, compute_report_category_scores
+from .utils import (
+    compute_term_attendance_stats, calculate_category_scores,
+    compute_report_category_scores, compute_report_category_scores_bulk,
+)
 from academics.models import (
     Subject, Class, Programme, ClassSubject, StudentSubjectEnrollment,
     AttendanceSession, AttendanceRecord, Period, TimetableEntry,
@@ -930,6 +933,77 @@ class CategoryScoreFormulasAgreeTests(GradebookTenantTestCase):
         ranking, display = self._scores([10, 10], {})
         self.assertEqual(ranking, 0.0)
         self.assertIsNone(display)
+
+
+class ComputeReportCategoryScoresBulkTests(GradebookTenantTestCase):
+    """
+    compute_report_category_scores_bulk() computes report-card category
+    scores for a whole class in one query, instead of bulk PDF export
+    calling the single-student compute_report_category_scores() once per
+    student. Must produce identical results to calling the single-student
+    version for each student individually - this is what generate_report_pdf
+    relies on when it's handed a pre-fetched shared_context.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.academic_year = AcademicYear.objects.create(
+            name='2024/2025', start_date=date(2024, 9, 1),
+            end_date=date(2025, 7, 31), is_current=True,
+        )
+        self.term = Term.objects.create(
+            academic_year=self.academic_year, name='First Term', term_number=1,
+            start_date=date(2024, 9, 1), end_date=date(2024, 12, 20), is_current=True,
+        )
+        self.subject = Subject.objects.create(name='Science', short_name='Sci')
+        self.category = AssessmentCategory.objects.create(
+            name='Class Score', short_name='CA', category_type='CLASS_SCORE', percentage=30,
+        )
+        self.a1 = Assignment.objects.create(
+            assessment_category=self.category, subject=self.subject, term=self.term,
+            name='A1', points_possible=10, date=date(2024, 9, 15),
+        )
+        self.a2 = Assignment.objects.create(
+            assessment_category=self.category, subject=self.subject, term=self.term,
+            name='A2', points_possible=10, date=date(2024, 9, 20),
+        )
+
+        self.student_full = Student.objects.create(
+            first_name='Full', last_name='Marks', admission_number='BULK-001',
+            status='active', date_of_birth=date(2010, 1, 1), admission_date=date(2020, 9, 1),
+        )
+        self.student_partial = Student.objects.create(
+            first_name='Partial', last_name='Marks', admission_number='BULK-002',
+            status='active', date_of_birth=date(2010, 1, 1), admission_date=date(2020, 9, 1),
+        )
+        self.student_none = Student.objects.create(
+            first_name='No', last_name='Scores', admission_number='BULK-003',
+            status='active', date_of_birth=date(2010, 1, 1), admission_date=date(2020, 9, 1),
+        )
+
+        Score.objects.create(student=self.student_full, assignment=self.a1, points=10)
+        Score.objects.create(student=self.student_full, assignment=self.a2, points=10)
+        Score.objects.create(student=self.student_partial, assignment=self.a1, points=5)
+        # student_none has no Score rows at all; student_partial's a2 also ungraded
+
+    def test_bulk_matches_per_student_calls(self):
+        categories = [self.category]
+        students = [self.student_full, self.student_partial, self.student_none]
+
+        bulk_result = compute_report_category_scores_bulk(students, self.term, categories)
+
+        for student in students:
+            single_result = compute_report_category_scores(student, self.term, categories)
+            self.assertEqual(
+                bulk_result.get(student.id, {}), single_result,
+                f"bulk result for {student} didn't match the single-student call",
+            )
+
+        # Sanity-check the actual numbers, not just that they agree with
+        # each other (agreeing on a shared bug would still pass otherwise).
+        self.assertEqual(bulk_result[self.student_full.id][self.subject.id][self.category.pk], 30.0)
+        self.assertEqual(bulk_result[self.student_partial.id][self.subject.id][self.category.pk], 15.0)
+        self.assertEqual(bulk_result[self.student_none.id], {})
 
 
 # ============ cleanup_unenrolled_grades command ============

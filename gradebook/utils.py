@@ -318,22 +318,13 @@ def build_scores_lookup(
 
 def compute_report_category_scores(student, term, categories):
     """
-    Compute weighted category scores per subject for report card display.
+    Compute weighted category scores per subject for report card display,
+    for a single student.
 
-    Queries raw Score data and returns a dict keyed by subject_id, where
-    each value is a dict keyed by category PK with the weighted score (float)
-    or None if no data. An assignment with no Score row yet is excluded from
-    both the earned and possible totals, so a category is prorated to
-    whatever's been graded so far rather than penalized for what hasn't.
-
-    This MUST produce the same per-category numbers as
-    calculate_category_scores() above, which computes
-    SubjectTermGrade.total_score (the number actually used for ranking,
-    average, and promotion) - otherwise a report card's category columns
-    won't sum to its own printed Total. See
-    CategoryScoreFormulasAgreeTests in gradebook/tests.py.
-
-    Used by both the print view and the PDF generation task.
+    Thin wrapper around compute_report_category_scores_bulk() (one student
+    in, one student's data out) - prefer the bulk version directly when
+    generating reports for a whole class, so the underlying Score query
+    runs once instead of once per student.
 
     Args:
         student: Student instance
@@ -343,39 +334,76 @@ def compute_report_category_scores(student, term, categories):
     Returns:
         dict[int, dict[int, float | None]]: {subject_id: {category_pk: weighted_score}}
     """
+    return compute_report_category_scores_bulk([student], term, categories).get(student.id, {})
+
+
+def compute_report_category_scores_bulk(students, term, categories):
+    """
+    Compute weighted category scores per subject for report card display,
+    for many students in one query - used by bulk PDF export
+    (export_class_reports_zip) instead of calling
+    compute_report_category_scores() once per student in a loop.
+
+    An assignment with no Score row yet is excluded from both the earned
+    and possible totals, so a category is prorated to whatever's been
+    graded so far rather than penalized for what hasn't.
+
+    This MUST produce the same per-category numbers as
+    calculate_category_scores() above, which computes
+    SubjectTermGrade.total_score (the number actually used for ranking,
+    average, and promotion) - otherwise a report card's category columns
+    won't sum to its own printed Total. See
+    CategoryScoreFormulasAgreeTests in gradebook/tests.py.
+
+    Args:
+        students: Iterable of Student instances (or anything with .id)
+        term: Term instance
+        categories: List of AssessmentCategory instances
+
+    Returns:
+        dict[int, dict[int, dict[int, float | None]]]:
+        {student_id: {subject_id: {category_pk: weighted_score}}}
+    """
     from .models import Score
 
+    student_ids = [s.id for s in students]
     raw_scores = {}
-    scores_qs = Score.objects.filter(
-        student=student,
-        assignment__term=term
-    ).select_related('assignment__subject', 'assignment__assessment_category')
+    if student_ids:
+        scores_qs = Score.objects.filter(
+            student_id__in=student_ids,
+            assignment__term=term
+        ).select_related('assignment__subject', 'assignment__assessment_category')
 
-    for score in scores_qs:
-        subject_id = score.assignment.subject_id
-        category_id = score.assignment.assessment_category_id
+        for score in scores_qs:
+            student_id = score.student_id
+            subject_id = score.assignment.subject_id
+            category_id = score.assignment.assessment_category_id
 
-        if subject_id not in raw_scores:
-            raw_scores[subject_id] = {}
-        if category_id not in raw_scores[subject_id]:
-            raw_scores[subject_id][category_id] = {'earned': Decimal('0'), 'possible': Decimal('0')}
+            raw_scores.setdefault(student_id, {}).setdefault(
+                subject_id, {}
+            ).setdefault(category_id, {'earned': Decimal('0'), 'possible': Decimal('0')})
+            entry = raw_scores[student_id][subject_id][category_id]
 
-        if score.points is not None:
-            raw_scores[subject_id][category_id]['earned'] += score.points
-        raw_scores[subject_id][category_id]['possible'] += score.assignment.points_possible
+            if score.points is not None:
+                entry['earned'] += score.points
+            entry['possible'] += score.assignment.points_possible
 
-    # Build per-subject, per-category weighted scores
-    result = {}
-    for subject_id, cat_data in raw_scores.items():
-        result[subject_id] = {}
-        for cat in categories:
-            entry = cat_data.get(cat.pk, {'earned': Decimal('0'), 'possible': Decimal('0')})
-            if entry['possible'] > 0:
-                percentage = (entry['earned'] / entry['possible']) * 100
-                weighted = (percentage * Decimal(str(cat.percentage))) / 100
-                result[subject_id][cat.pk] = float(round(weighted, 2))
-            else:
-                result[subject_id][cat.pk] = None
+    # Build per-student, per-subject, per-category weighted scores. Every
+    # requested student gets an entry (even with no scores at all), so
+    # callers can rely on a plain .get(student.id) instead of also
+    # handling a missing key.
+    result = {student_id: {} for student_id in student_ids}
+    for student_id, subjects in raw_scores.items():
+        for subject_id, cat_data in subjects.items():
+            result[student_id][subject_id] = {}
+            for cat in categories:
+                entry = cat_data.get(cat.pk, {'earned': Decimal('0'), 'possible': Decimal('0')})
+                if entry['possible'] > 0:
+                    percentage = (entry['earned'] / entry['possible']) * 100
+                    weighted = (percentage * Decimal(str(cat.percentage))) / 100
+                    result[student_id][subject_id][cat.pk] = float(round(weighted, 2))
+                else:
+                    result[student_id][subject_id][cat.pk] = None
 
     return result
 

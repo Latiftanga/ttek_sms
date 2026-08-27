@@ -48,11 +48,15 @@ def generate_report_pdf(term_report, tenant_schema, shared_context=None):
         student = term_report.student
         current_term = term_report.term
 
-        # Get subject grades
-        subject_grades = list(SubjectTermGrade.objects.filter(
-            student=student,
-            term=current_term
-        ).select_related('subject').order_by('-subject__is_core', 'subject__name'))
+        # Get subject grades (use shared per-class prefetch if available -
+        # bulk export passes one, a single-student download doesn't)
+        if shared_context and 'subject_grades_by_student' in shared_context:
+            subject_grades = shared_context['subject_grades_by_student'].get(student.id, [])
+        else:
+            subject_grades = list(SubjectTermGrade.objects.filter(
+                student=student,
+                term=current_term
+            ).select_related('subject').order_by('-subject__is_core', 'subject__name'))
 
         # Get assessment categories (use shared if available)
         if shared_context and 'categories' in shared_context:
@@ -63,8 +67,12 @@ def generate_report_pdf(term_report, tenant_schema, shared_context=None):
             ).order_by('order'))
 
         # Compute and attach category-wise scores for report card display
+        # (use shared per-class prefetch if available)
         from .utils import compute_report_category_scores, attach_category_scores
-        category_scores_map = compute_report_category_scores(student, current_term, categories)
+        if shared_context and 'category_scores_by_student' in shared_context:
+            category_scores_map = shared_context['category_scores_by_student'].get(student.id, {})
+        else:
+            category_scores_map = compute_report_category_scores(student, current_term, categories)
         attach_category_scores(subject_grades, categories, category_scores_map)
 
         # Get school info (use shared if available)
@@ -571,6 +579,26 @@ def export_class_reports_zip(self, class_id, tenant_schema):
             'rc_config': SchoolSettings.load(),
             'grading_system': GradingSystem.objects.filter(is_active=True).prefetch_related('scales').first(),
         }
+
+        # Subject grades and category-score breakdowns for every student in
+        # the class, fetched in 2 queries total instead of ~2 per student -
+        # generate_report_pdf() reads these back from shared_context.
+        from collections import defaultdict
+        from .models import SubjectTermGrade
+        from .utils import compute_report_category_scores_bulk
+
+        students = [tr.student for tr in term_reports]
+        student_ids = [s.id for s in students]
+        subject_grades_by_student = defaultdict(list)
+        for sg in SubjectTermGrade.objects.filter(
+            student_id__in=student_ids, term=current_term
+        ).select_related('subject').order_by('student_id', '-subject__is_core', 'subject__name'):
+            subject_grades_by_student[sg.student_id].append(sg)
+        shared_context['subject_grades_by_student'] = dict(subject_grades_by_student)
+
+        shared_context['category_scores_by_student'] = compute_report_category_scores_bulk(
+            students, current_term, shared_context['categories']
+        )
         try:
             from schools.models import School
             from .utils import encode_image_base64
