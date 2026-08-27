@@ -52,7 +52,14 @@
         else if (radio.value === 'E') row.classList.add('bg-info/10');
     }
 
-    let formDirty = false;
+    // Lives on window, not a per-injection closure variable - this script
+    // re-runs every time its partial is swapped back in (e.g. changing the
+    // date, per the file header above), and the window-level listeners
+    // registered below are only ever attached once (guarded further down).
+    // A closure-local `formDirty` would leave that one-time listener stuck
+    // reading whichever injection's copy happened to be in scope when it
+    // was first registered, instead of the current form's actual state.
+    window.attendanceFormDirty = false;
 
     // Called from inline onclick/oninput attributes, so must stay global.
     window.filterStudents = function (query) {
@@ -88,7 +95,7 @@
             radio.checked = true;
             updateRowBackground(radio);
         });
-        formDirty = true;
+        window.attendanceFormDirty = true;
         updateSummary();
         if (navigator.vibrate) navigator.vibrate(50);
     };
@@ -102,16 +109,27 @@
     });
     updateSummary();
 
-    form.addEventListener('change', () => { formDirty = true; });
-    window.addEventListener('beforeunload', e => { if (formDirty) e.preventDefault(); });
-    window.addEventListener('popstate', () => {
-        if (formDirty && !confirm('You have unsaved attendance. Leave anyway?')) {
-            history.pushState(null, '', location.href);
-        }
-    });
-    document.body.addEventListener('htmx:afterRequest', e => {
-        if (e.detail.successful) formDirty = false;
-    });
+    form.addEventListener('change', () => { window.attendanceFormDirty = true; });
+
+    // These are window/document.body-level listeners, which - unlike the
+    // per-radio and per-form listeners above - are never torn down when
+    // this partial gets swapped out for a new date, since window and body
+    // themselves are never replaced. Without this guard, changing the date
+    // N times would attach N copies of each listener; a teacher hitting
+    // Back with unsaved changes would then see the "Leave anyway?"
+    // confirm() dialog once per accumulated popstate listener.
+    if (!window._attendanceFormHandlersAttached) {
+        window._attendanceFormHandlersAttached = true;
+        window.addEventListener('beforeunload', e => { if (window.attendanceFormDirty) e.preventDefault(); });
+        window.addEventListener('popstate', () => {
+            if (window.attendanceFormDirty && !confirm('You have unsaved attendance. Leave anyway?')) {
+                history.pushState(null, '', location.href);
+            }
+        });
+        document.body.addEventListener('htmx:afterRequest', e => {
+            if (e.detail.successful) window.attendanceFormDirty = false;
+        });
+    }
 
     // Double-submit prevention
     let isSubmitting = false;
