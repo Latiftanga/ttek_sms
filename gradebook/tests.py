@@ -1065,6 +1065,48 @@ class TermAttendanceStatsTests(GradebookTenantTestCase):
         self.assertEqual(att['days_present'], 1)
         self.assertEqual(att['days_absent'], 0)
 
+    def test_per_lesson_late_in_two_periods_same_day_counts_once(self):
+        """
+        A per-lesson class where the student is marked Late in two
+        different lessons on the SAME day must count as exactly one late
+        day, not two - times_late should be deduplicated per day the same
+        way days_present/absent/excused already are.
+        """
+        self.klass.attendance_type = Class.AttendanceType.PER_LESSON
+        self.klass.save(update_fields=['attendance_type'])
+
+        valid_days = self._valid_days()
+        day = valid_days[0]
+
+        subject = Subject.objects.create(name='Mathematics', short_name='MTH', code='MTH')
+        class_subject = ClassSubject.objects.create(class_assigned=self.klass, subject=subject)
+        period1 = Period.objects.create(name='Period 1', start_time='08:00', end_time='08:40', order=1)
+        period2 = Period.objects.create(name='Period 2', start_time='08:40', end_time='09:20', order=2)
+        entry1 = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period1, weekday=day.isoweekday(),
+        )
+        entry2 = TimetableEntry.objects.create(
+            class_subject=class_subject, period=period2, weekday=day.isoweekday(),
+        )
+
+        session1 = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=day, timetable_entry=entry1,
+            session_type=AttendanceSession.SessionType.LESSON,
+            period=period1, class_subject=class_subject,
+        )
+        session2 = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=day, timetable_entry=entry2,
+            session_type=AttendanceSession.SessionType.LESSON,
+            period=period2, class_subject=class_subject,
+        )
+        AttendanceRecord.objects.create(session=session1, student=self.student, status='L')
+        AttendanceRecord.objects.create(session=session2, student=self.student, status='L')
+
+        stats = compute_term_attendance_stats(self.klass, valid_days, [self.student.id])
+        att = stats[self.student.id]
+        self.assertEqual(att['days_present'], 1)
+        self.assertEqual(att['times_late'], 1)
+
     def test_mid_term_start_shrinks_total_school_days(self):
         """
         A student whose earliest attendance record in this class lands
@@ -1223,6 +1265,39 @@ class TermAttendanceStatsTests(GradebookTenantTestCase):
             report.attendance_percentage,
             round(Decimal(str(expected['days_present'])) / Decimal(str(expected['total_school_days'])) * 100, 2)
         )
+
+    def test_calculate_attendance_clears_stale_data_when_uncomputable(self):
+        """
+        A TermReport that already has real attendance numbers must have
+        them cleared to None (not left stale) if calculate_attendance() is
+        re-run and the data is no longer computable - e.g. the student has
+        since lost their current_class - matching how the bulk generation
+        path (_calculate_term_reports) already clears these fields in the
+        equivalent situation.
+        """
+        valid_days = self._valid_days()
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=valid_days[0],
+            session_type=AttendanceSession.SessionType.DAILY,
+        )
+        AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        report = TermReport.objects.create(student=self.student, term=self.term, out_of=1)
+        report.calculate_attendance()
+        self.assertIsNotNone(report.days_present)
+        self.assertIsNotNone(report.total_school_days)
+
+        self.student.current_class = None
+        self.student.save(update_fields=['current_class'])
+
+        report.calculate_attendance()
+        self.assertIsNone(report.days_present)
+        self.assertIsNone(report.days_absent)
+        self.assertIsNone(report.days_excused)
+        self.assertIsNone(report.times_late)
+        self.assertIsNone(report.total_school_days)
+        self.assertIsNone(report.holiday_breakdown)
+        self.assertIsNone(report.attendance_percentage)
 
     def test_holiday_breakdown_counted_by_category(self):
         """

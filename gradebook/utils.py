@@ -1203,7 +1203,7 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids, holiday_da
     window_start = valid_days[0]
 
     day_status = {}  # (student_id, date) -> best status
-    late_counts = defaultdict(int)
+    late_days = defaultdict(set)  # student_id -> {dates with at least one 'L' record}
     earliest_date = {}  # student_id -> earliest recorded date in range
 
     rows = AttendanceRecord.objects.filter(
@@ -1214,7 +1214,11 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids, holiday_da
 
     for student_id, sess_date, status in rows:
         if status == 'L':
-            late_counts[student_id] += 1
+            # One day counts as late at most once, regardless of how many
+            # 'L' records exist for it - a per-lesson student late in two
+            # periods the same day is still just one late day, matching
+            # the day-level resolution days_present/absent/excused use.
+            late_days[student_id].add(sess_date)
         if student_id not in earliest_date or sess_date < earliest_date[student_id]:
             earliest_date[student_id] = sess_date
         key = (student_id, sess_date)
@@ -1248,7 +1252,7 @@ def compute_term_attendance_stats(class_obj, valid_days, student_ids, holiday_da
             'days_present': t['days_present'],
             'days_absent': t['days_absent'],
             'days_excused': t['days_excused'],
-            'times_late': late_counts.get(student_id, 0),
+            'times_late': len(late_days.get(student_id, ())),
             'total_school_days': len(window),
             'holiday_breakdown': dict(holiday_breakdown),
         }

@@ -1200,8 +1200,23 @@ class TermReport(models.Model):
         from core.utils import get_valid_school_days, get_holiday_dates_with_category
         from .utils import compute_term_attendance_stats
 
+        # Clears rather than leaves stale - matches the bulk generation
+        # path's else-branch (_calculate_term_reports), so a student whose
+        # attendance data has since become uncomputable (e.g. their
+        # records were deleted, or they no longer have a current class)
+        # doesn't keep showing old present/absent/percentage figures.
+        def _clear_attendance():
+            self.days_present = None
+            self.days_absent = None
+            self.days_excused = None
+            self.times_late = None
+            self.total_school_days = None
+            self.holiday_breakdown = None
+            self.attendance_percentage = None
+
         # Get student's current class
         if not hasattr(self.student, 'current_class') or not self.student.current_class:
+            _clear_attendance()
             return
 
         current_class = self.student.current_class
@@ -1209,16 +1224,19 @@ class TermReport(models.Model):
         # Don't count days beyond today for a term that's still in progress.
         period_end = min(self.term.end_date, timezone.localdate())
         if period_end < self.term.start_date:
+            _clear_attendance()
             return
 
         valid_days = get_valid_school_days(self.term.start_date, period_end, term=self.term)
         if not valid_days:
+            _clear_attendance()
             return
 
         holiday_dates = get_holiday_dates_with_category(self.term.start_date, period_end, term=self.term)
         stats = compute_term_attendance_stats(current_class, valid_days, [self.student_id], holiday_dates)
         att = stats.get(self.student_id)
         if not att or att['total_school_days'] == 0:
+            _clear_attendance()
             return
 
         self.days_present = att['days_present']
