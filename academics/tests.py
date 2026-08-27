@@ -1832,6 +1832,82 @@ class AttendanceSaveConcurrencyTests(AcademicsTestCase):
         self.assertEqual(records.count(), 1)
         self.assertEqual(records.first().status, 'P')
 
+    def test_second_concurrent_collision_is_also_resolved(self):
+        """
+        The retry itself can collide again (a fresh concurrent insert
+        landing between the retry's SELECT and INSERT, for a different
+        student than the first collision) - save_attendance_records must
+        not give up after a single retry and report a failure for a save
+        that's still recoverable. Uses two students so the second
+        bulk_create call still has something left to create (a single
+        student whose collision resolves to an update would leave nothing
+        for the retry to insert, never re-triggering bulk_create at all).
+        """
+        from unittest.mock import patch
+        from django.db import IntegrityError
+
+        student2 = self.create_student('Kofi', 'STU-301', class_obj=self.klass)
+        session = AttendanceSession.objects.create(
+            class_assigned=self.klass, date=self.today,
+            session_type=AttendanceSession.SessionType.DAILY,
+            created_by=self.teacher,
+        )
+
+        real_bulk_create = AttendanceRecord.objects.bulk_create
+        state = {'calls': 0}
+
+        def flaky_bulk_create(objs, *args, **kwargs):
+            state['calls'] += 1
+            if state['calls'] == 1:
+                # First collision: a concurrent insert for self.student.
+                AttendanceRecord.objects.create(
+                    session=session, student=self.student, status='A'
+                )
+                raise IntegrityError('duplicate key value violates unique constraint')
+            if state['calls'] == 2:
+                # Second collision, on the retry itself: a concurrent
+                # insert for the OTHER student this time.
+                AttendanceRecord.objects.create(
+                    session=session, student=student2, status='A'
+                )
+                raise IntegrityError('duplicate key value violates unique constraint')
+            return real_bulk_create(objs, *args, **kwargs)
+
+        with patch.object(AttendanceRecord.objects, 'bulk_create', side_effect=flaky_bulk_create):
+            response = self.client.post(
+                reverse('academics:class_attendance_take', args=[self.klass.pk]),
+                {
+                    'date': self.today.isoformat(),
+                    f'status_{self.student.pk}': 'P',
+                    f'status_{student2.pk}': 'P',
+                },
+            )
+
+        self.assertIn(response.status_code, (302, 204))
+        records = AttendanceRecord.objects.filter(session=session)
+        self.assertEqual(records.count(), 2)
+        self.assertTrue(all(r.status == 'P' for r in records))
+
+    def test_notification_failure_does_not_report_save_as_failed(self):
+        """
+        A guardian/student notification error after records already
+        committed must not surface as 'Failed to save attendance' - the
+        save itself succeeded and should be reported as such.
+        """
+        from unittest.mock import patch
+
+        with patch('core.notifications.notify_guardian', side_effect=RuntimeError('boom')):
+            response = self.client.post(
+                reverse('academics:class_attendance_take', args=[self.klass.pk]),
+                {'date': self.today.isoformat(), f'status_{self.student.pk}': 'A'},
+            )
+
+        self.assertIn(response.status_code, (302, 204))
+        record = AttendanceRecord.objects.get(
+            session__class_assigned=self.klass, session__date=self.today, student=self.student,
+        )
+        self.assertEqual(record.status, 'A')
+
 
 class AttendanceEmptySessionsExcludedFromListsTests(AcademicsTestCase):
     """

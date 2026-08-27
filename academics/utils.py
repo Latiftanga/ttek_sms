@@ -300,10 +300,18 @@ def nearest_valid_attendance_date(target_date, current_term, max_lookback=14):
         candidate = current_term.end_date
     else:
         candidate = target_date
+
+    # Batch the holiday lookup once for the whole walk instead of querying
+    # per day visited - same one-query-then-match-in-Python approach
+    # get_valid_school_days() already uses.
+    walk_start = max(earliest, candidate - timedelta(days=max_lookback))
+    holiday_dates = SchoolHoliday.get_holiday_dates([
+        walk_start + timedelta(days=i) for i in range((candidate - walk_start).days + 1)
+    ])
+
     tries = 0
     while candidate >= earliest and tries <= max_lookback:
-        if (is_valid_school_day(candidate, term=current_term)
-                and not SchoolHoliday.get_holiday_name(candidate)):
+        if is_valid_school_day(candidate, term=current_term) and candidate not in holiday_dates:
             return candidate
         candidate -= timedelta(days=1)
         tries += 1
@@ -328,24 +336,64 @@ def nearest_valid_lesson_date(target_date, entry_weekday, current_term, max_week
     # Align to the entry's weekday first - normally already a match, since
     # callers only reach this from a same-weekday-filtered lesson list.
     candidate -= timedelta(days=(candidate.isoweekday() - entry_weekday) % 7)
+
+    candidates = []
+    probe = candidate
     weeks = 0
-    while candidate >= current_term.start_date and weeks <= max_weeks_back:
-        if not SchoolHoliday.get_holiday_name(candidate):
-            return candidate
-        candidate -= timedelta(days=7)
+    while probe >= current_term.start_date and weeks <= max_weeks_back:
+        candidates.append(probe)
+        probe -= timedelta(days=7)
         weeks += 1
+
+    # Batch the holiday lookup once for the whole walk instead of querying
+    # per week visited.
+    holiday_dates = SchoolHoliday.get_holiday_dates(candidates)
+    for probe in candidates:
+        if probe not in holiday_dates:
+            return probe
     return None
+
+
+def valid_school_days_for_picker(current_term, today):
+    """
+    The [term.start_date, min(today, term.end_date)] valid-school-day
+    range shared by every attendance date-picker in the app - bounded the
+    same way term_date_error actually allows marking within, so nothing
+    reachable via the old min/max-bounded date input becomes unreachable
+    here. Returns [] if there's no current term.
+    """
+    from core.utils import get_valid_school_days
+
+    if not current_term:
+        return []
+    end = min(today, current_term.end_date)
+    return get_valid_school_days(current_term.start_date, end, term=current_term)
+
+
+def dates_as_picker_options(valid_days, selected_date=None, marked_dates=None):
+    """
+    Format `valid_days` as the {value, label, selected} dicts every
+    attendance date dropdown in the app renders, most recent first. Pass
+    `marked_dates` (a set of dates) to also flag each option as 'marked' -
+    omit it where that isn't cheap to compute (e.g. across every class a
+    teacher has, not one).
+    """
+    return [
+        {
+            'value': d.isoformat(),
+            'label': d.strftime('%a, %d %b'),
+            'selected': d == selected_date,
+            **({'marked': d in marked_dates} if marked_dates is not None else {}),
+        }
+        for d in reversed(valid_days)
+    ]
 
 
 def pickable_attendance_dates(class_obj, current_term, today, session_type, selected_date=None):
     """
     Valid days a teacher can pick from the attendance date dropdown, most
     recent first, each flagged with whether that day already has real
-    (non-empty) attendance saved for `class_obj`. Bounded to the current
-    term's start through today (or the term's own end date if it has
-    already lapsed) - the same range term_date_error actually allows
-    marking within, so nothing reachable via the old min/max-bounded date
-    input becomes unreachable here.
+    (non-empty) attendance saved for `class_obj`.
 
     `session_type` should be AttendanceSession.SessionType.DAILY for the
     daily flow, or .LESSON for the per-lesson flow - for LESSON, "marked"
@@ -355,13 +403,9 @@ def pickable_attendance_dates(class_obj, current_term, today, session_type, sele
     lesson's own date picker, which routes back to that same hub) actually
     let a teacher jump to.
     """
-    from core.utils import get_valid_school_days
     from .models import AttendanceSession
 
-    if not current_term:
-        return []
-    end = min(today, current_term.end_date)
-    valid_days = get_valid_school_days(current_term.start_date, end, term=current_term)
+    valid_days = valid_school_days_for_picker(current_term, today)
     if not valid_days:
         return []
 
@@ -374,15 +418,7 @@ def pickable_attendance_dates(class_obj, current_term, today, session_type, sele
         ).values_list('date', flat=True).distinct()
     )
 
-    return [
-        {
-            'value': d.isoformat(),
-            'label': d.strftime('%a, %d %b'),
-            'marked': d in marked_dates,
-            'selected': d == selected_date,
-        }
-        for d in reversed(valid_days)
-    ]
+    return dates_as_picker_options(valid_days, selected_date, marked_dates)
 
 
 def resolve_reload_target(request):
@@ -477,56 +513,72 @@ def save_attendance_records(request, session, students, redirect_url,
                 )
 
     try:
+        # A concurrent request for this same session/student can win the
+        # race and insert one of these records first (e.g. a double-tap on
+        # Save under a slow mobile connection, or two tabs open on the
+        # same session) - the unique_together constraint trips and rolls
+        # back the whole batch. Re-resolve create-vs-update against the
+        # now-current DB state and retry, so this still lands on whatever
+        # THIS submission asked for instead of surfacing a scary "failed
+        # to save" for a save that actually mostly succeeded. Bounded to a
+        # few attempts rather than a single retry - a second concurrent
+        # submission can just as easily collide again on the retry itself.
+        already_synced = 0
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                _write(records_to_create, records_to_update)
+                break
+            except IntegrityError:
+                if attempt == max_attempts:
+                    raise
+                existing_now = {
+                    r.student_id: r
+                    for r in AttendanceRecord.objects.filter(
+                        session=session, student_id__in=student_ids
+                    ).select_related('student')
+                }
+                retry_create = []
+                for rec in records_to_create:
+                    existing = existing_now.get(rec.student_id)
+                    if existing is None:
+                        retry_create.append(rec)
+                    elif existing.status != rec.status:
+                        existing.status = rec.status
+                        existing.marked_by = rec.marked_by
+                        records_to_update.append(existing)
+                    else:
+                        # The concurrent request already wrote the same
+                        # status this submission wanted - nothing left to
+                        # save, but it still counts toward what this
+                        # submission asked for.
+                        already_synced += 1
+                records_to_create = retry_create
+
+        total = len(records_to_create) + len(records_to_update) + already_synced
+        messages.success(request, f'{success_msg} ({total} records).')
+    except Exception as e:
+        logger.error("Failed to save attendance: %s", e)
+        messages.error(request, 'Failed to save attendance.')
+        if request.htmx:
+            response = HttpResponse(status=500)
+            response['HX-Reswap'] = 'none'
+            return response
+        return redirect(redirect_url)
+
+    # Notify guardians and students of absences - outside the save's
+    # try/except above, since a notification failure here must never be
+    # reported as a failed save when the records already committed.
+    absent_students = []
+    for rec in records_to_create:
+        if rec.status == 'A':
+            absent_students.append(rec.student)
+    for rec in records_to_update:
+        if rec.status == 'A':
+            absent_students.append(rec.student)
+
+    if absent_students:
         try:
-            _write(records_to_create, records_to_update)
-        except IntegrityError:
-            # A concurrent request for this same session/student won the
-            # race and inserted one of these records first (e.g. a
-            # double-tap on Save under a slow mobile connection, or two
-            # tabs open on the same session) - the unique_together
-            # constraint tripped and rolled back the whole batch above.
-            # Re-resolve create-vs-update against the now-current DB state
-            # and retry once, so this still lands on whatever THIS
-            # submission asked for instead of surfacing a scary "failed to
-            # save" for a save that actually mostly succeeded.
-            existing_now = {
-                r.student_id: r
-                for r in AttendanceRecord.objects.filter(
-                    session=session, student_id__in=student_ids
-                ).select_related('student')
-            }
-            retry_create = []
-            retry_update = list(records_to_update)
-            already_synced = 0
-            for rec in records_to_create:
-                existing = existing_now.get(rec.student_id)
-                if existing is None:
-                    retry_create.append(rec)
-                elif existing.status != rec.status:
-                    existing.status = rec.status
-                    existing.marked_by = rec.marked_by
-                    retry_update.append(existing)
-                else:
-                    # The concurrent request already wrote the same status
-                    # this submission wanted - nothing left to save, but it
-                    # still counts toward what this submission asked for.
-                    already_synced += 1
-            _write(retry_create, retry_update)
-            records_to_create, records_to_update = retry_create, retry_update
-            total = len(records_to_create) + len(records_to_update) + already_synced
-        else:
-            total = len(records_to_create) + len(records_to_update)
-
-        # Notify guardians and students of absences
-        absent_students = []
-        for rec in records_to_create:
-            if rec.status == 'A':
-                absent_students.append(rec.student)
-        for rec in records_to_update:
-            if rec.status == 'A':
-                absent_students.append(rec.student)
-
-        if absent_students:
             from core.notifications import notify_guardian, notify_student
             session_date = session.date
             today = timezone.localdate()
@@ -548,16 +600,8 @@ def save_attendance_records(request, session, students, redirect_url,
                     notification_type='warning',
                     icon='fa-solid fa-user-xmark',
                 )
-
-        messages.success(request, f'{success_msg} ({total} records).')
-    except Exception as e:
-        logger.error("Failed to save attendance: %s", e)
-        messages.error(request, 'Failed to save attendance.')
-        if request.htmx:
-            response = HttpResponse(status=500)
-            response['HX-Reswap'] = 'none'
-            return response
-        return redirect(redirect_url)
+        except Exception:
+            logger.exception("Failed to send absence notifications for session %s", session.pk)
 
     if request.htmx:
         if on_success:

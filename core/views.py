@@ -2974,21 +2974,15 @@ def my_attendance(request):
         + [{'kind': 'daily', 'item': item} for item in daily_classes]
     )
 
-    # Valid dates for the Today tab's date picker - same walk-the-term
-    # approach used by the per-class attendance pickers
-    # (pickable_attendance_dates in academics.utils), but
-    # without a per-date "marked" flag: this picker spans every class a
-    # teacher has, not one, so there's no single boolean to check per date
-    # without a much more expensive aggregate query across all of them.
-    pickable_dates = []
-    if current_term:
-        from core.utils import get_valid_school_days
-        end = min(today, current_term.end_date)
-        valid_days = get_valid_school_days(current_term.start_date, end, term=current_term)
-        pickable_dates = [
-            {'value': d.isoformat(), 'label': d.strftime('%a, %d %b'), 'selected': d == selected_date}
-            for d in reversed(valid_days)
-        ]
+    # Valid dates for the Today tab's date picker - same shared helpers the
+    # per-class attendance pickers use (academics.utils), but without a
+    # per-date "marked" flag: this picker spans every class a teacher has,
+    # not one, so there's no single boolean to check per date without a
+    # much more expensive aggregate query across all of them.
+    from academics.utils import valid_school_days_for_picker, dates_as_picker_options
+    pickable_dates = dates_as_picker_options(
+        valid_school_days_for_picker(current_term, today), selected_date
+    )
 
     context = {
         'teacher': teacher,
