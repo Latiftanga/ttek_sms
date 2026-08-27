@@ -1465,6 +1465,32 @@ class AttendanceDoneStatusReflectsRecordsTests(AcademicsTestCase):
         self.assertEqual(ctx['classes_done_today'], 1)
         self.assertEqual(ctx['classes_pending_today'], 0)
 
+    def test_marking_completion_tracks_days_with_records(self):
+        from core.utils import get_valid_school_days
+        date_from = self.today - timedelta(days=30)
+        valid_days = get_valid_school_days(date_from, self.today)
+        self.assertGreaterEqual(len(valid_days), 2, 'need at least 2 valid school days in range to test')
+        marked_days = valid_days[:2]
+        for d in marked_days:
+            session = AttendanceSession.objects.create(
+                class_assigned=self.klass, date=d,
+                session_type=AttendanceSession.SessionType.DAILY,
+                created_by=self.teacher,
+            )
+            AttendanceRecord.objects.create(session=session, student=self.student, status='P')
+
+        summary, ctx = self._class_summary()
+        item = next(i for i in summary if i['class'].pk == self.klass.pk)
+        self.assertEqual(item['days_marked'], 2)
+        self.assertEqual(item['days_unmarked'], len(valid_days) - 2)
+        self.assertEqual(ctx['valid_days_count'], len(valid_days))
+        if item['days_unmarked'] > 0:
+            self.assertEqual(ctx['classes_needing_attention'], 1)
+            self.assertEqual(ctx['classes_fully_marked'], 0)
+        else:
+            self.assertEqual(ctx['classes_needing_attention'], 0)
+            self.assertEqual(ctx['classes_fully_marked'], 1)
+
     def test_empty_lesson_session_does_not_mark_lesson_taken(self):
         lesson_klass = self.create_class('basic', 2)
         lesson_klass.attendance_type = Class.AttendanceType.PER_LESSON

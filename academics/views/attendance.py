@@ -939,6 +939,19 @@ def attendance_reports(request):
         ).values_list('class_assigned_id', flat=True).distinct()
     )
 
+    # Distinct valid school days per class that actually have attendance
+    # recorded (any session with at least one record) - the "marking
+    # completeness" denominator, separate from the attendance-rate ring
+    # above. A class can have a low rate either because students were
+    # absent, or because the teacher never marked attendance at all; this
+    # isolates the latter so admins can tell the two apart and prompt
+    # teachers who are behind.
+    class_marked_dates = defaultdict(set)
+    for row in AttendanceSession.objects.filter(
+        class_assigned__in=classes, date__in=valid_days, records__isnull=False
+    ).values('class_assigned_id', 'date').distinct():
+        class_marked_dates[row['class_assigned_id']].add(row['date'])
+
     # Get student counts per class in a single query
     student_counts = dict(
         Student.objects.filter(
@@ -959,6 +972,11 @@ def attendance_reports(request):
             round((class_present_day_counts.get(cls.id, 0) / cls_total_possible) * 100, 1)
             if cls_total_possible > 0 else 0
         )
+        days_marked = len(class_marked_dates.get(cls.id, ()))
+        days_unmarked = valid_days_count - days_marked
+        completion_rate = (
+            round((days_marked / valid_days_count) * 100, 1) if valid_days_count > 0 else 0
+        )
 
         class_summary.append({
             'class': cls,
@@ -967,6 +985,9 @@ def attendance_reports(request):
             'absent': cls_absent,
             'rate': cls_rate,
             'has_today': cls.id in today_sessions,
+            'days_marked': days_marked,
+            'days_unmarked': days_unmarked,
+            'completion_rate': completion_rate,
         })
 
     # Daily breakdown with pagination
@@ -1166,6 +1187,12 @@ def attendance_reports(request):
     classes_done_today = sum(1 for item in class_summary if item['has_today'])
     classes_pending_today = len(class_summary) - classes_done_today
 
+    # Marking-completion summary for the Analytics tab - worst-first so
+    # admins see the classes most behind on marking attendance at a glance.
+    classes_fully_marked = sum(1 for item in class_summary if item['days_unmarked'] == 0)
+    classes_needing_attention = len(class_summary) - classes_fully_marked
+    class_summary_by_completion = sorted(class_summary, key=lambda x: x['completion_rate'])
+
     context = {
         'classes': classes,
         'class_filter': class_filter,
@@ -1195,6 +1222,10 @@ def attendance_reports(request):
         'current_term': current_term,
         'classes_done_today': classes_done_today,
         'classes_pending_today': classes_pending_today,
+        'classes_fully_marked': classes_fully_marked,
+        'classes_needing_attention': classes_needing_attention,
+        'class_summary_by_completion': class_summary_by_completion,
+        'valid_days_count': valid_days_count,
         'history_page': paginated_sessions,
     }
 
