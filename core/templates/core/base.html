@@ -51,9 +51,15 @@
 
     {% tailwind_css %}
     <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}">
-    <!-- HTMX (from django-htmx) -->
-    <script src="{% static 'django_htmx/htmx.min.js' %}"></script>
-    <script src="{% static 'js/htmx-preload.js' %}"></script>
+    <!-- HTMX (from django-htmx) - the htmx_script tag resolves to whatever
+         file the installed django-htmx package actually ships (it has
+         renamed this between versions before); a hardcoded static path
+         silently 404s the moment that changes again. Includes the debug
+         indicator script too when DEBUG is on, so the separate
+         django_htmx_script call is deliberately not duplicated further
+         down in the body. -->
+    {% htmx_script %}
+    <script defer src="{% static 'js/htmx-preload.js' %}"></script>
     <!-- Alpine.js - Collapse plugin must load before Alpine core -->
     <script defer src="{% static 'js/alpine-collapse.min.js' %}"></script>
     <script defer src="{% static 'js/alpine.min.js' %}"></script>
@@ -570,8 +576,6 @@
 </head>
 
 <body class="bg-base-200 min-h-screen text-base-content" hx-ext="preload" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-    {% django_htmx_script %}
-
     <div class="drawer">
         <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
         <input id="desktop-toggle" type="checkbox" class="hidden" />
@@ -675,9 +679,17 @@
         // ========================================
         // HTMX Configuration for Slow Networks
         // ========================================
-        htmx.config.timeout = 20000;  // 20 second timeout for slow connections
-        htmx.config.historyCacheSize = 20;  // Cache more pages for back/forward
-        htmx.config.refreshOnHistoryMiss = true;  // Refresh if history cache miss
+        // The htmx script tag now loads with `defer` (so it can resolve
+        // whatever filename the installed django-htmx package actually
+        // ships, instead of a hardcoded path) - defer guarantees it runs
+        // before DOMContentLoaded, but NOT before this inline, non-deferred
+        // script block, which the parser reaches first. Wait for
+        // DOMContentLoaded so `htmx` is guaranteed to exist here.
+        document.addEventListener('DOMContentLoaded', function () {
+            htmx.config.timeout = 20000;  // 20 second timeout for slow connections
+            htmx.config.historyCacheSize = 20;  // Cache more pages for back/forward
+            htmx.config.refreshOnHistoryMiss = true;  // Refresh if history cache miss
+        });
 
         // Network state management (use window to avoid redeclaration on HTMX swaps)
         window.NetworkManager = window.NetworkManager || {
