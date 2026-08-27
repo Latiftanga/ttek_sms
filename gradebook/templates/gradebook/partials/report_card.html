@@ -132,8 +132,7 @@
         </div>
         {% if term_report.holiday_breakdown %}
         <div class="text-xs text-base-content/50 mt-3">
-            Excluded from Total Days:
-            {% for label, count in term_report.holiday_breakdown.items %}{{ label }}: {{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            Excluded from Total Days: {{ term_report.holiday_breakdown|format_holiday_breakdown }}
         </div>
         {% endif %}
     </div>
@@ -162,7 +161,7 @@
                         {% endfor %}
                         <th class="text-center min-w-[50px]">Total</th>
                         <th class="text-center min-w-[50px]">Grade</th>
-                        <th class="text-center min-w-[40px] hidden sm:table-cell">Pos</th>
+                        {% if rc_config.rc_show_position %}<th class="text-center min-w-[40px] hidden sm:table-cell">Pos</th>{% endif %}
                         <th class="hidden md:table-cell">Remark</th>
                     </tr>
                 </thead>
@@ -190,7 +189,7 @@
                             -
                             {% endif %}
                         </td>
-                        <td class="text-center hidden sm:table-cell">{{ grade.position|default:'-' }}</td>
+                        {% if rc_config.rc_show_position %}<td class="text-center hidden sm:table-cell">{{ grade.position|default:'-' }}</td>{% endif %}
                         <td class="text-sm text-base-content/60 hidden md:table-cell max-w-[150px] truncate">{{ grade.grade_remark }}</td>
                     </tr>
                     {% empty %}
