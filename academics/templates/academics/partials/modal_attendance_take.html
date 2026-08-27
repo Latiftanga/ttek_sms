@@ -111,19 +111,19 @@
              with comfortable padding instead, plus a shadow/hover state
              so it still visibly looks pressable at any size. -->
         <button type="button" onclick="markAll('P')"
-                class="flex-1 md:flex-none md:px-6 flex items-center justify-center gap-1.5 h-9 rounded-full bg-success text-success-content font-bold text-sm shadow-sm hover:shadow-md hover:brightness-110 touch-action-manipulation active:scale-95 transition-all">
+                class="flex-1 md:flex-none md:px-6 flex items-center justify-center gap-1.5 h-11 rounded-full bg-success text-success-content font-bold text-sm shadow-sm hover:shadow-md hover:brightness-110 touch-action-manipulation active:scale-95 transition-all">
             <i class="fa-solid fa-check-double text-xs"></i> All Present
         </button>
         <button type="button" onclick="markAll('L')"
-                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-warning hover:text-warning-content touch-action-manipulation active:scale-95 transition-all">
+                class="w-12 h-11 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-warning hover:text-warning-content touch-action-manipulation active:scale-95 transition-all">
             All L
         </button>
         <button type="button" onclick="markAll('A')"
-                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-error hover:text-error-content touch-action-manipulation active:scale-95 transition-all">
+                class="w-12 h-11 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-error hover:text-error-content touch-action-manipulation active:scale-95 transition-all">
             All A
         </button>
         <button type="button" onclick="markAll('E')"
-                class="w-12 h-9 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-info hover:text-info-content touch-action-manipulation active:scale-95 transition-all">
+                class="w-12 h-11 rounded-full bg-base-200 text-base-content/50 font-bold text-sm shadow-sm hover:shadow-md hover:bg-info hover:text-info-content touch-action-manipulation active:scale-95 transition-all">
             All E
         </button>
     </div>
@@ -201,19 +201,19 @@
             <div class="flex items-center gap-2 ml-9">
                 <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="P" class="peer hidden" required {% if item.status == 'P' %}checked{% endif %} />
-                    <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-success peer-checked:text-success-content peer-checked:ring-2 peer-checked:ring-success peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Present">P</span>
+                    <span class="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-success peer-checked:text-success-content peer-checked:ring-2 peer-checked:ring-success peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Present">P</span>
                 </label>
                 <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="L" class="peer hidden" {% if item.status == 'L' %}checked{% endif %} />
-                    <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-warning peer-checked:text-warning-content peer-checked:ring-2 peer-checked:ring-warning peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Late">L</span>
+                    <span class="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-warning peer-checked:text-warning-content peer-checked:ring-2 peer-checked:ring-warning peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Late">L</span>
                 </label>
                 <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="A" class="peer hidden" {% if item.status == 'A' %}checked{% endif %} />
-                    <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-error peer-checked:text-error-content peer-checked:ring-2 peer-checked:ring-error peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Absent">A</span>
+                    <span class="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-error peer-checked:text-error-content peer-checked:ring-2 peer-checked:ring-error peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Absent">A</span>
                 </label>
                 <label class="touch-action-manipulation">
                     <input type="radio" name="status_{{ item.obj.id }}" value="E" class="peer hidden" {% if item.status == 'E' %}checked{% endif %} />
-                    <span class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-info peer-checked:text-info-content peer-checked:ring-2 peer-checked:ring-info peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Excused">E</span>
+                    <span class="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm cursor-pointer bg-base-200 text-base-content/40 peer-checked:bg-info peer-checked:text-info-content peer-checked:ring-2 peer-checked:ring-info peer-checked:ring-offset-1 transition-all active:scale-90 select-none" title="Excused">E</span>
                 </label>
             </div>
         </div>
