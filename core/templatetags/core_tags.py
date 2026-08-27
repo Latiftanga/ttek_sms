@@ -597,6 +597,21 @@ def get_item(dictionary, key):
 
 
 @register.filter
+def format_holiday_breakdown(breakdown):
+    """
+    Format a TermReport.holiday_breakdown dict (e.g. {"Public Holiday": 5,
+    "Weather Closure": 3}) as "Public Holiday: 5, Weather Closure: 3" for
+    the report card's "Excluded from Total Days" line. Shared by the
+    in-app preview, print, and PDF report card templates so the three
+    can't drift out of sync with each other.
+    Usage: {{ term_report.holiday_breakdown|format_holiday_breakdown }}
+    """
+    if not breakdown:
+        return ''
+    return ', '.join(f'{label}: {count}' for label, count in breakdown.items())
+
+
+@register.filter
 def multiply(value, arg):
     """
     Multiply value by arg.

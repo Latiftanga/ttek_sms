@@ -876,8 +876,7 @@
         </div>
         {% if term_report.holiday_breakdown %}
         <div class="attendance-note">
-            Excluded from Total Days:
-            {% for label, count in term_report.holiday_breakdown.items %}{{ label }}: {{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            Excluded from Total Days: {{ term_report.holiday_breakdown|format_holiday_breakdown }}
         </div>
         {% endif %}
         {% endif %}
