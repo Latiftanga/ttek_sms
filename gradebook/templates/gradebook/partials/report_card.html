@@ -287,7 +287,7 @@
     <div class="card-body p-4">
         <h2 class="font-bold flex items-center gap-2 text-sm">
             <i class="fa-solid fa-bullhorn text-primary"></i>
-            Head Teacher's Message
+            {{ school.headmaster_title|default:"Head Teacher" }}'s Message
         </h2>
         <p class="text-sm mt-1">{{ current_term.head_teacher_message|linebreaksbr }}</p>
     </div>

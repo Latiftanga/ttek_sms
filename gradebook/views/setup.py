@@ -59,12 +59,15 @@ def gradebook_settings(request):
 
     school_settings = SchoolSettings.load()
 
+    from ..utils import get_school_context
+
     context = {
         'grading_systems': grading_systems,
         'categories': categories,
         'total_percentage': total_percentage,
         'school_settings': school_settings,
         'current_term': Term.get_current(),
+        'school': get_school_context()['school'],
         # Navigation
         'breadcrumbs': [
             {'label': 'Home', 'url': '/', 'icon': 'fa-solid fa-home'},

@@ -1679,6 +1679,19 @@ class HeadTeacherMessageOnReportCardTests(ReportCardsStatusFilterTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get('Content-Type'), 'application/pdf')
 
+    def test_web_report_card_label_uses_school_headmaster_title(self):
+        """A proprietor titled "Director" rather than "Head Teacher"
+        should see "Director's Message" on the in-app preview, matching
+        what the print/PDF renderers already do with this same field."""
+        self.tenant.headmaster_title = 'Director'
+        self.tenant.save(update_fields=['headmaster_title'])
+        self.term.head_teacher_message = 'Well done this term, everyone.'
+        self.term.save(update_fields=['head_teacher_message'])
+
+        response = self.client.get(reverse('gradebook:student_report', args=[self.active_student_1.pk]))
+        self.assertContains(response, "Director's Message")
+        self.assertNotContains(response, "Head Teacher's Message")
+
 
 class ReportCardConfigUpdateHeadTeacherMessageTests(ReportCardsStatusFilterTestCase):
     """
@@ -1707,6 +1720,14 @@ class ReportCardConfigUpdateHeadTeacherMessageTests(ReportCardsStatusFilterTestC
         response = self.client.get(reverse('gradebook:settings'))
         self.assertContains(response, 'name="head_teacher_message"')
         self.assertContains(response, 'Congratulations on a great term!')
+
+    def test_settings_page_label_uses_school_headmaster_title(self):
+        self.tenant.headmaster_title = 'Director'
+        self.tenant.save(update_fields=['headmaster_title'])
+
+        response = self.client.get(reverse('gradebook:settings'))
+        self.assertContains(response, "Director's Message")
+        self.assertNotContains(response, "Head Teacher's Message")
 
     def test_posting_a_message_saves_it_to_the_current_term(self):
         response = self._post(head_teacher_message='School reopens Monday, January 12th.')
