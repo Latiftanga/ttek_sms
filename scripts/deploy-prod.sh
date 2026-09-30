@@ -203,9 +203,20 @@ show_logs() {
 # Backup
 backup_db() {
     mkdir -p backups
+    check_prereqs
+    local db_user
+    db_user=$(grep -E '^POSTGRES_USER=' .env.prod | cut -d '=' -f2-)
+    if [ -z "$db_user" ]; then
+        log_error "POSTGRES_USER not set in .env.prod - cannot determine DB role for pg_dumpall."
+        exit 1
+    fi
     BACKUP="backups/db_$(date +%Y%m%d_%H%M%S).sql"
     log_info "Creating backup: $BACKUP"
-    docker compose -f $COMPOSE_FILE exec -T db pg_dumpall -U postgres > $BACKUP
+    docker compose -f $COMPOSE_FILE exec -T db pg_dumpall -U "$db_user" > $BACKUP
+    if [ ! -s "$BACKUP" ]; then
+        log_error "Backup file is empty - pg_dumpall likely failed. Check the error above."
+        exit 1
+    fi
     log_success "Backup saved: $BACKUP"
 }
 
