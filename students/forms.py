@@ -70,12 +70,13 @@ class GuardianForm(forms.ModelForm):
     class Meta:
         model = Guardian
         fields = [
-            'full_name', 'phone_number', 'email', 'occupation', 'address'
+            'full_name', 'phone_number', 'email', 'occupation', 'religion', 'address'
         ]
         widgets = {
             'full_name': forms.TextInput(attrs={'placeholder': 'Full name'}),
             'email': forms.EmailInput(attrs={'placeholder': 'Email (optional)'}),
             'occupation': forms.TextInput(attrs={'placeholder': 'Occupation (optional)'}),
+            'religion': forms.TextInput(attrs={'placeholder': 'Religion (optional)'}),
             'address': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Address (optional)'}),
         }
 
@@ -107,6 +108,10 @@ class StudentForm(forms.ModelForm):
             'first_name', 'middle_name', 'last_name',
             'date_of_birth', 'gender', 'photo',
             'address', 'phone',
+            # Health & identification
+            'blood_group', 'health_conditions', 'ghana_card_number', 'nhis_number',
+            # Languages
+            'mother_tongue', 'other_languages',
             # Admission
             'admission_number', 'admission_date',
             # Enrollment
@@ -123,6 +128,13 @@ class StudentForm(forms.ModelForm):
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'address': forms.TextInput(attrs={'placeholder': 'Student address'}),
             'phone': forms.TextInput(attrs={'placeholder': 'Phone number (optional)', 'type': 'tel'}),
+            'health_conditions': forms.Textarea(attrs={
+                'rows': 2, 'placeholder': 'Allergies, medical conditions, medications (optional)'
+            }),
+            'ghana_card_number': forms.TextInput(attrs={'placeholder': 'GHA-XXXXXXXXX-X (optional)'}),
+            'nhis_number': forms.TextInput(attrs={'placeholder': 'NHIS card number (optional)'}),
+            'mother_tongue': forms.TextInput(attrs={'placeholder': 'e.g., Twi, Ewe, Ga (optional)'}),
+            'other_languages': forms.TextInput(attrs={'placeholder': 'e.g., English, French (optional)'}),
             'admission_number': forms.TextInput(attrs={'placeholder': 'e.g., STU-2024-001'}),
             'admission_date': forms.DateInput(attrs={'type': 'date'}),
         }

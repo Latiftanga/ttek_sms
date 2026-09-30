@@ -457,6 +457,57 @@ class BulkImportViewTests(BulkImportTestCase):
         valid_rows = response.context['valid_rows']
         self.assertEqual(valid_rows[0]['guardian_relationship'], 'guardian')
 
+    def test_bulk_import_optional_health_id_language_fields(self):
+        """Test the new health/ID/language columns are parsed through when present."""
+        data = self.get_valid_student_data()
+        data['blood_group'] = ['O+', '']
+        data['health_conditions'] = ['Asthma', '']
+        data['ghana_card_number'] = ['GHA-123456789-0', '']
+        data['nhis_number'] = ['NHIS-9999', '']
+        data['mother_tongue'] = ['Twi', 'Ga']
+        data['other_languages'] = ['English, French', '']
+        file = self.create_csv_file(data)
+        response = self.client.post(
+            reverse('students:bulk_import'),
+            {'file': file}
+        )
+        self.assertEqual(response.context['error_count'], 0)
+        row = response.context['valid_rows'][0]
+        self.assertEqual(row['blood_group'], 'O+')
+        self.assertEqual(row['health_conditions'], 'Asthma')
+        self.assertEqual(row['ghana_card_number'], 'GHA-123456789-0')
+        self.assertEqual(row['nhis_number'], 'NHIS-9999')
+        self.assertEqual(row['mother_tongue'], 'Twi')
+        self.assertEqual(row['other_languages'], 'English, French')
+
+    def test_bulk_import_missing_health_id_language_columns_default_blank(self):
+        """Test rows import fine when the new optional columns are absent entirely."""
+        data = self.get_valid_student_data()
+        file = self.create_csv_file(data)
+        response = self.client.post(
+            reverse('students:bulk_import'),
+            {'file': file}
+        )
+        self.assertEqual(response.context['error_count'], 0)
+        row = response.context['valid_rows'][0]
+        self.assertEqual(row['blood_group'], '')
+        self.assertEqual(row['mother_tongue'], '')
+
+    def test_bulk_import_invalid_blood_group(self):
+        """Test an unrecognized blood_group value is rejected."""
+        data = self.get_valid_student_data()
+        data['blood_group'] = ['Z+', 'O+']
+        file = self.create_csv_file(data)
+        response = self.client.post(
+            reverse('students:bulk_import'),
+            {'file': file}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['valid_count'], 1)
+        self.assertEqual(response.context['error_count'], 1)
+        error_messages = response.context['all_errors'][0]['errors']
+        self.assertTrue(any('blood group' in e.lower() for e in error_messages))
+
 
 class BulkImportConfirmViewTests(BulkImportTestCase):
     """Tests for the bulk_import_confirm view."""
@@ -508,6 +559,27 @@ class BulkImportConfirmViewTests(BulkImportTestCase):
         self.assertEqual(john.gender, 'M')
         self.assertTrue(john.guardians.exists())
         self.assertEqual(john.current_class, self.test_class)
+
+    def test_bulk_import_confirm_saves_health_id_language_fields(self):
+        """Test the new optional columns are persisted onto the created student."""
+        data = self.get_valid_student_data()
+        data['blood_group'] = ['O+', '']
+        data['health_conditions'] = ['Asthma', '']
+        data['ghana_card_number'] = ['GHA-123456789-0', '']
+        data['nhis_number'] = ['NHIS-9999', '']
+        data['mother_tongue'] = ['Twi', 'Ga']
+        data['other_languages'] = ['English, French', '']
+        file = self.create_csv_file(data)
+        self.client.post(reverse('students:bulk_import'), {'file': file})
+        self.client.post(reverse('students:bulk_import_confirm'))
+
+        john = Student.objects.get(admission_number='STU-2024-001')
+        self.assertEqual(john.blood_group, 'O+')
+        self.assertEqual(john.health_conditions, 'Asthma')
+        self.assertEqual(john.ghana_card_number, 'GHA-123456789-0')
+        self.assertEqual(john.nhis_number, 'NHIS-9999')
+        self.assertEqual(john.mother_tongue, 'Twi')
+        self.assertEqual(john.other_languages, 'English, French')
 
     def test_bulk_import_confirm_creates_enrollments(self):
         """Test POST creates enrollments when academic year exists."""
@@ -702,7 +774,9 @@ class BulkImportTemplateViewTests(BulkImportTestCase):
         expected = [
             'first_name', 'middle_name', 'last_name', 'date_of_birth', 'gender',
             'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
-            'admission_number', 'admission_date', 'class_name'
+            'admission_number', 'admission_date', 'class_name',
+            'blood_group', 'health_conditions', 'ghana_card_number', 'nhis_number',
+            'mother_tongue', 'other_languages',
         ]
         for col in expected:
             self.assertIn(col, df.columns)
@@ -818,6 +892,12 @@ class BulkExportViewTests(BulkImportTestCase):
             status=Student.Status.ACTIVE,
             phone='0241234567',
             address='123 Main St',
+            blood_group='O+',
+            health_conditions='Asthma',
+            ghana_card_number='GHA-123456789-0',
+            nhis_number='NHIS-9999',
+            mother_tongue='Twi',
+            other_languages='English, French',
         )
         self.guardian = Guardian.objects.create(
             full_name='James Doe', phone_number='233241234567'
@@ -868,6 +948,17 @@ class BulkExportViewTests(BulkImportTestCase):
         self.assertIn('Address', df.columns)
         self.assertEqual(df.iloc[0]['Phone'], '0241234567')
         self.assertEqual(df.iloc[0]['Address'], '123 Main St')
+
+    def test_bulk_export_includes_health_id_language_fields(self):
+        response = self.client.get(reverse('students:bulk_export'))
+        df = self._read_export(response)['Students']
+        row = df.iloc[0]
+        self.assertEqual(row['Blood Group'], 'O+')
+        self.assertEqual(row['Health Conditions'], 'Asthma')
+        self.assertEqual(row['Ghana Card Number'], 'GHA-123456789-0')
+        self.assertEqual(row['NHIS Number'], 'NHIS-9999')
+        self.assertEqual(row['Mother Tongue'], 'Twi')
+        self.assertEqual(row['Other Languages'], 'English, French')
 
     def test_bulk_export_excludes_shs_columns_for_basic_school(self):
         response = self.client.get(reverse('students:bulk_export'))
@@ -1448,6 +1539,161 @@ class PromotionProcessViewTests(PromotionTestCase):
         self.assertEqual(new_enrollment.class_name, 'B2-A')
 
 
+class PromotionRevertViewTests(PromotionTestCase):
+    """Tests for undoing a class-level promotion via promotion_revert."""
+
+    def test_revert_get_not_allowed(self):
+        student, _ = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+        response = self.client.get(
+            reverse('students:promotion_revert', args=[self.class_b1.pk])
+        )
+        self.assertEqual(response.status_code, 405)
+
+    def test_revert_with_nothing_to_revert(self):
+        """Reverting a class that was never processed is a no-op warning."""
+        student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+
+        response = self.client.post(
+            reverse('students:promotion_revert', args=[self.class_b1.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, Enrollment.Status.ACTIVE)
+
+    def test_revert_promotion_restores_student(self):
+        """Reverting a promote moves the student back and deletes the follow-on enrollment."""
+        student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+
+        self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'promote',
+        })
+
+        response = self.client.post(
+            reverse('students:promotion_revert', args=[self.class_b1.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        enrollment.refresh_from_db()
+        student.refresh_from_db()
+        self.assertEqual(enrollment.status, Enrollment.Status.ACTIVE)
+        self.assertEqual(student.current_class, self.class_b1)
+        self.assertFalse(
+            Enrollment.objects.filter(student=student, academic_year=self.next_year).exists()
+        )
+
+    def test_revert_promotion_restores_subject_enrollments(self):
+        """Reverting swaps subject enrollments back to the source class."""
+        math = Subject.objects.create(name='Math', code='MATH', short_name='Math', is_core=True)
+        cs_b1_math = ClassSubject.objects.create(class_assigned=self.class_b1, subject=math, teacher=self.teacher)
+        ClassSubject.objects.create(class_assigned=self.class_b2, subject=math, teacher=self.teacher)
+
+        student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+        StudentSubjectEnrollment.objects.create(student=student, class_subject=cs_b1_math)
+
+        self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'promote',
+        })
+
+        self.client.post(
+            reverse('students:promotion_revert', args=[self.class_b1.pk])
+        )
+
+        self.assertTrue(
+            StudentSubjectEnrollment.objects.get(
+                student=student, class_subject__class_assigned=self.class_b1
+            ).is_active
+        )
+        self.assertFalse(
+            StudentSubjectEnrollment.objects.filter(
+                student=student, class_subject__class_assigned=self.class_b2, is_active=True
+            ).exists()
+        )
+
+    def test_revert_repeat_restores_student(self):
+        """Reverting a repeat moves the student back to the original class."""
+        class_b1b = Class.objects.create(
+            level_type=Class.LevelType.BASIC,
+            level_number=1, section='B', is_active=True,
+        )
+        student, enrollment = self.create_student_with_enrollment('Repeat', 'STU-002', self.class_b1)
+
+        self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'repeat',
+            f'repeat_target_{student.pk}': str(class_b1b.pk),
+        })
+
+        response = self.client.post(
+            reverse('students:promotion_revert', args=[self.class_b1.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        student.refresh_from_db()
+        enrollment.refresh_from_db()
+        self.assertEqual(student.current_class, self.class_b1)
+        self.assertEqual(enrollment.status, Enrollment.Status.ACTIVE)
+        self.assertFalse(
+            Enrollment.objects.filter(student=student, academic_year=self.next_year).exists()
+        )
+
+    def test_revert_graduation_restores_student(self):
+        """Reverting a graduate restores ACTIVE status and the final-year class."""
+        student, enrollment = self.create_student_with_enrollment('Senior', 'STU-003', self.class_shs3)
+
+        self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_shs3.pk),
+            'next_year': str(self.next_year.pk),
+            f'action_{student.pk}': 'graduate',
+        })
+
+        response = self.client.post(
+            reverse('students:promotion_revert', args=[self.class_shs3.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        student.refresh_from_db()
+        enrollment.refresh_from_db()
+        self.assertEqual(student.status, Student.Status.ACTIVE)
+        self.assertEqual(student.current_class, self.class_shs3)
+        self.assertEqual(enrollment.status, Enrollment.Status.ACTIVE)
+
+    def test_revert_skips_student_promoted_again(self):
+        """A student who was promoted a second time after the first run isn't touched."""
+        student, enrollment = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+
+        self.client.post(reverse('students:promotion_process'), {
+            'class_id': str(self.class_b1.pk),
+            'next_year': str(self.next_year.pk),
+            'target_class_id': str(self.class_b2.pk),
+            f'action_{student.pk}': 'promote',
+        })
+
+        # Simulate the student having moved on again since the promotion.
+        follow_on = Enrollment.objects.get(student=student, academic_year=self.next_year)
+        follow_on.status = Enrollment.Status.WITHDRAWN
+        follow_on.save(update_fields=['status'])
+
+        response = self.client.post(
+            reverse('students:promotion_revert', args=[self.class_b1.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        # Original enrollment stays PROMOTED and the follow-on is untouched.
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, Enrollment.Status.PROMOTED)
+        follow_on.refresh_from_db()
+        self.assertEqual(follow_on.status, Enrollment.Status.WITHDRAWN)
+
+
 class PromotionIntegrationTests(PromotionTestCase):
     """Integration tests for the complete promotion workflow (static bucket model)."""
 
@@ -1561,3 +1807,95 @@ class PromotionIntegrationTests(PromotionTestCase):
         self.assertFalse(
             Enrollment.objects.filter(student=student3, academic_year=self.next_year).exists()
         )
+
+
+class StudentAdditionalFieldsTests(PromotionTestCase):
+    """Tests for student health/ID/language fields, guardian religion, and sibling linking."""
+
+    def test_create_student_saves_additional_fields(self):
+        response = self.client.post(reverse('students:student_create'), {
+            'first_name': 'Ama',
+            'last_name': 'Mensah',
+            'date_of_birth': '2012-05-01',
+            'gender': 'F',
+            'admission_number': 'STU-100',
+            'admission_date': '2024-01-01',
+            'status': Student.Status.ACTIVE,
+            'blood_group': 'O+',
+            'health_conditions': 'Asthma',
+            'ghana_card_number': 'GHA-123456789-0',
+            'nhis_number': 'NHIS-9999',
+            'mother_tongue': 'Twi',
+            'other_languages': 'English, French',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        student = Student.objects.get(admission_number='STU-100')
+        self.assertEqual(student.blood_group, 'O+')
+        self.assertEqual(student.health_conditions, 'Asthma')
+        self.assertEqual(student.ghana_card_number, 'GHA-123456789-0')
+        self.assertEqual(student.nhis_number, 'NHIS-9999')
+        self.assertEqual(student.mother_tongue, 'Twi')
+        self.assertEqual(student.other_languages, 'English, French')
+
+    def test_edit_guardian_saves_religion(self):
+        response = self.client.post(reverse('students:guardian_edit', args=[self.guardian.pk]), {
+            'full_name': self.guardian.full_name,
+            'phone_number': self.guardian.phone_number,
+            'occupation': 'Trader',
+            'religion': 'Christian',
+        })
+        self.assertEqual(response.status_code, 302)
+
+        self.guardian.refresh_from_db()
+        self.assertEqual(self.guardian.religion, 'Christian')
+
+    def test_add_sibling_links_both_ways(self):
+        """Linking a sibling is symmetrical - it shows up on both students."""
+        student1, _ = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+        student2, _ = self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
+
+        response = self.client.post(
+            reverse('students:student_add_sibling', args=[student1.pk]),
+            {'sibling_id': str(student2.pk)}
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.assertIn(student2, student1.siblings.all())
+        self.assertIn(student1, student2.siblings.all())
+
+    def test_remove_sibling_unlinks_both_ways(self):
+        student1, _ = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+        student2, _ = self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
+        student1.siblings.add(student2)
+
+        response = self.client.post(
+            reverse('students:student_remove_sibling', args=[student1.pk, student2.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.assertNotIn(student2, student1.siblings.all())
+        self.assertNotIn(student1, student2.siblings.all())
+
+    def test_cannot_link_self_as_sibling(self):
+        student1, _ = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+
+        response = self.client.post(
+            reverse('students:student_add_sibling', args=[student1.pk]),
+            {'sibling_id': str(student1.pk)}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(student1.siblings.count(), 0)
+
+    def test_sibling_search_excludes_self_and_existing(self):
+        student1, _ = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+        student2, _ = self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
+        student1.siblings.add(student2)
+
+        response = self.client.get(reverse('students:sibling_search'), {
+            'q': 'STU-00', 'exclude': str(student1.pk)
+        })
+        self.assertEqual(response.status_code, 200)
+        results = list(response.context['students'])
+        self.assertNotIn(student1, results)
+        self.assertNotIn(student2, results)

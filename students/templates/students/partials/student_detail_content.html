@@ -243,8 +243,61 @@
                             <a href="tel:{{ student.phone }}" class="font-medium text-sm link link-hover">{{ student.phone }}</a>
                         </div>
                         {% endif %}
+                        {% if student.mother_tongue or student.other_languages %}
+                        <div class="grid grid-cols-2 gap-3">
+                            {% if student.mother_tongue %}
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Mother Tongue</p>
+                                <p class="font-medium text-sm">{{ student.mother_tongue }}</p>
+                            </div>
+                            {% endif %}
+                            {% if student.other_languages %}
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Other Languages</p>
+                                <p class="font-medium text-sm">{{ student.other_languages }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
+
+                <!-- Health & Identification -->
+                {% if student.blood_group or student.health_conditions or student.ghana_card_number or student.nhis_number %}
+                <div>
+                    <h3 class="font-bold text-xs uppercase text-base-content/50 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-notes-medical text-error"></i> Health &amp; Identification
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            {% if student.blood_group %}
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Blood Group</p>
+                                <p class="font-medium text-sm">{{ student.blood_group }}</p>
+                            </div>
+                            {% endif %}
+                            {% if student.ghana_card_number %}
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Ghana Card No.</p>
+                                <p class="font-mono font-medium text-sm">{{ student.ghana_card_number }}</p>
+                            </div>
+                            {% endif %}
+                            {% if student.nhis_number %}
+                            <div class="bg-base-200/50 rounded-lg p-3">
+                                <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">NHIS No.</p>
+                                <p class="font-mono font-medium text-sm">{{ student.nhis_number }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if student.health_conditions %}
+                        <div class="bg-base-200/50 rounded-lg p-3">
+                            <p class="text-[10px] uppercase text-base-content/50 font-medium mb-0.5">Health Conditions</p>
+                            <p class="font-medium text-sm">{{ student.health_conditions }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- Admission Info -->
                 <div>
@@ -327,6 +380,31 @@
                    class="btn btn-primary btn-sm">
                     <i class="fa-solid fa-plus"></i> Add Guardian
                 </a>
+            </div>
+            {% endif %}
+
+            {% if student_siblings %}
+            <div class="mt-6 pt-6 border-t border-base-200">
+                <h3 class="font-bold text-xs uppercase text-base-content/50 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-people-group text-secondary"></i> Siblings
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {% for sibling in student_siblings %}
+                    <a href="{% url 'students:student_detail' sibling.pk %}"
+                       hx-get="{% url 'students:student_detail' sibling.pk %}"
+                       hx-target="#main-content"
+                       hx-push-url="true"
+                       class="flex items-center gap-3 p-3 bg-base-200/30 border border-base-200 rounded-xl hover:bg-base-200 transition-colors">
+                        <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="font-bold text-sm truncate">{{ sibling.full_name }}</p>
+                            <p class="text-xs text-base-content/60">{{ sibling.admission_number }}{% if sibling.current_class %} &bull; {{ sibling.current_class.name }}{% endif %}</p>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
             {% endif %}
         </div>

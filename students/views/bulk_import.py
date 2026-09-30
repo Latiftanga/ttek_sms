@@ -24,6 +24,9 @@ BASE_COLUMNS = [
     'first_name', 'middle_name', 'last_name', 'date_of_birth', 'gender',
     'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_relationship',
     'admission_number', 'admission_date', 'class_name',
+    # Optional health/ID/language fields
+    'blood_group', 'health_conditions', 'ghana_card_number', 'nhis_number',
+    'mother_tongue', 'other_languages',
     'student_email'  # Optional - if provided, creates a user account
 ]
 
@@ -131,6 +134,12 @@ def bulk_import(request):
             guardian_relationship = clean_value(row.get('guardian_relationship', 'guardian')).lower()
             admission_number = clean_value(row.get('admission_number', ''))
             class_name = clean_value(row.get('class_name', ''))
+            blood_group = clean_value(row.get('blood_group', '')).upper()
+            health_conditions = clean_value(row.get('health_conditions', ''))
+            ghana_card_number = clean_value(row.get('ghana_card_number', ''))
+            nhis_number = clean_value(row.get('nhis_number', ''))
+            mother_tongue = clean_value(row.get('mother_tongue', ''))
+            other_languages = clean_value(row.get('other_languages', ''))
             student_email = clean_value(row.get('student_email', '')).lower()
 
             # Parse dates
@@ -177,6 +186,11 @@ def bulk_import(request):
                 errors.append(f'Admission number "{admission_number}" already exists')
             if not admission_date:
                 errors.append('Admission date is required or invalid')
+            # Validate blood group - optional, but if given must be a recognized
+            # value (same reasoning as guardian_relationship above).
+            if blood_group and blood_group not in Student.BloodGroup.values:
+                valid_values = ', '.join(sorted(Student.BloodGroup.values))
+                errors.append(f'Blood group "{blood_group}" is not valid (use: {valid_values})')
 
             # Validate class
             class_pk = None
@@ -244,6 +258,12 @@ def bulk_import(request):
                     'guardian_phone': guardian_phone,
                     'guardian_email': guardian_email,
                     'guardian_relationship': guardian_relationship,
+                    'blood_group': blood_group,
+                    'health_conditions': health_conditions,
+                    'ghana_card_number': ghana_card_number,
+                    'nhis_number': nhis_number,
+                    'mother_tongue': mother_tongue,
+                    'other_languages': other_languages,
                     'student_email': student_email,  # Optional - for account creation
                 }
                 # Add SHS fields only if class is SHS level
@@ -408,6 +428,12 @@ def bulk_import_confirm(request):
                 current_class=current_class,
                 house=house,
                 residence_type=row.get('residence_type', ''),
+                blood_group=row.get('blood_group', ''),
+                health_conditions=row.get('health_conditions', ''),
+                ghana_card_number=row.get('ghana_card_number', ''),
+                nhis_number=row.get('nhis_number', ''),
+                mother_tongue=row.get('mother_tongue', ''),
+                other_languages=row.get('other_languages', ''),
                 status='active',
             ))
             # Index into students_to_create for this row - tracked separately
@@ -598,6 +624,12 @@ def bulk_import_template(request):
             'admission_number': ['STU-2024-001', 'STU-2024-002', 'STU-2024-003'],
             'admission_date': ['2024-09-01', '2024-09-01', '2024-09-01'],
             'class_name': ['1SCI-A', 'B3-A', 'B1-B'],  # SHS, Basic, Basic
+            'blood_group': ['O+', '', 'A+'],
+            'health_conditions': ['Asthma', '', ''],
+            'ghana_card_number': ['GHA-123456789-0', '', ''],
+            'nhis_number': ['', '', ''],
+            'mother_tongue': ['Twi', 'Ga', 'Twi'],
+            'other_languages': ['English', '', 'English, French'],
             # SHS fields - only filled for SHS class (first row)
             'house_name': ['Red House', '', ''],  # Only for SHS
             'residence_type': ['boarding', '', ''],  # Only for SHS
@@ -618,6 +650,12 @@ def bulk_import_template(request):
             'admission_number': ['STU-2024-001', 'STU-2024-002'],
             'admission_date': ['2024-09-01', '2024-09-01'],
             'class_name': ['1SCI-A', '2BUS-B'],
+            'blood_group': ['O+', ''],
+            'health_conditions': ['', 'Peanut allergy'],
+            'ghana_card_number': ['GHA-123456789-0', ''],
+            'nhis_number': ['', ''],
+            'mother_tongue': ['Twi', 'Ewe'],
+            'other_languages': ['English', ''],
             'house_name': ['Red House', 'Blue House'],
             'residence_type': ['boarding', 'day'],
             'student_email': ['john.doe@school.com', ''],
@@ -637,6 +675,12 @@ def bulk_import_template(request):
             'admission_number': ['STU-2024-001', 'STU-2024-002'],
             'admission_date': ['2024-09-01', '2024-09-01'],
             'class_name': ['B1-A', 'B2-A'],
+            'blood_group': ['O+', ''],
+            'health_conditions': ['', 'Peanut allergy'],
+            'ghana_card_number': ['', ''],
+            'nhis_number': ['NHIS-9999', ''],
+            'mother_tongue': ['Twi', 'Ga'],
+            'other_languages': ['English', ''],
             'student_email': ['', ''],
         }
 
@@ -744,6 +788,12 @@ def bulk_export(request):
             # for Basic-only schools even though every student can have one).
             'Phone': student.phone or '',
             'Address': student.address or '',
+            'Blood Group': student.blood_group or '',
+            'Health Conditions': student.health_conditions or '',
+            'Ghana Card Number': student.ghana_card_number or '',
+            'NHIS Number': student.nhis_number or '',
+            'Mother Tongue': student.mother_tongue or '',
+            'Other Languages': student.other_languages or '',
             'Student Email': student.user.email if student.user_id else '',
         }
 

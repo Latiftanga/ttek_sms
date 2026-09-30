@@ -11,6 +11,9 @@ from .students import (
     student_remove_guardian,
     student_set_primary_guardian,
     student_update_guardian_relationship,
+    student_add_sibling,
+    student_remove_sibling,
+    sibling_search,
 )
 
 # Guardian views
@@ -46,6 +49,7 @@ from .promotion import (
     promotion,
     promotion_detail,
     promotion_process,
+    promotion_revert,
 )
 
 # House views
@@ -96,6 +100,9 @@ __all__ = [
     'student_remove_guardian',
     'student_set_primary_guardian',
     'student_update_guardian_relationship',
+    'student_add_sibling',
+    'student_remove_sibling',
+    'sibling_search',
     # Guardians
     'guardian_index',
     'guardian_create',
@@ -118,6 +125,7 @@ __all__ = [
     'promotion',
     'promotion_detail',
     'promotion_process',
+    'promotion_revert',
     # Houses
     'house_index',
     'house_create',

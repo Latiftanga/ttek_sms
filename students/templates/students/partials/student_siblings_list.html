@@ -1,0 +1,34 @@
+{% if siblings %}
+<div class="space-y-2">
+    {% for sibling in siblings %}
+    <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+        <div class="flex items-center gap-3">
+            <div class="avatar placeholder">
+                <div class="bg-secondary text-secondary-content rounded-full w-10 h-10 flex items-center justify-center">
+                    <span class="text-sm">{{ sibling.full_name|slice:":2"|upper }}</span>
+                </div>
+            </div>
+            <div>
+                <span class="font-medium">{{ sibling.full_name }}</span>
+                <div class="text-sm text-base-content/60">
+                    {{ sibling.admission_number }}{% if sibling.current_class %} &bull; {{ sibling.current_class.name }}{% endif %}
+                </div>
+            </div>
+        </div>
+        <button type="button"
+                class="btn btn-ghost btn-sm btn-circle text-error"
+                title="Remove sibling link"
+                hx-post="{% url 'students:student_remove_sibling' student.pk sibling.pk %}"
+                hx-target="#sibling-list"
+                hx-swap="innerHTML"
+                hx-confirm="Remove {{ sibling.full_name|escapejs }} as a sibling of {{ student.full_name|escapejs }}?">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-4 text-base-content/50">
+    <p class="text-sm">No siblings linked yet</p>
+</div>
+{% endif %}

@@ -59,17 +59,30 @@
                 </div>
             </div>
 
-            <!-- Occupation -->
-            <div class="form-control">
-                <label class="label">
-                    <span class="label-text font-medium">Occupation</span>
-                    <span class="label-text-alt text-base-content/50">Optional</span>
-                </label>
-                <input type="text"
-                       name="occupation"
-                       value="{{ form.occupation.value|default:'' }}"
-                       placeholder="e.g., Teacher, Engineer, Trader"
-                       class="input input-sm input-bordered w-full" />
+            <!-- Occupation & Religion Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Occupation</span>
+                        <span class="label-text-alt text-base-content/50">Optional</span>
+                    </label>
+                    <input type="text"
+                           name="occupation"
+                           value="{{ form.occupation.value|default:'' }}"
+                           placeholder="e.g., Teacher, Engineer, Trader"
+                           class="input input-sm input-bordered w-full" />
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Religion</span>
+                        <span class="label-text-alt text-base-content/50">Optional</span>
+                    </label>
+                    <input type="text"
+                           name="religion"
+                           value="{{ form.religion.value|default:'' }}"
+                           placeholder="e.g., Christian, Muslim"
+                           class="input input-sm input-bordered w-full" />
+                </div>
             </div>
 
             <!-- Address -->

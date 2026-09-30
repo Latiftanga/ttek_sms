@@ -70,6 +70,14 @@
                             <span class="text-left">{{ guardian.address }}</span>
                         </div>
                         {% endif %}
+                        {% if guardian.religion %}
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                                <i class="fa-solid fa-place-of-worship text-accent text-xs"></i>
+                            </div>
+                            <span>{{ guardian.religion }}</span>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

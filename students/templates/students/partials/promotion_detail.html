@@ -1,4 +1,19 @@
 {% load core_tags %}
+{% if processed_count %}
+<!-- Already-processed batch: offer revert -->
+<div class="alert alert-warning shadow-sm mb-3">
+    <i class="fa-solid fa-clock-rotate-left"></i>
+    <div class="flex-1">
+        <span>{{ processed_count }} student{{ processed_count|pluralize }} already processed in <strong>{{ class.name }}</strong> for {{ current_year }}.</span>
+    </div>
+    <button type="button" class="btn btn-xs btn-outline gap-1"
+            hx-post="{% url 'students:promotion_revert' class.pk %}"
+            hx-target="#promotion-detail-area" hx-swap="innerHTML"
+            hx-confirm="Undo promotion for {{ processed_count }} student{{ processed_count|pluralize }} in {{ class.name }}? They'll be moved back and the enrollments created for them will be removed.">
+        <i class="fa-solid fa-rotate-left text-xs"></i> Undo
+    </button>
+</div>
+{% endif %}
 {% if not has_target and not is_final %}
 <!-- No target class warning -->
 <div class="alert alert-warning shadow-sm">
@@ -13,7 +28,11 @@
 <!-- No students -->
 <div class="alert alert-info shadow-sm">
     <i class="fa-solid fa-info-circle"></i>
+    {% if processed_count %}
+    <span>All active students in <strong>{{ class.name }}</strong> have already been processed for {{ current_year }}.</span>
+    {% else %}
     <span>No active students enrolled in <strong>{{ class.name }}</strong> for the current year.</span>
+    {% endif %}
 </div>
 
 {% else %}

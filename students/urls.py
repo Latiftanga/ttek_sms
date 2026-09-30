@@ -21,6 +21,11 @@ urlpatterns = [
     path('<int:pk>/guardians/<int:guardian_pk>/set-primary/', views.student_set_primary_guardian, name='student_set_primary_guardian'),
     path('<int:pk>/guardians/<int:guardian_pk>/update-relationship/', views.student_update_guardian_relationship, name='student_update_guardian_relationship'),
 
+    # Student Sibling Linking
+    path('<int:pk>/siblings/add/', views.student_add_sibling, name='student_add_sibling'),
+    path('<int:pk>/siblings/<int:sibling_pk>/remove/', views.student_remove_sibling, name='student_remove_sibling'),
+    path('siblings/search/', views.sibling_search, name='sibling_search'),
+
     # Guardian CRUD
     path('guardians/', views.guardian_index, name='guardian_index'),
     path('guardians/create/', views.guardian_create, name='guardian_create'),
@@ -47,6 +52,7 @@ urlpatterns = [
     path('promotion/', views.promotion, name='promotion'),
     path('promotion/<int:pk>/', views.promotion_detail, name='promotion_detail'),
     path('promotion/process/', views.promotion_process, name='promotion_process'),
+    path('promotion/<int:pk>/revert/', views.promotion_revert, name='promotion_revert'),
 
     # Houses
     path('houses/', views.house_index, name='houses'),

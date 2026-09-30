@@ -116,9 +116,82 @@
                             {% floating_field form.gender %}
                             {% floating_field form.phone %}
                             {% floating_field form.address %}
+                            {% floating_field form.mother_tongue %}
+                            {% floating_field form.other_languages %}
                         </div>
                     </div>
                 </div>
+
+                <!-- Health & Identification -->
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-5">
+                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                            <i class="fa-solid fa-notes-medical text-primary"></i>
+                            Health &amp; Identification
+                        </h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {% floating_field form.blood_group %}
+                            {% floating_field form.ghana_card_number %}
+                            {% floating_field form.nhis_number %}
+                        </div>
+                        <div class="mt-4">
+                            {% floating_field form.health_conditions %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Siblings -->
+                {% if student %}
+                <div class="card bg-base-100 shadow-sm border border-base-200">
+                    <div class="card-body p-5">
+                        <h2 class="font-semibold text-base flex items-center gap-2 mb-4">
+                            <i class="fa-solid fa-people-group text-primary"></i>
+                            Siblings
+                        </h2>
+
+                        <div id="sibling-list" class="mb-4">
+                            {% include 'students/partials/student_siblings_list.html' %}
+                        </div>
+
+                        <div class="border-t border-base-200 pt-4">
+                            <p class="text-sm font-medium mb-3">Link Sibling</p>
+                            <div x-data="{ open: false }"
+                                 @htmx:after-swap.window="if ($event.target.id === 'sibling_search_results') open = true">
+                                <div class="flex gap-2">
+                                    <div class="relative flex-1">
+                                        <input type="text"
+                                               id="add_sibling_search"
+                                               x-on:click="open = true"
+                                               class="input input-bordered w-full input-sm"
+                                               placeholder="Search student by name or admission number..."
+                                               hx-get="{% url 'students:sibling_search' %}"
+                                               hx-trigger="keyup changed delay:300ms"
+                                               hx-target="#sibling_search_results"
+                                               hx-include="[name='q'], [name='exclude']"
+                                               name="q"
+                                               autocomplete="off" />
+                                        <input type="hidden" name="exclude" value="{{ student.pk }}">
+                                        <input type="hidden" name="sibling_id" id="add_sibling_id" value="">
+                                        <div id="sibling_search_results"
+                                             x-show="open"
+                                             @click.away="open = false"
+                                             class="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                        </div>
+                                    </div>
+                                    <button type="button"
+                                            class="btn btn-primary btn-sm"
+                                            hx-post="{% url 'students:student_add_sibling' student.pk %}"
+                                            hx-target="#sibling-list"
+                                            hx-swap="innerHTML"
+                                            hx-include="[name='sibling_id']">
+                                        <i class="fa-solid fa-plus"></i> Link
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- Guardian Information -->
                 <div class="card bg-base-100 shadow-sm border border-base-200">

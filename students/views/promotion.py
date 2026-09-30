@@ -6,6 +6,7 @@ from django.db import transaction
 from django.urls import reverse
 from django.db.models import Count, Q
 from django.contrib import messages
+from django.utils.html import escape
 
 from academics.models import Class, ClassSubject, StudentSubjectEnrollment
 from core.models import AcademicYear
@@ -104,7 +105,16 @@ def promotion(request):
 def promotion_detail(request, pk):
     """Show per-class promotion form with student list."""
     class_obj = get_object_or_404(Class, pk=pk)
+    return _render_promotion_detail(request, class_obj)
 
+
+def _render_promotion_detail(request, class_obj):
+    """Build and render the promotion detail partial for a class.
+
+    Shared by promotion_detail (initial load) and promotion_revert (so
+    reverting a class re-renders it ready to be processed again, instead of
+    leaving the admin looking at a static confirmation message).
+    """
     current_year = AcademicYear.get_current()
     if not current_year:
         return HttpResponse(
@@ -141,6 +151,19 @@ def promotion_detail(request, pk):
         status=Student.Status.ACTIVE
     ).order_by('last_name', 'first_name')
 
+    # Students already promoted/repeated/graduated out of this class this
+    # cycle - surfaced so an admin who mis-processed a class can revert it
+    # instead of it just silently vanishing from the list once fully done.
+    processed_count = Enrollment.objects.filter(
+        class_assigned=class_obj,
+        academic_year=current_year,
+        status__in=[
+            Enrollment.Status.PROMOTED,
+            Enrollment.Status.REPEATED,
+            Enrollment.Status.GRADUATED,
+        ],
+    ).count()
+
     # Get same-level classes for repeater target (include source class)
     repeat_target_classes = Class.objects.filter(
         level_type=class_obj.level_type,
@@ -167,6 +190,7 @@ def promotion_detail(request, pk):
         'next_year': next_year,
         'repeat_options': repeat_options,
         'default_repeat_pk': str(class_obj.pk),
+        'processed_count': processed_count,
     })
 
 
@@ -440,11 +464,157 @@ def promotion_process(request):
         summary += f' Errors: {"; ".join(errors[:5])}'
 
     if request.htmx:
+        revert_button = ''
+        if promoted_count or repeated_count or graduated_count:
+            revert_url = reverse('students:promotion_revert', args=[class_obj.pk])
+            safe_class_name = escape(class_obj.name)
+            revert_button = (
+                f'<div class="mt-2">'
+                f'<button type="button" class="btn btn-xs btn-ghost gap-1"'
+                f' hx-post="{revert_url}" hx-target="#promotion-detail-area" hx-swap="innerHTML"'
+                f' hx-confirm="Made a mistake? This moves those students back to {safe_class_name}'
+                f' and removes the enrollment just created for them.">'
+                f'<i class="fa-solid fa-rotate-left text-xs"></i> Undo this promotion'
+                f'</button></div>'
+            )
         response = HttpResponse(
             f'<div class="alert alert-success shadow-sm">'
             f'<i class="fa-solid fa-circle-check"></i>'
-            f'<span>{summary}</span></div>'
+            f'<div><span>{summary}</span>{revert_button}</div></div>'
         )
+        response['HX-Trigger'] = json.dumps({
+            'showToast': {'message': summary, 'type': toast_type}
+        })
+        response['HX-Retarget'] = '#promotion-detail-area'
+        response['HX-Reswap'] = 'innerHTML'
+        return response
+
+    messages.success(request, summary)
+    return redirect('students:promotion')
+
+
+@admin_required
+def promotion_revert(request, pk):
+    """Undo class-level promotion for the current academic year.
+
+    Reverses promote/repeat/graduate actions taken against this class: moves
+    each affected student back into it, restores the source enrollment to
+    ACTIVE, and removes the follow-on enrollment the original run created.
+    Only reverses students who haven't moved on further since (e.g. already
+    promoted again, withdrawn) - those are reported as skipped rather than
+    silently discarding whatever happened to them since.
+    """
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    class_obj = get_object_or_404(Class, pk=pk)
+    current_year = AcademicYear.get_current()
+    if not current_year:
+        return _htmx_toast_or_redirect(request, 'No current academic year set.')
+
+    processed_enrollments = Enrollment.objects.filter(
+        class_assigned=class_obj,
+        academic_year=current_year,
+        status__in=[
+            Enrollment.Status.PROMOTED,
+            Enrollment.Status.REPEATED,
+            Enrollment.Status.GRADUATED,
+        ],
+    ).select_related('student')
+
+    if not processed_enrollments.exists():
+        return _htmx_toast_or_redirect(
+            request,
+            f'{class_obj.name} has no promotion actions to revert.',
+            'warning',
+        )
+
+    reverted_count = 0
+    errors = []
+
+    with transaction.atomic():
+        for enrollment in processed_enrollments:
+            student = enrollment.student
+            try:
+                # Per-student savepoint, mirroring promotion_process: one
+                # student's data surprise shouldn't sink the whole revert.
+                with transaction.atomic():
+                    if enrollment.status == Enrollment.Status.GRADUATED:
+                        if student.status != Student.Status.GRADUATED or student.current_class_id is not None:
+                            errors.append(
+                                f'{student.full_name}: status changed since graduation, skipped'
+                            )
+                            continue
+
+                        enrollment.status = Enrollment.Status.ACTIVE
+                        enrollment.save(update_fields=['status', 'updated_at'])
+
+                        student.status = Student.Status.ACTIVE
+                        student.current_class = class_obj
+                        student.save(update_fields=['status', 'current_class', 'updated_at'])
+
+                        StudentSubjectEnrollment.objects.filter(
+                            student=student,
+                            class_subject__class_assigned=class_obj,
+                        ).update(is_active=True)
+                    else:
+                        # Promoted/repeated: the run created exactly one
+                        # follow-on enrollment pointing back at this one.
+                        new_enrollment = Enrollment.objects.filter(
+                            promoted_from=enrollment
+                        ).select_related('class_assigned').first()
+
+                        if new_enrollment is None:
+                            errors.append(f'{student.full_name}: no follow-on enrollment found, skipped')
+                            continue
+
+                        # Only safe to undo if nothing has happened to the
+                        # student since - otherwise deleting the follow-on
+                        # enrollment would silently discard that history.
+                        if (new_enrollment.status != Enrollment.Status.ACTIVE
+                                or student.status != Student.Status.ACTIVE
+                                or student.current_class_id != new_enrollment.class_assigned_id):
+                            errors.append(
+                                f'{student.full_name}: already moved on since promotion, skipped'
+                            )
+                            continue
+
+                        moved_to_class = new_enrollment.class_assigned
+                        new_enrollment.delete()
+
+                        enrollment.status = Enrollment.Status.ACTIVE
+                        enrollment.save(update_fields=['status', 'updated_at'])
+
+                        student.current_class = class_obj
+                        student.save(update_fields=['current_class', 'updated_at'])
+
+                        # Mirror the forward operation in reverse: drop the
+                        # subject enrollments the promotion activated in the
+                        # destination class, restore the ones it deactivated
+                        # here (including manually-assigned electives).
+                        StudentSubjectEnrollment.objects.filter(
+                            student=student,
+                            class_subject__class_assigned=moved_to_class,
+                        ).update(is_active=False)
+                        StudentSubjectEnrollment.objects.filter(
+                            student=student,
+                            class_subject__class_assigned=class_obj,
+                        ).update(is_active=True)
+
+                    reverted_count += 1
+            except Exception as e:
+                errors.append(f'{student.full_name}: {e}')
+
+    summary = f'{class_obj.name}: {reverted_count} student{"s" if reverted_count != 1 else ""} moved back into {class_obj.name}.'
+    toast_type = 'warning' if errors else 'success'
+    if errors:
+        summary += f' Skipped: {"; ".join(errors[:5])}'
+
+    if request.htmx:
+        # Re-render the class's detail view (now with the reverted students
+        # back as ACTIVE) rather than a dead-end confirmation - the admin
+        # can immediately re-process the class correctly.
+        response = _render_promotion_detail(request, class_obj)
         response['HX-Trigger'] = json.dumps({
             'showToast': {'message': summary, 'type': toast_type}
         })

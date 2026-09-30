@@ -194,7 +194,7 @@ def student_create(request):
 def student_edit(request, pk):
     """Edit a student."""
     student = get_object_or_404(
-        Student.objects.prefetch_related('student_guardians__guardian'),
+        Student.objects.prefetch_related('student_guardians__guardian', 'siblings'),
         pk=pk
     )
     student_guardians = student.get_guardians_with_relationships()
@@ -217,6 +217,7 @@ def student_edit(request, pk):
                 'form': form,
                 'student': student,
                 'student_guardians': student_guardians,
+                'siblings': student.siblings.all(),
                 'guardian_form': GuardianForm(),
                 'relationship_choices': Guardian.Relationship.choices,
                 'breadcrumbs': breadcrumbs,
@@ -250,6 +251,7 @@ def student_edit(request, pk):
             'form': form,
             'student': student,
             'student_guardians': student_guardians,
+            'siblings': student.siblings.all(),
             'guardian_form': GuardianForm(),
             'relationship_choices': Guardian.Relationship.choices,
             'breadcrumbs': breadcrumbs,
@@ -323,6 +325,7 @@ def student_detail(request, pk):
     student = get_object_or_404(
         Student.objects.select_related('current_class', 'user').prefetch_related(
             'student_guardians__guardian',
+            'siblings__current_class',
             Prefetch(
                 'enrollments',
                 queryset=Enrollment.objects.select_related(
@@ -356,6 +359,7 @@ def student_detail(request, pk):
             'student': student,
             'enrollments': enrollments,
             'student_guardians': student_guardians,
+            'student_siblings': student.siblings.all(),
             'breadcrumbs': breadcrumbs,
             'back_url': '/students/',
         }
@@ -480,6 +484,85 @@ def student_update_guardian_relationship(request, pk, guardian_pk):
         })
 
     return redirect('students:student_edit', pk=pk)
+
+
+# ============ Student Sibling Linking ============
+
+@admin_required
+@require_POST
+def student_add_sibling(request, pk):
+    """Link another existing student as a sibling (mutual - links both ways)."""
+    student = get_object_or_404(Student, pk=pk)
+    sibling_id = request.POST.get('sibling_id')
+
+    if not sibling_id:
+        if request.htmx:
+            return HttpResponse(
+                '<div class="alert alert-error">Please select a student</div>',
+                status=400
+            )
+        return redirect('students:student_edit', pk=pk)
+
+    sibling = get_object_or_404(Student, pk=sibling_id)
+
+    if sibling.pk == student.pk:
+        if request.htmx:
+            return HttpResponse(
+                '<div class="alert alert-error">A student cannot be their own sibling</div>',
+                status=400
+            )
+        return redirect('students:student_edit', pk=pk)
+
+    student.siblings.add(sibling)
+
+    if request.htmx:
+        return render(request, 'students/partials/student_siblings_list.html', {
+            'student': student,
+            'siblings': student.siblings.all(),
+        })
+
+    return redirect('students:student_edit', pk=pk)
+
+
+@admin_required
+@require_POST
+def student_remove_sibling(request, pk, sibling_pk):
+    """Remove a sibling link from a student (mutual - unlinks both ways)."""
+    student = get_object_or_404(Student, pk=pk)
+    sibling = get_object_or_404(Student, pk=sibling_pk)
+
+    student.siblings.remove(sibling)
+
+    if request.htmx:
+        return render(request, 'students/partials/student_siblings_list.html', {
+            'student': student,
+            'siblings': student.siblings.all(),
+        })
+
+    return redirect('students:student_edit', pk=pk)
+
+
+@admin_required
+def sibling_search(request):
+    """Search for students to link as a sibling (AJAX endpoint)."""
+    query = request.GET.get('q', '').strip()
+    exclude_pk = request.GET.get('exclude')
+    students = Student.objects.none()
+    if len(query) > 2:
+        students = Student.objects.filter(
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(admission_number__icontains=query)
+        )
+        if exclude_pk:
+            excluded_student = Student.objects.filter(pk=exclude_pk).first()
+            if excluded_student:
+                existing_sibling_ids = excluded_student.siblings.values_list('pk', flat=True)
+                students = students.exclude(pk=exclude_pk).exclude(pk__in=existing_sibling_ids)
+        students = students.select_related('current_class')[:10]
+    return render(request, 'students/partials/sibling_search_results.html', {
+        'students': students
+    })
 
 
 @admin_required

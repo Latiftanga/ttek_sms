@@ -1,0 +1,15 @@
+{% for s in students %}
+<div class="p-2 hover:bg-base-200 cursor-pointer"
+     @click="
+        document.getElementById('add_sibling_id').value = '{{ s.pk }}';
+        document.getElementById('add_sibling_search').value = '{{ s.full_name }} ({{ s.admission_number }})';
+        open = false;
+     ">
+    <p class="font-medium">{{ s.full_name }}</p>
+    <p class="text-xs text-base-content/60">{{ s.admission_number }}{% if s.current_class %} &bull; {{ s.current_class.name }}{% endif %}</p>
+</div>
+{% empty %}
+<div class="p-3 text-center text-base-content/50 text-sm">
+    No matching students found.
+</div>
+{% endfor %}

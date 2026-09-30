@@ -109,6 +109,7 @@ class Guardian(models.Model):
     phone_number = models.CharField(_("phone number"), max_length=20, unique=True)
     email = models.EmailField(_("email address"), blank=True, null=True)
     occupation = models.CharField(_("occupation"), max_length=100, blank=True)
+    religion = models.CharField(_("religion"), max_length=50, blank=True)
     address = models.TextField(_("address"), blank=True)
     notification_preference = models.CharField(
         max_length=5,
@@ -217,6 +218,16 @@ class Student(models.Model):
         DAY = 'day', _('Day')
         BOARDING = 'boarding', _('Boarding')
 
+    class BloodGroup(models.TextChoices):
+        A_POS = 'A+', _('A+')
+        A_NEG = 'A-', _('A-')
+        B_POS = 'B+', _('B+')
+        B_NEG = 'B-', _('B-')
+        AB_POS = 'AB+', _('AB+')
+        AB_NEG = 'AB-', _('AB-')
+        O_POS = 'O+', _('O+')
+        O_NEG = 'O-', _('O-')
+
     # Personal Information
     first_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, blank=True)
@@ -228,6 +239,34 @@ class Student(models.Model):
     # Contact Information
     address = models.TextField(blank=True)
     phone = models.CharField(max_length=20, blank=True, help_text="Student's phone (if any)")
+
+    # Health & Identification
+    blood_group = models.CharField(
+        max_length=3, choices=BloodGroup.choices, blank=True
+    )
+    health_conditions = models.TextField(
+        blank=True,
+        help_text="Allergies, medical conditions, medications, etc."
+    )
+    ghana_card_number = models.CharField(
+        _("Ghana Card number"), max_length=20, blank=True
+    )
+    nhis_number = models.CharField(
+        _("NHIS card number"), max_length=20, blank=True
+    )
+
+    # Languages
+    mother_tongue = models.CharField(max_length=50, blank=True)
+    other_languages = models.CharField(
+        max_length=255, blank=True,
+        help_text="Other languages spoken (comma-separated)"
+    )
+
+    # Siblings already enrolled - symmetrical, so linking A to B also links B to A
+    siblings = models.ManyToManyField(
+        'self', blank=True,
+        help_text="Other enrolled students who are this student's siblings"
+    )
 
     # Guardians (Many-to-Many through StudentGuardian)
     guardians = models.ManyToManyField(
