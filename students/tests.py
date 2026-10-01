@@ -1890,12 +1890,37 @@ class StudentAdditionalFieldsTests(PromotionTestCase):
     def test_sibling_search_excludes_self_and_existing(self):
         student1, _ = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
         student2, _ = self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
+        student3, _ = self.create_student_with_enrollment('Jack', 'STU-003', self.class_b1)
         student1.siblings.add(student2)
 
         response = self.client.get(reverse('students:sibling_search'), {
-            'q': 'STU-00', 'exclude': str(student1.pk)
+            'sibling_q': 'STU-00', 'exclude': str(student1.pk)
         })
         self.assertEqual(response.status_code, 200)
         results = list(response.context['students'])
+        # A genuine, unlinked match is found - guards against the search
+        # silently always returning empty (e.g. reading the wrong GET param).
+        self.assertIn(student3, results)
         self.assertNotIn(student1, results)
         self.assertNotIn(student2, results)
+
+    def test_sibling_search_uses_its_own_query_param(self):
+        """The search box shares a <form> with the unrelated guardian search
+        box - htmx serializes the whole enclosing form on every request, so
+        if both were named 'q', Django's QueryDict.get('q') would silently
+        return whichever field rendered later in the DOM instead of what was
+        typed here. Guard against that regression by asserting a plain 'q'
+        param (mimicking the other field's name) is ignored.
+        """
+        student1, _ = self.create_student_with_enrollment('John', 'STU-001', self.class_b1)
+        student2, _ = self.create_student_with_enrollment('Jane', 'STU-002', self.class_b1)
+
+        response = self.client.get(reverse('students:sibling_search'), {
+            'q': 'STU-002', 'sibling_q': '', 'exclude': str(student1.pk)
+        })
+        self.assertEqual(list(response.context['students']), [])
+
+        response = self.client.get(reverse('students:sibling_search'), {
+            'q': '', 'sibling_q': 'STU-002', 'exclude': str(student1.pk)
+        })
+        self.assertIn(student2, list(response.context['students']))

@@ -544,8 +544,17 @@ def student_remove_sibling(request, pk, sibling_pk):
 
 @admin_required
 def sibling_search(request):
-    """Search for students to link as a sibling (AJAX endpoint)."""
-    query = request.GET.get('q', '').strip()
+    """Search for students to link as a sibling (AJAX endpoint).
+
+    Uses a 'sibling_q' param rather than the more obvious 'q' - this
+    search box lives inside the same <form> as the guardian search box
+    (also named 'q'), and htmx serializes every field in the enclosing
+    form on each request. With both named 'q', Django's QueryDict.get()
+    silently returned whichever one rendered later in the DOM (the
+    guardian field) instead of what was actually typed here, so results
+    were always empty unless the unrelated guardian box also had text.
+    """
+    query = request.GET.get('sibling_q', '').strip()
     exclude_pk = request.GET.get('exclude')
     students = Student.objects.none()
     if len(query) > 2:

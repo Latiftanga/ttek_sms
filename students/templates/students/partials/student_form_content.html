@@ -167,8 +167,8 @@
                                                hx-get="{% url 'students:sibling_search' %}"
                                                hx-trigger="keyup changed delay:300ms"
                                                hx-target="#sibling_search_results"
-                                               hx-include="[name='q'], [name='exclude']"
-                                               name="q"
+                                               hx-include="[name='sibling_q'], [name='exclude']"
+                                               name="sibling_q"
                                                autocomplete="off" />
                                         <input type="hidden" name="exclude" value="{{ student.pk }}">
                                         <input type="hidden" name="sibling_id" id="add_sibling_id" value="">
